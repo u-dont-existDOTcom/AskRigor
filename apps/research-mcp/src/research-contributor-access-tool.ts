@@ -491,8 +491,14 @@ export function plainAnswerRequest(note: boolean): string {
     "with action register_plain_answer: plainAnswer.text, that answer (at most " +
     `${textCharacters.toLocaleString("en-US")} characters); plainAnswer.claims, its main claims, 1 to ${claims} ` +
     `whole sentences each copied exactly from it (at most ${claimCharacters} characters each); and ` +
-    "plainAnswer.researchTarget, the research target you will give finalize_research. AskRigor signs it with the " +
-    "time. Then treat each claim as something to check, confirm or correct, and look beyond the claims too. " +
+    "plainAnswer.researchTarget, the research target you will give finalize_research. " +
+    // 11 Nov 2026: the costliest misses were the question's own premises (a PewDiePie run never checked "China has yet
+    // to accomplish"); as claims of the plain answer, the sixth blocking check compares each with the research.
+    "When the question asserts or assumes something checkable (a fact, a cause, a comparison, or that something can't " +
+    "be or hasn't been done), give your quick verdict on each such premise in a sentence of its own, and put those " +
+    "sentences first among the claims (Universal premise_integrity_and_truth_priority_gate, rule 2). AskRigor signs " +
+    "it with the time. Then treat each claim as something to check, confirm or correct, and look beyond the claims " +
+    "too. " +
     (note ? NOTE_ON : NOTE_OFF) + " " + FRAMING_REQUEST;
 }
 
@@ -502,9 +508,9 @@ export const CALL_RECORD_SENTENCE = "When the person asks whether AskRigor recei
 
 // Owner answer 279a (9 Nov 2026): the framing goes with the plain answer, before any research call.
 const FRAMING_REQUEST = "With it, give later_inputs.framing: likely_question, the question the person most likely " +
-  "means; premise_doubts, anything in it that looks inverted or unclear; and redirecting_questions, up to three " +
-  "questions whose answers could change what to research (none when it is clear). The result says whether to ask the " +
-  "person before researching. " + FORM_PEOPLE_USE;
+  "means; premise_doubts, anything in it that looks inverted, unclear or possibly false; and redirecting_questions, " +
+  "up to three questions whose answers could change what to research (none when it is clear). The result says " +
+  "whether to ask the person before researching. " + FORM_PEOPLE_USE;
 
 /**
  * Whether this connection's research calls will be accepted, and if not, why

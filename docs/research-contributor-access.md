@@ -186,6 +186,16 @@ the MCP connector (`/mcp` and `/mcp/claude`) has this; Custom GPT Actions do not
 and Gemini's catalog does not list it. Neither the plain answer nor its comparison
 is sent to the second reader or saved in a findings card or the Atlas.
 
+Since 11 November 2026 (not yet released), the request also asks for a quick
+verdict on each checkable premise of the question (a fact, a cause, a comparison,
+or that something can't be or hasn't been done), each in a sentence of its own,
+first among the claims, as Universal `premise_integrity_and_truth_priority_gate`
+rule 2 asks: the comparison then gives each premise an outcome the person sees.
+A premise doubt in the framing that is not yet a claim asks for the plain answer
+again, before any research call, and the screen searches once for what would show
+each premise wrong. What counts as a premise stays the model's judgment, in any
+language; no check logic changed.
+
 ## Research the person can steer (owner answer 279a, 9 November 2026; released the same day)
 
 From the owner's report AskRigor#434. Three runtime-only actions and inputs (owner answer 189a keeps the published tool
@@ -193,7 +203,7 @@ list as it is), all on the MCP connector, and none a blocking check; the ask tha
 is not yet released:
 
 - **The framing, with the plain answer.** `register_plain_answer` takes `later_inputs.framing`: the question the person
-  most likely means, up to three things in it that look inverted or unclear, and up to three questions whose answers
+  most likely means, up to three things in it that look inverted, unclear or possibly false, and up to three questions whose answers
   could redirect the research. Its result says first what to do next by the account's research style: ask those
   questions and end the turn (guided and balanced), say which reading it takes and keep them for the first check-back
   (autonomous), confirm the question in one line and end the turn (guided, with nothing to ask), or go on; then screen

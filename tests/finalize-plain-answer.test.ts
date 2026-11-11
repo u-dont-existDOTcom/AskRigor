@@ -586,10 +586,13 @@ describe("manage_research_access and finalize_research through the connector (ow
       "AskRigor's tools, and register it with action register_plain_answer: plainAnswer.text, that answer (at most " +
       "1,500 characters); plainAnswer.claims, its main claims, 1 to 5 whole sentences each copied exactly from it (at " +
       "most 250 characters each); and plainAnswer.researchTarget, the research target you will give finalize_research. " +
+      "When the question asserts or assumes something checkable (a fact, a cause, a comparison, or that something " +
+      "can't be or hasn't been done), give your quick verdict on each such premise in a sentence of its own, and put " +
+      "those sentences first among the claims (Universal premise_integrity_and_truth_priority_gate, rule 2). " +
       "AskRigor signs it with the time. Then treat each claim as something to check, confirm or correct, and look " +
       "beyond the claims too. The final check then writes a short note comparing the checked answer with this plain " +
       "answer, for the end of the answer. With it, give later_inputs.framing: likely_question, the question the " +
-      "person most likely means; premise_doubts, anything in it that looks inverted or unclear; and " +
+      "person most likely means; premise_doubts, anything in it that looks inverted, unclear or possibly false; and " +
       "redirecting_questions, up to three questions whose answers could change what to research (none when it is " +
       "clear). The result says whether to ask the person before researching. " + FORM_PEOPLE_USE);
     const inactive = await manage({ action: "inspect" }, "auth0|new");

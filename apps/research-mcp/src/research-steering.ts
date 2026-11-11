@@ -265,7 +265,8 @@ export const RESEARCH_MENU_SHAPE = "later_inputs.researchMenu in exactly this sh
  * and that an ask ends the turn, before the model starts it.
  */
 const SCREEN_FIRST = "Screen first: a few calls (about eight) of searches, abstracts, thread titles and the Atlas, " +
-  "with no full-text reading, long threads or video audits yet, ending with a provisional short answer. " +
+  "with no full-text reading, long threads or video audits yet, ending with a provisional short answer. For each " +
+  "claim on a premise of the person's question, include one search for what would show it wrong. " +
   PEOPLE_FIRST_WHEN_USED + " " + ALL_JOURNALS_AT_THE_SCREEN + " " + WORDS_ARE_NOT_SIZES + " Then call " +
   "manage_research_access with action plan_research and " + RESEARCH_MENU_SHAPE + " AskRigor gives each task a time " +
   "range and says whether to ask the person first; when it says to ask, your reply is the message it gives, and the " +
@@ -282,15 +283,18 @@ const SCREEN_FIRST = "Screen first: a few calls (about eight) of searches, abstr
 export function framingGuidance(steering: ResearchSteering, framing: Framing | undefined): string {
   if (framing === undefined) {
     return URGENT_FIRST + " Give later_inputs.framing with the plain answer next time: likely_question, the question the person most " +
-      "likely means; premise_doubts, anything in it that looks inverted or unclear; and redirecting_questions, up to " +
-      "three questions whose answers could change what to research. " + FORM_PEOPLE_USE + " " + SCREEN_FIRST;
+      "likely means; premise_doubts, anything in it that looks inverted, unclear or possibly false; and " +
+      "redirecting_questions, up to three questions whose answers could change what to research. " + FORM_PEOPLE_USE +
+      " " + SCREEN_FIRST;
   }
   const doubts = framing.premise_doubts ?? [];
   const questions = framing.redirecting_questions ?? [];
   const parts: string[] = [URGENT_FIRST, `Framing: the person most likely means ${JSON.stringify(framing.likely_question)}.`];
   if (doubts.length > 0) {
     parts.push(`Say plainly near the start of your reply what looks inverted or unclear (${doubts.map((doubt) =>
-      JSON.stringify(doubt)).join("; ")}), and which reading you take.`);
+      JSON.stringify(doubt)).join("; ")}), and which reading you take. If one of these is not yet a claim of the plain ` +
+      "answer, register the plain answer again now, before any research call, with a sentence giving your quick " +
+      "verdict on it among the claims, so the final check compares it.");
   }
   if (questions.length > 0) {
     const asked = questions.map((question, index) => `${index + 1}. ${question}`).join(" ");

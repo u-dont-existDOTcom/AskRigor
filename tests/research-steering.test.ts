@@ -504,6 +504,37 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     expect(URGENT_FIRST).toContain("ParallelEmergencyAndAdjunctQuestions and NoEmergencyWarningOvercorrection");
   });
 
+  // 11 Nov 2026: the costliest misses were the question's own premises (a PewDiePie run never checked "China has yet to
+  // accomplish"). As claims of the plain answer, the sixth blocking check compares each; nothing here decides what counts
+  // as a premise, which stays the model's judgment, in any language.
+  it("makes the question's checkable premises claims of the plain answer, and searches for what would show them wrong", async () => {
+    const { plainAnswerRequest } = await import("../apps/research-mcp/src/research-contributor-access-tool.js");
+    const premise = "When the question asserts or assumes something checkable (a fact, a cause, a comparison, or that " +
+      "something can't be or hasn't been done), give your quick verdict on each such premise in a sentence of its own, " +
+      "and put those sentences first among the claims (Universal premise_integrity_and_truth_priority_gate, rule 2).";
+    for (const note of [true, false]) {
+      expect(plainAnswerRequest(note)).toContain(premise);
+      expect(plainAnswerRequest(note).endsWith(FORM_PEOPLE_USE)).toBe(true);
+      expect(plainAnswerRequest(note)).toContain("premise_doubts, anything in it that looks inverted, unclear or " +
+        "possibly false;");
+    }
+    const doubted = framingGuidance(DEFAULT_RESEARCH_STEERING, { likely_question: "Has anyone done it?",
+      premise_doubts: ["The question assumes no one has done it."] });
+    expect(doubted).toContain("If one of these is not yet a claim of the plain answer, register the plain answer " +
+      "again now, before any research call, with a sentence giving your quick verdict on it among the claims, so the " +
+      "final check compares it.");
+    expect(framingGuidance(DEFAULT_RESEARCH_STEERING, { likely_question: "Has anyone done it?" }))
+      .not.toContain("register the plain answer again now");
+    for (const style of ["guided", "balanced", "autonomous"] as const) {
+      for (const framing of [undefined, { likely_question: "Has anyone done it?" }]) {
+        expect(framingGuidance({ ...DEFAULT_RESEARCH_STEERING, style }, framing)).toContain("Screen first: a few calls " +
+          "(about eight) of searches, abstracts, thread titles and the Atlas, with no full-text reading, long threads or " +
+          "video audits yet, ending with a provisional short answer. For each claim on a premise of the person's " +
+          "question, include one search for what would show it wrong.");
+      }
+    }
+  });
+
   // The owner, 9 Nov 2026 (Inbox reply): nobody sells the hexane-extracted seed oil, so ask which form the person has.
   it("asks for the form people actually buy or make, when the answer turns on it, with the plain answer's request", async () => {
     const { plainAnswerRequest } = await import("../apps/research-mcp/src/research-contributor-access-tool.js");
