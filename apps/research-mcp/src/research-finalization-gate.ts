@@ -373,9 +373,16 @@ export function namedTargetCaveat(label: string, studies: number, differing: rea
 
 // Research results remind the AI, in the turn it researches, that answers using
 // the research are checked at the end, in that turn or a later one (owner
-// question 86: a "continue" turn dropped AskRigor's final check).
+// question 86: a "continue" turn dropped AskRigor's final check). Since 11 Nov
+// 2026 they also say how a research turn ends: none of the 21 turns of the 10 Nov
+// timing runs ended with the question AskRigor said to ask, and six asks were
+// followed by 40 to 52 research calls. It is the soft reminder planned with owner
+// answer 279a (a research result reminds the AI of an unanswered menu), worded so
+// that it needs no stored state. The first sentence stays as it was.
 export const FINALIZE_REMINDER = "Answers that use this research are checked with finalize_research before they " +
-  "are given, in this turn or a later one; HRP's OutputFormatting section sets a health answer's shape.";
+  "are given, in this turn or a later one; HRP's OutputFormatting section sets a health answer's shape. A research " +
+  "turn ends with the answer that check says to give, or with a question an AskRigor result said to ask and wait on, " +
+  "never with a progress report: if such a question is still unanswered, stop researching, send it and end your turn.";
 
 // The plain answer an active research account registers before research (owner answer 140b, 2026-10-20), and how
 // the checked answer compares with each of its claims.

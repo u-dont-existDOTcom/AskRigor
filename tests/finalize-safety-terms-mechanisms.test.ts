@@ -308,8 +308,12 @@ describe("the three declarations are required with an answer draft", () => {
     expect(note("mechanism_claims")).toContain("in people or animals");
   });
 
-  it("states the research-result reminder as one sentence", () => {
+  // 11 Nov 2026: the reminder also says how a research turn ends, and to stop while an ask waits for the person.
+  it("states the research-result reminder: the final check, and how a research turn ends", () => {
     expect(FINALIZE_REMINDER).toBe("Answers that use this research are checked with finalize_research before they " +
-      "are given, in this turn or a later one; HRP's OutputFormatting section sets a health answer's shape.");
+      "are given, in this turn or a later one; HRP's OutputFormatting section sets a health answer's shape. A research " +
+      "turn ends with the answer that check says to give, or with a question an AskRigor result said to ask and wait " +
+      "on, never with a progress report: if such a question is still unanswered, stop researching, send it and end " +
+      "your turn.");
   });
 });

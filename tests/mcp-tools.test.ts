@@ -1133,10 +1133,14 @@ describe("AskRigor MCP tools", () => {
         type: "text",
         text: `research_receipt: ${researchReceipt}`
       }, {
-        // Owner question 86: every research result reminds the AI of the final check, in any turn.
+        // Owner question 86: every research result reminds the AI of the final check, in any turn; since 11 Nov 2026,
+        // also how a research turn ends.
         type: "text",
         text: "Answers that use this research are checked with finalize_research before they are given, in this " +
-          "turn or a later one; HRP's OutputFormatting section sets a health answer's shape."
+          "turn or a later one; HRP's OutputFormatting section sets a health answer's shape. A research turn ends " +
+          "with the answer that check says to give, or with a question an AskRigor result said to ask and wait on, " +
+          "never with a progress report: if such a question is still unanswered, stop researching, send it and end " +
+          "your turn."
       }]);
       // Only the completed audit carries a receipt; it binds the video and its terminal state.
       expect((first.structuredContent as { research_receipt?: string }).research_receipt).toBeUndefined();
