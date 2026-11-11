@@ -867,7 +867,13 @@ describe("the finalize_research tool", () => {
     const one = await call("finalize_research", fixture({ key_sources: fixture().key_sources.slice(0, 1),
       answer_draft: draft().split("\n").filter((line) => !/Trial [BC]/u.test(line)).join("\n") }));
     expect(one.body.status).toMatch(/^ready/u);
-    expect(one.text).not.toContain("study_map");
+    // 11 Nov 2026: a pass's own sentence names study_map among the later inputs that wait for a later answer; the map
+    // itself is described only for two or more key sources.
+    expect(one.text).not.toContain(STUDY_MAP_GUIDANCE);
+    expect(one.text).not.toContain("later_inputs.study_map");
+    // A pass's description of the map is for a later answer: this one needs no new check for it.
+    expect(STUDY_MAP_GUIDANCE).toMatch(/^For a later answer on 2\+ key sources, give later_inputs\.study_map with its first finalize_research call/u);
+    expect(STUDY_MAP_GUIDANCE).toContain("this answer needs no new check for it");
   });
 
   it("returns a not_ready check without a map just as it did before the study map", async () => {

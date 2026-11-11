@@ -2,7 +2,8 @@ import { registerForumTools } from "./forum-tools.js";
 import type { RedditReaderClient } from "./reddit-reader-client.js";
 import type { readForumPage } from "@askrigor/sources";
 import {
-  CLOSING_QUESTIONS_GUIDANCE, FINAL_CHECK_RUNTIME_DESCRIPTION, PASSING_LIMITS_GUIDANCE
+  CLOSING_QUESTIONS_GUIDANCE, FINAL_CHECK_RUNTIME_DESCRIPTION, FIRST_PASS_GUIDANCE, PASSING_LIMITS_GUIDANCE,
+  PASSING_NOTES_HEADING, REPEAT_PASS_GUIDANCE
 } from "./final-check-messages.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "./community-leads.js";
 import { findingsSaveOff, withLaterInputs } from "./later-inputs.js";
@@ -2766,7 +2767,10 @@ function defineResearchOperations(
         `Research finalization: ${result.status}; ${result.next_steps.length} next step(s), ` +
           `${result.limits.length} limit(s) to state; ${result.receipts_verified} receipt(s) verified.` +
           `\n${FINAL_CHECK_RUNTIME_DESCRIPTION}` +
-          (result.notes === undefined ? "" : `\nNotes about the call:\n${result.notes.map((note) => `- ${note}`).join("\n")}`) +
+          // 11 Nov 2026: under a pass, notes about later inputs wait for a later answer (the 10 Nov timing runs: 49 of 88
+          // checks came after a pass in the same turn, most invited by such notes).
+          (result.notes === undefined ? "" : `\n${passing ? PASSING_NOTES_HEADING : "Notes about the call:"}\n` +
+            result.notes.map((note) => `- ${note}`).join("\n")) +
           // Owner answer 205a: the panel lists a passing check's limits in full, so its answer states only those
           // that matter for this person; the panel shows no limits under a check that has not passed.
           (passing
@@ -2812,9 +2816,9 @@ function defineResearchOperations(
           (result.check_line === undefined ? "" :
             `\nEnd the answer with this line, as written (in the answer's language when the answer is not in English): ${result.check_line}` +
             // The 22 Oct regressions: in 57 of the 64 runs whose check passed, the answer the user saw was the checked
-            // draft reworded afterwards, which no check read.
-            "\nGive the user the checked answer_draft word for word, followed only by the lines this result gives for " +
-            "its end; to change anything in it, call finalize_research again with the changed draft first.") +
+            // draft reworded afterwards, which no check read. 11 Nov 2026: a pass is the turn's last check unless the
+            // draft itself changes, and then once more; a pass after a pass in the same turn says it is the last.
+            `\n${result.turn_already_passed === true ? REPEAT_PASS_GUIDANCE : FIRST_PASS_GUIDANCE}`) +
           // AskRigor#354: the server never sees which answer the user gets, so an answer given before a pass says so.
           // AskRigor#359: one such answer opened with a confident verdict, so it also says at its start that it is
           // partial, and gives no ranking or verdict that a step still open could change.

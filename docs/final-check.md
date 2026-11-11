@@ -128,6 +128,20 @@ The [strict runner](askrigor-strict-runner.md) still compares the delivered answ
 that integrity check is separate from wording a limit. A passing check does not certify that the AI acted
 on every note or completed the research method: the AI remains responsible for that work and its limits.
 
+A pass is the turn's last check unless the draft itself changes (11 November 2026, not yet released). In the 10 November
+timing runs, 49 of 88 final-check calls came after the check had passed in the same turn, invited by "to change anything
+in it, call finalize_research again" on every pass and by notes about later inputs; HRP asks for another call only on
+`not_ready`. A passing result now says to give the checked draft now, word for word, followed only by the lines it gives
+for the answer's end; its notes about later inputs (`study_map`, `findings_card`, `source_lines` or `community_leads`)
+are for a later answer, under a heading that says so; and a change that fixes the answer itself (a limit that changes
+what this person should believe or do, limits repeated word for word, or an error found in it) is checked once more,
+the turn's last. A pass after a pass in the same turn, known from the carried state's turn and last status and the
+round token, with no stored state, says it is the turn's last check and sets the runtime-only `turn_already_passed`.
+So that nothing needs a later call, the reading tools give the `source_reading` entry's exact fields
+(`{source, reading, quote}`) and the method audits the study map's exact shape before the first check, and a filed
+research map's own result gives the answer's closing line. The rule of 22 October stays: a draft changed after a pass is
+checked again.
+
 Runtime operation descriptions, later-input guidance and result text carry these rules. This build adds two tools, so the published definitions and `tests/fixtures/frozen-tool-lists/` change once,
 including the waiting schema corrections. The release requires one refresh in each app; subsequent definitions
 remain fixed under owner answer 189a.
@@ -204,7 +218,9 @@ extension of two or more studies) joins none, and a claim resting on one isn't c
 people is meaning, so what AskRigor finds (the same registration given twice, a registry number in an abstract, a
 registration listing another study's paper, identical figures) joins nothing: each is a hint, worded as a question for
 the AI that names the link each answer calls for. Every finding is a note naming each item by its place as given, beside the runtime `study_map` result, and
-consumes no round; what the shared deadline allowed is kept.
+consumes no round; what the shared deadline allowed is kept. Since 11 November 2026 (not yet released) the map's exact
+shape comes with each method audit's result, for the first check; a passing check's description of it is for a later
+answer.
 
 The loop from people's reports to studies (the owner, 5 November 2026: "make sure that our feedback loop is working
 between forum signal and studies"; released 6 November 2026) adds one optional later input and no blocking rule

@@ -57,6 +57,24 @@ export const FINAL_CHECK_RUNTIME_DESCRIPTION = "Final check of a research answer
   `A key claim can carry a source line: later_inputs.source_lines, a list of lines such as ${SOURCE_LINE_EXAMPLE}, ` +
   `each with these five fields and no others: ${SOURCE_LINE_FIELDS}; all are shown beside the claim. AskRigor then ` +
   "looks both quotes up in the text it fetched; this is optional and holds nothing back.";
+// A passing check is the turn's last unless the draft itself changes, and then once more (11 November 2026). In the 10
+// Nov timing runs, 49 of 88 final-check calls came after the check had passed in the same turn, 0 to 6 a turn, invited by
+// "to change anything in it, call finalize_research again" on every pass and by notes about later inputs. HRP asks for
+// another call only on not_ready. The 22 Oct rule stays: a draft changed after a pass is checked again, once.
+export const FIRST_PASS_GUIDANCE = "This check passed: give the user the checked answer_draft now, word for word, " +
+  "followed only by the lines this result gives for its end. Its notes about later inputs (study_map, findings_card, " +
+  "source_lines or community_leads) are for a later answer: send none of them again in this turn. Change the draft " +
+  "only to fix the answer itself (a limit listed here that changes what this person should believe or do, limits it " +
+  "repeats word for word, or an error you found in it); then call finalize_research once more with the changed draft, " +
+  "the turn's last check.";
+// A pass after a pass in the same turn (finalize_research's turn_already_passed), known from the carried state and the
+// round token without stored state.
+export const REPEAT_PASS_GUIDANCE = "This turn's check had already passed before this call, so this result is the " +
+  "turn's last check: give this checked answer_draft now, word for word, followed only by the lines this result gives " +
+  "for its end, and don't call finalize_research again in this turn.";
+// The notes' heading under a passing check; each note's own "check the answer again" is framed by it.
+export const PASSING_NOTES_HEADING = "Notes about the call (the check passed; notes about later inputs are for a later " +
+  "answer and need no new check in this turn):";
 // Owner answer 205a (30 October 2026): beside the limits of a passing check, which the panel lists in full.
 export const PASSING_LIMITS_GUIDANCE = "The panel lists every limit below beneath the checked answer, so the answer " +
   "need not repeat them. The answer " +

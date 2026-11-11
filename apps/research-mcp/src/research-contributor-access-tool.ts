@@ -50,6 +50,7 @@ import {
   sameQuote,
   sentencesOf,
 } from "./research-finalization-gate.js";
+import { researchMapSavedLine } from "./findings/card.js";
 import { laterInputShape } from "./later-inputs.js";
 import {
   COULD_CHANGE,
@@ -1195,9 +1196,14 @@ export function createSubmitResearchContributionHandler(
             type: "text",
             text: `${proposal.proposalKind === "RESEARCH_FRONTIER" ? "Research frontier" : proposal.proposalKind === "TOPIC_LINK" ? "Topic link" : "Source analysis"} proposal ${proposal.writeStatus === "inserted" ? "entered" : "was already present in"} the review inbox. Canonical evidence was not changed.${continued}`,
           },
+          // 11 Nov 2026: the filing gives the answer's closing line itself, so it asks for no new final check (in the
+          // 10 Nov timing runs, 49 of 88 checks came after a pass in the same turn).
           ...(mapReceipt === undefined ? [] : [
             { type: "text" as const, text: `research_receipt: ${mapReceipt}` },
-            { type: "text" as const, text: "Give finalize_research this research_receipt with the research receipts." },
+            { type: "text" as const, text: "End the answer, after any saved line and just before the check line, with " +
+              "this line, as written (in the answer's language when it is not in English): " +
+              `${researchMapSavedLine(undefined)} Pass this research_receipt to finalize_research only when it checks a ` +
+              "later answer." },
           ]),
         ],
         structuredContent: submitResearchContributionOutputSchema.parse({
