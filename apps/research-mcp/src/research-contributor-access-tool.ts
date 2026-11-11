@@ -56,7 +56,10 @@ import {
   PLAN_TASK_KINDS,
   RESEARCH_LOOPS,
   FORM_PEOPLE_USE,
+  allocationAnswered,
   framingGuidance,
+  framingNextStep,
+  planNextStep,
   planResearch,
   planResearchText,
   steeringInspectText,
@@ -241,10 +244,12 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
   // Owner answer 229a: the report sent to the Atlas, or taken down.
   atlasReport: atlasReportResultSchema.optional(),
   // The owner's report of 6 Nov 2026 (runtime only, owner answer 189a): inspect's next step for an account whose research
-  // waits on the free-use notice.
+  // waits on the free-use notice; since 11 Nov, register_plain_answer's and plan_research's too, for an app that hands its
+  // model only the structured content.
   next_step: z.string().optional()
-    .describe("With inspect, for an account that is not active on the current notice: show the user the notice and " +
-      "ask; never accept it for them."),
+    .describe("What to do next. With inspect, for an account that is not active on the current notice: show the user " +
+      "the notice and ask; never accept it for them. With register_plain_answer and plan_research: whether to ask the " +
+      "person and end the turn, or go on."),
   // Owner answer 279a (runtime only): the account's research style, and the menu plan_research made.
   steering: researchSteeringSchema.optional(),
   researchMenu: z.object({
@@ -472,10 +477,16 @@ export function noticeAcceptanceSentence(acceptance: ResearchAccessView["accepta
   return `${standing}${carried}`;
 }
 
-/** What inspect asks of an account that registers a plain answer, before any research call. */
+/**
+ * What inspect asks of an account that registers a plain answer, before any research call. It opens with the run's
+ * shape (11 Nov 2026): the stop at an ask is said before the first step, where it costs nothing.
+ */
 export function plainAnswerRequest(note: boolean): string {
   const { textCharacters, claims, claimCharacters } = PLAIN_ANSWER_LIMITS;
-  return "Before any research call, write the short answer you would give without AskRigor's tools, and register it " +
+  return "A research run goes: action register_plain_answer with later_inputs.framing, a short screen, action " +
+    "plan_research, the tasks chosen, then finalize_research; when a result says to ask the person and wait, your " +
+    "reply is that question and the turn ends there. " +
+    "Before any research call, write the short answer you would give without AskRigor's tools, and register it " +
     "with action register_plain_answer: plainAnswer.text, that answer (at most " +
     `${textCharacters.toLocaleString("en-US")} characters); plainAnswer.claims, its main claims, 1 to ${claims} ` +
     `whole sentences each copied exactly from it (at most ${claimCharacters} characters each); and ` +
@@ -986,19 +997,22 @@ async function registerPlainAnswer(
     `Research target, as signed: ${JSON.stringify(plainAnswer.researchTarget)}. Give finalize_research this ` +
     "research_target word for word, in a later turn too (only case and spacing are ignored): a reworded one can't be " +
     "matched to this plain answer, and the answer then ends without the comparison. " +
-    (account.note ? NOTE_ON : NOTE_OFF) + " " +
-    // Owner answer 279a: what to do next, by the framing and the account's research style.
-    framingGuidance(account.steering, framing);
+    (account.note ? NOTE_ON : NOTE_OFF);
   return {
+    // Owner answer 279a: what to do next, by the framing and the account's research style. Since 11 Nov 2026 it comes
+    // first, before the registration's details, so an ask is the first thing the model reads, and next_step carries it
+    // to an app that hands its model only the structured content.
     content: [
+      { type: "text", text: framingGuidance(account.steering, framing) },
       { type: "text", text: summary },
       { type: "text", text: `research_receipt: ${receipt}` },
       { type: "text", text: FINALIZE_REMINDER },
     ],
-    structuredContent: manageResearchAccessOutputSchema.parse({
+    structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
       ok: true,
       plainAnswer: { requested: true, note: account.note, claims: count },
       research_receipt: receipt,
+      next_step: framingNextStep(account.steering, framing),
     }),
   };
 }
@@ -1051,14 +1065,15 @@ async function planResearchAction(
     matches: read.target === researchTargetDigest(plan.research_target),
     minutesSince: Math.max(0, Math.round((Date.now() - Date.parse(read.issuedAt)) / 60_000)),
   });
+  // 11 Nov 2026: the problems come first, so an ask's text ends with the rule for the person's answer.
+  const text = planResearchText(result, new Set(plan.done ?? []), allocationAnswered(plan), plan.research_target);
   return {
-    content: [{ type: "text", text: planResearchText(result, new Set(plan.done ?? []),
-      plan.allocation !== undefined && plan.allocation.length > 0) +
-      (problems.length === 0 ? "" : ` ${problems.join(" ")}`) }],
+    content: [{ type: "text", text: problems.length === 0 ? text : `${problems.join(" ")}\n${text}` }],
     structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
       ok: true,
       researchMenu: result,
       ...(problems.length === 0 ? {} : { problems }),
+      next_step: planNextStep(result),
     }),
   };
 }

@@ -189,14 +189,16 @@ is sent to the second reader or saved in a findings card or the Atlas.
 ## Research the person can steer (owner answer 279a, 9 November 2026; released the same day)
 
 From the owner's report AskRigor#434. Three runtime-only actions and inputs (owner answer 189a keeps the published tool
-list as it is), all on the MCP connector, and none a blocking check:
+list as it is), all on the MCP connector, and none a blocking check; the ask that ends the turn, since 11 November 2026,
+is not yet released:
 
 - **The framing, with the plain answer.** `register_plain_answer` takes `later_inputs.framing`: the question the person
   most likely means, up to three things in it that look inverted or unclear, and up to three questions whose answers
-  could redirect the research. Its result says what to do next by the account's research style: ask those questions
-  and wait (guided and balanced), say which reading it takes and keep them for the first check-back (autonomous),
-  confirm the question in one line (guided, with nothing to ask), or go on; then screen cheaply and call
-  `plan_research`. Without a framing, the result asks for one next time. The framing is not stored or signed.
+  could redirect the research. Its result says first what to do next by the account's research style: ask those
+  questions and end the turn (guided and balanced), say which reading it takes and keep them for the first check-back
+  (autonomous), confirm the question in one line and end the turn (guided, with nothing to ask), or go on; then screen
+  cheaply, in about eight calls, and call `plan_research`. Without a framing, the result asks for one next time. The
+  framing is not stored or signed.
 - **The menu of next tasks.** `plan_research` takes `later_inputs.researchMenu`: the research target, up to 12 tasks
   (each with its kind, how many sources, what it could change, and optionally a loop between people's reports and
   studies or the model's own time range), whether the person's choices could steer the research
@@ -206,15 +208,34 @@ list as it is), all on the MCP connector, and none a blocking check:
   once given, the tasks done, and optionally the plain answer's receipt. Each task gets a time range from its kind's
   planning estimate per source (`PLAN_TASK_MINUTES` in `apps/research-mcp/src/research-steering.ts`, measured on the
   timing runs of 9 November 2026); tasks that could change the conclusion are recommended first, then those that could
-  change how sure it is, within the check-back allowance; detail alone is never recommended. Guided always shows the
-  menu and waits; balanced does when the recommended tasks could take more than about 10 minutes (the high end of
-  their range) or the person's choices could steer the research, as they usually can unless the question is precise
-  (owner answer 284, 10 November 2026), and then says in one line what their choices could change; autonomous goes on
-  and checks back after the allowance; a person's allocation is followed. The result also asks for a line before each task, says how to resume
+  change how sure it is, within the check-back allowance; detail alone is never recommended. Guided always asks;
+  balanced asks when the recommended tasks could take more than about 10 minutes (the high end of their range) or the
+  person's choices could steer the research, as they usually can unless the question is precise (owner answer 284, 10
+  November 2026); autonomous goes on, and after the allowance checks what it has and gives that answer, ending with the
+  open tasks as a numbered menu and the question whether to spend more time on them; a person's allocation is followed.
+  An allocation that names no task on the menu still open counts as none, so the menu recommends and decides as if
+  none had come (11 November 2026).
+  Since 11 November 2026 (the owner: "it's still not asking me any steering questions"), an ask ends the turn. Its
+  text puts the stop first: the reason, worded as the person's own setting, and that the whole reply is the message
+  that follows, after any urgent action, with no research call and no final check, since a question is not an answer
+  (HRP's preflight-only exit, and `StructuredUserSteeringAndApproval`: when approval is required, begin no substantive
+  source collection in the same response). Then the reply, ready to send: at most two sentences on the first look,
+  said to be not yet checked, and one on what the person's choices could change when they could; the menu, one task
+  per line, with the recommendation and the time to check and write the answer; and the question how to spend the
+  time. It ends with what to do when the person replies: `plan_research` again with their allocation, the research
+  target word for word as the menu gave it, "you decide" or "continue" meaning the recommended allocation, and never an
+  allocation the person did not give or leave to the AI. Nothing follows that rule. A result that goes on says to do
+  the tasks and then give the checked answer in the same turn, asks for a line before each task, says how to resume
   after a stop or a change of direction, asks for a task for each lead between people's reports and studies, and words
   the adjusted-variables look by the account's choice. With the plain answer's receipt it says whether the research
   target is the registered one, word for word but for case and spacing, and how many minutes have passed since. Nothing
   of the menu is stored.
+- **The next step for apps that read only the structured content.** Claude Code hands its model a result's structured
+  content and leaves out its text (`docs/claude-connector.md`). So `register_plain_answer` and `plan_research` also
+  give their next step as `next_step`, a runtime field (owner answer 189a), as `inspect` does for the free-use notice:
+  whether to ask the person and end the turn, or go on. `inspect`'s request for the plain answer opens with the run's
+  shape: the plain answer with its framing, a short screen, `plan_research`, the tasks chosen, then `finalize_research`;
+  when a result says to ask the person and wait, the reply is that question and the turn ends there.
 - **The research style.** `set_research_steering` takes `later_inputs.researchSteering` (`style`: `guided`, `balanced`
   or `autonomous`; `checkBackMinutes`: 1 to 120; `adjustmentDetail`: `flagged` or `all`), any of them, for an active
   account; `inspect` shows it. Migration `0033_research_steering` stores the three choices on `research_use_accounts`,

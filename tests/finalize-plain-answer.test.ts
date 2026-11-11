@@ -579,7 +579,10 @@ describe("manage_research_access and finalize_research through the connector (ow
       expect(inspected.structuredContent).toMatchObject({ ok: true, plainAnswer: { requested: true, note: true } });
       expect(text(inspected)).toContain(plainAnswerRequest(true));
     }
-    expect(plainAnswerRequest(true)).toBe("Before any research call, write the short answer you would give without " +
+    expect(plainAnswerRequest(true)).toBe("A research run goes: action register_plain_answer with " +
+      "later_inputs.framing, a short screen, action plan_research, the tasks chosen, then finalize_research; when a " +
+      "result says to ask the person and wait, your reply is that question and the turn ends there. " +
+      "Before any research call, write the short answer you would give without " +
       "AskRigor's tools, and register it with action register_plain_answer: plainAnswer.text, that answer (at most " +
       "1,500 characters); plainAnswer.claims, its main claims, 1 to 5 whole sentences each copied exactly from it (at " +
       "most 250 characters each); and plainAnswer.researchTarget, the research target you will give finalize_research. " +
@@ -606,8 +609,10 @@ describe("manage_research_access and finalize_research through the connector (ow
     const registered = await manage(register(), "auth0|paid");
     expect(registered.isError).not.toBe(true);
     const receipt = (registered.structuredContent as { research_receipt: string }).research_receipt;
+    // 11 Nov 2026: with the next step as a runtime field (whether to ask the person and end the turn, or go on).
     expect(registered.structuredContent).toEqual({
-      ok: true, plainAnswer: { requested: true, note: true, claims: 2 }, research_receipt: receipt
+      ok: true, plainAnswer: { requested: true, note: true, claims: 2 }, research_receipt: receipt,
+      next_step: expect.any(String)
     });
     const verified = verifyResearchReceipt(receipt, { secret: SECRET });
     expect(verified).toMatchObject({
