@@ -282,6 +282,91 @@ as `OPENALEX_API_KEY` with the release that carries the search, moved unseen by 
 allowed for the Atlas secret.
 The privacy notice names OpenAlex: date it on the release day.
 
+## Built on 11 Nov: an ask ends the turn, and a pass ends the checking (not yet released)
+
+The owner, 11 Nov 2026: "it's still not asking me any steering questions". No menu or question appeared in 13
+ChatGPT turns of 10 and 11 Nov. In the 10 Nov timing runs (Codex, the 284 rule on the live build) the rule asked on 9
+of 15 first menus; the AI stopped on 2, one more made a single call, and six went on with 40 to 52 research calls,
+three of them on an allocation the AI made up for the person. None of the 21 turns ended with a question: the turns
+that stopped still ran the final check and ended on its check line. The ask came fifth, after the menu, followed by
+five paragraphs on doing the tasks, and nothing said to end the turn or that a question needs no final check. The
+server instructions, the one text ChatGPT always has, never mentioned asking. Of the 88 final checks, 49 came after a
+pass in the same turn, and all 17 that held an answer back were a turn's first.
+
+What this build changes, all in result text, runtime fields or the server instructions (the tool list, the six checks
+and stored state are as they were):
+
+1. **The ask ends the turn.** `plan_research`'s ask puts the stop first (the reason as the person's own setting; the
+   whole reply is the message below; no research call and no final check, since a question is not an answer: HRP's
+   preflight-only exit and `StructuredUserSteeringAndApproval`), then the reply ready to send (at most two sentences
+   on the unchecked first look, one on what the person's choices could change when they could, the menu one task per
+   line with the recommendation, and how to answer), then the rule for the answer, with the research target word for
+   word; nothing follows it. The framing ask and guided's confirmation end the turn the same way; the screen says it
+   is a few calls and that an ask ends the turn. An allocation naming no open task on the menu no longer counts as the
+   person's answer. `register_plain_answer` gives its next step first; it and `plan_research` add `next_step` for
+   Claude Code, which reads only structured content; `inspect`'s request opens with the run's shape.
+2. **Every research result says how a research turn ends**: with the answer the final check says to give, or with a
+   question an AskRigor result said to ask and wait on, never with a progress report; an unanswered ask means stop
+   researching, send it and end the turn. This is the soft reminder planned above ("Enforcement"), without state.
+3. **The server instructions** (2,038 bytes) say in their first 512 characters to follow results, to send only what
+   an asking result gives and end the turn, and never to end on a progress report; "widen discovery until
+   finalize_research accepts it" is gone. Each ChatGPT app loads them after one refresh of AskRigor in its settings.
+4. **Shapes before the first check.** The reading tools name the `source_reading` entry's fields
+   (`{source, reading, quote}`) and what happens without it; a method audit gives the study map's exact shape.
+5. **A pass is the turn's last check** unless the draft itself changes, and then once more; notes about later inputs
+   wait for a later answer; a pass after a pass in the same turn says so (`turn_already_passed`, runtime only); a
+   filed research map's result gives the answer's closing line itself.
+6. **`get_youtube_video` says it returned the video's details**, not what is said or shown in it (a ChatGPT run had
+   claimed a transcript), and names `extract_youtube_video_claims` except on Gemini, whose catalog lacks it.
+7. **The question's premises become claims of the quick answer**, first among them, so the sixth check compares each;
+   a premise doubt not yet a claim asks for the quick answer again; the screen searches once for what would show each
+   premise wrong. What counts as a premise stays the model's judgment.
+8. **A video's comment audit says how many of the retrieved comments it shows** (AskRigor#438: 104 of 997), that an
+   order blind to what they say picked them, and that `get_youtube_comments` returns them all.
+9. **Every pass says it covers the six checks, not whether the search was complete** (lesson 56: a research lane read
+   a pass as the end of discovery).
+
+Sizes: the ask for the test menu (four tasks, balanced) is 2,290 bytes, against a median of 3,584 bytes of
+`plan_research` text in the first turns of the 10 Nov runs; the reminder on each research result grows from 178 to 418
+bytes.
+
+**Measuring it.** Criteria written before the runs; for anything changed afterwards, the runs are DEVELOPMENT /
+DISCOVERY data. Nobody runs them without the owner's explicit yes, and none spends on an API.
+
+- Step 0, free and urgent: in each ChatGPT app the transcripts name ("AskRigor 6 oct", which the timing kit also used,
+  and "askrigor oct 3"), list the account's calls (`list_calls`), which keeps only the newest 500 of the last 7 days;
+  every new call pushes the 10 and 11 Nov rows out. For each ChatGPT run of those days: whether the quick answer came
+  before the first research call, whether `plan_research` was called, and how many research calls followed it. No
+  `plan_research` rows means the menu is not reached at all.
+- Stage 1, after the release, with no app refresh: the owner's usual mode (Extra High, GPT-6 Sol); four open prompts
+  (the orange-peel invention, the PewDiePie Ajax claim, diet and depression, the Syrian rue oil) and one precise
+  control (one result of one named trial); 3 runs each in a fresh chat, card saving off; a turn still researching 2
+  minutes after `plan_research` is a fail; "you decide" once per open prompt; `list_calls` after every 6 runs.
+- Stage 2: refresh AskRigor once in each app, which loads the new instructions, and repeat stage 1 (optionally Free
+  Think, 2 runs each). An optional diagnostic adds one line to the owner's own ChatGPT instructions to tell a model
+  that never reaches the stop from one that gives tool text too little weight.
+- A first turn passes when the reply shows the menu (or the framing questions) and ends with the question, and the
+  call record shows no research call and no final check before the person's next message. The control passes with a
+  checked answer in turn 1. A second turn passes when `plan_research` gets the allocation, research stays within the
+  recommended minutes plus 3, the check passes, the turn ends with the checked answer and its line, and there are at
+  most 2 final checks. Every last message is classed as a checked answer, a steering question, or other.
+- The bar for stage 2 in the owner's usual mode: at least 12 of 15 first turns pass, at least 3 of 5 prompts pass all
+  three runs, no "other" ending, at most 2 final checks per answer turn. Below it, the enforced stop comes back to the
+  owner.
+- In Codex, once released: the 15-question kit on the owner's dev account, with a preamble that no longer says to ask
+  inside the answer or to keep to about 60 calls (both pushed against stopping): asks kept at least 7 of 9 (2 of 9 on
+  10 Nov), calls after a pass at most 1 per turn (0 to 6), first checks passing at least 10 of 21 (4 of 21).
+
+Waiting on the owner, not built: whether balanced asks at every question's first menu (the model said the person's
+choices could not steer the research on 14 of 15 first menus, open questions included); whether, if the ChatGPT runs
+miss the bar, AskRigor may refuse deep-reading tools while a menu waits, on the owner's dev logins only; and whether
+the call record may keep `plan_research`'s ask or go-on, which changes a privacy row.
+
+Not done in this build: a hard gate, a run handle on every call, a menu card (two new tools) or a form (MCP
+elicitation: AskRigor's per-request servers can't hold one, and classic ChatGPT doesn't show it); a research clock;
+protocol-section pointers; a SKILL.md edit (1,248 of 1,250 words); any change to the six checks; a word list deciding
+what counts as a question or a premise.
+
 ## Not done
 
 - A web app that runs the research itself: about $5 to $10 a question by the owner's estimate, so no.
