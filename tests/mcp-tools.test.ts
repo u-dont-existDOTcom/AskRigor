@@ -253,6 +253,11 @@ describe("AskRigor MCP tools", () => {
     expect(criticalInstructions).toContain("explicitly accept free contributor mode");
     expect(criticalInstructions).toContain("never infer consent");
     expect(criticalInstructions).toContain("never raw chat");
+    // The owner, 11 Nov 2026 ("it's still not asking me any steering questions"): the one text ChatGPT always has
+    // says, where it reads first, to follow results, to end the turn at an ask, and never to end on a progress report.
+    expect(criticalInstructions).toContain("ask the person and wait");
+    expect(criticalInstructions).toContain("end your turn");
+    expect(criticalInstructions).toContain("never a progress report");
     expect(SERVER_INSTRUCTIONS).toContain("submit_research_contribution");
     expect(SERVER_INSTRUCTIONS).toContain("Paid-private mode submits nothing");
     expect(SERVER_INSTRUCTIONS).toContain("survey_youtube_community");
@@ -260,13 +265,16 @@ describe("AskRigor MCP tools", () => {
     expect(SERVER_INSTRUCTIONS).toContain("could plausibly matter");
     expect(SERVER_INSTRUCTIONS).toContain("excellent RCT does not remove this requirement");
     expect(SERVER_INSTRUCTIONS).toContain("continuation_recommended");
-    expect(SERVER_INSTRUCTIONS).toContain("widen discovery until finalize_research accepts it");
+    // Stale since owner answers 193a and 195a (29 Oct 2026): only six checks can hold an answer back, none about
+    // discovery, so "widen discovery until finalize_research accepts it" read as "keep researching".
+    expect(SERVER_INSTRUCTIONS).not.toContain("widen discovery");
     expect(SERVER_INSTRUCTIONS).toContain("unfiltered YouTube comments and replies");
     expect(SERVER_INSTRUCTIONS).toContain(
       "search_youtube_comments is query-bounded discovery only"
     );
-    // Claude clients cut server instructions near 2,048 characters.
+    // Claude clients cut server instructions near 2,048 characters; ASCII, so as many bytes.
     expect(SERVER_INSTRUCTIONS.length).toBeLessThanOrEqual(2_048);
+    expect(Buffer.byteLength(SERVER_INSTRUCTIONS, "utf8")).toBeLessThanOrEqual(2_048);
     expect(SERVER_INSTRUCTIONS.slice(0, 1_024)).toContain(
       "call finalize_research with every research_receipt"
     );
@@ -274,8 +282,10 @@ describe("AskRigor MCP tools", () => {
     // mode saves; a paid-private answer offers the save, which waits for the user's yes.
     expect(SERVER_INSTRUCTIONS).toContain("a findings_card of its best findings");
     expect(SERVER_INSTRUCTIONS).toContain(
-      "else copy its caveats. If they offer a save, call save_research_findings only after the user's yes."
+      "If it offers a save, call save_research_findings only after the user's yes."
     );
+    // Redundant: a passing result shows each caveat as "Include as written" itself.
+    expect(SERVER_INSTRUCTIONS).not.toContain("copy its caveats");
   });
 
   it("publishes one-chain full-text handle and source-hash guidance", () => {
