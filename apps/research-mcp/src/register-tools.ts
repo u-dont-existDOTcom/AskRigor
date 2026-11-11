@@ -1658,10 +1658,12 @@ function defineResearchOperations(
     async ({ video_id_or_url }) => {
       try {
         const result = await getYoutubeVideo(video_id_or_url, youtubeConfig());
+        const retrieved = result.access_status === "complete" || result.access_status === "api_visible_complete";
         return withResearchReceipt(youtubeToolResult(
-          `YouTube video retrieval finished with access status ${result.access_status}.`,
+          `YouTube video retrieval finished with access status ${result.access_status}.` +
+            (retrieved ? ` ${options.mcpSurface === "/mcp/gemini" ? VIDEO_DETAILS_ONLY_GEMINI : VIDEO_DETAILS_ONLY}` : ""),
           result
-        ), (result.access_status === "complete" || result.access_status === "api_visible_complete") && "video_id" in result.data
+        ), retrieved && "video_id" in result.data
           ? researchReceipt("youtube_video_metadata", { video: result.data.video_id, access: result.access_status })
           : undefined);
       } catch (_error) {
@@ -3081,6 +3083,14 @@ const MCP_VIDEO_COMMENTS_NOT_SHOWN =
   "No comment fitted in this view, so none was returned; say in the answer that this video's comments could not be shown.";
 const MCP_BOUNDED_SAMPLE_LIMITATION =
   "This response returns a deterministic subset of the analysis sample to fit client result-size limits; retrieval coverage and corpus counts are reported separately.";
+// 11 Nov 2026: a ChatGPT run said it had read a video's transcript from get_youtube_video, then took it back. The
+// result holds YouTube's details of the video, not its words; extract_youtube_video_claims, which reads the video
+// itself for health claims, isn't in Gemini's catalog.
+export const VIDEO_DETAILS_ONLY = "These are the video's details from YouTube (title, description, channel, duration, " +
+  "tags and counts), not what is said or shown in it; for its health claims, extract_youtube_video_claims reads the " +
+  "video itself.";
+export const VIDEO_DETAILS_ONLY_GEMINI = "These are the video's details from YouTube (title, description, channel, " +
+  "duration, tags and counts), not what is said or shown in it.";
 
 // The core schema requires exactly one of a video and a continuation token.
 // Models sometimes send both; on MCP the token then wins (see the handler).

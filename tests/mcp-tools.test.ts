@@ -35,6 +35,7 @@ import { youtubeCommunitySurveyOutputSchema } from "../apps/research-mcp/src/you
 import { COMMUNITY_RESEARCH_REMINDER, VIDEO_COMMENT_MAP_REMINDER, expectCommunityRemindersInTextOnly }
   from "./helpers/community-result-reminders.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "../apps/research-mcp/src/community-leads.js";
+import { VIDEO_DETAILS_ONLY, VIDEO_DETAILS_ONLY_GEMINI } from "../apps/research-mcp/src/register-tools.js";
 import {
   builtContent,
   CLAUDE_APP_RESULT_CHARACTERS,
@@ -1802,9 +1803,12 @@ describe("AskRigor MCP tools", () => {
         data: [{ video_id: "XpZHKGGCK-o", published_at: "2025-01-02T03:04:05Z" }]
       });
       expect(video.isError).not.toBe(true);
+      // 11 Nov 2026: a ChatGPT run said it had read a video's transcript from this result, then took it back.
       expect(builtContent(video)).toEqual([{
         type: "text",
-        text: "YouTube video retrieval finished with access status api_visible_complete."
+        text: "YouTube video retrieval finished with access status api_visible_complete. These are the video's details " +
+          "from YouTube (title, description, channel, duration, tags and counts), not what is said or shown in it; for " +
+          "its health claims, extract_youtube_video_claims reads the video itself."
       }]);
       expect(video.structuredContent).toMatchObject({
         provider: "youtube",
@@ -1816,6 +1820,42 @@ describe("AskRigor MCP tools", () => {
     } finally {
       restoreEnvironment("YOUTUBE_API_KEY", previous);
       await server.close();
+    }
+  });
+
+  it("says a video's result is its details, not its words, on Gemini without a tool its catalog lacks, and adds nothing to a failure", async () => {
+    const previous = process.env.YOUTUBE_API_KEY;
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    const found = await youtubeFixture("video-found.json");
+    const missing = await youtubeFixture("error-video-not-found.json");
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) =>
+      String(input).includes("id=XpZHKGGCK-o") ? new Response(found, { status: 200 })
+        : new Response(missing, { status: 404 })));
+    const gemini = createAskRigorServer("gemini");
+    const client = new Client({ name: "askrigor-gemini-test", version: "0.1.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    clients.push(client);
+    await gemini.connect(serverTransport);
+    await client.connect(clientTransport);
+    try {
+      const video = await client.callTool({ name: "get_youtube_video", arguments: { video_id_or_url: "XpZHKGGCK-o" } });
+      expect(video.isError).not.toBe(true);
+      const text = (video.content as Array<{ text: string }>)[0]!.text;
+      expect(text).toBe(`YouTube video retrieval finished with access status api_visible_complete. ${VIDEO_DETAILS_ONLY_GEMINI}`);
+      expect(text).not.toContain("extract_youtube_video_claims");
+      const { client: standard, server } = await createInMemoryClient();
+      try {
+        const failed = await standard.callTool({ name: "get_youtube_video", arguments: { video_id_or_url: "dQw4w9WgXcQ" } });
+        const failedText = (failed.content as Array<{ text: string }>)[0]!.text;
+        expect(failedText).toBe("YouTube video retrieval finished with access status not_found. Error: " +
+          "youtube_video_not_found.");
+        expect(failedText).not.toContain(VIDEO_DETAILS_ONLY);
+      } finally {
+        await server.close();
+      }
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previous);
+      await gemini.close();
     }
   });
 
