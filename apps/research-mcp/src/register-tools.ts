@@ -1906,7 +1906,8 @@ function defineResearchOperations(
       const usable = result.receipt.completion_state !== "incomplete" && result.receipt.synthesis_lock === "pass";
       const reminders = !usable ? "" : ` ${COMMUNITY_RESEARCH_REMINDER}` +
         (result.records_retrieved_cumulative > 0 ? ` ${VIDEO_COMMENT_MAP_REMINDER}` : "");
-      const summary = `YouTube video audit retrieved ${result.records_retrieved_cumulative} record(s) cumulatively; this video's comments lock ${result.receipt.synthesis_lock} (this video only).${reminders}`;
+      const retrievedLine = `YouTube video audit retrieved ${result.records_retrieved_cumulative} record(s) cumulatively; this video's comments lock ${result.receipt.synthesis_lock} (this video only).`;
+      const summary = `${retrievedLine}${reminders}`;
       // The Custom GPT Action bounds the full audit itself.
       if (actionCall) return youtubeToolResult(summary, result);
       const complete = result.receipt.completion_state !== "incomplete";
@@ -1948,7 +1949,9 @@ function defineResearchOperations(
           result,
           // Room for the longest text and receipt this result can carry.
           MCP_YOUTUBE_AUDIT_MAX_BYTES - reservedResultBytes(
-            complete ? `${summary} ${MCP_COMMENT_FINDINGS_HANDOFF} ${MCP_VIDEO_COMMENTS_NOT_SHOWN}` : summary,
+            // The shown count is at most the retrieved count, so the sentence with both reserves enough room.
+            complete ? `${summary} ${commentsShownSentence(result.records_retrieved_cumulative,
+              result.records_retrieved_cumulative)} ${MCP_COMMENT_FINDINGS_HANDOFF} ${MCP_VIDEO_COMMENTS_NOT_SHOWN}` : summary,
             // The untrimmed counts are never smaller, so they reserve enough room.
             receiptFor({
               shown: result.records_returned_for_analysis,
@@ -1974,10 +1977,16 @@ function defineResearchOperations(
         };
       }
       const shown = view.records_returned_for_analysis;
+      // AskRigor#438: a view cut to the budget showed 104 of 997 retrieved records, and the report that mattered most
+      // was among the rest; the cut was said only in structuredContent.limitations. The text now says it next to the
+      // retrieval count.
+      const sampled = shown > 0 && shown < result.records_retrieved_cumulative &&
+        view.sample?.mode === "deterministic_hash_chronological"
+        ? ` ${commentsShownSentence(shown, result.records_retrieved_cumulative)}` : "";
       const text = !complete
         ? summary
         : shown > 0
-          ? `${summary} ${MCP_COMMENT_FINDINGS_HANDOFF}`
+          ? `${retrievedLine}${sampled}${reminders} ${MCP_COMMENT_FINDINGS_HANDOFF}`
           : result.records_retrieved_cumulative > 0 ? `${summary} ${MCP_VIDEO_COMMENTS_NOT_SHOWN}` : summary;
       return withResearchReceipt(youtubeToolResult(text, view), receiptFor({
         shown,
@@ -3083,6 +3092,16 @@ const MCP_VIDEO_COMMENTS_NOT_SHOWN =
   "No comment fitted in this view, so none was returned; say in the answer that this video's comments could not be shown.";
 const MCP_BOUNDED_SAMPLE_LIMITATION =
   "This response returns a deterministic subset of the analysis sample to fit client result-size limits; retrieval coverage and corpus counts are reported separately.";
+/**
+ * What a video audit's text says when its view shows only part of what it retrieved (AskRigor#438): how many records it
+ * shows, that an order blind to their content picked them (a hash of each comment's id), and the tool that returns
+ * them all, get_youtube_comments, which the MCP view does not cut.
+ */
+export function commentsShownSentence(shown: number, retrieved: number): string {
+  return `This result shows ${shown} of the ${retrieved} comment records retrieved, picked by an order that ignores ` +
+    "what they say; to read the rest, call get_youtube_comments for this video, which returns all its comments and " +
+    "replies, untrimmed.";
+}
 // 11 Nov 2026: a ChatGPT run said it had read a video's transcript from get_youtube_video, then took it back. The
 // result holds YouTube's details of the video, not its words; extract_youtube_video_claims, which reads the video
 // itself for health claims, isn't in Gemini's catalog.

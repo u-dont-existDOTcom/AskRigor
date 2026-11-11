@@ -35,7 +35,9 @@ import { youtubeCommunitySurveyOutputSchema } from "../apps/research-mcp/src/you
 import { COMMUNITY_RESEARCH_REMINDER, VIDEO_COMMENT_MAP_REMINDER, expectCommunityRemindersInTextOnly }
   from "./helpers/community-result-reminders.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "../apps/research-mcp/src/community-leads.js";
-import { VIDEO_DETAILS_ONLY, VIDEO_DETAILS_ONLY_GEMINI } from "../apps/research-mcp/src/register-tools.js";
+import {
+  VIDEO_DETAILS_ONLY, VIDEO_DETAILS_ONLY_GEMINI, commentsShownSentence
+} from "../apps/research-mcp/src/register-tools.js";
 import {
   builtContent,
   CLAUDE_APP_RESULT_CHARACTERS,
@@ -709,6 +711,17 @@ describe("AskRigor MCP tools", () => {
       const returned = (result.structuredContent as { records_returned_for_analysis: number }).records_returned_for_analysis;
       expect(returned).toBeGreaterThan(100);
       expect(returned).toBeLessThan(250);
+      // AskRigor#438: the text says how many of the retrieved records this view shows, that an order blind to what they
+      // say picked them, and which tool returns them all, beside the retrieval count.
+      const shownSentence = `This result shows ${returned} of the 250 comment records retrieved, picked by an order ` +
+        "that ignores what they say; to read the rest, call get_youtube_comments for this video, which returns all its " +
+        "comments and replies, untrimmed.";
+      expect(commentsShownSentence(returned, 250)).toBe(shownSentence);
+      expect((result.content as Array<{ text: string }>)[0]!.text).toMatch(new RegExp("^YouTube video audit retrieved " +
+        "250 record\\(s\\) cumulatively; this video's comments lock pass \\(this video only\\)\\. This result shows " +
+        `${returned} of the 250 comment records retrieved`, "u"));
+      expect((result.content as Array<{ text: string }>)[0]!.text).toContain(shownSentence);
+      expect((result.structuredContent as { sample: { mode: string } }).sample.mode).toBe("deterministic_hash_chronological");
       // The budget covers what each kind of client takes in (lesson #59): ChatGPT, the whole result; a client that
       // reads only text, its text, which then carries the structured content's JSON.
       const bytes = clientViewBytes(result);
