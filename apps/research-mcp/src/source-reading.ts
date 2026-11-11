@@ -286,10 +286,17 @@ export const READING_RESULT_WHEN = {
   audit: "With this study's methods audited"
 } as const;
 
-/** A reading tool's sentence: the reading's words, said beside the study and given in source_reading. Runtime text. */
+/**
+ * A reading tool's sentence: the reading's words, said beside the study and given in source_reading, with the entry's
+ * exact fields and what happens without it. Runtime text. The timing runs of 10 Nov 2026: all 17 checks that held an
+ * answer back were a turn's first, mostly over a reading the receipts already showed, whose entry came with guessed
+ * field names or none; once a not_ready result named {source, reading, quote}, every next call used them.
+ */
 export function readingResultNote(when: string, reading: AnswerReading): string {
   return `${when}, say "${ANSWER_READING_LABELS[reading]}" beside it in the answer, in the answer's language, and give ` +
-    `those words in finalize_research's later_inputs.source_reading, with reading ${reading}.`;
+    "finalize_research, from its first call, an entry in later_inputs.source_reading as {source, reading, quote}: " +
+    `source this study's id as key_sources gives it, reading ${reading}, and quote those words as answer_draft has ` +
+    "them. The final check holds back an answer that cites this study as a key source without saying how it was read.";
 }
 
 /**

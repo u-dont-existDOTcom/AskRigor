@@ -14,7 +14,7 @@ import { discoveryQueryDigest, issueResearchReceipt, researchTargetDigest } from
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import {
   ANSWER_READINGS, ANSWER_READING_LABELS, READING_RESULT_WHEN, compareReadings, identifierShown, readingResultNote,
-  receiptReadingNote, sourceReadingGuidance, verifiedAnswerReading, type AnswerReading
+  receiptReadingNote, sourceReadingGuidance, sourceReadingQuoteSchema, verifiedAnswerReading, type AnswerReading
 } from "../apps/research-mcp/src/source-reading.js";
 import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
@@ -597,9 +597,13 @@ describe("the check: a cited key source says how it was read", () => {
 // audits carry these sentences in their result text (tests/mcp-full-text-read-receipt.test.ts,
 // tests/analysis-staging.test.ts and tests/mcp-tools.test.ts check them there).
 describe("the tools that read a paper name its words before the first final check", () => {
+  // 11 Nov 2026: the entry's exact fields, from the first call, and what happens without it.
   const say = (when: string, label: string) => `${when}, say "${label}" beside it in the answer, in the answer's ` +
-    "language, and give those words in finalize_research's later_inputs.source_reading, with reading " +
-    `${(Object.keys(ANSWER_READING_LABELS) as AnswerReading[]).find((key) => ANSWER_READING_LABELS[key] === label)}.`;
+    "language, and give finalize_research, from its first call, an entry in later_inputs.source_reading as " +
+    "{source, reading, quote}: source this study's id as key_sources gives it, reading " +
+    `${(Object.keys(ANSWER_READING_LABELS) as AnswerReading[]).find((key) => ANSWER_READING_LABELS[key] === label)}, ` +
+    "and quote those words as answer_draft has them. The final check holds back an answer that cites this study as a " +
+    "key source without saying how it was read.";
 
   it("words each reading tool's sentence", () => {
     expect(readingResultNote(READING_RESULT_WHEN.record, "abstract_only")).toBe(say("If the answer cites this study " +
@@ -630,6 +634,20 @@ describe("the tools that read a paper name its words before the first final chec
     expect(receiptReadingNote(undefined, SECRET)).toBe("");
     expect(receiptReadingNote(audit, undefined)).toBe("");
     expect(receiptReadingNote(audit, `${SECRET}-other`)).toBe("");
+  });
+
+  // The timing runs of 10 Nov 2026: all 17 checks that held an answer back were a turn's first, most over a reading the
+  // receipts already showed, sent with guessed field names or none.
+  it("names the entry's exact fields, and an answer that follows the sentence passes the reading check first time", () => {
+    expect(Object.keys(sourceReadingQuoteSchema.shape)).toEqual(["source", "reading", "quote"]);
+    for (const when of Object.values(READING_RESULT_WHEN)) {
+      for (const reading of ANSWER_READINGS) expect(readingResultNote(when, reading)).toContain("{source, reading, quote}");
+    }
+    // The audit's sentence, followed: the label beside the study, and the entry as the sentence words it.
+    const result = check({ later_inputs: { source_reading: [{ source: DOI, reading: "full_text_audited", quote: AUDITED }] } });
+    expect(result.status).not.toBe("not_ready");
+    expect(result.next_step_kinds ?? []).not.toContain("read_depth");
+    expect(readingSteps(result)).toEqual([]);
   });
 });
 

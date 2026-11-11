@@ -951,8 +951,22 @@ export function checkStudyMap(
   };
 }
 
+/**
+ * The map's exact shape, as one entry studyMapSchema takes (a test holds the two together). The timing runs of 10 Nov
+ * 2026: the shape came only with a passing check, and 27 calls made after a pass followed it, so a method audit's result
+ * gives it, before the first check.
+ */
+export const STUDY_MAP_EXAMPLE = '{"studies": [{"id": "s1", "source": "10.1000/a", "group": "…"}, {"id": "s2", ' +
+  '"source": "10.1000/b", "group": "…"}], "links": [{"from": "s2", "kind": "extension_of", "to": "s1", "passage": ' +
+  '"…"}], "claims": [{"quote": "…", "studies": ["s1", "s2"], "groups": 1, "passages": [{"study": "s1", "passage": ' +
+  '"…"}, {"study": "s2", "passage": "…"}]}]}';
+/** What a method audit's result adds, when it signed a receipt: the map's shape, for the first final check. */
+export const STUDY_MAP_AT_AUDIT = "If the answer combines this study with others, give finalize_research's first call " +
+  `later_inputs.study_map, exactly in this shape: ${STUDY_MAP_EXAMPLE}, with registry, a study's registration ` +
+  "numbers, when known. AskRigor counts groups of people, not papers; its checks are notes.";
+
 /** The result text's description of the map, given with a passing check of an answer on two or more key sources. */
-export const STUDY_MAP_GUIDANCE = "This answer rests on 2+ key sources, so later_inputs.study_map can map them: studies " +
+export const STUDY_MAP_GUIDANCE ="This answer rests on 2+ key sources, so later_inputs.study_map can map them: studies " +
   "[{id, source, group, registry}], links [{from, kind (same_cohort, reanalysis_of, extension_of, abstract_of, " +
   "cites_as_evidence), to, passage}] and claims [{quote, studies, groups, passages [{study, passage}]}]. AskRigor " +
   "counts groups of people, not papers; its checks are notes.";

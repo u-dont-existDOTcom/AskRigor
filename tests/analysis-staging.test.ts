@@ -51,6 +51,7 @@ const { registerTools } = await import("../apps/research-mcp/src/register-tools.
 const { communitySkipCaveat, finalizeResearchInputSchema } = await import("../apps/research-mcp/src/research-finalization-gate.js");
 const { verifyResearchReceipt } = await import("../apps/research-mcp/src/research-receipts.js");
 const { withSourceReading } = await import("./helpers/source-reading.js");
+const { STUDY_MAP_AT_AUDIT } = await import("../apps/research-mcp/src/study-map.js");
 
 const DOI = "10.1002/art.41142";
 const NOW = new Date("2026-10-03T12:00:00.000Z");
@@ -538,11 +539,18 @@ describe("the server sends a free contributor's validated analyses when the fina
     // 5 Nov 2026: each result names how the study is now read, for the answer and source_reading, before the final check.
     const named = (result: CallToolResult) => (result.content as Array<{ text?: string }>).map(({ text }) => text).join("\n");
     expect(named(acquired)).toContain("With this study's full text read to its end, say \"full text read\" beside it " +
-      "in the answer, in the answer's language, and give those words in finalize_research's later_inputs.source_reading, " +
-      "with reading full_text_read.");
+      "in the answer, in the answer's language, and give finalize_research, from its first call, an entry in " +
+      "later_inputs.source_reading as {source, reading, quote}: source this study's id as key_sources gives it, " +
+      "reading full_text_read, and quote those words as answer_draft has them.");
     expect(named(validated)).toContain("With this study's methods audited, say \"full text read, methods audited by " +
-      "AskRigor\" beside it in the answer, in the answer's language, and give those words in finalize_research's " +
-      "later_inputs.source_reading, with reading full_text_audited.");
+      "AskRigor\" beside it in the answer, in the answer's language, and give finalize_research, from its first call, " +
+      "an entry in later_inputs.source_reading as {source, reading, quote}: source this study's id as key_sources gives " +
+      "it, reading full_text_audited, and quote those words as answer_draft has them. The final check holds back an " +
+      "answer that cites this study as a key source without saying how it was read.");
+    // 11 Nov 2026: the audit's result gives the study map's exact shape before the first final check; the reading
+    // tool's does not.
+    expect(named(validated)).toContain(STUDY_MAP_AT_AUDIT);
+    expect(named(acquired)).not.toContain("later_inputs.study_map");
 
     // The checked answer says how its study was read (the owner, 5 Nov 2026), in the shared helper's words.
     const finalize = (receipts: string[]) => call("finalize_research", withSourceReading(finalizeResearchInputSchema.parse({

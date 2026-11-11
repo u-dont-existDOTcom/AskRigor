@@ -2610,8 +2610,10 @@ describe("AskRigor MCP tools", () => {
       // 5 Nov 2026: a signed record names how a study cited from it alone was read, before the final check.
       expect((result.content as Array<{ text: string }>)[0]!.text).toBe("PubMed record 40123456 retrieval finished " +
         "with access status api_visible_complete. If the answer cites this study from this record alone, say " +
-        "\"abstract only\" beside it in the answer, in the answer's language, and give those words in " +
-        "finalize_research's later_inputs.source_reading, with reading abstract_only.");
+        "\"abstract only\" beside it in the answer, in the answer's language, and give finalize_research, from its " +
+        "first call, an entry in later_inputs.source_reading as {source, reading, quote}: source this study's id as " +
+        "key_sources gives it, reading abstract_only, and quote those words as answer_draft has them. The final check " +
+        "holds back an answer that cites this study as a key source without saying how it was read.");
     } finally {
       restoreEnvironment("NCBI_TOOL", previous.tool);
       restoreEnvironment("NCBI_EMAIL", previous.email);

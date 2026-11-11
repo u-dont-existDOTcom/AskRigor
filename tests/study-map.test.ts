@@ -12,8 +12,8 @@ import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import type { SourceLineDocument } from "../apps/research-mcp/src/source-lines.js";
 import { lookUpQuotes, quoteCache, type SourceLineTexts } from "../apps/research-mcp/src/source-lines.js";
 import {
-  lookUpStudyMap, registryNumbers, registryRecordOf, STUDY_MAP_GUIDANCE,
-  type RegistryRecord, type StudyMap, type StudyMapTexts
+  lookUpStudyMap, registryNumbers, registryRecordOf, STUDY_MAP_AT_AUDIT, STUDY_MAP_EXAMPLE, STUDY_MAP_GUIDANCE,
+  studyMapSchema, type RegistryRecord, type StudyMap, type StudyMapTexts
 } from "../apps/research-mcp/src/study-map.js";
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
 import { withSourceReading } from "./helpers/source-reading.js";
@@ -843,6 +843,15 @@ describe("the finalize_research tool", () => {
     expect(text).toContain("study_map: study A's trial registration, NCT01234567, was first submitted");
     // The map was given, so its shape isn't described again.
     expect(text).not.toContain(STUDY_MAP_GUIDANCE);
+  });
+
+  // The timing runs of 10 Nov 2026: the map's shape came only with a passing check, and 27 calls made after a pass
+  // followed it. A method audit's result now gives it, exactly as the schema takes it.
+  it("gives the map's exact shape at a method audit, as one entry the schema takes", () => {
+    expect(studyMapSchema.safeParse(JSON.parse(STUDY_MAP_EXAMPLE)).success).toBe(true);
+    expect(STUDY_MAP_AT_AUDIT).toContain(`exactly in this shape: ${STUDY_MAP_EXAMPLE}, with registry`);
+    expect(STUDY_MAP_AT_AUDIT).toMatch(/^If the answer combines this study with others, give finalize_research's first call /u);
+    expect(STUDY_MAP_AT_AUDIT).toContain("its checks are notes");
   });
 
   it("describes the map only with a passing check of an answer on two or more key sources, in a few words", async () => {

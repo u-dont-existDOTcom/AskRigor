@@ -24,7 +24,7 @@ import {
 import { europePmcRecordGroups } from "./reading-summary.js";
 import { SMALL_LITERATURE_SEARCH_NOTE, SPARSE_SEARCH_NOTE } from "./absence-searches.js";
 import {
-  lateStudyMapLookup, lookUpStudyMap, registryRecordOf, STUDY_MAP_GUIDANCE, type StudyMapTexts
+  lateStudyMapLookup, lookUpStudyMap, registryRecordOf, STUDY_MAP_AT_AUDIT, STUDY_MAP_GUIDANCE, type StudyMapTexts
 } from "./study-map.js";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -3840,12 +3840,17 @@ async function invokeOpenFullTextMcp(
           'candidate_texts with retrieved_via "client_search_index" for identity and completeness checks.'
         : " A source failed (an outage or rate limit), so this is not yet a completed lead and has no receipt. " +
           "A later acquire_open_full_text attempt can establish a completed boundary before the study is listed as lead_only.";
+  // 11 Nov 2026: a method audit that signed its receipt gives the study map's shape for the first final check.
+  const studyMapShape = receipt !== undefined &&
+    (operationId === "validate_study_method_audit" || operationId === "validate_review_method_audit")
+    ? ` ${STUDY_MAP_AT_AUDIT}` : "";
   return withResearchReceipt({
     content: [{
       type: "text",
       text: `${operationId.replaceAll("_", " ")} completed.` +
         ((result.body as { access_boundary?: string; acquisition_state?: string }).acquisition_state === undefined ? "" : ` ${(result.body as { access_boundary?: string }).access_boundary ?? ""}`) + (failedLead
-        ? failureText : "") + (completedLead ? ` ${OTHER_FULL_TEXT_ROUTE}` : "") + openFullTextReadingNote(receipt)
+        ? failureText : "") + (completedLead ? ` ${OTHER_FULL_TEXT_ROUTE}` : "") + openFullTextReadingNote(receipt) +
+        studyMapShape
     }],
     structuredContent: result.body as Record<string, unknown>
   }, receipt);
