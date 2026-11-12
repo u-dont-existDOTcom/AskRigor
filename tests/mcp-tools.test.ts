@@ -261,6 +261,8 @@ describe("AskRigor MCP tools", () => {
     expect(criticalInstructions).toContain("ask the person and wait");
     expect(criticalInstructions).toContain("end your turn");
     expect(criticalInstructions).toContain("never a progress report");
+    // The stop keeps the results' own exception: an emergency's urgent action comes first.
+    expect(criticalInstructions).toContain("send only its message (after any urgent action) and end your turn");
     expect(SERVER_INSTRUCTIONS).toContain("submit_research_contribution");
     expect(SERVER_INSTRUCTIONS).toContain("Paid-private mode submits nothing");
     expect(SERVER_INSTRUCTIONS).toContain("survey_youtube_community");
