@@ -253,9 +253,15 @@ describe("AskRigor MCP tools", () => {
     const criticalInstructions = SERVER_INSTRUCTIONS.slice(0, 512);
 
     expect(criticalInstructions).toContain("manage_research_access");
+    // The owner's call record of 11 Nov 2026: ChatGPT inspected in 9 of 9 runs and registered the plain answer in 8, but
+    // called plan_research in none, so the opening names the step.
+    expect(criticalInstructions).toContain("register the plain answer, screen briefly, then call action plan_research " +
+      "before deep reading; follow results.");
     expect(criticalInstructions).toContain("explicitly accept free contributor mode");
     expect(criticalInstructions).toContain("never infer consent");
-    expect(criticalInstructions).toContain("never raw chat");
+    // Moved past the first 512 for that step (12 Nov 2026): the proposals' privacy list repeats
+    // submit_research_contribution's own description, and its schema requires each privacy marker false.
+    expect(SERVER_INSTRUCTIONS.slice(0, 1_024)).toContain("never raw chat");
     // The owner, 11 Nov 2026 ("it's still not asking me any steering questions"): the one text ChatGPT always has
     // says, where it reads first, to follow results, to end the turn at an ask, and never to end on a progress report.
     expect(criticalInstructions).toContain("ask the person and wait");

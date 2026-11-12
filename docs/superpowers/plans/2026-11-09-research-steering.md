@@ -308,9 +308,13 @@ and stored state are as they were):
 2. **Every research result says how a research turn ends**: with the answer the final check says to give, or with a
    question an AskRigor result said to ask and wait on, never with a progress report; an unanswered ask means stop
    researching, send it and end the turn. This is the soft reminder planned above ("Enforcement"), without state.
-3. **The server instructions** (2,038 bytes) say in their first 512 characters to follow results, to send only what
-   an asking result gives and end the turn, and never to end on a progress report; "widen discovery until
-   finalize_research accepts it" is gone. Each ChatGPT app loads them after one refresh of AskRigor in its settings.
+3. **The server instructions** (2,048 bytes) say in their first 512 characters the run's steps (inspect, the plain
+   answer, a brief screen, then action `plan_research` before deep reading: the owner's call record of 11 Nov showed
+   ChatGPT inspecting in 9 of 9 runs and registering the plain answer in 8, but calling `plan_research` in none), to
+   follow results, to send only what an asking result gives (after any urgent action) and end the turn, and never to
+   end on a progress report; "widen discovery until finalize_research accepts it" is gone, and the proposals' privacy
+   list, which repeats `submit_research_contribution`'s own description, moved past the first 512 characters. Each
+   ChatGPT app loads them after one refresh of AskRigor in its settings.
 4. **Shapes before the first check.** The reading tools name the `source_reading` entry's fields
    (`{source, reading, quote}`) and what happens without it; a method audit gives the study map's exact shape.
 5. **A pass is the turn's last check** unless the draft itself changes, and then once more; notes about later inputs
