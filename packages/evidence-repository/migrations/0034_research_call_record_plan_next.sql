@@ -23,6 +23,8 @@ BEGIN
         OR (
           plan_next IN ('ask', 'go_on')
           AND tool = 'manage_research_access'
+          -- A NULL action would leave the comparison NULL, which a check admits.
+          AND action IS NOT NULL
           AND action = 'plan_research'
         )
       );

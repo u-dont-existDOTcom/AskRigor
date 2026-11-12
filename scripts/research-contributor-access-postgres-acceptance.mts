@@ -812,8 +812,10 @@ async function verifyCallRecord(context: { admin: Pool; restricted: Pool; checks
   await admin.query(planMigration);
   assert(await snapshot() === beforePlan, "CALL_RECORD_PLAN_MIGRATION_NOT_IDEMPOTENT");
   const planKey = "synthetic-call-record-plan-key";
+  // A NULL action leaves a comparison NULL, which a check admits, so the check requires one (the review of 12 Nov).
   for (const [tool, action, planNext] of [["manage_research_access", "plan_research", "maybe"],
-    ["manage_research_access", "inspect", "ask"], ["load_protocol", null, "go_on"]] as const) {
+    ["manage_research_access", "inspect", "ask"], ["manage_research_access", null, "ask"],
+    ["load_protocol", null, "go_on"], ["load_protocol", "plan_research", "ask"]] as const) {
     await expectCode(() => restricted.query(`INSERT INTO ${SCHEMA}.research_call_record
       (account_key, received_at, tool, action, route, chatgpt, outcome, code, duration_ms, plan_next)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, [planKey, at, tool, action, "/mcp", false, "answered", null, 0, planNext]),
