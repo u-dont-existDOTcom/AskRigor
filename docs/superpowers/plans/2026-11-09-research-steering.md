@@ -259,6 +259,54 @@ means a bare yes or no does not carry the judgment, and the next design has the 
 person about (none named, nothing to ask) instead of a third wording. Giving the requirement to every account is the
 owner's decision after the comparison.
 
+### An allocation needs the person's answer declared, on a dev account (12 Nov 2026)
+
+Round 3 of the owner's ChatGPT runs, on the live build 1d877300 (the five test prompts, Extra High). When
+`plan_research` answers "ask", its result hands the AI the "you decide" call ready to copy (`you_decide_later_inputs`,
+and the same JSON in the text's last line), holding the recommended allocation, and AskRigor took any allocation
+naming an open task for the person's answer. In the orange-peel run the AI received the ask at 22:13:16 UTC and 54
+seconds later, in the same turn, sent exactly `you_decide_later_inputs` (the recommended allocation, tasks 1, 4 and 2
+for 2 minutes each and task 3 for 3, with the menu's digest); AskRigor answered go on, and it researched for 17
+minutes without the person. Asked why, it said: "I was following the general instruction to continue substantive work
+rather than ask unnecessary clarification, and I treated AskRigor's returned you_decide_later_inputs allocation as a
+usable default. That was an instruction-following error." The same prompt ignored the ask in round 2 as well (2 of 3
+runs). So the handed-over allocation works as a default the AI can take for the person.
+
+Built: the menu takes one declared yes or no, `person_answered`: true once the person has answered this menu in a
+message of their own, giving the allocation or leaving it to the AI ("you decide"), and never for an allocation the AI
+chose itself. On a dev account, `plan_research` uses an allocation only with `person_answered` true. One sent with
+false or without it is not used (`researchMenu.allocation_not_used`): the recommendation is AskRigor's own and the
+existing rule decides as if no allocation had come, so the menu asks again, unless the research is autonomous or the
+menu is short and the AI judged it not steerable, which go on with AskRigor's own tasks and say so. The result says it
+before anything else, in its text and in `next_step`, as a stop and not as a call to correct: "The allocation this
+call carried was not used: on this account an allocation is the person's answer only with person_answered true, which
+the call did not give, so this menu still waits for them. If the person has not replied since the menu was shown, this
+is still the turn of the ask." It is not an error, and no corrected call is handed back. The handed-over call carries
+`"person_answered": "<true|false>"` after its allocation, and the menu's `steering_could_help` when it gave one; the
+placeholder left in is read as not given, so the call copied as it is asks again instead of going on, and is not
+refused for the judgment. The rule for the person's answer, the call's own line, `next_step` and the way back after a
+stop each say that an allocation goes with `person_answered` true. AskRigor checks only that it was declared true:
+whether the person answered is the model's knowledge, in any language, and no word of the person's is sent, so what
+AskRigor receives and keeps about the person is unchanged. The judgment's refusal (owner answer 294c) still fires for
+a short menu that left `steering_could_help` out, whether or not it carries an allocation that is not used. Every
+other account is planned as before, in the same words. One limit, which the digest had before this: an ask that came
+only from a menu changed after the person saw it does not outlast a second call, since a call that passes the new
+digest back is planned as an unchanged menu; the copied call then follows the rule alone, so a short menu that gave no
+judgment is asked for it, and one judged not steerable goes on with AskRigor's own tasks.
+
+Criteria, written before any run. DEVELOPMENT / DISCOVERY: five prompts on one account can tune the wording, and
+cannot confirm it for other accounts or models.
+
+- (a) No first turn of the five test prompts goes on with an allocation the person did not give: a copied allocation
+  gets the ask again, and the turn ends with the menu and its question.
+- (b) A real "you decide" reply goes on at the first or second `plan_research` call of that turn: at most one call
+  more than on build 1d877300.
+- (c) Every other account is planned as before, in the same words.
+
+If a first turn still goes on by declaring true without a reply, a declaration does not hold, and the next step is the
+enforced stop with a menu card, which the owner already chose for a missed bar (owner answer 288b), not a second
+wording. Giving the requirement to every account is the owner's decision after the comparison.
+
 ### Next stages
 
 1. Measure on the owner's regression list, on plan workers with no API spend: whether the framing asks the right

@@ -58,6 +58,7 @@ import { clientResultBytes } from "./tool-result.js";
 import {
   COULD_CHANGE,
   MENU_PLACEHOLDERS,
+  PERSON_ANSWER_DECLARED,
   PLAN_TASK_KINDS,
   RESEARCH_LOOPS,
   FORM_PEOPLE_USE,
@@ -80,6 +81,7 @@ import {
   steeringInspectText,
   steeringSentence,
   youDecideLaterInputs,
+  youDecideLaterInputsSchema,
   type Framing,
   type MenuReading,
   type ResearchMenuInput,
@@ -298,12 +300,16 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     target_matches_plain_answer: z.boolean().optional(),
     menu_digest: z.string().optional(),
     menu_changed: z.literal(true).optional(),
+    // Round 3 of the owner's ChatGPT runs (12 Nov 2026): the call's allocation was not used, as the account requires
+    // person_answered true with it and the call did not give it.
+    allocation_not_used: z.literal(true).optional(),
   }).strict().optional(),
   // 12 Nov 2026 (runtime only): an ask's "you decide" call, ready to copy, and a refused menu's example, built from the
-  // call's own.
-  you_decide_later_inputs: z.object({ researchMenu: researchMenuSchema }).strict().optional()
+  // call's own. On an account that requires person_answered, the call carries its placeholder, to be replaced.
+  you_decide_later_inputs: youDecideLaterInputsSchema.optional()
     .describe("With plan_research's ask: the later_inputs for the person's \"you decide\", as they are to be sent, " +
-      "with the recommended allocation inside researchMenu."),
+      "with the recommended allocation inside researchMenu; where person_answered is <true|false>, after replacing " +
+      "it with whether the person has answered this menu in a message of their own."),
   corrected_later_inputs: correctedMenuSchema.optional()
     .describe("With a plan_research call whose menu could not be read: its later_inputs as they should be, built from " +
       "its own; replace each <...> with one of the values it lists."),
@@ -1275,6 +1281,12 @@ function judgmentRefusal(plan: ResearchMenuInput): CallToolResult {
  * to ask the person first, by the account's research style. With the plain answer's receipt, it also checks that the
  * research target is the registered one (AskRigor#434) and says how long ago the plain answer was registered. Nothing
  * of the plan is stored.
+ *
+ * On a dev account (devAccount), two things the AI declares are required, each tried there before any other account
+ * gets it: the judgment a short menu's ask rests on (owner answer 294c, 12 Nov 2026), and person_answered true with an
+ * allocation (round 3 of the owner's ChatGPT runs, 12 Nov 2026: the AI sent the handed-over "you decide" allocation
+ * itself, 54 seconds after the ask, and researched for 17 minutes without the person). AskRigor checks only that each
+ * was declared; what it says is the model's.
  */
 async function planResearchAction(
   service: ResearchContributorAccessService,
@@ -1282,7 +1294,7 @@ async function planResearchAction(
   plan: ResearchMenuInput,
   plain: PlainAnswerOptions | undefined,
   digestSecret?: string,
-  judgmentRequired = false,
+  devAccount = false,
 ): Promise<CallToolResult> {
   const account = await service.activeAccount(subject);
   const accountKey = service.accountKeyForSubject(subject);
@@ -1302,29 +1314,40 @@ async function planResearchAction(
   const digest = digestSecret === undefined || digestSecret === "" ? undefined : menuDigest(plan.tasks, digestSecret);
   const menu = digest === undefined ? undefined
     : { digest, changed: plan.menu_digest !== undefined && plan.menu_digest !== digest };
+  // Round 3 of 12 Nov 2026: on a dev account, an allocation is the person's answer only with person_answered true;
+  // any other is not used, and the menu is planned as if none had come.
   const result = planResearch(plan, account.steering, read === undefined ? undefined : {
     matches: read.target === researchTargetDigest(plan.research_target),
     minutesSince: Math.max(0, Math.round((Date.now() - Date.parse(read.issuedAt)) / 60_000)),
-  }, menu);
+  }, menu, devAccount);
   // Owner answer 294c (12 Nov 2026): on a dev account, a menu whose ask rests only on the judgment the AI left out
   // plans nothing until the AI gives it, so the AI decides a short menu and not the default.
-  if (judgmentRequired && asksOnlyForJudgmentLeftOut(plan, account.steering, result, menu)) {
+  if (devAccount && asksOnlyForJudgmentLeftOut(plan, account.steering, result, menu, devAccount)) {
     return judgmentRefusal(plan);
   }
-  // 11 Nov 2026: the problems come first, so an ask's text ends with the rule for the person's answer. Whether the
-  // menu's numbers must stay as they are goes by whether an allocation or a done list was given at all, even one that
-  // names no open task; whether to ask goes by allocationAnswered, inside planResearch.
+  // 11 Nov 2026: the problems come first, so an ask's text ends with the rule for the person's answer; only the stop
+  // for an allocation not used comes before them (planResearchText). Whether the menu's numbers must stay as they are
+  // goes by whether an allocation or a done list was given at all, even one that names no open task or is not used;
+  // whether to ask goes by allocationAnswered and the dev account's person_answered, inside planResearch.
   const numbered = (plan.allocation ?? []).length > 0 || (plan.done ?? []).length > 0;
-  // 12 Nov 2026: an ask hands over the "you decide" call ready to copy, in its text and as a runtime field.
-  const youDecide = youDecideLaterInputs(plan, result);
-  const text = planResearchText(result, new Set(plan.done ?? []), numbered, plan.research_target, youDecide);
+  // 12 Nov 2026: an ask hands over the "you decide" call ready to copy, in its text and as a runtime field; on a dev
+  // account with person_answered's placeholder in it, so the call copied as it is asks again.
+  const youDecide = youDecideLaterInputs(plan, result, devAccount);
+  const text = planResearchText(result, new Set(plan.done ?? []), numbered, plan.research_target, youDecide,
+    devAccount, problems);
+  // An allocation not used is the first thing the text and next_step say, as a stop; the structured content also
+  // names it first among its problems. The result is the ask again (or the menu that goes on), not an error.
+  const structuredProblems = result.allocation_not_used === true
+    ? [`later_inputs.researchMenu.allocation: not used; ${PERSON_ANSWER_DECLARED}, which the call did not give`,
+      ...problems]
+    : problems;
   return {
-    content: [{ type: "text", text: problems.length === 0 ? text : `${problems.join(" ")}\n${text}` }],
+    content: [{ type: "text", text }],
     structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
       ok: true,
       researchMenu: result,
-      ...(problems.length === 0 ? {} : { problems }),
-      next_step: planNextStep(result),
+      ...(structuredProblems.length === 0 ? {} : { problems: structuredProblems }),
+      next_step: planNextStep(result, devAccount),
       ...(youDecide === undefined ? {} : { you_decide_later_inputs: youDecide }),
     }),
   };

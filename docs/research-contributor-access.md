@@ -223,7 +223,9 @@ was released on 12 November:
   false only when the question already fixes all of that; left out, it counts as true, except on a dev account,
   where a menu whose ask rests only on it plans nothing until the model gives it: the result hands the call back with
   `<true|false>` in its place, owner answer 294c, 12 November 2026), the person's allocation
-  once given, the tasks done, and optionally the plain answer's receipt. Each task gets a time range from its kind's
+  once given, whether the person has answered the menu in a message of their own (`person_answered`, the model's own
+  declaration, which only a dev account requires, with an allocation: below), the tasks done, and optionally the
+  plain answer's receipt. Each task gets a time range from its kind's
   planning estimate per source (`PLAN_TASK_MINUTES` in `apps/research-mcp/src/research-steering.ts`, measured on the
   timing runs of 9 November 2026); tasks that could change the conclusion are recommended first, then those that could
   change how sure it is, within the check-back allowance; detail alone is never recommended. Guided always asks;
@@ -260,7 +262,29 @@ was released on 12 November:
   AI. Since 12 November 2026 the rule says the allocation goes inside `researchMenu`, and when the ask recommends
   something for the registered target, the "you decide" call follows it, ready to copy: the same menu with the
   recommended allocation inside it, also given as the runtime field `you_decide_later_inputs` (in the owner's ChatGPT
-  run, "you decide" took seven calls). Nothing else follows. A result that goes on says to do the tasks and then give the checked answer in the
+  run, "you decide" took seven calls). Nothing else follows.
+  On a dev account, an allocation is the person's answer only when the model declares it (round 3 of the owner's
+  ChatGPT runs, 12 November 2026, on build 1d877300: the AI received the ask and 54 seconds later, in the same turn,
+  sent the handed-over call itself; AskRigor said go on, and it researched for 17 minutes without the person, having
+  "treated AskRigor's returned you_decide_later_inputs allocation as a usable default"). There, `plan_research` uses
+  an allocation only with `person_answered` true in the menu, which says the person answered this menu in a message
+  of their own, giving the allocation or leaving it to the AI. One sent with false or without it is not used: the
+  result carries `researchMenu.allocation_not_used`, recommends AskRigor's own tasks and decides as if no allocation
+  had come, so it asks again, and says so before anything else in its text and in `next_step`, and first among its
+  `problems`: the menu still waits for the person, and if they have not replied since it was shown, this is still
+  the turn of the ask. It is not an error and hands back no corrected call. A menu that goes on whatever the person
+  says (autonomous research, or a short menu the model judged not steerable) goes on with AskRigor's own tasks and
+  says they are not the person's choice. The handed-over call carries `"person_answered": "<true|false>"` after
+  its allocation, to be replaced with whether the person has answered, and the menu's `steering_could_help` when it
+  gave one, so the call copied as it is asks again instead of being refused for the judgment. The words true and
+  false are read as the values, a `person_answered` beside the menu goes inside it, and the placeholder left in is
+  read as not given; any other word is refused as unreadable. The rule for the person's answer, the call's own line,
+  `next_step` and the way back after a stop each say that an allocation goes with `person_answered` true. AskRigor
+  checks only that it was declared: whether the person answered is the model's knowledge, in any language, and no
+  word of the person's is sent. A short menu that left `steering_could_help` out is still refused for the judgment
+  (owner answer 294c), whether or not it carries an allocation that is not used. Every other account's menus, words
+  and "you decide" call are as they were.
+  A result that goes on says to do the tasks and then give the checked answer in the
   same turn, asks for a line before each task, sends a new fork that could change the conclusion back through
   `plan_research` with the tasks done and without the allocation, so the rule decides afresh (not in autonomous
   research, which checks and answers instead), says how to resume after a stop or a change of direction, asks for a
@@ -273,7 +297,8 @@ was released on 12 November:
   (`withResearchMenuReading`), the menu is read in its own names: a key whose snake_case form is a menu or task field
   is that field (`researchTarget`, `couldChange`), a task's `title` or `name` is its text when it gives none, one
   number for a task's `minutes` is the range `[n, n]`, a null optional field is left out, `user_allocation` and
-  `allocations` are the allocation, and an allocation or done list beside the menu in `later_inputs` goes inside it
+  `allocations` are the allocation, and an allocation, done list or `person_answered` beside the menu in
+  `later_inputs` goes inside it
   when it has none. Every other key is ignored, and the result names what was ignored or moved in one sentence, after
   its text and among its `problems`. Values stay strict: a task is an object, and `kind` and `could_change` are one of
   their values. A menu still not readable, or none, is refused with valid structured content (ChatGPT shows an error
