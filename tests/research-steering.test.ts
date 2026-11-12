@@ -238,14 +238,24 @@ describe("the framing given with the plain answer (owner answer 279a)", () => {
       expect(asking).toContain("When they answer: register the plain answer again if the answers change the question " +
         "(for the new research target) or if a doubt that could be false, not only unclear, is not yet a claim of the " +
         "plain answer (with a sentence giving your quick verdict on it among the claims, so the final check compares " +
-        "it), leaving later_inputs.framing out now that the person has answered; then screen and plan as follows.");
+        "it), leaving later_inputs.framing out now that the person has answered (its result's request for a framing " +
+        "is for the next question); then screen and plan as follows.");
       // Registered again as told, with no framing, the result says to screen: the step after the answers.
       expect(framingNextStep(steering(style), undefined)).toMatch(/^Screen in a few calls/u);
     }
     const noDoubts = framingGuidance(steering("balanced"), { ...framing, premise_doubts: undefined });
     expect(noDoubts).toContain("When they answer: if the answers change the question, register the plain answer " +
-      "again for the new research target, leaving later_inputs.framing out now that the person has answered; then " +
-      "screen and plan as follows.");
+      "again for the new research target, leaving later_inputs.framing out now that the person has answered (its " +
+      "result's request for a framing is for the next question); then screen and plan as follows.");
+    // The review of 12 Nov 2026: that registration's result still asks for a framing "next time", which is for the next
+    // question, so a third registration doesn't send the same framing and ask again; next_step says so too.
+    for (const style of ["balanced", "guided"] as const) {
+      expect(framingNextStep(steering(style), framing)).toContain("leaving later_inputs.framing out (its result's " +
+        "request for a framing is for the next question)");
+    }
+    expect(framingNextStep(steering("guided"), { likely_question: framing.likely_question,
+      premise_doubts: framing.premise_doubts })).toContain("leaving later_inputs.framing out (its result's request " +
+      "for a framing is for the next question)");
     // Guided with nothing to ask: the doubt goes in the line it confirms, and any new registration follows the yes.
     const confirming = framingGuidance(steering("guided"), doubtful);
     expect(confirming).toContain("your whole reply this turn is one line confirming the question you will research " +
@@ -253,7 +263,7 @@ describe("the framing given with the plain answer (owner answer 279a)", () => {
     expect(confirming).toContain("After their yes, if a doubt that could be false, not only unclear, is not yet a " +
       "claim of the plain answer, register the plain answer again with a sentence giving your quick verdict on it " +
       "among the claims, so the final check compares it, leaving later_inputs.framing out now that the person has " +
-      "answered; then screen and plan as follows.");
+      "answered (its result's request for a framing is for the next question); then screen and plan as follows.");
     expect(confirming).not.toContain("register the plain answer again now");
     expect(confirming).not.toContain("which reading you take");
     // Going on, a new registration made now keeps the same framing, whose result asks nothing.

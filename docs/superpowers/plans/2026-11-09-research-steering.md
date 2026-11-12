@@ -342,6 +342,11 @@ receipt with the others, and one filed after a pass gives the closing line; afte
 wrong is fixed now, while one asking for an input waits, and adding what the result asks the answer to include is no
 change to the draft; after a repeat pass nothing asks for another check; on Gemini, the reading and audit sentences
 leave the final check out; and the server instructions keep the urgent-action exception at an ask (2,039 bytes).
+A second look (12 Nov) found three more, also fixed: a re-plan (tasks done, no allocation that counts as the person's
+answer) with something to recommend asks unless the research is autonomous, since a precise menu re-planned after the
+person skipped a task went on, did that task and never asked about the new one; closing questions, which the AI writes,
+count as a change to a passed draft; and the request for a framing in the result of a registration made without one,
+after the person answered, is said to be for the next question.
 
 **Measuring it.** Criteria written before the runs; for anything changed afterwards, the runs are DEVELOPMENT /
 DISCOVERY data. Nobody runs them without the owner's explicit yes, and none spends on an API.

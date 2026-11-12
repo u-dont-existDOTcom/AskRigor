@@ -196,7 +196,8 @@ claim asks for the plain answer again: before any research call, with the same
 framing, when the research goes on; after the person's answer, without the framing,
 when the result asks (the framing isn't stored, and a registration made before the
 ask without it would cancel the ask, while one made after it with its questions
-would ask them again). The screen searches once for what would show each premise
+would ask them again; that registration's request for a framing is for the next
+question). The screen searches once for what would show each premise
 wrong. What counts as a premise, and which doubts could be false, stays the model's
 judgment, in any language; no check logic changed.
 

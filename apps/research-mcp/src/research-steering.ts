@@ -280,7 +280,8 @@ const SCREEN_FIRST = "Screen first: a few calls (about eight) of searches, abstr
 const PREMISE_NOT_YET_A_CLAIM = "a doubt that could be false, not only unclear, is not yet a claim of the plain answer";
 const PREMISE_VERDICT = "with a sentence giving your quick verdict on it among the claims, so the final check " +
   "compares it";
-const FRAMING_ANSWERED = "leaving later_inputs.framing out now that the person has answered";
+const FRAMING_ANSWERED = "leaving later_inputs.framing out now that the person has answered (its result's request " +
+  "for a framing is for the next question)";
 
 /**
  * What register_plain_answer's result says next, by the account's research style and the framing given with it. Whether
@@ -351,13 +352,14 @@ export function framingNextStep(steering: ResearchSteering, framing: Framing | u
   if (framing !== undefined && asks && steering.style !== "autonomous") {
     return "Ask the person your framing's redirecting_questions now and end your turn: no research call until they " +
       "answer. Then register the plain answer again if their answers change the question" +
-      (doubts ? " or a doubt that could be false is not yet a claim" : "") + ", leaving later_inputs.framing out; then " +
-      "screen and call action plan_research.";
+      (doubts ? " or a doubt that could be false is not yet a claim" : "") + ", leaving later_inputs.framing out (its " +
+      "result's request for a framing is for the next question); then screen and call action plan_research.";
   }
   if (framing !== undefined && !asks && steering.style === "guided") {
     return "Confirm the question you will research in one line, ask for the person's yes and end your turn; after " +
-      "their yes, " + (doubts ? "register the plain answer again, leaving later_inputs.framing out, if a doubt that " +
-        "could be false is not yet a claim; then " : "") + "screen and call action plan_research.";
+      "their yes, " + (doubts ? "register the plain answer again, leaving later_inputs.framing out (its result's " +
+        "request for a framing is for the next question), if a doubt that could be false is not yet a claim; then "
+        : "") + "screen and call action plan_research.";
   }
   return (doubts ? "If a doubt that could be false is not yet a claim of the plain answer, register the plain answer " +
     "again first, with the same later_inputs.framing. " : "") + "Screen in a few calls (searches, abstracts, thread " +
