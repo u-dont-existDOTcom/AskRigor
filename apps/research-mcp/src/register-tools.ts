@@ -103,6 +103,7 @@ import { EUROPE_PMC_SECTIONS, EUROPE_PMC_FULL_TEXT_COVERAGE, europePmcSections }
 import { infoAccessClientFromEnv, LIBRARY_CALL_DEADLINE_MS, type InfoAccessClient } from "./infoaccess-client.js";
 import { authorizedSubject } from "./research-contributor-access-tool.js";
 import {
+  MCP_RESULT_MAX_BYTES,
   PUBLIC_TOOL_LIMITS,
   atlasReviewEnabledFromEnv,
   crossrefConfigFromEnv,
@@ -143,6 +144,7 @@ import type {
 import { findingsKeptLine, KEPT_FOR_REVIEW, unsavedCardNote, type UnsavedCardWhy } from "./findings/unsaved-card.js";
 import { AuditSourceMismatchError } from "./actions/audit-source.js";
 import {
+  clientResultBytes,
   forTextClients,
   protocolErrorResult,
   protocolRequestError,
@@ -216,6 +218,7 @@ import { toolListNotice, toolListVersionField } from "./tool-list-currency.js";
 import { type RunningVersions, runningVersionsOf, versionPayload } from "./version.js";
 import {
   createManageResearchAccessHandler,
+  withResearchMenuReading,
   createResearchAccessGuard,
   createSubmitResearchContributionHandler,
   researchUseAccount,
@@ -583,7 +586,9 @@ const ALL_JOURNALS_OUTPUT_SHAPE = {
     oa_url: z.string().optional(),
     type: z.string().optional(),
     abstract_cut: z.boolean().optional()
-  }))
+  })),
+  // The review of 12 Nov 2026: when the records OpenAlex returned don't all fit one result, how many it shows of them.
+  records_shown: z.object({ shown: z.number().int().nonnegative(), of: z.number().int().positive() }).strict().optional()
 };
 const searchClinicalTrialsInputSchema = z.object({
   query: z.string().trim().min(1).max(5_000).describe("ClinicalTrials.gov search query."),
@@ -2052,6 +2057,8 @@ function defineResearchOperations(
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
       signIn: options.signIn,
       toolListVersion: options.toolListVersion,
+      // The review of 12 Nov 2026: plan_research's menu digest, keyed like the research receipts.
+      menuDigestSecret: () => researchReceiptSecretFromEnv(),
       devAccountKeys: () => devAccountKeysFromEnv(),
       ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
@@ -3071,7 +3078,7 @@ function protocolNames(): Promise<ReadonlySet<string>> {
 // Claude clients reject MCP results near 50,000 characters, and one returned
 // comment record is about 600. The sample is cut in the same deterministic
 // order the Custom GPT Action uses; counts and the receipt cover the corpus.
-const MCP_YOUTUBE_AUDIT_MAX_BYTES = 40_000;
+const MCP_YOUTUBE_AUDIT_MAX_BYTES = MCP_RESULT_MAX_BYTES;
 
 /**
  * Bytes a result adds around its structured view: the text, and the receipt,
@@ -3269,28 +3276,40 @@ async function searchAllJournals(
 ): Promise<CallToolResult> {
   const apiKey = openAlexApiKey();
   const capped = pageSize !== undefined && pageSize > OPENALEX_MAX_PAGE_SIZE;
+  // A cut small search's own continuation (wholeSearchCursor): read the whole search again, from that record on.
+  const startMatch = cursor === undefined ? null : WHOLE_SEARCH_CURSOR.exec(cursor);
+  const start = startMatch === null ? 0 : Number(startMatch[1]);
+  const openAlexCursor = startMatch === null ? cursor : undefined;
   const search = (size: number | undefined) => searchOpenAlex({
     query,
     ...(dateRange === undefined ? {} : { dateRange }),
     ...(size === undefined ? {} : { pageSize: Math.min(size, OPENALEX_MAX_PAGE_SIZE) }),
-    ...(cursor === undefined ? {} : { cursor }),
+    ...(openAlexCursor === undefined ? {} : { cursor: openAlexCursor }),
     ...(apiKey === undefined ? {} : { apiKey })
   });
   const totalOf = (page: { raw_metadata?: unknown }) => (page.raw_metadata as { hit_count?: number } | undefined)?.hit_count;
   try {
-    const result = await readSmallSearchWhole(await search(pageSize), cursor === undefined, totalOf, search);
+    const read = start > 0 ? await search(WHOLE_SEARCH_RECORDS)
+      : await readSmallSearchWhole(await search(pageSize), cursor === undefined, totalOf, search);
+    const result = start === 0 || read.error !== undefined ? read : fromRecord(read, start, cursor!);
     const total = totalOf(result);
     const code = result.error?.code;
     const note = code === undefined ? (result.pagination.returned > 0 ? ALL_JOURNALS_READ_NOTE : "")
       : code === "openalex_rate_limited" ? ALL_JOURNALS_LIMIT_NOTE
       : ["openalex_upstream_unavailable", "openalex_response_invalid", "openalex_unreachable", "openalex_request_failed"]
         .includes(code) ? ALL_JOURNALS_OUTAGE_NOTE : "";
-    return withResearchReceipt(europePmcToolResult(
-      `OpenAlex (all journals) search returned ${result.pagination.returned} record(s); access status ` +
-        `${result.access_status}.` + (capped ? ` Its pages hold at most ${OPENALEX_MAX_PAGE_SIZE} records here.` : "") +
-        (total === undefined || total > WHOLE_SEARCH_RECORDS ? "" : SPARSE_SEARCH_NOTE) + note,
-      result
-    ), literatureSearchReceipt("openalex", query, result, total, dateRange));
+    const text = `OpenAlex (all journals) search returned ${result.pagination.returned} record(s)` +
+      (start === 0 ? "" : `, from record ${start + 1} of the whole search on, as next_cursor asked`) +
+      `; access status ${result.access_status}.` +
+      (capped ? ` Its pages hold at most ${OPENALEX_MAX_PAGE_SIZE} records here.` : "") +
+      (total === undefined || total > WHOLE_SEARCH_RECORDS ? "" : SPARSE_SEARCH_NOTE) + note;
+    // Greptile's review of 12 Nov 2026: a small search is read whole, so a smaller page_size read it whole again and was
+    // cut to the same first records; its continuation now goes on from the first record not shown.
+    const whole = result.error === undefined && total !== undefined && total <= WHOLE_SEARCH_RECORDS &&
+      start + result.pagination.returned >= total;
+    return fittedAllJournalsResult(result, text,
+      (page) => literatureSearchReceipt("openalex", query, page, total, dateRange),
+      whole ? (shown) => wholeSearchCursor(start + shown) : undefined);
   } catch (error) {
     return europePmcToolResult(
       "OpenAlex (all journals) search retrieval failed; access status error.",
@@ -3313,6 +3332,73 @@ async function searchAllJournals(
       })
     );
   }
+}
+
+/**
+ * A small search's continuation (Greptile's review of 12 Nov 2026): a search of at most WHOLE_SEARCH_RECORDS records is
+ * read whole, so it can't be paged with OpenAlex's own cursor, and a cut one gives this cursor instead, which reads it
+ * whole again and shows it from that record on.
+ */
+const WHOLE_SEARCH_CURSOR = /^askrigor-whole-search-from:([1-9][0-9]?)$/u;
+function wholeSearchCursor(next: number): string {
+  return `askrigor-whole-search-from:${next}`;
+}
+
+/** The whole small search's records from start on, as one page that read every record it holds. */
+function fromRecord<Page extends { data: unknown[]; pagination: { returned: number; next_cursor?: string;
+  exhausted?: boolean; cursor?: string } }>(page: Page, start: number, cursor: string): Page {
+  const { next_cursor: _openAlexCursor, ...pagination } = page.pagination;
+  const data = page.data.slice(start);
+  return { ...page, data, pagination: { ...pagination, cursor, returned: data.length, exhausted: true } } as Page;
+}
+
+/** The line an all-journals result gives when it shows only some of the records OpenAlex returned. */
+export function allJournalsShownSentence(shown: number, returned: number, continued = false): string {
+  return ` This result shows ${shown} of the ${returned} records OpenAlex returned, the first ${shown} in its order: ` +
+    "with their abstracts, more would not fit in one result. " + (continued
+      ? "To read the others, search again with the same query, later_inputs.index all_journals and cursor set to this " +
+        "result's next_cursor, page by page."
+      : `To read the others, search again with page_size ${Math.max(1, shown)} and follow next_cursor page by page; ` +
+        "this result gives no next_cursor, which would skip them.");
+}
+
+/**
+ * An all-journals search page as one result (the review of 12 Nov 2026): OpenAlex records carry abstracts of up to
+ * 2,000 characters, so a page of 50 came to about 130 KB, more than some apps take in. As the YouTube audit does, the
+ * result keeps OpenAlex's records in their order while it fits MCP_RESULT_MAX_BYTES, says exactly how many it shows of
+ * how many, and its receipt binds only the records shown, so a search not seen whole is not counted as seen whole.
+ */
+function fittedAllJournalsResult<Page extends { data: unknown[]; pagination: { returned: number; next_cursor?: string;
+  exhausted?: boolean }; error?: unknown }>(page: Page, text: string, receiptFor: (page: Page) => string | undefined,
+  continuation?: (shown: number) => string): CallToolResult {
+  const returned = page.data.length;
+  const build = (shown: number): CallToolResult => {
+    if (shown >= returned) return withResearchReceipt(europePmcToolResult(text, page), receiptFor(page));
+    const { next_cursor: _skipped, ...pagination } = page.pagination;
+    const next = continuation === undefined || shown === 0 ? undefined : continuation(shown);
+    const cut = { ...page, data: page.data.slice(0, shown), pagination: { ...pagination, returned: shown,
+      ...(next === undefined ? {} : { next_cursor: next }), exhausted: false },
+      records_shown: { shown, of: returned } } as Page;
+    return withResearchReceipt(europePmcToolResult(text + allJournalsShownSentence(shown, returned, next !== undefined),
+      cut), receiptFor(cut));
+  };
+  const fits = (result: CallToolResult) => clientResultBytes(result) <= MCP_RESULT_MAX_BYTES;
+  const whole = build(returned);
+  if (page.error !== undefined || fits(whole)) return whole;
+  let best = build(0);
+  let lower = 1;
+  let upper = returned - 1;
+  while (lower <= upper) {
+    const shown = Math.floor((lower + upper) / 2);
+    const candidate = build(shown);
+    if (fits(candidate)) {
+      best = candidate;
+      lower = shown + 1;
+    } else {
+      upper = shown - 1;
+    }
+  }
+  return best;
 }
 
 // Claude clients abandon a tool call after 60 seconds. Provider polling ends
@@ -4123,17 +4209,23 @@ function collectResearchOperations(
           : name === "validate_study_method_audit" ? studyMethodAuditRouteOutputSchema.safeExtend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
             : publishedOutputSchema;
       const outputSchema = openToolOutputSchema(runtimeOutputSchema, publishedOutputSchema);
+      // 12 Nov 2026: plan_research's menu is read in its own names before the inputs are checked, and a menu still not
+      // readable is refused with an example built from the call's own (withResearchMenuReading).
+      const evolvingExecute = name === "manage_research_access"
+        ? withResearchMenuReading(evolving.execute, { ...(options.toolListVersion === undefined ? {}
+          : { toolListVersion: options.toolListVersion }) })
+        : evolving.execute;
       const guardedExecute = options.researchAccessRequired === true &&
           !PRIVATE_MCP_OPERATION_NAMES.has(name) &&
           !PUBLIC_READ_OPERATION_NAMES.has(name) &&
           !RESEARCH_ACCESS_CONTROL_OPERATION_NAMES.has(name) &&
           !["read_forum_thread", "search_reddit_threads"].includes(name)
-        ? createResearchAccessGuard(evolving.execute, {
+        ? createResearchAccessGuard(evolvingExecute, {
             service: options.researchContributorAccessService,
             resourceMetadataUrl: options.oauthResourceMetadataUrl,
             signIn: options.signIn,
           })
-        : evolving.execute;
+        : evolvingExecute;
       const mcpConfig = Object.freeze({
         ...config,
         inputSchema: evolving.inputSchema,

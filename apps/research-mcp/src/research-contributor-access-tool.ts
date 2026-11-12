@@ -52,24 +52,36 @@ import {
   sentencesOf,
 } from "./research-finalization-gate.js";
 import { researchMapSavedLine } from "./findings/card.js";
-import { laterInputShape } from "./later-inputs.js";
+import { callsPageSchema, laterInputShape } from "./later-inputs.js";
+import { MCP_RESULT_MAX_BYTES } from "./config.js";
+import { clientResultBytes } from "./tool-result.js";
 import {
   COULD_CHANGE,
   PLAN_TASK_KINDS,
   RESEARCH_LOOPS,
   FORM_PEOPLE_USE,
+  correctedMenu,
+  correctedMenuSchema,
   framingGuidance,
   framingNextStep,
+  menuProblems,
+  menuDigest,
+  menuReadingSentence,
+  menuRefusalText,
   planNextStep,
   planResearch,
   planResearchText,
+  readResearchMenu,
+  researchMenuSchema,
   steeringInspectText,
   steeringSentence,
+  youDecideLaterInputs,
   type Framing,
+  type MenuReading,
   type ResearchMenuInput,
   type ResearchSteeringInput,
 } from "./research-steering.js";
-import type { ResearchOperationExtra } from "./research-operation.js";
+import type { ResearchOperationExtra, ResearchOperationHandler } from "./research-operation.js";
 import {
   SHARED_ANSWER_KEPT,
   SharedAnswersFullError,
@@ -237,6 +249,13 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     plan_next: z.enum(RESEARCH_PLAN_DECISIONS).optional(),
   }).strict()).max(500).optional(),
   retention_days: z.literal(RESEARCH_CALL_RECORD_RETENTION_DAYS).optional(),
+  // The review of 12 Nov 2026: a listing that shows only some of the calls says which, and where the next ones start.
+  calls_page: z.object({
+    shown: z.number().int().min(0),
+    total: z.number().int().min(0),
+    before: z.string().optional(),
+    next_before: z.string().optional(),
+  }).strict().optional(),
   access: researchAccessViewSchema.safeExtend({ acceptance: noticeAcceptanceSchema.optional() }).optional(),
   sharedAnswer: z.object({
     code: z.string(),
@@ -273,7 +292,17 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     adjustment_detail: z.enum(ADJUSTMENT_DETAILS),
     minutes_since_plain_answer: z.number().int().optional(),
     target_matches_plain_answer: z.boolean().optional(),
+    menu_digest: z.string().optional(),
+    menu_changed: z.literal(true).optional(),
   }).strict().optional(),
+  // 12 Nov 2026 (runtime only): an ask's "you decide" call, ready to copy, and a refused menu's example, built from the
+  // call's own.
+  you_decide_later_inputs: z.object({ researchMenu: researchMenuSchema }).strict().optional()
+    .describe("With plan_research's ask: the later_inputs for the person's \"you decide\", as they are to be sent, " +
+      "with the recommended allocation inside researchMenu."),
+  corrected_later_inputs: correctedMenuSchema.optional()
+    .describe("With a plan_research call whose menu could not be read: its later_inputs as they should be, built from " +
+      "its own; replace each <...> with one of the values it lists."),
 }).strict();
 
 /**
@@ -414,6 +443,8 @@ export interface ResearchContributorToolOptions {
   sharedAnswers?: SharedAnswers & { versions: () => Promise<SharedAnswerVersions> };
   /** People's reports to the Atlas (owner answer 229a); undefined while the Atlas takes none. */
   atlasReports?: AtlasReportDoor;
+  /** The secret plan_research keys its menu digest with (the review of 12 Nov 2026); undefined: no digest. */
+  menuDigestSecret?: () => string | undefined;
 }
 
 export interface ResearchMapOptions {
@@ -644,17 +675,85 @@ export function createManageResearchAccessHandler(
   return async (
     input: Record<string, unknown>,
     extra?: ResearchOperationExtra,
-  ): Promise<CallToolResult> => {
-    const result = await respond(input, extra);
-    const notice = toolListNotice(
-      typeof input.tool_list_version === "string" ? input.tool_list_version : undefined,
-      options.toolListVersion,
-    );
-    if (notice === undefined) return result;
-    const [first, ...rest] = result.content;
-    return first?.type === "text"
-      ? { ...result, content: [{ ...first, text: `${notice} ${first.text}` }, ...rest] }
-      : { ...result, content: [{ type: "text", text: notice }, ...result.content] };
+  ): Promise<CallToolResult> => withToolListNotice(await respond(input, extra), input, options.toolListVersion);
+}
+
+/** A result with the notice that this call's app has an out-of-date copy of AskRigor's tools, when it has. */
+function withToolListNotice(result: CallToolResult, input: Record<string, unknown>,
+  toolListVersion: string | undefined): CallToolResult {
+  const notice = toolListNotice(
+    typeof input.tool_list_version === "string" ? input.tool_list_version : undefined,
+    toolListVersion,
+  );
+  if (notice === undefined) return result;
+  // The 12 Nov release check (Codex's AskRigor app): a plan_research call that sent no tool_list_version read this
+  // notice before "Ask now", the stop the 11 Nov build puts first. Inspect keeps it first, as the owner asked; on
+  // the steps after inspect the result's own next step comes first and the notice follows it.
+  if (input.action !== "inspect") return { ...result, content: [...result.content, { type: "text", text: notice }] };
+  const [first, ...rest] = result.content;
+  return first?.type === "text"
+    ? { ...result, content: [{ ...first, text: `${notice} ${first.text}` }, ...rest] }
+    : { ...result, content: [{ type: "text", text: notice }, ...result.content] };
+}
+
+/**
+ * A plan_research call's menu, read before the call's inputs are checked (readResearchMenu, 12 Nov 2026): the call goes
+ * on with the menu in its own names and alone in later_inputs, and its result names what was read from beside it or
+ * left out; a menu still not readable is refused here, with its problems and an example built from the call's own,
+ * in a result whose structured content is valid (ChatGPT shows an error result without it only as "The tool failed
+ * internally"). A call with no later_inputs, or another action, goes on as it came.
+ */
+export function withResearchMenuReading(execute: ResearchOperationHandler, options: { toolListVersion?: string }):
+  ResearchOperationHandler {
+  return async (input, extra) => {
+    const later = input.later_inputs;
+    if (input.action !== "plan_research" || later === null || typeof later !== "object" || Array.isArray(later)) {
+      return await execute(input, extra);
+    }
+    const reading = readResearchMenu(later as Record<string, unknown>);
+    const sentence = menuReadingSentence(reading);
+    const parsed = reading.menu === undefined ? undefined : researchMenuSchema.safeParse(reading.menu);
+    if (parsed === undefined || !parsed.success) {
+      return withToolListNotice(menuRefusal(reading, parsed?.error.issues), input, options.toolListVersion);
+    }
+    const result = await execute({ ...input, later_inputs: reading.later }, extra);
+    return sentence === undefined ? result : withMenuReadingSentence(result, sentence);
+  };
+}
+
+/** A plan_research call's refusal for its menu: what could not be read, and the example to call with. */
+function menuRefusal(reading: Pick<MenuReading, "menu" | "flat" | "ignored" | "moved">,
+  issues?: readonly z.core.$ZodIssue[]): CallToolResult {
+  const missing = reading.menu === undefined;
+  const problems = missing
+    ? ["later_inputs.researchMenu: missing; plan_research's menu, with its research_target and tasks, goes inside it"]
+    : menuProblems(issues ?? []);
+  const example = correctedMenu(missing ? reading.flat : reading.menu);
+  const sentence = menuReadingSentence(reading);
+  const message = "plan_research could not read later_inputs.researchMenu: call it again with " +
+    "corrected_later_inputs, after replacing each <...> with one of the values it lists.";
+  return {
+    content: [{ type: "text", text: menuRefusalText(problems, example, sentence) }],
+    structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
+      ok: false,
+      error: { code: "invalid_request", message },
+      problems: [...problems, ...(sentence === undefined ? [] : [sentence])],
+      corrected_later_inputs: example,
+    }),
+    isError: true,
+  };
+}
+
+/** A result with what the menu's reading read from beside it or left out: after its text, and among its problems. */
+function withMenuReadingSentence(result: CallToolResult, sentence: string): CallToolResult {
+  const structured = result.structuredContent;
+  const problems = Array.isArray(structured?.problems) ? structured.problems as unknown[] : [];
+  const changed = structured === undefined ? undefined
+    : manageResearchAccessRuntimeOutputSchema.safeParse({ ...structured, problems: [...problems, sentence] });
+  return {
+    ...result,
+    content: [...result.content, { type: "text", text: sentence }],
+    ...(changed?.success === true ? { structuredContent: changed.data } : {}),
   };
 }
 
@@ -673,23 +772,20 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
             ok: false, error: { code: "call_record_unavailable", message },
           }) };
       }
-      const entries = await options.callRecord.list(options.service.accountKeyForSubject(auth.subject), new Date());
+      const page = callsPageSchema.safeParse(input.callsPage ?? {});
+      if (!page.success) {
+        return accessError("invalid_request", `later_inputs.callsPage: ${page.error.issues.map(({ path, message }) =>
+          `${path.join(".") || "the page"}: ${message}`).join("; ")}.`);
+      }
+      const entries = await options.callRecord.list(options.service.accountKeyForSubject(auth.subject), new Date(),
+        page.data.before === undefined ? undefined : new Date(page.data.before));
       const calls = entries.map((entry) => ({ received_at: entry.receivedAt.toISOString(), tool: entry.tool,
         action: entry.action, route: entry.route, chatgpt: entry.chatgpt, outcome: entry.outcome,
         code: entry.code, duration_ms: entry.durationMs,
         ...(entry.planNext === undefined ? {} : { plan_next: entry.planNext }) }));
-      const count = calls.length === 0
-        ? "AskRigor received no calls from this signed-in account in the last 7 days."
-        : `AskRigor received ${calls.length === 500 ? "at least " : ""}${calls.length} ${calls.length === 1 ? "call" : "calls"} from this signed-in account in the last 7 days.`;
-      const text = [count + " Times are UTC. A call made without signing in isn't recorded. " +
-        "This call itself appears from the next listing.", ...calls.map((call) =>
-        `${call.received_at.slice(0, 19).replace("T", " ")} UTC · ${call.tool}${call.action === null ? ""
-          : ` (${call.action}${call.plan_next === undefined ? "" : `: ${call.plan_next}`})`} · ` +
-        `${call.outcome}${call.outcome === "refused" ? ` [${call.code}]` : ""} · ${(call.duration_ms / 1_000).toFixed(1)} s · ` +
-        `${call.chatgpt ? "ChatGPT" : "other app"} · ${call.route}`)].join("\n");
-      return { content: [{ type: "text", text }], structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
-        ok: true, calls, retention_days: RESEARCH_CALL_RECORD_RETENTION_DAYS,
-      }) };
+      // The review of 12 Nov 2026: the budget counts the result as the app gets it, the tool-list notice included.
+      return listedCalls(calls, page.data,
+        (result) => clientResultBytes(withToolListNotice(result, input, options.toolListVersion)));
     }
     if (options.service === undefined) {
       return accessError(
@@ -791,8 +887,15 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           "findingsSave goes only with action set_findings_save, which needs it.",
         );
       }
+      if (parsed.callsPage !== undefined) {
+        return accessError("invalid_request", "later_inputs.callsPage goes only with action list_calls.");
+      }
       if (parsed.framing !== undefined && parsed.action !== "register_plain_answer") {
         return accessError("invalid_request", "later_inputs.framing goes only with action register_plain_answer.");
+      }
+      // A plan_research call with no menu at all gets the refusal a menu that can't be read gets, with an example.
+      if (parsed.action === "plan_research" && parsed.researchMenu === undefined) {
+        return menuRefusal({ ignored: [], moved: [] });
       }
       if ((parsed.action === "plan_research") !== (parsed.researchMenu !== undefined)) {
         return accessError(
@@ -814,7 +917,8 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         return await setResearchSteering(options.service, auth.subject, parsed.researchSteering!);
       }
       if (parsed.action === "plan_research") {
-        return await planResearchAction(options.service, auth.subject, parsed.researchMenu!, options.plainAnswer);
+        return await planResearchAction(options.service, auth.subject, parsed.researchMenu!, options.plainAnswer,
+          options.menuDigestSecret?.());
       }
       if (parsed.action === "set_plain_answer_note") {
         return await setPlainAnswerNote(options.service, auth.subject, parsed.plainAnswerNote!, options.plainAnswer);
@@ -907,6 +1011,75 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       return mappedAccessError(error);
     }
   };
+}
+
+type ListedCall = NonNullable<z.infer<typeof manageResearchAccessRuntimeOutputSchema>["calls"]>[number];
+
+/**
+ * list_calls' result: the newest calls (received before the page's time, when it gives one) while the whole result, as
+ * the app gets it, fits MCP_RESULT_MAX_BYTES (the review of 12 Nov 2026: 500 calls came to about 85 KB, more than
+ * Claude's clients take in), with the time the next page starts from when some are not shown. Pages go by time, not by
+ * position: each listing is itself recorded, so a position shifted and a page repeated a call. A page never ends inside
+ * a group of calls received in the same millisecond, so the next page, the calls before the last one shown, misses none.
+ */
+function listedCalls(calls: readonly ListedCall[], page: z.infer<typeof callsPageSchema>,
+  bytes: (result: CallToolResult) => number): CallToolResult {
+  const total = calls.length;
+  const wanted = calls.slice(0, page.limit === undefined ? total : Math.min(total, page.limit));
+  const at = page.before === undefined ? "" : ` before ${page.before.slice(0, 19).replace("T", " ")} UTC`;
+  const count = total === 0
+    ? `AskRigor received no calls from this signed-in account in the last 7 days${at}.`
+    : `AskRigor received ${total === 500 ? "at least " : ""}${total} ${total === 1 ? "call" : "calls"} from this ` +
+      `signed-in account in the last 7 days${at}.`;
+  const line = (call: ListedCall) =>
+    `${call.received_at.slice(0, 19).replace("T", " ")} UTC · ${call.tool}${call.action === null ? ""
+      : ` (${call.action}${call.plan_next === undefined ? "" : `: ${call.plan_next}`})`} · ` +
+    `${call.outcome}${call.outcome === "refused" ? ` [${call.code}]` : ""} · ${(call.duration_ms / 1_000).toFixed(1)} s · ` +
+    `${call.chatgpt ? "ChatGPT" : "other app"} · ${call.route}`;
+  // A page that would end inside a group of calls with the same time ends before the group instead, unless the group
+  // starts the page.
+  const whole = (shown: number): number => {
+    let end = shown;
+    while (end > 0 && end < total && calls[end]!.received_at === calls[end - 1]!.received_at) end -= 1;
+    if (end > 0 || shown === 0) return end;
+    end = shown;
+    while (end < total && calls[end]!.received_at === calls[end - 1]!.received_at) end += 1;
+    return end;
+  };
+  const build = (shown: number): CallToolResult => {
+    const more = total - shown;
+    const nextBefore = more > 0 && shown > 0 ? calls[shown - 1]!.received_at : undefined;
+    const where = more === 0 ? "" : shown === 0
+      ? " This result shows none of them; call list_calls again with a smaller later_inputs.callsPage limit."
+      : ` This result shows the newest ${shown} of them; ${total === 500 ? "older ones are" : more === 1
+        ? "1 older one is" : `${more} older ones are`} not shown: for the next, call list_calls again with ` +
+        `later_inputs.callsPage {"before": "${nextBefore}"}.`;
+    const text = [count + where + " Times are UTC. A call made without signing in isn't recorded. " +
+      "This call itself appears from the next listing.", ...calls.slice(0, shown).map(line)].join("\n");
+    return { content: [{ type: "text", text }], structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
+      ok: true, calls: calls.slice(0, shown), retention_days: RESEARCH_CALL_RECORD_RETENTION_DAYS,
+      ...(page.before === undefined && more === 0 ? {} : { calls_page: { shown, total,
+        ...(page.before === undefined ? {} : { before: page.before }),
+        ...(nextBefore === undefined ? {} : { next_before: nextBefore }) } }),
+    }) };
+  };
+  const fits = (result: CallToolResult) => bytes(result) <= MCP_RESULT_MAX_BYTES;
+  const all = build(whole(wanted.length));
+  if (fits(all)) return all;
+  let best = build(0);
+  let lower = 1;
+  let upper = wanted.length - 1;
+  while (lower <= upper) {
+    const shown = Math.floor((lower + upper) / 2);
+    const candidate = build(whole(shown));
+    if (fits(candidate)) {
+      best = candidate;
+      lower = shown + 1;
+    } else {
+      upper = shown - 1;
+    }
+  }
+  return best;
 }
 
 /**
@@ -1080,6 +1253,7 @@ async function planResearchAction(
   subject: string,
   plan: ResearchMenuInput,
   plain: PlainAnswerOptions | undefined,
+  digestSecret?: string,
 ): Promise<CallToolResult> {
   const account = await service.activeAccount(subject);
   const accountKey = service.accountKeyForSubject(subject);
@@ -1095,15 +1269,20 @@ async function planResearchAction(
     problems.push(`Task numbers ${[...new Set(outOfRange)].join(", ")} are past the ${plan.tasks.length} tasks given; ` +
       "they were left out.");
   }
+  // The review of 12 Nov 2026: the menu's digest, and whether its tasks differ from the menu the call's digest names.
+  const digest = digestSecret === undefined || digestSecret === "" ? undefined : menuDigest(plan.tasks, digestSecret);
   const result = planResearch(plan, account.steering, read === undefined ? undefined : {
     matches: read.target === researchTargetDigest(plan.research_target),
     minutesSince: Math.max(0, Math.round((Date.now() - Date.parse(read.issuedAt)) / 60_000)),
-  });
+  }, digest === undefined ? undefined
+    : { digest, changed: plan.menu_digest !== undefined && plan.menu_digest !== digest });
   // 11 Nov 2026: the problems come first, so an ask's text ends with the rule for the person's answer. Whether the
   // menu's numbers must stay as they are goes by whether an allocation or a done list was given at all, even one that
   // names no open task; whether to ask goes by allocationAnswered, inside planResearch.
   const numbered = (plan.allocation ?? []).length > 0 || (plan.done ?? []).length > 0;
-  const text = planResearchText(result, new Set(plan.done ?? []), numbered, plan.research_target);
+  // 12 Nov 2026: an ask hands over the "you decide" call ready to copy, in its text and as a runtime field.
+  const youDecide = youDecideLaterInputs(plan, result);
+  const text = planResearchText(result, new Set(plan.done ?? []), numbered, plan.research_target, youDecide);
   return {
     content: [{ type: "text", text: problems.length === 0 ? text : `${problems.join(" ")}\n${text}` }],
     structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
@@ -1111,6 +1290,7 @@ async function planResearchAction(
       researchMenu: result,
       ...(problems.length === 0 ? {} : { problems }),
       next_step: planNextStep(result),
+      ...(youDecide === undefined ? {} : { you_decide_later_inputs: youDecide }),
     }),
   };
 }

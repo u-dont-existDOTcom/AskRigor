@@ -346,8 +346,12 @@ export interface ResearchContributorAccessStore {
   setDetailedLessonReports(accountKey: string, enabled: boolean): Promise<boolean>;
   /** Sets the account's findings-card saving; false when the account has no row. */
   setFindingsSave(accountKey: string, enabled: boolean): Promise<boolean>;
-  /** Sets the account's research style, all three parts; false when the account has no row. */
-  setResearchSteering(accountKey: string, steering: ResearchSteering): Promise<boolean>;
+  /**
+   * Changes only the parts of the account's research style the change names, in one write, and returns the style as
+   * stored after it; undefined when the account has no row (the review of 12 Nov 2026: two chats each changing one
+   * part read the whole style, and the later write put back the part the other had changed).
+   */
+  setResearchSteering(accountKey: string, change: Partial<ResearchSteering>): Promise<ResearchSteering | undefined>;
 }
 
 export interface ResearchContributorAccessServiceOptions {
@@ -693,12 +697,12 @@ export class ResearchContributorAccessService {
    */
   async setResearchSteering(subject: string, change: Partial<ResearchSteering>): Promise<ResearchSteering> {
     await this.requireActive(subject);
-    const accountKey = this.accountKeyForSubject(subject);
-    const steering = researchSteeringSchema.parse({
-      ...researchSteeringOf(await this.store.getAccount(accountKey)),
-      ...Object.fromEntries(Object.entries(change).filter(([, value]) => value !== undefined)),
-    });
-    if (!await this.store.setResearchSteering(accountKey, steering)) {
+    // Only the parts given, each checked, go to the store, which changes them alone in one write: no read of the whole
+    // style first, which a concurrent change could make stale (the review of 12 Nov 2026).
+    const parts = researchSteeringSchema.partial().parse(
+      Object.fromEntries(Object.entries(change).filter(([, value]) => value !== undefined)));
+    const steering = await this.store.setResearchSteering(this.accountKeyForSubject(subject), parts);
+    if (steering === undefined) {
       throw new ResearchAccessError(
         "RESEARCH_ACCESS_REQUIRED",
         "Choose free contributor mode or activate an existing paid private entitlement before using AskRigor research tools.",
@@ -901,11 +905,14 @@ implements ResearchContributorAccessStore {
     return true;
   }
 
-  async setResearchSteering(accountKey: string, steering: ResearchSteering): Promise<boolean> {
+  // Read and written with no await between them, so no other change runs in between.
+  async setResearchSteering(accountKey: string, change: Partial<ResearchSteering>): Promise<ResearchSteering | undefined> {
     const account = this.accounts.get(accountKey);
-    if (account === undefined) return false;
-    this.accounts.set(accountKey, { ...account, researchSteering: { ...steering } });
-    return true;
+    if (account === undefined) return undefined;
+    const steering = { ...researchSteeringOf(account),
+      ...Object.fromEntries(Object.entries(change).filter(([, value]) => value !== undefined)) } as ResearchSteering;
+    this.accounts.set(accountKey, { ...account, researchSteering: steering });
+    return { ...steering };
   }
 
   /**
@@ -1110,15 +1117,22 @@ implements ResearchContributorAccessStore {
     return result.rowCount !== 0;
   }
 
-  // saveAccount and revokeAccount leave the research style as it is: a new row takes the columns' defaults (0033).
-  async setResearchSteering(accountKey: string, steering: ResearchSteering): Promise<boolean> {
-    const result = await this.pool.query(
+  // saveAccount and revokeAccount leave the research style as it is: a new row takes the columns' defaults (0033). One
+  // statement changes the parts named and keeps the others as stored at that moment, so concurrent changes to different
+  // parts both stay.
+  async setResearchSteering(accountKey: string, change: Partial<ResearchSteering>): Promise<ResearchSteering | undefined> {
+    const result = await this.pool.query<{ research_style: string; check_back_minutes: number; adjustment_detail: string }>(
       `UPDATE ${this.schema}.research_use_accounts
-          SET research_style = $2, check_back_minutes = $3, adjustment_detail = $4
-        WHERE account_key = $1`,
-      [accountKey, steering.style, steering.checkBackMinutes, steering.adjustmentDetail],
+          SET research_style = COALESCE($2::text, research_style),
+              check_back_minutes = COALESCE($3::integer, check_back_minutes),
+              adjustment_detail = COALESCE($4::text, adjustment_detail)
+        WHERE account_key = $1
+        RETURNING research_style, check_back_minutes, adjustment_detail`,
+      [accountKey, change.style ?? null, change.checkBackMinutes ?? null, change.adjustmentDetail ?? null],
     );
-    return result.rowCount !== 0;
+    const row = result.rows[0];
+    return row === undefined ? undefined : researchSteeringSchema.parse({ style: row.research_style,
+      checkBackMinutes: row.check_back_minutes, adjustmentDetail: row.adjustment_detail });
   }
 
   // How the notice was accepted goes with the acceptance time, activated_at: migration 0031's trigger clears the pair

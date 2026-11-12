@@ -369,6 +369,27 @@ async function verify(
       steeringRefused = true;
     }
     assert(steeringRefused, "RESEARCH_STEERING_CHECK_NOT_ENFORCED");
+    // The review of 12 Nov 2026: changes to different parts of the style from chats at once, beside the account's other
+    // switches, each keep their own, since every write changes only what it names, in one statement.
+    const beforeInterleaved = await service.activeAccount(PAID_SUBJECT);
+    await Promise.all([
+      service.setResearchSteering(PAID_SUBJECT, { style: "autonomous" }),
+      service.setResearchSteering(PAID_SUBJECT, { checkBackMinutes: 45 }),
+      service.setResearchSteering(PAID_SUBJECT, { adjustmentDetail: "flagged" }),
+      service.setPlainAnswerNote(PAID_SUBJECT, !beforeInterleaved.plainAnswerNote),
+      service.setDetailedLessonReports(PAID_SUBJECT, !beforeInterleaved.detailedLessonReports),
+    ]);
+    const interleaved = await service.activeAccount(PAID_SUBJECT);
+    assert(
+      interleaved.steering.style === "autonomous" && interleaved.steering.checkBackMinutes === 45 &&
+        interleaved.steering.adjustmentDetail === "flagged" &&
+        interleaved.plainAnswerNote === !beforeInterleaved.plainAnswerNote &&
+        interleaved.detailedLessonReports === !beforeInterleaved.detailedLessonReports,
+      "RESEARCH_SETTINGS_INTERLEAVED_CHANGE_LOST",
+    );
+    await service.setPlainAnswerNote(PAID_SUBJECT, beforeInterleaved.plainAnswerNote);
+    await service.setDetailedLessonReports(PAID_SUBJECT, beforeInterleaved.detailedLessonReports);
+    checks.push("research_settings_interleaved_changes_each_kept");
     await service.setResearchSteering(PAID_SUBJECT, { style: "balanced", checkBackMinutes: 10, adjustmentDetail: "flagged" });
     checks.push("research_steering_stored_with_defaults_and_kept_by_save");
 
@@ -796,6 +817,12 @@ async function verifyCallRecord(context: { admin: Pool; restricted: Pool; checks
   await record.record({ ...entry, receivedAt: before });
   await record.record({ ...entry, receivedAt: new Date(before.getTime() + 1) });
   assert((await record.list(accountKey, at)).length === 2, "CALL_RECORD_SEVEN_DAY_BOUNDARY_WRONG");
+  // Greptile's review of 12 Nov 2026: list_calls pages by time, and the bound is strict, so a page starting at the last
+  // call shown repeats none.
+  const [newest, older] = await record.list(accountKey, at);
+  const paged = await record.list(accountKey, at, newest!.receivedAt);
+  assert(paged.length === 1 && paged[0]!.receivedAt.getTime() === older!.receivedAt.getTime(),
+    "CALL_RECORD_BEFORE_BOUND_WRONG");
   assert(await record.sweep(at) === 2, "CALL_RECORD_SWEEP_COUNT_WRONG");
   assert(await record.sweep(at) === 0, "CALL_RECORD_SWEEP_NOT_IDEMPOTENT");
   assert(await record.sweep(new Date(at.getTime() + 1)) === 1, "CALL_RECORD_SWEEP_BOUNDARY_WRONG");

@@ -228,12 +228,22 @@ was released on 12 November:
   balanced asks when the recommended tasks could take more than about 10 minutes (the high end of their range) or the
   person's choices could steer the research, as they usually can unless the question is precise (owner answer 284, 10
   November 2026); autonomous goes on, and after the allowance checks what it has and gives that answer, ending with the
-  open tasks as a numbered menu and the question whether to spend more time on them; a person's allocation is followed.
+  open tasks as a numbered menu and the question whether to spend more time on them; a person's allocation is followed,
+  in their own minutes as given (only AskRigor's own estimates are rounded for the menu; 12 November 2026).
   An allocation that names no task on the menu still open counts as none, so the menu recommends and decides as if
   none had come (11 November 2026); whether the menu may ask for a task near the top, which would renumber it, goes by
   whether an allocation or a done list was given at all. A re-plan (tasks done, and no allocation that counts as the
   person's answer) with something to recommend asks, unless the person chose autonomous research, so a new task comes
-  back to the person and a task they skipped isn't done unasked (12 November 2026).
+  back to the person and a task they skipped isn't done unasked (12 November 2026). A re-plan before any task was done
+  has no done list, so each result also carries `researchMenu.menu_digest`, a digest of its task list keyed with the
+  server's signing secret, which the next call passes back in `researchMenu.menu_digest`: when the call's tasks differ
+  from it in number, or in any task's kind, what it could change or its loop, and the call carries no allocation that
+  counts as the person's answer, the AI changed the menu on its own, so research that may ask asks and shows the
+  changed menu (the review of 12 November 2026). A call with the person's allocation goes on with it, under every
+  style, since they may have changed the menu themselves when they redirected the research (Greptile's review of 12
+  November 2026: autonomous research dropped that allocation for the default tasks). A task's wording, sources and
+  minutes are not compared, so a model that retypes the menu, or estimates a time again, isn't taken to have changed
+  it. A call without a digest is planned as before.
   Since 11 November 2026 (the owner: "it's still not asking me any steering questions"), an ask ends the turn. Its
   text puts the stop first: the reason, worded as the person's own setting, and that the whole reply is the message
   that follows, after any urgent action, with no research call and no final check, since a question is not an answer
@@ -245,7 +255,10 @@ was released on 12 November:
   target word for word as the menu gave it (or, when the plain answer's receipt shows it is not the registered one, as
   `register_plain_answer`'s result quoted it), "you decide" or "continue" meaning the recommended allocation, a changed
   question registered again with a framing of its own, and never an allocation the person did not give or leave to the
-  AI. Nothing follows that rule. A result that goes on says to do the tasks and then give the checked answer in the
+  AI. Since 12 November 2026 the rule says the allocation goes inside `researchMenu`, and when the ask recommends
+  something for the registered target, the "you decide" call follows it, ready to copy: the same menu with the
+  recommended allocation inside it, also given as the runtime field `you_decide_later_inputs` (in the owner's ChatGPT
+  run, "you decide" took seven calls). Nothing else follows. A result that goes on says to do the tasks and then give the checked answer in the
   same turn, asks for a line before each task, sends a new fork that could change the conclusion back through
   `plan_research` with the tasks done and without the allocation, so the rule decides afresh (not in autonomous
   research, which checks and answers instead), says how to resume after a stop or a change of direction, asks for a
@@ -253,6 +266,18 @@ was released on 12 November:
   choice. With the plain answer's receipt it says whether the research
   target is the registered one, word for word but for case and spacing, and how many minutes have passed since. Nothing
   of the menu is stored.
+- **The menu as a model guesses it** (12 November 2026: in the owner's ChatGPT at Extra High, every run's
+  `plan_research` was refused three to five times before one passed). Before the call's inputs are checked
+  (`withResearchMenuReading`), the menu is read in its own names: a key whose snake_case form is a menu or task field
+  is that field (`researchTarget`, `couldChange`), a task's `title` or `name` is its text when it gives none, one
+  number for a task's `minutes` is the range `[n, n]`, a null optional field is left out, `user_allocation` and
+  `allocations` are the allocation, and an allocation or done list beside the menu in `later_inputs` goes inside it
+  when it has none. Every other key is ignored, and the result names what was ignored or moved in one sentence, after
+  its text and among its `problems`. Values stay strict: a task is an object, and `kind` and `could_change` are one of
+  their values. A menu still not readable, or none, is refused with valid structured content (ChatGPT shows an error
+  result without it only as "The tool failed internally"): its problems, and `corrected_later_inputs`, an example
+  built from the call's own research target and task texts, with a placeholder listing the values wherever a kind or
+  could_change is missing or not one of them.
 - **The next step for apps that read only the structured content.** Claude Code hands its model a result's structured
   content and leaves out its text (`docs/claude-connector.md`). So `register_plain_answer` and `plan_research` also
   give their next step as `next_step`, a runtime field (owner answer 189a), as `inspect` does for the free-use notice:
@@ -263,7 +288,10 @@ was released on 12 November:
   or `autonomous`; `checkBackMinutes`: 1 to 120; `adjustmentDetail`: `flagged` or `all`), any of them, for an active
   account; `inspect` shows it. Migration `0033_research_steering` stores the three choices on `research_use_accounts`,
   `balanced`, 10 and `flagged` by default, with a check on their values; saving or revoking the account leaves them
-  as they are.
+  as they are. A change writes only the parts it names, in one statement that keeps the others as stored at that
+  moment, so two chats changing different parts at once both keep theirs (the review of 12 November 2026: the service
+  read the whole style and wrote it back, so the later write undid the other's change); the account's other switches
+  each write only their own column.
 
 ## The call record (owner answer 280a, 9 November 2026; released the same day)
 
@@ -272,7 +300,13 @@ each MCP tool call from a signed-in research account: the account key, the time,
 action, the route, whether ChatGPT's signals came with it, the outcome (answered, refused with its fixed code, or
 failed) and the time taken. Migration `0032_research_call_record` holds it; each row is deleted 7 days after its call,
 by the account's next call and an hourly sweep. The runtime-only action `list_calls` shows the account its own calls,
-newest first, and `inspect` names the action when the server keeps a record. Recording never delays or changes a
+newest first, and `inspect` names the action when the server keeps a record. Since 12 November 2026 (500 calls came to
+about 85 KB, more than Claude's clients take in) a listing shows the calls that fit 40,000 bytes of text and structured
+content as the app gets it, the tool-list notice included (`MCP_RESULT_MAX_BYTES`, the YouTube audit's budget), says
+which it shows, and gives the time the next page starts from: the runtime-only `later_inputs.callsPage` (`before`,
+`limit`) shows the calls received before that time, so pages don't shift as each listing is itself recorded, and they
+reach past the newest 500; a page never ends inside calls received in the same millisecond (Greptile's review of 12
+November 2026). Recording never delays or changes a
 result, and a failed write is dropped silently. Calls without a valid sign-in and Custom GPT Action calls are not
 recorded. The privacy page and `docs/privacy-data-map.md` ("The call record") describe it; the access role has INSERT,
 SELECT and DELETE on the table only, and the canonical reader none.

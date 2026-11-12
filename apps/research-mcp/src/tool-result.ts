@@ -146,6 +146,16 @@ export function resultForClient(tool: string, result: CallToolResult, chatGpt: b
   };
 }
 
+/**
+ * What a result costs the client that reads the most of it (the review of 12 Nov 2026): its text, and the JSON copy of
+ * its structured content that resultForClient adds for a client that reads only text. A client that reads the
+ * structured content alone, as Claude Code does, reads less.
+ */
+export function clientResultBytes(result: CallToolResult): number {
+  const text = result.content.reduce((sum, block) => sum + (block.type === "text" ? Buffer.byteLength(block.text, "utf8") : 0), 0);
+  return text + (result.structuredContent === undefined ? 0 : Buffer.byteLength(JSON.stringify(result.structuredContent), "utf8"));
+}
+
 /** The content with a sentence added to its first text block, the summary. */
 function withSummarySentence(content: CallToolResult["content"], sentence: string): CallToolResult["content"] {
   const index = content.findIndex((block) => block.type === "text");

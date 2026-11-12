@@ -281,6 +281,14 @@ key on 9 Nov (its own allowance, about 1,000 searches a day, nothing prepaid), w
 as `OPENALEX_API_KEY` with the release that carries the search, moved unseen by a script as owner answer 177a
 allowed for the Atlas secret.
 The privacy notice names OpenAlex: date it on the release day.
+Since 12 November 2026 (the review: with abstracts of up to 2,000 characters, a page of 50 came to about 130 KB), an
+all-journals result keeps OpenAlex's records in their order while the whole result fits 40,000 bytes of text and
+structured content (`MCP_RESULT_MAX_BYTES`, the YouTube audit's budget), says "This result shows N of the M records
+OpenAlex returned", leaves out the next cursor that would skip the rest, and signs only the records shown. A small
+search (50 records or fewer) is read whole, so it can't be paged with OpenAlex's cursor: when it is cut, its
+`next_cursor` is AskRigor's own (`askrigor-whole-search-from:N`), which reads the search whole again and shows it from
+record N on (Greptile's review of 12 November 2026: the advice to search again with a smaller page size read it whole
+again and cut it to the same first records).
 
 ## Built on 11 Nov: an ask ends the turn, and a pass ends the checking (released 12 Nov, owner answer 292a)
 

@@ -25,7 +25,11 @@ export interface ResearchCallRecordEntry {
 
 export interface ResearchCallRecordStore {
   record(entry: ResearchCallRecordEntry): Promise<void>;
-  list(accountKey: string, now: Date): Promise<ResearchCallRecordEntry[]>;
+  /**
+   * The account's newest 500 calls of the last 7 days, newest first; with before, only those received before it, so a
+   * listing can page by time while new calls, the listing's own included, are recorded (the review of 12 Nov 2026).
+   */
+  list(accountKey: string, now: Date, before?: Date): Promise<ResearchCallRecordEntry[]>;
   sweep(now: Date): Promise<number>;
 }
 
@@ -59,9 +63,10 @@ export class InMemoryResearchCallRecordStore implements ResearchCallRecordStore 
     this.entries.push(copy(entry));
   }
 
-  async list(accountKey: string, now: Date): Promise<ResearchCallRecordEntry[]> {
-    const before = cutoff(now);
-    return this.entries.filter((row) => row.accountKey === accountKey && row.receivedAt > before)
+  async list(accountKey: string, now: Date, before?: Date): Promise<ResearchCallRecordEntry[]> {
+    const oldest = cutoff(now);
+    return this.entries.filter((row) => row.accountKey === accountKey && row.receivedAt > oldest &&
+      (before === undefined || row.receivedAt < before))
       .sort((a, b) => b.receivedAt.getTime() - a.receivedAt.getTime()).slice(0, 500).map(copy);
   }
 
@@ -92,14 +97,15 @@ export class PostgresResearchCallRecordStore implements ResearchCallRecordStore 
       entry.outcome, entry.code, entry.durationMs, planNextOf(entry) ?? null]);
   }
 
-  async list(accountKey: string, now: Date): Promise<ResearchCallRecordEntry[]> {
+  async list(accountKey: string, now: Date, before?: Date): Promise<ResearchCallRecordEntry[]> {
     const result = await this.pool.query<{
       account_key: string; received_at: Date; tool: string; action: string | null;
       route: ResearchCallRecordEntry["route"]; chatgpt: boolean; outcome: ResearchCallRecordEntry["outcome"];
       code: string | null; duration_ms: number; plan_next: ResearchPlanDecision | null;
     }>(`SELECT account_key, received_at, tool, action, route, chatgpt, outcome, code, duration_ms, plan_next
-      FROM ${this.table} WHERE account_key = $1 AND received_at > $2 ORDER BY received_at DESC LIMIT 500`,
-    [accountKey, cutoff(now)]);
+      FROM ${this.table} WHERE account_key = $1 AND received_at > $2 AND ($3::timestamptz IS NULL OR received_at < $3)
+      ORDER BY received_at DESC LIMIT 500`,
+    [accountKey, cutoff(now), before ?? null]);
     return result.rows.map((row) => ({ accountKey: row.account_key, receivedAt: row.received_at,
       tool: row.tool, action: row.action, route: row.route, chatgpt: row.chatgpt, outcome: row.outcome,
       code: row.code, durationMs: row.duration_ms, ...(row.plan_next === null ? {} : { planNext: row.plan_next }) }));

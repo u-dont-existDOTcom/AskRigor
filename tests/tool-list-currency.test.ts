@@ -108,6 +108,18 @@ describe("telling the user when the app's copy of AskRigor's tools is out of dat
     expect(text(current)).not.toContain(TOOL_LIST_REFRESH_SENTENCE);
   });
 
+  it("puts the notice after the result's own text on the steps after inspect, so an ask's stop comes first", async () => {
+    // The 12 Nov 2026 release check: plan_research with no tool_list_version read the notice before "Ask now".
+    const client = await connect();
+    const later = await client.callTool({ name: "manage_research_access", arguments: { action: "plan_research" } });
+    const parts = (later.content as Array<{ type: string; text?: string }>).map(({ text: part }) => part ?? "");
+    expect(parts[0].startsWith("If get_protocol_manifest in this app's tool list has no tool_list_version field")).toBe(false);
+    // After the result's own text (a text-only client's JSON copy of the structured result may follow it).
+    expect(parts.slice(1).some((part) => part.startsWith("If get_protocol_manifest in this app's tool list has no tool_list_version field"))).toBe(true);
+    const first = await client.callTool({ name: "manage_research_access", arguments: { action: "inspect" } });
+    expect(text(first).startsWith("If get_protocol_manifest in this app's tool list has no tool_list_version field")).toBe(true);
+  });
+
   it("asks the model to tell the user when the final check misses a field the app's tools may lack", () => {
     expect(TOOL_LIST_REFRESH_HINT).toContain("tell the user, in their language");
     expect(TOOL_LIST_REFRESH_HINT).toContain("refreshing AskRigor in the app's settings and starting a new chat");

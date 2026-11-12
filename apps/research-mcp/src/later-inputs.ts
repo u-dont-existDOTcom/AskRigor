@@ -22,6 +22,16 @@ import { challengeMarkInputShape } from "./atlas/challenge-review.js";
 import { claimCoverageSchema } from "./claim-coverage.js";
 import { framingSchema, researchMenuSchema, researchSteeringInputSchema } from "./research-steering.js";
 
+/**
+ * list_calls' page: the calls received before a time, as a previous listing's next_before gave it (the review of 12 Nov
+ * 2026: a position shifted as each listing was itself recorded, so pages repeated a call), and at most limit of them.
+ */
+export const callsPageSchema = z.object({
+  before: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/u,
+    "a UTC time such as 2026-11-12T18:39:07.272Z, as calls_page.next_before gave it").optional(),
+  limit: z.number().int().min(1).max(500).optional(),
+}).strict();
+
 /** search_europe_pmc's later index (owner answer 283a): europe_pmc, the default, or all_journals (OpenAlex). */
 export const SEARCH_INDEXES = ["europe_pmc", "all_journals"] as const;
 
@@ -173,6 +183,10 @@ const LATER_INPUT_SHAPES = Object.freeze({
     researchSteering: researchSteeringInputSchema.optional()
       .describe("With set_research_steering, when the person asks: style, checkBackMinutes and adjustmentDetail, any " +
         "of them."),
+    // The review of 12 Nov 2026: list_calls shows what fits one result; its result says where the next ones start.
+    callsPage: callsPageSchema.optional()
+      .describe("With list_calls: offset, how many of the newest calls to pass over (0 by default), and limit, at most " +
+        "how many to show; a result shows as many as fit and says where the next ones start."),
   },
   review_research_contribution: {
     sharedAnswerId: sharedAnswerIdSchema.optional()
