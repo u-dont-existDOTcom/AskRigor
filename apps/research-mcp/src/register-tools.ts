@@ -233,6 +233,7 @@ import {
   submitResearchContributionConnectorInputSchema,
   submitResearchContributionInputSchema,
   submitResearchContributionOutputSchema,
+  submitResearchContributionRuntimeOutputSchema,
   submitServerSourceAnalysis,
   type ResearchMapOptions,
 } from "./research-contributor-access-tool.js";
@@ -4113,6 +4114,7 @@ function collectResearchOperations(
         ? config.outputSchema : z.object(config.outputSchema as z.ZodRawShape);
       const runtimeOutputSchema = name === "finalize_research" ? finalizeResearchOutputSchema
         : name === "manage_research_access" ? manageResearchAccessRuntimeOutputSchema
+        : name === "submit_research_contribution" ? submitResearchContributionRuntimeOutputSchema
         : name === "review_research_contribution" ? researchContributionReviewRuntimeOutputSchema
         : name === "get_youtube_video" || name === "get_youtube_comments" || name === "search_youtube_comments"
           ? publishedOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE)

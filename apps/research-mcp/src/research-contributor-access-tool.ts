@@ -371,6 +371,29 @@ export const submitResearchContributionOutputSchema = z.object({
   problemsNotShown: z.number().int().positive().optional(),
 }).strict();
 
+/**
+ * Its results as the server checks them (owner answer 189a keeps the published shape): with a filed research map, the
+ * next step, which carries the answer's closing line and where it goes, for an app that hands its model only the
+ * structured content (Claude Code; the review of 12 Nov 2026).
+ */
+export const submitResearchContributionRuntimeOutputSchema = submitResearchContributionOutputSchema.extend({
+  next_step: z.string().optional()
+    .describe("With a filed research map: how the answer shows it was filed, with the line and where it goes."),
+});
+
+/**
+ * What a filed research map's answer does (11 Nov 2026): filed after this turn's check passed, the answer ends with the
+ * map's line itself, so filing asks for no new final check (in the 10 Nov timing runs, 49 of 88 checks came after a pass
+ * in the same turn); filed before, its receipt goes to the check with the others, whose result then gives the line, as
+ * the server instructions and the skill say.
+ */
+export function researchMapFiledStep(): string {
+  return "If this turn's final check has already passed, end the answer, after any saved line and just before the " +
+    "check line, with this line, as written (in the answer's language when it is not in English): " +
+    `${researchMapSavedLine(undefined)} Otherwise, give finalize_research this research_receipt with the research ` +
+    "receipts, and its result gives that line.";
+}
+
 export interface ResearchContributorToolOptions {
   service?: ResearchContributorAccessService;
   callRecord?: ResearchCallRecordStore;
@@ -1209,22 +1232,15 @@ export function createSubmitResearchContributionHandler(
             type: "text",
             text: `${proposal.proposalKind === "RESEARCH_FRONTIER" ? "Research frontier" : proposal.proposalKind === "TOPIC_LINK" ? "Topic link" : "Source analysis"} proposal ${proposal.writeStatus === "inserted" ? "entered" : "was already present in"} the review inbox. Canonical evidence was not changed.${continued}`,
           },
-          // 11 Nov 2026: filed after this turn's check passed, the map gives the answer's closing line itself, so it asks
-          // for no new final check (in the 10 Nov timing runs, 49 of 88 checks came after a pass in the same turn); filed
-          // before, its receipt goes to the check with the others, whose result then gives the line, as the server
-          // instructions and the skill say.
           ...(mapReceipt === undefined ? [] : [
             { type: "text" as const, text: `research_receipt: ${mapReceipt}` },
-            { type: "text" as const, text: "If this turn's final check has already passed, end the answer, after any " +
-              "saved line and just before the check line, with this line, as written (in the answer's language when it " +
-              `is not in English): ${researchMapSavedLine(undefined)} Otherwise, give finalize_research this ` +
-              "research_receipt with the research receipts, and its result gives that line." },
+            { type: "text" as const, text: researchMapFiledStep() },
           ]),
         ],
-        structuredContent: submitResearchContributionOutputSchema.parse({
+        structuredContent: submitResearchContributionRuntimeOutputSchema.parse({
           ok: true,
           proposal,
-          ...(mapReceipt === undefined ? {} : { research_receipt: mapReceipt }),
+          ...(mapReceipt === undefined ? {} : { research_receipt: mapReceipt, next_step: researchMapFiledStep() }),
         }),
       };
     } catch (error) {
