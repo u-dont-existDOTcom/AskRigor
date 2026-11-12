@@ -3095,12 +3095,14 @@ const MCP_BOUNDED_SAMPLE_LIMITATION =
 /**
  * What a video audit's text says when its view shows only part of what it retrieved (AskRigor#438): how many records it
  * shows, that an order blind to their content picked them (a hash of each comment's id), and the tool that returns
- * them all, get_youtube_comments, which the MCP view does not cut.
+ * them all, get_youtube_comments, which the MCP view does not cut. That result is large: each full record carries its
+ * metadata, so hundreds of records pass what some apps take in at once (Claude Code inlines about 50,000 characters,
+ * claude.ai about 150,000), and the sentence says to read it only when the rest could change the answer.
  */
 export function commentsShownSentence(shown: number, retrieved: number): string {
   return `This result shows ${shown} of the ${retrieved} comment records retrieved, picked by an order that ignores ` +
-    "what they say; to read the rest, call get_youtube_comments for this video, which returns all its comments and " +
-    "replies, untrimmed.";
+    `what they say. get_youtube_comments returns all ${retrieved} at once, a large result that can be more than some ` +
+    "apps take in, so call it for this video only when the comments not shown could change the answer.";
 }
 // 11 Nov 2026: a ChatGPT run said it had read a video's transcript from get_youtube_video, then took it back. The
 // result holds YouTube's details of the video, not its words; extract_youtube_video_claims, which reads the video

@@ -713,9 +713,11 @@ describe("AskRigor MCP tools", () => {
       expect(returned).toBeLessThan(250);
       // AskRigor#438: the text says how many of the retrieved records this view shows, that an order blind to what they
       // say picked them, and which tool returns them all, beside the retrieval count.
+      // The review of 11 Nov 2026: get_youtube_comments returns them all at once, which can pass what an app takes in,
+      // so the sentence says so and when it is worth it.
       const shownSentence = `This result shows ${returned} of the 250 comment records retrieved, picked by an order ` +
-        "that ignores what they say; to read the rest, call get_youtube_comments for this video, which returns all its " +
-        "comments and replies, untrimmed.";
+        "that ignores what they say. get_youtube_comments returns all 250 at once, a large result that can be more " +
+        "than some apps take in, so call it for this video only when the comments not shown could change the answer.";
       expect(commentsShownSentence(returned, 250)).toBe(shownSentence);
       expect((result.content as Array<{ text: string }>)[0]!.text).toMatch(new RegExp("^YouTube video audit retrieved " +
         "250 record\\(s\\) cumulatively; this video's comments lock pass \\(this video only\\)\\. This result shows " +
