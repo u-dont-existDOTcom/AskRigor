@@ -192,6 +192,51 @@ describe("search_europe_pmc with later_inputs.index all_journals", () => {
     expect(searchRecords(verified.claims, (value) => value.toLowerCase())).toHaveLength(shown);
   });
 
+  // Greptile's review of 12 Nov 2026: a small search is read whole, so following the advice to search again with a
+  // smaller page_size read it whole again and cut it to the same first records. Its continuation now reads it whole and
+  // shows it from the first record not shown, so every record is reached once.
+  it("gives a cut small search a continuation that reaches every record once", async () => {
+    const words = Object.fromEntries(Array.from({ length: 600 }, (_, index) => [`mot${index}`, [index]]));
+    const works = Array.from({ length: 40 }, (_, index) => work({ id: `https://openalex.org/W30000000${10 + index}`,
+      doi: `https://doi.org/10.9999/SYNTH.2002.${index}`, ids: {}, abstract_inverted_index: words }));
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      requests.push(url);
+      const perPage = Number(url.searchParams.get("per_page"));
+      // A small search is read from its start: AskRigor's continuation never reaches OpenAlex as a cursor.
+      expect(url.searchParams.get("cursor")).toBe("*");
+      return page(works.slice(0, perPage), { count: 40, next_cursor: perPage < 40 ? "openalex-next" : null });
+    }));
+    type Output = { data: Array<{ id: string }>; pagination: { next_cursor?: string; returned: number };
+      records_shown?: { shown: number; of: number } };
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    let pages = 0;
+    do {
+      expect(pages, "pages stopped moving").toBeLessThan(15);
+      const result = await callSearch({ query: "seed oil", ...(cursor === undefined ? {} : { cursor }),
+        later_inputs: { index: "all_journals" } });
+      pages += 1;
+      expect(result.isError, JSON.stringify(result).slice(0, 300)).not.toBe(true);
+      expect((result.content as Array<{ text: string }>).reduce((sum, { text }) => sum + Buffer.byteLength(text, "utf8"),
+        0)).toBeLessThanOrEqual(MCP_RESULT_MAX_BYTES);
+      const output = result.structuredContent as Output;
+      seen.push(...output.data.map(({ id }) => id));
+      const text = (result.content as Array<{ text: string }>)[0]!.text;
+      if (output.pagination.next_cursor !== undefined) {
+        expect(output.pagination.next_cursor).toBe(`askrigor-whole-search-from:${seen.length}`);
+        expect(text).toContain("To read the others, search again with the same query, later_inputs.index " +
+          "all_journals and cursor set to this result's next_cursor, page by page.");
+      }
+      if (cursor !== undefined) expect(text).toContain(`, from record ${seen.length - output.data.length + 1} of the ` +
+        "whole search on, as next_cursor asked;");
+      cursor = output.pagination.next_cursor;
+    } while (cursor !== undefined);
+    expect(pages).toBeGreaterThan(1);
+    expect(seen).toEqual(works.map(({ id }) => (id as string).split("/").at(-1)));
+  });
+
   it("uses the operator's key when one is set, and never shows it", async () => {
     vi.stubEnv("OPENALEX_API_KEY", KEY);
     const requests: URL[] = [];
