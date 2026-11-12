@@ -651,6 +651,10 @@ export function createManageResearchAccessHandler(
       options.toolListVersion,
     );
     if (notice === undefined) return result;
+    // The 12 Nov release check (Codex's AskRigor app): a plan_research call that sent no tool_list_version read this
+    // notice before "Ask now", the stop the 11 Nov build puts first. Inspect keeps it first, as the owner asked; on
+    // the steps after inspect the result's own next step comes first and the notice follows it.
+    if (input.action !== "inspect") return { ...result, content: [...result.content, { type: "text", text: notice }] };
     const [first, ...rest] = result.content;
     return first?.type === "text"
       ? { ...result, content: [{ ...first, text: `${notice} ${first.text}` }, ...rest] }
