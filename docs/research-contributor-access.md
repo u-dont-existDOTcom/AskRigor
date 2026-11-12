@@ -191,10 +191,14 @@ verdict on each checkable premise of the question (a fact, a cause, a comparison
 or that something can't be or hasn't been done), each in a sentence of its own,
 first among the claims, as Universal `premise_integrity_and_truth_priority_gate`
 rule 2 asks: the comparison then gives each premise an outcome the person sees.
-A premise doubt in the framing that is not yet a claim asks for the plain answer
-again, before any research call, and the screen searches once for what would show
-each premise wrong. What counts as a premise stays the model's judgment, in any
-language; no check logic changed.
+A doubt in the framing that could be false, not only unclear, and is not yet a
+claim asks for the plain answer again: before any research call, with the same
+framing, when the research goes on; after the person's answer, without the framing,
+when the result asks (the framing isn't stored, and a registration made before the
+ask without it would cancel the ask, while one made after it with its questions
+would ask them again). The screen searches once for what would show each premise
+wrong. What counts as a premise, and which doubts could be false, stays the model's
+judgment, in any language; no check logic changed.
 
 ## Research the person can steer (owner answer 279a, 9 November 2026; released the same day)
 
@@ -205,9 +209,10 @@ is not yet released:
 - **The framing, with the plain answer.** `register_plain_answer` takes `later_inputs.framing`: the question the person
   most likely means, up to three things in it that look inverted, unclear or possibly false, and up to three questions whose answers
   could redirect the research. Its result says first what to do next by the account's research style: ask those
-  questions and end the turn (guided and balanced), say which reading it takes and keep them for the first check-back
-  (autonomous), confirm the question in one line and end the turn (guided, with nothing to ask), or go on; then screen
-  cheaply, in about eight calls, and call `plan_research`. Without a framing, the result asks for one next time. The
+  questions and end the turn (guided and balanced), with the doubts in the one line allowed before them; say which
+  reading it takes and keep them for the first check-back (autonomous); confirm the question in one line, the doubts
+  in it, and end the turn (guided, with nothing to ask); or say which reading it takes and go on. Then it screens
+  cheaply, in about eight calls, and calls `plan_research`. Without a framing, the result asks for one next time. The
   framing is not stored or signed.
 - **The menu of next tasks.** `plan_research` takes `later_inputs.researchMenu`: the research target, up to 12 tasks
   (each with its kind, how many sources, what it could change, and optionally a loop between people's reports and
@@ -224,7 +229,8 @@ is not yet released:
   November 2026); autonomous goes on, and after the allowance checks what it has and gives that answer, ending with the
   open tasks as a numbered menu and the question whether to spend more time on them; a person's allocation is followed.
   An allocation that names no task on the menu still open counts as none, so the menu recommends and decides as if
-  none had come (11 November 2026).
+  none had come (11 November 2026); whether the menu may ask for a task near the top, which would renumber it, goes by
+  whether an allocation or a done list was given at all.
   Since 11 November 2026 (the owner: "it's still not asking me any steering questions"), an ask ends the turn. Its
   text puts the stop first: the reason, worded as the person's own setting, and that the whole reply is the message
   that follows, after any urgent action, with no research call and no final check, since a question is not an answer
@@ -233,11 +239,15 @@ is not yet released:
   said to be not yet checked, and one on what the person's choices could change when they could; the menu, one task
   per line, with the recommendation and the time to check and write the answer; and the question how to spend the
   time. It ends with what to do when the person replies: `plan_research` again with their allocation, the research
-  target word for word as the menu gave it, "you decide" or "continue" meaning the recommended allocation, and never an
-  allocation the person did not give or leave to the AI. Nothing follows that rule. A result that goes on says to do
-  the tasks and then give the checked answer in the same turn, asks for a line before each task, says how to resume
-  after a stop or a change of direction, asks for a task for each lead between people's reports and studies, and words
-  the adjusted-variables look by the account's choice. With the plain answer's receipt it says whether the research
+  target word for word as the menu gave it (or, when the plain answer's receipt shows it is not the registered one, as
+  `register_plain_answer`'s result quoted it), "you decide" or "continue" meaning the recommended allocation, a changed
+  question registered again with a framing of its own, and never an allocation the person did not give or leave to the
+  AI. Nothing follows that rule. A result that goes on says to do the tasks and then give the checked answer in the
+  same turn, asks for a line before each task, sends a new fork that could change the conclusion back through
+  `plan_research` with the tasks done and without the allocation, so the rule decides afresh (not in autonomous
+  research, which checks and answers instead), says how to resume after a stop or a change of direction, asks for a
+  task for each lead between people's reports and studies, and words the adjusted-variables look by the account's
+  choice. With the plain answer's receipt it says whether the research
   target is the registered one, word for word but for case and spacing, and how many minutes have passed since. Nothing
   of the menu is stored.
 - **The next step for apps that read only the structured content.** Claude Code hands its model a result's structured

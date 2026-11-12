@@ -133,15 +133,20 @@ timing runs, 49 of 88 final-check calls came after the check had passed in the s
 in it, call finalize_research again" on every pass and by notes about later inputs; HRP asks for another call only on
 `not_ready`. A passing result now says what a pass covers, the six checks, not whether the search was complete (lesson
 56: a research lane read a pass as the end of discovery), and to give the checked draft now, word for word, followed
-only by the lines it gives for the answer's end; its notes about later inputs (`study_map`, `findings_card`,
-`source_lines` or `community_leads`) are for a later answer, under a heading that says so; and a change that fixes the
-answer itself (a limit that changes what this person should believe or do, limits repeated word for word, or an error
-found in it) is checked once more, the turn's last. A pass after a pass in the same turn, known from the carried state's turn and last status and the
-round token, with no stored state, says it is the turn's last check and sets the runtime-only `turn_already_passed`.
-So that nothing needs a later call, the reading tools give the `source_reading` entry's exact fields
-(`{source, reading, quote}`) and the method audits the study map's exact shape before the first check, and a filed
-research map's own result gives the answer's closing line. The rule of 22 October stays: a draft changed after a pass is
-checked again.
+only by the lines it gives for the answer's end; adding what the result asks the answer to include (its sentences
+given as written, and the closing questions) is not a change to the draft. A note asking to add or resend an input
+(`study_map`, `findings_card`, `source_lines` or `community_leads`) is for a later answer, under a heading that says
+so; a note saying something in the answer is wrong (a quote not in the paper's text, two studies that may be one
+dataset) is fixed now. A change that fixes the answer itself (what a note says is wrong in it, a limit that changes
+what this person should believe or do, limits repeated word for word, or an error found in it) is checked once more,
+the turn's last. A pass after a pass in the same turn, known from the carried state's turn and last status and the
+round token, with no stored state, says it is the turn's last check and sets the runtime-only `turn_already_passed`;
+there the limits guidance, the repeated-limits note and the notes' heading ask for the fix with no further check. So
+that nothing needs a later call, the reading tools give the `source_reading` entry's exact fields
+(`{source, reading, quote}`) and the method audits the study map's exact shape before the first check (on Gemini,
+whose catalog has no final check, only how the study was read, and to count groups of people, not papers), and a
+research map filed after this turn's check passed gives the answer's closing line itself; filed before, its receipt
+goes to the check with the others. The rule of 22 October stays: a draft changed after a pass is checked again.
 
 Runtime operation descriptions, later-input guidance and result text carry these rules. This build adds two tools, so the published definitions and `tests/fixtures/frozen-tool-lists/` change once,
 including the waiting schema corrections. The release requires one refresh in each app; subsequent definitions

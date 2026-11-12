@@ -322,13 +322,26 @@ and stored state are as they were):
    a premise doubt not yet a claim asks for the quick answer again; the screen searches once for what would show each
    premise wrong. What counts as a premise stays the model's judgment.
 8. **A video's comment audit says how many of the retrieved comments it shows** (AskRigor#438: 104 of 997), that an
-   order blind to what they say picked them, and that `get_youtube_comments` returns them all.
+   order blind to what they say picked them, and that `get_youtube_comments` returns them all at once, a large result
+   to read only when the comments not shown could change the answer.
 9. **Every pass says it covers the six checks, not whether the search was complete** (lesson 56: a research lane read
    a pass as the end of discovery).
 
 Sizes: the ask for the test menu (four tasks, balanced) is 2,290 bytes, against a median of 3,584 bytes of
 `plan_research` text in the first turns of the 10 Nov runs; the reminder on each research result grows from 178 to 418
 bytes.
+
+**After an independent review (12 Nov 2026).** Eleven findings, all fixed in the same branch, none changing a check:
+a new fork goes back through `plan_research` without the allocation, so it is recommended or asked about (not in
+autonomous research, which checks and answers instead); when asking, the doubts go in the one line before the questions
+and a new registration of the plain answer waits for the answer and leaves the framing out, which isn't stored (made
+before the ask it cancelled the ask; made after with the framing it would ask again); only a doubt that could be false
+becomes a claim; the rule for the person's answer names the registered research target when the menu's isn't it;
+renumbering goes by whether any allocation or done list was given; a research map filed before the check passes its
+receipt with the others, and one filed after a pass gives the closing line; after a pass, a note saying the answer is
+wrong is fixed now, while one asking for an input waits, and adding what the result asks the answer to include is no
+change to the draft; after a repeat pass nothing asks for another check; on Gemini, the reading and audit sentences
+leave the final check out; and the server instructions keep the urgent-action exception at an ask (2,039 bytes).
 
 **Measuring it.** Criteria written before the runs; for anything changed afterwards, the runs are DEVELOPMENT /
 DISCOVERY data. Nobody runs them without the owner's explicit yes, and none spends on an API.
