@@ -185,8 +185,9 @@ const LATER_INPUT_SHAPES = Object.freeze({
         "of them."),
     // The review of 12 Nov 2026: list_calls shows what fits one result; its result says where the next ones start.
     callsPage: callsPageSchema.optional()
-      .describe("With list_calls: offset, how many of the newest calls to pass over (0 by default), and limit, at most " +
-        "how many to show; a result shows as many as fit and says where the next ones start."),
+      .describe("With list_calls: before, the UTC time a previous result's calls_page.next_before gave, for the calls " +
+        "received before it, and limit, at most how many to show; a result shows as many as fit and says where the " +
+        "next ones start."),
   },
   review_research_contribution: {
     sharedAnswerId: sharedAnswerIdSchema.optional()
