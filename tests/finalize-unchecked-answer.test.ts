@@ -312,6 +312,14 @@ describe("the unchecked line and the previous check in finalize_research's resul
     expect(blocked.text).not.toContain(FIRST_PASS_GUIDANCE);
     expect(blocked.text).not.toContain(REPEAT_PASS_GUIDANCE);
     expect(blocked.text).toContain("AskRigor's final check has not passed");
+    // The review of 12 Nov 2026: the turn keeps its pass through a call that doesn't, so the fix of an edited draft that
+    // failed is still the turn's repeat pass; a new turn starts without it.
+    const fixed = await call(base({ carried_state: blocked.output.carry_forward, round_token: blocked.output.round_token }));
+    expect(fixed.output.status).toMatch(/^ready/u);
+    expect(fixed.output.turn_already_passed).toBe(true);
+    expect(fixed.text).toContain(`\n${REPEAT_PASS_GUIDANCE}`);
+    const nextTurn = await call(base({ carried_state: fixed.output.carry_forward }));
+    expect(nextTurn.output).not.toHaveProperty("turn_already_passed");
     // Nothing in a pass's own sentences asks for another check except a change to the draft itself.
     expect(REPEAT_PASS_GUIDANCE).toContain("don't call finalize_research again in this turn");
     // Lesson 56 (5 Nov 2026): a pass was read as the end of discovery. Every passing result says, in its pass sentence,

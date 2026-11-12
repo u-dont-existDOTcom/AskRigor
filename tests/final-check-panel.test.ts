@@ -74,9 +74,13 @@ describe("verbatim panel limits in the checked draft", () => {
     expect(result.notes).toContain(copyNote(count));
     expect(result.next_steps).toEqual([]);
     expect(result.round).toEqual({ number: 1, limit: 10 });
+    // The round token keeps the turn's pass (the review of 12 Nov 2026), so the recheck is the turn's repeat pass and
+    // its note asks for no further check.
     const recheck = finalizeResearch({ ...input, round_token: result.round_token }, { secret: SECRET });
     expect(recheck.status).toBe("ready_with_limits");
-    expect(recheck.notes).toContain(copyNote(count));
+    expect(recheck.turn_already_passed).toBe(true);
+    expect(recheck.notes).toContain(copyNote(count).replace(", and call finalize_research again with the changed draft.",
+      ", with no further check in this turn."));
     expect(recheck.round).toEqual(result.round);
   });
 

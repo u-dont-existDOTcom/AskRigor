@@ -55,6 +55,7 @@ import {
   readCheckRound,
   roundBinding,
   stoppedCheckBugReport,
+  turnPassedBefore,
   type CheckStep
 } from "./check-rounds.js";
 import { NEXT_STEP_KINDS, type NextStepKind } from "./next-step-kinds.js";
@@ -2027,11 +2028,12 @@ export function finalizeResearch(
   }
   const { carried, invalid: carriedInvalid, firstTurn, previousOpen } =
     checkCarriedState(input, options.secret, callRound.turn, stepSink(addStep, "carried_state"));
-  // 11 Nov 2026: whether this turn's check had already passed. The carried state signs its turn and last status, and
-  // the round token names this call's turn, so a pass after a pass is known without stored state. In the 10 Nov timing
-  // runs, 49 of 88 checks came after a pass in the same turn.
-  const passedEarlierThisTurn = carried?.turn === callRound.turn &&
-    (carried.last_status === "ready" || carried.last_status === "ready_with_limits");
+  // 11 Nov 2026: whether this turn's check had already passed. In the 10 Nov timing runs, 49 of 88 checks came after a
+  // pass in the same turn. The round token keeps it for the turn, through later calls that don't pass (12 Nov, the
+  // review: a pass, an edited draft that failed, then its fix, read as a first pass); the carried state's turn and last
+  // status cover a round token issued before it kept it.
+  const passedEarlierThisTurn = turnPassedBefore(callRound) || (carried?.turn === callRound.turn &&
+    (carried.last_status === "ready" || carried.last_status === "ready_with_limits"));
   if (carried?.research_plan !== undefined &&
       researchTargetDigest(carried.research_plan.research_target) === researchTargetDigest(input.research_target)) {
     input.open_leads ??= carried.research_plan.open_leads;
