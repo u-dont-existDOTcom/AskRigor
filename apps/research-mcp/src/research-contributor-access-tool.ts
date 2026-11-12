@@ -57,7 +57,6 @@ import {
   PLAN_TASK_KINDS,
   RESEARCH_LOOPS,
   FORM_PEOPLE_USE,
-  allocationAnswered,
   framingGuidance,
   framingNextStep,
   planNextStep,
@@ -1072,8 +1071,11 @@ async function planResearchAction(
     matches: read.target === researchTargetDigest(plan.research_target),
     minutesSince: Math.max(0, Math.round((Date.now() - Date.parse(read.issuedAt)) / 60_000)),
   });
-  // 11 Nov 2026: the problems come first, so an ask's text ends with the rule for the person's answer.
-  const text = planResearchText(result, new Set(plan.done ?? []), allocationAnswered(plan), plan.research_target);
+  // 11 Nov 2026: the problems come first, so an ask's text ends with the rule for the person's answer. Whether the
+  // menu's numbers must stay as they are goes by whether an allocation or a done list was given at all, even one that
+  // names no open task; whether to ask goes by allocationAnswered, inside planResearch.
+  const numbered = (plan.allocation ?? []).length > 0 || (plan.done ?? []).length > 0;
+  const text = planResearchText(result, new Set(plan.done ?? []), numbered, plan.research_target);
   return {
     content: [{ type: "text", text: problems.length === 0 ? text : `${problems.join(" ")}\n${text}` }],
     structuredContent: manageResearchAccessRuntimeOutputSchema.parse({

@@ -273,6 +273,16 @@ const SCREEN_FIRST = "Screen first: a few calls (about eight) of searches, abstr
   "turn ends there.";
 
 /**
+ * A doubt about the question becomes a claim of the plain answer only when it could be false, not when it is only
+ * unclear or inverted, which is the person's to settle (11 Nov 2026). Which doubts could be false is the model's
+ * judgment.
+ */
+const PREMISE_NOT_YET_A_CLAIM = "a doubt that could be false, not only unclear, is not yet a claim of the plain answer";
+const PREMISE_VERDICT = "with a sentence giving your quick verdict on it among the claims, so the final check " +
+  "compares it";
+const FRAMING_ANSWERED = "leaving later_inputs.framing out now that the person has answered";
+
+/**
  * What register_plain_answer's result says next, by the account's research style and the framing given with it. Whether
  * a question could redirect the research is the model's own judgment, made when it wrote the framing.
  *
@@ -290,27 +300,41 @@ export function framingGuidance(steering: ResearchSteering, framing: Framing | u
   const doubts = framing.premise_doubts ?? [];
   const questions = framing.redirecting_questions ?? [];
   const parts: string[] = [URGENT_FIRST, `Framing: the person most likely means ${JSON.stringify(framing.likely_question)}.`];
-  if (doubts.length > 0) {
-    parts.push(`Say plainly near the start of your reply what looks inverted or unclear (${doubts.map((doubt) =>
-      JSON.stringify(doubt)).join("; ")}), and which reading you take. If one of these is not yet a claim of the plain ` +
-      "answer, register the plain answer again now, before any research call, with a sentence giving your quick " +
-      "verdict on it among the claims, so the final check compares it.");
-  }
-  if (questions.length > 0) {
-    const asked = questions.map((question, index) => `${index + 1}. ${question}`).join(" ");
-    parts.push(steering.style === "autonomous"
-      ? `The person chose autonomous research, so don't stop to ask: say in one line which reading you take, and ` +
-        `keep these questions for your first check-back: ${asked} Ask now only if one could reverse the answer.`
-      : `Ask the person these questions now, before any research call: ${asked} Your whole reply this turn is these ` +
-        "questions, in the person's language, after the urgent action if the question is urgent, with at most one line " +
-        "before them on what your plain answer suggests, marked not yet checked; then end your turn, with no research " +
-        "call. When they answer: if the answers change the question, register the plain answer again for the new " +
-        "research target; then screen and plan as follows.");
-  } else if (steering.style === "guided") {
+  const doubted = doubts.map((doubt) => JSON.stringify(doubt)).join("; ");
+  const asked = questions.map((question, index) => `${index + 1}. ${question}`).join(" ");
+  if (questions.length > 0 && steering.style !== "autonomous") {
+    // An ask: the doubts go in its one line, and any new registration waits for the answers. The framing isn't stored,
+    // so a registration made now without it would say to screen and cancel the ask; made after the answers with it, it
+    // would ask the answered questions again, so it leaves the framing out.
+    parts.push(`Ask the person these questions now, before any research call: ${asked} Your whole reply this turn is ` +
+      "these questions, in the person's language, after the urgent action if the question is urgent, with at most one " +
+      "line before them on what your plain answer suggests, marked not yet checked" + (doubts.length === 0 ? ""
+        : `, and on what looks inverted, unclear or possibly false in the question (${doubted})`) +
+      "; then end your turn, with no research call. When they answer: " + (doubts.length === 0
+        ? "if the answers change the question, register the plain answer again for the new research target"
+        : "register the plain answer again if the answers change the question (for the new research target) or if " +
+          `${PREMISE_NOT_YET_A_CLAIM} (${PREMISE_VERDICT})`) +
+      `, ${FRAMING_ANSWERED}; then screen and plan as follows.`);
+  } else if (questions.length === 0 && steering.style === "guided") {
     parts.push("The person chose guided research: your whole reply this turn is one line confirming the question you " +
-      "will research and asking for their yes; then end your turn. After their yes, screen and plan as follows.");
+      "will research and asking for their yes" +
+      (doubts.length === 0 ? "" : `, saying in it what looks inverted, unclear or possibly false (${doubted})`) +
+      "; then end your turn. After their yes, " + (doubts.length === 0 ? "" : `if ${PREMISE_NOT_YET_A_CLAIM}, ` +
+        `register the plain answer again ${PREMISE_VERDICT}, ${FRAMING_ANSWERED}; then `) +
+      "screen and plan as follows.");
   } else {
-    parts.push("No question could redirect the research, so go on without asking.");
+    // Going on: the doubts are said with the reading taken, and a registration made now keeps the same framing, which
+    // asks nothing.
+    if (doubts.length > 0) {
+      parts.push("Say plainly near the start of your reply what looks inverted, unclear or possibly false " +
+        `(${doubted}), and which reading you take. If ${PREMISE_NOT_YET_A_CLAIM}, register the plain answer ` +
+        "again now, before any research call, with the same later_inputs.framing and a sentence giving your quick " +
+        "verdict on it among the claims, so the final check compares it.");
+    }
+    parts.push(questions.length > 0
+      ? "The person chose autonomous research, so don't stop to ask: say in one line which reading you take, and " +
+        `keep these questions for your first check-back: ${asked} Ask now only if one could reverse the answer.`
+      : "No question could redirect the research, so go on without asking.");
   }
   parts.push(SCREEN_FIRST);
   return parts.join(" ");
@@ -323,17 +347,22 @@ export function framingGuidance(steering: ResearchSteering, framing: Framing | u
  */
 export function framingNextStep(steering: ResearchSteering, framing: Framing | undefined): string {
   const asks = (framing?.redirecting_questions ?? []).length > 0;
+  const doubts = (framing?.premise_doubts ?? []).length > 0;
   if (framing !== undefined && asks && steering.style !== "autonomous") {
     return "Ask the person your framing's redirecting_questions now and end your turn: no research call until they " +
-      "answer. Then register the plain answer again if their answers change the question, screen, and call action " +
-      "plan_research.";
+      "answer. Then register the plain answer again if their answers change the question" +
+      (doubts ? " or a doubt that could be false is not yet a claim" : "") + ", leaving later_inputs.framing out; then " +
+      "screen and call action plan_research.";
   }
   if (framing !== undefined && !asks && steering.style === "guided") {
     return "Confirm the question you will research in one line, ask for the person's yes and end your turn; after " +
-      "their yes, screen and call action plan_research.";
+      "their yes, " + (doubts ? "register the plain answer again, leaving later_inputs.framing out, if a doubt that " +
+        "could be false is not yet a claim; then " : "") + "screen and call action plan_research.";
   }
-  return "Screen in a few calls (searches, abstracts, thread titles, the Atlas), then call action plan_research with " +
-    "later_inputs.researchMenu; its result says whether to ask the person first.";
+  return (doubts ? "If a doubt that could be false is not yet a claim of the plain answer, register the plain answer " +
+    "again first, with the same later_inputs.framing. " : "") + "Screen in a few calls (searches, abstracts, thread " +
+    "titles, the Atlas), then call action plan_research with later_inputs.researchMenu; its result says whether to ask " +
+    "the person first.";
 }
 
 /**
@@ -516,24 +545,30 @@ const HOW_TO_SPEND = "How should I spend the time? Reply with task numbers and m
  * How the tasks are done once the research goes on (the 279a plan: a task that runs out of time stops and says what it
  * reached; a new fork that could change the conclusion comes back to the person, now through the menu).
  */
-const TASK_GUIDANCE = "Before each task, say in one line what you will read, how deep, and why. A task that runs out " +
-  "of its time stops and says in one line what it reached; the next one begins. A new fork that could change the " +
-  "conclusion comes back to the person through the menu: call plan_research again with done and the new task, and " +
-  "its result says whether to ask now.";
+const TASK_PROGRESS = "Before each task, say in one line what you will read, how deep, and why. A task that runs out " +
+  "of its time stops and says in one line what it reached; the next one begins.";
+/**
+ * A new fork, for the styles that can ask. It leaves the allocation out: a menu that still carries the person's
+ * allocation with an open task goes on, and the new task would be neither recommended nor asked about. Autonomous research
+ * checks what it has and answers instead, as its own sentence says, so it gets none.
+ */
+const NEW_FORK = "A new fork that could change the conclusion comes back to the person through the menu: call " +
+  "plan_research again with done and the new task, leaving allocation out, and its result says whether to ask now.";
 
 /**
- * The plan_research result's text, by the account's style: the ask, or the menu to show while going on. allocated is
- * true once the person gave their own allocation, when the menu's numbering must stay as it is. researchTarget, the
- * menu's own, goes word for word into the rule for the person's answer, which a later turn reads.
+ * The plan_research result's text, by the account's style: the ask, or the menu to show while going on. numbered is
+ * true once an allocation or a done list refers to the menu's task numbers, which must then stay as they are, so the
+ * menu asks for no task near the top. researchTarget, the menu's own, goes word for word into the rule for the person's
+ * answer, which a later turn reads, unless the plain answer's receipt shows it is not the registered one.
  */
-export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<number>, allocated = false,
+export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<number>, numbered = false,
   researchTarget?: string): string {
   const lines = result.tasks.map(({ n, task, could_change, loop, minutes }) =>
     `${n}. ${task}: ${CHANGE_WORDS[could_change]}${loop === undefined ? "" : `, ${LOOP_WORDS[loop]}`}; ` +
     `${minutes === null ? "no estimate" : range(minutes)}${done.has(n) ? " (done)" : ""}.`);
   const chosen = result.recommended.map(({ task, minutes }) => `${task}. ${minutes} min`).join(", ");
   const before: string[] = [];
-  if (!allocated && !result.tasks.some(readsPeoplesReports)) before.push(PEOPLE_TASK_MISSING);
+  if (!numbered && !result.tasks.some(readsPeoplesReports)) before.push(PEOPLE_TASK_MISSING);
   if (result.target_matches_plain_answer === false) {
     before.push("This research_target is not the one registered with the plain answer: give plan_research and " +
       "finalize_research the research target word for word as register_plain_answer's result quoted it, or the " +
@@ -556,13 +591,17 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
           `${ANSWER_MINUTES[1]} min to check and write the answer.`,
       HOW_TO_SPEND,
     ];
+    // A menu whose research target is not the registered one gets the registered one named instead, as the first line
+    // says; without the plain answer's receipt AskRigor can't tell, so the menu's own is quoted.
+    const target = result.target_matches_plain_answer === false ? " as register_plain_answer's result quoted it"
+      : researchTarget === undefined ? "" : ` ${JSON.stringify(researchTarget)}`;
     const rule = "When the person replies: call manage_research_access action plan_research again with the same " +
-      "plain_answer_receipt and tasks, research_target word for word" +
-      (researchTarget === undefined ? "" : ` ${JSON.stringify(researchTarget)}`) + ", and their allocation as a list " +
+      `plain_answer_receipt and tasks, research_target word for word${target}, and their allocation as a list ` +
       "of {task, minutes}; for \"you decide\", or a reply that leaves the choice to you such as \"continue\", " +
       (result.recommended.length === 0 ? "no more research: check the answer with finalize_research and give it"
         : "the recommended allocation") + ". If the reply changes the question, register the plain answer again for " +
-      "the new research target first. Never send an allocation the person did not give or leave to you.";
+      "the new research target first, with later_inputs.framing for it. Never send an allocation the person did not " +
+      "give or leave to you.";
     return [
       ...(before.length === 0 ? [] : [before.join(" ")]),
       [askReason(result) + ASK_NOW, ...since].join(" "),
@@ -585,7 +624,7 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
         "open tasks as a numbered menu and the question whether to spend more time on them."
       : "Go on now: do these tasks in this order, each within its minutes, showing the menu as what you are doing; " +
         "then check the answer with finalize_research and give it in this turn.",
-    TASK_GUIDANCE,
+    result.style === "autonomous" ? TASK_PROGRESS : `${TASK_PROGRESS} ${NEW_FORK}`,
     WORDS_ARE_NOT_SIZES,
     "If the person stops you or changes direction, call plan_research again with done and their new allocation; the " +
       "research target stays word for word the same.",
