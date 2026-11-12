@@ -770,6 +770,21 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
       steering_could_help: false }, next_step: "Do the recommended tasks now, in order, each within its minutes; then " +
       "check the answer with finalize_research and give it in this turn." });
     expect(text(precise)).toContain("The menu to show the person, in their language, numbered as here");
+    // The review of 12 Nov 2026: a menu of detail alone asks with nothing recommended; "you decide" ends the research
+    // there, in next_step as in the text, since sending the empty recommendation would make the same menu ask again.
+    const detailOnly = await manage({ action: "plan_research", later_inputs: { researchMenu: {
+      ...menu(), tasks: [TASKS[2]!], plain_answer_receipt: receipt } } });
+    expect(detailOnly.structuredContent).toMatchObject({ researchMenu: { next: "ask", recommended: [] } });
+    const detailStep = (detailOnly.structuredContent as { next_step: string }).next_step;
+    expect(detailStep).toMatch(/^Ask the person now and end your turn/u);
+    expect(detailStep).toContain("then call action plan_research again with their allocation or, for \"you decide\", " +
+      "do no more research: check the answer with finalize_research and give it.");
+    expect(detailStep).not.toContain("the recommended one");
+    expect(text(detailOnly)).toContain("such as \"continue\", no more research: check the answer with " +
+      "finalize_research and give it.");
+    const emptyAnswer = await manage({ action: "plan_research", later_inputs: { researchMenu: {
+      ...menu(), tasks: [TASKS[2]!], allocation: [], plain_answer_receipt: receipt } } });
+    expect(emptyAnswer.structuredContent).toMatchObject({ researchMenu: { next: "ask" } });
     await service.setResearchSteering("auth0|person", { style: "autonomous" });
     const autonomous = await manage({ action: "plan_research", later_inputs: { researchMenu: menu() } });
     expect((autonomous.structuredContent as { next_step: string }).next_step)

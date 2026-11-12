@@ -652,10 +652,14 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
  */
 export function planNextStep(result: ResearchPlanResult): string {
   if (result.next === "ask") {
+    // A menu with nothing recommended (detail only) gives "you decide" the text's own exit: an empty recommended
+    // allocation counts as no answer, so the same menu would ask again (the review of 12 Nov 2026).
     return "Ask the person now and end your turn: show researchMenu.tasks as a numbered list with their times, the " +
       "recommendation and how to answer (task numbers and minutes, or \"you decide\"). Make no research call and " +
       "don't call finalize_research until they answer; then call action plan_research again with their allocation " +
-      "(for \"you decide\", the recommended one).";
+      (result.recommended.length === 0
+        ? "or, for \"you decide\", do no more research: check the answer with finalize_research and give it."
+        : "(for \"you decide\", the recommended one).");
   }
   return result.style === "autonomous"
     ? `Do the recommended tasks now; after about ${result.check_back_minutes} minutes of research, check what you ` +
