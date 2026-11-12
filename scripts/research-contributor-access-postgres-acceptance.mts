@@ -369,6 +369,27 @@ async function verify(
       steeringRefused = true;
     }
     assert(steeringRefused, "RESEARCH_STEERING_CHECK_NOT_ENFORCED");
+    // The review of 12 Nov 2026: changes to different parts of the style from chats at once, beside the account's other
+    // switches, each keep their own, since every write changes only what it names, in one statement.
+    const beforeInterleaved = await service.activeAccount(PAID_SUBJECT);
+    await Promise.all([
+      service.setResearchSteering(PAID_SUBJECT, { style: "autonomous" }),
+      service.setResearchSteering(PAID_SUBJECT, { checkBackMinutes: 45 }),
+      service.setResearchSteering(PAID_SUBJECT, { adjustmentDetail: "flagged" }),
+      service.setPlainAnswerNote(PAID_SUBJECT, !beforeInterleaved.plainAnswerNote),
+      service.setDetailedLessonReports(PAID_SUBJECT, !beforeInterleaved.detailedLessonReports),
+    ]);
+    const interleaved = await service.activeAccount(PAID_SUBJECT);
+    assert(
+      interleaved.steering.style === "autonomous" && interleaved.steering.checkBackMinutes === 45 &&
+        interleaved.steering.adjustmentDetail === "flagged" &&
+        interleaved.plainAnswerNote === !beforeInterleaved.plainAnswerNote &&
+        interleaved.detailedLessonReports === !beforeInterleaved.detailedLessonReports,
+      "RESEARCH_SETTINGS_INTERLEAVED_CHANGE_LOST",
+    );
+    await service.setPlainAnswerNote(PAID_SUBJECT, beforeInterleaved.plainAnswerNote);
+    await service.setDetailedLessonReports(PAID_SUBJECT, beforeInterleaved.detailedLessonReports);
+    checks.push("research_settings_interleaved_changes_each_kept");
     await service.setResearchSteering(PAID_SUBJECT, { style: "balanced", checkBackMinutes: 10, adjustmentDetail: "flagged" });
     checks.push("research_steering_stored_with_defaults_and_kept_by_save");
 

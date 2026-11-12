@@ -284,7 +284,10 @@ was released on 12 November:
   or `autonomous`; `checkBackMinutes`: 1 to 120; `adjustmentDetail`: `flagged` or `all`), any of them, for an active
   account; `inspect` shows it. Migration `0033_research_steering` stores the three choices on `research_use_accounts`,
   `balanced`, 10 and `flagged` by default, with a check on their values; saving or revoking the account leaves them
-  as they are.
+  as they are. A change writes only the parts it names, in one statement that keeps the others as stored at that
+  moment, so two chats changing different parts at once both keep theirs (the review of 12 November 2026: the service
+  read the whole style and wrote it back, so the later write undid the other's change); the account's other switches
+  each write only their own column.
 
 ## The call record (owner answer 280a, 9 November 2026; released the same day)
 

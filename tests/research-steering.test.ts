@@ -140,6 +140,28 @@ describe("the research style each account sets once (owner answer 279a)", () => 
     await expect(service.setResearchSteering("auth0|b", { checkBackMinutes: 121 })).rejects.toThrow();
   });
 
+  // The review of 12 Nov 2026: two chats each changing one part of the style read the whole style, and the later write
+  // put back the part the other had changed. Each change now writes only the parts it names, and the account switches
+  // only their own.
+  it("keeps both of two interleaved changes, each to its own parts, beside the account's other switches", async () => {
+    const store = new InMemoryResearchContributorAccessStore();
+    const service = new ResearchContributorAccessService({ store, identitySecret: Buffer.alloc(32, 5) });
+    await service.acceptFreeContributor("auth0|two-chats", agreement);
+    const [first, second] = await Promise.all([
+      service.setResearchSteering("auth0|two-chats", { style: "guided" }),
+      service.setResearchSteering("auth0|two-chats", { checkBackMinutes: 25 }),
+      service.setResearchSteering("auth0|two-chats", { adjustmentDetail: "all" }),
+      service.setPlainAnswerNote("auth0|two-chats", false),
+      service.setDetailedLessonReports("auth0|two-chats", true),
+      service.setFindingsSave("auth0|two-chats", false),
+    ]);
+    expect(first.style).toBe("guided");
+    expect(second.checkBackMinutes).toBe(25);
+    const account = await service.activeAccount("auth0|two-chats");
+    expect(account.steering).toEqual({ style: "guided", checkBackMinutes: 25, adjustmentDetail: "all" });
+    expect(account).toMatchObject({ plainAnswerNote: false, detailedLessonReports: true, findingsSave: false });
+  });
+
   it("is shown by inspect and changed by set_research_steering, through /mcp and /mcp/claude", async () => {
     const { service, connect } = await start();
     await service.acceptFreeContributor("auth0|person", agreement);
