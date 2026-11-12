@@ -237,8 +237,13 @@ work to the user's attention and obtain direction before expanding scope.
 
 Owner decision 148a (2026-10-21): build each lesson as soon as it is triaged,
 on the next-build branch, without first asking; ask on the owner questions page
-only when it changes clinical or scientific method. Releases still need the
-owner's explicit yes, several lessons per release.
+only when it changes clinical or scientific method. Releases (the owner,
+2026-11-12, replacing "releases still need the owner's explicit yes"): a release
+whose changes are pure fixes goes out without asking, its release record says
+so, and a rollback stays ready; a release with any tradeoff (what people see or
+are asked, money, data kept or privacy, clinical or scientific method, or
+answers that could get slower or shorter) needs the owner's explicit yes first.
+Watch the next runs after such a release and roll back if it made things worse.
 
 ## Suggested fixes from other projects
 
