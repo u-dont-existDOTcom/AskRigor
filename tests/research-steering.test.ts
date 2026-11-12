@@ -1051,6 +1051,14 @@ describe("a menu that changed after the person saw it is shown to them first (th
     const answered = await plan({ research_target: target, steering_could_help: false, tasks: [FIRST, FORK],
       allocation: [{ task: 2, minutes: 3 }], menu_digest: forked.structured.researchMenu.menu_digest });
     expect(answered.structured.researchMenu).toMatchObject({ next: "go_on", recommended: [{ task: 2, minutes: 3 }] });
+    // The same menu retyped in other words, with new time estimates, when the person's answer is sent: not a change, so
+    // the person isn't asked twice.
+    const retyped = await plan({ research_target: target, steering_could_help: false,
+      tasks: [{ ...FIRST, task: "Find trials of warm compresses for a stiff neck", minutes: [2, 5] },
+        { ...FORK, task: "Find trials of heat wraps worn overnight", sources: 2 }],
+      allocation: [{ task: 2, minutes: 3 }], menu_digest: forked.structured.researchMenu.menu_digest });
+    expect(retyped.structured.researchMenu).toMatchObject({ next: "go_on", recommended: [{ task: 2, minutes: 3 }] });
+    expect(retyped.structured.researchMenu).not.toHaveProperty("menu_changed");
     // Autonomous research never stops to ask.
     await service.setResearchSteering("auth0|person", { style: "autonomous" });
     const autonomous = await plan({ research_target: target, steering_could_help: false, tasks: [FIRST, FORK],
@@ -1058,14 +1066,23 @@ describe("a menu that changed after the person saw it is shown to them first (th
     expect(autonomous.structured.researchMenu.next).toBe("go_on");
   });
 
-  it("compares every field of every task exactly, and decides only through planResearch's menu", () => {
-    const tasks = [{ ...FIRST }, { ...FORK, sources: 2 }];
+  it("compares what the person chose among exactly, not wording or times, and decides only through planResearch", () => {
+    const READ = { task: "Read the largest trial in full", kind: "full_text", could_change: "confidence" } as const;
+    const tasks = [{ ...FIRST }, { ...READ, sources: 2 }];
     const digest = menuDigest(tasks, SECRET);
     expect(menuDigest(tasks.map((task) => ({ ...task })), SECRET)).toBe(digest);
+    // What the person chose among: the number of tasks, and each one's kind, what it could change and its loop, in order.
     expect(menuDigest([tasks[1]!, tasks[0]!], SECRET)).not.toBe(digest);
-    expect(menuDigest([tasks[0]!, { ...tasks[1]!, sources: 3 }], SECRET)).not.toBe(digest);
+    expect(menuDigest([...tasks, { ...FORK }], SECRET)).not.toBe(digest);
+    expect(menuDigest([tasks[0]!], SECRET)).not.toBe(digest);
+    expect(menuDigest([tasks[0]!, { ...tasks[1]!, kind: "method_audit" }], SECRET)).not.toBe(digest);
+    expect(menuDigest([tasks[0]!, { ...tasks[1]!, could_change: "conclusion" }], SECRET)).not.toBe(digest);
+    expect(menuDigest([{ ...tasks[0]!, loop: "studies_to_people" }, tasks[1]!], SECRET)).not.toBe(digest);
     expect(menuDigest(tasks, `${SECRET}-other`)).not.toBe(digest);
-    expect(menuDigest([{ ...FIRST, minutes: [4, 2] }], SECRET)).toBe(menuDigest([{ ...FIRST, minutes: [2, 4] }], SECRET));
+    // Not a change: a task retyped in other words, or its sources and minutes estimated again.
+    expect(menuDigest([{ ...tasks[0]!, task: "Find the trials of warm compresses on a stiff neck" }, tasks[1]!], SECRET))
+      .toBe(digest);
+    expect(menuDigest([tasks[0]!, { ...tasks[1]!, sources: 3, minutes: [4, 9] }], SECRET)).toBe(digest);
     const plan = { research_target: target, steering_could_help: false, tasks: [FIRST, FORK] };
     expect(planResearch(plan, DEFAULT_RESEARCH_STEERING, undefined, { digest, changed: true }))
       .toMatchObject({ next: "ask", menu_changed: true, menu_digest: digest });

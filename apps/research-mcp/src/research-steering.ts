@@ -148,11 +148,14 @@ export type ResearchMenuInput = z.output<typeof researchMenuSchema>;
  * go on without the person's choice, since only a done list marked a re-plan. Each plan_research result carries a digest
  * of its task list, keyed with the server's signing secret, and the next call passes it back: when the call's tasks
  * differ from it, the menu changed after the person saw it, and research that may ask shows them the changed menu. A
- * call without a digest is planned as before. Exact: every field of every task, in order, is compared, never meaning.
+ * call without a digest is planned as before. Exact, never meaning: what the person chose among is compared, the number
+ * of tasks and, in order, each one's kind, what it could change and its loop. A task's wording, sources and minutes are
+ * not: a model that retypes the menu when it sends the person's answer, or estimates a task's time again, would
+ * otherwise ask the person a second time about the menu they just answered, and the allocation the call carries already
+ * says how long each task may take.
  */
 export function menuDigest(tasks: readonly PlanTask[], secret: string): string {
-  const canonical = JSON.stringify(tasks.map(({ task, kind, could_change, sources, loop, minutes }) => [task, kind,
-    could_change, sources ?? 1, loop ?? null, minutes === undefined ? null : [Math.min(...minutes), Math.max(...minutes)]]));
+  const canonical = JSON.stringify(tasks.map(({ kind, could_change, loop }) => [kind, could_change, loop ?? null]));
   const key = createHmac("sha256", secret).update("askrigor research menu digest v1").digest();
   return `md1~${createHmac("sha256", key).update(canonical).digest().subarray(0, 16).toString("base64url")}`;
 }

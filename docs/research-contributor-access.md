@@ -237,9 +237,11 @@ was released on 12 November:
   back to the person and a task they skipped isn't done unasked (12 November 2026). A re-plan before any task was done
   has no done list, so each result also carries `researchMenu.menu_digest`, a digest of its task list keyed with the
   server's signing secret, which the next call passes back in `researchMenu.menu_digest`: when the call's tasks differ
-  from it in any field, the menu changed after the person saw it, so research that may ask asks, shows the changed
-  menu, and takes an allocation given for the old menu as no answer (the review of 12 November 2026). A call without
-  a digest is planned as before.
+  from it in number, or in any task's kind, what it could change or its loop, the menu changed after the person saw
+  it, so research that may ask asks, shows the changed menu, and takes an allocation given for the old menu as no
+  answer (the review of 12 November 2026). A task's wording, sources and minutes are not compared, so a model that
+  retypes the menu when it sends the person's answer, or estimates a time again, doesn't ask them twice. A call
+  without a digest is planned as before.
   Since 11 November 2026 (the owner: "it's still not asking me any steering questions"), an ask ends the turn. Its
   text puts the stop first: the reason, worded as the person's own setting, and that the whole reply is the message
   that follows, after any urgent action, with no research call and no final check, since a question is not an answer
