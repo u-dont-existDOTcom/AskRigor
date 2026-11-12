@@ -3,6 +3,9 @@ import type { Pool } from "pg";
 export const RESEARCH_CALL_RECORD_RETENTION_DAYS = 7 as const;
 export const RESEARCH_CALL_RECORD_RETENTION_MS = RESEARCH_CALL_RECORD_RETENTION_DAYS * 24 * 60 * 60 * 1_000;
 
+export const RESEARCH_PLAN_DECISIONS = ["ask", "go_on"] as const;
+export type ResearchPlanDecision = (typeof RESEARCH_PLAN_DECISIONS)[number];
+
 export interface ResearchCallRecordEntry {
   accountKey: string;
   receivedAt: Date;
@@ -13,6 +16,11 @@ export interface ResearchCallRecordEntry {
   outcome: "answered" | "refused" | "failed";
   code: string | null;
   durationMs: number;
+  /**
+   * Owner answer 289a: for an answered manage_research_access call with action plan_research only, the decision
+   * AskRigor's own result made (researchMenu.next), never anything the person or the AI wrote; absent otherwise.
+   */
+  planNext?: ResearchPlanDecision;
 }
 
 export interface ResearchCallRecordStore {
@@ -23,12 +31,22 @@ export interface ResearchCallRecordStore {
 
 const cutoff = (now: Date): Date => new Date(now.getTime() - RESEARCH_CALL_RECORD_RETENTION_MS);
 
+/**
+ * The decision kept only on a plan_research row, and only as one of its two fixed values (owner answer 289a); anything
+ * else is dropped, as the table's check would refuse it.
+ */
+function planNextOf(entry: ResearchCallRecordEntry): ResearchPlanDecision | undefined {
+  return entry.tool === "manage_research_access" && entry.action === "plan_research" &&
+    RESEARCH_PLAN_DECISIONS.includes(entry.planNext as ResearchPlanDecision) ? entry.planNext : undefined;
+}
+
 /** Copy only the disclosed fields, including when a caller supplies an object with extra properties. */
 function copy(entry: ResearchCallRecordEntry): ResearchCallRecordEntry {
+  const planNext = planNextOf(entry);
   return {
     accountKey: entry.accountKey, receivedAt: new Date(entry.receivedAt), tool: entry.tool,
     action: entry.action, route: entry.route, chatgpt: entry.chatgpt, outcome: entry.outcome,
-    code: entry.code, durationMs: entry.durationMs,
+    code: entry.code, durationMs: entry.durationMs, ...(planNext === undefined ? {} : { planNext }),
   };
 }
 
@@ -68,23 +86,23 @@ export class PostgresResearchCallRecordStore implements ResearchCallRecordStore 
     await this.pool.query(`DELETE FROM ${this.table} WHERE account_key = $1 AND received_at < $2`,
       [entry.accountKey, cutoff(entry.receivedAt)]);
     await this.pool.query(`INSERT INTO ${this.table}
-      (account_key, received_at, tool, action, route, chatgpt, outcome, code, duration_ms)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      (account_key, received_at, tool, action, route, chatgpt, outcome, code, duration_ms, plan_next)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
     [entry.accountKey, entry.receivedAt, entry.tool, entry.action, entry.route, entry.chatgpt,
-      entry.outcome, entry.code, entry.durationMs]);
+      entry.outcome, entry.code, entry.durationMs, planNextOf(entry) ?? null]);
   }
 
   async list(accountKey: string, now: Date): Promise<ResearchCallRecordEntry[]> {
     const result = await this.pool.query<{
       account_key: string; received_at: Date; tool: string; action: string | null;
       route: ResearchCallRecordEntry["route"]; chatgpt: boolean; outcome: ResearchCallRecordEntry["outcome"];
-      code: string | null; duration_ms: number;
-    }>(`SELECT account_key, received_at, tool, action, route, chatgpt, outcome, code, duration_ms
+      code: string | null; duration_ms: number; plan_next: ResearchPlanDecision | null;
+    }>(`SELECT account_key, received_at, tool, action, route, chatgpt, outcome, code, duration_ms, plan_next
       FROM ${this.table} WHERE account_key = $1 AND received_at > $2 ORDER BY received_at DESC LIMIT 500`,
     [accountKey, cutoff(now)]);
     return result.rows.map((row) => ({ accountKey: row.account_key, receivedAt: row.received_at,
       tool: row.tool, action: row.action, route: row.route, chatgpt: row.chatgpt, outcome: row.outcome,
-      code: row.code, durationMs: row.duration_ms }));
+      code: row.code, durationMs: row.duration_ms, ...(row.plan_next === null ? {} : { planNext: row.plan_next }) }));
   }
 
   async sweep(now: Date): Promise<number> {

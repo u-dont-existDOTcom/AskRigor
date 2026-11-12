@@ -128,6 +128,42 @@ describe("background call recording", () => {
     } finally { vi.restoreAllMocks(); }
   });
 
+  // Owner answer 289a: an answered plan_research call also keeps the decision AskRigor's own result made, ask or go_on;
+  // nothing the person or the AI wrote, and no other call, ever stores one.
+  it.each(["ask", "go_on"] as const)("keeps plan_research's decision from its own result: %s", async (next) => {
+    const { store, recording } = setup();
+    const result: CallToolResult = { content: [{ type: "text", text: "private menu text" }],
+      structuredContent: { ok: true, researchMenu: { next, tasks: [] }, next_step: "private step" } };
+    await forTextClients("manage_research_access", async () => result, recording)({ action: "plan_research",
+      later_inputs: { researchMenu: { research_target: "private target marker", next: "go_on" } } }, extra());
+    await waitForPendingCallRecords(store);
+    const rows = await store.list(accountKey, new Date());
+    expect(rows).toEqual([expect.objectContaining({ action: "plan_research", outcome: "answered", planNext: next })]);
+    expect(JSON.stringify(rows)).not.toMatch(/private target marker|private menu text|private step/u);
+  });
+
+  it("stores no decision for another call, a refused plan_research, a value of its own, or one only the input gave", async () => {
+    const menu = (next: unknown): CallToolResult => ({ content: [{ type: "text", text: "x" }],
+      structuredContent: { ok: true, researchMenu: { next } } });
+    const cases: Array<[string, Record<string, unknown>, CallToolResult]> = [
+      ["manage_research_access", { action: "inspect" }, menu("ask")],
+      ["manage_research_access", { action: "register_plain_answer" }, menu("go_on")],
+      ["load_protocol", { action: "plan_research" }, menu("ask")],
+      ["manage_research_access", { action: "plan_research" }, { ...menu("ask"), isError: true }],
+      ["manage_research_access", { action: "plan_research" }, menu("maybe")],
+      ["manage_research_access", { action: "plan_research" }, menu({ next: "ask" })],
+      ["manage_research_access", { action: "plan_research", researchMenu: { next: "ask" }, next: "ask" }, answered],
+    ];
+    for (const [tool, input, result] of cases) {
+      const { store, recording } = setup();
+      await forTextClients(tool, async () => result, recording)(input, extra());
+      await waitForPendingCallRecords(store);
+      const rows = await store.list(accountKey, new Date());
+      expect(rows, JSON.stringify([tool, input])).toHaveLength(1);
+      expect(rows[0], JSON.stringify([tool, input])).not.toHaveProperty("planNext");
+    }
+  });
+
   it.each([[0, 399.6, 400], [20, 19, 0], [0, 99_999_999, 86_400_000]])(
     "rounds and clamps duration (%s, %s)", async (start, end, expected) => {
       const { store, recording } = setup();

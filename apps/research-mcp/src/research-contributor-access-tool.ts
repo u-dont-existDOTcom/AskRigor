@@ -28,6 +28,7 @@ import {
   type ResearchSteering,
   type ResearchCallRecordStore,
   RESEARCH_CALL_RECORD_RETENTION_DAYS,
+  RESEARCH_PLAN_DECISIONS,
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
@@ -232,6 +233,8 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     route: z.enum(["/mcp", "/mcp/claude", "/mcp/gemini"]), chatgpt: z.boolean(),
     outcome: z.enum(["answered", "refused", "failed"]), code: z.string().nullable(),
     duration_ms: z.number().int().min(0).max(86_400_000),
+    // Owner answer 289a: plan_research's decision, from AskRigor's own result, on its rows only.
+    plan_next: z.enum(RESEARCH_PLAN_DECISIONS).optional(),
   }).strict()).max(500).optional(),
   retention_days: z.literal(RESEARCH_CALL_RECORD_RETENTION_DAYS).optional(),
   access: researchAccessViewSchema.safeExtend({ acceptance: noticeAcceptanceSchema.optional() }).optional(),
@@ -650,13 +653,15 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       const entries = await options.callRecord.list(options.service.accountKeyForSubject(auth.subject), new Date());
       const calls = entries.map((entry) => ({ received_at: entry.receivedAt.toISOString(), tool: entry.tool,
         action: entry.action, route: entry.route, chatgpt: entry.chatgpt, outcome: entry.outcome,
-        code: entry.code, duration_ms: entry.durationMs }));
+        code: entry.code, duration_ms: entry.durationMs,
+        ...(entry.planNext === undefined ? {} : { plan_next: entry.planNext }) }));
       const count = calls.length === 0
         ? "AskRigor received no calls from this signed-in account in the last 7 days."
         : `AskRigor received ${calls.length === 500 ? "at least " : ""}${calls.length} ${calls.length === 1 ? "call" : "calls"} from this signed-in account in the last 7 days.`;
       const text = [count + " Times are UTC. A call made without signing in isn't recorded. " +
         "This call itself appears from the next listing.", ...calls.map((call) =>
-        `${call.received_at.slice(0, 19).replace("T", " ")} UTC · ${call.tool}${call.action === null ? "" : ` (${call.action})`} · ` +
+        `${call.received_at.slice(0, 19).replace("T", " ")} UTC · ${call.tool}${call.action === null ? ""
+          : ` (${call.action}${call.plan_next === undefined ? "" : `: ${call.plan_next}`})`} · ` +
         `${call.outcome}${call.outcome === "refused" ? ` [${call.code}]` : ""} · ${(call.duration_ms / 1_000).toFixed(1)} s · ` +
         `${call.chatgpt ? "ChatGPT" : "other app"} · ${call.route}`)].join("\n");
       return { content: [{ type: "text", text }], structuredContent: manageResearchAccessRuntimeOutputSchema.parse({

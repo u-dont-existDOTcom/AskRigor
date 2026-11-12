@@ -2,7 +2,7 @@ import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { InMemoryResearchCallRecordStore, InMemoryResearchContributorAccessStore,
+import { InMemoryResearchCallRecordStore, InMemoryResearchContributorAccessStore, RESEARCH_USE_NOTICE_VERSION,
   ResearchContributorAccessService, type ResearchCallRecordEntry } from "@askrigor/evidence-repository";
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair } from "jose";
 import { afterEach, describe, expect, it } from "vitest";
@@ -11,7 +11,8 @@ import {
   CALL_RECORD_SENTENCE, createManageResearchAccessHandler,
 } from "../apps/research-mcp/src/research-contributor-access-tool.js";
 import { RESEARCH_USE_SCOPE, createJwtOAuthResourceServer } from "../apps/research-mcp/src/oauth-resource-server.js";
-import { waitForPendingCallRecords } from "../apps/research-mcp/src/tool-result.js";
+import { forTextClients, waitForPendingCallRecords } from "../apps/research-mcp/src/tool-result.js";
+import { researchCallRecordingOptions } from "../apps/research-mcp/src/research-call-recording.js";
 
 const clients: Client[] = [];
 const servers: Server[] = [];
@@ -152,6 +153,40 @@ describe("list_calls", () => {
     ]);
     expect(JSON.stringify(result)).not.toContain(ownKey);
     expect(JSON.stringify(result)).not.toContain("private_other_tool");
+  });
+
+  // Owner answer 289a: list_calls shows plan_research's decision beside its action, taken from the menu AskRigor made,
+  // through the real access handler and the real recording.
+  it("shows plan_research's decision, ask or go on, beside its action", async () => {
+    const store = new InMemoryResearchCallRecordStore();
+    const planner = "synthetic-call-record-planner";
+    await service.acceptFreeContributor(planner, { noticeVersion: RESEARCH_USE_NOTICE_VERSION,
+      eligibleDeidentifiedResearchContributionRequired: true, prohibitedPrivateAndRawContentExcluded: true,
+      proposalReviewAndNoAuthorityAcknowledged: true, paidPrivateAlternativeAcknowledged: true });
+    const signedIn = { authInfo: { ...auth.authInfo, extra: { subject: planner } } };
+    const handler = forTextClients("manage_research_access", createManageResearchAccessHandler({ service, callRecord: store }),
+      researchCallRecordingOptions(store, service, "/mcp"));
+    const task = (could_change: "conclusion" | "detail") => ({ task: "Read the synthetic trial in full", kind: "full_text",
+      could_change });
+    // The handler takes the later shape as the connector's later-inputs step leaves it, merged in.
+    const asked = await handler({ action: "plan_research", researchMenu: {
+      research_target: "Synthetic target", tasks: [task("conclusion")] } }, signedIn);
+    const goneOn = await handler({ action: "plan_research", researchMenu: {
+      research_target: "Synthetic target", tasks: [task("conclusion")], allocation: [{ task: 1, minutes: 3 }] } }, signedIn);
+    expect(asked.structuredContent).toMatchObject({ researchMenu: { next: "ask" } });
+    expect(goneOn.structuredContent).toMatchObject({ researchMenu: { next: "go_on" } });
+    await handler({ action: "inspect" }, signedIn);
+    await waitForPendingCallRecords(store);
+    const listed = await createManageResearchAccessHandler({ service, callRecord: store })({ action: "list_calls" }, signedIn);
+    const calls = (listed.structuredContent as { calls: Array<Record<string, unknown>> }).calls;
+    expect(calls.map(({ action, plan_next }) => [action, plan_next])).toEqual([["inspect", undefined],
+      ["plan_research", "go_on"], ["plan_research", "ask"]]);
+    expect(calls[0]).not.toHaveProperty("plan_next");
+    const lines = (listed.content[0] as { text: string }).text.split("\n").slice(1);
+    expect(lines[0]).toContain(" UTC · manage_research_access (inspect) · answered · ");
+    expect(lines[1]).toContain(" UTC · manage_research_access (plan_research: go_on) · answered · ");
+    expect(lines[2]).toContain(" UTC · manage_research_access (plan_research: ask) · answered · ");
+    expect(JSON.stringify(listed)).not.toContain("Synthetic target");
   });
 
   it("says no calls when this account has none", async () => {

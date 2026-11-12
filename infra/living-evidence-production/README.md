@@ -333,6 +333,13 @@ record table), before the image that uses them serves. An earlier image reads ne
 record either, so a rollback below this image empties the table (`TRUNCATE living_evidence.research_call_record`)
 to keep the 7-day promise. Undo no migration.
 
+Owner answer 289a (12 November 2026; built, not yet released): migration `0034_research_call_record_plan_next` adds
+the nullable `research_call_record.plan_next` column, `plan_research`'s decision (`ask` or `go_on`) from AskRigor's own
+result, with a check that admits a value only on a `manage_research_access` row with action `plan_research`. The
+privacy page's call-record paragraph changes with it. Release: run the one-shot admin `migrate` before the image that
+writes the column serves; the access role's table grant already covers a new column, so no role is re-provisioned.
+An earlier image writes no decision (the column stays empty), so a rollback needs no step. Undo no migration.
+
 Owner answers 254a and 255a (2026-11-05; built, not yet released; plan
 `../../docs/superpowers/plans/2026-11-05-atlas-research-behind.md`): migration
 `0029_atlas_research_behind` admits `forum_read` among the verified bases of
