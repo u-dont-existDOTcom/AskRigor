@@ -22,6 +22,7 @@ import {
   ASK_ABOVE_MINUTES,
   COULD_CHANGE,
   FORM_PEOPLE_USE,
+  MENU_PLACEHOLDERS,
   PEOPLE_FIRST_WHEN_USED,
   PEOPLE_TASK_MISSING,
   PLAN_TASK_KINDS,
@@ -822,4 +823,122 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     expect((await stranger({ action: "plan_research", later_inputs: { researchMenu: menu() } })).structuredContent)
       .toMatchObject({ ok: false, error: { code: "research_access_required" } });
   });
+});
+
+// 12 Nov 2026, the owner's ChatGPT at Extra High: every run's plan_research call was refused three to five times before
+// one passed, as the model guessed the menu's names, types and places. The menu is now read in its own names, and what
+// is still unreadable is refused with an example built from the call. These fixtures are invented.
+describe("plan_research reads the menu a model guessed, and refuses the rest with an example (12 Nov 2026)", () => {
+  const GUESS_TARGET = "Whether a cold-water rinse after a run eases next-day calf soreness";
+  const GUESS_TASKS = [
+    { task: "Search trials of cold-water immersion after running", kind: "study_search", could_change: "conclusion" },
+    { task: "Read the largest trial in full", kind: "full_text", could_change: "confidence" },
+    { task: "Read runners' forum threads on post-run rinses", kind: "forum_thread", could_change: "detail" },
+  ] as const;
+  type Result = Awaited<ReturnType<Awaited<ReturnType<Awaited<ReturnType<typeof start>>["connect"]>>>>;
+
+  async function session() {
+    const { service, connect } = await start();
+    await service.acceptFreeContributor("auth0|person", agreement);
+    const manage = await connect("/mcp", "auth0|person");
+    const registered = await manage({ action: "register_plain_answer", plainAnswer: { researchTarget: GUESS_TARGET,
+      text: "A cold rinse may ease soreness a little. The effect is small.",
+      claims: ["A cold rinse may ease soreness a little."] } });
+    const receipt = (registered.structuredContent as { research_receipt: string }).research_receipt;
+    return { service, manage, receipt,
+      plan: async (later: Record<string, unknown>) => await manage({ action: "plan_research", later_inputs: later }) };
+  }
+  const accepted = (result: Result) => {
+    expect(result.isError, text(result)).not.toBe(true);
+    return result.structuredContent as { researchMenu: { next: string; recommended: unknown[];
+      tasks: Array<{ minutes: unknown }> }; problems?: string[] };
+  };
+  const refused = (result: Result) => {
+    expect(result.isError).toBe(true);
+    const structured = result.structuredContent as { ok: boolean; error: { code: string }; problems: string[];
+      corrected_later_inputs: { researchMenu: { research_target: string; tasks: Array<Record<string, unknown>> } } };
+    expect(structured).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    expect(text(result)).toContain(JSON.stringify(structured.corrected_later_inputs));
+    return structured;
+  };
+
+  it("accepts attempts 1, 5, 6, 7, 9 and 11 once read, saying what it ignored or moved", async () => {
+    const { service, plan, receipt } = await session();
+    // 1, with tasks: camelCase names, and keys that are not part of the menu.
+    const first = await plan({ researchMenu: { researchTarget: GUESS_TARGET, plainAnswerReceipt: receipt,
+      focus: "soreness the next day", initial_screening: { searches: 3 },
+      tasks: GUESS_TASKS.map(({ could_change, ...task }) => ({ ...task, couldChange: could_change })) } });
+    const ignoredFirst = "AskRigor ignored later_inputs.researchMenu.focus, later_inputs.researchMenu.initial_screening, " +
+      "which are not part of plan_research's menu.";
+    expect(accepted(first).problems).toEqual([ignoredFirst]);
+    expect(first.content.map(({ text: part }) => part)).toContain(ignoredFirst);
+    expect(accepted(first).researchMenu.next).toBe("ask");
+    // 5: one number for a task's minutes, and two of the three tasks.
+    const fifth = await plan({ researchMenu: { research_target: GUESS_TARGET, plain_answer_receipt: receipt,
+      tasks: GUESS_TASKS.slice(0, 2).map((task) => ({ ...task, minutes: 2 })) } });
+    expect(accepted(fifth).researchMenu.tasks.map(({ minutes }) => minutes)).toEqual([[2, 2], [2, 2]]);
+    expect(accepted(fifth).problems).toBeUndefined();
+    // 6: a null minutes, and the allocation and the person's reply beside the menu.
+    const sixth = await plan({ researchMenu: { research_target: GUESS_TARGET, plain_answer_receipt: receipt,
+      tasks: [{ ...GUESS_TASKS[0], minutes: null }, GUESS_TASKS[1], GUESS_TASKS[2]] },
+      allocation: [{ task: 1, minutes: 2 }, { task: 2, minutes: 2 }], user_choice: "you decide" });
+    const sixthMenu = accepted(sixth);
+    expect(sixthMenu.researchMenu).toMatchObject({ next: "go_on", recommended: [{ task: 1, minutes: 2 },
+      { task: 2, minutes: 2 }] });
+    expect(sixthMenu.problems).toEqual(["AskRigor read later_inputs.allocation as researchMenu.allocation: the " +
+      "allocation and done list go inside researchMenu, and ignored later_inputs.user_choice, which is not part of " +
+      "plan_research's menu."]);
+    // 7 and 9: a setting beside the menu is ignored, and the account's style is unchanged.
+    for (const researchSteering of [{ selection: "you decide" }, {}]) {
+      const beside = await plan({ researchMenu: { research_target: GUESS_TARGET, plain_answer_receipt: receipt,
+        tasks: GUESS_TASKS }, researchSteering });
+      expect(accepted(beside).problems).toEqual(["AskRigor ignored later_inputs.researchSteering, which is not part " +
+        "of plan_research's menu."]);
+    }
+    expect((await service.activeAccount("auth0|person")).steering).toEqual(DEFAULT_RESEARCH_STEERING);
+    // 11: user_allocation inside the menu is its allocation.
+    const eleventh = await plan({ researchMenu: { research_target: GUESS_TARGET, plain_answer_receipt: receipt,
+      tasks: GUESS_TASKS, user_allocation: [{ task: 1, minutes: 3 }] } });
+    expect(accepted(eleventh).researchMenu).toMatchObject({ next: "go_on", recommended: [{ task: 1, minutes: 3 }] });
+  });
+
+  it("refuses attempts 1 without tasks, 2 and 3 with a complete example built from the call, which then passes",
+    async () => {
+      const { plan, receipt } = await session();
+      // 1 as it came: no tasks.
+      const noTasks = refused(await plan({ researchMenu: { researchTarget: GUESS_TARGET, focus: "next-day soreness",
+        initial_screening: { searches: 3 } } }));
+      expect(noTasks.corrected_later_inputs).toEqual({ researchMenu: { research_target: GUESS_TARGET, tasks: [
+        { task: MENU_PLACEHOLDERS.task, kind: MENU_PLACEHOLDERS.kind, could_change: MENU_PLACEHOLDERS.could_change }] } });
+      expect(noTasks.problems).toContain("AskRigor ignored later_inputs.researchMenu.focus, " +
+        "later_inputs.researchMenu.initial_screening, which are not part of plan_research's menu.");
+      // 2: tasks as text.
+      const texts = GUESS_TASKS.map(({ task }) => task);
+      const asText = refused(await plan({ researchMenu: { research_target: GUESS_TARGET, plain_answer_receipt: receipt,
+        tasks: texts } }));
+      expect(asText.problems[0]).toMatch(/^later_inputs\.researchMenu\.tasks\[0\]: /u);
+      // 3: tasks as titles, without kind or could_change.
+      const titled = refused(await plan({ researchMenu: { research_target: GUESS_TARGET, plain_answer_receipt: receipt,
+        tasks: texts.map((title) => ({ title })) } }));
+      expect(titled.problems).toEqual(expect.arrayContaining([expect.stringMatching(
+        /^later_inputs\.researchMenu\.tasks\[0\]\.kind: /u), expect.stringMatching(
+        /^later_inputs\.researchMenu\.tasks\[0\]\.could_change: /u)]));
+      for (const { corrected_later_inputs: example } of [asText, titled]) {
+        expect(example).toEqual({ researchMenu: { research_target: GUESS_TARGET, plain_answer_receipt: receipt,
+          tasks: texts.map((task) => ({ task, kind: MENU_PLACEHOLDERS.kind,
+            could_change: MENU_PLACEHOLDERS.could_change })) } });
+        expect(MENU_PLACEHOLDERS.kind).toBe(`<${PLAN_TASK_KINDS.join("|")}>`);
+        expect(MENU_PLACEHOLDERS.could_change).toBe("<conclusion|confidence|detail>");
+        // Filled in, the example passes as it is.
+        const filled = { researchMenu: { ...example.researchMenu, tasks: example.researchMenu.tasks.map((task, index) =>
+          ({ ...task, kind: GUESS_TASKS[index]!.kind, could_change: GUESS_TASKS[index]!.could_change })) } };
+        expect(accepted(await plan(filled)).researchMenu.next).toBe("ask");
+      }
+      // A plan_research call with no menu at all gets the same refusal, with an example to fill.
+      const settingAlone = refused(await plan({ researchSteering: {} }));
+      expect(settingAlone.corrected_later_inputs.researchMenu.research_target)
+        .toBe(MENU_PLACEHOLDERS.research_target);
+      expect(settingAlone.problems).toContain("AskRigor ignored later_inputs.researchSteering, which is not part of " +
+        "plan_research's menu.");
+    });
 });

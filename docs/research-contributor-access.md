@@ -253,6 +253,18 @@ was released on 12 November:
   choice. With the plain answer's receipt it says whether the research
   target is the registered one, word for word but for case and spacing, and how many minutes have passed since. Nothing
   of the menu is stored.
+- **The menu as a model guesses it** (12 November 2026: in the owner's ChatGPT at Extra High, every run's
+  `plan_research` was refused three to five times before one passed). Before the call's inputs are checked
+  (`withResearchMenuReading`), the menu is read in its own names: a key whose snake_case form is a menu or task field
+  is that field (`researchTarget`, `couldChange`), a task's `title` or `name` is its text when it gives none, one
+  number for a task's `minutes` is the range `[n, n]`, a null optional field is left out, `user_allocation` and
+  `allocations` are the allocation, and an allocation or done list beside the menu in `later_inputs` goes inside it
+  when it has none. Every other key is ignored, and the result names what was ignored or moved in one sentence, after
+  its text and among its `problems`. Values stay strict: a task is an object, and `kind` and `could_change` are one of
+  their values. A menu still not readable, or none, is refused with valid structured content (ChatGPT shows an error
+  result without it only as "The tool failed internally"): its problems, and `corrected_later_inputs`, an example
+  built from the call's own research target and task texts, with a placeholder listing the values wherever a kind or
+  could_change is missing or not one of them.
 - **The next step for apps that read only the structured content.** Claude Code hands its model a result's structured
   content and leaves out its text (`docs/claude-connector.md`). So `register_plain_answer` and `plan_research` also
   give their next step as `next_step`, a runtime field (owner answer 189a), as `inspect` does for the free-use notice:

@@ -138,6 +138,207 @@ export const researchMenuSchema = z.object({
 }).strict();
 export type ResearchMenuInput = z.output<typeof researchMenuSchema>;
 
+/**
+ * The menu as plan_research reads it (12 Nov 2026, the owner's ChatGPT at Extra High): every run's plan_research call
+ * was refused three to five times before one passed, as the model guessed the menu's names, types and places: the
+ * research target in camelCase, tasks as titles, a number for a task's minutes, null for one left out, the allocation
+ * as user_allocation or beside the menu, and keys that are no part of it, such as a focus or the person's reply. Each
+ * of those is structural: a key is read in the menu's own name when its snake_case form is one (researchTarget,
+ * couldChange), a task's title or name is its text when it gives none, one number n is the range [n, n], a null
+ * optional field is left out, user_allocation and allocations are the allocation, and an allocation or done list
+ * beside the menu goes inside it when it has none. Anything else is left out and named in the result. Nothing here
+ * reads meaning: kind and could_change must still be one of their values, and each task must still be an object.
+ */
+export interface MenuReading {
+  /** The call's later_inputs as plan_research reads them: the menu alone, in its own names. */
+  later: Record<string, unknown>;
+  /** The menu so read, when the call gave one in later_inputs. */
+  menu?: unknown;
+  /** With no menu: the menu's fields given in later_inputs itself, for the refusal's example. */
+  flat?: Record<string, unknown>;
+  /** Keys left out, by their path in the call. */
+  ignored: string[];
+  /** Keys read inside the menu from beside it: their path, and the menu field. */
+  moved: Array<[string, string]>;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+/** A key's snake_case form: researchTarget, ResearchTarget and research-target all give research_target. */
+const snakeKey = (key: string): string =>
+  key.trim().replace(/([a-z0-9])([A-Z])/gu, "$1_$2").replace(/[\s-]+/gu, "_").toLowerCase();
+const fieldsOf = (shape: z.ZodRawShape) => new Set(Object.keys(shape));
+const optionalFieldsOf = (shape: z.ZodRawShape) =>
+  new Set(Object.keys(shape).filter((key) => z.safeParse(shape[key]!, undefined).success));
+const MENU_FIELDS = fieldsOf(researchMenuSchema.shape);
+const OPTIONAL_MENU_FIELDS = optionalFieldsOf(researchMenuSchema.shape);
+const TASK_FIELDS = fieldsOf(planTaskSchema.shape);
+const OPTIONAL_TASK_FIELDS = optionalFieldsOf(planTaskSchema.shape);
+const ALLOCATION_FIELDS: ReadonlySet<string> = new Set(["task", "minutes"]);
+const MENU_ALIASES: Readonly<Record<string, string>> = Object.freeze({ user_allocation: "allocation",
+  allocations: "allocation" });
+const TASK_ALIASES: Readonly<Record<string, string>> = Object.freeze({ title: "task", name: "task" });
+
+/** An object read in its own field names: exact names first, then other case forms and aliases; the rest left out. */
+function inOwnNames(value: Record<string, unknown>, fields: ReadonlySet<string>, aliases: Readonly<Record<string, string>>,
+  path: string, ignored: string[], optional: ReadonlySet<string> = new Set()): Record<string, unknown> {
+  const read: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(value)) if (fields.has(key)) read[key] = entry;
+  for (const [key, entry] of Object.entries(value)) {
+    if (fields.has(key)) continue;
+    const name = snakeKey(key);
+    const field = fields.has(name) ? name : aliases[name];
+    if (field !== undefined && !Object.hasOwn(read, field)) read[field] = entry;
+    else ignored.push(`${path}.${key}`);
+  }
+  for (const field of optional) if (read[field] === null) delete read[field];
+  return read;
+}
+
+function readTask(task: unknown, path: string, ignored: string[]): unknown {
+  if (!isRecord(task)) return task;
+  const read = inOwnNames(task, TASK_FIELDS, TASK_ALIASES, path, ignored, OPTIONAL_TASK_FIELDS);
+  if (typeof read.minutes === "number") read.minutes = [read.minutes, read.minutes];
+  return read;
+}
+
+const readAllocation = (allocation: unknown, path: string, ignored: string[]): unknown => Array.isArray(allocation)
+  ? allocation.map((entry, index) => isRecord(entry)
+    ? inOwnNames(entry, ALLOCATION_FIELDS, {}, `${path}[${index}]`, ignored) : entry)
+  : allocation;
+
+function readMenu(menu: Record<string, unknown>, path: string, ignored: string[]): Record<string, unknown> {
+  const read = inOwnNames(menu, MENU_FIELDS, MENU_ALIASES, path, ignored, OPTIONAL_MENU_FIELDS);
+  if (Array.isArray(read.tasks)) read.tasks = read.tasks.map((task, index) => readTask(task, `${path}.tasks[${index}]`, ignored));
+  if (read.allocation !== undefined) read.allocation = readAllocation(read.allocation, `${path}.allocation`, ignored);
+  return read;
+}
+
+/** A plan_research call's later_inputs, read as the menu (above). */
+export function readResearchMenu(later: Record<string, unknown>): MenuReading {
+  const ignored: string[] = [];
+  const moved: Array<[string, string]> = [];
+  const menuKey = Object.hasOwn(later, "researchMenu") ? "researchMenu"
+    : Object.keys(later).find((key) => snakeKey(key) === "research_menu");
+  if (menuKey === undefined) {
+    const flat = inOwnNames(later, MENU_FIELDS, MENU_ALIASES, "later_inputs", ignored, OPTIONAL_MENU_FIELDS);
+    return { later: {}, flat: readMenu(flat, "later_inputs", []), ignored, moved };
+  }
+  const given = later[menuKey];
+  const menu = isRecord(given) ? readMenu(given, `later_inputs.${menuKey}`, ignored) : given;
+  for (const [key, value] of Object.entries(later)) {
+    if (key === menuKey) continue;
+    const name = snakeKey(key);
+    const field = name === "allocation" || name === "done" ? name : MENU_ALIASES[name];
+    if (field !== undefined && value === null) continue;
+    if (field !== undefined && isRecord(menu) && menu[field] === undefined) {
+      menu[field] = field === "allocation" ? readAllocation(value, `later_inputs.${key}`, ignored) : value;
+      moved.push([`later_inputs.${key}`, `researchMenu.${field}`]);
+    } else ignored.push(`later_inputs.${key}`);
+  }
+  return { later: { researchMenu: menu }, menu, ignored, moved };
+}
+
+/** What the result says about a menu read so (one sentence), or nothing when it was read as given. */
+export function menuReadingSentence({ ignored, moved }: Pick<MenuReading, "ignored" | "moved">): string | undefined {
+  const named = (paths: readonly string[]) => paths.length <= 8 ? paths.join(", ")
+    : `${paths.slice(0, 8).join(", ")} and ${paths.length - 8} more`;
+  const parts = [
+    ...(moved.length === 0 ? [] : [`read ${named(moved.map(([from, to]) => `${from} as ${to}`))}: the allocation and ` +
+      "done list go inside researchMenu"]),
+    ...(ignored.length === 0 ? [] : [`ignored ${named(ignored)}, ${ignored.length === 1 ? "which is" : "which are"} ` +
+      "not part of plan_research's menu"]),
+  ];
+  return parts.length === 0 ? undefined : `AskRigor ${parts.join(", and ")}.`;
+}
+
+/** A menu's refusal example's placeholders, each to be replaced by a value it lists. */
+export const MENU_PLACEHOLDERS = Object.freeze({
+  research_target: "<the research target, word for word as register_plain_answer's result quoted it>",
+  task: "<what the task does, in the person's language>",
+  kind: `<${PLAN_TASK_KINDS.join("|")}>`,
+  could_change: `<${COULD_CHANGE.join("|")}>`,
+});
+
+/** The refusal's example, as structuredContent carries it: placeholders stand where a value is missing or not one. */
+export const correctedMenuSchema = z.object({
+  researchMenu: z.object({
+    research_target: z.string(),
+    plain_answer_receipt: z.string().optional(),
+    provisional_answer: z.string().optional(),
+    steering_could_help: z.boolean().optional(),
+    tasks: z.array(z.object({
+      task: z.string(),
+      kind: z.string(),
+      sources: z.number().int().optional(),
+      could_change: z.string(),
+      loop: z.enum(RESEARCH_LOOPS).optional(),
+      minutes: z.tuple([z.number(), z.number()]).optional(),
+    }).strict()).min(1),
+    allocation: z.array(z.object({ task: z.number().int(), minutes: z.number() }).strict()).optional(),
+    done: z.array(z.number().int()).optional(),
+  }).strict(),
+}).strict();
+export type CorrectedMenu = z.output<typeof correctedMenuSchema>;
+
+/**
+ * A refused menu's example, built from the call's own: its research target and task texts (a task given as text is
+ * that text), each with its kind and could_change when they are one of their values and a placeholder listing them
+ * when not, and every other field the call gave that is valid as given.
+ */
+export function correctedMenu(source: unknown): CorrectedMenu {
+  const menu = isRecord(source) ? source : {};
+  const valid = (shape: z.ZodRawShape, field: string, value: unknown) =>
+    value !== undefined && z.safeParse(shape[field]!, value).success;
+  const target = menu.research_target;
+  const tasks = Array.isArray(menu.tasks) && menu.tasks.length > 0 ? menu.tasks.slice(0, PLAN_LIMITS.tasks) : [undefined];
+  const example: CorrectedMenu["researchMenu"] = {
+    research_target: valid(researchMenuSchema.shape, "research_target", target) ? (target as string).trim()
+      : MENU_PLACEHOLDERS.research_target,
+    ...Object.fromEntries((["plain_answer_receipt", "provisional_answer", "steering_could_help"] as const)
+      .filter((field) => valid(researchMenuSchema.shape, field, menu[field]))
+      .map((field) => [field, typeof menu[field] === "string" ? (menu[field] as string).trim() : menu[field]])),
+    tasks: tasks.map((task) => {
+      const given = isRecord(task) ? task : {};
+      const text = typeof task === "string" ? task : given.task;
+      const words = typeof text === "string" ? text.trim().slice(0, PLAN_LIMITS.task) : "";
+      return {
+        task: words.length >= 3 ? words : MENU_PLACEHOLDERS.task,
+        kind: valid(planTaskSchema.shape, "kind", given.kind) ? given.kind as string : MENU_PLACEHOLDERS.kind,
+        ...(valid(planTaskSchema.shape, "sources", given.sources) ? { sources: given.sources as number } : {}),
+        could_change: valid(planTaskSchema.shape, "could_change", given.could_change) ? given.could_change as string
+          : MENU_PLACEHOLDERS.could_change,
+        ...(valid(planTaskSchema.shape, "loop", given.loop)
+          ? { loop: given.loop as (typeof RESEARCH_LOOPS)[number] } : {}),
+        ...(valid(planTaskSchema.shape, "minutes", given.minutes)
+          ? { minutes: given.minutes as [number, number] } : {}),
+      };
+    }),
+    ...(valid(researchMenuSchema.shape, "allocation", menu.allocation)
+      ? { allocation: menu.allocation as Array<{ task: number; minutes: number }> } : {}),
+    ...(valid(researchMenuSchema.shape, "done", menu.done) ? { done: menu.done as number[] } : {}),
+  };
+  return correctedMenuSchema.parse({ researchMenu: example });
+}
+
+/** A refused menu's problems, one per issue, by its path in the call. */
+export function menuProblems(issues: readonly z.core.$ZodIssue[], path = "later_inputs.researchMenu"): string[] {
+  return issues.map((issue) => `${issue.path.reduce<string>((text, part) => typeof part === "number"
+    ? `${text}[${part}]` : `${text}.${String(part)}`, path)}: ${issue.message}`);
+}
+
+/** The refusal's text: what could not be read, the example to call with, and what was read or left out. */
+export function menuRefusalText(problems: readonly string[], example: CorrectedMenu, reading?: string): string {
+  return [
+    `AskRigor could not read this plan_research call's menu, so it planned nothing: ${problems.join("; ")}.`,
+    "Call manage_research_access with action plan_research again with these later_inputs, built from yours, after " +
+      "replacing each <...> with one of the values it lists (a task's kind, and could_change: whether the task could " +
+      "change the conclusion, how sure the answer is, or only detail); the allocation, once the person gives one, goes " +
+      `inside researchMenu: ${JSON.stringify(example)}`,
+    ...(reading === undefined ? [] : [reading]),
+  ].join("\n");
+}
+
 /** The style's wording, as the person would read it. */
 const STYLE_WORDS: Readonly<Record<ResearchStyle, string>> = Object.freeze({
   guided: "guided (asks you at the start and before every long task)",

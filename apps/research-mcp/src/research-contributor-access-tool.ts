@@ -58,18 +58,26 @@ import {
   PLAN_TASK_KINDS,
   RESEARCH_LOOPS,
   FORM_PEOPLE_USE,
+  correctedMenu,
+  correctedMenuSchema,
   framingGuidance,
   framingNextStep,
+  menuProblems,
+  menuReadingSentence,
+  menuRefusalText,
   planNextStep,
   planResearch,
   planResearchText,
+  readResearchMenu,
+  researchMenuSchema,
   steeringInspectText,
   steeringSentence,
   type Framing,
+  type MenuReading,
   type ResearchMenuInput,
   type ResearchSteeringInput,
 } from "./research-steering.js";
-import type { ResearchOperationExtra } from "./research-operation.js";
+import type { ResearchOperationExtra, ResearchOperationHandler } from "./research-operation.js";
 import {
   SHARED_ANSWER_KEPT,
   SharedAnswersFullError,
@@ -274,6 +282,10 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     minutes_since_plain_answer: z.number().int().optional(),
     target_matches_plain_answer: z.boolean().optional(),
   }).strict().optional(),
+  // 12 Nov 2026 (runtime only): a refused menu's example, built from the call's own.
+  corrected_later_inputs: correctedMenuSchema.optional()
+    .describe("With a plan_research call whose menu could not be read: its later_inputs as they should be, built from " +
+      "its own; replace each <...> with one of the values it lists."),
 }).strict();
 
 /**
@@ -644,21 +656,85 @@ export function createManageResearchAccessHandler(
   return async (
     input: Record<string, unknown>,
     extra?: ResearchOperationExtra,
-  ): Promise<CallToolResult> => {
-    const result = await respond(input, extra);
-    const notice = toolListNotice(
-      typeof input.tool_list_version === "string" ? input.tool_list_version : undefined,
-      options.toolListVersion,
-    );
-    if (notice === undefined) return result;
-    // The 12 Nov release check (Codex's AskRigor app): a plan_research call that sent no tool_list_version read this
-    // notice before "Ask now", the stop the 11 Nov build puts first. Inspect keeps it first, as the owner asked; on
-    // the steps after inspect the result's own next step comes first and the notice follows it.
-    if (input.action !== "inspect") return { ...result, content: [...result.content, { type: "text", text: notice }] };
-    const [first, ...rest] = result.content;
-    return first?.type === "text"
-      ? { ...result, content: [{ ...first, text: `${notice} ${first.text}` }, ...rest] }
-      : { ...result, content: [{ type: "text", text: notice }, ...result.content] };
+  ): Promise<CallToolResult> => withToolListNotice(await respond(input, extra), input, options.toolListVersion);
+}
+
+/** A result with the notice that this call's app has an out-of-date copy of AskRigor's tools, when it has. */
+function withToolListNotice(result: CallToolResult, input: Record<string, unknown>,
+  toolListVersion: string | undefined): CallToolResult {
+  const notice = toolListNotice(
+    typeof input.tool_list_version === "string" ? input.tool_list_version : undefined,
+    toolListVersion,
+  );
+  if (notice === undefined) return result;
+  // The 12 Nov release check (Codex's AskRigor app): a plan_research call that sent no tool_list_version read this
+  // notice before "Ask now", the stop the 11 Nov build puts first. Inspect keeps it first, as the owner asked; on
+  // the steps after inspect the result's own next step comes first and the notice follows it.
+  if (input.action !== "inspect") return { ...result, content: [...result.content, { type: "text", text: notice }] };
+  const [first, ...rest] = result.content;
+  return first?.type === "text"
+    ? { ...result, content: [{ ...first, text: `${notice} ${first.text}` }, ...rest] }
+    : { ...result, content: [{ type: "text", text: notice }, ...result.content] };
+}
+
+/**
+ * A plan_research call's menu, read before the call's inputs are checked (readResearchMenu, 12 Nov 2026): the call goes
+ * on with the menu in its own names and alone in later_inputs, and its result names what was read from beside it or
+ * left out; a menu still not readable is refused here, with its problems and an example built from the call's own,
+ * in a result whose structured content is valid (ChatGPT shows an error result without it only as "The tool failed
+ * internally"). A call with no later_inputs, or another action, goes on as it came.
+ */
+export function withResearchMenuReading(execute: ResearchOperationHandler, options: { toolListVersion?: string }):
+  ResearchOperationHandler {
+  return async (input, extra) => {
+    const later = input.later_inputs;
+    if (input.action !== "plan_research" || later === null || typeof later !== "object" || Array.isArray(later)) {
+      return await execute(input, extra);
+    }
+    const reading = readResearchMenu(later as Record<string, unknown>);
+    const sentence = menuReadingSentence(reading);
+    const parsed = reading.menu === undefined ? undefined : researchMenuSchema.safeParse(reading.menu);
+    if (parsed === undefined || !parsed.success) {
+      return withToolListNotice(menuRefusal(reading, parsed?.error.issues), input, options.toolListVersion);
+    }
+    const result = await execute({ ...input, later_inputs: reading.later }, extra);
+    return sentence === undefined ? result : withMenuReadingSentence(result, sentence);
+  };
+}
+
+/** A plan_research call's refusal for its menu: what could not be read, and the example to call with. */
+function menuRefusal(reading: Pick<MenuReading, "menu" | "flat" | "ignored" | "moved">,
+  issues?: readonly z.core.$ZodIssue[]): CallToolResult {
+  const missing = reading.menu === undefined;
+  const problems = missing
+    ? ["later_inputs.researchMenu: missing; plan_research's menu, with its research_target and tasks, goes inside it"]
+    : menuProblems(issues ?? []);
+  const example = correctedMenu(missing ? reading.flat : reading.menu);
+  const sentence = menuReadingSentence(reading);
+  const message = "plan_research could not read later_inputs.researchMenu: call it again with " +
+    "corrected_later_inputs, after replacing each <...> with one of the values it lists.";
+  return {
+    content: [{ type: "text", text: menuRefusalText(problems, example, sentence) }],
+    structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
+      ok: false,
+      error: { code: "invalid_request", message },
+      problems: [...problems, ...(sentence === undefined ? [] : [sentence])],
+      corrected_later_inputs: example,
+    }),
+    isError: true,
+  };
+}
+
+/** A result with what the menu's reading read from beside it or left out: after its text, and among its problems. */
+function withMenuReadingSentence(result: CallToolResult, sentence: string): CallToolResult {
+  const structured = result.structuredContent;
+  const problems = Array.isArray(structured?.problems) ? structured.problems as unknown[] : [];
+  const changed = structured === undefined ? undefined
+    : manageResearchAccessRuntimeOutputSchema.safeParse({ ...structured, problems: [...problems, sentence] });
+  return {
+    ...result,
+    content: [...result.content, { type: "text", text: sentence }],
+    ...(changed?.success === true ? { structuredContent: changed.data } : {}),
   };
 }
 
@@ -797,6 +873,10 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       }
       if (parsed.framing !== undefined && parsed.action !== "register_plain_answer") {
         return accessError("invalid_request", "later_inputs.framing goes only with action register_plain_answer.");
+      }
+      // A plan_research call with no menu at all gets the refusal a menu that can't be read gets, with an example.
+      if (parsed.action === "plan_research" && parsed.researchMenu === undefined) {
+        return menuRefusal({ ignored: [], moved: [] });
       }
       if ((parsed.action === "plan_research") !== (parsed.researchMenu !== undefined)) {
         return accessError(

@@ -216,6 +216,7 @@ import { toolListNotice, toolListVersionField } from "./tool-list-currency.js";
 import { type RunningVersions, runningVersionsOf, versionPayload } from "./version.js";
 import {
   createManageResearchAccessHandler,
+  withResearchMenuReading,
   createResearchAccessGuard,
   createSubmitResearchContributionHandler,
   researchUseAccount,
@@ -4123,17 +4124,23 @@ function collectResearchOperations(
           : name === "validate_study_method_audit" ? studyMethodAuditRouteOutputSchema.safeExtend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
             : publishedOutputSchema;
       const outputSchema = openToolOutputSchema(runtimeOutputSchema, publishedOutputSchema);
+      // 12 Nov 2026: plan_research's menu is read in its own names before the inputs are checked, and a menu still not
+      // readable is refused with an example built from the call's own (withResearchMenuReading).
+      const evolvingExecute = name === "manage_research_access"
+        ? withResearchMenuReading(evolving.execute, { ...(options.toolListVersion === undefined ? {}
+          : { toolListVersion: options.toolListVersion }) })
+        : evolving.execute;
       const guardedExecute = options.researchAccessRequired === true &&
           !PRIVATE_MCP_OPERATION_NAMES.has(name) &&
           !PUBLIC_READ_OPERATION_NAMES.has(name) &&
           !RESEARCH_ACCESS_CONTROL_OPERATION_NAMES.has(name) &&
           !["read_forum_thread", "search_reddit_threads"].includes(name)
-        ? createResearchAccessGuard(evolving.execute, {
+        ? createResearchAccessGuard(evolvingExecute, {
             service: options.researchContributorAccessService,
             resourceMetadataUrl: options.oauthResourceMetadataUrl,
             signIn: options.signIn,
           })
-        : evolving.execute;
+        : evolvingExecute;
       const mcpConfig = Object.freeze({
         ...config,
         inputSchema: evolving.inputSchema,
