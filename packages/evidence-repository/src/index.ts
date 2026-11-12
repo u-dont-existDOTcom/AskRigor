@@ -18,10 +18,12 @@ export { deterministicUuid, sha256, stableJson } from "./hash.js";
 export {
   RESEARCH_CALL_RECORD_RETENTION_DAYS,
   RESEARCH_CALL_RECORD_RETENTION_MS,
+  RESEARCH_PLAN_DECISIONS,
   InMemoryResearchCallRecordStore,
   PostgresResearchCallRecordStore,
   type ResearchCallRecordEntry,
   type ResearchCallRecordStore,
+  type ResearchPlanDecision,
 } from "./research-call-record.js";
 export {
   buildSyntheticPublicLeadProjection,

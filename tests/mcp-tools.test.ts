@@ -36,6 +36,9 @@ import { COMMUNITY_RESEARCH_REMINDER, VIDEO_COMMENT_MAP_REMINDER, expectCommunit
   from "./helpers/community-result-reminders.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "../apps/research-mcp/src/community-leads.js";
 import {
+  VIDEO_DETAILS_ONLY, VIDEO_DETAILS_ONLY_GEMINI, commentsShownSentence
+} from "../apps/research-mcp/src/register-tools.js";
+import {
   builtContent,
   CLAUDE_APP_RESULT_CHARACTERS,
   CLAUDE_CODE_INLINE_CHARACTERS,
@@ -250,9 +253,22 @@ describe("AskRigor MCP tools", () => {
     const criticalInstructions = SERVER_INSTRUCTIONS.slice(0, 512);
 
     expect(criticalInstructions).toContain("manage_research_access");
+    // The owner's call record of 11 Nov 2026: ChatGPT inspected in 9 of 9 runs and registered the plain answer in 8, but
+    // called plan_research in none, so the opening names the step.
+    expect(criticalInstructions).toContain("register the plain answer, screen briefly, then call action plan_research " +
+      "before deep reading; follow results.");
     expect(criticalInstructions).toContain("explicitly accept free contributor mode");
     expect(criticalInstructions).toContain("never infer consent");
-    expect(criticalInstructions).toContain("never raw chat");
+    // Moved past the first 512 for that step (12 Nov 2026): the proposals' privacy list repeats
+    // submit_research_contribution's own description, and its schema requires each privacy marker false.
+    expect(SERVER_INSTRUCTIONS.slice(0, 1_024)).toContain("never raw chat");
+    // The owner, 11 Nov 2026 ("it's still not asking me any steering questions"): the one text ChatGPT always has
+    // says, where it reads first, to follow results, to end the turn at an ask, and never to end on a progress report.
+    expect(criticalInstructions).toContain("ask the person and wait");
+    expect(criticalInstructions).toContain("end your turn");
+    expect(criticalInstructions).toContain("never a progress report");
+    // The stop keeps the results' own exception: an emergency's urgent action comes first.
+    expect(criticalInstructions).toContain("send only its message (after any urgent action) and end your turn");
     expect(SERVER_INSTRUCTIONS).toContain("submit_research_contribution");
     expect(SERVER_INSTRUCTIONS).toContain("Paid-private mode submits nothing");
     expect(SERVER_INSTRUCTIONS).toContain("survey_youtube_community");
@@ -260,13 +276,16 @@ describe("AskRigor MCP tools", () => {
     expect(SERVER_INSTRUCTIONS).toContain("could plausibly matter");
     expect(SERVER_INSTRUCTIONS).toContain("excellent RCT does not remove this requirement");
     expect(SERVER_INSTRUCTIONS).toContain("continuation_recommended");
-    expect(SERVER_INSTRUCTIONS).toContain("widen discovery until finalize_research accepts it");
+    // Stale since owner answers 193a and 195a (29 Oct 2026): only six checks can hold an answer back, none about
+    // discovery, so "widen discovery until finalize_research accepts it" read as "keep researching".
+    expect(SERVER_INSTRUCTIONS).not.toContain("widen discovery");
     expect(SERVER_INSTRUCTIONS).toContain("unfiltered YouTube comments and replies");
     expect(SERVER_INSTRUCTIONS).toContain(
       "search_youtube_comments is query-bounded discovery only"
     );
-    // Claude clients cut server instructions near 2,048 characters.
+    // Claude clients cut server instructions near 2,048 characters; ASCII, so as many bytes.
     expect(SERVER_INSTRUCTIONS.length).toBeLessThanOrEqual(2_048);
+    expect(Buffer.byteLength(SERVER_INSTRUCTIONS, "utf8")).toBeLessThanOrEqual(2_048);
     expect(SERVER_INSTRUCTIONS.slice(0, 1_024)).toContain(
       "call finalize_research with every research_receipt"
     );
@@ -274,8 +293,10 @@ describe("AskRigor MCP tools", () => {
     // mode saves; a paid-private answer offers the save, which waits for the user's yes.
     expect(SERVER_INSTRUCTIONS).toContain("a findings_card of its best findings");
     expect(SERVER_INSTRUCTIONS).toContain(
-      "else copy its caveats. If they offer a save, call save_research_findings only after the user's yes."
+      "If it offers a save, call save_research_findings only after the user's yes."
     );
+    // Redundant: a passing result shows each caveat as "Include as written" itself.
+    expect(SERVER_INSTRUCTIONS).not.toContain("copy its caveats");
   });
 
   it("publishes one-chain full-text handle and source-hash guidance", () => {
@@ -698,6 +719,19 @@ describe("AskRigor MCP tools", () => {
       const returned = (result.structuredContent as { records_returned_for_analysis: number }).records_returned_for_analysis;
       expect(returned).toBeGreaterThan(100);
       expect(returned).toBeLessThan(250);
+      // AskRigor#438: the text says how many of the retrieved records this view shows, that an order blind to what they
+      // say picked them, and which tool returns them all, beside the retrieval count.
+      // The review of 11 Nov 2026: get_youtube_comments returns them all at once, which can pass what an app takes in,
+      // so the sentence says so and when it is worth it.
+      const shownSentence = `This result shows ${returned} of the 250 comment records retrieved, picked by an order ` +
+        "that ignores what they say. get_youtube_comments returns all 250 at once, a large result that can be more " +
+        "than some apps take in, so call it for this video only when the comments not shown could change the answer.";
+      expect(commentsShownSentence(returned, 250)).toBe(shownSentence);
+      expect((result.content as Array<{ text: string }>)[0]!.text).toMatch(new RegExp("^YouTube video audit retrieved " +
+        "250 record\\(s\\) cumulatively; this video's comments lock pass \\(this video only\\)\\. This result shows " +
+        `${returned} of the 250 comment records retrieved`, "u"));
+      expect((result.content as Array<{ text: string }>)[0]!.text).toContain(shownSentence);
+      expect((result.structuredContent as { sample: { mode: string } }).sample.mode).toBe("deterministic_hash_chronological");
       // The budget covers what each kind of client takes in (lesson #59): ChatGPT, the whole result; a client that
       // reads only text, its text, which then carries the structured content's JSON.
       const bytes = clientViewBytes(result);
@@ -1133,10 +1167,14 @@ describe("AskRigor MCP tools", () => {
         type: "text",
         text: `research_receipt: ${researchReceipt}`
       }, {
-        // Owner question 86: every research result reminds the AI of the final check, in any turn.
+        // Owner question 86: every research result reminds the AI of the final check, in any turn; since 11 Nov 2026,
+        // also how a research turn ends.
         type: "text",
         text: "Answers that use this research are checked with finalize_research before they are given, in this " +
-          "turn or a later one; HRP's OutputFormatting section sets a health answer's shape."
+          "turn or a later one; HRP's OutputFormatting section sets a health answer's shape. A research turn ends " +
+          "with the answer that check says to give, or with a question an AskRigor result said to ask and wait on, " +
+          "never with a progress report: if such a question is still unanswered, stop researching, send it and end " +
+          "your turn."
       }]);
       // Only the completed audit carries a receipt; it binds the video and its terminal state.
       expect((first.structuredContent as { research_receipt?: string }).research_receipt).toBeUndefined();
@@ -1788,9 +1826,12 @@ describe("AskRigor MCP tools", () => {
         data: [{ video_id: "XpZHKGGCK-o", published_at: "2025-01-02T03:04:05Z" }]
       });
       expect(video.isError).not.toBe(true);
+      // 11 Nov 2026: a ChatGPT run said it had read a video's transcript from this result, then took it back.
       expect(builtContent(video)).toEqual([{
         type: "text",
-        text: "YouTube video retrieval finished with access status api_visible_complete."
+        text: "YouTube video retrieval finished with access status api_visible_complete. These are the video's details " +
+          "from YouTube (title, description, channel, duration, tags and counts), not what is said or shown in it; for " +
+          "its health claims, extract_youtube_video_claims reads the video itself."
       }]);
       expect(video.structuredContent).toMatchObject({
         provider: "youtube",
@@ -1802,6 +1843,42 @@ describe("AskRigor MCP tools", () => {
     } finally {
       restoreEnvironment("YOUTUBE_API_KEY", previous);
       await server.close();
+    }
+  });
+
+  it("says a video's result is its details, not its words, on Gemini without a tool its catalog lacks, and adds nothing to a failure", async () => {
+    const previous = process.env.YOUTUBE_API_KEY;
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    const found = await youtubeFixture("video-found.json");
+    const missing = await youtubeFixture("error-video-not-found.json");
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) =>
+      String(input).includes("id=XpZHKGGCK-o") ? new Response(found, { status: 200 })
+        : new Response(missing, { status: 404 })));
+    const gemini = createAskRigorServer("gemini");
+    const client = new Client({ name: "askrigor-gemini-test", version: "0.1.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    clients.push(client);
+    await gemini.connect(serverTransport);
+    await client.connect(clientTransport);
+    try {
+      const video = await client.callTool({ name: "get_youtube_video", arguments: { video_id_or_url: "XpZHKGGCK-o" } });
+      expect(video.isError).not.toBe(true);
+      const text = (video.content as Array<{ text: string }>)[0]!.text;
+      expect(text).toBe(`YouTube video retrieval finished with access status api_visible_complete. ${VIDEO_DETAILS_ONLY_GEMINI}`);
+      expect(text).not.toContain("extract_youtube_video_claims");
+      const { client: standard, server } = await createInMemoryClient();
+      try {
+        const failed = await standard.callTool({ name: "get_youtube_video", arguments: { video_id_or_url: "dQw4w9WgXcQ" } });
+        const failedText = (failed.content as Array<{ text: string }>)[0]!.text;
+        expect(failedText).toBe("YouTube video retrieval finished with access status not_found. Error: " +
+          "youtube_video_not_found.");
+        expect(failedText).not.toContain(VIDEO_DETAILS_ONLY);
+      } finally {
+        await server.close();
+      }
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previous);
+      await gemini.close();
     }
   });
 
@@ -2596,8 +2673,25 @@ describe("AskRigor MCP tools", () => {
       // 5 Nov 2026: a signed record names how a study cited from it alone was read, before the final check.
       expect((result.content as Array<{ text: string }>)[0]!.text).toBe("PubMed record 40123456 retrieval finished " +
         "with access status api_visible_complete. If the answer cites this study from this record alone, say " +
-        "\"abstract only\" beside it in the answer, in the answer's language, and give those words in " +
-        "finalize_research's later_inputs.source_reading, with reading abstract_only.");
+        "\"abstract only\" beside it in the answer, in the answer's language, and give finalize_research, from its " +
+        "first call, an entry in later_inputs.source_reading as {source, reading, quote}: source this study's id as " +
+        "key_sources gives it, reading abstract_only, and quote those words as answer_draft has them. The final check " +
+        "holds back an answer that cites this study as a key source without saying how it was read.");
+      // The review of 11 Nov 2026: Gemini's catalog has no finalize_research, so its sentence stops at the answer's words.
+      const gemini = createAskRigorServer("gemini");
+      const geminiClient = new Client({ name: "askrigor-gemini-record-test", version: "0.1.0" });
+      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+      clients.push(geminiClient);
+      await gemini.connect(serverTransport);
+      await geminiClient.connect(clientTransport);
+      try {
+        const record = await geminiClient.callTool({ name: "fetch_pubmed_record", arguments: { pmid: "40123456" } });
+        expect((record.content as Array<{ text: string }>)[0]!.text).toBe("PubMed record 40123456 retrieval finished " +
+          "with access status api_visible_complete. If the answer cites this study from this record alone, say " +
+          "\"abstract only\" beside it in the answer, in the answer's language.");
+      } finally {
+        await gemini.close();
+      }
     } finally {
       restoreEnvironment("NCBI_TOOL", previous.tool);
       restoreEnvironment("NCBI_EMAIL", previous.email);

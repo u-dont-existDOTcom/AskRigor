@@ -286,10 +286,19 @@ export const READING_RESULT_WHEN = {
   audit: "With this study's methods audited"
 } as const;
 
-/** A reading tool's sentence: the reading's words, said beside the study and given in source_reading. Runtime text. */
-export function readingResultNote(when: string, reading: AnswerReading): string {
-  return `${when}, say "${ANSWER_READING_LABELS[reading]}" beside it in the answer, in the answer's language, and give ` +
-    `those words in finalize_research's later_inputs.source_reading, with reading ${reading}.`;
+/**
+ * A reading tool's sentence: the reading's words, said beside the study and given in source_reading, with the entry's
+ * exact fields and what happens without it. Runtime text. The timing runs of 10 Nov 2026: all 17 checks that held an
+ * answer back were a turn's first, mostly over a reading the receipts already showed, whose entry came with guessed
+ * field names or none; once a not_ready result named {source, reading, quote}, every next call used them.
+ */
+export function readingResultNote(when: string, reading: AnswerReading, finalCheck = true): string {
+  const say = `${when}, say "${ANSWER_READING_LABELS[reading]}" beside it in the answer, in the answer's language`;
+  // Gemini's catalog has no finalize_research (11 Nov 2026, the review), so its sentence stops at the answer's words.
+  return !finalCheck ? `${say}.` : `${say}, and give ` +
+    "finalize_research, from its first call, an entry in later_inputs.source_reading as {source, reading, quote}: " +
+    `source this study's id as key_sources gives it, reading ${reading}, and quote those words as answer_draft has ` +
+    "them. The final check holds back an answer that cites this study as a key source without saying how it was read.";
 }
 
 /**
@@ -297,15 +306,16 @@ export function readingResultNote(when: string, reading: AnswerReading): string 
  * an audit, of a copy the AI found or not. Reading the receipt back gives its kind and provenance exactly; another kind,
  * or no receipt, adds nothing.
  */
-export function receiptReadingNote(receipt: string | undefined, secret: string | undefined): string {
+export function receiptReadingNote(receipt: string | undefined, secret: string | undefined, finalCheck = true): string {
   const verified = receipt === undefined || secret === undefined ? undefined : verifyResearchReceipt(receipt, { secret });
   if (verified?.ok !== true) return "";
   if (verified.kind === "full_text_read") {
-    return readingResultNote(READING_RESULT_WHEN.fullText, aiCopy(verified) ? "search_copy_read" : "full_text_read");
+    return readingResultNote(READING_RESULT_WHEN.fullText, aiCopy(verified) ? "search_copy_read" : "full_text_read",
+      finalCheck);
   }
   if (verified.kind !== "study_audit" && verified.kind !== "review_audit") return "";
   return readingResultNote(READING_RESULT_WHEN.audit,
-    aiCopy(verified) ? "search_copy_audited" : "full_text_audited");
+    aiCopy(verified) ? "search_copy_audited" : "full_text_audited", finalCheck);
 }
 
 /**

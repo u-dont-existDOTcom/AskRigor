@@ -240,59 +240,131 @@ export const FORM_PEOPLE_USE = "When the answer turns on a form or preparation, 
 /**
  * The menu's exact shape, field by field. The timing runs of 9 Nov 2026 (Codex's AskRigor app on the live build): every
  * case's first plan_research call was refused, 12 of 22 in all, because the model guessed the fields (what_it_could_change,
- * label, a sentence as could_change, invented kinds, no research_target) and learned them from the refusal.
+ * label, a sentence as could_change, invented kinds, no research_target) and learned them from the refusal. The runs of
+ * 10 Nov on the released 284 rule: every first call accepted, but steering_could_help false on all 14 questions, open
+ * ones included (a person's own three symptoms, an oil whose form changes its strength), against the owner's "usually
+ * can unless the prompt is quite precise"; so the field now carries HRP's own test for when approval is required.
  */
 export const RESEARCH_MENU_SHAPE = "later_inputs.researchMenu in exactly this shape: research_target, the research target " +
   "word for word as register_plain_answer's result quoted it; plain_answer_receipt, that call's research_receipt; " +
-  "provisional_answer, what the screen suggests, in a few sentences; steering_could_help, true when the person's own " +
-  "choices (which tasks, how deep, which reading or form they mean) could make the research more useful to them, as " +
-  "they usually can, and false only when the question is precise enough that they could not (HRP " +
-  "StructuredUserSteeringAndApproval); and tasks, the next tasks the screen found, in " +
+  "provisional_answer, what the screen suggests, in a few sentences; steering_could_help, true when a choice the " +
+  "person could make, or something only they know, could materially change what the research checks (HRP " +
+  "StructuredUserSteeringAndApproval): such as their own situation or what they have tried, the form, dose or route " +
+  "they use, what to compare it with, which outcome matters most to them, people's reports or studies, or how deep; " +
+  "as it usually can, even when the question is clearly worded; false only when the question already fixes all of " +
+  "that, such as one result of one named study; and tasks, the next tasks the screen found, in " +
   "order, each {task, what it does in the person's language; kind, one of study_search, abstract_screen, full_text, " +
   "method_audit, forum_thread, video_comments, video_claims, trial_registry or other; could_change, one of conclusion, " +
   "confidence or detail; sources, how many searches, abstracts, papers, threads, videos or records it covers; loop, " +
   "people_to_studies or studies_to_people, only for a task between people's reports and studies; and minutes, [low, " +
   "high], only for a task of kind other or one much longer or shorter than its kind's usual time}. Leave out any other " +
   "field: allocation and done come only after the person answers or stops you.";
-const SCREEN_FIRST = "Screen first: searches, abstracts, thread titles and the Atlas, with no full-text reading, long " +
-  "threads or video audits yet, ending with a provisional short answer. " + PEOPLE_FIRST_WHEN_USED + " " +
-  ALL_JOURNALS_AT_THE_SCREEN + " " + WORDS_ARE_NOT_SIZES + " Then call manage_research_access with action " +
-  "plan_research and " + RESEARCH_MENU_SHAPE + " AskRigor gives each task a time range and says whether to ask the " +
-  "person first.";
+/**
+ * The screen, then the menu. The timing runs of 10 Nov 2026 (Codex, the 284 rule on the live build): the screens took 4
+ * to 9 calls, and none of the 21 turns ended with the question AskRigor said to ask, so the screen says how short it is
+ * and that an ask ends the turn, before the model starts it.
+ */
+const SCREEN_FIRST = "Screen first: a few calls (about eight) of searches, abstracts, thread titles and the Atlas, " +
+  "with no full-text reading, long threads or video audits yet, ending with a provisional short answer. For each " +
+  "claim on a premise of the person's question, include one search for what would show it wrong. " +
+  PEOPLE_FIRST_WHEN_USED + " " + ALL_JOURNALS_AT_THE_SCREEN + " " + WORDS_ARE_NOT_SIZES + " Then call " +
+  "manage_research_access with action plan_research and " + RESEARCH_MENU_SHAPE + " AskRigor gives each task a time " +
+  "range and says whether to ask the person first; when it says to ask, your reply is the message it gives, and the " +
+  "turn ends there.";
+
+/**
+ * A doubt about the question becomes a claim of the plain answer only when it could be false, not when it is only
+ * unclear or inverted, which is the person's to settle (11 Nov 2026). Which doubts could be false is the model's
+ * judgment.
+ */
+const PREMISE_NOT_YET_A_CLAIM = "a doubt that could be false, not only unclear, is not yet a claim of the plain answer";
+const PREMISE_VERDICT = "with a sentence giving your quick verdict on it among the claims, so the final check " +
+  "compares it";
+const FRAMING_ANSWERED = "leaving later_inputs.framing out now that the person has answered (its result's request " +
+  "for a framing is for the next question)";
 
 /**
  * What register_plain_answer's result says next, by the account's research style and the framing given with it. Whether
  * a question could redirect the research is the model's own judgment, made when it wrote the framing.
+ *
+ * The owner, 11 Nov 2026 ("it's still not asking me any steering questions"): an ask followed by the screen's
+ * instructions in the same string reads as leave to go on, so the ask says the whole reply is the questions and the turn
+ * ends there, as HRP's preflight-only response allows when steering is required.
  */
 export function framingGuidance(steering: ResearchSteering, framing: Framing | undefined): string {
   if (framing === undefined) {
     return URGENT_FIRST + " Give later_inputs.framing with the plain answer next time: likely_question, the question the person most " +
-      "likely means; premise_doubts, anything in it that looks inverted or unclear; and redirecting_questions, up to " +
-      "three questions whose answers could change what to research. " + FORM_PEOPLE_USE + " " + SCREEN_FIRST;
+      "likely means; premise_doubts, anything in it that looks inverted, unclear or possibly false; and " +
+      "redirecting_questions, up to three questions whose answers could change what to research. " + FORM_PEOPLE_USE +
+      " " + SCREEN_FIRST;
   }
   const doubts = framing.premise_doubts ?? [];
   const questions = framing.redirecting_questions ?? [];
   const parts: string[] = [URGENT_FIRST, `Framing: the person most likely means ${JSON.stringify(framing.likely_question)}.`];
-  if (doubts.length > 0) {
-    parts.push(`Say plainly near the start of your reply what looks inverted or unclear (${doubts.map((doubt) =>
-      JSON.stringify(doubt)).join("; ")}), and which reading you take.`);
-  }
-  if (questions.length > 0) {
-    const asked = questions.map((question, index) => `${index + 1}. ${question}`).join(" ");
-    parts.push(steering.style === "autonomous"
-      ? `The person chose autonomous research, so don't stop to ask: say in one line which reading you take, and ` +
-        `keep these questions for your first check-back: ${asked} Ask now only if one could reverse the answer.`
-      : `Ask the person these questions now, in their language, and wait for the answers before any research call: ` +
-        `${asked} If the answers change the question, register the plain answer again for the new research target ` +
-        "before researching.");
-  } else if (steering.style === "guided") {
-    parts.push("The person chose guided research: before researching, confirm in one line the question you will " +
-      "research, and wait for their yes.");
+  const doubted = doubts.map((doubt) => JSON.stringify(doubt)).join("; ");
+  const asked = questions.map((question, index) => `${index + 1}. ${question}`).join(" ");
+  if (questions.length > 0 && steering.style !== "autonomous") {
+    // An ask: the doubts go in its one line, and any new registration waits for the answers. The framing isn't stored,
+    // so a registration made now without it would say to screen and cancel the ask; made after the answers with it, it
+    // would ask the answered questions again, so it leaves the framing out.
+    parts.push(`Ask the person these questions now, before any research call: ${asked} Your whole reply this turn is ` +
+      "these questions, in the person's language, after the urgent action if the question is urgent, with at most one " +
+      "line before them on what your plain answer suggests, marked not yet checked" + (doubts.length === 0 ? ""
+        : `, and on what looks inverted, unclear or possibly false in the question (${doubted})`) +
+      "; then end your turn, with no research call. When they answer: " + (doubts.length === 0
+        ? "if the answers change the question, register the plain answer again for the new research target"
+        : "register the plain answer again if the answers change the question (for the new research target) or if " +
+          `${PREMISE_NOT_YET_A_CLAIM} (${PREMISE_VERDICT})`) +
+      `, ${FRAMING_ANSWERED}; then screen and plan as follows.`);
+  } else if (questions.length === 0 && steering.style === "guided") {
+    parts.push("The person chose guided research: your whole reply this turn is one line confirming the question you " +
+      "will research and asking for their yes" +
+      (doubts.length === 0 ? "" : `, saying in it what looks inverted, unclear or possibly false (${doubted})`) +
+      "; then end your turn. After their yes, " + (doubts.length === 0 ? "" : `if ${PREMISE_NOT_YET_A_CLAIM}, ` +
+        `register the plain answer again ${PREMISE_VERDICT}, ${FRAMING_ANSWERED}; then `) +
+      "screen and plan as follows.");
   } else {
-    parts.push("No question could redirect the research, so go on without asking.");
+    // Going on: the doubts are said with the reading taken, and a registration made now keeps the same framing, which
+    // asks nothing.
+    if (doubts.length > 0) {
+      parts.push("Say plainly near the start of your reply what looks inverted, unclear or possibly false " +
+        `(${doubted}), and which reading you take. If ${PREMISE_NOT_YET_A_CLAIM}, register the plain answer ` +
+        "again now, before any research call, with the same later_inputs.framing and a sentence giving your quick " +
+        "verdict on it among the claims, so the final check compares it.");
+    }
+    parts.push(questions.length > 0
+      ? "The person chose autonomous research, so don't stop to ask: say in one line which reading you take, and " +
+        `keep these questions for your first check-back: ${asked} Ask now only if one could reverse the answer.`
+      : "No question could redirect the research, so go on without asking.");
   }
   parts.push(SCREEN_FIRST);
   return parts.join(" ");
+}
+
+/**
+ * register_plain_answer's next step as a runtime field (owner answer 189a keeps the published shape): Claude Code hands
+ * its model a result's structured content and leaves out its text (docs/claude-connector.md, "What the model sees"), so
+ * the stop goes there too. It follows framingGuidance's branches.
+ */
+export function framingNextStep(steering: ResearchSteering, framing: Framing | undefined): string {
+  const asks = (framing?.redirecting_questions ?? []).length > 0;
+  const doubts = (framing?.premise_doubts ?? []).length > 0;
+  if (framing !== undefined && asks && steering.style !== "autonomous") {
+    return "Ask the person your framing's redirecting_questions now and end your turn: no research call until they " +
+      "answer. Then register the plain answer again if their answers change the question" +
+      (doubts ? " or a doubt that could be false is not yet a claim" : "") + ", leaving later_inputs.framing out (its " +
+      "result's request for a framing is for the next question); then screen and call action plan_research.";
+  }
+  if (framing !== undefined && !asks && steering.style === "guided") {
+    return "Confirm the question you will research in one line, ask for the person's yes and end your turn; after " +
+      "their yes, " + (doubts ? "register the plain answer again, leaving later_inputs.framing out (its result's " +
+        "request for a framing is for the next question), if a doubt that could be false is not yet a claim; then "
+        : "") + "screen and call action plan_research.";
+  }
+  return (doubts ? "If a doubt that could be false is not yet a claim of the plain answer, register the plain answer " +
+    "again first, with the same later_inputs.framing. " : "") + "Screen in a few calls (searches, abstracts, thread " +
+    "titles, the Atlas), then call action plan_research with later_inputs.researchMenu; its result says whether to ask " +
+    "the person first.";
 }
 
 /**
@@ -346,6 +418,16 @@ export function taskMinutes(task: PlanTask): [number, number] | null {
 const CHANGE_ORDER: Readonly<Record<(typeof COULD_CHANGE)[number], number>> = { conclusion: 0, confidence: 1, detail: 2 };
 
 /**
+ * Whether the menu carries the person's answer: an allocation naming at least one task on the menu that is not done.
+ * One naming only tasks past the list or already done is not an answer (11 Nov 2026: it went on with nothing
+ * recommended), so the menu then recommends and decides as if none had come.
+ */
+export function allocationAnswered(plan: Pick<ResearchMenuInput, "tasks" | "allocation" | "done">): boolean {
+  const done = new Set(plan.done ?? []);
+  return (plan.allocation ?? []).some(({ task }) => task <= plan.tasks.length && !done.has(task));
+}
+
+/**
  * The menu: each task with its time range; a recommendation, when the person gave none (tasks that could change the
  * conclusion first, then how sure it is, each given its range's middle, while the total stays within the check-back
  * allowance, or the first such task alone when even it is longer); and whether to ask the person before working.
@@ -365,9 +447,10 @@ export function planResearch(
     minutes: taskMinutes(task),
   }));
   const open = tasks.filter(({ n }) => !done.has(n));
+  const answered = allocationAnswered(plan);
   let recommended: { task: number; minutes: number }[];
-  if (plan.allocation !== undefined && plan.allocation.length > 0) {
-    recommended = plan.allocation.filter(({ task, minutes }) => task <= tasks.length && !done.has(task) && minutes > 0)
+  if (answered) {
+    recommended = plan.allocation!.filter(({ task, minutes }) => task <= tasks.length && !done.has(task) && minutes > 0)
       .map(({ task, minutes }) => ({ task, minutes: roundEstimate(minutes) }));
   } else {
     recommended = [];
@@ -382,16 +465,21 @@ export function planResearch(
     }
   }
   const chosen = recommended.map(({ task }) => tasks[task - 1]!);
-  const recommendedMinutes: [number, number] = plan.allocation !== undefined && plan.allocation.length > 0
+  const recommendedMinutes: [number, number] = answered
     ? [recommended.reduce((sum, { minutes }) => sum + minutes, 0), recommended.reduce((sum, { minutes }) => sum + minutes, 0)]
     : [
         roundEstimate(chosen.reduce((sum, task) => sum + (task.minutes?.[0] ?? 1), 0)),
         roundEstimate(chosen.reduce((sum, task) => sum + (task.minutes?.[1] ?? 3), 0)),
       ];
-  const answered = plan.allocation !== undefined && plan.allocation.length > 0;
+  // A re-plan (tasks done, and no allocation that counts as the person's answer) with something to do asks, unless the
+  // person chose autonomous research: the new-fork sentence sends a new task back to the person, and owner answer 279a
+  // has a new fork come back to them (the review of 12 Nov 2026: a precise menu re-planned after the person skipped a
+  // task went on, did the task they skipped and never asked about the new one).
+  const replanned = tasks.some(({ n }) => done.has(n)) && !answered;
   const next = answered || steering.style === "autonomous"
     ? "go_on"
-    : steering.style === "guided" || recommendedMinutes[1] > ASK_ABOVE_MINUTES || plan.steering_could_help !== false
+    : steering.style === "guided" || recommendedMinutes[1] > ASK_ABOVE_MINUTES || plan.steering_could_help !== false ||
+        (replanned && recommended.length > 0)
       ? "ask"
       : "go_on";
   return {
@@ -423,71 +511,130 @@ const LOOP_WORDS: Readonly<Record<(typeof RESEARCH_LOOPS)[number], string>> = {
 const range = ([low, high]: [number, number]): string => low === high ? `about ${low} min` : `about ${low} to ${high} min`;
 
 /**
- * Why the menu waits for the person (owner answer 284): guided research; or, for balanced, recommended tasks that could
- * take more than about 10 minutes, the person's choices that could steer the research (the menu's steering_could_help,
- * true when left out), or both.
+ * Why the menu waits for the person (owner answer 284), worded as the person's own setting: guided research; or, for
+ * balanced, recommended tasks that could take more than about 10 minutes, the person's choices that could steer the
+ * research (the menu's steering_could_help, true when left out), a plan changed once the research began (a menu with
+ * tasks done that asks, which only a re-plan does), or more than one of these. No final period: the ask follows.
  */
-function askReason(result: ResearchPlanResult): string {
-  if (result.style === "guided") return "The person chose guided research, so show";
+function askReason(result: ResearchPlanResult, done: ReadonlySet<number>): string {
+  if (result.style === "guided") return "This person chose guided research, which asks before every long task";
   const reasons = [
     ...(result.recommended_minutes[1] > ASK_ABOVE_MINUTES
-      ? [`the recommended tasks could take more than about ${ASK_ABOVE_MINUTES} minutes`] : []),
+      ? [`the recommended tasks could take more than about ${ASK_ABOVE_MINUTES} minutes, as these could`] : []),
     ...(result.steering_could_help === false ? [] : [result.steering_could_help === true
-      ? "the person's choices could steer this research"
-      : "the person's choices could steer this research (steering_could_help was left out, and they usually can)"]),
+      ? "their choices could steer the research, as they could here"
+      : "their choices could steer the research, as they usually can (steering_could_help was left out)"]),
+    ...(result.tasks.some(({ n }) => done.has(n)) ? ["the plan changes once the research has begun, as it has here"] : []),
   ];
-  const said = reasons.join(", and ");
-  return `${said.charAt(0).toUpperCase()}${said.slice(1)}, so show`;
+  return `This person's research style asks first when ${reasons.join(", and when ")}`;
 }
 
 /** Whether a task reads people's own reports: a thread, a video's comments, or a look prompted by a study finding. */
 const readsPeoplesReports = ({ kind, loop }: PlannedTask): boolean =>
   kind === "forum_thread" || kind === "video_comments" || loop === "studies_to_people";
 
+const NOTHING_RECOMMENDED = "Nothing more is recommended: the open tasks add detail only.";
+
 /**
- * The plan_research result's text: the menu to show, and what to do next by the account's style. allocated is true
- * once the person gave their own allocation, when the menu's numbering must stay as it is.
+ * The ask (the owner, 11 Nov 2026: "it's still not asking me any steering questions"). In the 10 Nov timing runs the
+ * rule asked on 9 of 15 first menus and the AI stopped on 2: the ask came fifth, after the menu, and five paragraphs on
+ * doing the tasks followed it. So the stop comes first, the reply is handed over ready to send, and nothing follows the
+ * rule for the person's answer. HRP allows a reply that only asks when steering is required (its preflight-only exit,
+ * and StructuredUserSteeringAndApproval's "begin no substantive source collection in the same response"), so the ask
+ * gets no final check.
  */
-export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<number>, allocated = false): string {
+const ASK_NOW = ". Ask now, before any of these tasks: your whole reply this turn is the message below, in the " +
+  "person's language, after the urgent action if the question is urgent; then end your turn. Make no research call " +
+  "and don't call finalize_research for this reply: it is a question, not an answer (HRP " +
+  "StructuredUserSteeringAndApproval: when approval is required, begin no substantive source collection in the same " +
+  "response).";
+const HOW_TO_SPEND = "How should I spend the time? Reply with task numbers and minutes, such as \"1. 5 min, 2. 4 min\", " +
+  "in your own words, or \"you decide\".";
+
+/**
+ * How the tasks are done once the research goes on (the 279a plan: a task that runs out of time stops and says what it
+ * reached; a new fork that could change the conclusion comes back to the person, now through the menu).
+ */
+const TASK_PROGRESS = "Before each task, say in one line what you will read, how deep, and why. A task that runs out " +
+  "of its time stops and says in one line what it reached; the next one begins.";
+/**
+ * A new fork, for the styles that can ask. It leaves the allocation out: a menu that still carries the person's
+ * allocation with an open task goes on, and the new task would be neither recommended nor asked about. Autonomous research
+ * checks what it has and answers instead, as its own sentence says, so it gets none.
+ */
+const NEW_FORK = "A new fork that could change the conclusion comes back to the person through the menu: call " +
+  "plan_research again with done and the new task, leaving allocation out, and its result says whether to ask now.";
+
+/**
+ * The plan_research result's text, by the account's style: the ask, or the menu to show while going on. numbered is
+ * true once an allocation or a done list refers to the menu's task numbers, which must then stay as they are, so the
+ * menu asks for no task near the top. researchTarget, the menu's own, goes word for word into the rule for the person's
+ * answer, which a later turn reads, unless the plain answer's receipt shows it is not the registered one.
+ */
+export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<number>, numbered = false,
+  researchTarget?: string): string {
   const lines = result.tasks.map(({ n, task, could_change, loop, minutes }) =>
     `${n}. ${task}: ${CHANGE_WORDS[could_change]}${loop === undefined ? "" : `, ${LOOP_WORDS[loop]}`}; ` +
     `${minutes === null ? "no estimate" : range(minutes)}${done.has(n) ? " (done)" : ""}.`);
-  const recommendation = result.recommended.length === 0
-    ? "Nothing more is recommended: the open tasks add detail only."
-    : `Recommended: ${result.recommended.map(({ task, minutes }) => `${task}. ${minutes} min`).join(", ")}, ` +
-      `${range(result.recommended_minutes)} in all.`;
-  const parts = [
-    "The menu to show the person, in their language, numbered as here (times are rough planning estimates, and say " +
-      "whether a task means a quick look, reading in full or a method audit): " + lines.join(" ") + " " + recommendation +
-      ` Then the final check and writing the answer: about ${ANSWER_MINUTES[0]} to ${ANSWER_MINUTES[1]} min.`,
-  ];
-  if (!allocated && !result.tasks.some(readsPeoplesReports)) parts.push(PEOPLE_TASK_MISSING);
+  const chosen = result.recommended.map(({ task, minutes }) => `${task}. ${minutes} min`).join(", ");
+  const before: string[] = [];
+  if (!numbered && !result.tasks.some(readsPeoplesReports)) before.push(PEOPLE_TASK_MISSING);
   if (result.target_matches_plain_answer === false) {
-    parts.push("This research_target is not the one registered with the plain answer: give plan_research and " +
+    before.push("This research_target is not the one registered with the plain answer: give plan_research and " +
       "finalize_research the research target word for word as register_plain_answer's result quoted it, or the " +
       "answer ends without the comparison with the quick answer.");
   }
-  if (result.minutes_since_plain_answer !== undefined) {
-    parts.push(`About ${result.minutes_since_plain_answer} ${result.minutes_since_plain_answer === 1 ? "minute has" :
-      "minutes have"} passed since the plain answer was registered.`);
-  }
+  const since = result.minutes_since_plain_answer === undefined ? [] : [`About ${result.minutes_since_plain_answer} ` +
+    `${result.minutes_since_plain_answer === 1 ? "minute has" : "minutes have"} passed since the plain answer was ` +
+    "registered."];
   if (result.next === "ask") {
-    parts.push(askReason(result) + " the menu" + (result.style !== "guided" && result.steering_could_help !== false
-      ? ", say in one line what their choices could change," : "") + " and ask how to spend " +
-      "the time: they may answer with task numbers and minutes, such as \"1. 5 min, 2. 4 min, 7. 1 min\", in their " +
-      "own words, or \"you decide\". Wait for the answer before any of these tasks, then call plan_research again " +
-      "with their allocation as a list of {task, minutes}; for \"you decide\", the recommended tasks and minutes.");
-  } else if (result.style === "autonomous") {
-    parts.push("The person chose autonomous research: show the menu as what you are doing and go on with the " +
-      `recommended tasks. Check back with them after about ${result.check_back_minutes} minutes of research, or ` +
-      "sooner if a new finding could change the conclusion.");
-  } else {
-    parts.push("Do these tasks now, in this order, each within its minutes; show the menu as what you are doing.");
+    const reply = [
+      "Your reply: at most two sentences on what the first look suggests, saying it is not yet checked" +
+        (result.style !== "guided" && result.steering_could_help !== false
+          ? ", and one on what their choices could change, such as their own situation, the form or dose they use, " +
+            "or the outcome that matters most to them" : "") +
+        "; then this menu, numbered as here, saying for each task whether it means a quick look, reading in full or a " +
+        "method audit (the times are rough planning estimates):",
+      ...lines,
+      result.recommended.length === 0 ? NOTHING_RECOMMENDED
+        : `Recommended: ${chosen}, ${range(result.recommended_minutes)} in all; then about ${ANSWER_MINUTES[0]} to ` +
+          `${ANSWER_MINUTES[1]} min to check and write the answer.`,
+      HOW_TO_SPEND,
+    ];
+    // A menu whose research target is not the registered one gets the registered one named instead, as the first line
+    // says; without the plain answer's receipt AskRigor can't tell, so the menu's own is quoted.
+    const target = result.target_matches_plain_answer === false ? " as register_plain_answer's result quoted it"
+      : researchTarget === undefined ? "" : ` ${JSON.stringify(researchTarget)}`;
+    const rule = "When the person replies: call manage_research_access action plan_research again with the same " +
+      `plain_answer_receipt and tasks, research_target word for word${target}, and their allocation as a list ` +
+      "of {task, minutes}; for \"you decide\", or a reply that leaves the choice to you such as \"continue\", " +
+      (result.recommended.length === 0 ? "no more research: check the answer with finalize_research and give it"
+        : "the recommended allocation") + ". If the reply changes the question, register the plain answer again for " +
+      "the new research target first, with later_inputs.framing for it. Never send an allocation the person did not " +
+      "give or leave to you.";
+    return [
+      ...(before.length === 0 ? [] : [before.join(" ")]),
+      [askReason(result, done) + ASK_NOW, ...since].join(" "),
+      reply.join("\n"),
+      rule,
+    ].join("\n");
   }
-  parts.push(
-    "Before each task, say in one line what you will read, how deep, and why. A task that runs out of its time stops " +
-      "and says what it reached and whether more time is worth it; a new finding that could change the conclusion " +
-      "comes back to the person unless they chose autonomous research.",
+  const recommendation = result.recommended.length === 0 ? NOTHING_RECOMMENDED
+    : `Recommended: ${chosen}, ${range(result.recommended_minutes)} in all.`;
+  return [
+    "The menu to show the person, in their language, numbered as here (times are rough planning estimates, and say " +
+      "whether a task means a quick look, reading in full or a method audit): " + lines.join(" ") + " " + recommendation +
+      ` Then the final check and writing the answer: about ${ANSWER_MINUTES[0]} to ${ANSWER_MINUTES[1]} min.`,
+    ...before,
+    ...since,
+    result.style === "autonomous"
+      ? "The person chose autonomous research: show the menu as what you are doing and go on with the recommended " +
+        `tasks now. After about ${result.check_back_minutes} minutes of research, or sooner if a new finding could ` +
+        "change the conclusion, check what you have with finalize_research and give that answer, ending it with the " +
+        "open tasks as a numbered menu and the question whether to spend more time on them."
+      : "Go on now: do these tasks in this order, each within its minutes, showing the menu as what you are doing; " +
+        "then check the answer with finalize_research and give it in this turn.",
+    result.style === "autonomous" ? TASK_PROGRESS : `${TASK_PROGRESS} ${NEW_FORK}`,
     WORDS_ARE_NOT_SIZES,
     "If the person stops you or changes direction, call plan_research again with done and their new allocation; the " +
       "research target stays word for word the same.",
@@ -496,6 +643,28 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
       "check, and no task covers it, add that task (loop people_to_studies or studies_to_people), and declare each " +
       "lead in finalize_research's later_inputs.community_leads.",
     adjustmentGuidance(result.adjustment_detail),
-  );
-  return parts.join(" ");
+  ].join(" ");
+}
+
+/**
+ * plan_research's next step as a runtime field, for an app that hands its model only the structured content (Claude
+ * Code): whether to ask and end the turn, or go on, as the text says.
+ */
+export function planNextStep(result: ResearchPlanResult): string {
+  if (result.next === "ask") {
+    // A menu with nothing recommended (detail only) gives "you decide" the text's own exit: an empty recommended
+    // allocation counts as no answer, so the same menu would ask again (the review of 12 Nov 2026).
+    return "Ask the person now and end your turn: show researchMenu.tasks as a numbered list with their times, the " +
+      "recommendation and how to answer (task numbers and minutes, or \"you decide\"). Make no research call and " +
+      "don't call finalize_research until they answer; then call action plan_research again with their allocation " +
+      (result.recommended.length === 0
+        ? "or, for \"you decide\", do no more research: check the answer with finalize_research and give it."
+        : "(for \"you decide\", the recommended one).");
+  }
+  return result.style === "autonomous"
+    ? `Do the recommended tasks now; after about ${result.check_back_minutes} minutes of research, check what you ` +
+      "have with finalize_research and give that answer, ending it with the open tasks as a numbered menu and the " +
+      "question whether to spend more time on them."
+    : "Do the recommended tasks now, in order, each within its minutes; then check the answer with finalize_research " +
+      "and give it in this turn.";
 }

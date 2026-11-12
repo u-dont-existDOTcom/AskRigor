@@ -51,6 +51,7 @@ const { registerTools } = await import("../apps/research-mcp/src/register-tools.
 const { communitySkipCaveat, finalizeResearchInputSchema } = await import("../apps/research-mcp/src/research-finalization-gate.js");
 const { verifyResearchReceipt } = await import("../apps/research-mcp/src/research-receipts.js");
 const { withSourceReading } = await import("./helpers/source-reading.js");
+const { STUDY_MAP_AT_AUDIT, STUDY_MAP_AT_AUDIT_GEMINI } = await import("../apps/research-mcp/src/study-map.js");
 
 const DOI = "10.1002/art.41142";
 const NOW = new Date("2026-10-03T12:00:00.000Z");
@@ -493,7 +494,7 @@ describe("the server sends a free contributor's validated analyses when the fina
     return { store, service };
   }
 
-  function tools(service: ResearchContributorAccessService) {
+  function tools(service: ResearchContributorAccessService, mcpSurface: "/mcp/claude" | "/mcp/gemini" = "/mcp/claude") {
     const handlers = new Map<string, (input: unknown, extra?: unknown) => Promise<CallToolResult>>();
     registerTools({
       registerTool: (name: string, _config: unknown, execute: (input: unknown, extra?: unknown) => Promise<CallToolResult>) => {
@@ -503,7 +504,7 @@ describe("the server sends a free contributor's validated analyses when the fina
       researchAccessRequired: true,
       researchContributorAccessService: service,
       findingsLibrary: false,
-      mcpSurface: "/mcp/claude",
+      mcpSurface,
     });
     return (name: string, input: Record<string, unknown>, subject: string) => handlers.get(name)!(input, {
       authInfo: {
@@ -515,6 +516,37 @@ describe("the server sends a free contributor's validated analyses when the fina
       },
     });
   }
+
+  // The review of 11 Nov 2026: Gemini's catalog has no finalize_research, so the reading tools' and the audit's
+  // sentences leave the final check and its inputs out there.
+  it("says how the study was read, and to count groups of people, without the final check on Gemini", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const index = studyIndex("A full text read to the end for this Gemini test.");
+    acquire.mockResolvedValue({
+      access_status: "complete",
+      data: { requested_doi: DOI, discovery_attempts: [], document_index: index },
+    });
+    integrity.mockResolvedValue(NO_RECORD);
+    const { service } = await accessService();
+    const call = tools(service, "/mcp/gemini");
+    const acquired = await call("acquire_open_full_text", { doi: DOI }, "auth0|free");
+    const handle = (acquired.structuredContent as { coverage_receipt: { document_handle: string } })
+      .coverage_receipt.document_handle;
+    // Marked as a test run, so nothing is held for the review inbox that the other tests count.
+    const validated = await call("validate_study_method_audit", { document_handle: handle, audit: studyAudit(index),
+      findings_save: "off" }, "auth0|free");
+    expect(validated.isError).not.toBe(true);
+    const named = (result: CallToolResult) => (result.content as Array<{ text?: string }>).map(({ text }) => text).join("\n");
+    expect(named(acquired)).toContain("With this study's full text read to its end, say \"full text read\" beside it " +
+      "in the answer, in the answer's language.");
+    expect(named(validated)).toContain("With this study's methods audited, say \"full text read, methods audited by " +
+      `AskRigor" beside it in the answer, in the answer's language. ${STUDY_MAP_AT_AUDIT_GEMINI}`);
+    for (const result of [acquired, validated]) {
+      expect(named(result)).not.toContain("later_inputs.source_reading");
+      expect(named(result)).not.toContain("later_inputs.study_map");
+      expect(named(result)).not.toContain("The final check holds back");
+    }
+  });
 
   it("holds the analysis at the method check and files it, once, at a passing final check", async () => {
     process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
@@ -538,11 +570,18 @@ describe("the server sends a free contributor's validated analyses when the fina
     // 5 Nov 2026: each result names how the study is now read, for the answer and source_reading, before the final check.
     const named = (result: CallToolResult) => (result.content as Array<{ text?: string }>).map(({ text }) => text).join("\n");
     expect(named(acquired)).toContain("With this study's full text read to its end, say \"full text read\" beside it " +
-      "in the answer, in the answer's language, and give those words in finalize_research's later_inputs.source_reading, " +
-      "with reading full_text_read.");
+      "in the answer, in the answer's language, and give finalize_research, from its first call, an entry in " +
+      "later_inputs.source_reading as {source, reading, quote}: source this study's id as key_sources gives it, " +
+      "reading full_text_read, and quote those words as answer_draft has them.");
     expect(named(validated)).toContain("With this study's methods audited, say \"full text read, methods audited by " +
-      "AskRigor\" beside it in the answer, in the answer's language, and give those words in finalize_research's " +
-      "later_inputs.source_reading, with reading full_text_audited.");
+      "AskRigor\" beside it in the answer, in the answer's language, and give finalize_research, from its first call, " +
+      "an entry in later_inputs.source_reading as {source, reading, quote}: source this study's id as key_sources gives " +
+      "it, reading full_text_audited, and quote those words as answer_draft has them. The final check holds back an " +
+      "answer that cites this study as a key source without saying how it was read.");
+    // 11 Nov 2026: the audit's result gives the study map's exact shape before the first final check; the reading
+    // tool's does not.
+    expect(named(validated)).toContain(STUDY_MAP_AT_AUDIT);
+    expect(named(acquired)).not.toContain("later_inputs.study_map");
 
     // The checked answer says how its study was read (the owner, 5 Nov 2026), in the shared helper's words.
     const finalize = (receipts: string[]) => call("finalize_research", withSourceReading(finalizeResearchInputSchema.parse({

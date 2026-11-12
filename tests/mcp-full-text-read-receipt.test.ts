@@ -92,8 +92,10 @@ describe("full_text_read receipts through the MCP endpoint", () => {
   // first final check; a page before the end names nothing.
   it("names the reading's words once the full text is read to its end", async () => {
     const sentence = "With this study's full text read to its end, say \"full text read\" beside it in the answer, in " +
-      "the answer's language, and give those words in finalize_research's later_inputs.source_reading, with reading " +
-      "full_text_read.";
+      "the answer's language, and give finalize_research, from its first call, an entry in " +
+      "later_inputs.source_reading as {source, reading, quote}: source this study's id as key_sources gives it, " +
+      "reading full_text_read, and quote those words as answer_draft has them. The final check holds back an answer " +
+      "that cites this study as a key source without saying how it was read.";
     const text = async (name: string, input: Record<string, unknown>) =>
       ((await client.callTool({ name, arguments: input })).content as Array<{ text: string }>)[0]!.text;
     acquire.mockResolvedValueOnce(acquisition(documentIndex("Synthetic methods, results and conclusions, read at once.")));

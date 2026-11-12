@@ -175,6 +175,57 @@ journals: owner answer 283a); no question about which oil the person has (the ow
 Sodium and memory: framing named dietary against blood sodium and memory against dementia measures; every study labelled
 by how it was read; the adjustment reported as weakening, not vanishing; no bare "significant".
 
+### Checked on the released rule (10 Nov 2026)
+
+The owner's go-ahead of 20:31 UTC ("Yes, run them now"): the same 14 questions, preamble and replies, on the live build
+3c9e0612 (the 284 rule, the menu's spelled-out shape and the 9 Nov times), through Codex's AskRigor app (codex-cli
+0.167.0, `gpt-6.1-sol`, xhigh), three at a time, from 20:38 to 22:25 UTC. Card saving off for the run and back on after
+it (the call and the reply agree), no other tool called, no sign of saving in any run. Criteria written before
+(`/home/joel/askrigor-releases/20261110-timing/regress`: `criteria.md`, `measure.py`, `analysis/final.json`,
+`analysis/calibration-check.json`). DEVELOPMENT / DISCOVERY data: nothing was retuned during the run.
+
+| Measure | 9 Nov (five-minute rule) | 10 Nov (284 rule) |
+|---|---|---|
+| First menu call accepted | 0 of 14; 31 of 58 calls refused | 14 of 14; 2 of 22 refused |
+| First menu asks / goes on | 14 / 0 | 8 / 6 |
+| Next step as the rule says | (rule new on 10 Nov) | 14 of 14 |
+| The menu says the person's choices could steer it | (field new on 10 Nov) | 0 of 14 (false on all 14; never left out) |
+| The run stopped and waited when asked | 3 of 14 | 2 of 8; 3 made their own allocation, 3 researched on (one for a single call) |
+| Whole run to a checked answer, median (range) | 25.2 minutes (10.5 to 40.9) | 20.4 minutes (7.7 to 28.9) |
+| Done in one turn | 4 of 14 | 9 of 14 |
+| Final check | 14 ready with limits | 14 ready with limits |
+
+It asked for the kelp, low-dose naltrexone, symptom-cluster, vertigo-video, didgeridoo, nebulized-peroxide, bacopa and
+Syrian rue oil questions (high estimates 11 to 20 minutes) and went on for the nap, the PITCH trial, saffron against
+fluvoxamine, sodium and memory, sea buckthorn and the antivenom emergency (7 to 10). Against the expectations written
+before: most first menus asked; the PITCH trial and the nap went on, the peroxide question asked (20 minutes); first
+calls were accepted. So the asks landed on the open questions, but only through the time estimate: the model said the
+person's choices could not steer the research even for the symptom cluster and the Syrian rue oil, whose form changes
+its strength. Built: the field's wording now carries HRP's test for when approval is required (`RESEARCH_MENU_SHAPE`),
+"even when the question is clearly worded"; the next run after a release shows whether the model's answer moves.
+
+**The times.** The research after a go-ahead menu took 3.5 to 11.5 minutes (median 9.1) in all 12 windows, whatever
+the menu said. Of the six menus that went on by themselves (high estimates 7 to 10), three ran over (7.7 against 7, 9.7
+against 7, 9.2 against 8); the six after an allocation of 17 to 29 minutes used 0.31 to 0.62 of it. Per declared
+source, about half the frozen ranges: a paper in full 0.76 minutes (0.47 to 1.36) against 1 to 2.5, a method audit 1.27
+(0.98 to 2.13) against 2 to 4, a forum thread 0.33 (0.18 to 0.47) against 0.5 to 1.5; a study search 0.86 (0.62 to
+1.38) inside 0.5 to 2.5. The calls themselves took what they took on 9 Nov (a paper 0.20 minutes a call against 0.22)
+and the menus declared about as many sources (median 11 against 10). The final check and writing took 7.1 minutes (2.9
+to 10.4; 9 of 12 within the menu's 4 to 10). Not retuned: on the same questions the two days differ about twofold per
+source while the research stayed near 9 minutes, and the preamble asks for about 60 AskRigor calls, which may be what
+ends it; a third fit would fit that spread. A run without the call budget, or in ChatGPT, would tell them apart.
+
+**What the person's choices could change** (read, not computed). The three answers that stopped at the menu (the
+symptom cluster, the didgeridoo, and naltrexone after one more call) each showed the numbered tasks with their times and
+what each could change, the 4 to 10 minutes for checking and writing, and asked how to spend the time, with "you
+decide" offered; none said what the person's own situation or choices could change, which the result asks for only when
+the menu says it can be steered.
+
+**The owner's depression question, measured apart.** The one menu that said the person could steer it: [6, 13]
+minutes, ask for both reasons; not kept (the model's own allocation was refused for naming no tasks, and 40 research
+calls followed); "you decide" in turn 2; checked at 41.9 minutes, ready with limits. What it said about the
+Mediterranean diet is in the owner page's section of 10 Nov.
+
 ### Next stages
 
 1. Measure on the owner's regression list, on plan workers with no API spend: whether the framing asks the right
@@ -230,6 +281,113 @@ key on 9 Nov (its own allowance, about 1,000 searches a day, nothing prepaid), w
 as `OPENALEX_API_KEY` with the release that carries the search, moved unseen by a script as owner answer 177a
 allowed for the Atlas secret.
 The privacy notice names OpenAlex: date it on the release day.
+
+## Built on 11 Nov: an ask ends the turn, and a pass ends the checking (released 12 Nov, owner answer 292a)
+
+The owner, 11 Nov 2026: "it's still not asking me any steering questions". No menu or question appeared in 13
+ChatGPT turns of 10 and 11 Nov. In the 10 Nov timing runs (Codex, the 284 rule on the live build) the rule asked on 9
+of 15 first menus; the AI stopped on 2, one more made a single call, and six went on with 40 to 52 research calls,
+three of them on an allocation the AI made up for the person. None of the 21 turns ended with a question: the turns
+that stopped still ran the final check and ended on its check line. The ask came fifth, after the menu, followed by
+five paragraphs on doing the tasks, and nothing said to end the turn or that a question needs no final check. The
+server instructions, the one text ChatGPT always has, never mentioned asking. Of the 88 final checks, 49 came after a
+pass in the same turn, and all 17 that held an answer back were a turn's first.
+
+What this build changes, all in result text, runtime fields or the server instructions (the tool list, the six checks
+and stored state are as they were):
+
+1. **The ask ends the turn.** `plan_research`'s ask puts the stop first (the reason as the person's own setting; the
+   whole reply is the message below; no research call and no final check, since a question is not an answer: HRP's
+   preflight-only exit and `StructuredUserSteeringAndApproval`), then the reply ready to send (at most two sentences
+   on the unchecked first look, one on what the person's choices could change when they could, the menu one task per
+   line with the recommendation, and how to answer), then the rule for the answer, with the research target word for
+   word; nothing follows it. The framing ask and guided's confirmation end the turn the same way; the screen says it
+   is a few calls and that an ask ends the turn. An allocation naming no open task on the menu no longer counts as the
+   person's answer. `register_plain_answer` gives its next step first; it and `plan_research` add `next_step` for
+   Claude Code, which reads only structured content; `inspect`'s request opens with the run's shape.
+2. **Every research result says how a research turn ends**: with the answer the final check says to give, or with a
+   question an AskRigor result said to ask and wait on, never with a progress report; an unanswered ask means stop
+   researching, send it and end the turn. This is the soft reminder planned above ("Enforcement"), without state.
+3. **The server instructions** (2,048 bytes) say in their first 512 characters the run's steps (inspect, the plain
+   answer, a brief screen, then action `plan_research` before deep reading: the owner's call record of 11 Nov showed
+   ChatGPT inspecting in 9 of 9 runs and registering the plain answer in 8, but calling `plan_research` in none), to
+   follow results, to send only what an asking result gives (after any urgent action) and end the turn, and never to
+   end on a progress report; "widen discovery until finalize_research accepts it" is gone, and the proposals' privacy
+   list, which repeats `submit_research_contribution`'s own description, moved past the first 512 characters. Each
+   ChatGPT app loads them after one refresh of AskRigor in its settings.
+4. **Shapes before the first check.** The reading tools name the `source_reading` entry's fields
+   (`{source, reading, quote}`) and what happens without it; a method audit gives the study map's exact shape.
+5. **A pass is the turn's last check** unless the draft itself changes, and then once more; notes about later inputs
+   wait for a later answer; a pass after a pass in the same turn says so (`turn_already_passed`, runtime only); a
+   filed research map's result gives the answer's closing line itself.
+6. **`get_youtube_video` says it returned the video's details**, not what is said or shown in it (a ChatGPT run had
+   claimed a transcript), and names `extract_youtube_video_claims` except on Gemini, whose catalog lacks it.
+7. **The question's premises become claims of the quick answer**, first among them, so the sixth check compares each;
+   a premise doubt not yet a claim asks for the quick answer again; the screen searches once for what would show each
+   premise wrong. What counts as a premise stays the model's judgment.
+8. **A video's comment audit says how many of the retrieved comments it shows** (AskRigor#438: 104 of 997), that an
+   order blind to what they say picked them, and that `get_youtube_comments` returns them all at once, a large result
+   to read only when the comments not shown could change the answer.
+9. **Every pass says it covers the six checks, not whether the search was complete** (lesson 56: a research lane read
+   a pass as the end of discovery).
+
+Sizes: the ask for the test menu (four tasks, balanced) is 2,290 bytes, against a median of 3,584 bytes of
+`plan_research` text in the first turns of the 10 Nov runs; the reminder on each research result grows from 178 to 418
+bytes.
+
+**After an independent review (12 Nov 2026).** Eleven findings, all fixed in the same branch, none changing a check:
+a new fork goes back through `plan_research` without the allocation, so it is recommended or asked about (not in
+autonomous research, which checks and answers instead); when asking, the doubts go in the one line before the questions
+and a new registration of the plain answer waits for the answer and leaves the framing out, which isn't stored (made
+before the ask it cancelled the ask; made after with the framing it would ask again); only a doubt that could be false
+becomes a claim; the rule for the person's answer names the registered research target when the menu's isn't it;
+renumbering goes by whether any allocation or done list was given; a research map filed before the check passes its
+receipt with the others, and one filed after a pass gives the closing line; after a pass, a note saying the answer is
+wrong is fixed now, while one asking for an input waits, and adding what the result asks the answer to include is no
+change to the draft; after a repeat pass nothing asks for another check; on Gemini, the reading and audit sentences
+leave the final check out; and the server instructions keep the urgent-action exception at an ask (2,039 bytes).
+A second look (12 Nov) found three more, also fixed: a re-plan (tasks done, no allocation that counts as the person's
+answer) with something to recommend asks unless the research is autonomous, since a precise menu re-planned after the
+person skipped a task went on, did that task and never asked about the new one; closing questions, which the AI writes,
+count as a change to a passed draft; and the request for a framing in the result of a registration made without one,
+after the person answered, is said to be for the next question.
+
+**Measuring it.** Criteria written before the runs; for anything changed afterwards, the runs are DEVELOPMENT /
+DISCOVERY data. Nobody runs them without the owner's explicit yes, and none spends on an API.
+
+- Step 0, free and urgent: in each ChatGPT app the transcripts name ("AskRigor 6 oct", which the timing kit also used,
+  and "askrigor oct 3"), list the account's calls (`list_calls`), which keeps only the newest 500 of the last 7 days;
+  every new call pushes the 10 and 11 Nov rows out. For each ChatGPT run of those days: whether the quick answer came
+  before the first research call, whether `plan_research` was called, and how many research calls followed it. No
+  `plan_research` rows means the menu is not reached at all.
+- Stage 1, after the release, with no app refresh: the owner's usual mode (Extra High, GPT-6 Sol); four open prompts
+  (the orange-peel invention, the PewDiePie Ajax claim, diet and depression, the Syrian rue oil) and one precise
+  control (one result of one named trial); 3 runs each in a fresh chat, card saving off; a turn still researching 2
+  minutes after `plan_research` is a fail; "you decide" once per open prompt; `list_calls` after every 6 runs.
+- Stage 2: refresh AskRigor once in each app, which loads the new instructions, and repeat stage 1 (optionally Free
+  Think, 2 runs each). An optional diagnostic adds one line to the owner's own ChatGPT instructions to tell a model
+  that never reaches the stop from one that gives tool text too little weight.
+- A first turn passes when the reply shows the menu (or the framing questions) and ends with the question, and the
+  call record shows no research call and no final check before the person's next message. The control passes with a
+  checked answer in turn 1. A second turn passes when `plan_research` gets the allocation, research stays within the
+  recommended minutes plus 3, the check passes, the turn ends with the checked answer and its line, and there are at
+  most 2 final checks. Every last message is classed as a checked answer, a steering question, or other.
+- The bar for stage 2 in the owner's usual mode: at least 12 of 15 first turns pass, at least 3 of 5 prompts pass all
+  three runs, no "other" ending, at most 2 final checks per answer turn. Below it, the enforced stop comes back to the
+  owner.
+- In Codex, once released: the 15-question kit on the owner's dev account, with a preamble that no longer says to ask
+  inside the answer or to keep to about 60 calls (both pushed against stopping): asks kept at least 7 of 9 (2 of 9 on
+  10 Nov), calls after a pass at most 1 per turn (0 to 6), first checks passing at least 10 of 21 (4 of 21).
+
+Waiting on the owner, not built: whether balanced asks at every question's first menu (the model said the person's
+choices could not steer the research on 14 of 15 first menus, open questions included); whether, if the ChatGPT runs
+miss the bar, AskRigor may refuse deep-reading tools while a menu waits, on the owner's dev logins only; and whether
+the call record may keep `plan_research`'s ask or go-on, which changes a privacy row.
+
+Not done in this build: a hard gate, a run handle on every call, a menu card (two new tools) or a form (MCP
+elicitation: AskRigor's per-request servers can't hold one, and classic ChatGPT doesn't show it); a research clock;
+protocol-section pointers; a SKILL.md edit (1,248 of 1,250 words); any change to the six checks; a word list deciding
+what counts as a question or a premise.
 
 ## Not done
 

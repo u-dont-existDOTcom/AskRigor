@@ -12,7 +12,7 @@ import { findingsCardSchema } from "../apps/research-mcp/src/findings/card.js";
 import type { FindingsSaveResult } from "../apps/research-mcp/src/findings/contracts.js";
 import type { FindingsSaveContext } from "../apps/research-mcp/src/findings/service.js";
 import { registerTools } from "../apps/research-mcp/src/register-tools.js";
-import { PASSING_LIMITS_GUIDANCE } from "../apps/research-mcp/src/final-check-messages.js";
+import { PASSING_LIMITS_GUIDANCE, REPEAT_PASS_LIMITS_GUIDANCE } from "../apps/research-mcp/src/final-check-messages.js";
 import {
   FINALIZE_RESEARCH_SHAPES_DESCRIPTION, HARM_NOT_CHECKED_CAVEAT_START, HARM_SCREEN_SOURCES, HARM_SCREEN_STATES,
   TOOL_LIST_REFRESH_HINT, finalizeResearch as finalizeResearchUnwrapped, finalizeResearchPublishedInputSchema, harmNotCheckedCaveat,
@@ -739,6 +739,14 @@ describe("finalize_research publishes harm_screen on both surfaces (owner answer
       // answer states only those that change what the person should believe or do; a check that has not passed keeps
       // every limit to state, since its panel lists none.
       expect(screened.text).toContain(`\n${PASSING_LIMITS_GUIDANCE}\n[1] ${screened.result.limits[0]} [2] ${NOT_CHECKED}\n`);
+      // The review of 11 Nov 2026: after a pass that followed a pass in this turn, the turn's last check, a missing limit
+      // is added with no further call.
+      const again = await call(base({ harm_screen: [onLabel, notChecked], carried_state: screened.result.carry_forward,
+        round_token: screened.result.round_token }));
+      expect(again.result.turn_already_passed).toBe(true);
+      expect(again.text).toContain(`\n${REPEAT_PASS_LIMITS_GUIDANCE}\n[1] ${screened.result.limits[0]} [2] ${NOT_CHECKED}\n`);
+      expect(again.text).not.toContain(PASSING_LIMITS_GUIDANCE);
+      expect(REPEAT_PASS_LIMITS_GUIDANCE).not.toContain("call finalize_research again");
       expect(screened.text).not.toContain("\nLimit: ");
       expect(screened.text).not.toContain("Limit to include in your own words");
       const unsearched = await call(base({ harm_screen: [notChecked] }));

@@ -32,7 +32,11 @@ const roundStateSchema = z.object({
   turn: z.string().regex(/^[0-9a-f]{16}$/u),
   at: z.iso.datetime(),
   steps: z.array(z.tuple([digestSchema, z.number().int().min(1).max(CHECK_ROUND_LIMIT)])).max(MAX_TRACKED_STEPS),
-  stuck: z.array(digestSchema).max(MAX_TRACKED_STEPS)
+  stuck: z.array(digestSchema).max(MAX_TRACKED_STEPS),
+  // 12 Nov 2026 (the review): whether a check of this turn has passed, kept through the turn's later calls that don't,
+  // so a pass after a pass, an edited draft that failed and its fix is still known as the turn's repeat pass. A new turn
+  // starts without a round token, so without it.
+  passed: z.literal(true).optional()
 }).strict();
 type RoundState = z.output<typeof roundStateSchema>;
 
@@ -96,6 +100,11 @@ export interface CheckRound {
   previous?: RoundState;
 }
 
+/** Whether a check of this call's turn passed before it, as the turn's round token carries it. */
+export function turnPassedBefore(call: CheckRound): boolean {
+  return call.previous?.passed === true;
+}
+
 /** Read every call's turn, including a check that passes; only a verified round token continues a turn. */
 export function readCheckRound(token: string | undefined, options: {
   secret: string; bind: string; now: Date;
@@ -156,6 +165,8 @@ export function advanceCheckRound(steps: readonly CheckStep[], options: {
       nextTurn: [...stuck.filter((step) => nextTurn(step, true)), ...open.filter((step) => nextTurn(step, false))]
     };
   }
+  // A call with no step left is a pass; once one passed, the turn keeps it.
+  const passed = previous?.passed === true || steps.length === 0;
   const state: RoundState = {
     v: 2,
     n: round,
@@ -163,7 +174,8 @@ export function advanceCheckRound(steps: readonly CheckStep[], options: {
     turn: options.call.turn,
     at: options.now.toISOString(),
     steps: [...nextCounts].slice(0, MAX_TRACKED_STEPS),
-    stuck: [...stuckDigests].slice(-MAX_TRACKED_STEPS)
+    stuck: [...stuckDigests].slice(-MAX_TRACKED_STEPS),
+    ...(passed ? { passed: true as const } : {})
   };
   return {
     status: "open", round, open, stuck, token: issueRoundToken(state, options.secret)

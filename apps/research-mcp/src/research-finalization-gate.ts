@@ -55,6 +55,7 @@ import {
   readCheckRound,
   roundBinding,
   stoppedCheckBugReport,
+  turnPassedBefore,
   type CheckStep
 } from "./check-rounds.js";
 import { NEXT_STEP_KINDS, type NextStepKind } from "./next-step-kinds.js";
@@ -373,9 +374,16 @@ export function namedTargetCaveat(label: string, studies: number, differing: rea
 
 // Research results remind the AI, in the turn it researches, that answers using
 // the research are checked at the end, in that turn or a later one (owner
-// question 86: a "continue" turn dropped AskRigor's final check).
+// question 86: a "continue" turn dropped AskRigor's final check). Since 11 Nov
+// 2026 they also say how a research turn ends: none of the 21 turns of the 10 Nov
+// timing runs ended with the question AskRigor said to ask, and six asks were
+// followed by 40 to 52 research calls. It is the soft reminder planned with owner
+// answer 279a (a research result reminds the AI of an unanswered menu), worded so
+// that it needs no stored state. The first sentence stays as it was.
 export const FINALIZE_REMINDER = "Answers that use this research are checked with finalize_research before they " +
-  "are given, in this turn or a later one; HRP's OutputFormatting section sets a health answer's shape.";
+  "are given, in this turn or a later one; HRP's OutputFormatting section sets a health answer's shape. A research " +
+  "turn ends with the answer that check says to give, or with a question an AskRigor result said to ask and wait on, " +
+  "never with a progress report: if such a question is still unanswered, stop researching, send it and end your turn.";
 
 // The plain answer an active research account registers before research (owner answer 140b, 2026-10-20), and how
 // the checked answer compares with each of its claims.
@@ -1737,6 +1745,11 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
   share_offer: z.object({ line: z.string(), on_yes: z.string() }).strict().optional()
     .describe("When this server keeps shared answers and the caller has a research account: line ends the answer, " +
       "after check_line or unchecked_line; on_yes says how to share, only after the person confirms the copy."),
+  // 11 Nov 2026, runtime only (owner answer 189a): a pass after a pass in the same turn, so an app that reads only the
+  // structured content (Claude Code) also learns the turn's checking is over.
+  turn_already_passed: z.literal(true).optional()
+    .describe("True when this turn's check had already passed before this call: give this checked answer now, with " +
+      "no further check in this turn."),
 });
 
 export const finalizeResearchPublishedOutputSchema = finalizeResearchRetainedOutputSchema.omit({ research_plan: true, notes: true })
@@ -2015,6 +2028,12 @@ export function finalizeResearch(
   }
   const { carried, invalid: carriedInvalid, firstTurn, previousOpen } =
     checkCarriedState(input, options.secret, callRound.turn, stepSink(addStep, "carried_state"));
+  // 11 Nov 2026: whether this turn's check had already passed. In the 10 Nov timing runs, 49 of 88 checks came after a
+  // pass in the same turn. The round token keeps it for the turn, through later calls that don't pass (12 Nov, the
+  // review: a pass, an edited draft that failed, then its fix, read as a first pass); the carried state's turn and last
+  // status cover a round token issued before it kept it.
+  const passedEarlierThisTurn = turnPassedBefore(callRound) || (carried?.turn === callRound.turn &&
+    (carried.last_status === "ready" || carried.last_status === "ready_with_limits"));
   if (carried?.research_plan !== undefined &&
       researchTargetDigest(carried.research_plan.research_target) === researchTargetDigest(input.research_target)) {
     input.open_leads ??= carried.research_plan.open_leads;
@@ -4456,9 +4475,11 @@ export function finalizeResearch(
     const repeated = materialLimits.filter((limit) => normalizedDraft.includes(normalizeCopy(limit))).length;
     // The note comes with a passing check, whose answer goes out as checked, so it asks for the check again (the
     // regression run on #389's build: o356-dropout-nausea and q136-weak-lead edited after the check instead).
+    // After a pass that followed a pass in this turn, the turn's last check, the change asks for no further call.
     if (repeated >= 3) notes.push(`The draft repeats ${repeated} of the panel's limits word for word; the panel ` +
       "already lists every limit beneath the answer. Keep only those that change what this person should believe " +
-      "or do, in your own words, and call finalize_research again with the changed draft.");
+      `or do, in your own words, ${passedEarlierThisTurn ? "with no further check in this turn"
+        : "and call finalize_research again with the changed draft"}.`);
   }
   // Owner answer 237a: each line's quotes are looked up once the check passes, in the text its key source's verified
   // receipts name, and what came of it goes to the AI as notes, and to the panel. None of it holds the answer back.
@@ -4652,6 +4673,7 @@ export function finalizeResearch(
       Object.assign(output, stoppedReport(checkRound, options, input.receipts, offTarget.map(({ index }) => index)));
     }
   }
+  if (passed && passedEarlierThisTurn) output.turn_already_passed = true;
   // A check that did not pass, carried from earlier in this conversation (AskRigor#354): whatever answer went out
   // after it went out unchecked, which only the model knows, so the result says so and the model says what changed.
   if (previousOpen !== undefined) {
@@ -5493,12 +5515,14 @@ export const RESEARCH_MAP_OFFERED = "The offer also asks to file this research's
 /**
  * The reminder a free contributor's final check gives when its research did work a quick answer cannot do and no map
  * of it was filed (owner answer 143a: "Free accounts aren't asked: the final check reminds the AI to file the map").
+ * Since 11 Nov 2026 the filing's own result says how the answer shows it (its closing line once this turn's check has
+ * passed, or its receipt with the others before), so filing asks for no new check of its own.
  */
 export function researchMapReminder(work: VerifiedWork): string {
   return `This research includes ${verifiedWorkPhrase(work)}, work a quick answer does not do, and no map of it was ` +
     `filed after it began. File it with ${RESEARCH_MAP_FILING}; the free contributor agreement covers it, so the user ` +
-    "is not asked. Then call finalize_research again with the research_receipt that returns among the receipts, so " +
-    "the answer's last line says the map was filed. Nothing here holds back the answer.";
+    "is not asked. Its result says how the answer shows the map was filed; filing needs no new final check of its " +
+    "own. Nothing here holds back the answer.";
 }
 
 // Why an active research account's answer ends without the plain-answer note; nothing is held back for it.

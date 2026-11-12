@@ -1,6 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { ProtocolName } from "@askrigor/protocol";
-import type { ResearchCallRecordEntry, ResearchCallRecordStore } from "@askrigor/evidence-repository";
+import type { ResearchCallRecordEntry, ResearchCallRecordStore, ResearchPlanDecision } from "@askrigor/evidence-repository";
 import type { ResearchOperationExtra } from "./research-operation.js";
 
 export interface CallRecordingOptions {
@@ -30,6 +30,14 @@ function enqueueCallRecord(store: ResearchCallRecordStore, entry: ResearchCallRe
   void write.then(() => pending.delete(write));
 }
 
+/** plan_research's decision in its own result (researchMenu.next), when it is one of the two fixed values. */
+function planDecisionOf(structured: unknown): ResearchPlanDecision | undefined {
+  const menu = structured !== null && typeof structured === "object"
+    ? (structured as Record<string, unknown>).researchMenu : undefined;
+  const next = menu !== null && typeof menu === "object" ? (menu as Record<string, unknown>).next : undefined;
+  return next === "ask" || next === "go_on" ? next : undefined;
+}
+
 function startCallRecord(tool: string, input: unknown, extra: unknown, recording?: CallRecordingOptions) {
   if (recording === undefined) return undefined;
   try {
@@ -55,8 +63,13 @@ function startCallRecord(tool: string, input: unknown, extra: unknown, recording
           code = [nested, structured?.code].find((value): value is string =>
             typeof value === "string" && /^[a-z][a-z0-9_]{0,63}$/u.test(value)) ?? "other";
         }
+        // Owner answer 289a: an answered plan_research call also keeps the decision AskRigor's own result made, one of
+        // two fixed values read from its structured content, never anything the person or the AI wrote.
+        const planNext = outcome === "answered" && tool === "manage_research_access" && action === "plan_research"
+          ? planDecisionOf(result!.structuredContent) : undefined;
         enqueueCallRecord(recording.store, { ...base, outcome, code,
-          durationMs: Math.min(86_400_000, Math.max(0, Math.round(performance.now() - started))) });
+          durationMs: Math.min(86_400_000, Math.max(0, Math.round(performance.now() - started))),
+          ...(planNext === undefined ? {} : { planNext }) });
       } catch { /* A call record must never affect a tool result or emit a log. */ }
     };
   } catch { return undefined; }

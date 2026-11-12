@@ -25,6 +25,19 @@ describe("content-free call record store", () => {
     expect(await store.list("unknown", now)).toEqual([]);
   });
 
+  // Owner answer 289a: plan_research's decision, kept only on its own rows and only as one of its two values.
+  it("keeps plan_research's decision on its rows only, and only ask or go_on", async () => {
+    const store = new InMemoryResearchCallRecordStore();
+    const plan = { ...entry(), action: "plan_research", planNext: "ask" as const };
+    await store.record(plan);
+    await store.record({ ...entry(new Date(now.getTime() - 1)), planNext: "go_on" });
+    await store.record({ ...plan, receivedAt: new Date(now.getTime() - 2), planNext: "maybe" as never });
+    await store.record({ ...plan, receivedAt: new Date(now.getTime() - 3), tool: "load_protocol" });
+    const rows = await store.list("synthetic-account-a", now);
+    expect(rows.map((row) => row.planNext)).toEqual(["ask", undefined, undefined, undefined]);
+    expect(rows.filter((row) => Object.hasOwn(row, "planNext"))).toHaveLength(1);
+  });
+
   it("uses exactly seven days and excludes the boundary to the millisecond", async () => {
     expect(RESEARCH_CALL_RECORD_RETENTION_DAYS).toBe(7);
     expect(RESEARCH_CALL_RECORD_RETENTION_MS).toBe(604_800_000);

@@ -33,7 +33,10 @@ import {
   PLAN_TASK_MINUTES,
   WORDS_ARE_NOT_SIZES,
   adjustmentGuidance,
+  allocationAnswered,
   framingGuidance,
+  framingNextStep,
+  planNextStep,
   planResearch,
   planResearchText,
   steeringSentence,
@@ -178,9 +181,18 @@ describe("the framing given with the plain answer (owner answer 279a)", () => {
 
   it("says, by the account's style, whether to ask before researching", () => {
     const balanced = framingGuidance(steering("balanced"), framing);
-    expect(balanced).toContain("Say plainly near the start of your reply what looks inverted or unclear");
-    expect(balanced).toContain("Ask the person these questions now, in their language, and wait for the answers " +
-      "before any research call: 1. Did you mean lowering the ratio? 2. Is this about your own blood pressure?");
+    expect(balanced).toContain("Ask the person these questions now, before any research call: 1. Did you mean " +
+      "lowering the ratio? 2. Is this about your own blood pressure? Your whole reply this turn is these questions");
+    // The review of 11 Nov 2026: when asking, the doubt goes in the one line allowed before the questions, with no
+    // reading taken; the reading taken is for going on.
+    expect(balanced).toContain("with at most one line before them on what your plain answer suggests, marked not yet " +
+      "checked, and on what looks inverted, unclear or possibly false in the question (\"The question asks about " +
+      "raising the ratio; lowering it is what is linked to lower pressure.\"); then end your turn");
+    expect(balanced).not.toContain("which reading you take");
+    expect(balanced).not.toContain("Say plainly near the start of your reply");
+    // 11 Nov 2026: the ask ends the turn, and says what to do once they answer.
+    expect(balanced).toContain("then end your turn, with no research call");
+    expect(balanced).toContain("When they answer:");
     expect(framingGuidance(steering("guided"), framing)).toContain("Ask the person these questions now");
     const autonomous = framingGuidance(steering("autonomous"), framing);
     expect(autonomous).toContain("don't stop to ask");
@@ -189,12 +201,77 @@ describe("the framing given with the plain answer (owner answer 279a)", () => {
     expect(framingGuidance(steering("balanced"), clear)).toContain("No question could redirect the research, so go on " +
       "without asking.");
     expect(framingGuidance(steering("autonomous"), clear)).toContain("go on without asking");
-    expect(framingGuidance(steering("guided"), clear)).toContain("confirm in one line the question you will research");
+    const guided = framingGuidance(steering("guided"), clear);
+    expect(guided).toContain("one line confirming the question you will research");
+    expect(guided).toContain("then end your turn");
     for (const style of ["guided", "balanced", "autonomous"] as const) {
       expect(framingGuidance(steering(style), clear)).toContain("Screen first:");
       expect(framingGuidance(steering(style), undefined)).toContain("Give later_inputs.framing with the plain answer " +
         "next time");
+      // The screen says it is short and that an ask ends the turn, before the model starts it.
+      expect(framingGuidance(steering(style), clear)).toContain("when it says to ask, your reply is the message it " +
+        "gives, and the turn ends there.");
     }
+    // Going on, the doubt is said with the reading taken.
+    expect(autonomous).toContain("Say plainly near the start of your reply what looks inverted, unclear or possibly " +
+      "false (\"The question asks about raising the ratio; lowering it is what is linked to lower pressure.\"), and " +
+      "which reading you take.");
+    // The same step as a runtime field, for an app that hands its model only the structured content.
+    expect(framingNextStep(steering("balanced"), framing)).toMatch(/^Ask the person your framing's redirecting_questions now and end your turn/u);
+    expect(framingNextStep(steering("balanced"), framing)).toContain("leaving later_inputs.framing out");
+    expect(framingNextStep(steering("guided"), clear)).toMatch(/^Confirm the question you will research in one line/u);
+    for (const [style, given] of [["balanced", clear], ["guided", undefined], ["autonomous", clear]] as const) {
+      expect(framingNextStep(steering(style), given)).toMatch(/^Screen in a few calls/u);
+    }
+    expect(framingNextStep(steering("autonomous"), framing)).toMatch(new RegExp("^If a doubt that could be false is " +
+      "not yet a claim of the plain answer, register the plain answer again first, with the same " +
+      "later_inputs\\.framing\\. Screen in a few calls", "u"));
+  });
+
+  // The review of 11 Nov 2026: the framing isn't stored, so a registration made before the ask, without it, said to
+  // screen and cancelled the ask; one made after the answers with it would ask the answered questions again.
+  it("moves any new registration after the person's answer when asking, and keeps the framing when going on", () => {
+    const doubtful = { likely_question: framing.likely_question, premise_doubts: framing.premise_doubts };
+    for (const style of ["balanced", "guided"] as const) {
+      const asking = framingGuidance(steering(style), framing);
+      expect(asking).not.toContain("register the plain answer again now");
+      expect(asking).toContain("When they answer: register the plain answer again if the answers change the question " +
+        "(for the new research target) or if a doubt that could be false, not only unclear, is not yet a claim of the " +
+        "plain answer (with a sentence giving your quick verdict on it among the claims, so the final check compares " +
+        "it), leaving later_inputs.framing out now that the person has answered (its result's request for a framing " +
+        "is for the next question); then screen and plan as follows.");
+      // Registered again as told, with no framing, the result says to screen: the step after the answers.
+      expect(framingNextStep(steering(style), undefined)).toMatch(/^Screen in a few calls/u);
+    }
+    const noDoubts = framingGuidance(steering("balanced"), { ...framing, premise_doubts: undefined });
+    expect(noDoubts).toContain("When they answer: if the answers change the question, register the plain answer " +
+      "again for the new research target, leaving later_inputs.framing out now that the person has answered (its " +
+      "result's request for a framing is for the next question); then screen and plan as follows.");
+    // The review of 12 Nov 2026: that registration's result still asks for a framing "next time", which is for the next
+    // question, so a third registration doesn't send the same framing and ask again; next_step says so too.
+    for (const style of ["balanced", "guided"] as const) {
+      expect(framingNextStep(steering(style), framing)).toContain("leaving later_inputs.framing out (its result's " +
+        "request for a framing is for the next question)");
+    }
+    expect(framingNextStep(steering("guided"), { likely_question: framing.likely_question,
+      premise_doubts: framing.premise_doubts })).toContain("leaving later_inputs.framing out (its result's request " +
+      "for a framing is for the next question)");
+    // Guided with nothing to ask: the doubt goes in the line it confirms, and any new registration follows the yes.
+    const confirming = framingGuidance(steering("guided"), doubtful);
+    expect(confirming).toContain("your whole reply this turn is one line confirming the question you will research " +
+      "and asking for their yes, saying in it what looks inverted, unclear or possibly false");
+    expect(confirming).toContain("After their yes, if a doubt that could be false, not only unclear, is not yet a " +
+      "claim of the plain answer, register the plain answer again with a sentence giving your quick verdict on it " +
+      "among the claims, so the final check compares it, leaving later_inputs.framing out now that the person has " +
+      "answered (its result's request for a framing is for the next question); then screen and plan as follows.");
+    expect(confirming).not.toContain("register the plain answer again now");
+    expect(confirming).not.toContain("which reading you take");
+    // Going on, a new registration made now keeps the same framing, whose result asks nothing.
+    const going = framingGuidance(steering("balanced"), doubtful);
+    expect(going).toContain("register the plain answer again now, before any research call, with the same " +
+      "later_inputs.framing and a sentence giving your quick verdict on it among the claims, so the final check " +
+      "compares it.");
+    expect(framingNextStep(steering("balanced"), doubtful)).toMatch(/^If a doubt that could be false/u);
   });
 
   it("goes with register_plain_answer through the connector and keeps nothing of it", async () => {
@@ -206,8 +283,15 @@ describe("the framing given with the plain answer (owner answer 279a)", () => {
     expect(registered.structuredContent).toMatchObject({ ok: true, plainAnswer: { requested: true, claims: 1 } });
     expect(text(registered)).toContain("Ask the person these questions now");
     expect(text(registered)).toContain(`Research target, as signed: ${JSON.stringify(TARGET)}.`);
+    // 11 Nov 2026: the next step comes first (after any tool-list notice), and as a runtime field too.
+    expect(registered.content[0]!.text.endsWith(framingGuidance(DEFAULT_RESEARCH_STEERING, framing))).toBe(true);
+    expect(registered.content[0]!.text).not.toContain("Plain answer registered");
+    expect(registered.structuredContent).toMatchObject({
+      next_step: framingNextStep(DEFAULT_RESEARCH_STEERING, framing) });
+    expect((registered.structuredContent as { next_step: string }).next_step).toEqual(expect.any(String));
     const without = await manage({ action: "register_plain_answer", plainAnswer: PLAIN });
     expect(text(without)).toContain("Give later_inputs.framing with the plain answer next time");
+    expect((without.structuredContent as { next_step: string }).next_step).toMatch(/^Screen in a few calls/u);
     // The account row holds no framing.
     const stored = JSON.stringify(await (service as unknown as { store: InMemoryResearchContributorAccessStore })
       .store.getAccount(service.accountKeyForSubject("auth0|person")));
@@ -260,7 +344,8 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
       .toBe("ask");
     const autonomous = planResearch(menu(), { ...DEFAULT_RESEARCH_STEERING, style: "autonomous" });
     expect(autonomous.next).toBe("go_on");
-    expect(planResearchText(autonomous, new Set())).toContain("Check back with them after about 10 minutes of research");
+    expect(planResearchText(autonomous, new Set())).toContain("After about 10 minutes of research, or sooner if a new " +
+      "finding could change the conclusion, check what you have with finalize_research and give that answer");
     const allocated = planResearch(menu({ allocation: [{ task: 1, minutes: 5 }, { task: 3, minutes: 4 },
       { task: 4, minutes: 1 }], done: [1] }), DEFAULT_RESEARCH_STEERING);
     expect(allocated).toMatchObject({ next: "go_on", recommended: [{ task: 3, minutes: 4 }, { task: 4, minutes: 1 }],
@@ -271,18 +356,180 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
       "answer is, studies checked for what people reported; about 0.5 to 3 min.");
     expect(words).toContain("Recommended: 3. 4 min, 4. 1 min, about 5 min in all. Then the final check and writing " +
       "the answer: about 4 to 10 min.");
-    expect(words).toContain("Do these tasks now, in this order, each within its minutes");
-    const asked = planResearchText(planResearch(menu(), DEFAULT_RESEARCH_STEERING), new Set());
-    expect(asked).toContain("such as \"1. 5 min, 2. 4 min, 7. 1 min\", in their own words, or \"you decide\". Wait " +
-      "for the answer before any of these tasks");
-    // Every menu carries the progress line, the way back after a stop, the loop between reports and studies, and the
-    // adjusted-variables look by the account's choice.
-    for (const words of [asked, planResearchText(autonomous, new Set())]) {
+    expect(words).toContain("Go on now: do these tasks in this order, each within its minutes, showing the menu as " +
+      "what you are doing; then check the answer with finalize_research and give it in this turn.");
+    const asked = planResearchText(planResearch(menu(), DEFAULT_RESEARCH_STEERING), new Set(), false, TARGET);
+    // 11 Nov 2026: the ask ends the turn, gets no final check, and hands over the question.
+    expect(asked).toContain("then end your turn");
+    expect(asked).toContain("don't call finalize_research for this reply");
+    expect(asked).toContain("How should I spend the time? Reply with task numbers and minutes, such as \"1. 5 min, " +
+      "2. 4 min\", in your own words, or \"you decide\".");
+    // Every menu that goes on carries the progress line, the way back after a stop, the loop between reports and
+    // studies, and the adjusted-variables look by the account's choice; the ask carries none of them, so nothing follows
+    // the rule for the person's answer.
+    for (const words of [planResearchText(allocated, new Set([1])), planResearchText(autonomous, new Set())]) {
       expect(words).toContain("Before each task, say in one line what you will read, how deep, and why.");
       expect(words).toContain("If the person stops you or changes direction, call plan_research again");
       expect(words).toContain("later_inputs.community_leads");
       expect(words).toContain(adjustmentGuidance("flagged"));
     }
+    // The review of 11 Nov 2026: a new fork goes back through the menu without the allocation, so the rule decides
+    // afresh; autonomous research checks and answers instead, so it gets no such sentence.
+    expect(words).toContain("A new fork that could change the conclusion comes back to the person through the menu: " +
+      "call plan_research again with done and the new task, leaving allocation out, and its result says whether to ask " +
+      "now.");
+    expect(planResearchText(autonomous, new Set())).not.toContain("A new fork");
+    for (const part of ["Before each task", WORDS_ARE_NOT_SIZES, adjustmentGuidance("flagged"),
+      "later_inputs.community_leads"]) {
+      expect(asked).not.toContain(part);
+    }
+  });
+
+  // The owner, 11 Nov 2026: "it's still not asking me any steering questions". In the 10 Nov timing runs the rule asked
+  // on 9 of 15 first menus and the AI stopped on 2; the ask came after the menu, five paragraphs followed it, and nothing
+  // said to end the turn.
+  it("puts the stop first, hands over the message with one menu line per task, and ends with the rule for the answer", () => {
+    const result = planResearch(menu({ plain_answer_receipt: "rr1~x" }), DEFAULT_RESEARCH_STEERING,
+      { matches: true, minutesSince: 2 });
+    const asked = planResearchText(result, new Set(), false, TARGET);
+    const [decision, ...rest] = asked.split("\n");
+    expect(decision).toBe("This person's research style asks first when the recommended tasks could take more than " +
+      "about 10 minutes, as these could, and when their choices could steer the research, as they usually can " +
+      "(steering_could_help was left out). Ask now, before any of these tasks: your whole reply this turn is the " +
+      "message below, in the person's language, after the urgent action if the question is urgent; then end your " +
+      "turn. Make no research call and don't call finalize_research for this reply: it is a question, not an answer " +
+      "(HRP StructuredUserSteeringAndApproval: when approval is required, begin no substantive source collection in " +
+      "the same response). About 2 minutes have passed since the plain answer was registered.");
+    expect(rest).toEqual([
+      "Your reply: at most two sentences on what the first look suggests, saying it is not yet checked, and one on " +
+        "what their choices could change, such as their own situation, the form or dose they use, or the outcome that " +
+        "matters most to them; then this menu, numbered as here, saying for each task whether it means a quick look, " +
+        "reading in full or a method audit (the times are rough planning estimates):",
+      "1. Read the 2018 cohort's full text: could change the conclusion; about 1 to 3 min.",
+      "2. Search trials of potassium-enriched salt: could change how sure the answer is; about 1 to 5 min.",
+      "3. Read the two longest forum threads on salt substitutes: adds detail only; about 1 to 3 min.",
+      "4. Search studies for the muscle cramps people reported: could change how sure the answer is, studies checked " +
+        "for what people reported; about 0.5 to 3 min.",
+      "Recommended: 1. 2 min, 2. 3 min, 4. 2 min, about 3 to 11 min in all; then about 4 to 10 min to check and " +
+        "write the answer.",
+      "How should I spend the time? Reply with task numbers and minutes, such as \"1. 5 min, 2. 4 min\", in your own " +
+        "words, or \"you decide\".",
+      "When the person replies: call manage_research_access action plan_research again with the same " +
+        `plain_answer_receipt and tasks, research_target word for word ${JSON.stringify(TARGET)}, and their ` +
+        "allocation as a list of {task, minutes}; for \"you decide\", or a reply that leaves the choice to you such as " +
+        "\"continue\", the recommended allocation. If the reply changes the question, register the plain answer again " +
+        "for the new research target first, with later_inputs.framing for it. Never send an allocation the person did " +
+        "not give or leave to you.",
+    ]);
+    expect(asked.endsWith("Never send an allocation the person did not give or leave to you.")).toBe(true);
+    // A first menu with no task reading people's reports, or a research target not the registered one: said first.
+    const fixes = planResearchText(planResearch(menu({ tasks: [TASKS[0]!, TASKS[1]!] }), DEFAULT_RESEARCH_STEERING,
+      { matches: false, minutesSince: 3 }), new Set(), false, TARGET);
+    expect(fixes.split("\n")[0]).toBe(`${PEOPLE_TASK_MISSING} This research_target is not the one registered with ` +
+      "the plain answer: give plan_research and finalize_research the research target word for word as " +
+      "register_plain_answer's result quoted it, or the answer ends without the comparison with the quick answer.");
+    expect(fixes.split("\n")[1]).toMatch(/^This person's research style asks first when /u);
+    // The review of 11 Nov 2026: and the rule for the answer names the registered target, not this one, word for word.
+    const lastLine = fixes.split("\n").at(-1)!;
+    expect(lastLine).toContain("research_target word for word as register_plain_answer's result quoted it, and their " +
+      "allocation");
+    expect(lastLine).not.toContain(JSON.stringify(TARGET));
+    // A menu of detail alone: "you decide" means no more research.
+    const detail = planResearchText(planResearch(menu({ tasks: [TASKS[2]!] }), DEFAULT_RESEARCH_STEERING), new Set(),
+      false, TARGET);
+    expect(detail).toContain("\nNothing more is recommended: the open tasks add detail only.\nHow should I spend");
+    expect(detail).toContain("such as \"continue\", no more research: check the answer with finalize_research and " +
+      "give it. If the reply");
+    // The next step as a runtime field: ask, go on, or autonomous.
+    expect(planNextStep(result)).toMatch(/^Ask the person now and end your turn: show researchMenu\.tasks/u);
+    expect(planNextStep(planResearch(menu({ allocation: [{ task: 1, minutes: 5 }] }), DEFAULT_RESEARCH_STEERING)))
+      .toBe("Do the recommended tasks now, in order, each within its minutes; then check the answer with " +
+        "finalize_research and give it in this turn.");
+    expect(planNextStep(planResearch(menu(), { ...DEFAULT_RESEARCH_STEERING, style: "autonomous",
+      checkBackMinutes: 15 }))).toMatch(/^Do the recommended tasks now; after about 15 minutes of research, check/u);
+  });
+
+  // The review of 11 Nov 2026: a new task found while the person's allocation still has an open task went on, neither
+  // recommended nor asked about. Sent as the guidance says, with done and without the allocation, it is decided afresh.
+  it("doesn't drop a new task found after a partial allocation, sent as the guidance says", () => {
+    const fork = { task: "Read the 2024 trial that reverses the 2018 cohort", kind: "full_text" as const,
+      could_change: "conclusion" as const };
+    const withAllocation = planResearch(menu({ tasks: [...TASKS, fork], allocation: [{ task: 1, minutes: 5 },
+      { task: 3, minutes: 4 }], done: [1] }), DEFAULT_RESEARCH_STEERING);
+    // Kept, the allocation still names an open task, so the menu goes on with it and leaves task 5 out.
+    expect(withAllocation).toMatchObject({ next: "go_on", recommended: [{ task: 3, minutes: 4 }] });
+    const afresh = planResearch(menu({ tasks: [...TASKS, fork], done: [1] }), DEFAULT_RESEARCH_STEERING);
+    expect(afresh.recommended.map(({ task }) => task)).toContain(5);
+    expect(afresh.next).toBe("ask");
+    // Guided asks too, and so does a precise balanced menu: a re-plan comes back to the person (the review of 12 Nov).
+    expect(planResearch(menu({ tasks: [...TASKS, fork], done: [1] }), { ...DEFAULT_RESEARCH_STEERING,
+      style: "guided" }).next).toBe("ask");
+    const precise = planResearch(menu({ tasks: [TASKS[3]!, fork], done: [1], steering_could_help: false }),
+      DEFAULT_RESEARCH_STEERING);
+    expect(precise).toMatchObject({ next: "ask", recommended: [{ task: 2, minutes: 2 }] });
+  });
+
+  // The review of 12 Nov 2026, reproduced: balanced, steering_could_help false. The first menu asks (12 minutes at the
+  // high end); the person answers "1. 4 min, 3. 3 min", skipping task 2; after task 1 the AI finds task 4 and re-plans as
+  // the guidance says (done [1], no allocation). The re-plan went on with 3, 4 and 2 (9 minutes): the skipped task was
+  // done and nobody was asked about task 4. A re-plan now asks, unless the person chose autonomous research.
+  const DECLINED: ResearchMenuInput["tasks"] = [
+    { task: "Audit the 2018 cohort's methods", kind: "method_audit", could_change: "conclusion" },
+    { task: "Search trials of the oil form", kind: "study_search", could_change: "confidence", sources: 2 },
+    { task: "Read the 2021 trial in full", kind: "full_text", could_change: "conclusion" },
+  ];
+  const DECLINED_FORK = { task: "Read the 2024 trial that reverses the cohort", kind: "abstract_screen" as const,
+    could_change: "conclusion" as const };
+  it("asks again when the plan changes once the research has begun, so a skipped task isn't done unasked", async () => {
+    const first = planResearch(menu({ tasks: DECLINED, steering_could_help: false }), DEFAULT_RESEARCH_STEERING);
+    expect(first).toMatchObject({ next: "ask", recommended_minutes: [4, 12] });
+    const answer = planResearch(menu({ tasks: DECLINED, steering_could_help: false,
+      allocation: [{ task: 1, minutes: 4 }, { task: 3, minutes: 3 }] }), DEFAULT_RESEARCH_STEERING);
+    expect(answer).toMatchObject({ next: "go_on", recommended: [{ task: 1, minutes: 4 }, { task: 3, minutes: 3 }] });
+    const replan = menu({ tasks: [...DECLINED, DECLINED_FORK], done: [1], steering_could_help: false });
+    const again = planResearch(replan, DEFAULT_RESEARCH_STEERING);
+    expect(again).toMatchObject({ next: "ask", recommended_minutes: [3, 9] });
+    expect(again.recommended.map(({ task }) => task)).toEqual([3, 4, 2]);
+    const asked = planResearchText(again, new Set([1]), true, TARGET);
+    expect(asked.split("\n")[0]).toMatch(new RegExp("^This person's research style asks first when the plan changes " +
+      "once the research has begun, as it has here\\. Ask now, before any of these tasks:", "u"));
+    // Autonomous research goes on; a re-plan with nothing left to recommend checks and answers; the person's own new
+    // allocation is followed.
+    expect(planResearch(replan, { ...DEFAULT_RESEARCH_STEERING, style: "autonomous" }).next).toBe("go_on");
+    expect(planResearch(menu({ tasks: [DECLINED[0]!, TASKS[2]!], done: [1], steering_could_help: false }),
+      DEFAULT_RESEARCH_STEERING)).toMatchObject({ next: "go_on", recommended: [] });
+    expect(planResearch(menu({ ...replan, allocation: [{ task: 3, minutes: 3 }, { task: 4, minutes: 1 }] }),
+      DEFAULT_RESEARCH_STEERING)).toMatchObject({ next: "go_on", recommended: [{ task: 3, minutes: 3 },
+      { task: 4, minutes: 1 }] });
+    // Through the connector, the same.
+    const { service, connect } = await start();
+    await service.acceptFreeContributor("auth0|person", agreement);
+    const manage = await connect("/mcp", "auth0|person");
+    const result = await manage({ action: "plan_research", later_inputs: { researchMenu: replan } });
+    expect(result.isError).not.toBe(true);
+    expect(result.structuredContent).toMatchObject({ researchMenu: { next: "ask", recommended_minutes: [3, 9] } });
+    expect((result.structuredContent as { next_step: string }).next_step).toMatch(/^Ask the person now and end your turn/u);
+    expect(text(result)).toContain("This person's research style asks first when the plan changes once the research " +
+      "has begun, as it has here. Ask now, before any of these tasks:");
+    expect(text(result)).toContain("1. Audit the 2018 cohort's methods: could change the conclusion; about 2 to 4 min " +
+      "(done).");
+  });
+
+  // 11 Nov 2026: an allocation naming no task on the menu that is still open went on with nothing recommended.
+  it("counts an allocation as the person's answer only when it names an open task on the menu", () => {
+    const fresh = planResearch(menu(), DEFAULT_RESEARCH_STEERING);
+    for (const overrides of [{ allocation: [{ task: 9, minutes: 5 }] },
+      { allocation: [{ task: 1, minutes: 5 }], done: [1] }]) {
+      expect(allocationAnswered(menu(overrides))).toBe(false);
+      const result = planResearch(menu(overrides), DEFAULT_RESEARCH_STEERING);
+      expect(result.next).toBe("ask");
+      expect(result.recommended.length).toBeGreaterThan(0);
+      if (overrides.done === undefined) expect(result.recommended).toEqual(fresh.recommended);
+    }
+    // A named open task with no minutes is still the person's answer: nothing more to research.
+    expect(allocationAnswered(menu({ allocation: [{ task: 1, minutes: 0 }] }))).toBe(true);
+    expect(planResearch(menu({ allocation: [{ task: 1, minutes: 0 }] }), DEFAULT_RESEARCH_STEERING))
+      .toMatchObject({ next: "go_on", recommended: [], recommended_minutes: [0, 0] });
   });
 
   // Owner answer 284 (10 Nov 2026): balanced "should ask if the research could take longer than 10 mins OR if there is
@@ -293,12 +540,15 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     const plan = (overrides: Partial<ResearchMenuInput>, steering: ResearchSteering = DEFAULT_RESEARCH_STEERING) =>
       planResearch(menu(overrides), steering);
     const words = (result: ReturnType<typeof planResearch>) => planResearchText(result, new Set());
-    const steer = "say in one line what their choices could change, and ask how to spend the time: they may answer";
+    // 11 Nov 2026: the reason is worded as the person's own setting, and the ask follows it.
+    const ask = ". Ask now, before any of these tasks:";
+    const choices = ", and one on what their choices could change, such as their own situation, the form or dose they " +
+      "use, or the outcome that matters most to them; then this menu";
     // A precise question whose tasks fit in 10 minutes goes on, the only case that does.
     const precise = plan({ tasks: [TASKS[3]!], steering_could_help: false });
     expect(precise.next).toBe("go_on");
-    expect(words(precise)).toContain("Do these tasks now, in this order, each within its minutes");
-    expect(words(precise)).not.toContain("so show the menu");
+    expect(words(precise)).toContain("Go on now: do these tasks in this order");
+    expect(words(precise)).not.toContain(ask);
     // Exactly 10 minutes at the high end is not more than 10; 11 is.
     const own = (high: number) => ({ task: "Read the trial's table of harms", kind: "other" as const,
       could_change: "conclusion" as const, minutes: [8, high] as [number, number] });
@@ -306,33 +556,45 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
       next: "go_on" });
     const long = plan({ tasks: [own(11)], steering_could_help: false });
     expect(long).toMatchObject({ recommended_minutes: [8, 11], next: "ask" });
-    expect(words(long)).toContain("The recommended tasks could take more than about 10 minutes, so show the menu and ask " +
-      "how to spend the time: they may answer");
-    expect(words(long)).not.toContain("say in one line what their choices could change");
+    expect(words(long)).toContain("\nThis person's research style asks first when the recommended tasks could take " +
+      "more than about 10 minutes, as these could. Ask now, before any of these tasks:");
+    expect(words(long)).not.toContain(choices);
     // Choices that could steer it: asked even when the tasks are short, with what the choices could change.
     const steerable = plan({ tasks: [TASKS[3]!], steering_could_help: true });
     expect(steerable).toMatchObject({ next: "ask", steering_could_help: true });
-    expect(words(steerable)).toContain(`The person's choices could steer this research, so show the menu, ${steer}`);
+    expect(words(steerable)).toContain("This person's research style asks first when their choices could steer the " +
+      `research, as they could here${ask}`);
+    expect(words(steerable)).toContain(choices);
     // Left out, it counts as true, and the result says so.
     const unsaid = plan({ tasks: [TASKS[3]!] });
     expect(unsaid.next).toBe("ask");
     expect(unsaid).not.toHaveProperty("steering_could_help");
-    expect(words(unsaid)).toContain("The person's choices could steer this research (steering_could_help was left out, " +
-      `and they usually can), so show the menu, ${steer}`);
-    expect(words(plan({}))).toContain("The recommended tasks could take more than about 10 minutes, and the person's " +
-      "choices could steer this research (steering_could_help was left out, and they usually can), so show the menu, " +
-      steer);
+    expect(words(unsaid)).toContain("This person's research style asks first when their choices could steer the " +
+      `research, as they usually can (steering_could_help was left out)${ask}`);
+    expect(words(unsaid)).toContain(choices);
+    expect(words(plan({}))).toContain("This person's research style asks first when the recommended tasks could take " +
+      "more than about 10 minutes, as these could, and when their choices could steer the research, as they usually " +
+      `can (steering_could_help was left out)${ask}`);
     // Guided always asks, autonomous never waits, and a person's allocation is followed, whatever the menu says.
     const guided = plan({ tasks: [TASKS[3]!], steering_could_help: false }, { ...DEFAULT_RESEARCH_STEERING,
       style: "guided" });
     expect(guided.next).toBe("ask");
-    expect(words(guided)).toContain("The person chose guided research, so show the menu and ask how to spend the time:");
+    expect(words(guided)).toContain(`This person chose guided research, which asks before every long task${ask}`);
+    expect(words(guided)).not.toContain(choices);
+    expect(words(plan({ steering_could_help: true }, { ...DEFAULT_RESEARCH_STEERING, style: "guided" })))
+      .not.toContain(choices);
     expect(plan({ steering_could_help: true }, { ...DEFAULT_RESEARCH_STEERING, style: "autonomous" }).next)
       .toBe("go_on");
     expect(plan({ steering_could_help: true, allocation: [{ task: 1, minutes: 5 }] }).next).toBe("go_on");
     // The field is a yes or no, named at the screen; the style's wording says when balanced asks.
     expect(researchMenuSchema.safeParse({ ...menu(), steering_could_help: "yes" }).success).toBe(false);
-    expect(RESEARCH_MENU_SHAPE).toContain("steering_could_help, true when the person's own choices");
+    expect(RESEARCH_MENU_SHAPE).toContain("steering_could_help, true when a choice the person could make, or " +
+      "something only they know, could materially change what the research checks (HRP " +
+      "StructuredUserSteeringAndApproval)");
+    // 10 Nov: the model said false for all 14 timing questions, open ones included; false is now only for a question
+    // that already fixes what to check: a clearly worded question is not yet one whose scope is fixed.
+    expect(RESEARCH_MENU_SHAPE).toContain("even when the question is clearly worded; false only when the question " +
+      "already fixes all of that, such as one result of one named study");
     expect(steeringSentence(DEFAULT_RESEARCH_STEERING)).toContain("shows the menu of next tasks when they could take " +
       "more than about 10 minutes or when your choices could steer the research, as they usually can unless the " +
       "question is precise");
@@ -342,8 +604,10 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     expect(adjustmentGuidance("flagged")).toContain("mention only adjustments that look doubtful or disputed");
     expect(adjustmentGuidance("flagged")).toContain("say nothing about the rest unless the person asks");
     expect(adjustmentGuidance("all")).toContain("list each key study's adjusted variables with each one's likely role");
-    const all = planResearch(menu(), { ...DEFAULT_RESEARCH_STEERING, adjustmentDetail: "all" });
-    expect(planResearchText(all, new Set())).toContain(adjustmentGuidance("all"));
+    // The look comes with the menu the research goes on from: here, after the person's allocation.
+    const all = planResearch(menu({ allocation: [{ task: 1, minutes: 5 }] }),
+      { ...DEFAULT_RESEARCH_STEERING, adjustmentDetail: "all" });
+    expect(planResearchText(all, new Set(), true)).toContain(adjustmentGuidance("all"));
   });
 
   // The owner, 9 Nov 2026, after the Syrian rue oil comparison: a word such as "significant" or "rich" is not a size,
@@ -354,10 +618,11 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     expect(WORDS_ARE_NOT_SIZES).toContain("compare that number with what the question needs");
     for (const style of ["guided", "balanced", "autonomous"] as const) {
       const steering: ResearchSteering = { ...DEFAULT_RESEARCH_STEERING, style };
+      // At the menu the research goes on from (11 Nov 2026: an ask carries nothing after its rule for the answer).
       for (const words of [
         framingGuidance(steering, undefined),
         framingGuidance(steering, { likely_question: TARGET }),
-        planResearchText(planResearch(menu(), steering), new Set()),
+        planResearchText(planResearch(menu({ allocation: [{ task: 1, minutes: 5 }] }), steering), new Set(), true),
       ]) {
         expect(words).toContain(WORDS_ARE_NOT_SIZES);
       }
@@ -377,10 +642,46 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     expect(URGENT_FIRST).toContain("ParallelEmergencyAndAdjunctQuestions and NoEmergencyWarningOvercorrection");
   });
 
+  // 11 Nov 2026: the costliest misses were the question's own premises (a PewDiePie run never checked "China has yet to
+  // accomplish"). As claims of the plain answer, the sixth blocking check compares each; nothing here decides what counts
+  // as a premise, which stays the model's judgment, in any language.
+  it("makes the question's checkable premises claims of the plain answer, and searches for what would show them wrong", async () => {
+    const { plainAnswerRequest } = await import("../apps/research-mcp/src/research-contributor-access-tool.js");
+    const premise = "When the question asserts or assumes something checkable (a fact, a cause, a comparison, or that " +
+      "something can't be or hasn't been done), give your quick verdict on each such premise in a sentence of its own, " +
+      "and put those sentences first among the claims (Universal premise_integrity_and_truth_priority_gate, rule 2).";
+    for (const note of [true, false]) {
+      expect(plainAnswerRequest(note)).toContain(premise);
+      expect(plainAnswerRequest(note).endsWith(FORM_PEOPLE_USE)).toBe(true);
+      expect(plainAnswerRequest(note)).toContain("premise_doubts, anything in it that looks inverted, unclear or " +
+        "possibly false;");
+    }
+    const doubted = framingGuidance(DEFAULT_RESEARCH_STEERING, { likely_question: "Has anyone done it?",
+      premise_doubts: ["The question assumes no one has done it."] });
+    // The review of 11 Nov 2026: only a doubt that could be false becomes a claim; one only unclear is the person's.
+    expect(doubted).toContain("If a doubt that could be false, not only unclear, is not yet a claim of the plain " +
+      "answer, register the plain answer again now, before any research call, with the same later_inputs.framing and " +
+      "a sentence giving your quick verdict on it among the claims, so the final check compares it.");
+    expect(framingGuidance(DEFAULT_RESEARCH_STEERING, { likely_question: "Has anyone done it?" }))
+      .not.toContain("register the plain answer again now");
+    for (const style of ["guided", "balanced", "autonomous"] as const) {
+      for (const framing of [undefined, { likely_question: "Has anyone done it?" }]) {
+        expect(framingGuidance({ ...DEFAULT_RESEARCH_STEERING, style }, framing)).toContain("Screen first: a few calls " +
+          "(about eight) of searches, abstracts, thread titles and the Atlas, with no full-text reading, long threads or " +
+          "video audits yet, ending with a provisional short answer. For each claim on a premise of the person's " +
+          "question, include one search for what would show it wrong.");
+      }
+    }
+  });
+
   // The owner, 9 Nov 2026 (Inbox reply): nobody sells the hexane-extracted seed oil, so ask which form the person has.
   it("asks for the form people actually buy or make, when the answer turns on it, with the plain answer's request", async () => {
     const { plainAnswerRequest } = await import("../apps/research-mcp/src/research-contributor-access-tool.js");
     for (const note of [true, false]) expect(plainAnswerRequest(note).endsWith(FORM_PEOPLE_USE)).toBe(true);
+    // 11 Nov 2026: inspect's request opens with the run's shape, the stop at an ask included.
+    for (const note of [true, false]) expect(plainAnswerRequest(note).startsWith("A research run goes:")).toBe(true);
+    expect(plainAnswerRequest(true)).toContain("when a result says to ask the person and wait, your reply is that " +
+      "question and the turn ends there.");
     expect(framingGuidance(DEFAULT_RESEARCH_STEERING, undefined)).toContain(FORM_PEOPLE_USE);
     expect(FORM_PEOPLE_USE).toContain("WholeInterventionIdentityTrace and UserReportedUseFidelity");
   });
@@ -401,11 +702,12 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
         could_change: "conclusion", sources: 1 }, { task: "Read what people who took the oil report", kind: "forum_thread",
         could_change: "confidence", sources: 3, loop: "studies_to_people" }] }).success).toBe(true);
     const asked = planResearchText(planResearch(menu(), DEFAULT_RESEARCH_STEERING), new Set());
-    expect(asked).toContain("then call plan_research again with their allocation as a list of {task, minutes}; for " +
-      "\"you decide\", the recommended tasks and minutes.");
+    expect(asked).toContain("call manage_research_access action plan_research again with the same plain_answer_receipt " +
+      "and tasks, research_target word for word, and their allocation as a list of {task, minutes}; for \"you " +
+      "decide\", or a reply that leaves the choice to you such as \"continue\", the recommended allocation.");
   });
 
-  it("asks for a people's-reports task when a first menu has none, and never renumbers an allocated one", () => {
+  it("asks for a people's-reports task when a first menu has none, and never renumbers an allocated one", async () => {
     const studiesOnly = menu({ tasks: [TASKS[0]!, TASKS[1]!] });
     expect(planResearchText(planResearch(studiesOnly, DEFAULT_RESEARCH_STEERING), new Set()))
       .toContain(PEOPLE_TASK_MISSING);
@@ -420,10 +722,27 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     // A study search prompted by people's reports doesn't read them.
     expect(planResearchText(planResearch(menu({ tasks: [TASKS[3]!] }), DEFAULT_RESEARCH_STEERING), new Set()))
       .toContain(PEOPLE_TASK_MISSING);
-    // Once the person allocated time by task number, the menu isn't changed under them.
-    const allocated = planResearch(menu({ tasks: [TASKS[0]!, TASKS[1]!], allocation: [{ task: 1, minutes: 5 }] }),
-      DEFAULT_RESEARCH_STEERING);
-    expect(planResearchText(allocated, new Set(), true)).not.toContain(PEOPLE_TASK_MISSING);
+    // Once an allocation or a done list refers to the task numbers, the menu isn't changed under them, even when the
+    // allocation names no open task and so counts as no answer (the review of 11 Nov 2026), through the real path.
+    const { service, connect } = await start();
+    await service.acceptFreeContributor("auth0|person", agreement);
+    const manage = await connect("/mcp", "auth0|person");
+    const studies = [TASKS[0]!, TASKS[1]!];
+    const plan = async (overrides: Partial<ResearchMenuInput>) => {
+      const result = await manage({ action: "plan_research", later_inputs: { researchMenu: menu({ tasks: studies,
+        ...overrides }) } });
+      expect(result.isError).not.toBe(true);
+      return result;
+    };
+    expect(text(await plan({}))).toContain(PEOPLE_TASK_MISSING);
+    for (const overrides of [{ allocation: [{ task: 1, minutes: 5 }] }, { done: [1] },
+      { allocation: [{ task: 1, minutes: 5 }], done: [1] }]) {
+      expect(text(await plan(overrides)), JSON.stringify(overrides)).not.toContain(PEOPLE_TASK_MISSING);
+    }
+    // The allocation of done tasks alone is no answer: the menu asks, with its numbers as they are.
+    const spent = await plan({ allocation: [{ task: 1, minutes: 5 }], done: [1] });
+    expect(spent.structuredContent).toMatchObject({ researchMenu: { next: "ask" } });
+    expect(text(spent)).toContain("1. Read the 2018 cohort's full text: could change the conclusion; about 1 to 3 min (done).");
   });
 
   it("checks the research target against the plain answer's through the connector (AskRigor#434)", async () => {
@@ -437,17 +756,49 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     expect(same.isError).not.toBe(true);
     expect(same.structuredContent).toMatchObject({ ok: true, researchMenu: { target_matches_plain_answer: true,
       minutes_since_plain_answer: 0, next: "ask", style: "balanced" } });
-    expect(text(same)).toContain("The menu to show the person, in their language, numbered as here");
+    // 11 Nov 2026: the ask hands over the message and ends with the rule for the answer, with the menu's own words for
+    // the research target; next_step carries the stop for an app that reads only the structured content.
+    expect(text(same)).toContain("Your reply: at most two sentences on what the first look suggests");
+    expect(text(same)).toContain(`research_target word for word ${JSON.stringify(TARGET.toUpperCase())}, and`);
+    expect((same.structuredContent as { next_step: string }).next_step)
+      .toMatch(/^Ask the person now and end your turn/u);
     // A precise question with short tasks goes on, and the result carries the menu's own steering_could_help.
     const precise = await manage({ action: "plan_research", later_inputs: { researchMenu: {
       ...menu(), tasks: [TASKS[3]!], steering_could_help: false, plain_answer_receipt: receipt } } });
     expect(precise.isError).not.toBe(true);
     expect(precise.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
-      steering_could_help: false } });
+      steering_could_help: false }, next_step: "Do the recommended tasks now, in order, each within its minutes; then " +
+      "check the answer with finalize_research and give it in this turn." });
+    expect(text(precise)).toContain("The menu to show the person, in their language, numbered as here");
+    // The review of 12 Nov 2026: a menu of detail alone asks with nothing recommended; "you decide" ends the research
+    // there, in next_step as in the text, since sending the empty recommendation would make the same menu ask again.
+    const detailOnly = await manage({ action: "plan_research", later_inputs: { researchMenu: {
+      ...menu(), tasks: [TASKS[2]!], plain_answer_receipt: receipt } } });
+    expect(detailOnly.structuredContent).toMatchObject({ researchMenu: { next: "ask", recommended: [] } });
+    const detailStep = (detailOnly.structuredContent as { next_step: string }).next_step;
+    expect(detailStep).toMatch(/^Ask the person now and end your turn/u);
+    expect(detailStep).toContain("then call action plan_research again with their allocation or, for \"you decide\", " +
+      "do no more research: check the answer with finalize_research and give it.");
+    expect(detailStep).not.toContain("the recommended one");
+    expect(text(detailOnly)).toContain("such as \"continue\", no more research: check the answer with " +
+      "finalize_research and give it.");
+    const emptyAnswer = await manage({ action: "plan_research", later_inputs: { researchMenu: {
+      ...menu(), tasks: [TASKS[2]!], allocation: [], plain_answer_receipt: receipt } } });
+    expect(emptyAnswer.structuredContent).toMatchObject({ researchMenu: { next: "ask" } });
+    await service.setResearchSteering("auth0|person", { style: "autonomous" });
+    const autonomous = await manage({ action: "plan_research", later_inputs: { researchMenu: menu() } });
+    expect((autonomous.structuredContent as { next_step: string }).next_step)
+      .toMatch(/^Do the recommended tasks now; after about 10 minutes of research/u);
+    await service.setResearchSteering("auth0|person", { style: "balanced" });
     const reworded = await manage({ action: "plan_research", later_inputs: { researchMenu: {
       ...menu(), research_target: "Sodium potassium ratio and blood pressure", plain_answer_receipt: receipt } } });
     expect(reworded.structuredContent).toMatchObject({ researchMenu: { target_matches_plain_answer: false } });
     expect(text(reworded)).toContain("This research_target is not the one registered with the plain answer");
+    // The rule for the answer, its last line, names the registered target and never quotes the reworded one.
+    const reworded0 = reworded.content[0]!.text;
+    expect(reworded0.split("\n").at(-1)).toContain("research_target word for word as register_plain_answer's result " +
+      "quoted it");
+    expect(reworded0).not.toContain(JSON.stringify("Sodium potassium ratio and blood pressure"));
     // Another account's receipt, or none that verifies: said so, and the menu still comes.
     const other = await connect("/mcp", "auth0|other");
     await service.acceptFreeContributor("auth0|other", agreement);
@@ -456,6 +807,11 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     expect(foreign.structuredContent).toMatchObject({ ok: true, problems: [expect.stringContaining(
       "is not a current plain-answer receipt of this account")] });
     expect(foreign.structuredContent).not.toHaveProperty("researchMenu.target_matches_plain_answer");
+    // The problems come before the ask, so its text still ends with the rule for the person's answer.
+    expect(text(foreign).indexOf("is not a current plain-answer receipt of this account"))
+      .toBeLessThan(text(foreign).indexOf("Ask now, before any of these tasks"));
+    expect(foreign.content[0]!.text.endsWith("Never send an allocation the person did not give or leave to you."))
+      .toBe(true);
     // Task numbers past the list are left out, with a problem.
     const past = await manage({ action: "plan_research", later_inputs: { researchMenu: {
       ...menu(), allocation: [{ task: 9, minutes: 3 }, { task: 1, minutes: 5 }] } } });

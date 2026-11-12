@@ -9,6 +9,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { verifyCarriedState } from "../apps/research-mcp/src/carried-state.js";
 import {
+  FIRST_PASS_GUIDANCE, PASS_SCOPE, PASSING_NOTES_HEADING, REPEAT_PASS_GUIDANCE, REPEAT_PASS_NOTES_HEADING
+} from "../apps/research-mcp/src/final-check-messages.js";
+import {
   TOOL_LIST_REFRESH_HINT, finalizeResearch as finalizeResearchUnwrapped, uncheckedLine, type FinalizeResearchInput, type FinalizeResearchOutput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
@@ -256,11 +259,97 @@ describe("the unchecked line and the previous check in finalize_research's resul
       "so an answer given after it went out unchecked; if one did, this answer says what changed from it.");
     expect(next.text).toContain("End the answer with this line");
     // The 22 Oct regressions found answers reworded after the check in 57 of 64 runs: the passing result says the
-    // answer is the checked draft, word for word, and that a change needs another check.
-    expect(next.text).toContain("\nGive the user the checked answer_draft word for word, followed only by the lines " +
-      "this result gives for its end; to change anything in it, call finalize_research again with the changed draft " +
-      "first.");
+    // answer is the checked draft, word for word, and that a change needs another check. 11 Nov 2026: a pass is the
+    // turn's last check unless the draft itself changes, and then once more.
+    expect(next.text).toContain(`\n${FIRST_PASS_GUIDANCE}`);
+    expect(FIRST_PASS_GUIDANCE).toContain("give the user the checked answer_draft now, word for word, followed only by " +
+      "the lines this result gives for its end");
+    expect(FIRST_PASS_GUIDANCE).toContain("then call finalize_research once more with the changed draft, the turn's " +
+      "last check.");
+    // The review of 11 Nov 2026: the sentences the result gives word for word are not a change to the draft; a note
+    // asking for an input waits, and one saying the answer is wrong is a fix to the answer itself. 12 Nov: closing
+    // questions, which the AI writes and which can bring claims no check read, are a change: after a first pass they take
+    // the one further check, and after a repeat pass none is added.
+    expect(FIRST_PASS_GUIDANCE).toContain("followed only by the lines this result gives for its end; adding the " +
+      "sentences this result gives word for word is not a change to the draft.");
+    expect(FIRST_PASS_GUIDANCE).not.toContain("closing questions it asks for) is not a change");
+    expect(FIRST_PASS_GUIDANCE).toContain("A note asking you to add or resend an input (study_map, findings_card, " +
+      "source_lines or community_leads) is for a later answer");
+    expect(FIRST_PASS_GUIDANCE).toContain("Change the draft only to fix the answer itself (something a note here says " +
+      "is wrong in it,");
+    expect(FIRST_PASS_GUIDANCE).toContain("or an error you found in it) or to add the closing questions this result " +
+      "asks for; then call finalize_research once more with the changed draft, the turn's last check.");
+    expect(REPEAT_PASS_GUIDANCE).toContain("don't call finalize_research again in this turn; make in the answer, with " +
+      "no further check, any fix its notes and limits call for, and add no closing questions the checked draft " +
+      "doesn't have. Adding the sentences this result gives word for word is not a change to the draft.");
+    expect(next.text).not.toContain(REPEAT_PASS_GUIDANCE);
+    expect(next.output).not.toHaveProperty("turn_already_passed");
     expect(next.text).not.toContain("An answer given before this check passes");
+  });
+
+  // The 10 Nov 2026 timing runs: 49 of 88 final-check calls came after the check had passed in the same turn.
+  it("tells a pass after a pass in the same turn that it is the turn's last check, and no other call", async () => {
+    const first = await call(base({}));
+    expect(first.output.status).toMatch(/^ready/u);
+    expect(first.text).toContain(`\n${FIRST_PASS_GUIDANCE}`);
+    expect(first.output).not.toHaveProperty("turn_already_passed");
+    // The same turn: the first pass's round token and carried state.
+    const again = await call(base({ carried_state: first.output.carry_forward, round_token: first.output.round_token }));
+    expect(again.output.status).toMatch(/^ready/u);
+    expect(again.output.turn_already_passed).toBe(true);
+    expect(again.text).toContain(`\n${REPEAT_PASS_GUIDANCE}`);
+    expect(again.text).not.toContain(FIRST_PASS_GUIDANCE);
+    // A later turn passes the state without the round token: a first pass again.
+    const later = await call(base({ carried_state: first.output.carry_forward }));
+    expect(later.output.status).toMatch(/^ready/u);
+    expect(later.output).not.toHaveProperty("turn_already_passed");
+    expect(later.text).toContain(`\n${FIRST_PASS_GUIDANCE}`);
+    // A check that doesn't pass after a pass is unchanged: no pass sentence, the unchecked line.
+    const blocked = await call(base({ ...DEPTH_GAP, carried_state: first.output.carry_forward,
+      round_token: first.output.round_token }));
+    expect(blocked.output.status).toBe("not_ready");
+    expect(blocked.output).not.toHaveProperty("turn_already_passed");
+    expect(blocked.text).not.toContain(FIRST_PASS_GUIDANCE);
+    expect(blocked.text).not.toContain(REPEAT_PASS_GUIDANCE);
+    expect(blocked.text).toContain("AskRigor's final check has not passed");
+    // The review of 12 Nov 2026: the turn keeps its pass through a call that doesn't, so the fix of an edited draft that
+    // failed is still the turn's repeat pass; a new turn starts without it.
+    const fixed = await call(base({ carried_state: blocked.output.carry_forward, round_token: blocked.output.round_token }));
+    expect(fixed.output.status).toMatch(/^ready/u);
+    expect(fixed.output.turn_already_passed).toBe(true);
+    expect(fixed.text).toContain(`\n${REPEAT_PASS_GUIDANCE}`);
+    const nextTurn = await call(base({ carried_state: fixed.output.carry_forward }));
+    expect(nextTurn.output).not.toHaveProperty("turn_already_passed");
+    // Nothing in a pass's own sentences asks for another check except a change to the draft itself.
+    expect(REPEAT_PASS_GUIDANCE).toContain("don't call finalize_research again in this turn");
+    // Lesson 56 (5 Nov 2026): a pass was read as the end of discovery. Every passing result says, in its pass sentence,
+    // what a pass covers; a check that doesn't pass says nothing of it.
+    expect(PASS_SCOPE).toBe("a pass covers the six checks, not whether the search was complete");
+    expect(FIRST_PASS_GUIDANCE).toMatch(/^This check passed \(a pass covers the six checks, not whether the search was complete\): /u);
+    expect(REPEAT_PASS_GUIDANCE).toContain(`(${PASS_SCOPE}), so this result is the turn's last check`);
+    for (const passing of [first, again, later]) expect(passing.text).toContain(PASS_SCOPE);
+    expect(blocked.text).not.toContain(PASS_SCOPE);
+    // A pass's notes are headed by what to do with them; a check that doesn't pass keeps the plain heading.
+    const noted = await call(base({ receipts: ["rr1~not-a-receipt~x"] }));
+    expect(noted.output.status).toMatch(/^ready/u);
+    expect(noted.text).toContain(`\n${PASSING_NOTES_HEADING}\n- receipts[0]`);
+    expect(noted.text).not.toContain("\nNotes about the call:\n");
+    // The review of 11 Nov 2026: a note asking for an input waits for a later answer, but one saying the answer is wrong
+    // is fixed now, and the changed draft is checked once more; after a repeat pass, fixed with no further check.
+    expect(PASSING_NOTES_HEADING).toContain("a note asking you to add or resend an input is for a later answer");
+    expect(PASSING_NOTES_HEADING).toContain("a note saying something in the answer is wrong is fixed in the draft now, " +
+      "and the changed draft is checked once more");
+    const notedAgain = await call(base({ receipts: ["rr1~not-a-receipt~x"], carried_state: noted.output.carry_forward,
+      round_token: noted.output.round_token }));
+    expect(notedAgain.output.turn_already_passed).toBe(true);
+    expect(notedAgain.text).toContain(`\n${REPEAT_PASS_NOTES_HEADING}\n- receipts[0]`);
+    expect(notedAgain.text).not.toContain(PASSING_NOTES_HEADING);
+    expect(REPEAT_PASS_NOTES_HEADING).toContain("is fixed in the answer, with no further check in this turn");
+    const notedBlocked = await call(base({ ...DEPTH_GAP, receipts: [issueResearchReceipt("pubmed_record",
+      { pmid: "12345", doi: STUDY }, { secret: SECRET }), "rr1~not-a-receipt~x"] }));
+    expect(notedBlocked.output.status).toBe("not_ready");
+    expect(notedBlocked.text).toContain("\nNotes about the call:\n- receipts[1]");
+    expect(notedBlocked.text).not.toContain(PASSING_NOTES_HEADING);
   });
 
   it("says the same where the result's unchecked_line is published", async () => {

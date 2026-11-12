@@ -2,7 +2,8 @@ import { registerForumTools } from "./forum-tools.js";
 import type { RedditReaderClient } from "./reddit-reader-client.js";
 import type { readForumPage } from "@askrigor/sources";
 import {
-  CLOSING_QUESTIONS_GUIDANCE, FINAL_CHECK_RUNTIME_DESCRIPTION, PASSING_LIMITS_GUIDANCE
+  CLOSING_QUESTIONS_GUIDANCE, FINAL_CHECK_RUNTIME_DESCRIPTION, FIRST_PASS_GUIDANCE, PASSING_LIMITS_GUIDANCE,
+  PASSING_NOTES_HEADING, REPEAT_PASS_GUIDANCE, REPEAT_PASS_LIMITS_GUIDANCE, REPEAT_PASS_NOTES_HEADING
 } from "./final-check-messages.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "./community-leads.js";
 import { findingsSaveOff, withLaterInputs } from "./later-inputs.js";
@@ -24,7 +25,8 @@ import {
 import { europePmcRecordGroups } from "./reading-summary.js";
 import { SMALL_LITERATURE_SEARCH_NOTE, SPARSE_SEARCH_NOTE } from "./absence-searches.js";
 import {
-  lateStudyMapLookup, lookUpStudyMap, registryRecordOf, STUDY_MAP_GUIDANCE, type StudyMapTexts
+  lateStudyMapLookup, lookUpStudyMap, registryRecordOf, STUDY_MAP_AT_AUDIT, STUDY_MAP_AT_AUDIT_GEMINI,
+  STUDY_MAP_GUIDANCE, type StudyMapTexts
 } from "./study-map.js";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -231,6 +233,7 @@ import {
   submitResearchContributionConnectorInputSchema,
   submitResearchContributionInputSchema,
   submitResearchContributionOutputSchema,
+  submitResearchContributionRuntimeOutputSchema,
   submitServerSourceAnalysis,
   type ResearchMapOptions,
 } from "./research-contributor-access-tool.js";
@@ -1389,7 +1392,7 @@ function defineResearchOperations(
           : undefined;
         // The owner, 5 Nov 2026: a signed record names how the study was read from it (source-reading.ts).
         const reading = receipt === undefined ? "" : ` ${readingResultNote(READING_RESULT_WHEN.record,
-          abstract ? "abstract_only" : "metadata_only")}`;
+          abstract ? "abstract_only" : "metadata_only", options.mcpSurface !== "/mcp/gemini")}`;
         return withResearchReceipt(pubmedToolResult(
           `PubMed record ${pmid} retrieval finished with access status ${result.access_status}.${reading}` +
             angleBracketDoiNote(result.data),
@@ -1657,10 +1660,12 @@ function defineResearchOperations(
     async ({ video_id_or_url }) => {
       try {
         const result = await getYoutubeVideo(video_id_or_url, youtubeConfig());
+        const retrieved = result.access_status === "complete" || result.access_status === "api_visible_complete";
         return withResearchReceipt(youtubeToolResult(
-          `YouTube video retrieval finished with access status ${result.access_status}.`,
+          `YouTube video retrieval finished with access status ${result.access_status}.` +
+            (retrieved ? ` ${options.mcpSurface === "/mcp/gemini" ? VIDEO_DETAILS_ONLY_GEMINI : VIDEO_DETAILS_ONLY}` : ""),
           result
-        ), (result.access_status === "complete" || result.access_status === "api_visible_complete") && "video_id" in result.data
+        ), retrieved && "video_id" in result.data
           ? researchReceipt("youtube_video_metadata", { video: result.data.video_id, access: result.access_status })
           : undefined);
       } catch (_error) {
@@ -1903,7 +1908,8 @@ function defineResearchOperations(
       const usable = result.receipt.completion_state !== "incomplete" && result.receipt.synthesis_lock === "pass";
       const reminders = !usable ? "" : ` ${COMMUNITY_RESEARCH_REMINDER}` +
         (result.records_retrieved_cumulative > 0 ? ` ${VIDEO_COMMENT_MAP_REMINDER}` : "");
-      const summary = `YouTube video audit retrieved ${result.records_retrieved_cumulative} record(s) cumulatively; this video's comments lock ${result.receipt.synthesis_lock} (this video only).${reminders}`;
+      const retrievedLine = `YouTube video audit retrieved ${result.records_retrieved_cumulative} record(s) cumulatively; this video's comments lock ${result.receipt.synthesis_lock} (this video only).`;
+      const summary = `${retrievedLine}${reminders}`;
       // The Custom GPT Action bounds the full audit itself.
       if (actionCall) return youtubeToolResult(summary, result);
       const complete = result.receipt.completion_state !== "incomplete";
@@ -1945,7 +1951,9 @@ function defineResearchOperations(
           result,
           // Room for the longest text and receipt this result can carry.
           MCP_YOUTUBE_AUDIT_MAX_BYTES - reservedResultBytes(
-            complete ? `${summary} ${MCP_COMMENT_FINDINGS_HANDOFF} ${MCP_VIDEO_COMMENTS_NOT_SHOWN}` : summary,
+            // The shown count is at most the retrieved count, so the sentence with both reserves enough room.
+            complete ? `${summary} ${commentsShownSentence(result.records_retrieved_cumulative,
+              result.records_retrieved_cumulative)} ${MCP_COMMENT_FINDINGS_HANDOFF} ${MCP_VIDEO_COMMENTS_NOT_SHOWN}` : summary,
             // The untrimmed counts are never smaller, so they reserve enough room.
             receiptFor({
               shown: result.records_returned_for_analysis,
@@ -1971,10 +1979,16 @@ function defineResearchOperations(
         };
       }
       const shown = view.records_returned_for_analysis;
+      // AskRigor#438: a view cut to the budget showed 104 of 997 retrieved records, and the report that mattered most
+      // was among the rest; the cut was said only in structuredContent.limitations. The text now says it next to the
+      // retrieval count.
+      const sampled = shown > 0 && shown < result.records_retrieved_cumulative &&
+        view.sample?.mode === "deterministic_hash_chronological"
+        ? ` ${commentsShownSentence(shown, result.records_retrieved_cumulative)}` : "";
       const text = !complete
         ? summary
         : shown > 0
-          ? `${summary} ${MCP_COMMENT_FINDINGS_HANDOFF}`
+          ? `${retrievedLine}${sampled}${reminders} ${MCP_COMMENT_FINDINGS_HANDOFF}`
           : result.records_retrieved_cumulative > 0 ? `${summary} ${MCP_VIDEO_COMMENTS_NOT_SHOWN}` : summary;
       return withResearchReceipt(youtubeToolResult(text, view), receiptFor({
         shown,
@@ -2766,11 +2780,16 @@ function defineResearchOperations(
         `Research finalization: ${result.status}; ${result.next_steps.length} next step(s), ` +
           `${result.limits.length} limit(s) to state; ${result.receipts_verified} receipt(s) verified.` +
           `\n${FINAL_CHECK_RUNTIME_DESCRIPTION}` +
-          (result.notes === undefined ? "" : `\nNotes about the call:\n${result.notes.map((note) => `- ${note}`).join("\n")}`) +
+          // 11 Nov 2026: under a pass, a note asking for an input waits for a later answer and one saying the answer is
+          // wrong is fixed now (the 10 Nov timing runs: 49 of 88 checks came after a pass in the same turn, most invited
+          // by notes about later inputs).
+          (result.notes === undefined ? "" : `\n${!passing ? "Notes about the call:" : result.turn_already_passed === true
+            ? REPEAT_PASS_NOTES_HEADING : PASSING_NOTES_HEADING}\n` + result.notes.map((note) => `- ${note}`).join("\n")) +
           // Owner answer 205a: the panel lists a passing check's limits in full, so its answer states only those
           // that matter for this person; the panel shows no limits under a check that has not passed.
           (passing
-            ? referenceLimits.length === 0 ? "" : `\n${PASSING_LIMITS_GUIDANCE}\n${referenceLimits.map((limit, index) =>
+            ? referenceLimits.length === 0 ? "" : `\n${result.turn_already_passed === true ? REPEAT_PASS_LIMITS_GUIDANCE
+              : PASSING_LIMITS_GUIDANCE}\n${referenceLimits.map((limit, index) =>
               `[${index + 1}] ${limit.replace(/\s+/gu, " ").trim()}`).join(" ")}`
             : result.limits.map((limit) => `\nLimit to include in your own words: ${limit}`).join("")) +
           // The sentences the answer shows as written under every status.
@@ -2812,9 +2831,9 @@ function defineResearchOperations(
           (result.check_line === undefined ? "" :
             `\nEnd the answer with this line, as written (in the answer's language when the answer is not in English): ${result.check_line}` +
             // The 22 Oct regressions: in 57 of the 64 runs whose check passed, the answer the user saw was the checked
-            // draft reworded afterwards, which no check read.
-            "\nGive the user the checked answer_draft word for word, followed only by the lines this result gives for " +
-            "its end; to change anything in it, call finalize_research again with the changed draft first.") +
+            // draft reworded afterwards, which no check read. 11 Nov 2026: a pass is the turn's last check unless the
+            // draft itself changes, and then once more; a pass after a pass in the same turn says it is the last.
+            `\n${result.turn_already_passed === true ? REPEAT_PASS_GUIDANCE : FIRST_PASS_GUIDANCE}`) +
           // AskRigor#354: the server never sees which answer the user gets, so an answer given before a pass says so.
           // AskRigor#359: one such answer opened with a confident verdict, so it also says at its start that it is
           // partial, and gives no ranking or verdict that a step still open could change.
@@ -3077,6 +3096,26 @@ const MCP_VIDEO_COMMENTS_NOT_SHOWN =
   "No comment fitted in this view, so none was returned; say in the answer that this video's comments could not be shown.";
 const MCP_BOUNDED_SAMPLE_LIMITATION =
   "This response returns a deterministic subset of the analysis sample to fit client result-size limits; retrieval coverage and corpus counts are reported separately.";
+/**
+ * What a video audit's text says when its view shows only part of what it retrieved (AskRigor#438): how many records it
+ * shows, that an order blind to their content picked them (a hash of each comment's id), and the tool that returns
+ * them all, get_youtube_comments, which the MCP view does not cut. That result is large: each full record carries its
+ * metadata, so hundreds of records pass what some apps take in at once (Claude Code inlines about 50,000 characters,
+ * claude.ai about 150,000), and the sentence says to read it only when the rest could change the answer.
+ */
+export function commentsShownSentence(shown: number, retrieved: number): string {
+  return `This result shows ${shown} of the ${retrieved} comment records retrieved, picked by an order that ignores ` +
+    `what they say. get_youtube_comments returns all ${retrieved} at once, a large result that can be more than some ` +
+    "apps take in, so call it for this video only when the comments not shown could change the answer.";
+}
+// 11 Nov 2026: a ChatGPT run said it had read a video's transcript from get_youtube_video, then took it back. The
+// result holds YouTube's details of the video, not its words; extract_youtube_video_claims, which reads the video
+// itself for health claims, isn't in Gemini's catalog.
+export const VIDEO_DETAILS_ONLY = "These are the video's details from YouTube (title, description, channel, duration, " +
+  "tags and counts), not what is said or shown in it; for its health claims, extract_youtube_video_claims reads the " +
+  "video itself.";
+export const VIDEO_DETAILS_ONLY_GEMINI = "These are the video's details from YouTube (title, description, channel, " +
+  "duration, tags and counts), not what is said or shown in it.";
 
 // The core schema requires exactly one of a video and a continuation token.
 // Models sometimes send both; on MCP the token then wins (see the handler).
@@ -3650,7 +3689,7 @@ function registerOpenFullTextMcpTools(
             ? "public_only" : undefined;
         if (access !== undefined) runtime = { ownerLibrary: { access, fetchPdf: (doi) => infoAccess.fetchPdf(doi, libraryDeadline) } };
       }
-      return invokeOpenFullTextMcp("acquire_open_full_text", input, runtime);
+      return invokeOpenFullTextMcp("acquire_open_full_text", input, runtime, options.mcpSurface === "/mcp/gemini");
     }
   );
   registrar.registerTool(
@@ -3661,7 +3700,8 @@ function registerOpenFullTextMcpTools(
       outputSchema: availableOpenFullTextActionOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async (input) => invokeOpenFullTextMcp("continue_open_full_text", input)
+    async (input) => invokeOpenFullTextMcp("continue_open_full_text", input, undefined,
+      options.mcpSurface === "/mcp/gemini")
   );
   registrar.registerTool(
     "validate_study_method_audit",
@@ -3674,8 +3714,8 @@ function registerOpenFullTextMcpTools(
     async (input, extra) => {
       // The recheck of 5 Nov 2026: a test run's audit, marked findings_save, is never held for the review inbox.
       const { findings_save: marker, ...audit } = input as typeof input & { findings_save?: unknown };
-      return stageValidatedAnalysis("study", await invokeOpenFullTextMcp("validate_study_method_audit", audit), extra,
-        options, findingsSaveOff({ findings_save: marker }));
+      return stageValidatedAnalysis("study", await invokeOpenFullTextMcp("validate_study_method_audit", audit, undefined,
+        options.mcpSurface === "/mcp/gemini"), extra, options, findingsSaveOff({ findings_save: marker }));
     }
   );
   registrar.registerTool(
@@ -3688,8 +3728,8 @@ function registerOpenFullTextMcpTools(
     },
     async (input, extra) => {
       const { findings_save: marker, ...audit } = input as typeof input & { findings_save?: unknown };
-      return stageValidatedAnalysis("review", await invokeOpenFullTextMcp("validate_review_method_audit", audit), extra,
-        options, findingsSaveOff({ findings_save: marker }));
+      return stageValidatedAnalysis("review", await invokeOpenFullTextMcp("validate_review_method_audit", audit,
+        undefined, options.mcpSurface === "/mcp/gemini"), extra, options, findingsSaveOff({ findings_save: marker }));
     }
   );
 }
@@ -3777,7 +3817,9 @@ function configuredLivingEvidenceRepository(): PostgresEvidenceRepository | unde
 async function invokeOpenFullTextMcp(
   operationId: string,
   body: unknown,
-  runtime?: AcquireOpenFullTextRuntime
+  runtime?: AcquireOpenFullTextRuntime,
+  // /mcp/gemini, whose catalog has no finalize_research: its sentences leave out the final check (11 Nov 2026).
+  gemini = false
 ): Promise<CallToolResult> {
   const routes = runtime === undefined ? OPEN_FULL_TEXT_MCP_ROUTES : createOpenFullTextActionRoutes({
     ...configuredOpenFullTextOptions(LIVING_EVIDENCE_READER),
@@ -3840,12 +3882,17 @@ async function invokeOpenFullTextMcp(
           'candidate_texts with retrieved_via "client_search_index" for identity and completeness checks.'
         : " A source failed (an outage or rate limit), so this is not yet a completed lead and has no receipt. " +
           "A later acquire_open_full_text attempt can establish a completed boundary before the study is listed as lead_only.";
+  // 11 Nov 2026: a method audit that signed its receipt gives the study map's shape for the first final check.
+  const studyMapShape = receipt !== undefined &&
+    (operationId === "validate_study_method_audit" || operationId === "validate_review_method_audit")
+    ? ` ${gemini ? STUDY_MAP_AT_AUDIT_GEMINI : STUDY_MAP_AT_AUDIT}` : "";
   return withResearchReceipt({
     content: [{
       type: "text",
       text: `${operationId.replaceAll("_", " ")} completed.` +
         ((result.body as { access_boundary?: string; acquisition_state?: string }).acquisition_state === undefined ? "" : ` ${(result.body as { access_boundary?: string }).access_boundary ?? ""}`) + (failedLead
-        ? failureText : "") + (completedLead ? ` ${OTHER_FULL_TEXT_ROUTE}` : "") + openFullTextReadingNote(receipt)
+        ? failureText : "") + (completedLead ? ` ${OTHER_FULL_TEXT_ROUTE}` : "") + openFullTextReadingNote(receipt, !gemini) +
+        studyMapShape
     }],
     structuredContent: result.body as Record<string, unknown>
   }, receipt);
@@ -3855,8 +3902,8 @@ async function invokeOpenFullTextMcp(
  * The owner, 5 Nov 2026: a result whose receipt shows how a paper was read names the words for it, so the answer says
  * them before its first final check (source-reading.ts).
  */
-function openFullTextReadingNote(receipt: string | undefined): string {
-  const note = receiptReadingNote(receipt, researchReceiptSecretFromEnv());
+function openFullTextReadingNote(receipt: string | undefined, finalCheck: boolean): string {
+  const note = receiptReadingNote(receipt, researchReceiptSecretFromEnv(), finalCheck);
   return note === "" ? "" : ` ${note}`;
 }
 
@@ -4067,6 +4114,7 @@ function collectResearchOperations(
         ? config.outputSchema : z.object(config.outputSchema as z.ZodRawShape);
       const runtimeOutputSchema = name === "finalize_research" ? finalizeResearchOutputSchema
         : name === "manage_research_access" ? manageResearchAccessRuntimeOutputSchema
+        : name === "submit_research_contribution" ? submitResearchContributionRuntimeOutputSchema
         : name === "review_research_contribution" ? researchContributionReviewRuntimeOutputSchema
         : name === "get_youtube_video" || name === "get_youtube_comments" || name === "search_youtube_comments"
           ? publishedOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE)

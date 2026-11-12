@@ -57,12 +57,55 @@ export const FINAL_CHECK_RUNTIME_DESCRIPTION = "Final check of a research answer
   `A key claim can carry a source line: later_inputs.source_lines, a list of lines such as ${SOURCE_LINE_EXAMPLE}, ` +
   `each with these five fields and no others: ${SOURCE_LINE_FIELDS}; all are shown beside the claim. AskRigor then ` +
   "looks both quotes up in the text it fetched; this is optional and holds nothing back.";
+// A passing check is the turn's last unless the draft itself changes, and then once more (11 November 2026). In the 10
+// Nov timing runs, 49 of 88 final-check calls came after the check had passed in the same turn, 0 to 6 a turn, invited by
+// "to change anything in it, call finalize_research again" on every pass and by notes about later inputs. HRP asks for
+// another call only on not_ready. The 22 Oct rule stays: a draft changed after a pass is checked again, once.
+// AskRigor lesson 56 (5 Nov 2026): a research lane read a ready_with_limits pass as the end of discovery and closed with
+// YouTube never searched and Reddit rate-limited. The panel already says the check "does not judge the reasoning or
+// whether the conclusions are right"; every passing result now says it to the AI too, inside its pass sentence.
+export const PASS_SCOPE = "a pass covers the six checks, not whether the search was complete";
+// Sentences the passing result gives word for word (such as a caveat or the reading sentence) are not a change to the
+// checked draft (11 Nov 2026, the review). Closing questions are: the AI writes them and says what each answer would
+// change, which can bring claims and figures no check read (12 Nov 2026, the review), so after a first pass they take the
+// one further check, and after a repeat pass none is added.
+const WORD_FOR_WORD_IS_NOT_A_CHANGE = "adding the sentences this result gives word for word is not a change to the " +
+  "draft";
+// A note that asks for an input waits for a later answer; a note that says the answer itself is wrong (a quote not in the
+// paper, two studies that may be one dataset) is fixed now, which changes the draft (11 Nov 2026, the review).
+export const FIRST_PASS_GUIDANCE = `This check passed (${PASS_SCOPE}): give the user the checked answer_draft now, ` +
+  `word for word, followed only by the lines this result gives for its end; ${WORD_FOR_WORD_IS_NOT_A_CHANGE}. A ` +
+  "note asking you to add or resend an input (study_map, findings_card, source_lines or community_leads) is for a " +
+  "later answer: send none of them again in this turn. Change the draft only to fix the answer itself (something a " +
+  "note here says is wrong in it, a limit listed here that changes what this person should believe or do, limits it " +
+  "repeats word for word, or an error you found in it) or to add the closing questions this result asks for; then " +
+  "call finalize_research once more with the changed draft, the turn's last check.";
+// A pass after a pass in the same turn (finalize_research's turn_already_passed), known from the carried state and the
+// round token without stored state.
+export const REPEAT_PASS_GUIDANCE = `This turn's check had already passed before this call (${PASS_SCOPE}), so this ` +
+  "result is the turn's last check: give this checked answer_draft now, word for word, followed only by the lines " +
+  "this result gives for its end, and don't call finalize_research again in this turn; make in the answer, with no " +
+  "further check, any fix its notes and limits call for, and add no closing questions the checked draft doesn't " +
+  `have. ${WORD_FOR_WORD_IS_NOT_A_CHANGE.charAt(0).toUpperCase()}${WORD_FOR_WORD_IS_NOT_A_CHANGE.slice(1)}.`;
+// The notes' heading under a passing check: a note asking for an input is for a later answer, and one saying the answer
+// is wrong is fixed now, checked once more after a first pass, and with no further check after a repeat pass.
+export const PASSING_NOTES_HEADING = "Notes about the call (the check passed: a note asking you to add or resend an " +
+  "input is for a later answer and needs no new check in this turn; a note saying something in the answer is wrong is " +
+  "fixed in the draft now, and the changed draft is checked once more):";
+export const REPEAT_PASS_NOTES_HEADING = "Notes about the call (this turn's check had already passed: a note asking " +
+  "you to add or resend an input is for a later answer; a note saying something in the answer is wrong is fixed in " +
+  "the answer, with no further check in this turn):";
 // Owner answer 205a (30 October 2026): beside the limits of a passing check, which the panel lists in full.
 export const PASSING_LIMITS_GUIDANCE = "The panel lists every limit below beneath the checked answer, so the answer " +
   "need not repeat them. The answer " +
   "states, in its own words, only those that change what this person should believe or do; if the checked draft " +
   "leaves out one that does, add it and call finalize_research again with the changed draft. The panel's limits, " +
   "for reference only and not to copy:";
+// The same after a pass that followed a pass in this turn, the turn's last check (11 Nov 2026): no further call.
+export const REPEAT_PASS_LIMITS_GUIDANCE = "The panel lists every limit below beneath the checked answer, so the " +
+  "answer need not repeat them. The answer states, in its own words, only those that change what this person should " +
+  "believe or do; if the checked draft leaves out one that does, add it, with no further check in this turn. The " +
+  "panel's limits, for reference only and not to copy:";
 // The owner's comparison of 6 November 2026 (a lesson): free ChatGPT without AskRigor ended its tirzepatide answer with
 // three numbered questions (an alternative to CPAP or an add-on; obesity, overweight or normal weight; the person's AHI,
 // with examples) and said what it would do with the answers, while AskRigor's answer never asked about weight, though the

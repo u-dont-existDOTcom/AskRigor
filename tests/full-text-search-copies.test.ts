@@ -280,8 +280,9 @@ describe("Phase 1b search copies through the real HTTP MCP endpoint", () => {
       kind: "full_text_read", claims: { doi: DOI, retrieval_provider: "client_search_index", host: "www.academia.edu" } });
     expect((result.content as Array<{ text: string }>).map(({ text }) => text).join("\n")).toContain("With this " +
       "study's full text read to its end, say \"full text read from a copy the AI found\" beside it in the answer, in " +
-      "the answer's language, and give those words in finalize_research's later_inputs.source_reading, with reading " +
-      "search_copy_read.");
+      "the answer's language, and give finalize_research, from its first call, an entry in later_inputs.source_reading " +
+      "as {source, reading, quote}: source this study's id as key_sources gives it, reading search_copy_read, and " +
+      "quote those words as answer_draft has them.");
   });
 
   it.each(["study", "review"])("signs server-derived search provenance on a %s audit receipt and requires its finalization caveat", async (kind) => {

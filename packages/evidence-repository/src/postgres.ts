@@ -226,6 +226,7 @@ export class PostgresEvidenceRepository {
       "0031_research_notice_acceptance",
       "0032_research_call_record",
       "0033_research_steering",
+      "0034_research_call_record_plan_next",
     ].map(async (migrationId) => ({
       migrationId,
       sql: await readFile(new URL(`../migrations/${migrationId}.sql`, import.meta.url), "utf8"),

@@ -799,8 +799,37 @@ async function verifyCallRecord(context: { admin: Pool; restricted: Pool; checks
   assert(await record.sweep(at) === 2, "CALL_RECORD_SWEEP_COUNT_WRONG");
   assert(await record.sweep(at) === 0, "CALL_RECORD_SWEEP_NOT_IDEMPOTENT");
   assert(await record.sweep(new Date(at.getTime() + 1)) === 1, "CALL_RECORD_SWEEP_BOUNDARY_WRONG");
-  await restricted.query(`DELETE FROM ${SCHEMA}.research_call_record WHERE account_key IN ($1, $2)`, [accountKey, otherKey]);
+
+  // Owner answer 289a (0034): plan_research's decision, ask or go_on, kept on its own rows only; the migration is safe to
+  // run again, and the check refuses any other value or any other call.
+  const planApplied = await admin.query(`SELECT migration_id FROM ${SCHEMA}.schema_migrations
+    WHERE migration_id = '0034_research_call_record_plan_next'`);
+  assert(planApplied.rowCount === 1, "MIGRATION_0034_NOT_APPLIED");
+  const planMigration = (await readFile(
+    resolve("packages/evidence-repository/migrations/0034_research_call_record_plan_next.sql"), "utf8"))
+    .replaceAll("__SCHEMA__", SCHEMA);
+  const beforePlan = await snapshot();
+  await admin.query(planMigration);
+  assert(await snapshot() === beforePlan, "CALL_RECORD_PLAN_MIGRATION_NOT_IDEMPOTENT");
+  const planKey = "synthetic-call-record-plan-key";
+  // A NULL action leaves a comparison NULL, which a check admits, so the check requires one (the review of 12 Nov).
+  for (const [tool, action, planNext] of [["manage_research_access", "plan_research", "maybe"],
+    ["manage_research_access", "inspect", "ask"], ["manage_research_access", null, "ask"],
+    ["load_protocol", null, "go_on"], ["load_protocol", "plan_research", "ask"]] as const) {
+    await expectCode(() => restricted.query(`INSERT INTO ${SCHEMA}.research_call_record
+      (account_key, received_at, tool, action, route, chatgpt, outcome, code, duration_ms, plan_next)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, [planKey, at, tool, action, "/mcp", false, "answered", null, 0, planNext]),
+    "23514");
+  }
+  await record.record({ ...entry, accountKey: planKey, action: "plan_research", planNext: "ask" });
+  await record.record({ ...entry, accountKey: planKey, receivedAt: new Date(at.getTime() - 1), planNext: "go_on" });
+  const planRows = await record.list(planKey, at);
+  assert(planRows.length === 2 && planRows[0]?.planNext === "ask" && !Object.hasOwn(planRows[1]!, "planNext"),
+    "CALL_RECORD_PLAN_DECISION_WRONG");
+  await restricted.query(`DELETE FROM ${SCHEMA}.research_call_record WHERE account_key IN ($1, $2, $3)`,
+    [accountKey, otherKey, planKey]);
   checks.push("call_record_kept_7_days_own_account_only");
+  checks.push("call_record_plan_decision_on_its_rows_only");
 }
 
 async function verifyNoticeAcceptance(context: {

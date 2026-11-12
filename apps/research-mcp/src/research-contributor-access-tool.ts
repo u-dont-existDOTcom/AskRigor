@@ -28,6 +28,7 @@ import {
   type ResearchSteering,
   type ResearchCallRecordStore,
   RESEARCH_CALL_RECORD_RETENTION_DAYS,
+  RESEARCH_PLAN_DECISIONS,
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
@@ -50,6 +51,7 @@ import {
   sameQuote,
   sentencesOf,
 } from "./research-finalization-gate.js";
+import { researchMapSavedLine } from "./findings/card.js";
 import { laterInputShape } from "./later-inputs.js";
 import {
   COULD_CHANGE,
@@ -57,6 +59,8 @@ import {
   RESEARCH_LOOPS,
   FORM_PEOPLE_USE,
   framingGuidance,
+  framingNextStep,
+  planNextStep,
   planResearch,
   planResearchText,
   steeringInspectText,
@@ -229,6 +233,8 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     route: z.enum(["/mcp", "/mcp/claude", "/mcp/gemini"]), chatgpt: z.boolean(),
     outcome: z.enum(["answered", "refused", "failed"]), code: z.string().nullable(),
     duration_ms: z.number().int().min(0).max(86_400_000),
+    // Owner answer 289a: plan_research's decision, from AskRigor's own result, on its rows only.
+    plan_next: z.enum(RESEARCH_PLAN_DECISIONS).optional(),
   }).strict()).max(500).optional(),
   retention_days: z.literal(RESEARCH_CALL_RECORD_RETENTION_DAYS).optional(),
   access: researchAccessViewSchema.safeExtend({ acceptance: noticeAcceptanceSchema.optional() }).optional(),
@@ -241,10 +247,12 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
   // Owner answer 229a: the report sent to the Atlas, or taken down.
   atlasReport: atlasReportResultSchema.optional(),
   // The owner's report of 6 Nov 2026 (runtime only, owner answer 189a): inspect's next step for an account whose research
-  // waits on the free-use notice.
+  // waits on the free-use notice; since 11 Nov, register_plain_answer's and plan_research's too, for an app that hands its
+  // model only the structured content.
   next_step: z.string().optional()
-    .describe("With inspect, for an account that is not active on the current notice: show the user the notice and " +
-      "ask; never accept it for them."),
+    .describe("What to do next. With inspect, for an account that is not active on the current notice: show the user " +
+      "the notice and ask; never accept it for them. With register_plain_answer and plan_research: whether to ask the " +
+      "person and end the turn, or go on."),
   // Owner answer 279a (runtime only): the account's research style, and the menu plan_research made.
   steering: researchSteeringSchema.optional(),
   researchMenu: z.object({
@@ -363,6 +371,29 @@ export const submitResearchContributionOutputSchema = z.object({
   problemsNotShown: z.number().int().positive().optional(),
 }).strict();
 
+/**
+ * Its results as the server checks them (owner answer 189a keeps the published shape): with a filed research map, the
+ * next step, which carries the answer's closing line and where it goes, for an app that hands its model only the
+ * structured content (Claude Code; the review of 12 Nov 2026).
+ */
+export const submitResearchContributionRuntimeOutputSchema = submitResearchContributionOutputSchema.extend({
+  next_step: z.string().optional()
+    .describe("With a filed research map: how the answer shows it was filed, with the line and where it goes."),
+});
+
+/**
+ * What a filed research map's answer does (11 Nov 2026): filed after this turn's check passed, the answer ends with the
+ * map's line itself, so filing asks for no new final check (in the 10 Nov timing runs, 49 of 88 checks came after a pass
+ * in the same turn); filed before, its receipt goes to the check with the others, whose result then gives the line, as
+ * the server instructions and the skill say.
+ */
+export function researchMapFiledStep(): string {
+  return "If this turn's final check has already passed, end the answer, after any saved line and just before the " +
+    "check line, with this line, as written (in the answer's language when it is not in English): " +
+    `${researchMapSavedLine(undefined)} Otherwise, give finalize_research this research_receipt with the research ` +
+    "receipts, and its result gives that line.";
+}
+
 export interface ResearchContributorToolOptions {
   service?: ResearchContributorAccessService;
   callRecord?: ResearchCallRecordStore;
@@ -472,15 +503,27 @@ export function noticeAcceptanceSentence(acceptance: ResearchAccessView["accepta
   return `${standing}${carried}`;
 }
 
-/** What inspect asks of an account that registers a plain answer, before any research call. */
+/**
+ * What inspect asks of an account that registers a plain answer, before any research call. It opens with the run's
+ * shape (11 Nov 2026): the stop at an ask is said before the first step, where it costs nothing.
+ */
 export function plainAnswerRequest(note: boolean): string {
   const { textCharacters, claims, claimCharacters } = PLAIN_ANSWER_LIMITS;
-  return "Before any research call, write the short answer you would give without AskRigor's tools, and register it " +
+  return "A research run goes: action register_plain_answer with later_inputs.framing, a short screen, action " +
+    "plan_research, the tasks chosen, then finalize_research; when a result says to ask the person and wait, your " +
+    "reply is that question and the turn ends there. " +
+    "Before any research call, write the short answer you would give without AskRigor's tools, and register it " +
     "with action register_plain_answer: plainAnswer.text, that answer (at most " +
     `${textCharacters.toLocaleString("en-US")} characters); plainAnswer.claims, its main claims, 1 to ${claims} ` +
     `whole sentences each copied exactly from it (at most ${claimCharacters} characters each); and ` +
-    "plainAnswer.researchTarget, the research target you will give finalize_research. AskRigor signs it with the " +
-    "time. Then treat each claim as something to check, confirm or correct, and look beyond the claims too. " +
+    "plainAnswer.researchTarget, the research target you will give finalize_research. " +
+    // 11 Nov 2026: the costliest misses were the question's own premises (a PewDiePie run never checked "China has yet
+    // to accomplish"); as claims of the plain answer, the sixth blocking check compares each with the research.
+    "When the question asserts or assumes something checkable (a fact, a cause, a comparison, or that something can't " +
+    "be or hasn't been done), give your quick verdict on each such premise in a sentence of its own, and put those " +
+    "sentences first among the claims (Universal premise_integrity_and_truth_priority_gate, rule 2). AskRigor signs " +
+    "it with the time. Then treat each claim as something to check, confirm or correct, and look beyond the claims " +
+    "too. " +
     (note ? NOTE_ON : NOTE_OFF) + " " + FRAMING_REQUEST;
 }
 
@@ -490,9 +533,9 @@ export const CALL_RECORD_SENTENCE = "When the person asks whether AskRigor recei
 
 // Owner answer 279a (9 Nov 2026): the framing goes with the plain answer, before any research call.
 const FRAMING_REQUEST = "With it, give later_inputs.framing: likely_question, the question the person most likely " +
-  "means; premise_doubts, anything in it that looks inverted or unclear; and redirecting_questions, up to three " +
-  "questions whose answers could change what to research (none when it is clear). The result says whether to ask the " +
-  "person before researching. " + FORM_PEOPLE_USE;
+  "means; premise_doubts, anything in it that looks inverted, unclear or possibly false; and redirecting_questions, " +
+  "up to three questions whose answers could change what to research (none when it is clear). The result says " +
+  "whether to ask the person before researching. " + FORM_PEOPLE_USE;
 
 /**
  * Whether this connection's research calls will be accepted, and if not, why
@@ -633,13 +676,15 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       const entries = await options.callRecord.list(options.service.accountKeyForSubject(auth.subject), new Date());
       const calls = entries.map((entry) => ({ received_at: entry.receivedAt.toISOString(), tool: entry.tool,
         action: entry.action, route: entry.route, chatgpt: entry.chatgpt, outcome: entry.outcome,
-        code: entry.code, duration_ms: entry.durationMs }));
+        code: entry.code, duration_ms: entry.durationMs,
+        ...(entry.planNext === undefined ? {} : { plan_next: entry.planNext }) }));
       const count = calls.length === 0
         ? "AskRigor received no calls from this signed-in account in the last 7 days."
         : `AskRigor received ${calls.length === 500 ? "at least " : ""}${calls.length} ${calls.length === 1 ? "call" : "calls"} from this signed-in account in the last 7 days.`;
       const text = [count + " Times are UTC. A call made without signing in isn't recorded. " +
         "This call itself appears from the next listing.", ...calls.map((call) =>
-        `${call.received_at.slice(0, 19).replace("T", " ")} UTC · ${call.tool}${call.action === null ? "" : ` (${call.action})`} · ` +
+        `${call.received_at.slice(0, 19).replace("T", " ")} UTC · ${call.tool}${call.action === null ? ""
+          : ` (${call.action}${call.plan_next === undefined ? "" : `: ${call.plan_next}`})`} · ` +
         `${call.outcome}${call.outcome === "refused" ? ` [${call.code}]` : ""} · ${(call.duration_ms / 1_000).toFixed(1)} s · ` +
         `${call.chatgpt ? "ChatGPT" : "other app"} · ${call.route}`)].join("\n");
       return { content: [{ type: "text", text }], structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
@@ -986,19 +1031,22 @@ async function registerPlainAnswer(
     `Research target, as signed: ${JSON.stringify(plainAnswer.researchTarget)}. Give finalize_research this ` +
     "research_target word for word, in a later turn too (only case and spacing are ignored): a reworded one can't be " +
     "matched to this plain answer, and the answer then ends without the comparison. " +
-    (account.note ? NOTE_ON : NOTE_OFF) + " " +
-    // Owner answer 279a: what to do next, by the framing and the account's research style.
-    framingGuidance(account.steering, framing);
+    (account.note ? NOTE_ON : NOTE_OFF);
   return {
+    // Owner answer 279a: what to do next, by the framing and the account's research style. Since 11 Nov 2026 it comes
+    // first, before the registration's details, so an ask is the first thing the model reads, and next_step carries it
+    // to an app that hands its model only the structured content.
     content: [
+      { type: "text", text: framingGuidance(account.steering, framing) },
       { type: "text", text: summary },
       { type: "text", text: `research_receipt: ${receipt}` },
       { type: "text", text: FINALIZE_REMINDER },
     ],
-    structuredContent: manageResearchAccessOutputSchema.parse({
+    structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
       ok: true,
       plainAnswer: { requested: true, note: account.note, claims: count },
       research_receipt: receipt,
+      next_step: framingNextStep(account.steering, framing),
     }),
   };
 }
@@ -1051,14 +1099,18 @@ async function planResearchAction(
     matches: read.target === researchTargetDigest(plan.research_target),
     minutesSince: Math.max(0, Math.round((Date.now() - Date.parse(read.issuedAt)) / 60_000)),
   });
+  // 11 Nov 2026: the problems come first, so an ask's text ends with the rule for the person's answer. Whether the
+  // menu's numbers must stay as they are goes by whether an allocation or a done list was given at all, even one that
+  // names no open task; whether to ask goes by allocationAnswered, inside planResearch.
+  const numbered = (plan.allocation ?? []).length > 0 || (plan.done ?? []).length > 0;
+  const text = planResearchText(result, new Set(plan.done ?? []), numbered, plan.research_target);
   return {
-    content: [{ type: "text", text: planResearchText(result, new Set(plan.done ?? []),
-      plan.allocation !== undefined && plan.allocation.length > 0) +
-      (problems.length === 0 ? "" : ` ${problems.join(" ")}`) }],
+    content: [{ type: "text", text: problems.length === 0 ? text : `${problems.join(" ")}\n${text}` }],
     structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
       ok: true,
       researchMenu: result,
       ...(problems.length === 0 ? {} : { problems }),
+      next_step: planNextStep(result),
     }),
   };
 }
@@ -1182,13 +1234,13 @@ export function createSubmitResearchContributionHandler(
           },
           ...(mapReceipt === undefined ? [] : [
             { type: "text" as const, text: `research_receipt: ${mapReceipt}` },
-            { type: "text" as const, text: "Give finalize_research this research_receipt with the research receipts." },
+            { type: "text" as const, text: researchMapFiledStep() },
           ]),
         ],
-        structuredContent: submitResearchContributionOutputSchema.parse({
+        structuredContent: submitResearchContributionRuntimeOutputSchema.parse({
           ok: true,
           proposal,
-          ...(mapReceipt === undefined ? {} : { research_receipt: mapReceipt }),
+          ...(mapReceipt === undefined ? {} : { research_receipt: mapReceipt, next_step: researchMapFiledStep() }),
         }),
       };
     } catch (error) {

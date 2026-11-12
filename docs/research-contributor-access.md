@@ -186,33 +186,79 @@ the MCP connector (`/mcp` and `/mcp/claude`) has this; Custom GPT Actions do not
 and Gemini's catalog does not list it. Neither the plain answer nor its comparison
 is sent to the second reader or saved in a findings card or the Atlas.
 
+Since 11 November 2026 (released 12 November), the request also asks for a quick
+verdict on each checkable premise of the question (a fact, a cause, a comparison,
+or that something can't be or hasn't been done), each in a sentence of its own,
+first among the claims, as Universal `premise_integrity_and_truth_priority_gate`
+rule 2 asks: the comparison then gives each premise an outcome the person sees.
+A doubt in the framing that could be false, not only unclear, and is not yet a
+claim asks for the plain answer again: before any research call, with the same
+framing, when the research goes on; after the person's answer, without the framing,
+when the result asks (the framing isn't stored, and a registration made before the
+ask without it would cancel the ask, while one made after it with its questions
+would ask them again; that registration's request for a framing is for the next
+question). The screen searches once for what would show each premise
+wrong. What counts as a premise, and which doubts could be false, stays the model's
+judgment, in any language; no check logic changed.
+
 ## Research the person can steer (owner answer 279a, 9 November 2026; released the same day)
 
 From the owner's report AskRigor#434. Three runtime-only actions and inputs (owner answer 189a keeps the published tool
-list as it is), all on the MCP connector, and none a blocking check:
+list as it is), all on the MCP connector, and none a blocking check; the ask that ends the turn, since 11 November 2026,
+was released on 12 November:
 
 - **The framing, with the plain answer.** `register_plain_answer` takes `later_inputs.framing`: the question the person
-  most likely means, up to three things in it that look inverted or unclear, and up to three questions whose answers
-  could redirect the research. Its result says what to do next by the account's research style: ask those questions
-  and wait (guided and balanced), say which reading it takes and keep them for the first check-back (autonomous),
-  confirm the question in one line (guided, with nothing to ask), or go on; then screen cheaply and call
-  `plan_research`. Without a framing, the result asks for one next time. The framing is not stored or signed.
+  most likely means, up to three things in it that look inverted, unclear or possibly false, and up to three questions whose answers
+  could redirect the research. Its result says first what to do next by the account's research style: ask those
+  questions and end the turn (guided and balanced), with the doubts in the one line allowed before them; say which
+  reading it takes and keep them for the first check-back (autonomous); confirm the question in one line, the doubts
+  in it, and end the turn (guided, with nothing to ask); or say which reading it takes and go on. Then it screens
+  cheaply, in about eight calls, and calls `plan_research`. Without a framing, the result asks for one next time. The
+  framing is not stored or signed.
 - **The menu of next tasks.** `plan_research` takes `later_inputs.researchMenu`: the research target, up to 12 tasks
   (each with its kind, how many sources, what it could change, and optionally a loop between people's reports and
   studies or the model's own time range), whether the person's choices could steer the research
-  (`steering_could_help`, the model's judgment from the screen; left out, it counts as true), the person's allocation
+  (`steering_could_help`, the model's judgment from the screen, with HRP's test for when approval is required: true
+  when a choice the person could make, or something only they know, could materially change what the research checks,
+  false only when the question already fixes all of that; left out, it counts as true), the person's allocation
   once given, the tasks done, and optionally the plain answer's receipt. Each task gets a time range from its kind's
   planning estimate per source (`PLAN_TASK_MINUTES` in `apps/research-mcp/src/research-steering.ts`, measured on the
   timing runs of 9 November 2026); tasks that could change the conclusion are recommended first, then those that could
-  change how sure it is, within the check-back allowance; detail alone is never recommended. Guided always shows the
-  menu and waits; balanced does when the recommended tasks could take more than about 10 minutes (the high end of
-  their range) or the person's choices could steer the research, as they usually can unless the question is precise
-  (owner answer 284, 10 November 2026), and then says in one line what their choices could change; autonomous goes on
-  and checks back after the allowance; a person's allocation is followed. The result also asks for a line before each task, says how to resume
-  after a stop or a change of direction, asks for a task for each lead between people's reports and studies, and words
-  the adjusted-variables look by the account's choice. With the plain answer's receipt it says whether the research
+  change how sure it is, within the check-back allowance; detail alone is never recommended. Guided always asks;
+  balanced asks when the recommended tasks could take more than about 10 minutes (the high end of their range) or the
+  person's choices could steer the research, as they usually can unless the question is precise (owner answer 284, 10
+  November 2026); autonomous goes on, and after the allowance checks what it has and gives that answer, ending with the
+  open tasks as a numbered menu and the question whether to spend more time on them; a person's allocation is followed.
+  An allocation that names no task on the menu still open counts as none, so the menu recommends and decides as if
+  none had come (11 November 2026); whether the menu may ask for a task near the top, which would renumber it, goes by
+  whether an allocation or a done list was given at all. A re-plan (tasks done, and no allocation that counts as the
+  person's answer) with something to recommend asks, unless the person chose autonomous research, so a new task comes
+  back to the person and a task they skipped isn't done unasked (12 November 2026).
+  Since 11 November 2026 (the owner: "it's still not asking me any steering questions"), an ask ends the turn. Its
+  text puts the stop first: the reason, worded as the person's own setting, and that the whole reply is the message
+  that follows, after any urgent action, with no research call and no final check, since a question is not an answer
+  (HRP's preflight-only exit, and `StructuredUserSteeringAndApproval`: when approval is required, begin no substantive
+  source collection in the same response). Then the reply, ready to send: at most two sentences on the first look,
+  said to be not yet checked, and one on what the person's choices could change when they could; the menu, one task
+  per line, with the recommendation and the time to check and write the answer; and the question how to spend the
+  time. It ends with what to do when the person replies: `plan_research` again with their allocation, the research
+  target word for word as the menu gave it (or, when the plain answer's receipt shows it is not the registered one, as
+  `register_plain_answer`'s result quoted it), "you decide" or "continue" meaning the recommended allocation, a changed
+  question registered again with a framing of its own, and never an allocation the person did not give or leave to the
+  AI. Nothing follows that rule. A result that goes on says to do the tasks and then give the checked answer in the
+  same turn, asks for a line before each task, sends a new fork that could change the conclusion back through
+  `plan_research` with the tasks done and without the allocation, so the rule decides afresh (not in autonomous
+  research, which checks and answers instead), says how to resume after a stop or a change of direction, asks for a
+  task for each lead between people's reports and studies, and words the adjusted-variables look by the account's
+  choice. With the plain answer's receipt it says whether the research
   target is the registered one, word for word but for case and spacing, and how many minutes have passed since. Nothing
   of the menu is stored.
+- **The next step for apps that read only the structured content.** Claude Code hands its model a result's structured
+  content and leaves out its text (`docs/claude-connector.md`). So `register_plain_answer` and `plan_research` also
+  give their next step as `next_step`, a runtime field (owner answer 189a), as `inspect` does for the free-use notice:
+  whether to ask the person and end the turn, or go on. `inspect`'s request for the plain answer opens with the run's
+  shape: the plain answer with its framing, a short screen, `plan_research`, the tasks chosen, then `finalize_research`;
+  when a result says to ask the person and wait, the reply is that question and the turn ends there.
 - **The research style.** `set_research_steering` takes `later_inputs.researchSteering` (`style`: `guided`, `balanced`
   or `autonomous`; `checkBackMinutes`: 1 to 120; `adjustmentDetail`: `flagged` or `all`), any of them, for an active
   account; `inspect` shows it. Migration `0033_research_steering` stores the three choices on `research_use_accounts`,
@@ -230,6 +276,14 @@ newest first, and `inspect` names the action when the server keeps a record. Rec
 result, and a failed write is dropped silently. Calls without a valid sign-in and Custom GPT Action calls are not
 recorded. The privacy page and `docs/privacy-data-map.md` ("The call record") describe it; the access role has INSERT,
 SELECT and DELETE on the table only, and the canonical reader none.
+
+Owner answer 289a (12 November 2026; released the same day): for an answered `plan_research` call the record also
+keeps the decision AskRigor's own result made, `ask` or `go_on` (`researchMenu.next`), never anything the person or
+the AI wrote. Migration `0034_research_call_record_plan_next` adds the nullable `plan_next` column, whose check admits
+a value only on a `manage_research_access` row with action `plan_research`; `list_calls` shows it beside the action
+("manage_research_access (plan_research: ask)"). The owner's call record of 11 November showed ChatGPT inspecting in 9
+of 9 runs and never calling `plan_research`; with the decision kept, a record also tells an ask that was ignored from a
+menu that said to go on.
 
 ## Detailed lesson reports
 
