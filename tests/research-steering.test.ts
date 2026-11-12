@@ -1008,7 +1008,7 @@ describe("plan_research reads the menu a model guessed, and refuses the rest wit
 // The review of 12 Nov 2026: a re-plan before any task was done (no done list), with a new task added, went on without
 // the person's choice, since only a done list marked a re-plan. Each result now carries a digest of its task list, and a
 // call whose tasks differ from the digest it passes back asks first. Fixtures invented.
-describe("a menu that changed after the person saw it is shown to them first (the review of 12 Nov 2026)", () => {
+describe("a menu the AI changed after the person saw it is shown to them first (the review of 12 Nov 2026)", () => {
   const FIRST = { task: "Search trials of warm compresses for stiff necks", kind: "study_search",
     could_change: "conclusion" } as const;
   const FORK = { task: "Search trials of heat wraps worn overnight", kind: "study_search",
@@ -1045,10 +1045,12 @@ describe("a menu that changed after the person saw it is shown to them first (th
     // Without a digest, as before this change: it goes on.
     const undigested = await plan({ research_target: target, steering_could_help: false, tasks: [FIRST, FORK] });
     expect(undigested.structured.researchMenu.next).toBe("go_on");
-    // An allocation given for the menu the person saw is no answer to a changed one.
-    const stale = await plan({ research_target: target, steering_could_help: false, tasks: [FIRST, FORK],
-      allocation: [{ task: 1, minutes: 2 }], menu_digest: digest });
-    expect(stale.structured.researchMenu).toMatchObject({ next: "ask", menu_changed: true });
+    // Greptile's review of 12 Nov 2026: an allocation sent with a changed menu is the person's answer, as they may have
+    // added the task themselves when they redirected the research: it goes on with exactly that allocation.
+    const redirected = await plan({ research_target: target, steering_could_help: false, tasks: [FIRST, FORK],
+      allocation: [{ task: 2, minutes: 1 }], menu_digest: digest });
+    expect(redirected.structured.researchMenu).toMatchObject({ next: "go_on", menu_changed: true,
+      recommended: [{ task: 2, minutes: 1 }] });
     // The changed menu's own digest, passed back with the person's answer, goes on with it.
     const answered = await plan({ research_target: target, steering_could_help: false, tasks: [FIRST, FORK],
       allocation: [{ task: 2, minutes: 3 }], menu_digest: forked.structured.researchMenu.menu_digest });
@@ -1061,11 +1063,15 @@ describe("a menu that changed after the person saw it is shown to them first (th
       allocation: [{ task: 2, minutes: 3 }], menu_digest: forked.structured.researchMenu.menu_digest });
     expect(retyped.structured.researchMenu).toMatchObject({ next: "go_on", recommended: [{ task: 2, minutes: 3 }] });
     expect(retyped.structured.researchMenu).not.toHaveProperty("menu_changed");
-    // Autonomous research never stops to ask.
+    // Autonomous research never stops to ask, and keeps the person's own allocation for a menu they changed, rather
+    // than the default tasks (Greptile's review of 12 Nov 2026).
     await service.setResearchSteering("auth0|person", { style: "autonomous" });
     const autonomous = await plan({ research_target: target, steering_could_help: false, tasks: [FIRST, FORK],
       menu_digest: digest });
     expect(autonomous.structured.researchMenu.next).toBe("go_on");
+    const theirs = await plan({ research_target: target, steering_could_help: false, tasks: [FIRST, FORK],
+      allocation: [{ task: 2, minutes: 1 }], done: [1], menu_digest: digest });
+    expect(theirs.structured.researchMenu).toMatchObject({ next: "go_on", recommended: [{ task: 2, minutes: 1 }] });
   });
 
   it("compares what the person chose among exactly, not wording or times, and decides only through planResearch", () => {
@@ -1088,6 +1094,9 @@ describe("a menu that changed after the person saw it is shown to them first (th
     const plan = { research_target: target, steering_could_help: false, tasks: [FIRST, FORK] };
     expect(planResearch(plan, DEFAULT_RESEARCH_STEERING, undefined, { digest, changed: true }))
       .toMatchObject({ next: "ask", menu_changed: true, menu_digest: digest });
+    // With the person's allocation, a changed menu goes on with it.
+    expect(planResearch({ ...plan, allocation: [{ task: 2, minutes: 1.5 }] }, DEFAULT_RESEARCH_STEERING, undefined,
+      { digest, changed: true })).toMatchObject({ next: "go_on", menu_changed: true, recommended: [{ task: 2, minutes: 1.5 }] });
     expect(planResearch(plan, DEFAULT_RESEARCH_STEERING, undefined, { digest, changed: false }).next).toBe("go_on");
     expect(planResearch(plan, DEFAULT_RESEARCH_STEERING).next).toBe("go_on");
   });

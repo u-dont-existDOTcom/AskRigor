@@ -147,8 +147,9 @@ export type ResearchMenuInput = z.output<typeof researchMenuSchema>;
  * The menu the person saw (the review of 12 Nov 2026): a re-plan before any task was done, with a new task added, could
  * go on without the person's choice, since only a done list marked a re-plan. Each plan_research result carries a digest
  * of its task list, keyed with the server's signing secret, and the next call passes it back: when the call's tasks
- * differ from it, the menu changed after the person saw it, and research that may ask shows them the changed menu. A
- * call without a digest is planned as before. Exact, never meaning: what the person chose among is compared, the number
+ * differ from it and the call carries no allocation that counts as the person's answer, the AI changed the menu on its
+ * own, and research that may ask shows the person the changed menu. A call with the person's allocation goes on with
+ * it, as they may have changed the menu themselves. A call without a digest is planned as before. Exact, never meaning: what the person chose among is compared, the number
  * of tasks and, in order, each one's kind, what it could change and its loop. A task's wording, sources and minutes are
  * not: a model that retypes the menu when it sends the person's answer, or estimates a task's time again, would
  * otherwise ask the person a second time about the menu they just answered, and the allocation the call carries already
@@ -686,7 +687,11 @@ export function planResearch(
     minutes: taskMinutes(task),
   }));
   const open = tasks.filter(({ n }) => !done.has(n));
-  const answered = allocationAnswered(plan) && !changed;
+  // An allocation that counts is the person's answer, whether or not the menu changed: they may have added the task
+  // themselves when they redirected the research (Greptile's review of 12 Nov 2026: with a changed menu, the person's new
+  // allocation was dropped, and autonomous research went on with the default tasks instead). A changed menu with no such
+  // answer is the AI's own re-plan, which the person is shown first (below).
+  const answered = allocationAnswered(plan);
   let recommended: { task: number; minutes: number }[];
   if (answered) {
     // The person's own minutes, as they gave them (the review of 12 Nov 2026: 1.5 minutes became 2).
@@ -717,8 +722,8 @@ export function planResearch(
   // task went on, did the task they skipped and never asked about the new one).
   const replanned = tasks.some(({ n }) => done.has(n)) && !answered;
   const next = steering.style === "autonomous" ? "go_on"
-    : changed ? "ask"
     : answered ? "go_on"
+    : changed ? "ask"
     : steering.style === "guided" || recommendedMinutes[1] > ASK_ABOVE_MINUTES || plan.steering_could_help !== false ||
         (replanned && recommended.length > 0)
       ? "ask"
