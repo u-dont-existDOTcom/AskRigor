@@ -838,7 +838,8 @@ export function youDecideLaterInputs(plan: ResearchMenuInput, result: ResearchPl
 
 /** The line after the rule for the person's answer: the "you decide" call, as it is to be sent. */
 export function youDecideLine(youDecide: YouDecideLaterInputs): string {
-  return "For \"you decide\": call manage_research_access with action plan_research and exactly these later_inputs; " +
+  return "Only once the person has replied \"you decide\", in a later message, never in this turn: call " +
+    "manage_research_access with action plan_research and exactly these later_inputs; " +
     "the recommended allocation is inside researchMenu, where every allocation goes, never beside it: " +
     JSON.stringify(youDecide);
 }

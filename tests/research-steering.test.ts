@@ -841,7 +841,8 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     const foreignLines = foreign.content[0]!.text.split("\n");
     expect(foreignLines.at(-2)!.endsWith("Never send an allocation the person did not give or leave to you."))
       .toBe(true);
-    expect(foreignLines.at(-1)).toBe(`For "you decide": call manage_research_access with action plan_research and ` +
+    expect(foreignLines.at(-1)).toBe(`Only once the person has replied "you decide", in a later message, never in this turn: call ` +
+      `manage_research_access with action plan_research and ` +
       "exactly these later_inputs; the recommended allocation is inside researchMenu, where every allocation goes, " +
       `never beside it: ${JSON.stringify((foreign.structuredContent as { you_decide_later_inputs: unknown })
         .you_decide_later_inputs)}`);
@@ -991,7 +992,8 @@ describe("plan_research reads the menu a model guessed, and refuses the rest wit
     expect(lines.at(-2)).toMatch(/^When the person replies: /u);
     expect(lines.at(-2)).toContain("for \"you decide\", or a reply that leaves the choice to you such as " +
       "\"continue\", the call on the next line.");
-    expect(lines.at(-1)).toBe("For \"you decide\": call manage_research_access with action plan_research and exactly " +
+    expect(lines.at(-1)).toBe("Only once the person has replied \"you decide\", in a later message, never in this turn: call " +
+      "manage_research_access with action plan_research and exactly " +
       "these later_inputs; the recommended allocation is inside researchMenu, where every allocation goes, never " +
       `beside it: ${JSON.stringify(youDecide)}`);
     expect((asked.structuredContent as { next_step: string }).next_step).toContain("(for \"you decide\", with " +
