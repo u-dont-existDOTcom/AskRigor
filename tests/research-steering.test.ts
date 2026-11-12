@@ -451,12 +451,58 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     const afresh = planResearch(menu({ tasks: [...TASKS, fork], done: [1] }), DEFAULT_RESEARCH_STEERING);
     expect(afresh.recommended.map(({ task }) => task)).toContain(5);
     expect(afresh.next).toBe("ask");
-    // Guided asks too; a precise balanced menu goes on, with the new task recommended.
+    // Guided asks too, and so does a precise balanced menu: a re-plan comes back to the person (the review of 12 Nov).
     expect(planResearch(menu({ tasks: [...TASKS, fork], done: [1] }), { ...DEFAULT_RESEARCH_STEERING,
       style: "guided" }).next).toBe("ask");
     const precise = planResearch(menu({ tasks: [TASKS[3]!, fork], done: [1], steering_could_help: false }),
       DEFAULT_RESEARCH_STEERING);
-    expect(precise).toMatchObject({ next: "go_on", recommended: [{ task: 2, minutes: 2 }] });
+    expect(precise).toMatchObject({ next: "ask", recommended: [{ task: 2, minutes: 2 }] });
+  });
+
+  // The review of 12 Nov 2026, reproduced: balanced, steering_could_help false. The first menu asks (12 minutes at the
+  // high end); the person answers "1. 4 min, 3. 3 min", skipping task 2; after task 1 the AI finds task 4 and re-plans as
+  // the guidance says (done [1], no allocation). The re-plan went on with 3, 4 and 2 (9 minutes): the skipped task was
+  // done and nobody was asked about task 4. A re-plan now asks, unless the person chose autonomous research.
+  const DECLINED: ResearchMenuInput["tasks"] = [
+    { task: "Audit the 2018 cohort's methods", kind: "method_audit", could_change: "conclusion" },
+    { task: "Search trials of the oil form", kind: "study_search", could_change: "confidence", sources: 2 },
+    { task: "Read the 2021 trial in full", kind: "full_text", could_change: "conclusion" },
+  ];
+  const DECLINED_FORK = { task: "Read the 2024 trial that reverses the cohort", kind: "abstract_screen" as const,
+    could_change: "conclusion" as const };
+  it("asks again when the plan changes once the research has begun, so a skipped task isn't done unasked", async () => {
+    const first = planResearch(menu({ tasks: DECLINED, steering_could_help: false }), DEFAULT_RESEARCH_STEERING);
+    expect(first).toMatchObject({ next: "ask", recommended_minutes: [4, 12] });
+    const answer = planResearch(menu({ tasks: DECLINED, steering_could_help: false,
+      allocation: [{ task: 1, minutes: 4 }, { task: 3, minutes: 3 }] }), DEFAULT_RESEARCH_STEERING);
+    expect(answer).toMatchObject({ next: "go_on", recommended: [{ task: 1, minutes: 4 }, { task: 3, minutes: 3 }] });
+    const replan = menu({ tasks: [...DECLINED, DECLINED_FORK], done: [1], steering_could_help: false });
+    const again = planResearch(replan, DEFAULT_RESEARCH_STEERING);
+    expect(again).toMatchObject({ next: "ask", recommended_minutes: [3, 9] });
+    expect(again.recommended.map(({ task }) => task)).toEqual([3, 4, 2]);
+    const asked = planResearchText(again, new Set([1]), true, TARGET);
+    expect(asked.split("\n")[0]).toMatch(new RegExp("^This person's research style asks first when the plan changes " +
+      "once the research has begun, as it has here\\. Ask now, before any of these tasks:", "u"));
+    // Autonomous research goes on; a re-plan with nothing left to recommend checks and answers; the person's own new
+    // allocation is followed.
+    expect(planResearch(replan, { ...DEFAULT_RESEARCH_STEERING, style: "autonomous" }).next).toBe("go_on");
+    expect(planResearch(menu({ tasks: [DECLINED[0]!, TASKS[2]!], done: [1], steering_could_help: false }),
+      DEFAULT_RESEARCH_STEERING)).toMatchObject({ next: "go_on", recommended: [] });
+    expect(planResearch(menu({ ...replan, allocation: [{ task: 3, minutes: 3 }, { task: 4, minutes: 1 }] }),
+      DEFAULT_RESEARCH_STEERING)).toMatchObject({ next: "go_on", recommended: [{ task: 3, minutes: 3 },
+      { task: 4, minutes: 1 }] });
+    // Through the connector, the same.
+    const { service, connect } = await start();
+    await service.acceptFreeContributor("auth0|person", agreement);
+    const manage = await connect("/mcp", "auth0|person");
+    const result = await manage({ action: "plan_research", later_inputs: { researchMenu: replan } });
+    expect(result.isError).not.toBe(true);
+    expect(result.structuredContent).toMatchObject({ researchMenu: { next: "ask", recommended_minutes: [3, 9] } });
+    expect((result.structuredContent as { next_step: string }).next_step).toMatch(/^Ask the person now and end your turn/u);
+    expect(text(result)).toContain("This person's research style asks first when the plan changes once the research " +
+      "has begun, as it has here. Ask now, before any of these tasks:");
+    expect(text(result)).toContain("1. Audit the 2018 cohort's methods: could change the conclusion; about 2 to 4 min " +
+      "(done).");
   });
 
   // 11 Nov 2026: an allocation naming no task on the menu that is still open went on with nothing recommended.

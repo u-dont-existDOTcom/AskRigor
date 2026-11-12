@@ -230,7 +230,9 @@ is not yet released:
   open tasks as a numbered menu and the question whether to spend more time on them; a person's allocation is followed.
   An allocation that names no task on the menu still open counts as none, so the menu recommends and decides as if
   none had come (11 November 2026); whether the menu may ask for a task near the top, which would renumber it, goes by
-  whether an allocation or a done list was given at all.
+  whether an allocation or a done list was given at all. A re-plan (tasks done, and no allocation that counts as the
+  person's answer) with something to recommend asks, unless the person chose autonomous research, so a new task comes
+  back to the person and a task they skipped isn't done unasked (12 November 2026).
   Since 11 November 2026 (the owner: "it's still not asking me any steering questions"), an ask ends the turn. Its
   text puts the stop first: the reason, worded as the person's own setting, and that the whole reply is the message
   that follows, after any urgent action, with no research call and no final check, since a question is not an answer

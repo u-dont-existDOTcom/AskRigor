@@ -469,9 +469,15 @@ export function planResearch(
         roundEstimate(chosen.reduce((sum, task) => sum + (task.minutes?.[0] ?? 1), 0)),
         roundEstimate(chosen.reduce((sum, task) => sum + (task.minutes?.[1] ?? 3), 0)),
       ];
+  // A re-plan (tasks done, and no allocation that counts as the person's answer) with something to do asks, unless the
+  // person chose autonomous research: the new-fork sentence sends a new task back to the person, and owner answer 279a
+  // has a new fork come back to them (the review of 12 Nov 2026: a precise menu re-planned after the person skipped a
+  // task went on, did the task they skipped and never asked about the new one).
+  const replanned = tasks.some(({ n }) => done.has(n)) && !answered;
   const next = answered || steering.style === "autonomous"
     ? "go_on"
-    : steering.style === "guided" || recommendedMinutes[1] > ASK_ABOVE_MINUTES || plan.steering_could_help !== false
+    : steering.style === "guided" || recommendedMinutes[1] > ASK_ABOVE_MINUTES || plan.steering_could_help !== false ||
+        (replanned && recommended.length > 0)
       ? "ask"
       : "go_on";
   return {
@@ -505,9 +511,10 @@ const range = ([low, high]: [number, number]): string => low === high ? `about $
 /**
  * Why the menu waits for the person (owner answer 284), worded as the person's own setting: guided research; or, for
  * balanced, recommended tasks that could take more than about 10 minutes, the person's choices that could steer the
- * research (the menu's steering_could_help, true when left out), or both. No final period: the ask follows.
+ * research (the menu's steering_could_help, true when left out), a plan changed once the research began (a menu with
+ * tasks done that asks, which only a re-plan does), or more than one of these. No final period: the ask follows.
  */
-function askReason(result: ResearchPlanResult): string {
+function askReason(result: ResearchPlanResult, done: ReadonlySet<number>): string {
   if (result.style === "guided") return "This person chose guided research, which asks before every long task";
   const reasons = [
     ...(result.recommended_minutes[1] > ASK_ABOVE_MINUTES
@@ -515,6 +522,7 @@ function askReason(result: ResearchPlanResult): string {
     ...(result.steering_could_help === false ? [] : [result.steering_could_help === true
       ? "their choices could steer the research, as they could here"
       : "their choices could steer the research, as they usually can (steering_could_help was left out)"]),
+    ...(result.tasks.some(({ n }) => done.has(n)) ? ["the plan changes once the research has begun, as it has here"] : []),
   ];
   return `This person's research style asks first when ${reasons.join(", and when ")}`;
 }
@@ -604,7 +612,7 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
       "give or leave to you.";
     return [
       ...(before.length === 0 ? [] : [before.join(" ")]),
-      [askReason(result) + ASK_NOW, ...since].join(" "),
+      [askReason(result, done) + ASK_NOW, ...since].join(" "),
       reply.join("\n"),
       rule,
     ].join("\n");
