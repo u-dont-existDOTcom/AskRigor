@@ -11,8 +11,9 @@ import {
   CALL_RECORD_SENTENCE, createManageResearchAccessHandler,
 } from "../apps/research-mcp/src/research-contributor-access-tool.js";
 import { RESEARCH_USE_SCOPE, createJwtOAuthResourceServer } from "../apps/research-mcp/src/oauth-resource-server.js";
-import { forTextClients, waitForPendingCallRecords } from "../apps/research-mcp/src/tool-result.js";
+import { clientResultBytes, forTextClients, waitForPendingCallRecords } from "../apps/research-mcp/src/tool-result.js";
 import { researchCallRecordingOptions } from "../apps/research-mcp/src/research-call-recording.js";
+import { MCP_RESULT_MAX_BYTES } from "../apps/research-mcp/src/config.js";
 
 const clients: Client[] = [];
 const servers: Server[] = [];
@@ -187,6 +188,67 @@ describe("list_calls", () => {
     expect(lines[1]).toContain(" UTC · manage_research_access (plan_research: go_on) · answered · ");
     expect(lines[2]).toContain(" UTC · manage_research_access (plan_research: ask) · answered · ");
     expect(JSON.stringify(listed)).not.toContain("Synthetic target");
+  });
+
+  // The review of 12 Nov 2026: 500 calls came to about 85 KB, more than Claude's clients take in.
+  it("shows the newest calls that fit one result, says where the next start, and pages through them all", async () => {
+    const store = new InMemoryResearchCallRecordStore();
+    const at = Date.now();
+    for (let index = 0; index < 520; index += 1) {
+      await store.record({ accountKey: ownKey, receivedAt: new Date(at - index * 1_000), tool: "search_europe_pmc",
+        action: null, route: "/mcp/claude", chatgpt: false, outcome: index % 7 === 0 ? "refused" : "answered",
+        code: index % 7 === 0 ? "research_access_required" : null, durationMs: 1_000 + index });
+    }
+    const handler = createManageResearchAccessHandler({ service, callRecord: store });
+    const size = (result: Parameters<typeof clientResultBytes>[0]) => clientResultBytes(result);
+    const first = await handler({ action: "list_calls" }, auth);
+    expect(size(first)).toBeLessThanOrEqual(MCP_RESULT_MAX_BYTES);
+    const page = (first.structuredContent as { calls_page: { offset: number; shown: number; total: number;
+      next_offset: number } }).calls_page;
+    expect(page).toMatchObject({ offset: 0, total: 500, next_offset: page.shown });
+    expect(page.shown).toBeGreaterThan(50);
+    expect(page.shown).toBeLessThan(500);
+    const firstText = (first.content[0] as { text: string }).text;
+    expect(firstText).toContain(`AskRigor received at least 500 calls from this signed-in account in the last 7 days. ` +
+      `This result shows calls 1 to ${page.shown} of them, newest first; ${500 - page.shown} older ones are not shown: ` +
+      `for the next, call list_calls again with later_inputs.callsPage {"offset": ${page.shown}}. Times are UTC.`);
+    expect(firstText.split("\n")).toHaveLength(page.shown + 1);
+    // Paging through gives every call once, newest first.
+    const seen = [...(first.structuredContent as { calls: Array<{ received_at: string }> }).calls];
+    let next: number | undefined = page.next_offset;
+    while (next !== undefined) {
+      const more = await handler({ action: "list_calls", callsPage: { offset: next } }, auth);
+      expect(size(more)).toBeLessThanOrEqual(MCP_RESULT_MAX_BYTES);
+      seen.push(...(more.structuredContent as { calls: Array<{ received_at: string }> }).calls);
+      next = (more.structuredContent as { calls_page: { next_offset?: number } }).calls_page.next_offset;
+    }
+    expect(seen.map(({ received_at }) => received_at)).toEqual(
+      Array.from({ length: 500 }, (_, index) => new Date(at - index * 1_000).toISOString()));
+    // A limit shows fewer; an offset past the last shows none, and says so.
+    const three = await handler({ action: "list_calls", callsPage: { offset: 10, limit: 3 } }, auth);
+    expect(three.structuredContent).toMatchObject({ calls_page: { offset: 10, shown: 3, total: 500, next_offset: 13 } });
+    const past = await handler({ action: "list_calls", callsPage: { offset: 500 } }, auth);
+    expect(past.structuredContent).toMatchObject({ calls: [], calls_page: { offset: 500, shown: 0, total: 500 } });
+    expect((past.content[0] as { text: string }).text).toContain("This result shows none of them: " +
+      "later_inputs.callsPage's offset 500 is past the last.");
+  });
+
+  it("takes later_inputs.callsPage through the connector, with list_calls only", async () => {
+    const store = new InMemoryResearchCallRecordStore();
+    for (let index = 0; index < 3; index += 1) {
+      await store.record({ accountKey: ownKey, receivedAt: new Date(Date.now() - index * 1_000), tool: "load_protocol",
+        action: null, route: "/mcp", chatgpt: true, outcome: "answered", code: null, durationMs: 100 });
+    }
+    const client = await (await start(store))("/mcp");
+    const paged = await client.callTool({ name: "manage_research_access", arguments: { action: "list_calls",
+      later_inputs: { callsPage: { offset: 1, limit: 1 } } } });
+    expect(paged.structuredContent).toMatchObject({ calls: [expect.objectContaining({ tool: "load_protocol" })],
+      calls_page: { offset: 1, shown: 1, total: 3, next_offset: 2 } });
+    const elsewhere = await client.callTool({ name: "manage_research_access", arguments: { action: "inspect",
+      later_inputs: { callsPage: { offset: 1 } } } });
+    expect(elsewhere.structuredContent).toMatchObject({ ok: false, error: { code: "invalid_request",
+      message: "later_inputs.callsPage goes only with action list_calls." } });
+    await waitForPendingCallRecords(store);
   });
 
   it("says no calls when this account has none", async () => {

@@ -203,7 +203,7 @@ describe("later_inputs (owner answer 189a)", () => {
           : operation.name === "validate_review_method_audit" ? ["findings_save"]
             // Owner answer 200a: the shared answer's copy, its deletion code, and the owner's review of it.
             : operation.name === "manage_research_access" ? ["sharedAnswer", "shareCode", "atlasReport", "reportNumber",
-              "framing", "researchMenu", "researchSteering"]
+              "framing", "researchMenu", "researchSteering", "callsPage"]
               : operation.name === "review_research_contribution" ? ["sharedAnswerId", "items", "placements", "reportState", "report", "verdict", "glanceRow", "glanceRowId", "glanceState",
                 // The owner, 6 Nov 2026: a challenge mark's usual view, its source and the quick-answer verdict.
                 "usual_view", "usual_view_source_url", "usual_view_source_label", "quick_answer_verdict"] : [];

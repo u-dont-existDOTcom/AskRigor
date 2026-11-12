@@ -52,7 +52,9 @@ import {
   sentencesOf,
 } from "./research-finalization-gate.js";
 import { researchMapSavedLine } from "./findings/card.js";
-import { laterInputShape } from "./later-inputs.js";
+import { callsPageSchema, laterInputShape } from "./later-inputs.js";
+import { MCP_RESULT_MAX_BYTES } from "./config.js";
+import { clientResultBytes } from "./tool-result.js";
 import {
   COULD_CHANGE,
   PLAN_TASK_KINDS,
@@ -246,6 +248,13 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     plan_next: z.enum(RESEARCH_PLAN_DECISIONS).optional(),
   }).strict()).max(500).optional(),
   retention_days: z.literal(RESEARCH_CALL_RECORD_RETENTION_DAYS).optional(),
+  // The review of 12 Nov 2026: a listing that shows only some of the calls says which, and where the next ones start.
+  calls_page: z.object({
+    offset: z.number().int().min(0),
+    shown: z.number().int().min(0),
+    total: z.number().int().min(0),
+    next_offset: z.number().int().min(1).optional(),
+  }).strict().optional(),
   access: researchAccessViewSchema.safeExtend({ acceptance: noticeAcceptanceSchema.optional() }).optional(),
   sharedAnswer: z.object({
     code: z.string(),
@@ -763,18 +772,8 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         action: entry.action, route: entry.route, chatgpt: entry.chatgpt, outcome: entry.outcome,
         code: entry.code, duration_ms: entry.durationMs,
         ...(entry.planNext === undefined ? {} : { plan_next: entry.planNext }) }));
-      const count = calls.length === 0
-        ? "AskRigor received no calls from this signed-in account in the last 7 days."
-        : `AskRigor received ${calls.length === 500 ? "at least " : ""}${calls.length} ${calls.length === 1 ? "call" : "calls"} from this signed-in account in the last 7 days.`;
-      const text = [count + " Times are UTC. A call made without signing in isn't recorded. " +
-        "This call itself appears from the next listing.", ...calls.map((call) =>
-        `${call.received_at.slice(0, 19).replace("T", " ")} UTC · ${call.tool}${call.action === null ? ""
-          : ` (${call.action}${call.plan_next === undefined ? "" : `: ${call.plan_next}`})`} · ` +
-        `${call.outcome}${call.outcome === "refused" ? ` [${call.code}]` : ""} · ${(call.duration_ms / 1_000).toFixed(1)} s · ` +
-        `${call.chatgpt ? "ChatGPT" : "other app"} · ${call.route}`)].join("\n");
-      return { content: [{ type: "text", text }], structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
-        ok: true, calls, retention_days: RESEARCH_CALL_RECORD_RETENTION_DAYS,
-      }) };
+      const page = callsPageSchema.safeParse(input.callsPage ?? {});
+      return listedCalls(calls, page.success ? page.data : {});
     }
     if (options.service === undefined) {
       return accessError(
@@ -875,6 +874,9 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           "invalid_request",
           "findingsSave goes only with action set_findings_save, which needs it.",
         );
+      }
+      if (parsed.callsPage !== undefined) {
+        return accessError("invalid_request", "later_inputs.callsPage goes only with action list_calls.");
       }
       if (parsed.framing !== undefined && parsed.action !== "register_plain_answer") {
         return accessError("invalid_request", "later_inputs.framing goes only with action register_plain_answer.");
@@ -996,6 +998,61 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       return mappedAccessError(error);
     }
   };
+}
+
+type ListedCall = NonNullable<z.infer<typeof manageResearchAccessRuntimeOutputSchema>["calls"]>[number];
+
+/**
+ * list_calls' result: the newest calls, from the page's offset, while the whole result fits MCP_RESULT_MAX_BYTES (the
+ * review of 12 Nov 2026: 500 calls came to about 85 KB, more than Claude's clients take in), with where the next ones
+ * start when some are not shown.
+ */
+function listedCalls(calls: readonly ListedCall[], page: z.infer<typeof callsPageSchema>): CallToolResult {
+  const total = calls.length;
+  const offset = Math.min(page.offset ?? 0, total);
+  const wanted = calls.slice(offset, page.limit === undefined ? total : Math.min(total, offset + page.limit));
+  const count = total === 0
+    ? "AskRigor received no calls from this signed-in account in the last 7 days."
+    : `AskRigor received ${total === 500 ? "at least " : ""}${total} ${total === 1 ? "call" : "calls"} from this signed-in account in the last 7 days.`;
+  const line = (call: ListedCall) =>
+    `${call.received_at.slice(0, 19).replace("T", " ")} UTC · ${call.tool}${call.action === null ? ""
+      : ` (${call.action}${call.plan_next === undefined ? "" : `: ${call.plan_next}`})`} · ` +
+    `${call.outcome}${call.outcome === "refused" ? ` [${call.code}]` : ""} · ${(call.duration_ms / 1_000).toFixed(1)} s · ` +
+    `${call.chatgpt ? "ChatGPT" : "other app"} · ${call.route}`;
+  const build = (shown: number): CallToolResult => {
+    const more = total - offset - shown;
+    const paged = offset > 0 || more > 0;
+    const where = !paged ? "" : shown === 0
+      ? ` This result shows none of them${offset >= total ? `: later_inputs.callsPage's offset ${offset} is past the last` : ""}` +
+        (more > 0 ? `; for the next, call list_calls again with later_inputs.callsPage {"offset": ${offset}} and a smaller limit` : "") + "."
+      : ` This result shows calls ${offset + 1} to ${offset + shown} of them, newest first` + (more > 0
+        ? `; ${more} older ${more === 1 ? "one is" : "ones are"} not shown: for the next, call list_calls again with ` +
+          `later_inputs.callsPage {"offset": ${offset + shown}}` : "") + ".";
+    const text = [count + where + " Times are UTC. A call made without signing in isn't recorded. " +
+      "This call itself appears from the next listing.", ...wanted.slice(0, shown).map(line)].join("\n");
+    return { content: [{ type: "text", text }], structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
+      ok: true, calls: wanted.slice(0, shown), retention_days: RESEARCH_CALL_RECORD_RETENTION_DAYS,
+      ...(paged ? { calls_page: { offset, shown, total,
+        ...(more > 0 && shown > 0 ? { next_offset: offset + shown } : {}) } } : {}),
+    }) };
+  };
+  const fits = (result: CallToolResult) => clientResultBytes(result) <= MCP_RESULT_MAX_BYTES;
+  const whole = build(wanted.length);
+  if (fits(whole)) return whole;
+  let best = build(0);
+  let lower = 1;
+  let upper = wanted.length - 1;
+  while (lower <= upper) {
+    const shown = Math.floor((lower + upper) / 2);
+    const candidate = build(shown);
+    if (fits(candidate)) {
+      best = candidate;
+      lower = shown + 1;
+    } else {
+      upper = shown - 1;
+    }
+  }
+  return best;
 }
 
 /**

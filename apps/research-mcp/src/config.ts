@@ -12,6 +12,10 @@ export const RESEARCH_ACTION_RESPONSE_MAX_BYTES = 60_000;
 export const PRIVATE_ORCHESTRATION_REQUEST_MAX_BYTES = 256 * 1_024;
 export const PRIVATE_ORCHESTRATION_RESPONSE_MAX_BYTES = 512 * 1_024;
 export const PROTOCOL_ACTION_TEXT_MAX_BYTES = 48_000;
+// Claude clients reject MCP results near 50,000 characters: a result whose size grows with what it lists (a YouTube
+// audit's comments, the call record, an all-journals search page) shows what fits within this many bytes of text and
+// structured content, and says exactly how much it shows of how much (the review of 12 Nov 2026).
+export const MCP_RESULT_MAX_BYTES = 40_000;
 export const PUBLIC_MCP_CONCURRENCY_LIMIT = 16;
 export const PUBLIC_MCP_BROWSER_ORIGINS = [
   "https://gemini.google.com"

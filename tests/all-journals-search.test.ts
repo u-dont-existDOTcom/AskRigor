@@ -10,6 +10,7 @@ import { searchRecords } from "../apps/research-mcp/src/reading-summary.js";
 import { ALL_JOURNALS_AT_THE_SCREEN, framingGuidance } from "../apps/research-mcp/src/research-steering.js";
 import { discoveryQueryDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
+import { MCP_RESULT_MAX_BYTES } from "../apps/research-mcp/src/config.js";
 import {
   abstractFromInvertedIndex, OPENALEX_ABSTRACT_MAX_CHARACTERS, OPENALEX_LIMITATIONS, searchOpenAlex
 } from "../packages/sources/src/index.js";
@@ -156,6 +157,39 @@ describe("search_europe_pmc with later_inputs.index all_journals", () => {
     expect(searchRecords(verified.claims, (value) => value.toLowerCase())).toEqual([
       ["10.9999/synth.1999.1", "10000001", "pmc1000001"], ["openalex:OPENALEX:W1000000002"]
     ]);
+  });
+
+  // The review of 12 Nov 2026: with abstracts of up to 2,000 characters, a page of 50 came to about 130 KB.
+  it("shows the records that fit one result, says exactly how many of how many, and signs only those", async () => {
+    const words = Object.fromEntries(Array.from({ length: 600 }, (_, index) => [`mot${index}`, [index]]));
+    const works = Array.from({ length: 50 }, (_, index) => work({ id: `https://openalex.org/W20000000${10 + index}`,
+      doi: `https://doi.org/10.9999/SYNTH.2001.${index}`, ids: {}, abstract_inverted_index: words }));
+    vi.stubGlobal("fetch", vi.fn(async () => page(works, { count: 120, next_cursor: "next-page" })));
+    const result = await callSearch({ query: "seed oil", page_size: 50, later_inputs: { index: "all_journals" } });
+    expect(result.isError, JSON.stringify(result).slice(0, 300)).not.toBe(true);
+    // A client that reads only text gets the structured content's JSON in the text too; one that reads the structured
+    // content alone gets less.
+    expect((result.content as Array<{ text: string }>).reduce((sum, { text }) => sum + Buffer.byteLength(text, "utf8"), 0))
+      .toBeLessThanOrEqual(MCP_RESULT_MAX_BYTES);
+    expect((result.content as Array<{ text: string }>).at(-1)!.text).toBe(JSON.stringify(result.structuredContent));
+    const output = result.structuredContent as { data: Array<{ id: string }>; records_shown: { shown: number; of: number };
+      pagination: Record<string, unknown>; research_receipt: string };
+    const shown = output.data.length;
+    expect(shown).toBeGreaterThan(5);
+    expect(shown).toBeLessThan(50);
+    expect(output.data.map(({ id }) => id)).toEqual(works.slice(0, shown).map(({ id }) => id.split("/").at(-1)));
+    expect(output.records_shown).toEqual({ shown, of: 50 });
+    expect(output.pagination).toMatchObject({ returned: shown, exhausted: false });
+    expect(output.pagination).not.toHaveProperty("next_cursor");
+    const text = (result.content as Array<{ text: string }>)[0]!.text;
+    expect(text).toContain(`OpenAlex (all journals) search returned 50 record(s); access status complete.`);
+    expect(text).toContain(` This result shows ${shown} of the 50 records OpenAlex returned, the first ${shown} in its ` +
+      `order: with their abstracts, more would not fit in one result. To read the others, search again with page_size ` +
+      `${shown} and follow next_cursor page by page; this result gives no next_cursor, which would skip them.`);
+    const verified = verifyResearchReceipt(output.research_receipt, { secret: SECRET });
+    expect(verified).toMatchObject({ ok: true, claims: { ret: String(shown), n: "120" } });
+    if (!verified.ok) throw new Error("Receipt failed verification");
+    expect(searchRecords(verified.claims, (value) => value.toLowerCase())).toHaveLength(shown);
   });
 
   it("uses the operator's key when one is set, and never shows it", async () => {
