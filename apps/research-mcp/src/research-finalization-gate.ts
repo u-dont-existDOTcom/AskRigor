@@ -5511,13 +5511,14 @@ export const RESEARCH_MAP_OFFERED = "The offer also asks to file this research's
 /**
  * The reminder a free contributor's final check gives when its research did work a quick answer cannot do and no map
  * of it was filed (owner answer 143a: "Free accounts aren't asked: the final check reminds the AI to file the map").
- * Since 11 Nov 2026 the filing's own result gives the answer's closing line, so filing asks for no new check.
+ * Since 11 Nov 2026 the filing's own result says how the answer shows it (its closing line once this turn's check has
+ * passed, or its receipt with the others before), so filing asks for no new check of its own.
  */
 export function researchMapReminder(work: VerifiedWork): string {
   return `This research includes ${verifiedWorkPhrase(work)}, work a quick answer does not do, and no map of it was ` +
     `filed after it began. File it with ${RESEARCH_MAP_FILING}; the free contributor agreement covers it, so the user ` +
-    "is not asked. Its result gives the line saying so, for the end of the answer; no new final check is needed. " +
-    "Nothing here holds back the answer.";
+    "is not asked. Its result says how the answer shows the map was filed; filing needs no new final check of its " +
+    "own. Nothing here holds back the answer.";
 }
 
 // Why an active research account's answer ends without the plain-answer note; nothing is held back for it.

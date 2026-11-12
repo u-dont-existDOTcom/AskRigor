@@ -1068,10 +1068,10 @@ describe("finalize_research, save_research_findings and the findings library", (
       saved_line: findingsSavedLine("ARF-0042"),
     });
     expect(reminder).toContain("the free contributor agreement covers it, so the user is not asked");
-    // 11 Nov 2026: filing asks for no new check; the filing's own result gives the answer's closing line.
+    // 11 Nov 2026: filing asks for no new check of its own; the filing's result says how the answer shows it.
     expect(reminder).not.toContain("call finalize_research again");
-    expect(reminder).toContain("Its result gives the line saying so, for the end of the answer; no new final check " +
-      "is needed.");
+    expect(reminder).toContain("Its result says how the answer shows the map was filed; filing needs no new final " +
+      "check of its own.");
     // Filing the map returns a receipt; with it, the check says the map was filed and the last line says so.
     const filed = await connectorTool("submit_research_contribution", options)({
       proposalKind: "RESEARCH_FRONTIER",
@@ -1080,10 +1080,13 @@ describe("finalize_research, save_research_findings and the findings library", (
     }, "auth0|free");
     const mapReceipt = (filed.structuredContent as { research_receipt: string }).research_receipt;
     expect(mapReceipt).toMatch(/^rr1~research_map~/u);
-    expect((filed.content as Array<{ text: string }>).map(({ text }) => text)).toContain("End the answer, after any " +
-      "saved line and just before the check line, with this line, as written (in the answer's language when it is " +
-      `not in English): ${researchMapSavedLine(undefined)} Pass this research_receipt to finalize_research only when ` +
-      "it checks a later answer.");
+    // The review of 11 Nov 2026: filed after this turn's check passed, the answer ends with the line; filed before, the
+    // receipt goes to the check with the others, as the server instructions and the skill say, and the check's result
+    // gives the line (below), so the map is never said filed twice or not at all.
+    expect((filed.content as Array<{ text: string }>).map(({ text }) => text)).toContain("If this turn's final check " +
+      "has already passed, end the answer, after any saved line and just before the check line, with this line, as " +
+      `written (in the answer's language when it is not in English): ${researchMapSavedLine(undefined)} Otherwise, ` +
+      "give finalize_research this research_receipt with the research receipts, and its result gives that line.");
     const second = await finalize(request({ receipts: [...research, mapReceipt] }), "auth0|free");
     expect(second.structuredContent).toMatchObject({
       status: "ready_with_limits",
