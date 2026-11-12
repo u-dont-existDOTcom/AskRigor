@@ -245,7 +245,10 @@ was released on 12 November:
   target word for word as the menu gave it (or, when the plain answer's receipt shows it is not the registered one, as
   `register_plain_answer`'s result quoted it), "you decide" or "continue" meaning the recommended allocation, a changed
   question registered again with a framing of its own, and never an allocation the person did not give or leave to the
-  AI. Nothing follows that rule. A result that goes on says to do the tasks and then give the checked answer in the
+  AI. Since 12 November 2026 the rule says the allocation goes inside `researchMenu`, and when the ask recommends
+  something for the registered target, the "you decide" call follows it, ready to copy: the same menu with the
+  recommended allocation inside it, also given as the runtime field `you_decide_later_inputs` (in the owner's ChatGPT
+  run, "you decide" took seven calls). Nothing else follows. A result that goes on says to do the tasks and then give the checked answer in the
   same turn, asks for a line before each task, sends a new fork that could change the conclusion back through
   `plan_research` with the tasks done and without the allocation, so the rule decides afresh (not in autonomous
   research, which checks and answers instead), says how to resume after a stop or a change of direction, asks for a

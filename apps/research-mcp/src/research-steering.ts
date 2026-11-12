@@ -766,6 +766,38 @@ const TASK_PROGRESS = "Before each task, say in one line what you will read, how
 const NEW_FORK = "A new fork that could change the conclusion comes back to the person through the menu: call " +
   "plan_research again with done and the new task, leaving allocation out, and its result says whether to ask now.";
 
+/** Whether an ask hands over the "you decide" call: it recommends something, for the registered research target. */
+export function offersYouDecide(result: ResearchPlanResult): boolean {
+  return result.next === "ask" && result.recommended.length > 0 && result.target_matches_plain_answer !== false;
+}
+
+export interface YouDecideLaterInputs { researchMenu: ResearchMenuInput }
+
+/**
+ * The "you decide" call's later_inputs, ready to copy (12 Nov 2026: in the owner's ChatGPT run, the reply "you decide"
+ * took seven calls, as the allocation went beside the menu, into a setting or nowhere, and the one that went through
+ * had none, so the same menu asked again): the same menu, with the recommended allocation inside it. A research target
+ * that is not the registered one gets none, since the call must name the registered one, which AskRigor only checks.
+ */
+export function youDecideLaterInputs(plan: ResearchMenuInput, result: ResearchPlanResult):
+  YouDecideLaterInputs | undefined {
+  if (!offersYouDecide(result)) return undefined;
+  return { researchMenu: {
+    research_target: plan.research_target,
+    ...(plan.plain_answer_receipt === undefined ? {} : { plain_answer_receipt: plan.plain_answer_receipt }),
+    tasks: plan.tasks,
+    allocation: result.recommended.map(({ task, minutes }) => ({ task, minutes })),
+    ...((plan.done ?? []).length === 0 ? {} : { done: plan.done }),
+  } };
+}
+
+/** The line after the rule for the person's answer: the "you decide" call, as it is to be sent. */
+export function youDecideLine(youDecide: YouDecideLaterInputs): string {
+  return "For \"you decide\": call manage_research_access with action plan_research and exactly these later_inputs; " +
+    "the recommended allocation is inside researchMenu, where every allocation goes, never beside it: " +
+    JSON.stringify(youDecide);
+}
+
 /**
  * The plan_research result's text, by the account's style: the ask, or the menu to show while going on. numbered is
  * true once an allocation or a done list refers to the menu's task numbers, which must then stay as they are, so the
@@ -773,7 +805,7 @@ const NEW_FORK = "A new fork that could change the conclusion comes back to the 
  * answer, which a later turn reads, unless the plain answer's receipt shows it is not the registered one.
  */
 export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<number>, numbered = false,
-  researchTarget?: string): string {
+  researchTarget?: string, youDecide?: YouDecideLaterInputs): string {
   const lines = result.tasks.map(({ n, task, could_change, loop, minutes }) =>
     `${n}. ${task}: ${CHANGE_WORDS[could_change]}${loop === undefined ? "" : `, ${LOOP_WORDS[loop]}`}; ` +
     `${minutes === null ? "no estimate" : range(minutes)}${done.has(n) ? " (done)" : ""}.`);
@@ -807,17 +839,19 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
     const target = result.target_matches_plain_answer === false ? " as register_plain_answer's result quoted it"
       : researchTarget === undefined ? "" : ` ${JSON.stringify(researchTarget)}`;
     const rule = "When the person replies: call manage_research_access action plan_research again with the same " +
-      `plain_answer_receipt and tasks, research_target word for word${target}, and their allocation as a list ` +
-      "of {task, minutes}; for \"you decide\", or a reply that leaves the choice to you such as \"continue\", " +
-      (result.recommended.length === 0 ? "no more research: check the answer with finalize_research and give it"
-        : "the recommended allocation") + ". If the reply changes the question, register the plain answer again for " +
-      "the new research target first, with later_inputs.framing for it. Never send an allocation the person did not " +
-      "give or leave to you.";
+      `plain_answer_receipt and tasks, research_target word for word${target}, and their allocation inside ` +
+      "researchMenu, as a list of {task, minutes}; for \"you decide\", or a reply that leaves the choice to you such " +
+      "as \"continue\", " + (result.recommended.length === 0
+        ? "no more research: check the answer with finalize_research and give it"
+        : youDecide === undefined ? "the recommended allocation" : "the call on the next line") + ". If the reply " +
+      "changes the question, register the plain answer again for the new research target first, with " +
+      "later_inputs.framing for it. Never send an allocation the person did not give or leave to you.";
     return [
       ...(before.length === 0 ? [] : [before.join(" ")]),
       [askReason(result, done) + ASK_NOW, ...since].join(" "),
       reply.join("\n"),
       rule,
+      ...(youDecide === undefined ? [] : [youDecideLine(youDecide)]),
     ].join("\n");
   }
   const recommendation = result.recommended.length === 0 ? NOTHING_RECOMMENDED
@@ -858,9 +892,10 @@ export function planNextStep(result: ResearchPlanResult): string {
     return "Ask the person now and end your turn: show researchMenu.tasks as a numbered list with their times, the " +
       "recommendation and how to answer (task numbers and minutes, or \"you decide\"). Make no research call and " +
       "don't call finalize_research until they answer; then call action plan_research again with their allocation " +
-      (result.recommended.length === 0
+      "inside later_inputs.researchMenu " + (result.recommended.length === 0
         ? "or, for \"you decide\", do no more research: check the answer with finalize_research and give it."
-        : "(for \"you decide\", the recommended one).");
+        : offersYouDecide(result) ? "(for \"you decide\", with you_decide_later_inputs as later_inputs, as they are)."
+          : "(for \"you decide\", the recommended one).");
   }
   return result.style === "autonomous"
     ? `Do the recommended tasks now; after about ${result.check_back_minutes} minutes of research, check what you ` +

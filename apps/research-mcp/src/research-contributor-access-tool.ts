@@ -72,6 +72,7 @@ import {
   researchMenuSchema,
   steeringInspectText,
   steeringSentence,
+  youDecideLaterInputs,
   type Framing,
   type MenuReading,
   type ResearchMenuInput,
@@ -282,7 +283,11 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     minutes_since_plain_answer: z.number().int().optional(),
     target_matches_plain_answer: z.boolean().optional(),
   }).strict().optional(),
-  // 12 Nov 2026 (runtime only): a refused menu's example, built from the call's own.
+  // 12 Nov 2026 (runtime only): an ask's "you decide" call, ready to copy, and a refused menu's example, built from the
+  // call's own.
+  you_decide_later_inputs: z.object({ researchMenu: researchMenuSchema }).strict().optional()
+    .describe("With plan_research's ask: the later_inputs for the person's \"you decide\", as they are to be sent, " +
+      "with the recommended allocation inside researchMenu."),
   corrected_later_inputs: correctedMenuSchema.optional()
     .describe("With a plan_research call whose menu could not be read: its later_inputs as they should be, built from " +
       "its own; replace each <...> with one of the values it lists."),
@@ -1187,7 +1192,9 @@ async function planResearchAction(
   // menu's numbers must stay as they are goes by whether an allocation or a done list was given at all, even one that
   // names no open task; whether to ask goes by allocationAnswered, inside planResearch.
   const numbered = (plan.allocation ?? []).length > 0 || (plan.done ?? []).length > 0;
-  const text = planResearchText(result, new Set(plan.done ?? []), numbered, plan.research_target);
+  // 12 Nov 2026: an ask hands over the "you decide" call ready to copy, in its text and as a runtime field.
+  const youDecide = youDecideLaterInputs(plan, result);
+  const text = planResearchText(result, new Set(plan.done ?? []), numbered, plan.research_target, youDecide);
   return {
     content: [{ type: "text", text: problems.length === 0 ? text : `${problems.join(" ")}\n${text}` }],
     structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
@@ -1195,6 +1202,7 @@ async function planResearchAction(
       researchMenu: result,
       ...(problems.length === 0 ? {} : { problems }),
       next_step: planNextStep(result),
+      ...(youDecide === undefined ? {} : { you_decide_later_inputs: youDecide }),
     }),
   };
 }
