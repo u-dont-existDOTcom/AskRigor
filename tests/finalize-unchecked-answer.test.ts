@@ -266,16 +266,22 @@ describe("the unchecked line and the previous check in finalize_research's resul
       "the lines this result gives for its end");
     expect(FIRST_PASS_GUIDANCE).toContain("then call finalize_research once more with the changed draft, the turn's " +
       "last check.");
-    // The review of 11 Nov 2026: what the result itself asks the answer to include is not a change to the draft; a note
-    // asking for an input waits, and one saying the answer is wrong is a fix to the answer itself.
-    expect(FIRST_PASS_GUIDANCE).toContain("adding what this result asks the answer to include (its sentences given as " +
-      "written, and the closing questions it asks for) is not a change to the draft.");
+    // The review of 11 Nov 2026: the sentences the result gives word for word are not a change to the draft; a note
+    // asking for an input waits, and one saying the answer is wrong is a fix to the answer itself. 12 Nov: closing
+    // questions, which the AI writes and which can bring claims no check read, are a change: after a first pass they take
+    // the one further check, and after a repeat pass none is added.
+    expect(FIRST_PASS_GUIDANCE).toContain("followed only by the lines this result gives for its end; adding the " +
+      "sentences this result gives word for word is not a change to the draft.");
+    expect(FIRST_PASS_GUIDANCE).not.toContain("closing questions it asks for) is not a change");
     expect(FIRST_PASS_GUIDANCE).toContain("A note asking you to add or resend an input (study_map, findings_card, " +
       "source_lines or community_leads) is for a later answer");
     expect(FIRST_PASS_GUIDANCE).toContain("Change the draft only to fix the answer itself (something a note here says " +
       "is wrong in it,");
+    expect(FIRST_PASS_GUIDANCE).toContain("or an error you found in it) or to add the closing questions this result " +
+      "asks for; then call finalize_research once more with the changed draft, the turn's last check.");
     expect(REPEAT_PASS_GUIDANCE).toContain("don't call finalize_research again in this turn; make in the answer, with " +
-      "no further check, any fix its notes and limits call for. Adding what this result asks the answer to include");
+      "no further check, any fix its notes and limits call for, and add no closing questions the checked draft " +
+      "doesn't have. Adding the sentences this result gives word for word is not a change to the draft.");
     expect(next.text).not.toContain(REPEAT_PASS_GUIDANCE);
     expect(next.output).not.toHaveProperty("turn_already_passed");
     expect(next.text).not.toContain("An answer given before this check passes");

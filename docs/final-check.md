@@ -133,8 +133,9 @@ timing runs, 49 of 88 final-check calls came after the check had passed in the s
 in it, call finalize_research again" on every pass and by notes about later inputs; HRP asks for another call only on
 `not_ready`. A passing result now says what a pass covers, the six checks, not whether the search was complete (lesson
 56: a research lane read a pass as the end of discovery), and to give the checked draft now, word for word, followed
-only by the lines it gives for the answer's end; adding what the result asks the answer to include (its sentences
-given as written, and the closing questions) is not a change to the draft. A note asking to add or resend an input
+only by the lines it gives for the answer's end; adding the sentences the result gives word for word is not a change
+to the draft, but closing questions, which the AI writes and which can bring claims no check read, are (after a first
+pass they take the one further check; after a repeat pass none is added). A note asking to add or resend an input
 (`study_map`, `findings_card`, `source_lines` or `community_leads`) is for a later answer, under a heading that says
 so; a note saying something in the answer is wrong (a quote not in the paper's text, two studies that may be one
 dataset) is fixed now. A change that fixes the answer itself (what a note says is wrong in it, a limit that changes

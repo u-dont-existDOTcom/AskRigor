@@ -65,26 +65,28 @@ export const FINAL_CHECK_RUNTIME_DESCRIPTION = "Final check of a research answer
 // YouTube never searched and Reddit rate-limited. The panel already says the check "does not judge the reasoning or
 // whether the conclusions are right"; every passing result now says it to the AI too, inside its pass sentence.
 export const PASS_SCOPE = "a pass covers the six checks, not whether the search was complete";
-// What the passing result itself asks the answer to include (the sentences it gives as written, such as a caveat or the
-// reading sentence, and the closing questions) is not a change to the checked draft (11 Nov 2026, the review).
-const INCLUDED_IS_NOT_A_CHANGE = "adding what this result asks the answer to include (its sentences given as written, " +
-  "and the closing questions it asks for) is not a change to the draft";
+// Sentences the passing result gives word for word (such as a caveat or the reading sentence) are not a change to the
+// checked draft (11 Nov 2026, the review). Closing questions are: the AI writes them and says what each answer would
+// change, which can bring claims and figures no check read (12 Nov 2026, the review), so after a first pass they take the
+// one further check, and after a repeat pass none is added.
+const WORD_FOR_WORD_IS_NOT_A_CHANGE = "adding the sentences this result gives word for word is not a change to the " +
+  "draft";
 // A note that asks for an input waits for a later answer; a note that says the answer itself is wrong (a quote not in the
 // paper, two studies that may be one dataset) is fixed now, which changes the draft (11 Nov 2026, the review).
 export const FIRST_PASS_GUIDANCE = `This check passed (${PASS_SCOPE}): give the user the checked answer_draft now, ` +
-  `word for word, followed only by the lines this result gives for its end; ${INCLUDED_IS_NOT_A_CHANGE}. A note ` +
-  "asking you to add or resend an input (study_map, findings_card, source_lines or community_leads) is for a later " +
-  "answer: send none of them again in this turn. Change the draft only to fix the answer itself (something a note " +
-  "here says is wrong in it, a limit listed here that changes what this person should believe or do, limits it " +
-  "repeats word for word, or an error you found in it); then call finalize_research once more with the changed " +
-  "draft, the turn's last check.";
+  `word for word, followed only by the lines this result gives for its end; ${WORD_FOR_WORD_IS_NOT_A_CHANGE}. A ` +
+  "note asking you to add or resend an input (study_map, findings_card, source_lines or community_leads) is for a " +
+  "later answer: send none of them again in this turn. Change the draft only to fix the answer itself (something a " +
+  "note here says is wrong in it, a limit listed here that changes what this person should believe or do, limits it " +
+  "repeats word for word, or an error you found in it) or to add the closing questions this result asks for; then " +
+  "call finalize_research once more with the changed draft, the turn's last check.";
 // A pass after a pass in the same turn (finalize_research's turn_already_passed), known from the carried state and the
 // round token without stored state.
 export const REPEAT_PASS_GUIDANCE = `This turn's check had already passed before this call (${PASS_SCOPE}), so this ` +
   "result is the turn's last check: give this checked answer_draft now, word for word, followed only by the lines " +
   "this result gives for its end, and don't call finalize_research again in this turn; make in the answer, with no " +
-  "further check, any fix its notes and limits call for. " +
-  `${INCLUDED_IS_NOT_A_CHANGE.charAt(0).toUpperCase()}${INCLUDED_IS_NOT_A_CHANGE.slice(1)}.`;
+  "further check, any fix its notes and limits call for, and add no closing questions the checked draft doesn't " +
+  `have. ${WORD_FOR_WORD_IS_NOT_A_CHANGE.charAt(0).toUpperCase()}${WORD_FOR_WORD_IS_NOT_A_CHANGE.slice(1)}.`;
 // The notes' heading under a passing check: a note asking for an input is for a later answer, and one saying the answer
 // is wrong is fixed now, checked once more after a first pass, and with no further check after a repeat pass.
 export const PASSING_NOTES_HEADING = "Notes about the call (the check passed: a note asking you to add or resend an " +
