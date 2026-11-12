@@ -12,7 +12,8 @@ import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import type { SourceLineDocument } from "../apps/research-mcp/src/source-lines.js";
 import { lookUpQuotes, quoteCache, type SourceLineTexts } from "../apps/research-mcp/src/source-lines.js";
 import {
-  lookUpStudyMap, registryNumbers, registryRecordOf, STUDY_MAP_AT_AUDIT, STUDY_MAP_EXAMPLE, STUDY_MAP_GUIDANCE,
+  lookUpStudyMap, registryNumbers, registryRecordOf, STUDY_MAP_AT_AUDIT, STUDY_MAP_AT_AUDIT_GEMINI, STUDY_MAP_EXAMPLE,
+  STUDY_MAP_GUIDANCE,
   studyMapSchema, type RegistryRecord, type StudyMap, type StudyMapTexts
 } from "../apps/research-mcp/src/study-map.js";
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
@@ -852,6 +853,9 @@ describe("the finalize_research tool", () => {
     expect(STUDY_MAP_AT_AUDIT).toContain(`exactly in this shape: ${STUDY_MAP_EXAMPLE}, with registry`);
     expect(STUDY_MAP_AT_AUDIT).toMatch(/^If the answer combines this study with others, give finalize_research's first call /u);
     expect(STUDY_MAP_AT_AUDIT).toContain("its checks are notes");
+    // Gemini's catalog has no finalize_research to take a map: there it only says what the map is for.
+    expect(STUDY_MAP_AT_AUDIT_GEMINI).toBe("If the answer combines this study with others, count groups of people, " +
+      "not papers.");
   });
 
   it("describes the map only with a passing check of an answer on two or more key sources, in a few words", async () => {

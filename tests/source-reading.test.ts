@@ -636,6 +636,21 @@ describe("the tools that read a paper name its words before the first final chec
     expect(receiptReadingNote(audit, `${SECRET}-other`)).toBe("");
   });
 
+  // The review of 11 Nov 2026: Gemini's catalog has no finalize_research, so its sentence stops at the answer's words.
+  it("leaves the final check out of the sentence on Gemini", () => {
+    for (const when of Object.values(READING_RESULT_WHEN)) {
+      const words = readingResultNote(when, "abstract_only", false);
+      expect(words).toBe(`${when}, say "abstract only" beside it in the answer, in the answer's language.`);
+      expect(words).not.toContain("finalize_research");
+      expect(words).not.toContain("final check");
+    }
+    expect(receiptReadingNote(audit, SECRET, false)).toBe("With this study's methods audited, say " +
+      `"${AUDITED}" beside it in the answer, in the answer's language.`);
+    expect(receiptReadingNote(sign("full_text_read", { doi: DOI, content: "b".repeat(16) }), SECRET, false))
+      .toBe("With this study's full text read to its end, say \"full text read\" beside it in the answer, in the " +
+        "answer's language.");
+  });
+
   // The timing runs of 10 Nov 2026: all 17 checks that held an answer back were a turn's first, most over a reading the
   // receipts already showed, sent with guessed field names or none.
   it("names the entry's exact fields, and an answer that follows the sentence passes the reading check first time", () => {

@@ -964,6 +964,9 @@ export const STUDY_MAP_EXAMPLE = '{"studies": [{"id": "s1", "source": "10.1000/a
 export const STUDY_MAP_AT_AUDIT = "If the answer combines this study with others, give finalize_research's first call " +
   `later_inputs.study_map, exactly in this shape: ${STUDY_MAP_EXAMPLE}, with registry, a study's registration ` +
   "numbers, when known. AskRigor counts groups of people, not papers; its checks are notes.";
+/** The same on /mcp/gemini, whose catalog has no finalize_research to take a map (11 Nov 2026, the review). */
+export const STUDY_MAP_AT_AUDIT_GEMINI = "If the answer combines this study with others, count groups of people, not " +
+  "papers.";
 
 /**
  * The result text's description of the map, given with a passing check of an answer on two or more key sources. Since 11

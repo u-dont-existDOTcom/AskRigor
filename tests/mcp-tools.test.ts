@@ -2669,6 +2669,21 @@ describe("AskRigor MCP tools", () => {
         "first call, an entry in later_inputs.source_reading as {source, reading, quote}: source this study's id as " +
         "key_sources gives it, reading abstract_only, and quote those words as answer_draft has them. The final check " +
         "holds back an answer that cites this study as a key source without saying how it was read.");
+      // The review of 11 Nov 2026: Gemini's catalog has no finalize_research, so its sentence stops at the answer's words.
+      const gemini = createAskRigorServer("gemini");
+      const geminiClient = new Client({ name: "askrigor-gemini-record-test", version: "0.1.0" });
+      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+      clients.push(geminiClient);
+      await gemini.connect(serverTransport);
+      await geminiClient.connect(clientTransport);
+      try {
+        const record = await geminiClient.callTool({ name: "fetch_pubmed_record", arguments: { pmid: "40123456" } });
+        expect((record.content as Array<{ text: string }>)[0]!.text).toBe("PubMed record 40123456 retrieval finished " +
+          "with access status api_visible_complete. If the answer cites this study from this record alone, say " +
+          "\"abstract only\" beside it in the answer, in the answer's language.");
+      } finally {
+        await gemini.close();
+      }
     } finally {
       restoreEnvironment("NCBI_TOOL", previous.tool);
       restoreEnvironment("NCBI_EMAIL", previous.email);

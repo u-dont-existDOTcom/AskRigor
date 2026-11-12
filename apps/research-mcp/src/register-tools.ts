@@ -25,7 +25,8 @@ import {
 import { europePmcRecordGroups } from "./reading-summary.js";
 import { SMALL_LITERATURE_SEARCH_NOTE, SPARSE_SEARCH_NOTE } from "./absence-searches.js";
 import {
-  lateStudyMapLookup, lookUpStudyMap, registryRecordOf, STUDY_MAP_AT_AUDIT, STUDY_MAP_GUIDANCE, type StudyMapTexts
+  lateStudyMapLookup, lookUpStudyMap, registryRecordOf, STUDY_MAP_AT_AUDIT, STUDY_MAP_AT_AUDIT_GEMINI,
+  STUDY_MAP_GUIDANCE, type StudyMapTexts
 } from "./study-map.js";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -1390,7 +1391,7 @@ function defineResearchOperations(
           : undefined;
         // The owner, 5 Nov 2026: a signed record names how the study was read from it (source-reading.ts).
         const reading = receipt === undefined ? "" : ` ${readingResultNote(READING_RESULT_WHEN.record,
-          abstract ? "abstract_only" : "metadata_only")}`;
+          abstract ? "abstract_only" : "metadata_only", options.mcpSurface !== "/mcp/gemini")}`;
         return withResearchReceipt(pubmedToolResult(
           `PubMed record ${pmid} retrieval finished with access status ${result.access_status}.${reading}` +
             angleBracketDoiNote(result.data),
@@ -3687,7 +3688,7 @@ function registerOpenFullTextMcpTools(
             ? "public_only" : undefined;
         if (access !== undefined) runtime = { ownerLibrary: { access, fetchPdf: (doi) => infoAccess.fetchPdf(doi, libraryDeadline) } };
       }
-      return invokeOpenFullTextMcp("acquire_open_full_text", input, runtime);
+      return invokeOpenFullTextMcp("acquire_open_full_text", input, runtime, options.mcpSurface === "/mcp/gemini");
     }
   );
   registrar.registerTool(
@@ -3698,7 +3699,8 @@ function registerOpenFullTextMcpTools(
       outputSchema: availableOpenFullTextActionOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async (input) => invokeOpenFullTextMcp("continue_open_full_text", input)
+    async (input) => invokeOpenFullTextMcp("continue_open_full_text", input, undefined,
+      options.mcpSurface === "/mcp/gemini")
   );
   registrar.registerTool(
     "validate_study_method_audit",
@@ -3711,8 +3713,8 @@ function registerOpenFullTextMcpTools(
     async (input, extra) => {
       // The recheck of 5 Nov 2026: a test run's audit, marked findings_save, is never held for the review inbox.
       const { findings_save: marker, ...audit } = input as typeof input & { findings_save?: unknown };
-      return stageValidatedAnalysis("study", await invokeOpenFullTextMcp("validate_study_method_audit", audit), extra,
-        options, findingsSaveOff({ findings_save: marker }));
+      return stageValidatedAnalysis("study", await invokeOpenFullTextMcp("validate_study_method_audit", audit, undefined,
+        options.mcpSurface === "/mcp/gemini"), extra, options, findingsSaveOff({ findings_save: marker }));
     }
   );
   registrar.registerTool(
@@ -3725,8 +3727,8 @@ function registerOpenFullTextMcpTools(
     },
     async (input, extra) => {
       const { findings_save: marker, ...audit } = input as typeof input & { findings_save?: unknown };
-      return stageValidatedAnalysis("review", await invokeOpenFullTextMcp("validate_review_method_audit", audit), extra,
-        options, findingsSaveOff({ findings_save: marker }));
+      return stageValidatedAnalysis("review", await invokeOpenFullTextMcp("validate_review_method_audit", audit,
+        undefined, options.mcpSurface === "/mcp/gemini"), extra, options, findingsSaveOff({ findings_save: marker }));
     }
   );
 }
@@ -3814,7 +3816,9 @@ function configuredLivingEvidenceRepository(): PostgresEvidenceRepository | unde
 async function invokeOpenFullTextMcp(
   operationId: string,
   body: unknown,
-  runtime?: AcquireOpenFullTextRuntime
+  runtime?: AcquireOpenFullTextRuntime,
+  // /mcp/gemini, whose catalog has no finalize_research: its sentences leave out the final check (11 Nov 2026).
+  gemini = false
 ): Promise<CallToolResult> {
   const routes = runtime === undefined ? OPEN_FULL_TEXT_MCP_ROUTES : createOpenFullTextActionRoutes({
     ...configuredOpenFullTextOptions(LIVING_EVIDENCE_READER),
@@ -3880,13 +3884,13 @@ async function invokeOpenFullTextMcp(
   // 11 Nov 2026: a method audit that signed its receipt gives the study map's shape for the first final check.
   const studyMapShape = receipt !== undefined &&
     (operationId === "validate_study_method_audit" || operationId === "validate_review_method_audit")
-    ? ` ${STUDY_MAP_AT_AUDIT}` : "";
+    ? ` ${gemini ? STUDY_MAP_AT_AUDIT_GEMINI : STUDY_MAP_AT_AUDIT}` : "";
   return withResearchReceipt({
     content: [{
       type: "text",
       text: `${operationId.replaceAll("_", " ")} completed.` +
         ((result.body as { access_boundary?: string; acquisition_state?: string }).acquisition_state === undefined ? "" : ` ${(result.body as { access_boundary?: string }).access_boundary ?? ""}`) + (failedLead
-        ? failureText : "") + (completedLead ? ` ${OTHER_FULL_TEXT_ROUTE}` : "") + openFullTextReadingNote(receipt) +
+        ? failureText : "") + (completedLead ? ` ${OTHER_FULL_TEXT_ROUTE}` : "") + openFullTextReadingNote(receipt, !gemini) +
         studyMapShape
     }],
     structuredContent: result.body as Record<string, unknown>
@@ -3897,8 +3901,8 @@ async function invokeOpenFullTextMcp(
  * The owner, 5 Nov 2026: a result whose receipt shows how a paper was read names the words for it, so the answer says
  * them before its first final check (source-reading.ts).
  */
-function openFullTextReadingNote(receipt: string | undefined): string {
-  const note = receiptReadingNote(receipt, researchReceiptSecretFromEnv());
+function openFullTextReadingNote(receipt: string | undefined, finalCheck: boolean): string {
+  const note = receiptReadingNote(receipt, researchReceiptSecretFromEnv(), finalCheck);
   return note === "" ? "" : ` ${note}`;
 }
 
