@@ -2057,6 +2057,8 @@ function defineResearchOperations(
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
       signIn: options.signIn,
       toolListVersion: options.toolListVersion,
+      // The review of 12 Nov 2026: plan_research's menu digest, keyed like the research receipts.
+      menuDigestSecret: () => researchReceiptSecretFromEnv(),
       devAccountKeys: () => devAccountKeysFromEnv(),
       ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.

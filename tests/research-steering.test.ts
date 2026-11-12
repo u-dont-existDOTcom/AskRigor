@@ -36,6 +36,7 @@ import {
   adjustmentGuidance,
   allocationAnswered,
   framingGuidance,
+  menuDigest,
   framingNextStep,
   planNextStep,
   planResearch,
@@ -377,8 +378,8 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     // The review of 11 Nov 2026: a new fork goes back through the menu without the allocation, so the rule decides
     // afresh; autonomous research checks and answers instead, so it gets no such sentence.
     expect(words).toContain("A new fork that could change the conclusion comes back to the person through the menu: " +
-      "call plan_research again with done and the new task, leaving allocation out, and its result says whether to ask " +
-      "now.");
+      "call plan_research again with done, the new task and this result's menu_digest, leaving allocation out, and its " +
+      "result says whether to ask now.");
     expect(planResearchText(autonomous, new Set())).not.toContain("A new fork");
     for (const part of ["Before each task", WORDS_ARE_NOT_SIZES, adjustmentGuidance("flagged"),
       "later_inputs.community_leads"]) {
@@ -416,7 +417,8 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
       "How should I spend the time? Reply with task numbers and minutes, such as \"1. 5 min, 2. 4 min\", in your own " +
         "words, or \"you decide\".",
       "When the person replies: call manage_research_access action plan_research again with the same " +
-        `plain_answer_receipt and tasks, research_target word for word ${JSON.stringify(TARGET)}, and their ` +
+        "plain_answer_receipt, tasks and menu_digest (researchMenu.menu_digest in this result), research_target word " +
+        `for word ${JSON.stringify(TARGET)}, and their ` +
         "allocation inside researchMenu, as a list of {task, minutes}; for \"you decide\", or a reply that leaves the " +
         "choice to you such as \"continue\", the recommended allocation. If the reply changes the question, register " +
         "the plain answer again for the new research target first, with later_inputs.framing for it. Never send an " +
@@ -703,10 +705,10 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
         could_change: "conclusion", sources: 1 }, { task: "Read what people who took the oil report", kind: "forum_thread",
         could_change: "confidence", sources: 3, loop: "studies_to_people" }] }).success).toBe(true);
     const asked = planResearchText(planResearch(menu(), DEFAULT_RESEARCH_STEERING), new Set());
-    expect(asked).toContain("call manage_research_access action plan_research again with the same plain_answer_receipt " +
-      "and tasks, research_target word for word, and their allocation inside researchMenu, as a list of {task, " +
-      "minutes}; for \"you decide\", or a reply that leaves the choice to you such as \"continue\", the recommended " +
-      "allocation.");
+    expect(asked).toContain("call manage_research_access action plan_research again with the same plain_answer_receipt, " +
+      "tasks and menu_digest (researchMenu.menu_digest in this result), research_target word for word, and their " +
+      "allocation inside researchMenu, as a list of {task, minutes}; for \"you decide\", or a reply that leaves the " +
+      "choice to you such as \"continue\", the recommended allocation.");
   });
 
   it("asks for a people's-reports task when a first menu has none, and never renumbers an allocated one", async () => {
@@ -958,7 +960,9 @@ describe("plan_research reads the menu a model guessed, and refuses the rest wit
     expect(menuResult.researchMenu.next).toBe("ask");
     const youDecide = menuResult.you_decide_later_inputs!;
     expect(youDecide).toEqual({ researchMenu: { research_target: GUESS_TARGET, plain_answer_receipt: receipt,
-      tasks: GUESS_TASKS, allocation: menuResult.researchMenu.recommended } });
+      tasks: GUESS_TASKS, allocation: menuResult.researchMenu.recommended,
+      menu_digest: (menuResult.researchMenu as { menu_digest?: string }).menu_digest } });
+    expect((youDecide.researchMenu as { menu_digest: string }).menu_digest).toMatch(/^md1~[A-Za-z0-9_-]{22}$/u);
     expect(researchMenuSchema.safeParse(youDecide.researchMenu).success).toBe(true);
     // In the text, right after the rule for the person's answer, saying the allocation goes inside researchMenu.
     const lines = asked.content[0]!.text.split("\n");
@@ -974,5 +978,76 @@ describe("plan_research reads the menu a model guessed, and refuses the rest wit
     const decided = accepted(await plan(youDecide));
     expect(decided.researchMenu).toMatchObject({ next: "go_on", recommended: menuResult.researchMenu.recommended });
     expect(decided.you_decide_later_inputs).toBeUndefined();
+  });
+});
+
+// The review of 12 Nov 2026: a re-plan before any task was done (no done list), with a new task added, went on without
+// the person's choice, since only a done list marked a re-plan. Each result now carries a digest of its task list, and a
+// call whose tasks differ from the digest it passes back asks first. Fixtures invented.
+describe("a menu that changed after the person saw it is shown to them first (the review of 12 Nov 2026)", () => {
+  const FIRST = { task: "Search trials of warm compresses for stiff necks", kind: "study_search",
+    could_change: "conclusion" } as const;
+  const FORK = { task: "Search trials of heat wraps worn overnight", kind: "study_search",
+    could_change: "conclusion" } as const;
+  const target = "Whether warm compresses ease a stiff neck within a day";
+  type Planned = { researchMenu: { next: string; menu_digest: string; menu_changed?: true; recommended: unknown[] } };
+
+  it("asks when a re-plan before any task is done adds a task, and goes on as before without a digest", async () => {
+    const { service, connect } = await start();
+    await service.acceptFreeContributor("auth0|person", agreement);
+    const manage = await connect("/mcp", "auth0|person");
+    const plan = async (researchMenu: Record<string, unknown>) => {
+      const result = await manage({ action: "plan_research", later_inputs: { researchMenu } });
+      expect(result.isError, text(result)).not.toBe(true);
+      return { result, structured: result.structuredContent as Planned };
+    };
+    // A precise question with one short task goes on, with the digest of its menu.
+    const first = await plan({ research_target: target, steering_could_help: false, tasks: [FIRST] });
+    expect(first.structured.researchMenu.next).toBe("go_on");
+    const digest = first.structured.researchMenu.menu_digest;
+    expect(digest).toMatch(/^md1~[A-Za-z0-9_-]{22}$/u);
+    // The same menu passed back with its digest is unchanged, and goes on.
+    const same = await plan({ research_target: target, steering_could_help: false, tasks: [FIRST], menu_digest: digest });
+    expect(same.structured.researchMenu).toMatchObject({ next: "go_on", menu_digest: digest });
+    expect(same.structured.researchMenu).not.toHaveProperty("menu_changed");
+    // The case: the first task unfinished (no done list), a new task added. It asks, and says why.
+    const forked = await plan({ research_target: target, steering_could_help: false, tasks: [FIRST, FORK],
+      menu_digest: digest });
+    expect(forked.structured.researchMenu).toMatchObject({ next: "ask", menu_changed: true,
+      recommended: [{ task: 1 }, { task: 2 }] });
+    expect(forked.structured.researchMenu.menu_digest).not.toBe(digest);
+    expect(text(forked.result)).toContain("This person's research style asks first when the menu changes after they " +
+      "saw it, as it has here. Ask now, before any of these tasks");
+    // Without a digest, as before this change: it goes on.
+    const undigested = await plan({ research_target: target, steering_could_help: false, tasks: [FIRST, FORK] });
+    expect(undigested.structured.researchMenu.next).toBe("go_on");
+    // An allocation given for the menu the person saw is no answer to a changed one.
+    const stale = await plan({ research_target: target, steering_could_help: false, tasks: [FIRST, FORK],
+      allocation: [{ task: 1, minutes: 2 }], menu_digest: digest });
+    expect(stale.structured.researchMenu).toMatchObject({ next: "ask", menu_changed: true });
+    // The changed menu's own digest, passed back with the person's answer, goes on with it.
+    const answered = await plan({ research_target: target, steering_could_help: false, tasks: [FIRST, FORK],
+      allocation: [{ task: 2, minutes: 3 }], menu_digest: forked.structured.researchMenu.menu_digest });
+    expect(answered.structured.researchMenu).toMatchObject({ next: "go_on", recommended: [{ task: 2, minutes: 3 }] });
+    // Autonomous research never stops to ask.
+    await service.setResearchSteering("auth0|person", { style: "autonomous" });
+    const autonomous = await plan({ research_target: target, steering_could_help: false, tasks: [FIRST, FORK],
+      menu_digest: digest });
+    expect(autonomous.structured.researchMenu.next).toBe("go_on");
+  });
+
+  it("compares every field of every task exactly, and decides only through planResearch's menu", () => {
+    const tasks = [{ ...FIRST }, { ...FORK, sources: 2 }];
+    const digest = menuDigest(tasks, SECRET);
+    expect(menuDigest(tasks.map((task) => ({ ...task })), SECRET)).toBe(digest);
+    expect(menuDigest([tasks[1]!, tasks[0]!], SECRET)).not.toBe(digest);
+    expect(menuDigest([tasks[0]!, { ...tasks[1]!, sources: 3 }], SECRET)).not.toBe(digest);
+    expect(menuDigest(tasks, `${SECRET}-other`)).not.toBe(digest);
+    expect(menuDigest([{ ...FIRST, minutes: [4, 2] }], SECRET)).toBe(menuDigest([{ ...FIRST, minutes: [2, 4] }], SECRET));
+    const plan = { research_target: target, steering_could_help: false, tasks: [FIRST, FORK] };
+    expect(planResearch(plan, DEFAULT_RESEARCH_STEERING, undefined, { digest, changed: true }))
+      .toMatchObject({ next: "ask", menu_changed: true, menu_digest: digest });
+    expect(planResearch(plan, DEFAULT_RESEARCH_STEERING, undefined, { digest, changed: false }).next).toBe("go_on");
+    expect(planResearch(plan, DEFAULT_RESEARCH_STEERING).next).toBe("go_on");
   });
 });

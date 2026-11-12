@@ -233,7 +233,12 @@ was released on 12 November:
   none had come (11 November 2026); whether the menu may ask for a task near the top, which would renumber it, goes by
   whether an allocation or a done list was given at all. A re-plan (tasks done, and no allocation that counts as the
   person's answer) with something to recommend asks, unless the person chose autonomous research, so a new task comes
-  back to the person and a task they skipped isn't done unasked (12 November 2026).
+  back to the person and a task they skipped isn't done unasked (12 November 2026). A re-plan before any task was done
+  has no done list, so each result also carries `researchMenu.menu_digest`, a digest of its task list keyed with the
+  server's signing secret, which the next call passes back in `researchMenu.menu_digest`: when the call's tasks differ
+  from it in any field, the menu changed after the person saw it, so research that may ask asks, shows the changed
+  menu, and takes an allocation given for the old menu as no answer (the review of 12 November 2026). A call without
+  a digest is planned as before.
   Since 11 November 2026 (the owner: "it's still not asking me any steering questions"), an ask ends the turn. Its
   text puts the stop first: the reason, worded as the person's own setting, and that the whole reply is the message
   that follows, after any urgent action, with no research call and no final check, since a question is not an answer

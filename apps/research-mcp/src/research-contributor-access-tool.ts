@@ -65,6 +65,7 @@ import {
   framingGuidance,
   framingNextStep,
   menuProblems,
+  menuDigest,
   menuReadingSentence,
   menuRefusalText,
   planNextStep,
@@ -291,6 +292,8 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     adjustment_detail: z.enum(ADJUSTMENT_DETAILS),
     minutes_since_plain_answer: z.number().int().optional(),
     target_matches_plain_answer: z.boolean().optional(),
+    menu_digest: z.string().optional(),
+    menu_changed: z.literal(true).optional(),
   }).strict().optional(),
   // 12 Nov 2026 (runtime only): an ask's "you decide" call, ready to copy, and a refused menu's example, built from the
   // call's own.
@@ -440,6 +443,8 @@ export interface ResearchContributorToolOptions {
   sharedAnswers?: SharedAnswers & { versions: () => Promise<SharedAnswerVersions> };
   /** People's reports to the Atlas (owner answer 229a); undefined while the Atlas takes none. */
   atlasReports?: AtlasReportDoor;
+  /** The secret plan_research keys its menu digest with (the review of 12 Nov 2026); undefined: no digest. */
+  menuDigestSecret?: () => string | undefined;
 }
 
 export interface ResearchMapOptions {
@@ -905,7 +910,8 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         return await setResearchSteering(options.service, auth.subject, parsed.researchSteering!);
       }
       if (parsed.action === "plan_research") {
-        return await planResearchAction(options.service, auth.subject, parsed.researchMenu!, options.plainAnswer);
+        return await planResearchAction(options.service, auth.subject, parsed.researchMenu!, options.plainAnswer,
+          options.menuDigestSecret?.());
       }
       if (parsed.action === "set_plain_answer_note") {
         return await setPlainAnswerNote(options.service, auth.subject, parsed.plainAnswerNote!, options.plainAnswer);
@@ -1226,6 +1232,7 @@ async function planResearchAction(
   subject: string,
   plan: ResearchMenuInput,
   plain: PlainAnswerOptions | undefined,
+  digestSecret?: string,
 ): Promise<CallToolResult> {
   const account = await service.activeAccount(subject);
   const accountKey = service.accountKeyForSubject(subject);
@@ -1241,10 +1248,13 @@ async function planResearchAction(
     problems.push(`Task numbers ${[...new Set(outOfRange)].join(", ")} are past the ${plan.tasks.length} tasks given; ` +
       "they were left out.");
   }
+  // The review of 12 Nov 2026: the menu's digest, and whether its tasks differ from the menu the call's digest names.
+  const digest = digestSecret === undefined || digestSecret === "" ? undefined : menuDigest(plan.tasks, digestSecret);
   const result = planResearch(plan, account.steering, read === undefined ? undefined : {
     matches: read.target === researchTargetDigest(plan.research_target),
     minutesSince: Math.max(0, Math.round((Date.now() - Date.parse(read.issuedAt)) / 60_000)),
-  });
+  }, digest === undefined ? undefined
+    : { digest, changed: plan.menu_digest !== undefined && plan.menu_digest !== digest });
   // 11 Nov 2026: the problems come first, so an ask's text ends with the rule for the person's answer. Whether the
   // menu's numbers must stay as they are goes by whether an allocation or a done list was given at all, even one that
   // names no open task; whether to ask goes by allocationAnswered, inside planResearch.

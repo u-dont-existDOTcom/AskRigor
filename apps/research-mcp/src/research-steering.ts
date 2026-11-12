@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+
 import { z } from "zod";
 
 import {
@@ -135,8 +137,25 @@ export const researchMenuSchema = z.object({
     .describe("The person's own allocation, by task number and minutes, once they gave one; leave it out before."),
   done: z.array(z.number().int().min(1).max(PLAN_LIMITS.tasks)).max(PLAN_LIMITS.tasks).optional()
     .describe("Task numbers already done, when you call again after a stop or a change of direction."),
+  menu_digest: z.string().trim().min(1).max(100).optional()
+    .describe("On every call after the first: researchMenu.menu_digest from the last plan_research result, as it is; " +
+      "when the tasks differ from the menu it names, AskRigor shows the person the changed menu first."),
 }).strict();
 export type ResearchMenuInput = z.output<typeof researchMenuSchema>;
+
+/**
+ * The menu the person saw (the review of 12 Nov 2026): a re-plan before any task was done, with a new task added, could
+ * go on without the person's choice, since only a done list marked a re-plan. Each plan_research result carries a digest
+ * of its task list, keyed with the server's signing secret, and the next call passes it back: when the call's tasks
+ * differ from it, the menu changed after the person saw it, and research that may ask shows them the changed menu. A
+ * call without a digest is planned as before. Exact: every field of every task, in order, is compared, never meaning.
+ */
+export function menuDigest(tasks: readonly PlanTask[], secret: string): string {
+  const canonical = JSON.stringify(tasks.map(({ task, kind, could_change, sources, loop, minutes }) => [task, kind,
+    could_change, sources ?? 1, loop ?? null, minutes === undefined ? null : [Math.min(...minutes), Math.max(...minutes)]]));
+  const key = createHmac("sha256", secret).update("askrigor research menu digest v1").digest();
+  return `md1~${createHmac("sha256", key).update(canonical).digest().subarray(0, 16).toString("base64url")}`;
+}
 
 /**
  * The menu as plan_research reads it (12 Nov 2026, the owner's ChatGPT at Extra High): every run's plan_research call
@@ -229,7 +248,7 @@ export function readResearchMenu(later: Record<string, unknown>): MenuReading {
   for (const [key, value] of Object.entries(later)) {
     if (key === menuKey) continue;
     const name = snakeKey(key);
-    const field = name === "allocation" || name === "done" ? name : MENU_ALIASES[name];
+    const field = name === "allocation" || name === "done" || name === "menu_digest" ? name : MENU_ALIASES[name];
     if (field !== undefined && value === null) continue;
     if (field !== undefined && isRecord(menu) && menu[field] === undefined) {
       menu[field] = field === "allocation" ? readAllocation(value, `later_inputs.${key}`, ignored) : value;
@@ -277,6 +296,7 @@ export const correctedMenuSchema = z.object({
     }).strict()).min(1),
     allocation: z.array(z.object({ task: z.number().int(), minutes: z.number() }).strict()).optional(),
     done: z.array(z.number().int()).optional(),
+    menu_digest: z.string().optional(),
   }).strict(),
 }).strict();
 export type CorrectedMenu = z.output<typeof correctedMenuSchema>;
@@ -317,6 +337,8 @@ export function correctedMenu(source: unknown): CorrectedMenu {
     ...(valid(researchMenuSchema.shape, "allocation", menu.allocation)
       ? { allocation: menu.allocation as Array<{ task: number; minutes: number }> } : {}),
     ...(valid(researchMenuSchema.shape, "done", menu.done) ? { done: menu.done as number[] } : {}),
+    ...(valid(researchMenuSchema.shape, "menu_digest", menu.menu_digest)
+      ? { menu_digest: (menu.menu_digest as string).trim() } : {}),
   };
   return correctedMenuSchema.parse({ researchMenu: example });
 }
@@ -459,7 +481,8 @@ export const RESEARCH_MENU_SHAPE = "later_inputs.researchMenu in exactly this sh
   "confidence or detail; sources, how many searches, abstracts, papers, threads, videos or records it covers; loop, " +
   "people_to_studies or studies_to_people, only for a task between people's reports and studies; and minutes, [low, " +
   "high], only for a task of kind other or one much longer or shorter than its kind's usual time}. Leave out any other " +
-  "field: allocation and done come only after the person answers or stops you.";
+  "field: allocation and done come only after the person answers or stops you, and menu_digest, as the last " +
+  "plan_research result gave it, on every call after the first.";
 /**
  * The screen, then the menu. The timing runs of 10 Nov 2026 (Codex, the 284 rule on the live build): the screens took 4
  * to 9 calls, and none of the 21 turns ended with the question AskRigor said to ask, so the screen says how short it is
@@ -600,6 +623,10 @@ export interface ResearchPlanResult {
   adjustment_detail: AdjustmentDetail;
   minutes_since_plain_answer?: number;
   target_matches_plain_answer?: boolean;
+  /** The digest of this menu's tasks (menuDigest), for the next call. */
+  menu_digest?: string;
+  /** The tasks differ from the menu the call's menu_digest names: the person hasn't seen this menu. */
+  menu_changed?: true;
 }
 
 const roundEstimate = (minutes: number): number => minutes < 1 ? Math.round(minutes * 2) / 2 : Math.round(minutes);
@@ -637,8 +664,12 @@ export function planResearch(
   plan: ResearchMenuInput,
   steering: ResearchSteering,
   plainAnswer?: { matches: boolean; minutesSince: number },
+  menu?: { digest: string; changed: boolean },
 ): ResearchPlanResult {
   const done = new Set(plan.done ?? []);
+  // A menu that changed after the person saw it is theirs to see first: an allocation given for the one they saw is
+  // not an answer to this one.
+  const changed = menu?.changed === true;
   const tasks: PlannedTask[] = plan.tasks.map((task, index) => ({
     n: index + 1,
     task: task.task,
@@ -648,7 +679,7 @@ export function planResearch(
     minutes: taskMinutes(task),
   }));
   const open = tasks.filter(({ n }) => !done.has(n));
-  const answered = allocationAnswered(plan);
+  const answered = allocationAnswered(plan) && !changed;
   let recommended: { task: number; minutes: number }[];
   if (answered) {
     recommended = plan.allocation!.filter(({ task, minutes }) => task <= tasks.length && !done.has(task) && minutes > 0)
@@ -677,8 +708,9 @@ export function planResearch(
   // has a new fork come back to them (the review of 12 Nov 2026: a precise menu re-planned after the person skipped a
   // task went on, did the task they skipped and never asked about the new one).
   const replanned = tasks.some(({ n }) => done.has(n)) && !answered;
-  const next = answered || steering.style === "autonomous"
-    ? "go_on"
+  const next = steering.style === "autonomous" ? "go_on"
+    : changed ? "ask"
+    : answered ? "go_on"
     : steering.style === "guided" || recommendedMinutes[1] > ASK_ABOVE_MINUTES || plan.steering_could_help !== false ||
         (replanned && recommended.length > 0)
       ? "ask"
@@ -696,6 +728,8 @@ export function planResearch(
       minutes_since_plain_answer: plainAnswer.minutesSince,
       target_matches_plain_answer: plainAnswer.matches,
     }),
+    ...(menu === undefined ? {} : { menu_digest: menu.digest }),
+    ...(changed ? { menu_changed: true as const } : {}),
   };
 }
 
@@ -726,6 +760,7 @@ function askReason(result: ResearchPlanResult, done: ReadonlySet<number>): strin
       ? "their choices could steer the research, as they could here"
       : "their choices could steer the research, as they usually can (steering_could_help was left out)"]),
     ...(result.tasks.some(({ n }) => done.has(n)) ? ["the plan changes once the research has begun, as it has here"] : []),
+    ...(result.menu_changed === true ? ["the menu changes after they saw it, as it has here"] : []),
   ];
   return `This person's research style asks first when ${reasons.join(", and when ")}`;
 }
@@ -764,7 +799,8 @@ const TASK_PROGRESS = "Before each task, say in one line what you will read, how
  * checks what it has and answers instead, as its own sentence says, so it gets none.
  */
 const NEW_FORK = "A new fork that could change the conclusion comes back to the person through the menu: call " +
-  "plan_research again with done and the new task, leaving allocation out, and its result says whether to ask now.";
+  "plan_research again with done, the new task and this result's menu_digest, leaving allocation out, and its result " +
+  "says whether to ask now.";
 
 /** Whether an ask hands over the "you decide" call: it recommends something, for the registered research target. */
 export function offersYouDecide(result: ResearchPlanResult): boolean {
@@ -788,6 +824,7 @@ export function youDecideLaterInputs(plan: ResearchMenuInput, result: ResearchPl
     tasks: plan.tasks,
     allocation: result.recommended.map(({ task, minutes }) => ({ task, minutes })),
     ...((plan.done ?? []).length === 0 ? {} : { done: plan.done }),
+    ...(result.menu_digest === undefined ? {} : { menu_digest: result.menu_digest }),
   } };
 }
 
@@ -839,7 +876,8 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
     const target = result.target_matches_plain_answer === false ? " as register_plain_answer's result quoted it"
       : researchTarget === undefined ? "" : ` ${JSON.stringify(researchTarget)}`;
     const rule = "When the person replies: call manage_research_access action plan_research again with the same " +
-      `plain_answer_receipt and tasks, research_target word for word${target}, and their allocation inside ` +
+      `plain_answer_receipt, tasks and menu_digest (researchMenu.menu_digest in this result), research_target word for ` +
+      `word${target}, and their allocation inside ` +
       "researchMenu, as a list of {task, minutes}; for \"you decide\", or a reply that leaves the choice to you such " +
       "as \"continue\", " + (result.recommended.length === 0
         ? "no more research: check the answer with finalize_research and give it"
@@ -871,8 +909,8 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
         "then check the answer with finalize_research and give it in this turn.",
     result.style === "autonomous" ? TASK_PROGRESS : `${TASK_PROGRESS} ${NEW_FORK}`,
     WORDS_ARE_NOT_SIZES,
-    "If the person stops you or changes direction, call plan_research again with done and their new allocation; the " +
-      "research target stays word for word the same.",
+    "If the person stops you or changes direction, call plan_research again with done, their new allocation and the " +
+      "last result's menu_digest; the research target stays word for word the same.",
     "Leads between people's reports and studies are part of the research when the question has both: when the screen " +
       "found something in people's reports that studies could check, or a study finding that people's reports could " +
       "check, and no task covers it, add that task (loop people_to_studies or studies_to_people), and declare each " +
