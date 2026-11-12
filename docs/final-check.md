@@ -128,7 +128,7 @@ The [strict runner](askrigor-strict-runner.md) still compares the delivered answ
 that integrity check is separate from wording a limit. A passing check does not certify that the AI acted
 on every note or completed the research method: the AI remains responsible for that work and its limits.
 
-A pass is the turn's last check unless the draft itself changes (11 November 2026, not yet released). In the 10 November
+A pass is the turn's last check unless the draft itself changes (11 November 2026; released 12 November). In the 10 November
 timing runs, 49 of 88 final-check calls came after the check had passed in the same turn, invited by "to change anything
 in it, call finalize_research again" on every pass and by notes about later inputs; HRP asks for another call only on
 `not_ready`. A passing result now says what a pass covers, the six checks, not whether the search was complete (lesson

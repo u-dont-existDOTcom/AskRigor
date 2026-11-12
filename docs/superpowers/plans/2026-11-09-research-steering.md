@@ -282,7 +282,7 @@ as `OPENALEX_API_KEY` with the release that carries the search, moved unseen by 
 allowed for the Atlas secret.
 The privacy notice names OpenAlex: date it on the release day.
 
-## Built on 11 Nov: an ask ends the turn, and a pass ends the checking (not yet released)
+## Built on 11 Nov: an ask ends the turn, and a pass ends the checking (released 12 Nov, owner answer 292a)
 
 The owner, 11 Nov 2026: "it's still not asking me any steering questions". No menu or question appeared in 13
 ChatGPT turns of 10 and 11 Nov. In the 10 Nov timing runs (Codex, the 284 rule on the live build) the rule asked on 9
