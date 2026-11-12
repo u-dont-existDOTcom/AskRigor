@@ -228,7 +228,8 @@ was released on 12 November:
   balanced asks when the recommended tasks could take more than about 10 minutes (the high end of their range) or the
   person's choices could steer the research, as they usually can unless the question is precise (owner answer 284, 10
   November 2026); autonomous goes on, and after the allowance checks what it has and gives that answer, ending with the
-  open tasks as a numbered menu and the question whether to spend more time on them; a person's allocation is followed.
+  open tasks as a numbered menu and the question whether to spend more time on them; a person's allocation is followed,
+  in their own minutes as given (only AskRigor's own estimates are rounded for the menu; 12 November 2026).
   An allocation that names no task on the menu still open counts as none, so the menu recommends and decides as if
   none had come (11 November 2026); whether the menu may ask for a task near the top, which would renumber it, goes by
   whether an allocation or a done list was given at all. A re-plan (tasks done, and no allocation that counts as the

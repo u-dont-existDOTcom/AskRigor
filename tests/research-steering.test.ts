@@ -1051,3 +1051,19 @@ describe("a menu that changed after the person saw it is shown to them first (th
     expect(planResearch(plan, DEFAULT_RESEARCH_STEERING).next).toBe("go_on");
   });
 });
+
+// The review of 12 Nov 2026: the person's 1.5 minutes became 2, as their allocation was rounded like an estimate.
+describe("the person's own minutes are kept as given", () => {
+  it("keeps 1.5 as 1.5 in the plan, its total and its text, and rounds only AskRigor's own estimates", () => {
+    const allocated = planResearch(menu({ allocation: [{ task: 1, minutes: 1.5 }, { task: 2, minutes: 0.1 },
+      { task: 4, minutes: 0.2 }] }), DEFAULT_RESEARCH_STEERING);
+    expect(allocated.recommended).toEqual([{ task: 1, minutes: 1.5 }, { task: 2, minutes: 0.1 }, { task: 4, minutes: 0.2 }]);
+    expect(allocated.recommended_minutes).toEqual([1.8, 1.8]);
+    expect(planResearchText(allocated, new Set())).toContain("Recommended: 1. 1.5 min, 2. 0.1 min, 4. 0.2 min, about " +
+      "1.8 min in all.");
+    expect(planResearch(menu({ allocation: [{ task: 1, minutes: 2.5 }] }), DEFAULT_RESEARCH_STEERING).recommended)
+      .toEqual([{ task: 1, minutes: 2.5 }]);
+    // A task's own estimate is still a rough range for the menu.
+    expect(taskMinutes({ task: "x x x", kind: "other", could_change: "detail", minutes: [1.4, 2.6] })).toEqual([1, 3]);
+  });
+});

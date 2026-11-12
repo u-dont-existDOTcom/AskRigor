@@ -629,7 +629,11 @@ export interface ResearchPlanResult {
   menu_changed?: true;
 }
 
+// AskRigor's own estimates are rounded for the menu; the person's minutes never are (below).
 const roundEstimate = (minutes: number): number => minutes < 1 ? Math.round(minutes * 2) / 2 : Math.round(minutes);
+/** A sum of the person's minutes, free of floating-point dust (0.1 + 0.2 is 0.3), never rounded to whole minutes. */
+const minutesSum = (minutes: readonly number[]): number =>
+  Math.round(minutes.reduce((sum, value) => sum + value, 0) * 1_000) / 1_000;
 
 /** A task's time range: its own estimate when given, otherwise its kind's per-source range times its sources. */
 export function taskMinutes(task: PlanTask): [number, number] | null {
@@ -682,8 +686,9 @@ export function planResearch(
   const answered = allocationAnswered(plan) && !changed;
   let recommended: { task: number; minutes: number }[];
   if (answered) {
+    // The person's own minutes, as they gave them (the review of 12 Nov 2026: 1.5 minutes became 2).
     recommended = plan.allocation!.filter(({ task, minutes }) => task <= tasks.length && !done.has(task) && minutes > 0)
-      .map(({ task, minutes }) => ({ task, minutes: roundEstimate(minutes) }));
+      .map(({ task, minutes }) => ({ task, minutes }));
   } else {
     recommended = [];
     let total = 0;
@@ -698,7 +703,7 @@ export function planResearch(
   }
   const chosen = recommended.map(({ task }) => tasks[task - 1]!);
   const recommendedMinutes: [number, number] = answered
-    ? [recommended.reduce((sum, { minutes }) => sum + minutes, 0), recommended.reduce((sum, { minutes }) => sum + minutes, 0)]
+    ? [minutesSum(recommended.map(({ minutes }) => minutes)), minutesSum(recommended.map(({ minutes }) => minutes))]
     : [
         roundEstimate(chosen.reduce((sum, task) => sum + (task.minutes?.[0] ?? 1), 0)),
         roundEstimate(chosen.reduce((sum, task) => sum + (task.minutes?.[1] ?? 3), 0)),
