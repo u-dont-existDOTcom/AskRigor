@@ -277,6 +277,14 @@ result, and a failed write is dropped silently. Calls without a valid sign-in an
 recorded. The privacy page and `docs/privacy-data-map.md` ("The call record") describe it; the access role has INSERT,
 SELECT and DELETE on the table only, and the canonical reader none.
 
+Owner answer 289a (12 November 2026; built, not yet released): for an answered `plan_research` call the record also
+keeps the decision AskRigor's own result made, `ask` or `go_on` (`researchMenu.next`), never anything the person or
+the AI wrote. Migration `0034_research_call_record_plan_next` adds the nullable `plan_next` column, whose check admits
+a value only on a `manage_research_access` row with action `plan_research`; `list_calls` shows it beside the action
+("manage_research_access (plan_research: ask)"). The owner's call record of 11 November showed ChatGPT inspecting in 9
+of 9 runs and never calling `plan_research`; with the decision kept, a record also tells an ask that was ignored from a
+menu that said to go on.
+
 ## Detailed lesson reports
 
 Owner question 154 (2026-10-21): "i would not give everyone a long report like
