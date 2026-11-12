@@ -57,11 +57,15 @@ import { MCP_RESULT_MAX_BYTES } from "./config.js";
 import { clientResultBytes } from "./tool-result.js";
 import {
   COULD_CHANGE,
+  MENU_PLACEHOLDERS,
   PLAN_TASK_KINDS,
   RESEARCH_LOOPS,
   FORM_PEOPLE_USE,
+  STEERING_JUDGMENT,
+  asksOnlyForJudgmentLeftOut,
   correctedMenu,
   correctedMenuSchema,
+  judgmentRefusalText,
   framingGuidance,
   framingNextStep,
   menuProblems,
@@ -918,7 +922,8 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       }
       if (parsed.action === "plan_research") {
         return await planResearchAction(options.service, auth.subject, parsed.researchMenu!, options.plainAnswer,
-          options.menuDigestSecret?.());
+          options.menuDigestSecret?.(), isDevAccount(options.service.accountKeyForSubject(auth.subject),
+            options.devAccountKeys?.() ?? new Set()));
       }
       if (parsed.action === "set_plain_answer_note") {
         return await setPlainAnswerNote(options.service, auth.subject, parsed.plainAnswerNote!, options.plainAnswer);
@@ -1243,6 +1248,29 @@ async function setResearchSteering(
 }
 
 /**
+ * A short menu that left the judgment out, on a dev account (owner answer 294c): nothing is planned, and the result
+ * gives the call back with the judgment's place marked, in its text and in a structured content that is valid, with
+ * the test in its message for an app that hands its model only the structured content.
+ */
+function judgmentRefusal(plan: ResearchMenuInput): CallToolResult {
+  const example = correctedMenu(plan, true);
+  const message = "plan_research planned nothing yet: this menu's tasks are short, so whether to ask the person " +
+    "first rests on later_inputs.researchMenu.steering_could_help, which the call left out. Call it again with " +
+    `corrected_later_inputs, after replacing ${MENU_PLACEHOLDERS.steering_could_help} with your judgment: ` +
+    `${STEERING_JUDGMENT}.`;
+  return {
+    content: [{ type: "text", text: judgmentRefusalText(example) }],
+    structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
+      ok: false,
+      error: { code: "invalid_request", message },
+      problems: ["later_inputs.researchMenu.steering_could_help: left out; say true or false for this question"],
+      corrected_later_inputs: example,
+    }),
+    isError: true,
+  };
+}
+
+/**
  * The menu of next tasks after a quick screen (owner answer 279a): each task's time range, a recommendation, and whether
  * to ask the person first, by the account's research style. With the plain answer's receipt, it also checks that the
  * research target is the registered one (AskRigor#434) and says how long ago the plain answer was registered. Nothing
@@ -1254,6 +1282,7 @@ async function planResearchAction(
   plan: ResearchMenuInput,
   plain: PlainAnswerOptions | undefined,
   digestSecret?: string,
+  judgmentRequired = false,
 ): Promise<CallToolResult> {
   const account = await service.activeAccount(subject);
   const accountKey = service.accountKeyForSubject(subject);
@@ -1271,11 +1300,17 @@ async function planResearchAction(
   }
   // The review of 12 Nov 2026: the menu's digest, and whether its tasks differ from the menu the call's digest names.
   const digest = digestSecret === undefined || digestSecret === "" ? undefined : menuDigest(plan.tasks, digestSecret);
+  const menu = digest === undefined ? undefined
+    : { digest, changed: plan.menu_digest !== undefined && plan.menu_digest !== digest };
   const result = planResearch(plan, account.steering, read === undefined ? undefined : {
     matches: read.target === researchTargetDigest(plan.research_target),
     minutesSince: Math.max(0, Math.round((Date.now() - Date.parse(read.issuedAt)) / 60_000)),
-  }, digest === undefined ? undefined
-    : { digest, changed: plan.menu_digest !== undefined && plan.menu_digest !== digest });
+  }, menu);
+  // Owner answer 294c (12 Nov 2026): on a dev account, a menu whose ask rests only on the judgment the AI left out
+  // plans nothing until the AI gives it, so the AI decides a short menu and not the default.
+  if (judgmentRequired && asksOnlyForJudgmentLeftOut(plan, account.steering, result, menu)) {
+    return judgmentRefusal(plan);
+  }
   // 11 Nov 2026: the problems come first, so an ask's text ends with the rule for the person's answer. Whether the
   // menu's numbers must stay as they are goes by whether an allocation or a done list was given at all, even one that
   // names no open task; whether to ask goes by allocationAnswered, inside planResearch.

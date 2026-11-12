@@ -171,6 +171,8 @@ export function menuDigest(tasks: readonly PlanTask[], secret: string): string {
  * optional field is left out, user_allocation and allocations are the allocation, and an allocation or done list
  * beside the menu goes inside it when it has none. Anything else is left out and named in the result. Nothing here
  * reads meaning: kind and could_change must still be one of their values, and each task must still be an object.
+ * The words true and false given for steering_could_help are the values (the judgment refusal's example writes it as
+ * <true|false>); any other word is still refused.
  */
 export interface MenuReading {
   /** The call's later_inputs as plan_research reads them: the menu alone, in its own names. */
@@ -234,6 +236,10 @@ function readMenu(menu: Record<string, unknown>, path: string, ignored: string[]
   const read = inOwnNames(menu, MENU_FIELDS, MENU_ALIASES, path, ignored, OPTIONAL_MENU_FIELDS);
   if (Array.isArray(read.tasks)) read.tasks = read.tasks.map((task, index) => readTask(task, `${path}.tasks[${index}]`, ignored));
   if (read.allocation !== undefined) read.allocation = readAllocation(read.allocation, `${path}.allocation`, ignored);
+  if (typeof read.steering_could_help === "string") {
+    const word = read.steering_could_help.trim().toLowerCase();
+    if (word === "true" || word === "false") read.steering_could_help = word === "true";
+  }
   return read;
 }
 
@@ -281,6 +287,7 @@ export const MENU_PLACEHOLDERS = Object.freeze({
   task: "<what the task does, in the person's language>",
   kind: `<${PLAN_TASK_KINDS.join("|")}>`,
   could_change: `<${COULD_CHANGE.join("|")}>`,
+  steering_could_help: "<true|false>",
 });
 
 /** The refusal's example, as structuredContent carries it: placeholders stand where a value is missing or not one. */
@@ -289,7 +296,7 @@ export const correctedMenuSchema = z.object({
     research_target: z.string(),
     plain_answer_receipt: z.string().optional(),
     provisional_answer: z.string().optional(),
-    steering_could_help: z.boolean().optional(),
+    steering_could_help: z.union([z.boolean(), z.literal(MENU_PLACEHOLDERS.steering_could_help)]).optional(),
     tasks: z.array(z.object({
       task: z.string(),
       kind: z.string(),
@@ -308,9 +315,10 @@ export type CorrectedMenu = z.output<typeof correctedMenuSchema>;
 /**
  * A refused menu's example, built from the call's own: its research target and task texts (a task given as text is
  * that text), each with its kind and could_change when they are one of their values and a placeholder listing them
- * when not, and every other field the call gave that is valid as given.
+ * when not, and every other field the call gave that is valid as given. With judgment, a menu that gives no
+ * steering_could_help gets its placeholder, for the refusal that asks for it (judgmentRefusalText).
  */
-export function correctedMenu(source: unknown): CorrectedMenu {
+export function correctedMenu(source: unknown, judgment = false): CorrectedMenu {
   const menu = isRecord(source) ? source : {};
   const valid = (shape: z.ZodRawShape, field: string, value: unknown) =>
     value !== undefined && z.safeParse(shape[field]!, value).success;
@@ -322,6 +330,8 @@ export function correctedMenu(source: unknown): CorrectedMenu {
     ...Object.fromEntries((["plain_answer_receipt", "provisional_answer", "steering_could_help"] as const)
       .filter((field) => valid(researchMenuSchema.shape, field, menu[field]))
       .map((field) => [field, typeof menu[field] === "string" ? (menu[field] as string).trim() : menu[field]])),
+    ...(judgment && !valid(researchMenuSchema.shape, "steering_could_help", menu.steering_could_help)
+      ? { steering_could_help: MENU_PLACEHOLDERS.steering_could_help } : {}),
     tasks: tasks.map((task) => {
       const given = isRecord(task) ? task : {};
       const text = typeof task === "string" ? task : given.task;
@@ -362,6 +372,36 @@ export function menuRefusalText(problems: readonly string[], example: CorrectedM
       "change the conclusion, how sure the answer is, or only detail); the allocation, once the person gives one, goes " +
       `inside researchMenu: ${JSON.stringify(example)}`,
     ...(reading === undefined ? [] : [reading]),
+  ].join("\n");
+}
+
+/**
+ * Owner answer 294c (12 Nov 2026). The PITCH question, one figure from one named paper, got the menu instead of an
+ * answer in both of the owner's ChatGPT runs, and the owner: "those choices should have not been given as choices
+ * since they were required to answer the question". In all 10 runs of that day the AI left steering_could_help out,
+ * so the default (owner answer 284: left out counts as yes) decided every short menu, not the AI. On a dev account, a
+ * menu whose ask rests only on the judgment left out plans nothing until the AI gives it (asksOnlyForJudgmentLeftOut);
+ * every other account's menus are planned as before, until the owner's five test questions show that the judgment
+ * tells a precise question from an open one. Whether the person's choices could change the research is the model's
+ * judgment, in any language (HRP StructuredUserSteeringAndApproval: approval is required for an unresolved choice that
+ * could materially change the research, and a clear scope proceeds without a ceremonial pause); AskRigor checks only
+ * that it was given. The owner's test is the false side: tasks that are all needed to answer are not choices.
+ */
+export const STEERING_JUDGMENT = "true, the usual case, when a choice the person could make, or something only they " +
+  "know, could materially change what the research checks: their own situation or what they have tried, the form, " +
+  "dose or route they use, what to compare it with, which outcome matters most to them, or which tasks to spend " +
+  "time on when the answer does not need them all; false when no choice is left to them, because the question " +
+  "already fixes all of that and every task on the menu is needed to answer it whatever they would choose, as with " +
+  "one result of one named study, so that asking would only delay the answer (HRP StructuredUserSteeringAndApproval)";
+
+/** The refusal's text for a short menu that left the judgment out: what is asked, and the call to send. */
+export function judgmentRefusalText(example: CorrectedMenu): string {
+  return [
+    "AskRigor planned nothing yet. These tasks are short, so whether to ask the person first rests on one judgment " +
+      `of yours, which this call left out: later_inputs.researchMenu.steering_could_help, ${STEERING_JUDGMENT}.`,
+    "Call manage_research_access with action plan_research again with these later_inputs, which are yours, after " +
+      `replacing ${MENU_PLACEHOLDERS.steering_could_help} with true or false, your judgment for this question: ` +
+      JSON.stringify(example),
   ].join("\n");
 }
 
@@ -744,6 +784,18 @@ export function planResearch(
     ...(menu === undefined ? {} : { menu_digest: menu.digest }),
     ...(changed ? { menu_changed: true as const } : {}),
   };
+}
+
+/**
+ * Whether a menu's ask rests only on a judgment the AI left out (owner answer 294c): it asks, steering_could_help
+ * was not given, and the same menu with false would go on. It is read from the rule itself, by planning the menu
+ * again with false, so it follows every change to the rule: guided research, tasks past the 10 minutes, a menu
+ * changed after the person saw it and a re-plan ask whatever the judgment, and need none.
+ */
+export function asksOnlyForJudgmentLeftOut(plan: ResearchMenuInput, steering: ResearchSteering,
+  result: ResearchPlanResult, menu?: { digest: string; changed: boolean }): boolean {
+  return result.next === "ask" && plan.steering_could_help === undefined &&
+    planResearch({ ...plan, steering_could_help: false }, steering, undefined, menu).next === "go_on";
 }
 
 const CHANGE_WORDS: Readonly<Record<(typeof COULD_CHANGE)[number], string>> = {

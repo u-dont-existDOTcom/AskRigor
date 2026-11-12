@@ -226,6 +226,39 @@ minutes, ask for both reasons; not kept (the model's own allocation was refused 
 calls followed); "you decide" in turn 2; checked at 41.9 minutes, ready with limits. What it said about the
 Mediterranean diet is in the owner page's section of 10 Nov.
 
+### The judgment required on a dev account (12 Nov 2026, owner answer 294c)
+
+The owner's ChatGPT on 12 Nov, on build a826ad10 (10 runs: the five test prompts twice, Extra High): the AI gave no
+`steering_could_help` on any menu, so the default (left out counts as yes) decided every short one. The four open
+questions asked in 7 of 8 first turns, as wanted. The control, one figure from one named trial, asked both times
+instead of answering. The owner, 19:30 and about 20:10 UTC: the control's menu asked "for no reason, since both steps
+are required to answer the question"; "those choices should have not been given as choices since they were required to
+answer the question"; and to try the change on the owner's account first.
+
+Built: on a dev account, a menu whose ask rests only on the judgment left out is refused, with the call handed back,
+the judgment's place marked `<true|false>`, and the test both ways (`STEERING_JUDGMENT`): true, the usual case, when a
+choice of the person's or something only they know could materially change what is checked; false when no choice is
+left to them, because the question fixes it and every task is needed to answer. Whether the judgment is needed is read
+from the rule itself (the same menu planned with false would go on), so guided and autonomous research, tasks past 10
+minutes, the person's own allocation, a changed menu and a re-plan need none. Every other account is planned as
+before, in the same words. AskRigor checks only that the judgment was given; what it says is the model's.
+
+Criteria, written before any run. DEVELOPMENT / DISCOVERY: five questions on one account can tune the wording, and
+cannot confirm it for other accounts or models.
+
+- The control: its first accepted menu carries false, after at most one refusal for the judgment; the result says go
+  on; the turn ends with a checked answer and no question.
+- Each of the four open questions: its first accepted menu carries true; the result asks; the turn ends with the menu
+  and its question, as in rounds 1 and 2.
+- Cost: at most one refused call more per first menu than the same prompt on the released build.
+- Read, not a pass criterion: whether an ask says what the person's choice could change (for the Syrian rue oil, which
+  oil they mean).
+
+If the control still asks, or an open question goes on: the wording is changed once. A second miss of the same kind
+means a bare yes or no does not carry the judgment, and the next design has the model name the choice it would ask the
+person about (none named, nothing to ask) instead of a third wording. Giving the requirement to every account is the
+owner's decision after the comparison.
+
 ### Next stages
 
 1. Measure on the owner's regression list, on plan workers with no API spend: whether the framing asks the right
