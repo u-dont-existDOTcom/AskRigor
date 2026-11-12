@@ -817,6 +817,12 @@ async function verifyCallRecord(context: { admin: Pool; restricted: Pool; checks
   await record.record({ ...entry, receivedAt: before });
   await record.record({ ...entry, receivedAt: new Date(before.getTime() + 1) });
   assert((await record.list(accountKey, at)).length === 2, "CALL_RECORD_SEVEN_DAY_BOUNDARY_WRONG");
+  // Greptile's review of 12 Nov 2026: list_calls pages by time, and the bound is strict, so a page starting at the last
+  // call shown repeats none.
+  const [newest, older] = await record.list(accountKey, at);
+  const paged = await record.list(accountKey, at, newest!.receivedAt);
+  assert(paged.length === 1 && paged[0]!.receivedAt.getTime() === older!.receivedAt.getTime(),
+    "CALL_RECORD_BEFORE_BOUND_WRONG");
   assert(await record.sweep(at) === 2, "CALL_RECORD_SWEEP_COUNT_WRONG");
   assert(await record.sweep(at) === 0, "CALL_RECORD_SWEEP_NOT_IDEMPOTENT");
   assert(await record.sweep(new Date(at.getTime() + 1)) === 1, "CALL_RECORD_SWEEP_BOUNDARY_WRONG");

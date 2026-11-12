@@ -251,10 +251,10 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
   retention_days: z.literal(RESEARCH_CALL_RECORD_RETENTION_DAYS).optional(),
   // The review of 12 Nov 2026: a listing that shows only some of the calls says which, and where the next ones start.
   calls_page: z.object({
-    offset: z.number().int().min(0),
     shown: z.number().int().min(0),
     total: z.number().int().min(0),
-    next_offset: z.number().int().min(1).optional(),
+    before: z.string().optional(),
+    next_before: z.string().optional(),
   }).strict().optional(),
   access: researchAccessViewSchema.safeExtend({ acceptance: noticeAcceptanceSchema.optional() }).optional(),
   sharedAnswer: z.object({
@@ -772,13 +772,20 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
             ok: false, error: { code: "call_record_unavailable", message },
           }) };
       }
-      const entries = await options.callRecord.list(options.service.accountKeyForSubject(auth.subject), new Date());
+      const page = callsPageSchema.safeParse(input.callsPage ?? {});
+      if (!page.success) {
+        return accessError("invalid_request", `later_inputs.callsPage: ${page.error.issues.map(({ path, message }) =>
+          `${path.join(".") || "the page"}: ${message}`).join("; ")}.`);
+      }
+      const entries = await options.callRecord.list(options.service.accountKeyForSubject(auth.subject), new Date(),
+        page.data.before === undefined ? undefined : new Date(page.data.before));
       const calls = entries.map((entry) => ({ received_at: entry.receivedAt.toISOString(), tool: entry.tool,
         action: entry.action, route: entry.route, chatgpt: entry.chatgpt, outcome: entry.outcome,
         code: entry.code, duration_ms: entry.durationMs,
         ...(entry.planNext === undefined ? {} : { plan_next: entry.planNext }) }));
-      const page = callsPageSchema.safeParse(input.callsPage ?? {});
-      return listedCalls(calls, page.success ? page.data : {});
+      // The review of 12 Nov 2026: the budget counts the result as the app gets it, the tool-list notice included.
+      return listedCalls(calls, page.data,
+        (result) => clientResultBytes(withToolListNotice(result, input, options.toolListVersion)));
     }
     if (options.service === undefined) {
       return accessError(
@@ -1009,48 +1016,62 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
 type ListedCall = NonNullable<z.infer<typeof manageResearchAccessRuntimeOutputSchema>["calls"]>[number];
 
 /**
- * list_calls' result: the newest calls, from the page's offset, while the whole result fits MCP_RESULT_MAX_BYTES (the
- * review of 12 Nov 2026: 500 calls came to about 85 KB, more than Claude's clients take in), with where the next ones
- * start when some are not shown.
+ * list_calls' result: the newest calls (received before the page's time, when it gives one) while the whole result, as
+ * the app gets it, fits MCP_RESULT_MAX_BYTES (the review of 12 Nov 2026: 500 calls came to about 85 KB, more than
+ * Claude's clients take in), with the time the next page starts from when some are not shown. Pages go by time, not by
+ * position: each listing is itself recorded, so a position shifted and a page repeated a call. A page never ends inside
+ * a group of calls received in the same millisecond, so the next page, the calls before the last one shown, misses none.
  */
-function listedCalls(calls: readonly ListedCall[], page: z.infer<typeof callsPageSchema>): CallToolResult {
+function listedCalls(calls: readonly ListedCall[], page: z.infer<typeof callsPageSchema>,
+  bytes: (result: CallToolResult) => number): CallToolResult {
   const total = calls.length;
-  const offset = Math.min(page.offset ?? 0, total);
-  const wanted = calls.slice(offset, page.limit === undefined ? total : Math.min(total, offset + page.limit));
+  const wanted = calls.slice(0, page.limit === undefined ? total : Math.min(total, page.limit));
+  const at = page.before === undefined ? "" : ` before ${page.before.slice(0, 19).replace("T", " ")} UTC`;
   const count = total === 0
-    ? "AskRigor received no calls from this signed-in account in the last 7 days."
-    : `AskRigor received ${total === 500 ? "at least " : ""}${total} ${total === 1 ? "call" : "calls"} from this signed-in account in the last 7 days.`;
+    ? `AskRigor received no calls from this signed-in account in the last 7 days${at}.`
+    : `AskRigor received ${total === 500 ? "at least " : ""}${total} ${total === 1 ? "call" : "calls"} from this ` +
+      `signed-in account in the last 7 days${at}.`;
   const line = (call: ListedCall) =>
     `${call.received_at.slice(0, 19).replace("T", " ")} UTC · ${call.tool}${call.action === null ? ""
       : ` (${call.action}${call.plan_next === undefined ? "" : `: ${call.plan_next}`})`} · ` +
     `${call.outcome}${call.outcome === "refused" ? ` [${call.code}]` : ""} · ${(call.duration_ms / 1_000).toFixed(1)} s · ` +
     `${call.chatgpt ? "ChatGPT" : "other app"} · ${call.route}`;
+  // A page that would end inside a group of calls with the same time ends before the group instead, unless the group
+  // starts the page.
+  const whole = (shown: number): number => {
+    let end = shown;
+    while (end > 0 && end < total && calls[end]!.received_at === calls[end - 1]!.received_at) end -= 1;
+    if (end > 0 || shown === 0) return end;
+    end = shown;
+    while (end < total && calls[end]!.received_at === calls[end - 1]!.received_at) end += 1;
+    return end;
+  };
   const build = (shown: number): CallToolResult => {
-    const more = total - offset - shown;
-    const paged = offset > 0 || more > 0;
-    const where = !paged ? "" : shown === 0
-      ? ` This result shows none of them${offset >= total ? `: later_inputs.callsPage's offset ${offset} is past the last` : ""}` +
-        (more > 0 ? `; for the next, call list_calls again with later_inputs.callsPage {"offset": ${offset}} and a smaller limit` : "") + "."
-      : ` This result shows calls ${offset + 1} to ${offset + shown} of them, newest first` + (more > 0
-        ? `; ${more} older ${more === 1 ? "one is" : "ones are"} not shown: for the next, call list_calls again with ` +
-          `later_inputs.callsPage {"offset": ${offset + shown}}` : "") + ".";
+    const more = total - shown;
+    const nextBefore = more > 0 && shown > 0 ? calls[shown - 1]!.received_at : undefined;
+    const where = more === 0 ? "" : shown === 0
+      ? " This result shows none of them; call list_calls again with a smaller later_inputs.callsPage limit."
+      : ` This result shows the newest ${shown} of them; ${total === 500 ? "older ones are" : more === 1
+        ? "1 older one is" : `${more} older ones are`} not shown: for the next, call list_calls again with ` +
+        `later_inputs.callsPage {"before": "${nextBefore}"}.`;
     const text = [count + where + " Times are UTC. A call made without signing in isn't recorded. " +
-      "This call itself appears from the next listing.", ...wanted.slice(0, shown).map(line)].join("\n");
+      "This call itself appears from the next listing.", ...calls.slice(0, shown).map(line)].join("\n");
     return { content: [{ type: "text", text }], structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
-      ok: true, calls: wanted.slice(0, shown), retention_days: RESEARCH_CALL_RECORD_RETENTION_DAYS,
-      ...(paged ? { calls_page: { offset, shown, total,
-        ...(more > 0 && shown > 0 ? { next_offset: offset + shown } : {}) } } : {}),
+      ok: true, calls: calls.slice(0, shown), retention_days: RESEARCH_CALL_RECORD_RETENTION_DAYS,
+      ...(page.before === undefined && more === 0 ? {} : { calls_page: { shown, total,
+        ...(page.before === undefined ? {} : { before: page.before }),
+        ...(nextBefore === undefined ? {} : { next_before: nextBefore }) } }),
     }) };
   };
-  const fits = (result: CallToolResult) => clientResultBytes(result) <= MCP_RESULT_MAX_BYTES;
-  const whole = build(wanted.length);
-  if (fits(whole)) return whole;
+  const fits = (result: CallToolResult) => bytes(result) <= MCP_RESULT_MAX_BYTES;
+  const all = build(whole(wanted.length));
+  if (fits(all)) return all;
   let best = build(0);
   let lower = 1;
   let upper = wanted.length - 1;
   while (lower <= upper) {
     const shown = Math.floor((lower + upper) / 2);
-    const candidate = build(shown);
+    const candidate = build(whole(shown));
     if (fits(candidate)) {
       best = candidate;
       lower = shown + 1;

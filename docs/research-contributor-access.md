@@ -300,8 +300,11 @@ failed) and the time taken. Migration `0032_research_call_record` holds it; each
 by the account's next call and an hourly sweep. The runtime-only action `list_calls` shows the account its own calls,
 newest first, and `inspect` names the action when the server keeps a record. Since 12 November 2026 (500 calls came to
 about 85 KB, more than Claude's clients take in) a listing shows the calls that fit 40,000 bytes of text and structured
-content (`MCP_RESULT_MAX_BYTES`, the YouTube audit's budget), says which it shows and where the next start, and the
-runtime-only `later_inputs.callsPage` (`offset`, `limit`) pages through the rest. Recording never delays or changes a
+content as the app gets it, the tool-list notice included (`MCP_RESULT_MAX_BYTES`, the YouTube audit's budget), says
+which it shows, and gives the time the next page starts from: the runtime-only `later_inputs.callsPage` (`before`,
+`limit`) shows the calls received before that time, so pages don't shift as each listing is itself recorded, and they
+reach past the newest 500; a page never ends inside calls received in the same millisecond (Greptile's review of 12
+November 2026). Recording never delays or changes a
 result, and a failed write is dropped silently. Calls without a valid sign-in and Custom GPT Action calls are not
 recorded. The privacy page and `docs/privacy-data-map.md` ("The call record") describe it; the access role has INSERT,
 SELECT and DELETE on the table only, and the canonical reader none.

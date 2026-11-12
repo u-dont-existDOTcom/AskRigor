@@ -22,9 +22,13 @@ import { challengeMarkInputShape } from "./atlas/challenge-review.js";
 import { claimCoverageSchema } from "./claim-coverage.js";
 import { framingSchema, researchMenuSchema, researchSteeringInputSchema } from "./research-steering.js";
 
-/** list_calls' page: the store keeps at most 500 calls an account made in the last 7 days. */
+/**
+ * list_calls' page: the calls received before a time, as a previous listing's next_before gave it (the review of 12 Nov
+ * 2026: a position shifted as each listing was itself recorded, so pages repeated a call), and at most limit of them.
+ */
 export const callsPageSchema = z.object({
-  offset: z.number().int().min(0).max(500).optional(),
+  before: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/u,
+    "a UTC time such as 2026-11-12T18:39:07.272Z, as calls_page.next_before gave it").optional(),
   limit: z.number().int().min(1).max(500).optional(),
 }).strict();
 
