@@ -80,6 +80,21 @@ describe("verbatim panel limits in the checked draft", () => {
     expect(recheck.round).toEqual(result.round);
   });
 
+  // The review of 11 Nov 2026: after a pass that followed a pass in this turn, the turn's last check, the note asks for no
+  // further call.
+  it("asks for no further check in the note after a pass that followed a pass in the same turn", () => {
+    const input = copyFixture(COPY_LIMITS.slice(0, 3));
+    const first = finalizeResearch(input, { secret: SECRET });
+    expect(first.notes).toContain(copyNote(3));
+    const again = finalizeResearch({ ...input, round_token: first.round_token, carried_state: first.carry_forward },
+      { secret: SECRET });
+    expect(again.status).toBe("ready_with_limits");
+    expect(again.turn_already_passed).toBe(true);
+    expect(again.notes).toContain(copyNote(3).replace(", and call finalize_research again with the changed draft.",
+      ", with no further check in this turn."));
+    expect(again.notes).not.toContain(copyNote(3));
+  });
+
   it("does not add the note for two copied limits, even if they occur repeatedly", () => {
     const result = finalizeResearch(copyFixture([...COPY_LIMITS.slice(0, 2), ...COPY_LIMITS.slice(0, 2)]), { secret: SECRET });
     expect(result.status).toBe("ready_with_limits");

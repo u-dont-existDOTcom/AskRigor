@@ -4473,9 +4473,11 @@ export function finalizeResearch(
     const repeated = materialLimits.filter((limit) => normalizedDraft.includes(normalizeCopy(limit))).length;
     // The note comes with a passing check, whose answer goes out as checked, so it asks for the check again (the
     // regression run on #389's build: o356-dropout-nausea and q136-weak-lead edited after the check instead).
+    // After a pass that followed a pass in this turn, the turn's last check, the change asks for no further call.
     if (repeated >= 3) notes.push(`The draft repeats ${repeated} of the panel's limits word for word; the panel ` +
       "already lists every limit beneath the answer. Keep only those that change what this person should believe " +
-      "or do, in your own words, and call finalize_research again with the changed draft.");
+      `or do, in your own words, ${passedEarlierThisTurn ? "with no further check in this turn"
+        : "and call finalize_research again with the changed draft"}.`);
   }
   // Owner answer 237a: each line's quotes are looked up once the check passes, in the text its key source's verified
   // receipts name, and what came of it goes to the AI as notes, and to the panel. None of it holds the answer back.

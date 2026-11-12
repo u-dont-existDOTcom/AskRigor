@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { verifyCarriedState } from "../apps/research-mcp/src/carried-state.js";
 import {
-  FIRST_PASS_GUIDANCE, PASS_SCOPE, PASSING_NOTES_HEADING, REPEAT_PASS_GUIDANCE
+  FIRST_PASS_GUIDANCE, PASS_SCOPE, PASSING_NOTES_HEADING, REPEAT_PASS_GUIDANCE, REPEAT_PASS_NOTES_HEADING
 } from "../apps/research-mcp/src/final-check-messages.js";
 import {
   TOOL_LIST_REFRESH_HINT, finalizeResearch as finalizeResearchUnwrapped, uncheckedLine, type FinalizeResearchInput, type FinalizeResearchOutput
@@ -266,6 +266,16 @@ describe("the unchecked line and the previous check in finalize_research's resul
       "the lines this result gives for its end");
     expect(FIRST_PASS_GUIDANCE).toContain("then call finalize_research once more with the changed draft, the turn's " +
       "last check.");
+    // The review of 11 Nov 2026: what the result itself asks the answer to include is not a change to the draft; a note
+    // asking for an input waits, and one saying the answer is wrong is a fix to the answer itself.
+    expect(FIRST_PASS_GUIDANCE).toContain("adding what this result asks the answer to include (its sentences given as " +
+      "written, and the closing questions it asks for) is not a change to the draft.");
+    expect(FIRST_PASS_GUIDANCE).toContain("A note asking you to add or resend an input (study_map, findings_card, " +
+      "source_lines or community_leads) is for a later answer");
+    expect(FIRST_PASS_GUIDANCE).toContain("Change the draft only to fix the answer itself (something a note here says " +
+      "is wrong in it,");
+    expect(REPEAT_PASS_GUIDANCE).toContain("don't call finalize_research again in this turn; make in the answer, with " +
+      "no further check, any fix its notes and limits call for. Adding what this result asks the answer to include");
     expect(next.text).not.toContain(REPEAT_PASS_GUIDANCE);
     expect(next.output).not.toHaveProperty("turn_already_passed");
     expect(next.text).not.toContain("An answer given before this check passes");
@@ -305,11 +315,22 @@ describe("the unchecked line and the previous check in finalize_research's resul
     expect(REPEAT_PASS_GUIDANCE).toContain(`(${PASS_SCOPE}), so this result is the turn's last check`);
     for (const passing of [first, again, later]) expect(passing.text).toContain(PASS_SCOPE);
     expect(blocked.text).not.toContain(PASS_SCOPE);
-    // A pass's notes are headed as being for a later answer; a check that doesn't pass keeps the plain heading.
+    // A pass's notes are headed by what to do with them; a check that doesn't pass keeps the plain heading.
     const noted = await call(base({ receipts: ["rr1~not-a-receipt~x"] }));
     expect(noted.output.status).toMatch(/^ready/u);
     expect(noted.text).toContain(`\n${PASSING_NOTES_HEADING}\n- receipts[0]`);
     expect(noted.text).not.toContain("\nNotes about the call:\n");
+    // The review of 11 Nov 2026: a note asking for an input waits for a later answer, but one saying the answer is wrong
+    // is fixed now, and the changed draft is checked once more; after a repeat pass, fixed with no further check.
+    expect(PASSING_NOTES_HEADING).toContain("a note asking you to add or resend an input is for a later answer");
+    expect(PASSING_NOTES_HEADING).toContain("a note saying something in the answer is wrong is fixed in the draft now, " +
+      "and the changed draft is checked once more");
+    const notedAgain = await call(base({ receipts: ["rr1~not-a-receipt~x"], carried_state: noted.output.carry_forward,
+      round_token: noted.output.round_token }));
+    expect(notedAgain.output.turn_already_passed).toBe(true);
+    expect(notedAgain.text).toContain(`\n${REPEAT_PASS_NOTES_HEADING}\n- receipts[0]`);
+    expect(notedAgain.text).not.toContain(PASSING_NOTES_HEADING);
+    expect(REPEAT_PASS_NOTES_HEADING).toContain("is fixed in the answer, with no further check in this turn");
     const notedBlocked = await call(base({ ...DEPTH_GAP, receipts: [issueResearchReceipt("pubmed_record",
       { pmid: "12345", doi: STUDY }, { secret: SECRET }), "rr1~not-a-receipt~x"] }));
     expect(notedBlocked.output.status).toBe("not_ready");

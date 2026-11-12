@@ -3,7 +3,7 @@ import type { RedditReaderClient } from "./reddit-reader-client.js";
 import type { readForumPage } from "@askrigor/sources";
 import {
   CLOSING_QUESTIONS_GUIDANCE, FINAL_CHECK_RUNTIME_DESCRIPTION, FIRST_PASS_GUIDANCE, PASSING_LIMITS_GUIDANCE,
-  PASSING_NOTES_HEADING, REPEAT_PASS_GUIDANCE
+  PASSING_NOTES_HEADING, REPEAT_PASS_GUIDANCE, REPEAT_PASS_LIMITS_GUIDANCE, REPEAT_PASS_NOTES_HEADING
 } from "./final-check-messages.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "./community-leads.js";
 import { findingsSaveOff, withLaterInputs } from "./later-inputs.js";
@@ -2778,14 +2778,16 @@ function defineResearchOperations(
         `Research finalization: ${result.status}; ${result.next_steps.length} next step(s), ` +
           `${result.limits.length} limit(s) to state; ${result.receipts_verified} receipt(s) verified.` +
           `\n${FINAL_CHECK_RUNTIME_DESCRIPTION}` +
-          // 11 Nov 2026: under a pass, notes about later inputs wait for a later answer (the 10 Nov timing runs: 49 of 88
-          // checks came after a pass in the same turn, most invited by such notes).
-          (result.notes === undefined ? "" : `\n${passing ? PASSING_NOTES_HEADING : "Notes about the call:"}\n` +
-            result.notes.map((note) => `- ${note}`).join("\n")) +
+          // 11 Nov 2026: under a pass, a note asking for an input waits for a later answer and one saying the answer is
+          // wrong is fixed now (the 10 Nov timing runs: 49 of 88 checks came after a pass in the same turn, most invited
+          // by notes about later inputs).
+          (result.notes === undefined ? "" : `\n${!passing ? "Notes about the call:" : result.turn_already_passed === true
+            ? REPEAT_PASS_NOTES_HEADING : PASSING_NOTES_HEADING}\n` + result.notes.map((note) => `- ${note}`).join("\n")) +
           // Owner answer 205a: the panel lists a passing check's limits in full, so its answer states only those
           // that matter for this person; the panel shows no limits under a check that has not passed.
           (passing
-            ? referenceLimits.length === 0 ? "" : `\n${PASSING_LIMITS_GUIDANCE}\n${referenceLimits.map((limit, index) =>
+            ? referenceLimits.length === 0 ? "" : `\n${result.turn_already_passed === true ? REPEAT_PASS_LIMITS_GUIDANCE
+              : PASSING_LIMITS_GUIDANCE}\n${referenceLimits.map((limit, index) =>
               `[${index + 1}] ${limit.replace(/\s+/gu, " ").trim()}`).join(" ")}`
             : result.limits.map((limit) => `\nLimit to include in your own words: ${limit}`).join("")) +
           // The sentences the answer shows as written under every status.
