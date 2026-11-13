@@ -603,6 +603,46 @@ in the owner's ChatGPT at Extra High, one run each, on the build that carries th
 - The week: from the call record, on the owner's own research, how many registrations got a plan, how many menus
   asked, and how often the person's reply changed the research; the owner's own judgment of the answers decides.
 
+Round 7, on the live build e24f6d3b (#446; 13 Nov, 15:03 to 15:11 UTC; the record is
+`docs/audits/2026-11-13-research-planner-production-release.md`). Not at Extra High: the owner's ChatGPT had
+reached its usage limit, and its effort selector was locked at "Instant" ("Limite d'utilisation atteinte"), on
+GPT-6. So the round ran on the lowest effort, the case the owner raised ("especially if the AI is not a very high
+thinking one"), and it does not compare with rounds 5 and 6 on effort.
+
+- The plan arrived in all five registrations, in 11.7 to 20.1 seconds, and each chat's next AskRigor call was
+  `plan_research` with that menu, with no screen. No `plan_research` call was refused (rounds 5 and 6: one or two
+  for each first menu). Four of the five chats first sent `later_inputs.asked` as a list of messages and were
+  refused once; a list is accepted from the next build.
+- The control: none, `go_on`, and the right figures in one turn (31 of 156, 19.9%; 12, 10 and 9 of 52), about 3
+  minutes 45 seconds. Missed: no line on how it read the question ("I failed to follow an explicit instruction
+  returned by plan_research ... an execution error"), and its one final check came back `not_ready` (the
+  comparison with the plain answer) and was not called again.
+- The four open questions: each first turn ended with the planner's question and the menu, 1.3 to 2.3 minutes
+  after the message. Orange peel: "What is your main soil-improvement goal: retaining water during dry spells,
+  improving fertility, or both?" PewDiePie: "Where did you encounter that claim? Was it a meme/social media post,
+  PewDiePie's launch video, or a news article?", after "PewDiePie built Ajax, a local AI model based on Alibaba's
+  Qwen3.5-9B" (the owner had seen ChatGPT's free models take Ajax for a football club). SMILES: "Where does the 4x
+  claim come from?", offering "SMILES effect size (~1.16) versus antidepressants (~0.3)" first. Syrian rue: "Which
+  Syrian rue oil do you mean? Cold-pressed seed oil, essential oil, or seeds infused in oil? And would you take it
+  orally?" A reply that answered the question went on at once (4 of 4).
+- What the plan did not change: after the go-ahead, on Instant, the AI made one to three AskRigor searches, read no
+  paper through AskRigor, and never called the final check (0 of 4). Each answer said so ("AskRigor's full
+  research-validation check has not been completed"). Asked, the Syrian rue chat said of its own answer: "I did
+  report numerical findings attributed to a 1999 study and a 2010 study, but the visible research calls do not
+  establish that I retrieved and verified those studies", and "That was a protocol failure, not a tool refusal or a
+  limitation imposed by AskRigor." Each answer came about 90 seconds after the reply.
+- Read against the owner's wanted answers. PewDiePie: the reading the owner meant ("Why didn't China simply use
+  his technique?"), what he says he did first, then what the Chinese operators did, then what is verified: the
+  target's order, for the first time. SMILES: opens with 1.16 against 0.30, says 46 of 67 were already on
+  medication, and traces the comparison to a 2018 critique; no AMMEND or HELFIMED, and "does not demonstrate" where
+  the owner's best answers were "closer to yes". Syrian rue: the 1999 oil measurements, and that they are of
+  solvent-extracted oil, not seeds steeped in a household oil, which is the owner's point of 9 Nov.
+
+So the planning call did what it was built for, on the weakest setting: the right question, early, and the reading
+the person meant. It did not make a low-effort AI do the tasks or the check. To do: the round again at Extra High
+when the owner's ChatGPT allows it; and, as the owner's question, whether AskRigor should do more of the research
+itself for an AI that will not.
+
 ### Next stages
 
 1. Measure on the owner's regression list, on plan workers with no API spend: whether the framing asks the right
