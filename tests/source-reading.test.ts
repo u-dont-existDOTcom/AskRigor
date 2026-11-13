@@ -14,7 +14,7 @@ import { discoveryQueryDigest, issueResearchReceipt, researchTargetDigest } from
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import {
   ANSWER_READINGS, ANSWER_READING_LABELS, LINKED_READING_LABELS, READING_RESULT_WHEN, SHOWN_READINGS, compareReadings,
-  declarableReading, deepestShown, identifierShown, judgeSourceReading, linkedReading, readingResultNote, readingShown,
+  declarableReading, deepestRead, deepestShown, identifierShown, judgeSourceReading, linkedReading, readingResultNote, readingShown,
   receiptReadingNote, receiptReadings, sourceReadingGuidance, sourceReadingQuoteSchema, verifiedAnswerReading,
   type AnswerReading, type ShownReading
 } from "../apps/research-mcp/src/source-reading.js";
@@ -71,12 +71,15 @@ const missing = (id: string, reading?: AnswerReading) => reading === undefined
 // with no receipt (the recheck of 5 Nov 2026).
 // With leadOnly, the receipts show no reading, only a lead that found that much readable (Greptile's review of 12 Nov
 // 2026): the step names it as the most an entry may say, not as a reading the receipts show.
+// With read too, they show that reading read beside the lead, which the step names and never denies (Greptile's review
+// of #441, 13 Nov 2026).
 const claimsMore = (id: string, given: AnswerReading, verified: AnswerReading,
-  { shownOnly = false, offer = false, leadOnly = false }:
-  { shownOnly?: boolean; offer?: boolean; leadOnly?: boolean } = {}) => `source_reading gives ${id} ` +
+  { shownOnly = false, offer = false, leadOnly = false, read }:
+  { shownOnly?: boolean; offer?: boolean; leadOnly?: boolean; read?: AnswerReading } = {}) => `source_reading gives ${id} ` +
   `the reading ${given} (${ANSWER_READING_LABELS[given]}), more than this call's receipts show: ` +
-  (leadOnly ? "they show no reading of it, only a full-text lead that found no more of it readable than" +
-    ` ${verified} (${ANSWER_READING_LABELS[verified]}), the most an entry may say.`
+  (leadOnly ? (read === undefined ? "they show no reading of it, only a full-text lead that"
+    : `they show ${read} (${ANSWER_READING_LABELS[read]}), and a full-text lead that`) +
+    ` found no more of it readable than ${verified} (${ANSWER_READING_LABELS[verified]}), the most an entry may say.`
     : (shownOnly ? "they show" : "this check verifies") + ` ${verified} (${ANSWER_READING_LABELS[verified]}).`) +
   " Remove the " +
   `source_reading entry claiming ${given} for ${id}, or change its reading to ${verified}, with the answer's words ` +
@@ -421,6 +424,23 @@ describe("the reading each entry gives, held to what the check verifies", () => 
     expect(run([LEAD], "full_text_read").next_steps)
       .toEqual([claimsMore(DOI, "full_text_read", "abstract_only", { leadOnly: true })]);
     expect(run([LEAD], "full_text_read").next_steps.join(" ")).not.toContain("they show abstract_only");
+    // Greptile's review of #441 (13 Nov 2026): beside a PubMed record's abstract, a lead that found part of the text
+    // readable sets the bar at part of the text, and the step named no reading at all ("they show no reading of
+    // it"), though the abstract was read. It now names the abstract, and the lead as the reason for the bar.
+    const PART_LEAD = sign("full_text_lead", { doi: DOI, state: "PARTIAL_TEXT_READABLE" });
+    const beside = run([PUBMED, PART_LEAD], "full_text_read").next_steps;
+    expect(beside).toEqual([claimsMore(DOI, "full_text_read", "partial_text", { leadOnly: true, read: "abstract_only",
+      offer: false })]);
+    expect(beside.join(" ")).toContain("they show abstract_only (abstract only), and a full-text lead that found no " +
+      "more of it readable than partial_text (part of the text read), the most an entry may say.");
+    expect(beside.join(" ")).not.toContain("no reading of it");
+    // With the lead alone there is no reading to name.
+    expect(run([PART_LEAD], "full_text_read").next_steps)
+      .toEqual([claimsMore(DOI, "full_text_read", "partial_text", { leadOnly: true })]);
+    expect(deepestRead(new Set(["abstract_only", "lead_part_readable"]))).toBe("abstract_only");
+    expect(deepestRead(new Set(["found_in_search", "lead_abstract_readable"]))).toBe("found_in_search");
+    expect(deepestRead(new Set(["lead_part_readable"]))).toBeUndefined();
+    expect(deepestRead(new Set(["lead_paywalled", "lead_abstract_readable"]))).toBeUndefined();
   });
 
   // The recheck of 5 Nov 2026: an abstract the AI read through its own search, behind a paywall AskRigor met, is a

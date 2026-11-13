@@ -15,7 +15,8 @@ import { COMPLETE_CHECKS_TIP, repeatPassNote, SOURCE_LINE_SHAPE_NOTE } from "./f
 import { communityLeadVideo, leadKey, leadPhrase, readCommunityLeads } from "./community-leads.js";
 import { ABSENCE_SWEEP_RULES, nameFormInQuery, sameName } from "./absence-searches.js";
 import {
-  answerReadingRule, DECLARABLE_WITHOUT_RECEIPT, declarableReading, deepestShown, identifierShown, judgeSourceReading,
+  answerReadingRule, DECLARABLE_WITHOUT_RECEIPT, declarableReading, deepestRead, deepestShown, identifierShown,
+  judgeSourceReading,
   LINKED_READINGS_SHOWN, linkedReading, linkedReadingCheckSchema, readingShown, receiptReadings, sourceReadingCheckSchema,
   verifiedAnswerReading, type AnswerReading, type LinkedReadingCheck, type ShownReading, type SourceReadingCheck,
   type SourceReadingQuote
@@ -1365,6 +1366,17 @@ function earlierObservations(carried: CarriedState | undefined, turn: string): C
   if (carried.turn !== turn) return carried.observations;
   const own = new Set(carried.turn_observations ?? []);
   return carried.observations.filter((_, index) => !own.has(index));
+}
+
+/**
+ * How the read-depth step names what the receipts show when the bar an entry is held to is only what a full-text lead
+ * found readable: the reading they do show read beside the lead, or that they show none (Greptile's review of #441,
+ * 13 Nov 2026).
+ */
+function leadBarRead(read: AnswerReading | undefined): CheckRule {
+  return read === undefined
+    ? rule`this call's receipts show: they show no reading of it, only a full-text lead that `
+    : rule`this call's receipts show: they show ${read} (${answerReadingRule(read)}), and a full-text lead that `;
 }
 
 /**
@@ -3252,11 +3264,13 @@ export function finalizeResearch(
           rule`source_reading gives ${source.id} the reading ${given} (${answerReadingRule(given)}), more than `,
           reading === undefined
             // Greptile's review of 12 Nov 2026: a lead that found an abstract or part of a text readable gave the AI
-            // none of it, so the receipts show no reading there, and the step says what the bar then is: the most an
-            // entry may say (declarableReading), not a reading they show.
+            // none of it, so the receipts show no such reading, and the step says what the bar then is: the most an
+            // entry may say (declarableReading), not a reading they show. It names what they do show read beside the
+            // lead, a PubMed record's abstract say, and never denies it (Greptile's review of #441, 13 Nov 2026: "no
+            // reading of it" stood there beside an abstract read, so the AI could have fetched it again).
             ? readingShown(bar, shownSet)
               ? rule`this call's receipts show: they show ${bar} (${answerReadingRule(bar)}). `
-              : joinRules(rule`this call's receipts show: they show no reading of it, only a full-text lead that `,
+              : joinRules(leadBarRead(deepestRead(shownSet)),
                 rule`found no more of it readable than ${bar} (${answerReadingRule(bar)}), the most an entry may say. `)
             : rule`this call's receipts show: this check verifies ${bar} (${answerReadingRule(bar)}). `,
           rule`Remove the source_reading entry claiming ${given} for ${source.id}, or change its reading to ${bar}, with `,

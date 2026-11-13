@@ -245,6 +245,20 @@ export function deepestShown(shown: ReadonlySet<ShownReading>): ShownReading | u
 }
 
 /**
+ * The deepest reading of a source its receipts show read, in the words an answer gives it: an abstract, a record or a
+ * search's listing that stands beside a lead (a deeper reading would be shown outright). Undefined when they show none
+ * read: what a lead found readable is no reading (READABLE_NOT_READ), and why nothing was read, no access or a
+ * failure, is none either. It is for saying what the receipts do show when the bar an entry is held to is only what a
+ * lead found readable (Greptile's review of #441, 13 Nov 2026: with a PubMed record's abstract beside a lead that
+ * found part of the text readable, the read-depth step said the receipts showed "no reading of it").
+ */
+export function deepestRead(shown: ReadonlySet<ShownReading>): AnswerReading | undefined {
+  const read = SHOWN_ORDER.find((reading) => shown.has(reading) && !READABLE_NOT_READ.has(reading) &&
+    READING_DEPTH[reading] > 0);
+  return read === undefined ? undefined : declarableReading(read);
+}
+
+/**
  * The most an entry may say for what a receipt shows, in a reading an answer gives: for a lead, the reading its state
  * would be. For a lead that found an abstract or part of a text readable this is the bar an entry is held to, as since
  * the recheck of 5 Nov 2026, and not a reading the receipts show (readingShown).
