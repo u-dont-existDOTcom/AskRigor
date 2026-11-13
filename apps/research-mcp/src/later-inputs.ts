@@ -20,7 +20,7 @@ import { atlasReportShareSchema, reportNumberSchema } from "./atlas/report-door.
 import { glanceRowIdSchema, glanceRowInputSchema } from "./atlas/glance-review.js";
 import { challengeMarkInputShape } from "./atlas/challenge-review.js";
 import { claimCoverageSchema } from "./claim-coverage.js";
-import { framingSchema, researchMenuSchema, researchSteeringInputSchema } from "./research-steering.js";
+import { ASKED_LIMIT, framingSchema, researchMenuSchema, researchSteeringInputSchema } from "./research-steering.js";
 
 /**
  * list_calls' page: the calls received before a time, as a previous listing's next_before gave it (the review of 12 Nov
@@ -180,6 +180,12 @@ const LATER_INPUT_SHAPES = Object.freeze({
     researchMenu: researchMenuSchema.optional()
       .describe("With plan_research, after a quick screen: the research target, the next tasks with their kind and " +
         "what each could change, and the person's allocation once given."),
+    // Owner answer 298b (13 Nov 2026): the person's own words, for AskRigor's own planning call on a dev account. Read
+    // in memory for that call only; never signed, stored or logged.
+    asked: z.string().trim().min(1).max(ASKED_LIMIT).optional()
+      .describe("With register_plain_answer, when inspect asks for it: the person's own words about this question, " +
+        "word for word and in order: their question, and after it any answer they gave to a question of yours " +
+        "about it."),
     researchSteering: researchSteeringInputSchema.optional()
       .describe("With set_research_steering, when the person asks: style, checkBackMinutes and adjustmentDetail, any " +
         "of them."),

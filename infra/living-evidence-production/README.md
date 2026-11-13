@@ -902,6 +902,19 @@ change proxied with `Host: mcp.askrigor.com` and no forwarded address, so every
 such reader would share one address hash: install the current packet before
 relying on anonymous reports.
 
+The Claude API key (owner answers 221 and 298b): the overlay gives
+`research-mcp` one more read-only folder,
+`/opt/askrigor/state/claude-api:/run/askrigor-claude-api:ro`, for the key file
+of AskRigor's own planning call (`ASKRIGOR_RESEARCH_PLANNER_KEY_FILE=/run/askrigor-claude-api/key`;
+`../../docs/research-contributor-access.md`, "AskRigor's own planning call").
+The release that turns the call on installs the file from the owner's
+computer by script, never through chat, Git, `runtime.env` or a receipt: the
+folder owned by the service user (UID and GID 1000), mode `0750`, the file
+`key` owned by it, mode `0400`. With no file there, the call stays off and
+logs `key_file_unreadable`; nothing else changes. The API workspace ID is a
+line of `runtime.env` (`ASKRIGOR_RESEARCH_PLANNER_WORKSPACE_ID`) and is
+recorded nowhere in this repository.
+
 The owner's private page (the owner, 5 November 2026; built, not yet released;
 plan `../../docs/superpowers/plans/2026-11-05-atlas-owner-page.md`):
 `/atlas/account/private`, there only while participation is on, shows the

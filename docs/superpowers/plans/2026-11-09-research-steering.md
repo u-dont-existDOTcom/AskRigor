@@ -508,6 +508,78 @@ Criteria, written before any run. DEVELOPMENT / DISCOVERY, as above; one run of 
 - The four open questions are not rerun on this build: on them it stands where round 5 stood (two of four named a
   question), and the planning call is what is tried next.
 
+The check, on the live build 4fbd6c6b (#444; 13 Nov, 14:04 to 14:06 UTC; the record is
+`docs/audits/2026-11-13-owner-answer-298b-take-back-production-release.md`): the control missed again, for a new
+reason. Its turn ended after about 90 seconds with the menu and no named question ("It is requesting a research
+allocation before checking the reported diarrhoea percentage"). Its first call already carried a `steering_choice`,
+though `register_plain_answer` no longer names the field: ChatGPT keeps a memory of earlier chats. The value was
+`"none_needed"`, with the reason "User supplied paper, trial and outcome; no material ambiguity or decision
+requires clarification". AskRigor reads only the exact word none, so it took that for a named question and asked.
+The AI: "The second call returned researchMenu.next: "ask" and explicitly instructed me to obtain your allocation
+before continuing research, despite steering_choice: "none_needed"". One refused call for the first menu.
+
+So the miss was AskRigor's reading, not the AI's judgment. Fixed in the next build, on every account: a
+`steering_choice` that is neither the word none nor a sentence is handed back when the menu's decision rests on it,
+with the field's place marked, for exactly none or the question (`steeringChoiceUnclear`: a value that begins with
+the word none and goes on without a question mark, or a single run of ASCII letters, digits, `_`, `-`, `/` and `.`).
+It is a check of the value's form: what the value means stays the model's to declare, in one of the two forms.
+
+### AskRigor's own planning call (13 Nov 2026, owner answer 298b)
+
+The owner chose 298b: "build it for your account and try it for a week beside today's way. I measure both on the
+five questions and on your own research (asks, wrong readings, minutes), and you decide after." In their Inbox, of
+the offline result: "it makes sense to give everyone this api call if it plans the research better because that's
+the most important step to make sure everything else comes out well. but we should limit free accounts to maybe 10
+free api calls per day like this and let them know once they are not using the api calls on their questions
+anymore until limit resets or they get a paid plan".
+
+Built (`apps/research-mcp/src/research-planner.ts`; `docs/research-contributor-access.md`, "AskRigor's own planning
+call"): on a dev account, `register_plain_answer` makes one Claude API call (Opus 5.5, low effort, structured
+output, Anthropic's web search with two searches at most) and hands its plan back as `planned_later_inputs`, a menu
+ready for `plan_research`, which then decides by the account's style as before. `inspect` asks a dev account's AI
+for the person's own words (`later_inputs.asked`), since a research target is the AI's wording. Off, over a limit or
+failed, the result is the one every account gets. Limits: USD 3 a day together with the meaning judge, and a number
+of calls per account and day (10 by default, the owner's figure for a free account).
+
+Why its own searches: with the question alone, a model took "Ajax" for the football club 6 times of 6 (the
+offline try above); the call's first step is always a search, and a second finds where a claim or a figure in the
+question comes from. Tried on the API as built, 13 Nov, 13:50 to 13:55 UTC (DEVELOPMENT / DISCOVERY; 24 calls, 23 answered,
+about USD 1.33 of the owner's credit in all):
+
+- Its first wording, which let the model answer from memory: none for the control and a question for PewDiePie
+  and Syrian rue, but none for orange peel and SMILES (3 of 5); it searched once in five calls.
+- With "your first step is always a web search" and "try to name the question first": 5 of 5. PewDiePie: "What did
+  you mean by 'what China couldn't': Ajax beating Chinese AI models on performance, removing the censorship built
+  into the Chinese Qwen model, or getting OpenAI model outputs for training when Chinese labs got caught doing
+  it?"; SMILES: "Where did you see the 4x figure: a news story or social post comparing diet with drugs, the
+  trial's own remission numbers, or a claim built on the number needed to treat?"; orange peel: "What's the main
+  soil problem you want to fix: soil that dries out fast, poor soil low in nutrients, or something else like soil
+  acidity?"; Syrian rue: which oil, and by mouth or on the skin.
+- Nine wider questions, the same wording: none for a made-up snakebite emergency, a named trial (saffron and
+  fluvoxamine), one video, sea buckthorn capsules, bacopa's side effects and low-dose naltrexone; a question for
+  "What are the best treatments for depression?" (which situation), and for nebulized hydrogen peroxide (which
+  concentration), where none was expected; one call failed at the API and was not repeated.
+- 10 to 22 seconds and 6 to 9 cents a call with one or two searches.
+
+In-sample: the wording was changed twice on these same five questions, so they no longer test it. What the trial
+measures is the owner's own research over the week.
+
+Criteria for round 7, written before any run. DEVELOPMENT / DISCOVERY; the owner's five questions, word for word,
+in the owner's ChatGPT at Extra High, one run each, on the build that carries the call.
+
+- Each run: `register_plain_answer` returns a plan (`research_plan`), and the AI's next AskRigor call is
+  `plan_research` with that menu, with no screen between them.
+- The control: none, a checked answer in one turn, opening with how it read the question.
+- Each of the four open questions: the turn ends with the planner's question and the menu; a reply that answers
+  only the question goes on.
+- Cost: no refused `plan_research` call for the first menu (rounds 5 and 6: one or two each).
+- Read, not pass criteria: each finished answer against the answer the owner wanted (`askrigor/chains.md` in the
+  owner's pages: for PewDiePie, why China could not use the same trick, with what he is claimed to have done; for
+  SMILES, "closer to yes but more nuanced", with the effect-size comparison); minutes to the first reply and to the
+  answer, beside rounds 5 and 6; what each call cost.
+- The week: from the call record, on the owner's own research, how many registrations got a plan, how many menus
+  asked, and how often the person's reply changed the research; the owner's own judgment of the answers decides.
+
 ### Next stages
 
 1. Measure on the owner's regression list, on plan workers with no API spend: whether the framing asks the right

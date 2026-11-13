@@ -108,6 +108,31 @@
         "the API workspace ID"
       ],
       "codexOrWorkMayAuthorPaidProposal": false
+    },
+    {
+      "decisionId": "OWNER_ANSWER_298B",
+      "date": "2026-11-13",
+      "provider": "ANTHROPIC_CLAUDE_API",
+      "scopes": [
+        "RESEARCH_PLANNER_ON_OWNER_DEV_ACCOUNTS"
+      ],
+      "funding": "OWNER_MONTHLY_CLAUDE_API_CREDITS",
+      "ceiling": {
+        "basis": "OWNER_DAILY_CAP_OF_USD_3_SHARED_WITH_THE_MEANING_JUDGE",
+        "maximumModelApiSpendUsdPerMonth": 93,
+        "spendBeyondCreditsPermitted": false,
+        "note": "The planning call runs beneath the hard cap of USD 3 a day that owner answer 221 set for the meaning judge: the two features' daily caps together never exceed it (USD 93 over 31 days), inside the monthly credits OWNER_ANSWER_221 names. Each account also gets a set number of calls a day."
+      },
+      "question": "298. Let AskRigor make the research plan itself, with its own AI call? Right after the AI's quick answer, AskRigor runs that call itself and hands back the plan: the question to ask you, or none, and the tasks with their times. What it costs: my estimate is 2 to 8 cents per question, from your Claude API credit, under the USD 3 a day cap you set for the meaning judge. This would send the question and the AI's quick answer to Anthropic, and search words drawn from them to its web search. On your account only: nobody else's AskRigor changes. a: build it for your account and try it for a week beside today's way. b: a, and meanwhile take back the part of this morning's change that made the PITCH look-up ask you a question.",
+      "ownerWords": [
+        "298b inbox",
+        "it makes sense to give everyone this api call if it plans the research better because that's the most important step to make sure everything else comes out well. but we should limit free accounts to maybe 10 free api calls per day like this and let them know once they are not using the api calls on their questions anymore until limit resets or they get a paid plan"
+      ],
+      "notRecorded": [
+        "the key file's path",
+        "the API workspace ID"
+      ],
+      "codexOrWorkMayAuthorPaidProposal": false
     }
   ],
   "completion": {

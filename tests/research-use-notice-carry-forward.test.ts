@@ -101,7 +101,7 @@ describe("a wording-only notice carries an earlier yes forward", () => {
     await store.saveAccount(accountUnder(service, PERSON, V4));
     const server: AtlasServerFeatures = {
       redditReader: true, youtube: true, gemini: true, aiBudgetLeftNanoUsd: 30_000_000_000, videoSecondsLeft: 20_000,
-      meaningJudge: { on: false, dailyCapUsd: null }, ownerLibrary: true, sharedAnswers: true, findingsLibrary: true,
+      meaningJudge: { on: false, dailyCapUsd: null }, researchPlanner: { on: false, dailyCapUsd: null, accountDailyCalls: null }, ownerLibrary: true, sharedAnswers: true, findingsLibrary: true,
     };
     const features = await loadAtlasAccountFeatures({
       research: service, server: async () => server, ownerAccountKeys: new Set(), devAccountKeys: () => new Set(),
