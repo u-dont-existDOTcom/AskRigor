@@ -519,6 +519,38 @@ describe("treatment-landscape coverage Action", () => {
       expect(result.breadth_gaps).toContain(notSaturated);
     }
 
+    // The same two failed rounds, each closed by a terminal access boundary (refused for good, recovery tried):
+    // nothing is left to run for them and the boundary states the limit, so they stay closing rounds, as they were.
+    // Left out, a ledger whose every later search was refused for good said continue_research for ever (the second
+    // review of 13 Nov 2026).
+    const closed = closingRounds("inaccessible").map((batch) => ({ ...batch, access_boundary_id: `boundary-${batch.batch_id}` }));
+    const bounded = assessTreatmentLandscapeCoverage({
+      ...input,
+      discovery_batches: [firstRound, ...closed],
+      access_boundaries: closed.map((batch) => ({
+        boundary_id: `boundary-${batch.batch_id}`, scope_type: "discovery_batch" as const, scope_id: batch.batch_id,
+        access_status: "inaccessible" as const, materiality: "material" as const, impact: "confidence_changing" as const,
+        terminal: true, retryable: false, recovery_attempted: true,
+        description: "The search was refused for good, and a second try was refused too."
+      }))
+    });
+    // (This fixture keeps other open work, so its answer boundary is not what shows the difference here.)
+    expect(bounded).toMatchObject({ discovery_saturated: true, first_pass_complete: true });
+    expect(bounded.breadth_gaps).not.toContain(notSaturated);
+    // A boundary that is not terminal leaves the round to be run again, so it is no closing round.
+    const retryable = assessTreatmentLandscapeCoverage({
+      ...input,
+      discovery_batches: [firstRound, ...closed],
+      access_boundaries: closed.map((batch) => ({
+        boundary_id: `boundary-${batch.batch_id}`, scope_type: "discovery_batch" as const, scope_id: batch.batch_id,
+        access_status: "inaccessible" as const, materiality: "material" as const, impact: "confidence_changing" as const,
+        terminal: false, retryable: true, recovery_attempted: false,
+        description: "The search was refused once and has not been tried again."
+      }))
+    });
+    expect(retryable).toMatchObject({ discovery_saturated: false, first_pass_complete: false });
+    expect(retryable.breadth_gaps).toContain(notSaturated);
+
     // Rounds a rate limit or the daily quota stopped found nothing new either. They still count toward the
     // first-pass cap, as open leads; that rule is unchanged.
     const stopped = assess([firstRound, ...closingRounds("rate_limited")]);

@@ -115,6 +115,25 @@ describe("the per-video YouTube audit Action reply and its continuation handle",
     // The handle the refused reply would have carried is revoked, and the caller's own is released, then used.
     expect(store.calls).toEqual(["issue", "claim", "issue", "revoke", "rollback", "claim", "commit"]);
   });
+
+  // The research session's controller calls the same route inside the process, where no byte limit applies. It took
+  // the long reply before the HTTP reply was fitted to the limit, and a refusal there would have stopped its video
+  // work for good (the second review of 13 Nov 2026). So a route made for it keeps the reply whole.
+  it("leaves a caller inside the process its whole reply, however long the mismatch list", async () => {
+    const operation = auditOperation(async () => auditReply({ segment: 1, comments: 150, mismatches: 450 }));
+    const [route] = createResearchActionRoutes({ operations: [operation], replyWithinActionLimit: false });
+    const result = await route!.handle({ request: {} as never, clientIp: "internal-controller", body: { video_id_or_url: VIDEO_ID } });
+    expect(result.status).toBe(200);
+    const body = result.body as { reply_count_mismatches: unknown[]; coverage_receipt: unknown };
+    expect(body.reply_count_mismatches).toHaveLength(450);
+    expect(body.coverage_receipt).toEqual(projectDiscussionCoverageReceipt(body as never));
+    expect(Buffer.byteLength(JSON.stringify(body), "utf8")).toBeGreaterThan(RESPONSE_LIMIT_BYTES);
+
+    // The same reply over HTTP is refused, as the test above shows, and never sent over the limit.
+    const [bounded] = createResearchActionRoutes({ operations: [operation] });
+    await expect(bounded!.handle({ request: {} as never, clientIp: "test", body: { video_id_or_url: VIDEO_ID } }))
+      .rejects.toThrow();
+  });
 });
 
 function auditOperation(execute: (input: Record<string, unknown>) => Promise<unknown>): ResearchOperation {

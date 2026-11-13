@@ -1323,9 +1323,16 @@ export function assessTreatmentLandscapeCoverage(
     ({ validated_candidate_video_ids }) => validated_candidate_video_ids
   ));
   // Discovery stops at saturation, not at a count: the last two valid batches
-  // whose searches ran, from different queries, found no new material program
-  // and no video selected for audit that earlier batches had not already found.
+  // whose searches ran, or that a terminal access boundary closed, from
+  // different queries, found no new material program and no video selected for
+  // audit that earlier batches had not already found.
   const discoverySaturated = discoverySaturation(validBatches, {
+    closedByBoundary: (batch) => {
+      const boundary = batch.access_boundary_id === undefined ? undefined : boundaryById.get(batch.access_boundary_id);
+      return boundary !== undefined && boundary.scope_type === "discovery_batch" &&
+        boundary.scope_id === batch.batch_id && boundary.access_status === batch.access_status &&
+        boundary.terminal && !boundary.retryable && boundary.recovery_attempted;
+    },
     materialSignatureOf: (fingerprintId) => {
       const fingerprint = fingerprintById.get(fingerprintId);
       return fingerprint === undefined || fingerprint.materiality === "not_material"
@@ -1977,12 +1984,16 @@ type DiscoverySaturation = "saturated" | "too_few_batches" | "same_query" | "sti
 /** Whether the last two batches, from different queries, added nothing new; batches run in ledger order. */
 function discoverySaturation(
   batches: ReadonlyArray<{
+    batch_id: string;
     query_or_scope: string;
     access_status: z.output<typeof accessStatusSchema>;
+    access_boundary_id?: string | undefined;
     candidate_video_ids: string[];
     new_program_fingerprint_ids: string[];
   }>,
   context: {
+    closedByBoundary: (batch: { batch_id: string; access_status: z.output<typeof accessStatusSchema>;
+      access_boundary_id?: string | undefined }) => boolean;
     materialSignatureOf: (fingerprintId: string) => string | undefined;
     fingerprintOfCandidate: (videoId: string) => string | undefined;
     selectedVideoIds: ReadonlySet<string>;
@@ -2013,9 +2024,13 @@ function discoverySaturation(
   // quota, an error, a refusal) cannot show that nothing new was left to
   // find, so it is not one of the two closing rounds; what it did find still
   // counts as a find. Two such batches used to read as saturation (review of
-  // 13 Nov 2026).
+  // 13 Nov 2026). One that a terminal access boundary closed is different:
+  // nothing is left to run for it, and its boundary states the limit, so it
+  // stays a closing round, as it was. Left out, a ledger whose every later
+  // search was refused for good could never finish (the second review of
+  // that day).
   const rounds = found.filter(({ batch, foundNew }) =>
-    foundNew || isCompleteAccess(batch.access_status)
+    foundNew || isCompleteAccess(batch.access_status) || context.closedByBoundary(batch)
   );
   if (rounds.length < 2) return "too_few_batches";
   const [previous, last] = rounds.slice(-2);

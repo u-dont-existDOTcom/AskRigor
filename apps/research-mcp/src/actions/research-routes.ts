@@ -104,6 +104,14 @@ export interface CreateResearchActionRoutesOptions {
   operations?: readonly ResearchOperation[];
   protocolChunkDependencies?: ProtocolActionChunkDependencies;
   youtubeContinuationHandles?: YoutubeActionContinuationHandleStore;
+  /**
+   * False for a caller inside the process, which the Action route's byte limit does not bind (the research session's
+   * controller): its per-video audit reply stays as it always was, the audit cut to its first size with the receipt
+   * added whole, and is never refused for the receipt's size. True, the default, is the HTTP route, whose router
+   * refuses a reply over the limit, so the reply is cut until all of it fits (two reviews of 13 Nov 2026; the second
+   * found that the controller, which took the long reply before, would have been refused it).
+   */
+  replyWithinActionLimit?: boolean;
 }
 
 export function createResearchActionRoutes(
@@ -118,7 +126,7 @@ export function createResearchActionRoutes(
           operation,
           options.protocolChunkDependencies ?? defaultProtocolChunkDependencies()
         )
-      : createResearchActionRoute(operation, youtubeContinuationHandles)
+      : createResearchActionRoute(operation, youtubeContinuationHandles, options.replyWithinActionLimit !== false)
   ));
 }
 
@@ -173,7 +181,8 @@ function createProtocolActionRoute(
 
 function createResearchActionRoute(
   operation: ResearchOperation,
-  youtubeContinuationHandles: YoutubeActionContinuationHandleStore
+  youtubeContinuationHandles: YoutubeActionContinuationHandleStore,
+  replyWithinActionLimit: boolean
 ): ActionRoute {
   const inputSchema = objectSchema(operation.inputSchema, operation.name, "input");
   // The MCP audit tools declare their compact views; Action calls get the full audits.
@@ -276,15 +285,15 @@ function createResearchActionRoute(
           : undefined;
         const actionOutput = originalYoutubeOutput === undefined
           ? parsedOutput.data
-          : youtubeAuditActionOutput(originalYoutubeOutput, youtubeContinuationHandles);
+          : youtubeAuditActionOutput(originalYoutubeOutput, youtubeContinuationHandles, replyWithinActionLimit);
         const validatedActionOutput = actionOutputSchema.safeParse(actionOutput);
         if (!validatedActionOutput.success) {
           throw new Error("Research Action adapter returned invalid structured output");
         }
         if (previousHandle !== undefined) {
-          // youtubeAuditActionOutput measured the reply against the route's
-          // byte limit, so the router cannot refuse it for size once the
-          // handle is gone.
+          // For the HTTP route, youtubeAuditActionOutput measured the reply
+          // against the route's byte limit, so the router cannot refuse it
+          // for size once the handle is gone.
           const youtubeOutput = originalYoutubeOutput!;
           if (
             youtubeOutput.continuation_token !== undefined ||
@@ -342,7 +351,8 @@ function researchActionDescription(operation: ResearchOperation): string {
  */
 function youtubeAuditActionOutput(
   output: z.output<typeof youtubeVideoCommunityAuditOutputSchema>,
-  handles: YoutubeActionContinuationHandleStore
+  handles: YoutubeActionContinuationHandleStore,
+  replyWithinActionLimit: boolean
 ): YoutubeAuditActionOutput {
   const statelessToken = output.continuation_token;
   let nextHandle: string | undefined;
@@ -363,6 +373,9 @@ function youtubeAuditActionOutput(
         ...bounded,
         coverage_receipt: projectDiscussionCoverageReceipt(bounded)
       };
+      // A caller inside the process is not bound by the route's limit: it gets the reply as before, the audit at
+      // its first size and the receipt whole.
+      if (!replyWithinActionLimit) return reply;
       const excessBytes = serializedBytes(reply) - RESEARCH_ACTION_RESPONSE_MAX_BYTES;
       if (excessBytes <= 0) return reply;
       // Smaller each time round, so this ends: in a reply that fits, or in
