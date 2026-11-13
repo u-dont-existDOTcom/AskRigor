@@ -3747,6 +3747,174 @@ function withResearchReceipt(
   };
 }
 
+/*
+ * A study audit AskRigor refused (Greptile's review of 12 Nov 2026, P1). ChatGPT shows an error result that has no
+ * structured content, from a tool that declares an output schema, only as "The tool failed internally" (the owner's
+ * reports of 3 and 6 Oct 2026), hiding its text from the person and the model, and Claude Code hands its model the
+ * structured content alone. On 12 and 13 Nov 2026 the owner's ChatGPT retried refused study audits blind. So a refused
+ * study audit also says in its structured content why it was refused and what to send.
+ *
+ * An SDK client checks any structured content it receives against the published output schema, an error result's too.
+ * validate_study_method_audit's asks every result for status and coverage_receipt and nothing else, and a refusal can
+ * give both truthfully when its call names a document AskRigor holds read to its end: that document's handle and
+ * content hash, with audit_validated false, as the fresh_study_audit_required result gives them. The rest of a
+ * refusal is runtime only (owner answer 189a): the published schema and the frozen tool lists are unchanged. This
+ * replaces the reading of 7 Nov 2026 (AskRigor#431) that no structured error would fit the schema.
+ *
+ * Two kinds of refusal don't fit, and stay in the text. A call that names no such document (its handle expired,
+ * unknown or in use, or its text not read to its end) has no content hash to give. And validate_review_method_audit's
+ * published schema also asks every result for an audit_receipt, with its hash, its twelve domain findings and its
+ * three limitations: a refused audit has no receipt, and one made up for it would show an audit that was not validated
+ * as receipted. That tool's refusals are as they were, until its published schema no longer requires the receipt.
+ */
+const AUDIT_NOT_VALIDATED = "audit_not_validated";
+/**
+ * Why a study audit was refused: its source fields don't match the acquired document (audit-source.ts); what it cites
+ * is not in that document's blocks; or its input didn't parse (the later-inputs wrapper's code).
+ */
+const STUDY_AUDIT_REFUSAL_CODES = ["audit_source_mismatch", "audit_not_source_linked", "invalid_input"] as const;
+const STUDY_AUDIT_TOOL = "validate_study_method_audit";
+/** The words every refusal the study audit's validator throws about the audit begins with (study-method-audit.ts). */
+const STUDY_AUDIT_REFUSAL_START = "Study audit ";
+/** What a study audit refused before its document was read says to do, by the route's code. */
+const AUDIT_ROUTE_REFUSAL_GUIDANCE: Readonly<Record<string, string>> = {
+  open_full_text_not_fully_read: "This document_handle's full text has not been read to its end: call " +
+    "continue_open_full_text with it until coverage_receipt.exhausted is true, then send the audit again.",
+  open_full_text_handle_invalid_or_expired: "This document_handle is expired, unknown or in use by another call: " +
+    "discard its chain, acquire the paper again with acquire_open_full_text, read it to its end, and send the audit " +
+    "with the new document_handle and that document's primary identifier and content hash."
+};
+/** What a validator's refusal of an audit's citations is followed by: the audit's state, and what to do. */
+const AUDIT_STAYS_OPEN = "The audit was not validated and stays open: correct it against the blocks this " +
+  "document_handle returned and resubmit it to validate it.";
+
+/** What a refused audit says of the document its call names: read to its end, its content hash, and not validated. */
+const refusedAuditCoverageSchema = z.object({
+  document_handle: continueOpenFullTextActionInputSchema.shape.document_handle,
+  full_text_read_to_exhaustion: z.literal(true),
+  source_content_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  audit_validated: z.literal(false),
+  synthesis_use: z.literal(AUDIT_NOT_VALIDATED)
+}).strict();
+
+const studyAuditRouteShape = studyMethodAuditRouteOutputSchema.shape;
+/**
+ * validate_study_method_audit's results as the server checks them: the route's own, as the route checks them, and a
+ * refusal (runtime only, owner answer 189a), whose status and coverage_receipt are the published schema's two required
+ * fields.
+ */
+const studyMethodAuditRuntimeOutputSchema = z.object({
+  ...studyAuditRouteShape,
+  ...RESEARCH_RECEIPT_OUTPUT_SHAPE,
+  status: z.enum([...studyAuditRouteShape.status.options, AUDIT_NOT_VALIDATED]),
+  coverage_receipt: z.union([...studyAuditRouteShape.coverage_receipt.options, refusedAuditCoverageSchema]),
+  ok: z.literal(false).optional()
+    .describe("False with status audit_not_validated: AskRigor refused the audit, and it stays open."),
+  error: z.object({ code: z.enum(STUDY_AUDIT_REFUSAL_CODES), message: z.string().min(1) }).strict().optional()
+    .describe("With status audit_not_validated: why the audit was refused and what to send for it to validate, as " +
+      "the result's text says it."),
+  problems: z.array(z.string()).optional()
+    .describe("With error.code invalid_input: each problem with the call's input, by its path."),
+  mismatches: z.array(z.object({
+    check: z.enum(["identifier", "content_sha256", "completeness"]),
+    sent: z.string(),
+    expected: z.string()
+  }).strict()).optional()
+    .describe("With error.code audit_source_mismatch: each source check that failed, with the value the audit sent " +
+      "and the acquired document's own."),
+  corrected_audit_fields: z.object({
+    source_primary_identifier: z.string().optional(),
+    source_content_sha256: z.string().optional()
+  }).strict().optional()
+    .describe("With error.code audit_source_mismatch, when resubmitting repairs it: the audit's fields to change, " +
+      "with the acquired document's values. Resubmit the same audit with them on the same document_handle.")
+}).strict().superRefine((value, context) => {
+  const { ok, error, problems, mismatches, corrected_audit_fields: corrected, research_receipt: receipt,
+    ...route } = value;
+  if (value.status !== AUDIT_NOT_VALIDATED) {
+    // A result that completed is the route's own, checked as the route checks it, and carries nothing of a refusal.
+    const checked = studyMethodAuditRouteOutputSchema.safeParse(route);
+    for (const issue of checked.success ? [] : checked.error.issues) {
+      context.addIssue({ code: "custom", path: [...issue.path], message: issue.message });
+    }
+    if ([ok, error, problems, mismatches, corrected].some((field) => field !== undefined)) {
+      context.addIssue({ code: "custom", message: "only a refused audit carries a refusal's fields" });
+    }
+    return;
+  }
+  if (ok !== false || error === undefined || value.coverage_receipt.synthesis_use !== AUDIT_NOT_VALIDATED ||
+      receipt !== undefined || route.audit_receipt !== undefined || route.repository_reuse_receipt !== undefined ||
+      route.reason !== undefined || route.next_capability !== undefined) {
+    context.addIssue({ code: "custom", message: "a refused audit gives its error and its document, and no receipt" });
+  }
+});
+type StudyAuditRefusal = z.input<typeof studyMethodAuditRuntimeOutputSchema>;
+
+/** The document a refused audit's call names, when AskRigor holds it read to its end; nothing otherwise. */
+function refusedAuditCoverage(documentHandle: unknown): z.output<typeof refusedAuditCoverageSchema> | undefined {
+  if (typeof documentHandle !== "string") return undefined;
+  try {
+    const source = OPEN_FULL_TEXT_READER.readAuditMaterial?.(documentHandle).source;
+    return source === undefined ? undefined : {
+      document_handle: documentHandle,
+      full_text_read_to_exhaustion: true,
+      source_content_sha256: source.content_sha256,
+      audit_validated: false,
+      synthesis_use: AUDIT_NOT_VALIDATED
+    };
+  } catch {
+    // Expired, unknown, in use or not read to its end: no document to name.
+    return undefined;
+  }
+}
+
+/**
+ * A refused method audit's result: its text, and for a study audit whose call names a document read to its end, the
+ * same refusal as structured content that fits the published output schema. A review audit's has the text alone.
+ * `result` is the refusal as it stood, when another layer already worded it.
+ */
+function refusedMethodAudit(
+  operationId: string,
+  documentHandle: unknown,
+  error: NonNullable<StudyAuditRefusal["error"]>,
+  details: Pick<StudyAuditRefusal, "problems" | "mismatches" | "corrected_audit_fields"> = {},
+  result: CallToolResult = { content: [{ type: "text", text: error.message }], isError: true }
+): CallToolResult {
+  const coverage = operationId === STUDY_AUDIT_TOOL ? refusedAuditCoverage(documentHandle) : undefined;
+  if (coverage === undefined) return result;
+  const refusal = { status: AUDIT_NOT_VALIDATED, ok: false, error, ...details, coverage_receipt: coverage };
+  // Never at the text's expense: content that doesn't check leaves the refusal as it stood.
+  return studyMethodAuditRuntimeOutputSchema.safeParse(refusal).success
+    ? { ...result, structuredContent: refusal } : result;
+}
+
+/** The later-inputs wrapper's refusal of a call's input (later-inputs.ts), read back from the text it gives. */
+const laterInputsRefusalSchema = z.object({
+  error: z.object({ code: z.literal("invalid_input"), message: z.string().min(1) }).strict(),
+  problems: z.array(z.string())
+});
+
+/**
+ * validate_study_method_audit with its input refusal structured too. The wrapper every tool shares refuses a call
+ * whose input doesn't parse with text alone, as no structured content fits every tool's output schema; this tool's
+ * can hold it when the call names a document read to its end (refusedMethodAudit).
+ */
+function withStudyAuditInputRefusal(execute: ResearchOperationHandler): ResearchOperationHandler {
+  return async (input, extra) => {
+    const result = await execute(input, extra);
+    const [first] = result.content;
+    if (result.isError !== true || result.structuredContent !== undefined || first?.type !== "text" ||
+        result._meta?.["askrigor/errorCode"] !== "invalid_input") return result;
+    let refusal: z.output<typeof laterInputsRefusalSchema>;
+    try {
+      refusal = laterInputsRefusalSchema.parse(JSON.parse(first.text));
+    } catch {
+      return result;
+    }
+    return refusedMethodAudit(STUDY_AUDIT_TOOL, input.document_handle, refusal.error, { problems: refusal.problems },
+      result);
+  };
+}
 
 function registerOpenFullTextMcpTools(
   registrar: Pick<McpServer, "registerTool">,
@@ -3923,21 +4091,50 @@ async function invokeOpenFullTextMcp(
       body
     });
   } catch (error) {
+    const documentHandle = (body as { document_handle?: unknown } | null | undefined)?.document_handle;
+    const notValidated = `${operationId.replaceAll("_", " ")} did not validate the audit.`;
     // AskRigor#431: an audit whose source doesn't match the acquired document says which check failed and the values
-    // to resubmit with, in the text, since a structured error would not fit the tool's output schema.
+    // to resubmit with, in the text. 13 Nov 2026: a study audit's refusal says them in its structured content too
+    // (refusedMethodAudit), each failed check with what was sent and the document's own, and the fields to change
+    // when resubmitting repairs it, which it doesn't on a document that is not full text.
     if (error instanceof AuditSourceMismatchError) {
-      return {
-        content: [{ type: "text", text: `${operationId.replaceAll("_", " ")} did not validate the audit. ${error.message}` }],
-        isError: true
-      };
+      const repairable = !error.mismatches.some(({ check }) => check === "completeness");
+      const identifier = error.mismatches.find(({ check }) => check === "identifier")?.expected;
+      const contentSha256 = error.mismatches.find(({ check }) => check === "content_sha256")?.expected;
+      return refusedMethodAudit(operationId, documentHandle,
+        { code: "audit_source_mismatch", message: `${notValidated} ${error.message}` },
+        {
+          mismatches: error.mismatches.map(({ check, sent, expected }) => ({ check, sent, expected })),
+          ...(repairable ? { corrected_audit_fields: {
+            ...(identifier === undefined ? {} : { source_primary_identifier: identifier }),
+            ...(contentSha256 === undefined ? {} : { source_content_sha256: contentSha256 })
+          } } : {})
+        });
+    }
+    // 13 Nov 2026: what the validator refuses about a study audit's citations (a block the document doesn't have, a
+    // figure not in its cited block) used to be thrown, which the SDK returns as an error result with the message
+    // alone. It is the audit's refusal too, by the words every such message begins with; anything else is still
+    // thrown, and so is the review audit's, which could only be worded again (its schema holds no refusal).
+    if (operationId === STUDY_AUDIT_TOOL && error instanceof Error &&
+        error.message.startsWith(STUDY_AUDIT_REFUSAL_START)) {
+      return refusedMethodAudit(operationId, documentHandle, {
+        code: "audit_not_source_linked",
+        message: `${notValidated} ${error.message}${error.message.endsWith(".") ? "" : "."} ${AUDIT_STAYS_OPEN}`
+      });
     }
     throw error;
   }
   if (result.status !== 200) {
+    // 13 Nov 2026: a study audit refused before its document was read names the route's code and the next call. It
+    // has no document to name, so no structured content (refusedMethodAudit).
+    const code = (result.body as { error?: { code?: unknown } } | null | undefined)?.error?.code;
+    const guidance = typeof code === "string" ? AUDIT_ROUTE_REFUSAL_GUIDANCE[code] : undefined;
     return {
       content: [{
         type: "text",
-        text: `${operationId.replaceAll("_", " ")} could not complete.`
+        text: `${operationId.replaceAll("_", " ")} could not complete` +
+          (operationId !== STUDY_AUDIT_TOOL || typeof code !== "string" ? "."
+            : `: ${code}.${guidance === undefined ? "" : ` ${guidance}`}`)
       }],
       isError: true
     };
@@ -4206,7 +4403,7 @@ function collectResearchOperations(
           ? publishedOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
         : name === "fetch_clinical_trial" ? publishedOutputSchema.extend(CLINICAL_TRIAL_REGISTRATION_OUTPUT_SHAPE)
         : name === "search_europe_pmc" ? publishedOutputSchema.extend(ALL_JOURNALS_OUTPUT_SHAPE)
-          : name === "validate_study_method_audit" ? studyMethodAuditRouteOutputSchema.safeExtend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
+          : name === STUDY_AUDIT_TOOL ? studyMethodAuditRuntimeOutputSchema
             : publishedOutputSchema;
       const outputSchema = openToolOutputSchema(runtimeOutputSchema, publishedOutputSchema);
       // 12 Nov 2026: plan_research's menu is read in its own names before the inputs are checked, and a menu still not
@@ -4214,6 +4411,8 @@ function collectResearchOperations(
       const evolvingExecute = name === "manage_research_access"
         ? withResearchMenuReading(evolving.execute, { ...(options.toolListVersion === undefined ? {}
           : { toolListVersion: options.toolListVersion }) })
+        // 13 Nov 2026: a study audit refused for its input says so in its structured content too, when it can.
+        : name === STUDY_AUDIT_TOOL ? withStudyAuditInputRefusal(evolving.execute)
         : evolving.execute;
       const guardedExecute = options.researchAccessRequired === true &&
           !PRIVATE_MCP_OPERATION_NAMES.has(name) &&

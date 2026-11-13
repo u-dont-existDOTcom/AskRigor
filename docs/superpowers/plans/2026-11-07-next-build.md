@@ -69,7 +69,11 @@ bug report and a lesson.
   publication-notice audits check the identifier, the content SHA-256 and (but for a notice) completeness each on its
   own; `AuditSourceMismatchError` names each failed check with the value sent and the acquisition's own, and says the
   audit stays open until resubmitted. `invokeOpenFullTextMcp` returns it as the tool's text (an error result, since a
-  structured one would not fit the published output schema); the Custom GPT Action is unchanged.
+  structured one would not fit the published output schema); the Custom GPT Action is unchanged. Corrected on 13 Nov
+  2026 (Greptile's review of 12 Nov, P1): for `validate_study_method_audit` a structured refusal does fit, since its
+  published schema asks only for `status` and `coverage_receipt`, which a refusal gives truthfully when its call names
+  a document read to its end; ChatGPT showed the text-only error as "The tool failed internally" and retried blind. The
+  review audit's refusal stays text only: its published schema requires an `audit_receipt` a refused audit doesn't have.
   `tests/audit-source-repair.test.ts`: a DOI sent for a PMCID-acquired document names the PMCID; resubmitted, it passes.
 - **C2, claim coverage, a note** (`claim-coverage.ts`): each extracted claim has a runtime `id` (`<video>#<n>`, fixed by
   the receipt's video and n); the extraction's text asks the answer to account for every claim and says it is
