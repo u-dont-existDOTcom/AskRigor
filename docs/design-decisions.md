@@ -10,6 +10,10 @@ How to use this:
 
 ## Research and sources
 
+**The word "significant" is linted for misuse in research answers, not banned from English prose.**\
+Why: the owner clarified on 13 November 2026 that statistical significance must not replace effect size, and that ordinary meanings (important or substantial) remain legitimate. The deterministic scanner offers advisory detection of high-confidence unsafe inferences; the optional existing semantic judge evaluates context in its current call without a new paid API request.\
+Not done: a word ban, automatically classifying substantial real-world improvements as statistical, adding a seventh final-check blocking rule, or using regex to decide human meaning. This supersedes only the earlier ban on word lists, not the semantic-judgment boundary. Proposed 13 November 2026; not yet released.
+
 **A first pass stops early (about three videos read or two search rounds) and ends by offering what a deeper pass would focus on.**\
 Why: a full-depth answer took up to two and a half hours, most of it the model working through steps, not waiting on sources.\
 Not done: the old fixed minimum of eight videos and six programs. · Decided: 27 to 29 Sep 2026 (the owner); shipped 1 Oct.

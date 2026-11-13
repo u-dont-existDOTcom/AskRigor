@@ -12,6 +12,7 @@ import { askrigorBuildCommitFromEnv } from "./config.js";
 import type { RunningVersions } from "./version.js";
 import { createHash } from "node:crypto";
 import { COMPLETE_CHECKS_TIP, repeatPassNote, SOURCE_LINE_SHAPE_NOTE } from "./final-check-messages.js";
+import { significanceLanguageNotes, significanceMentions } from "./significance-language-lint.js";
 import { communityLeadVideo, leadKey, leadPhrase, readCommunityLeads } from "./community-leads.js";
 import { ABSENCE_SWEEP_RULES, nameFormInQuery, sameName } from "./absence-searches.js";
 import {
@@ -4050,6 +4051,11 @@ export function finalizeResearch(
     if (caveat !== MOBILE_NOTICE && !limits.includes(caveat)) requireLimit(caveat);
   }
   const draft = input.answer_draft?.trim();
+  // The lexical linter suggests repairs only. Ordinary English "significant" is not an error;
+  // a semantic model judges meaning where enabled. Owner-locked final-check gates are unchanged.
+  if (draft !== undefined) {
+    for (const note of significanceLanguageNotes(draft)) if (!notes.includes(note)) notes.push(note);
+  }
   // A findings card (owner decisions Q9 to Q11, 2026-09-30) is checked with
   // the answer, which needs one for any research account. A free contributor's
   // checked card is saved by the agreement the user accepted, with nothing
@@ -4621,6 +4627,16 @@ export function finalizeResearch(
         judgeNotes.push(`The meaning judge doubts that the quotes of source_lines[${line - 1}] back its claim${because(why)}. ` +
           "Bring the claim into line with what the paper says, or give the sentence that does back it, and check the " +
           "answer again.");
+      }
+      // Meaning is context-dependent: unlike the lexical scanner, the optional existing semantic judge
+      // can distinguish legitimate ordinary English from misleading statistical conclusions.
+      const usages = draft === undefined ? [] : significanceMentions(draft);
+      for (const { occurrence, misused, why } of judgment.significance ?? []) {
+        const usage = usages[occurrence - 1];
+        if (!misused || usage === undefined) continue;
+        judgeNotes.push("Significance-language linter flags " + JSON.stringify(usage.context) +
+          " as potentially misleading" + because(why) +
+          ". Clarify whether statistical or ordinary-language importance was intended, and report effect magnitude and uncertainty where relevant.");
       }
       const card = findingsCard.status === "checked" ? input.findings_card : undefined;
       for (const { finding, standsAlone, why } of judgment.standalone) {
