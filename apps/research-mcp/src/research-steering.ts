@@ -1109,9 +1109,16 @@ const NO_GO_AHEAD_YET = "Do none of this menu's tasks before that: the go-ahead 
  * rule for the person's answer covered an allocation and a changed question only, so an answer that keeps the
  * question and picks a reading or a comparison had no instruction, and the question would have been asked for
  * nothing. Which reading or choice they gave is the model's to read, in any language; AskRigor receives no word of it.
+ *
+ * Greptile's review of this change (13 Nov 2026, P2): a reply that answers the question and gives no allocation, as
+ * "the difference" answers "do you mean either medicine or the difference?", had no way forward. The rule forbids an
+ * allocation the person did not give, and person_answered true with no allocation is no answer to the menu, so the
+ * same menu asked again and the model would have put the same question to them twice. Such a reply leaves the
+ * allocation to the AI, as "you decide" does: the handed-over call, declared the person's, goes on at once.
  */
 export const NAMED_ANSWER_STEERS = "What they answer to the question you named decides what the research checks: " +
-  "do the tasks, and write the answer, for the reading or choice they gave.";
+  "do the tasks, and write the answer, for the reading or choice they gave. A reply that answers it and gives no " +
+  "allocation leaves the allocation to you, as \"you decide\" does.";
 
 /**
  * The plan_research result's text, by the account's style: the ask, or the menu to show while going on. numbered is

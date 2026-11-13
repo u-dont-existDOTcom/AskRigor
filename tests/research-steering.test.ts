@@ -1302,7 +1302,8 @@ describe("a short menu on a dev account names the question it would ask, or none
       "they use, or the outcome that matters most to them";
     const NAMED = `; then the question you named for them, in their language: ${JSON.stringify(QUESTION)}`;
     const STEERS = "What they answer to the question you named decides what the research checks: do the tasks, and " +
-      "write the answer, for the reading or choice they gave.";
+      "write the answer, for the reading or choice they gave. A reply that answers it and gives no allocation " +
+      "leaves the allocation to you, as \"you decide\" does.";
     const TAIL = "; then this menu, numbered as here, saying for each task whether it means a quick look, reading " +
       "in full or a method audit (the times are rough planning estimates):";
     const lines = (plan: ResearchMenuInput, steering: ResearchSteering = DEFAULT_RESEARCH_STEERING) =>
@@ -1911,6 +1912,42 @@ describe("an allocation needs the person's answer declared, on every account (ro
     ["auth0|person", false, { steering_could_help: true }, { steering_could_help: false }, STEP_DECLARED],
     ["auth0|dev", true, { steering_choice: QUESTION }, { steering_choice: "none" }, STEP_NAMED],
   ] as const;
+
+  // Greptile's review of this change (13 Nov 2026, P2): a reply that answers the named question and gives no
+  // allocation ("the difference", to "do you mean either medicine or the difference?") had no way forward. The rule
+  // forbids an allocation the person did not give, and the declaration alone is no answer to the menu.
+  it("takes a reply that only answers the named question as leaving the allocation to the AI", async () => {
+    const { plan, receipt } = await session("auth0|dev", true);
+    const menu = { research_target: OPEN_TARGET, plain_answer_receipt: receipt, steering_choice: QUESTION,
+      tasks: OPEN_TASKS };
+    const first = await plan(menu);
+    const asked = first.structuredContent as Planned;
+    expect(asked).toMatchObject({ ok: true, researchMenu: { next: "ask", steering_choice: QUESTION } });
+    // The words, in next_step and in the rule for the person's answer, which a later turn reads.
+    const LEAVES = "A reply that answers it and gives no allocation leaves the allocation to you, as \"you decide\" " +
+      "does.";
+    expect(NAMED_ANSWER_STEERS.endsWith(` ${LEAVES}`)).toBe(true);
+    expect(asked.next_step.endsWith(` ${NAMED_ANSWER_STEERS}`)).toBe(true);
+    expect(first.content[0]!.text.split("\n").at(-2)).toContain(`the call on the next line. ${NAMED_ANSWER_STEERS} ` +
+      "If the reply changes the question, ");
+    // Why they are needed: the declaration with no allocation is no answer to the menu, so the same menu asks
+    // again, with the same question.
+    const alone = (await plan({ ...menu, person_answered: true, menu_digest: asked.researchMenu.menu_digest }))
+      .structuredContent as Planned;
+    expect(alone).toMatchObject({ ok: true, researchMenu: { next: "ask", steering_choice: QUESTION } });
+    // The way forward they name: the handed-over call, declared the person's, goes on at the first call.
+    const went = (await plan({ ...asked.you_decide_later_inputs!.researchMenu, person_answered: true }))
+      .structuredContent as Planned;
+    expect(went).toMatchObject({ ok: true, researchMenu: { next: "go_on", recommended: OWN } });
+    expect(went.researchMenu).not.toHaveProperty("allocation_not_used");
+    expect(went.researchMenu).not.toHaveProperty("steering_choice");
+    expect(went.next_step).toMatch(/^Do the recommended tasks now, in order, /u);
+    // A menu that named no question says nothing of it.
+    const { plan: other, receipt: otherReceipt } = await session("auth0|person", false);
+    const open = await other({ research_target: OPEN_TARGET, plain_answer_receipt: otherReceipt,
+      steering_could_help: true, tasks: OPEN_TASKS });
+    expect(text(open) + JSON.stringify(open.structuredContent)).not.toContain("the question you named");
+  });
 
   it("asks again when the handed-over call comes back without the person's answer, and goes on once it is declared",
     async () => {

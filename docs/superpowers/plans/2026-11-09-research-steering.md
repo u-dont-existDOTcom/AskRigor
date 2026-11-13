@@ -382,9 +382,14 @@ the reply the text hands over has "then the question you named for them, in thei
 place of the general sentence on what their choices could change; `next_step` says, right after "Ask the person now
 and end your turn", to put the question to them; the rule for the person's answer, and `next_step` at its end, say
 "What they answer to the question you named decides what the research checks: do the tasks, and write the answer, for
-the reading or choice they gave." (`NAMED_ANSWER_STEERS`: the rule covered only an allocation or a changed question,
+the reading or choice they gave. A reply that answers it and gives no allocation leaves the allocation to you, as
+"you decide" does." (`NAMED_ANSWER_STEERS`: the rule covered only an allocation or a changed question,
 so an answer that keeps the question and picks a reading or a comparison had no instruction, and the question would
-have been asked for nothing; which reading they gave is the model's to read, and AskRigor receives no word of it); and
+have been asked for nothing; which reading they gave is the model's to read, and AskRigor receives no word of it. Its
+second sentence is from Greptile's review of this change, P2: a reply that only answers the question gave no
+allocation, the rule forbids one the person did not give, and `person_answered` true with no allocation is no answer
+to the menu, so the same menu asked again and the model would have put the same question twice; the handed-over call,
+declared the person's, goes on at once); and
 the handed-over "you decide" call keeps the menu's
 `steering_choice`, so a copy is not handed back again. AskRigor checks only that a `steering_choice` was given and
 whether it is exactly the word none, in any letter case and without the spaces around it: none is a value of the

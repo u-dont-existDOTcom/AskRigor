@@ -319,8 +319,10 @@ was released on 12 November:
   of the general sentence on what their choices could change; `next_step` says to put it to them, right after "Ask
   the person now and end your turn"; the rule for the person's answer, and `next_step`, say that what they answer
   to that question decides what the research checks, so the tasks are done, and the answer written, for the reading
-  or choice they gave (`NAMED_ANSWER_STEERS`: the rule covered only an allocation or a changed question, so an answer
-  that keeps the question and picks a reading had no instruction); and the handed-over "you decide" call keeps it.
+  or choice they gave, and that a reply that answers it and gives no allocation leaves the allocation to the AI, as
+  "you decide" does (`NAMED_ANSWER_STEERS`: the rule covered only an allocation or a changed question, so an answer
+  that keeps the question and picks a reading had no instruction, and one that gave no allocation had no way forward
+  but the same ask again); and the handed-over "you decide" call keeps it.
   AskRigor checks only that a
   `steering_choice` was given and whether it is exactly the word none, in any letter case and without the spaces
   around it: none is a value of the field, not a judgment, and every other text is a named question, in any
