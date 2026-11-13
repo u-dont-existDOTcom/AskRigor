@@ -220,11 +220,12 @@ was released on 12 November:
   studies or the model's own time range), whether the person's choices could steer the research
   (`steering_could_help`, the model's judgment from the screen, with HRP's test for when approval is required: true
   when a choice the person could make, or something only they know, could materially change what the research checks,
-  false only when the question already fixes all of that; left out, it counts as true, except on a dev account,
-  where a menu whose ask rests only on it plans nothing until the model gives it: the result hands the call back with
-  `<true|false>` in its place, owner answer 294c, 12 November 2026), the person's allocation
+  false only when the question already fixes all of that; left out, it counts as true), the one question the model
+  would ask this person before researching, or the word none (`steering_choice`, at most 300 characters; owner answer
+  296b, 13 November 2026: given, it decides in place of `steering_could_help`, a named question as true and none as
+  false, and a dev account's short menu must carry it: below), the person's allocation
   once given, whether the person has answered the menu in a message of their own (`person_answered`, the model's own
-  declaration, which only a dev account requires, with an allocation: below), the tasks done, and optionally the
+  declaration, without which an allocation is not used: below), the tasks done, and optionally the
   plain answer's receipt. Each task gets a time range from its kind's
   planning estimate per source (`PLAN_TASK_MINUTES` in `apps/research-mcp/src/research-steering.ts`, measured on the
   timing runs of 9 November 2026); tasks that could change the conclusion are recommended first, then those that could
@@ -253,7 +254,8 @@ was released on 12 November:
   that follows, after any urgent action, with no research call and no final check, since a question is not an answer
   (HRP's preflight-only exit, and `StructuredUserSteeringAndApproval`: when approval is required, begin no substantive
   source collection in the same response). Then the reply, ready to send: at most two sentences on the first look,
-  said to be not yet checked, and one on what the person's choices could change when they could; the menu, one task
+  said to be not yet checked, and one on what the person's choices could change when they could, or, since 13
+  November 2026, the question the model named for them (`steering_choice`, below); the menu, one task
   per line, with the recommendation and the time to check and write the answer; and the question how to spend the
   time. It ends with what to do when the person replies: `plan_research` again with their allocation, the research
   target word for word as the menu gave it (or, when the plain answer's receipt shows it is not the registered one, as
@@ -263,10 +265,15 @@ was released on 12 November:
   something for the registered target, the "you decide" call follows it, ready to copy: the same menu with the
   recommended allocation inside it, also given as the runtime field `you_decide_later_inputs` (in the owner's ChatGPT
   run, "you decide" took seven calls). Nothing else follows.
-  On a dev account, an allocation is the person's answer only when the model declares it (round 3 of the owner's
+  An allocation is the person's answer only when the model declares it (round 3 of the owner's
   ChatGPT runs, 12 November 2026, on build 1d877300: the AI received the ask and 54 seconds later, in the same turn,
   sent the handed-over call itself; AskRigor said go on, and it researched for 17 minutes without the person, having
-  "treated AskRigor's returned you_decide_later_inputs allocation as a usable default"). There, `plan_research` uses
+  "treated AskRigor's returned you_decide_later_inputs allocation as a usable default"): on dev accounts from 12
+  November 2026 (#440), and on every account since 13 November 2026. Round 4 on the owner's account (13 November,
+  00:03 to 00:39 UTC) showed no first turn going on with an allocation the person had not given, and a real "you
+  decide" going on at the first `plan_research` call, while every other account still got the handed-over call as a
+  usable default; so the requirement is every account's, a fix under the owner's standing rule for fixes, told to
+  the owner that day with no objection. `plan_research` uses
   an allocation only with `person_answered` true in the menu, which says the person answered this menu in a message
   of their own, giving the allocation or leaving it to the AI. One sent with false or without it is not used: the
   result carries `researchMenu.allocation_not_used`, recommends AskRigor's own tasks and decides as if no allocation
@@ -275,22 +282,65 @@ was released on 12 November:
   the turn of the ask. It is not an error and hands back no corrected call. A menu that goes on whatever the person
   says (autonomous research, or a short menu the model judged not steerable) goes on with AskRigor's own tasks and
   says they are not the person's choice. The handed-over call carries `"person_answered": "<true|false>"` after
-  its allocation, to be replaced with whether the person has answered, and the menu's `steering_could_help` when it
-  gave one, so the call copied as it is asks again instead of being refused for the judgment. The words true and
+  its allocation, to be replaced with whether the person has answered, and the judgment the menu gave
+  (`steering_could_help`, `steering_choice`), so the call copied as it is is planned as the same menu: it asks again,
+  and on a dev account it is not handed back for the question left out. The words true and
   false are read as the values, a `person_answered` beside the menu goes inside it, and the placeholder left in is
   read as not given; any other word is refused as unreadable. The rule for the person's answer, the call's own line,
   `next_step` and the way back after a stop each say that an allocation goes with `person_answered` true. AskRigor
   checks only that it was declared: whether the person answered is the model's knowledge, in any language, and no
-  word of the person's is sent. A short menu that left `steering_could_help` out is still refused for the judgment
-  (owner answer 294c), whether or not it carries an allocation that is not used. Every other account's menus, words
-  and "you decide" call are as they were.
+  word of the person's is sent. On a dev account, a short menu that names no question is still handed back for it
+  (owner answer 296b, next), whether or not it carries an allocation that is not used.
+  On a dev account, a short menu names the question the model would ask the person, or none (owner answer 296b, 13
+  November 2026). From 12 November (owner answer 294c, #440), a dev account's menu whose ask rested only on
+  `steering_could_help` left out planned nothing until the model gave it, true or false. Round 4 of the owner's
+  ChatGPT runs on that build (13 November, 00:03 to 00:39 UTC): the control, one figure from one named trial, got
+  false and a checked answer in one turn, two open questions got true and asked, and two got false and went straight
+  to a checked answer. Asked why, the model named a choice of the person's both times ("you could have clarified
+  whether the comparison concerned Chinese AI-distillation attempts specifically or China's broader AI-development
+  capabilities"; "You could have chosen a broader comparison of dietary interventions against antidepressant trials
+  ... I selected the narrow approach myself"), and the owner: "for pewdiepie, i do recall it answered mostly the wrong
+  question". So the menu takes `steering_choice`. On every account that gives it, a named question counts as
+  `steering_could_help` true and the word none as false, whatever `steering_could_help` says beside it; with neither,
+  `steering_could_help` is read as before. On a dev account, a menu whose decision rests on the judgment (planned as
+  steerable it would ask, and planned as not steerable it would go on: read from the rule itself,
+  `steeringChoiceLeftOut`) plans nothing until it carries one. A menu that gives the yes or no alone, true or false,
+  or neither, is refused as `invalid_request`, with valid structured content and `corrected_later_inputs` built from
+  the call's own, `"steering_choice": "<the one question you would ask this person, or none>"` marking its place
+  before the tasks. The text and the error's message give the test (`STEERING_CHOICE`): try to name the question
+  first; if one can be named, AskRigor asks the person first; none only when no such question can be named because
+  the question itself fixes exactly what to look up, as with one result of one named study; and that every task on
+  the menu is needed to answer is not by itself a reason for none, since the person may mean a different reading or
+  comparison than the one the model picked. The placeholder left in is read as not given, exactly, so the call sent
+  back unchanged is handed back again and not planned. Guided and autonomous research, tasks past 10 minutes, the
+  person's declared allocation, a changed menu and a re-plan need no `steering_choice`, as they needed no judgment.
+  When the menu asks and a question was named, whatever the reason for the ask, the result carries it as
+  `researchMenu.steering_choice`; the reply the text hands over puts it to the person, in their language, in place
+  of the general sentence on what their choices could change; `next_step` says to put it to them, right after "Ask
+  the person now and end your turn"; the rule for the person's answer, and `next_step`, say that what they answer
+  to that question decides what the research checks, so the tasks are done, and the answer written, for the reading
+  or choice they gave (`NAMED_ANSWER_STEERS`: the rule covered only an allocation or a changed question, so an answer
+  that keeps the question and picks a reading had no instruction); and the handed-over "you decide" call keeps it.
+  AskRigor checks only that a
+  `steering_choice` was given and whether it is exactly the word none, in any letter case and without the spaces
+  around it: none is a value of the field, not a judgment, and every other text is a named question, in any
+  language, so what is unclear asks. It is a text the model writes, read in memory only; the person's reply to it is
+  never sent. An account that is not a dev account and gives no `steering_choice` is planned as before.
   A result that goes on says to do the tasks and then give the checked answer in the
   same turn, asks for a line before each task, sends a new fork that could change the conclusion back through
   `plan_research` with the tasks done and without the allocation, so the rule decides afresh (not in autonomous
   research, which checks and answers instead), says how to resume after a stop or a change of direction, asks for a
   task for each lead between people's reports and studies, and words the adjusted-variables look by the account's
   choice. With the plain answer's receipt it says whether the research
-  target is the registered one, word for word but for case and spacing, and how many minutes have passed since. Nothing
+  target is the registered one, word for word but for case and spacing, and how many minutes have passed since. When
+  it is not, the text says so, and since 13 November 2026 `next_step` does too, before any ask and in place of
+  the go-ahead (Greptile's review of 12 November 2026, reproduced by an audit: `next_step` said only to do the tasks
+  and finalize, or to ask, so an app that hands its model the structured content missed the correction, and the
+  answer ended without the comparison with the quick answer): before any research call, `plan_research` again with
+  the same menu and the research target word for word as `register_plain_answer`'s result quoted it, the words
+  `finalize_research` takes too, or, when the question itself changed, the plain answer registered again for the new
+  target with a framing, and the menu planned again; a menu that would have gone on says to do none of its tasks
+  before that, in `next_step` and in its text alike (the text used to follow its warning with "Go on now"). Nothing
   of the menu is stored.
 - **The menu as a model guesses it** (12 November 2026: in the owner's ChatGPT at Extra High, every run's
   `plan_research` was refused three to five times before one passed). Before the call's inputs are checked

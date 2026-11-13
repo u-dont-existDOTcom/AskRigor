@@ -226,7 +226,7 @@ minutes, ask for both reasons; not kept (the model's own allocation was refused 
 calls followed); "you decide" in turn 2; checked at 41.9 minutes, ready with limits. What it said about the
 Mediterranean diet is in the owner page's section of 10 Nov.
 
-### The judgment required on a dev account (12 Nov 2026, owner answer 294c)
+### The judgment required on a dev account (12 Nov 2026, owner answer 294c; since 13 Nov, the question named)
 
 The owner's ChatGPT on 12 Nov, on build a826ad10 (10 runs: the five test prompts twice, Extra High): the AI gave no
 `steering_could_help` on any menu, so the default (left out counts as yes) decided every short one. The four open
@@ -259,7 +259,15 @@ means a bare yes or no does not carry the judgment, and the next design has the 
 person about (none named, nothing to ask) instead of a third wording. Giving the requirement to every account is the
 owner's decision after the comparison.
 
-### An allocation needs the person's answer declared, on a dev account (12 Nov 2026)
+What followed (13 Nov 2026). Released in #440 (live 12 Nov, 23:58 UTC). Round 4, on that build: the control met its
+criterion (false after one refusal for the judgment, a checked answer and no question); the orange-peel and
+Syrian-rue questions carried true and asked; the PewDiePie and SMILES questions carried false and went on, two
+misses. The owner chose the next design named here at once, without a second wording (owner answer 296b): "The
+question named, on a dev account", below. In the code, `STEERING_CHOICE`, `steeringChoiceLeftOut` and the
+placeholder for `steering_choice` replace `STEERING_JUDGMENT`, `asksOnlyForJudgmentLeftOut` and the `<true|false>`
+placeholder for `steering_could_help`; the words true and false given for it are still read as the values.
+
+### An allocation needs the person's answer declared, on a dev account (12 Nov 2026; on every account since 13 Nov)
 
 Round 3 of the owner's ChatGPT runs, on the live build 1d877300 (the five test prompts, Extra High). When
 `plan_research` answers "ask", its result hands the AI the "you decide" call ready to copy (`you_decide_later_inputs`,
@@ -306,6 +314,105 @@ cannot confirm it for other accounts or models.
 If a first turn still goes on by declaring true without a reply, a declaration does not hold, and the next step is the
 enforced stop with a menu card, which the owner already chose for a missed bar (owner answer 288b), not a second
 wording. Giving the requirement to every account is the owner's decision after the comparison.
+
+What followed (13 Nov 2026). Released in #440 (live 12 Nov, 23:58 UTC). Round 4, on that build: (a) no first turn went
+on with an allocation the person had not given; (b) on the orange-peel question the reply "you decide" went on at the
+first `plan_research` call, with `person_answered` true. Every other account still got the handed-over call as a
+usable default, which is how the AI took the person's answer for itself on 12 Nov. So since 13 Nov the requirement
+is every account's, in place of criterion (c): `plan_research` uses an allocation only with `person_answered` true
+whatever the account, the handed-over call always carries the placeholder and the judgment the menu gave, and the
+rule for the person's answer, the call's own line, `next_step`, the way back after a stop and the stop for an
+allocation not used say so to everyone, without "on this account". It is a fix, under the owner's standing rule for
+fixes (an allocation the person did not give was never their answer), told to the owner on 13 Nov with no objection;
+not yet released. What an account that was not a dev account gets differently: a menu sent with an allocation and no
+`person_answered` true is the ask again (or AskRigor's own tasks, where the menu never waits), with the stop first;
+its handed-over call has the placeholder; and its words on the person's answer are the ones a dev account had.
+
+The same day, from Greptile's review of 12 Nov (P1), reproduced by an audit: when the menu's research target is not
+the one registered with the plain answer, the text carried the warning, but `next_step` said only to do the tasks
+and finalize, or to ask, so an app that hands its model the structured content went on and the answer ended without
+the comparison with the quick answer. `next_step` now says the correction first (`TARGET_NOT_REGISTERED`): before
+any research call, `plan_research` again with the same menu and the research target word for word as
+`register_plain_answer`'s result quoted it, the words `finalize_research` takes too, or, if the question itself
+changed, the plain answer registered again for the new target, with a framing, and the menu planned again. A menu that asks says it before the ask; one that
+would go on gets it in place of the go-ahead ("Do none of this menu's tasks before that"). The text of a menu that
+asks keeps its warning, as its rule for the person's answer names the registered target. The text of a menu that would
+go on says the same correction as `next_step`, last, with no go-ahead and none of what follows one: it used to give its
+warning and then "Go on now", so the text and `next_step` of one result would have disagreed.
+
+### The question named, on a dev account (13 Nov 2026, owner answer 296b)
+
+Round 4 of the owner's ChatGPT runs, on the live build 1e7d662e (#440; the five test prompts, Extra High; 13 Nov,
+00:03 to 00:39 UTC). The control, one figure from one named trial, carried `steering_could_help` false and ended with
+a checked answer and no question in one turn, as wanted. The orange-peel and Syrian-rue questions carried true and
+asked. The PewDiePie question and the SMILES question carried false and went straight to a checked answer (6m 17s
+and 9m 34s). Asked why, the AI said of the first: "I judged that all three checks were necessary to answer the
+question and that asking you to choose among them would merely delay the research. However, you could have clarified
+whether the comparison concerned Chinese AI-distillation attempts specifically or China's broader AI-development
+capabilities ... therefore, true would have been defensible, and my false judgment was too categorical"; and of the
+second: "I interpreted your question as a narrowly specified factual verification of one trial ... You could have
+chosen a broader comparison of dietary interventions against antidepressant trials ... I selected the narrow approach
+myself." So a bare yes or no let "every task is needed" stand for "nothing to ask", though the reading or the
+comparison was the AI's own pick: made to name a choice of the person's, it could, both times. The owner, in their
+Inbox on 13 Nov (choice b at 00:53 UTC, reply at 00:54 UTC): "for pewdiepie, i do recall it answered mostly the wrong
+question". They chose 296b: the AI must first try to name a choice of the person's that could change the research,
+and asks whenever it can name one.
+
+Built: the menu takes `steering_choice`, a text of 1 to 300 characters: the one question the AI would ask this person
+before researching, because their answer could change what the research checks (which reading of the question they
+mean, what is to be compared with what, their own situation or what they have tried, the form, dose or route, the
+outcome that matters most to them), as one sentence in their language; or the word none, when it can name no such
+question because the question itself fixes exactly what to look up. On every account that gives it, a named question
+counts as `steering_could_help` true and the word none as false, and it decides when both are given; with neither,
+`steering_could_help` is read as before (left out, it counts as true). On a dev account, a menu whose decision rests
+on the judgment (the same menu planned as steerable would ask, and planned as not steerable would go on:
+`steeringChoiceLeftOut`, read from the rule itself) plans nothing until it carries `steering_choice`. The yes or no
+alone, true or false, no longer answers there: such a menu, or one with neither, is refused (`invalid_request`, a
+valid structured content) and the call is handed back as `corrected_later_inputs`, built from its own, with
+`"steering_choice": "<the one question you would ask this person, or none>"` before the tasks. The text and the
+error's message give the test (`STEERING_CHOICE`): try to name the question first; if one can be named, AskRigor asks
+the person first; write none only when no such question can be named because the question fixes exactly what to look
+up, as with one result of one named study; and that every task on the menu is needed to answer is not by itself a
+reason for none, since the person may mean a different reading or comparison than the one the AI picked. The
+placeholder left in is read as not given, exactly, as `person_answered`'s is, so the call sent back unchanged is
+handed back again and not planned. Guided and autonomous research, tasks past 10 minutes, the person's declared
+allocation, a changed menu and a re-plan need no `steering_choice`, as they needed no judgment. When the menu asks
+and a question was named, whatever the reason for the ask: the result carries it as `researchMenu.steering_choice`;
+the reply the text hands over has "then the question you named for them, in their language", with the question, in
+place of the general sentence on what their choices could change; `next_step` says, right after "Ask the person now
+and end your turn", to put the question to them; the rule for the person's answer, and `next_step` at its end, say
+"What they answer to the question you named decides what the research checks: do the tasks, and write the answer, for
+the reading or choice they gave." (`NAMED_ANSWER_STEERS`: the rule covered only an allocation or a changed question,
+so an answer that keeps the question and picks a reading or a comparison had no instruction, and the question would
+have been asked for nothing; which reading they gave is the model's to read, and AskRigor receives no word of it); and
+the handed-over "you decide" call keeps the menu's
+`steering_choice`, so a copy is not handed back again. AskRigor checks only that a `steering_choice` was given and
+whether it is exactly the word none, in any letter case and without the spaces around it: none is a value of the
+field, as true and false are of the other, not a judgment, and every other text is a named question, in any
+language, so what is unclear asks. It never reads whether the text is a question. The limit of that exact check: a
+model that writes the word in another language, or adds anything to it, has named a question as far as AskRigor
+reads, so the menu asks, and the reply is told to put those words to the person. It is a text the model writes, read
+in memory only, and the person's reply to it is never sent. A menu of any other account that gives no
+`steering_choice` is planned as before (a test pins its ask line for line, and the yes or no alone going on). The
+screen's words (`RESEARCH_MENU_SHAPE`) are every account's as they were, so a dev account's AI learns the field from
+the refusal, as it learned the judgment in round 4.
+
+Criteria, written before any run. DEVELOPMENT / DISCOVERY: five prompts on one account can tune the wording, and
+cannot confirm it for other accounts or models.
+
+- The control: its first accepted menu carries none, and the turn ends with a checked answer and no question.
+- Each of the four open questions: its first accepted menu carries a named question; the result asks; and the reply
+  puts that question to the person with the menu.
+- The PewDiePie and SMILES questions ask again, as they did before #440.
+- Cost: at most as many refused calls per first menu as in round 4 (two).
+- Read, not a pass criterion: what the AI does with the person's answer to the named question. The rule for the
+  person's answer covers a reply that changes the question (register the plain answer again for the new research
+  target), one that gives or leaves the allocation, and, with a named question, an answer that keeps the question and
+  picks a reading or a choice: the tasks are done, and the answer written, for what they gave (`NAMED_ANSWER_STEERS`).
+  Whether the research then follows that answer is read in the run's second turn.
+
+If an open question still goes on with none, or the control asks, that is the owner's to see before any further
+change.
 
 ### Next stages
 

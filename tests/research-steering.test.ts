@@ -29,7 +29,9 @@ import {
   PLAN_TASK_KINDS,
   RESEARCH_LOOPS,
   RESEARCH_MENU_SHAPE,
-  STEERING_JUDGMENT,
+  STEERING_CHOICE,
+  TARGET_NOT_REGISTERED,
+  NAMED_ANSWER_STEERS,
   URGENT_FIRST,
   planTaskSchema,
   researchMenuSchema,
@@ -38,7 +40,6 @@ import {
   adjustmentGuidance,
   allocationAnswered,
   allocationNotUsedStop,
-  asksOnlyForJudgmentLeftOut,
   correctedMenu,
   framingGuidance,
   menuDigest,
@@ -47,9 +48,11 @@ import {
   planResearch,
   planResearchText,
   readResearchMenu,
+  steeringChoiceLeftOut,
   steeringSentence,
   taskMinutes,
   youDecideLaterInputs,
+  youDecideLaterInputsSchema,
   youDecideLine,
   type ResearchMenuInput,
 } from "../apps/research-mcp/src/research-steering.js";
@@ -379,7 +382,7 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     expect(planResearchText(autonomous, new Set())).toContain("After about 10 minutes of research, or sooner if a new " +
       "finding could change the conclusion, check what you have with finalize_research and give that answer");
     const allocated = planResearch(menu({ allocation: [{ task: 1, minutes: 5 }, { task: 3, minutes: 4 },
-      { task: 4, minutes: 1 }], done: [1] }), DEFAULT_RESEARCH_STEERING);
+      { task: 4, minutes: 1 }], person_answered: true, done: [1] }), DEFAULT_RESEARCH_STEERING);
     expect(allocated).toMatchObject({ next: "go_on", recommended: [{ task: 3, minutes: 4 }, { task: 4, minutes: 1 }],
       recommended_minutes: [5, 5] });
     const words = planResearchText(allocated, new Set([1]));
@@ -449,10 +452,12 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
       "When the person replies: call manage_research_access action plan_research again with the same " +
         "plain_answer_receipt, tasks and menu_digest (researchMenu.menu_digest in this result), research_target word " +
         `for word ${JSON.stringify(TARGET)}, and their ` +
-        "allocation inside researchMenu, as a list of {task, minutes}; for \"you decide\", or a reply that leaves the " +
-        "choice to you such as \"continue\", the recommended allocation. If the reply changes the question, register " +
-        "the plain answer again for the new research target first, with later_inputs.framing for it. Never send an " +
-        "allocation the person did not give or leave to you.",
+        "allocation inside researchMenu, as a list of {task, minutes}, with person_answered true in researchMenu too " +
+        "(send it only once they have answered this menu in a message of their own; an allocation without it is not " +
+        "used); for \"you decide\", or a reply that leaves the choice to you such as \"continue\", the recommended " +
+        "allocation, with person_answered true too. If the reply changes the question, register the plain answer " +
+        "again for the new research target first, with later_inputs.framing for it. Never send an allocation the " +
+        "person did not give or leave to you.",
     ]);
     expect(asked.endsWith("Never send an allocation the person did not give or leave to you.")).toBe(true);
     // A first menu with no task reading people's reports, or a research target not the registered one: said first.
@@ -475,9 +480,9 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
       "give it. If the reply");
     // The next step as a runtime field: ask, go on, or autonomous.
     expect(planNextStep(result)).toMatch(/^Ask the person now and end your turn: show researchMenu\.tasks/u);
-    expect(planNextStep(planResearch(menu({ allocation: [{ task: 1, minutes: 5 }] }), DEFAULT_RESEARCH_STEERING)))
-      .toBe("Do the recommended tasks now, in order, each within its minutes; then check the answer with " +
-        "finalize_research and give it in this turn.");
+    expect(planNextStep(planResearch(menu({ allocation: [{ task: 1, minutes: 5 }], person_answered: true }),
+      DEFAULT_RESEARCH_STEERING))).toBe("Do the recommended tasks now, in order, each within its minutes; then check " +
+      "the answer with finalize_research and give it in this turn.");
     expect(planNextStep(planResearch(menu(), { ...DEFAULT_RESEARCH_STEERING, style: "autonomous",
       checkBackMinutes: 15 }))).toMatch(/^Do the recommended tasks now; after about 15 minutes of research, check/u);
   });
@@ -488,7 +493,7 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     const fork = { task: "Read the 2024 trial that reverses the 2018 cohort", kind: "full_text" as const,
       could_change: "conclusion" as const };
     const withAllocation = planResearch(menu({ tasks: [...TASKS, fork], allocation: [{ task: 1, minutes: 5 },
-      { task: 3, minutes: 4 }], done: [1] }), DEFAULT_RESEARCH_STEERING);
+      { task: 3, minutes: 4 }], person_answered: true, done: [1] }), DEFAULT_RESEARCH_STEERING);
     // Kept, the allocation still names an open task, so the menu goes on with it and leaves task 5 out.
     expect(withAllocation).toMatchObject({ next: "go_on", recommended: [{ task: 3, minutes: 4 }] });
     const afresh = planResearch(menu({ tasks: [...TASKS, fork], done: [1] }), DEFAULT_RESEARCH_STEERING);
@@ -517,7 +522,8 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     const first = planResearch(menu({ tasks: DECLINED, steering_could_help: false }), DEFAULT_RESEARCH_STEERING);
     expect(first).toMatchObject({ next: "ask", recommended_minutes: [4, 12] });
     const answer = planResearch(menu({ tasks: DECLINED, steering_could_help: false,
-      allocation: [{ task: 1, minutes: 4 }, { task: 3, minutes: 3 }] }), DEFAULT_RESEARCH_STEERING);
+      allocation: [{ task: 1, minutes: 4 }, { task: 3, minutes: 3 }], person_answered: true }),
+      DEFAULT_RESEARCH_STEERING);
     expect(answer).toMatchObject({ next: "go_on", recommended: [{ task: 1, minutes: 4 }, { task: 3, minutes: 3 }] });
     const replan = menu({ tasks: [...DECLINED, DECLINED_FORK], done: [1], steering_could_help: false });
     const again = planResearch(replan, DEFAULT_RESEARCH_STEERING);
@@ -531,9 +537,9 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     expect(planResearch(replan, { ...DEFAULT_RESEARCH_STEERING, style: "autonomous" }).next).toBe("go_on");
     expect(planResearch(menu({ tasks: [DECLINED[0]!, TASKS[2]!], done: [1], steering_could_help: false }),
       DEFAULT_RESEARCH_STEERING)).toMatchObject({ next: "go_on", recommended: [] });
-    expect(planResearch(menu({ ...replan, allocation: [{ task: 3, minutes: 3 }, { task: 4, minutes: 1 }] }),
-      DEFAULT_RESEARCH_STEERING)).toMatchObject({ next: "go_on", recommended: [{ task: 3, minutes: 3 },
-      { task: 4, minutes: 1 }] });
+    expect(planResearch(menu({ ...replan, allocation: [{ task: 3, minutes: 3 }, { task: 4, minutes: 1 }],
+      person_answered: true }), DEFAULT_RESEARCH_STEERING)).toMatchObject({ next: "go_on",
+      recommended: [{ task: 3, minutes: 3 }, { task: 4, minutes: 1 }] });
     // Through the connector, the same.
     const { service, connect } = await start();
     await service.acceptFreeContributor("auth0|person", agreement);
@@ -561,8 +567,8 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     }
     // A named open task with no minutes is still the person's answer: nothing more to research.
     expect(allocationAnswered(menu({ allocation: [{ task: 1, minutes: 0 }] }))).toBe(true);
-    expect(planResearch(menu({ allocation: [{ task: 1, minutes: 0 }] }), DEFAULT_RESEARCH_STEERING))
-      .toMatchObject({ next: "go_on", recommended: [], recommended_minutes: [0, 0] });
+    expect(planResearch(menu({ allocation: [{ task: 1, minutes: 0 }], person_answered: true }),
+      DEFAULT_RESEARCH_STEERING)).toMatchObject({ next: "go_on", recommended: [], recommended_minutes: [0, 0] });
   });
 
   // Owner answer 284 (10 Nov 2026): balanced "should ask if the research could take longer than 10 mins OR if there is
@@ -618,7 +624,8 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
       .not.toContain(choices);
     expect(plan({ steering_could_help: true }, { ...DEFAULT_RESEARCH_STEERING, style: "autonomous" }).next)
       .toBe("go_on");
-    expect(plan({ steering_could_help: true, allocation: [{ task: 1, minutes: 5 }] }).next).toBe("go_on");
+    expect(plan({ steering_could_help: true, allocation: [{ task: 1, minutes: 5 }], person_answered: true }).next)
+      .toBe("go_on");
     // The field is a yes or no, named at the screen; the style's wording says when balanced asks.
     expect(researchMenuSchema.safeParse({ ...menu(), steering_could_help: "yes" }).success).toBe(false);
     expect(RESEARCH_MENU_SHAPE).toContain("steering_could_help, true when a choice the person could make, or " +
@@ -638,7 +645,7 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     expect(adjustmentGuidance("flagged")).toContain("say nothing about the rest unless the person asks");
     expect(adjustmentGuidance("all")).toContain("list each key study's adjusted variables with each one's likely role");
     // The look comes with the menu the research goes on from: here, after the person's allocation.
-    const all = planResearch(menu({ allocation: [{ task: 1, minutes: 5 }] }),
+    const all = planResearch(menu({ allocation: [{ task: 1, minutes: 5 }], person_answered: true }),
       { ...DEFAULT_RESEARCH_STEERING, adjustmentDetail: "all" });
     expect(planResearchText(all, new Set(), true)).toContain(adjustmentGuidance("all"));
   });
@@ -655,7 +662,8 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
       for (const words of [
         framingGuidance(steering, undefined),
         framingGuidance(steering, { likely_question: TARGET }),
-        planResearchText(planResearch(menu({ allocation: [{ task: 1, minutes: 5 }] }), steering), new Set(), true),
+        planResearchText(planResearch(menu({ allocation: [{ task: 1, minutes: 5 }], person_answered: true }),
+          steering), new Set(), true),
       ]) {
         expect(words).toContain(WORDS_ARE_NOT_SIZES);
       }
@@ -721,14 +729,16 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
 
   // The timing runs of 9 Nov 2026: every case's first plan_research call was refused, the model guessing the fields.
   it("names the menu's every field and value at the screen, and takes a menu written in that shape", () => {
-    // person_answered goes with the allocation, after the person answers; only the ask of an account that requires it
-    // names it (round 3 of 12 Nov 2026, below), so the screen's words are every account's as they were.
+    // person_answered goes with the allocation, after the person answers, and the ask names it (round 3 of 12 Nov
+    // 2026, below). steering_choice is asked for by a dev account's refusal alone (owner answer 296b, 13 Nov 2026,
+    // below). So the screen's words are every account's as they were.
     const fields = [...Object.keys(researchMenuSchema.shape).filter((key) => key !== "allocation" && key !== "done" &&
-      key !== "person_answered"), ...Object.keys(planTaskSchema.shape)];
+      key !== "person_answered" && key !== "steering_choice"), ...Object.keys(planTaskSchema.shape)];
     for (const name of [...fields, ...PLAN_TASK_KINDS, ...COULD_CHANGE, ...RESEARCH_LOOPS]) {
       expect(RESEARCH_MENU_SHAPE, name).toMatch(new RegExp(`\\b${name}\\b`, "u"));
     }
     expect(RESEARCH_MENU_SHAPE).not.toContain("person_answered");
+    expect(RESEARCH_MENU_SHAPE).not.toContain("steering_choice");
     expect(RESEARCH_MENU_SHAPE).toContain("allocation and done come only after the person answers or stops you");
     for (const style of ["guided", "balanced", "autonomous"] as const) {
       expect(framingGuidance({ ...DEFAULT_RESEARCH_STEERING, style }, undefined)).toContain(RESEARCH_MENU_SHAPE);
@@ -740,8 +750,10 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     const asked = planResearchText(planResearch(menu(), DEFAULT_RESEARCH_STEERING), new Set());
     expect(asked).toContain("call manage_research_access action plan_research again with the same plain_answer_receipt, " +
       "tasks and menu_digest (researchMenu.menu_digest in this result), research_target word for word, and their " +
-      "allocation inside researchMenu, as a list of {task, minutes}; for \"you decide\", or a reply that leaves the " +
-      "choice to you such as \"continue\", the recommended allocation.");
+      "allocation inside researchMenu, as a list of {task, minutes}, with person_answered true in researchMenu too " +
+      "(send it only once they have answered this menu in a message of their own; an allocation without it is not " +
+      "used); for \"you decide\", or a reply that leaves the choice to you such as \"continue\", the recommended " +
+      "allocation, with person_answered true too.");
   });
 
   it("asks for a people's-reports task when a first menu has none, and never renumbers an allocated one", async () => {
@@ -814,9 +826,9 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     expect(detailOnly.structuredContent).toMatchObject({ researchMenu: { next: "ask", recommended: [] } });
     const detailStep = (detailOnly.structuredContent as { next_step: string }).next_step;
     expect(detailStep).toMatch(/^Ask the person now and end your turn/u);
-    expect(detailStep).toContain("then call action plan_research again with their allocation inside " +
-      "later_inputs.researchMenu or, for \"you decide\", do no more research: check the answer with finalize_research " +
-      "and give it.");
+    expect(detailStep).toContain("then call action plan_research again with their allocation and person_answered " +
+      "true inside later_inputs.researchMenu or, for \"you decide\", do no more research: check the answer with " +
+      "finalize_research and give it.");
     expect(detailStep).not.toContain("the recommended one");
     expect(text(detailOnly)).toContain("such as \"continue\", no more research: check the answer with " +
       "finalize_research and give it.");
@@ -854,12 +866,14 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
       .toBe(true);
     expect(foreignLines.at(-1)).toBe(`Only once the person has replied "you decide", in a later message, never in this turn: call ` +
       `manage_research_access with action plan_research and ` +
-      "exactly these later_inputs; the recommended allocation is inside researchMenu, where every allocation goes, " +
-      `never beside it: ${JSON.stringify((foreign.structuredContent as { you_decide_later_inputs: unknown })
-        .you_decide_later_inputs)}`);
+      "these later_inputs, after replacing <true|false> in person_answered with whether the person has answered this " +
+      "menu in a message of their own since it was shown (true once they have, false before); an allocation sent " +
+      "with false, or without person_answered, is not used; the recommended allocation is inside researchMenu, " +
+      `where every allocation goes, never beside it: ${JSON.stringify((foreign.structuredContent as {
+        you_decide_later_inputs: unknown }).you_decide_later_inputs)}`);
     // Task numbers past the list are left out, with a problem.
     const past = await manage({ action: "plan_research", later_inputs: { researchMenu: {
-      ...menu(), allocation: [{ task: 9, minutes: 3 }, { task: 1, minutes: 5 }] } } });
+      ...menu(), allocation: [{ task: 9, minutes: 3 }, { task: 1, minutes: 5 }], person_answered: true } } });
     expect(past.structuredContent).toMatchObject({ researchMenu: { recommended: [{ task: 1, minutes: 5 }] },
       problems: [expect.stringContaining("Task numbers 9 are past the 4 tasks given")] });
     // An account without research access gets the usual refusal.
@@ -895,7 +909,8 @@ describe("plan_research reads the menu a model guessed, and refuses the rest wit
   const accepted = (result: Result) => {
     expect(result.isError, text(result)).not.toBe(true);
     return result.structuredContent as { researchMenu: { next: string; recommended: unknown[];
-      tasks: Array<{ minutes: unknown }> }; problems?: string[]; you_decide_later_inputs?: Record<string, unknown> };
+      tasks: Array<{ minutes: unknown }>; allocation_not_used?: true }; problems?: string[];
+      you_decide_later_inputs?: { researchMenu: Record<string, unknown> } };
   };
   const refused = (result: Result) => {
     expect(result.isError).toBe(true);
@@ -922,16 +937,25 @@ describe("plan_research reads the menu a model guessed, and refuses the rest wit
       tasks: GUESS_TASKS.slice(0, 2).map((task) => ({ ...task, minutes: 2 })) } });
     expect(accepted(fifth).researchMenu.tasks.map(({ minutes }) => minutes)).toEqual([[2, 2], [2, 2]]);
     expect(accepted(fifth).problems).toBeUndefined();
-    // 6: a null minutes, and the allocation and the person's reply beside the menu.
-    const sixth = await plan({ researchMenu: { research_target: GUESS_TARGET, plain_answer_receipt: receipt,
+    // 6: a null minutes, and the allocation and the person's reply beside the menu. The allocation is read inside the
+    // menu. Since 13 Nov 2026 it is the person's answer only with person_answered true, on every account: as the call
+    // came it is not used and the menu asks again; with the declaration, beside the menu too, it goes on.
+    const sixthLater = { researchMenu: { research_target: GUESS_TARGET, plain_answer_receipt: receipt,
       tasks: [{ ...GUESS_TASKS[0], minutes: null }, GUESS_TASKS[1], GUESS_TASKS[2]] },
-      allocation: [{ task: 1, minutes: 2 }, { task: 2, minutes: 2 }], user_choice: "you decide" });
-    const sixthMenu = accepted(sixth);
-    expect(sixthMenu.researchMenu).toMatchObject({ next: "go_on", recommended: [{ task: 1, minutes: 2 },
-      { task: 2, minutes: 2 }] });
-    expect(sixthMenu.problems).toEqual(["AskRigor read later_inputs.allocation as researchMenu.allocation: the " +
-      "allocation and done list go inside researchMenu, and ignored later_inputs.user_choice, which is not part of " +
-      "plan_research's menu."]);
+      allocation: [{ task: 1, minutes: 3 }, { task: 3, minutes: 2 }], user_choice: "you decide" };
+    const asItCame = accepted(await plan(sixthLater));
+    expect(asItCame.researchMenu).toMatchObject({ next: "ask", allocation_not_used: true,
+      recommended: [{ task: 1, minutes: 2 }, { task: 2, minutes: 2 }] });
+    expect(asItCame.problems).toEqual(["later_inputs.researchMenu.allocation: not used; an allocation is the " +
+      "person's answer only with person_answered true, which the call did not give", "AskRigor read " +
+      "later_inputs.allocation as researchMenu.allocation: the allocation and done list go inside researchMenu, and " +
+      "ignored later_inputs.user_choice, which is not part of plan_research's menu."]);
+    const sixthMenu = accepted(await plan({ ...sixthLater, person_answered: true }));
+    expect(sixthMenu.researchMenu).toMatchObject({ next: "go_on", recommended: [{ task: 1, minutes: 3 },
+      { task: 3, minutes: 2 }] });
+    expect(sixthMenu.problems).toEqual(["AskRigor read later_inputs.allocation as researchMenu.allocation, " +
+      "later_inputs.person_answered as researchMenu.person_answered: the allocation and done list go inside " +
+      "researchMenu, and ignored later_inputs.user_choice, which is not part of plan_research's menu."]);
     // 7 and 9: a setting beside the menu is ignored, and the account's style is unchanged.
     for (const researchSteering of [{ selection: "you decide" }, {}]) {
       const beside = await plan({ researchMenu: { research_target: GUESS_TARGET, plain_answer_receipt: receipt,
@@ -940,9 +964,9 @@ describe("plan_research reads the menu a model guessed, and refuses the rest wit
         "of plan_research's menu."]);
     }
     expect((await service.activeAccount("auth0|person")).steering).toEqual(DEFAULT_RESEARCH_STEERING);
-    // 11: user_allocation inside the menu is its allocation.
+    // 11: user_allocation inside the menu is its allocation, here with the person's answer declared.
     const eleventh = await plan({ researchMenu: { research_target: GUESS_TARGET, plain_answer_receipt: receipt,
-      tasks: GUESS_TASKS, user_allocation: [{ task: 1, minutes: 3 }] } });
+      tasks: GUESS_TASKS, user_allocation: [{ task: 1, minutes: 3 }], person_answered: true } });
     expect(accepted(eleventh).researchMenu).toMatchObject({ next: "go_on", recommended: [{ task: 1, minutes: 3 }] });
   });
 
@@ -986,34 +1010,48 @@ describe("plan_research reads the menu a model guessed, and refuses the rest wit
         "plan_research's menu.");
     });
 
-  it("hands over the \"you decide\" call, ready to copy, which goes on with the recommended allocation", async () => {
-    const { plan, receipt } = await session();
-    const asked = await plan({ researchMenu: { research_target: GUESS_TARGET, plain_answer_receipt: receipt,
-      tasks: GUESS_TASKS } });
-    const menuResult = accepted(asked);
-    expect(menuResult.researchMenu.next).toBe("ask");
-    const youDecide = menuResult.you_decide_later_inputs!;
-    expect(youDecide).toEqual({ researchMenu: { research_target: GUESS_TARGET, plain_answer_receipt: receipt,
-      tasks: GUESS_TASKS, allocation: menuResult.researchMenu.recommended,
-      menu_digest: (menuResult.researchMenu as { menu_digest?: string }).menu_digest } });
-    expect((youDecide.researchMenu as { menu_digest: string }).menu_digest).toMatch(/^md1~[A-Za-z0-9_-]{22}$/u);
-    expect(researchMenuSchema.safeParse(youDecide.researchMenu).success).toBe(true);
-    // In the text, right after the rule for the person's answer, saying the allocation goes inside researchMenu.
-    const lines = asked.content[0]!.text.split("\n");
-    expect(lines.at(-2)).toMatch(/^When the person replies: /u);
-    expect(lines.at(-2)).toContain("for \"you decide\", or a reply that leaves the choice to you such as " +
-      "\"continue\", the call on the next line.");
-    expect(lines.at(-1)).toBe("Only once the person has replied \"you decide\", in a later message, never in this turn: call " +
-      "manage_research_access with action plan_research and exactly " +
-      "these later_inputs; the recommended allocation is inside researchMenu, where every allocation goes, never " +
-      `beside it: ${JSON.stringify(youDecide)}`);
-    expect((asked.structuredContent as { next_step: string }).next_step).toContain("(for \"you decide\", with " +
-      "you_decide_later_inputs as later_inputs, as they are).");
-    // Sent back as it is, it goes on with that allocation, and offers no "you decide" call.
-    const decided = accepted(await plan(youDecide));
-    expect(decided.researchMenu).toMatchObject({ next: "go_on", recommended: menuResult.researchMenu.recommended });
-    expect(decided.you_decide_later_inputs).toBeUndefined();
-  });
+  it("hands over the \"you decide\" call, ready to copy, which goes on once the person's answer is declared",
+    async () => {
+      const { plan, receipt } = await session();
+      const asked = await plan({ researchMenu: { research_target: GUESS_TARGET, plain_answer_receipt: receipt,
+        tasks: GUESS_TASKS } });
+      const menuResult = accepted(asked);
+      expect(menuResult.researchMenu.next).toBe("ask");
+      // 13 Nov 2026: on every account the call carries person_answered's place, right after its allocation.
+      const youDecide = menuResult.you_decide_later_inputs!;
+      expect(youDecide).toEqual({ researchMenu: { research_target: GUESS_TARGET, plain_answer_receipt: receipt,
+        tasks: GUESS_TASKS, allocation: menuResult.researchMenu.recommended, person_answered: "<true|false>",
+        menu_digest: (menuResult.researchMenu as { menu_digest?: string }).menu_digest } });
+      expect(Object.keys(youDecide.researchMenu)).toEqual(["research_target", "plain_answer_receipt", "tasks",
+        "allocation", "person_answered", "menu_digest"]);
+      expect((youDecide.researchMenu as { menu_digest: string }).menu_digest).toMatch(/^md1~[A-Za-z0-9_-]{22}$/u);
+      // Read as plan_research reads it, the call is a menu, whose placeholder left in counts as not given.
+      expect(researchMenuSchema.safeParse(readResearchMenu(structuredClone(youDecide)).menu).success).toBe(true);
+      // In the text, right after the rule for the person's answer, saying the allocation goes inside researchMenu.
+      const lines = asked.content[0]!.text.split("\n");
+      expect(lines.at(-2)).toMatch(/^When the person replies: /u);
+      expect(lines.at(-2)).toContain("for \"you decide\", or a reply that leaves the choice to you such as " +
+        "\"continue\", the call on the next line.");
+      expect(lines.at(-1)).toBe("Only once the person has replied \"you decide\", in a later message, never in this " +
+        "turn: call manage_research_access with action plan_research and these later_inputs, after replacing " +
+        "<true|false> in person_answered with whether the person has answered this menu in a message of their own " +
+        "since it was shown (true once they have, false before); an allocation sent with false, or without " +
+        "person_answered, is not used; the recommended allocation is inside researchMenu, where every allocation " +
+        `goes, never beside it: ${JSON.stringify(youDecide)}`);
+      expect((asked.structuredContent as { next_step: string }).next_step).toContain("(for \"you decide\", with " +
+        "you_decide_later_inputs as later_inputs, after replacing <true|false> in person_answered: true once they " +
+        "have answered, false before).");
+      // Sent back as it is, it is the ask again, with the same call handed over; once the person has replied and the
+      // call says so, it goes on with that allocation, and offers no "you decide" call.
+      const copied = accepted(await plan(youDecide));
+      expect(copied.researchMenu).toMatchObject({ next: "ask", allocation_not_used: true,
+        recommended: menuResult.researchMenu.recommended });
+      expect(copied.you_decide_later_inputs).toEqual(youDecide);
+      const decided = accepted(await plan({ researchMenu: { ...youDecide.researchMenu, person_answered: true } }));
+      expect(decided.researchMenu).toMatchObject({ next: "go_on", recommended: menuResult.researchMenu.recommended });
+      expect(decided.researchMenu).not.toHaveProperty("allocation_not_used");
+      expect(decided.you_decide_later_inputs).toBeUndefined();
+    });
 });
 
 // The review of 12 Nov 2026: a re-plan before any task was done (no done list), with a new task added, went on without
@@ -1059,19 +1097,21 @@ describe("a menu the AI changed after the person saw it is shown to them first (
     // Greptile's review of 12 Nov 2026: an allocation sent with a changed menu is the person's answer, as they may have
     // added the task themselves when they redirected the research: it goes on with exactly that allocation.
     const redirected = await plan({ research_target: target, steering_could_help: false, tasks: [FIRST, FORK],
-      allocation: [{ task: 2, minutes: 1 }], menu_digest: digest });
+      allocation: [{ task: 2, minutes: 1 }], person_answered: true, menu_digest: digest });
     expect(redirected.structured.researchMenu).toMatchObject({ next: "go_on", menu_changed: true,
       recommended: [{ task: 2, minutes: 1 }] });
     // The changed menu's own digest, passed back with the person's answer, goes on with it.
     const answered = await plan({ research_target: target, steering_could_help: false, tasks: [FIRST, FORK],
-      allocation: [{ task: 2, minutes: 3 }], menu_digest: forked.structured.researchMenu.menu_digest });
+      allocation: [{ task: 2, minutes: 3 }], person_answered: true,
+      menu_digest: forked.structured.researchMenu.menu_digest });
     expect(answered.structured.researchMenu).toMatchObject({ next: "go_on", recommended: [{ task: 2, minutes: 3 }] });
     // The same menu retyped in other words, with new time estimates, when the person's answer is sent: not a change, so
     // the person isn't asked twice.
     const retyped = await plan({ research_target: target, steering_could_help: false,
       tasks: [{ ...FIRST, task: "Find trials of warm compresses for a stiff neck", minutes: [2, 5] },
         { ...FORK, task: "Find trials of heat wraps worn overnight", sources: 2 }],
-      allocation: [{ task: 2, minutes: 3 }], menu_digest: forked.structured.researchMenu.menu_digest });
+      allocation: [{ task: 2, minutes: 3 }], person_answered: true,
+      menu_digest: forked.structured.researchMenu.menu_digest });
     expect(retyped.structured.researchMenu).toMatchObject({ next: "go_on", recommended: [{ task: 2, minutes: 3 }] });
     expect(retyped.structured.researchMenu).not.toHaveProperty("menu_changed");
     // Autonomous research never stops to ask, and keeps the person's own allocation for a menu they changed, rather
@@ -1081,7 +1121,7 @@ describe("a menu the AI changed after the person saw it is shown to them first (
       menu_digest: digest });
     expect(autonomous.structured.researchMenu.next).toBe("go_on");
     const theirs = await plan({ research_target: target, steering_could_help: false, tasks: [FIRST, FORK],
-      allocation: [{ task: 2, minutes: 1 }], done: [1], menu_digest: digest });
+      allocation: [{ task: 2, minutes: 1 }], person_answered: true, done: [1], menu_digest: digest });
     expect(theirs.structured.researchMenu).toMatchObject({ next: "go_on", recommended: [{ task: 2, minutes: 1 }] });
   });
 
@@ -1106,8 +1146,9 @@ describe("a menu the AI changed after the person saw it is shown to them first (
     expect(planResearch(plan, DEFAULT_RESEARCH_STEERING, undefined, { digest, changed: true }))
       .toMatchObject({ next: "ask", menu_changed: true, menu_digest: digest });
     // With the person's allocation, a changed menu goes on with it.
-    expect(planResearch({ ...plan, allocation: [{ task: 2, minutes: 1.5 }] }, DEFAULT_RESEARCH_STEERING, undefined,
-      { digest, changed: true })).toMatchObject({ next: "go_on", menu_changed: true, recommended: [{ task: 2, minutes: 1.5 }] });
+    expect(planResearch({ ...plan, allocation: [{ task: 2, minutes: 1.5 }], person_answered: true },
+      DEFAULT_RESEARCH_STEERING, undefined, { digest, changed: true })).toMatchObject({ next: "go_on",
+      menu_changed: true, recommended: [{ task: 2, minutes: 1.5 }] });
     expect(planResearch(plan, DEFAULT_RESEARCH_STEERING, undefined, { digest, changed: false }).next).toBe("go_on");
     expect(planResearch(plan, DEFAULT_RESEARCH_STEERING).next).toBe("go_on");
   });
@@ -1117,13 +1158,13 @@ describe("a menu the AI changed after the person saw it is shown to them first (
 describe("the person's own minutes are kept as given", () => {
   it("keeps 1.5 as 1.5 in the plan, its total and its text, and rounds only AskRigor's own estimates", () => {
     const allocated = planResearch(menu({ allocation: [{ task: 1, minutes: 1.5 }, { task: 2, minutes: 0.1 },
-      { task: 4, minutes: 0.2 }] }), DEFAULT_RESEARCH_STEERING);
+      { task: 4, minutes: 0.2 }], person_answered: true }), DEFAULT_RESEARCH_STEERING);
     expect(allocated.recommended).toEqual([{ task: 1, minutes: 1.5 }, { task: 2, minutes: 0.1 }, { task: 4, minutes: 0.2 }]);
     expect(allocated.recommended_minutes).toEqual([1.8, 1.8]);
     expect(planResearchText(allocated, new Set())).toContain("Recommended: 1. 1.5 min, 2. 0.1 min, 4. 0.2 min, about " +
       "1.8 min in all.");
-    expect(planResearch(menu({ allocation: [{ task: 1, minutes: 2.5 }] }), DEFAULT_RESEARCH_STEERING).recommended)
-      .toEqual([{ task: 1, minutes: 2.5 }]);
+    expect(planResearch(menu({ allocation: [{ task: 1, minutes: 2.5 }], person_answered: true }),
+      DEFAULT_RESEARCH_STEERING).recommended).toEqual([{ task: 1, minutes: 2.5 }]);
     // A task's own estimate is still a rough range for the menu.
     expect(taskMinutes({ task: "x x x", kind: "other", could_change: "detail", minutes: [1.4, 2.6] })).toEqual([1, 3]);
   });
@@ -1132,9 +1173,19 @@ describe("the person's own minutes are kept as given", () => {
 // Owner answer 294c (12 Nov 2026). The owner's control question, one figure from one named paper, got the menu instead
 // of an answer in both ChatGPT runs: the AI left steering_could_help out on every menu, so the default (owner answer
 // 284: left out counts as yes) decided, not the AI. The owner: "those choices should have not been given as choices
-// since they were required to answer the question". On a dev account a short menu now needs the AI's own true or
-// false; every other account's menus are planned as before.
-describe("a short menu on a dev account needs the AI's own judgment (owner answer 294c)", () => {
+// since they were required to answer the question". So from #440 (live 12 Nov, 23:58 UTC) a short menu on a dev
+// account needed the AI's own true or false.
+// Owner answer 296b (13 Nov 2026). Round 4 of the owner's ChatGPT runs on that build (13 Nov, 00:03 to 00:39 UTC): the
+// control got false and a checked answer in one turn, the orange-peel and Syrian-rue questions got true and asked,
+// and the PewDiePie and SMILES questions got false and went straight to a checked answer. Asked why, the AI named a
+// choice of the person's both times ("you could have clarified whether the comparison concerned Chinese
+// AI-distillation attempts specifically or China's broader AI-development capabilities"; "You could have chosen a
+// broader comparison of dietary interventions against antidepressant trials ... I selected the narrow approach
+// myself"), and the owner: "for pewdiepie, i do recall it answered mostly the wrong question". So on a dev account a
+// short menu now names the question the AI would ask this person (steering_choice), or the word none, and the yes or
+// no alone no longer answers there; every other account's menus are planned as before when they give no
+// steering_choice. These fixtures are invented.
+describe("a short menu on a dev account names the question it would ask, or none (owner answers 294c and 296b)", () => {
   const PRECISE_TARGET = "How often loose stools were recorded in one named trial of two fever medicines in children";
   const PRECISE_TASKS: ResearchMenuInput["tasks"] = [
     { task: "Read the trial's adverse-event table in full", kind: "full_text", could_change: "conclusion" },
@@ -1142,52 +1193,210 @@ describe("a short menu on a dev account needs the AI's own judgment (owner answe
   ];
   const LONG_TASK: ResearchMenuInput["tasks"][number] = { task: "Read six more trials in full", kind: "full_text",
     sources: 6, could_change: "conclusion" };
+  const QUESTION = "Do you mean loose stools on either medicine, or the difference between the two?";
+  const PLACEHOLDER = "<the one question you would ask this person, or none>";
+  const guided: ResearchSteering = { ...DEFAULT_RESEARCH_STEERING, style: "guided" };
+  const autonomous: ResearchSteering = { ...DEFAULT_RESEARCH_STEERING, style: "autonomous" };
   const short = (overrides: Partial<ResearchMenuInput> = {}): ResearchMenuInput =>
     ({ research_target: PRECISE_TARGET, tasks: PRECISE_TASKS, ...overrides });
-  const rests = (plan: ResearchMenuInput, steering: ResearchSteering = DEFAULT_RESEARCH_STEERING,
-    changed?: { digest: string; changed: boolean }) =>
-    asksOnlyForJudgmentLeftOut(plan, steering, planResearch(plan, steering, undefined, changed), changed);
+  const GO_ON_STEP = "Do the recommended tasks now, in order, each within its minutes; then check the answer with " +
+    "finalize_research and give it in this turn.";
 
-  it("is needed exactly when the same menu with false would go on", () => {
-    // Balanced, both tasks recommended, 7 minutes at the most: the ask rests on the judgment alone.
+  it("is needed exactly when the same menu planned as steerable would ask, and as not steerable would go on", () => {
+    // Balanced, both tasks recommended, 7 minutes at the most: whether to ask rests on the judgment alone.
     expect(planResearch(short(), DEFAULT_RESEARCH_STEERING)).toMatchObject({ next: "ask",
       recommended_minutes: [3, 7] });
-    expect(rests(short())).toBe(true);
-    // Given, either way, it is the AI's own decision.
-    expect(rests(short({ steering_could_help: true }))).toBe(false);
-    expect(rests(short({ steering_could_help: false }))).toBe(false);
     expect(planResearch(short({ steering_could_help: false }), DEFAULT_RESEARCH_STEERING).next).toBe("go_on");
-    // A menu of detail alone, with nothing recommended: false would end the research, so the judgment is needed too.
-    expect(rests(short({ tasks: [TASKS[2]!] }))).toBe(true);
-    // Everything that asks or goes on whatever the judgment needs none: tasks past the 10 minutes, guided and
-    // autonomous research, the person's own allocation, a menu changed after they saw it, and a re-plan.
+    expect(steeringChoiceLeftOut(short(), DEFAULT_RESEARCH_STEERING)).toBe(true);
+    // Round 4: the yes or no alone, true or false, no longer answers it. The question is still left out.
+    expect(steeringChoiceLeftOut(short({ steering_could_help: true }), DEFAULT_RESEARCH_STEERING)).toBe(true);
+    expect(steeringChoiceLeftOut(short({ steering_could_help: false }), DEFAULT_RESEARCH_STEERING)).toBe(true);
+    // Given, a question or the word none, it is the AI's own decision, whatever the yes or no beside it says.
+    for (const steering_choice of [QUESTION, "none"]) {
+      for (const steering_could_help of [undefined, true, false]) {
+        expect(steeringChoiceLeftOut(short({ steering_choice, steering_could_help }), DEFAULT_RESEARCH_STEERING),
+          `${steering_choice} ${steering_could_help}`).toBe(false);
+      }
+    }
+    // A menu of detail alone, with nothing recommended: not steerable would end the research, so it is needed too.
+    expect(steeringChoiceLeftOut(short({ tasks: [TASKS[2]!] }), DEFAULT_RESEARCH_STEERING)).toBe(true);
+    // Everything that asks or goes on whatever the judgment needs no question, with the yes or no or without it:
+    // tasks past the 10 minutes, guided and autonomous research, the person's own allocation, a menu changed after
+    // they saw it, and a re-plan.
     expect(planResearch(short({ tasks: [LONG_TASK] }), DEFAULT_RESEARCH_STEERING).recommended_minutes[1])
       .toBeGreaterThan(ASK_ABOVE_MINUTES);
-    expect(rests(short({ tasks: [LONG_TASK] }))).toBe(false);
-    expect(rests(short(), { ...DEFAULT_RESEARCH_STEERING, style: "guided" })).toBe(false);
-    expect(rests(short(), { ...DEFAULT_RESEARCH_STEERING, style: "autonomous" })).toBe(false);
-    expect(rests(short({ allocation: [{ task: 1, minutes: 2 }] }))).toBe(false);
-    expect(rests(short(), DEFAULT_RESEARCH_STEERING, { digest: "md1~x", changed: true })).toBe(false);
-    expect(rests(short(), DEFAULT_RESEARCH_STEERING, { digest: "md1~x", changed: false })).toBe(true);
-    expect(rests(short({ done: [1] }))).toBe(false);
+    for (const steering_could_help of [undefined, true, false]) {
+      const given = (overrides: Partial<ResearchMenuInput> = {}) => short({ steering_could_help, ...overrides });
+      const name = String(steering_could_help);
+      expect(steeringChoiceLeftOut(given({ tasks: [LONG_TASK] }), DEFAULT_RESEARCH_STEERING), name).toBe(false);
+      expect(steeringChoiceLeftOut(given(), guided), name).toBe(false);
+      expect(steeringChoiceLeftOut(given(), autonomous), name).toBe(false);
+      expect(steeringChoiceLeftOut(given({ allocation: [{ task: 1, minutes: 2 }], person_answered: true }),
+        DEFAULT_RESEARCH_STEERING), name).toBe(false);
+      expect(steeringChoiceLeftOut(given(), DEFAULT_RESEARCH_STEERING, { digest: "md1~x", changed: true }), name)
+        .toBe(false);
+      expect(steeringChoiceLeftOut(given(), DEFAULT_RESEARCH_STEERING, { digest: "md1~x", changed: false }), name)
+        .toBe(true);
+      expect(steeringChoiceLeftOut(given({ done: [1] }), DEFAULT_RESEARCH_STEERING), name).toBe(false);
+      // An allocation the AI did not declare the person's answers nothing, so the question is still needed.
+      expect(steeringChoiceLeftOut(given({ allocation: [{ task: 1, minutes: 2 }] }), DEFAULT_RESEARCH_STEERING),
+        name).toBe(true);
+    }
   });
 
-  it("gives the call back with the judgment's place marked, and reads the words true and false as the values", () => {
+  it("reads a named question as steerable and the word none as not, in place of the yes or no", () => {
+    // The word none, in any letter case and with spaces around it: a short menu goes on, exactly as with false.
+    const precise = planResearch(short({ steering_could_help: false }), DEFAULT_RESEARCH_STEERING);
+    expect(precise).toMatchObject({ next: "go_on", steering_could_help: false });
+    for (const steering_choice of ["none", "None", "NONE", " nOnE "]) {
+      const result = planResearch(short({ steering_choice }), DEFAULT_RESEARCH_STEERING);
+      expect(result, steering_choice).toEqual(precise);
+      expect(result, steering_choice).not.toHaveProperty("steering_choice");
+    }
+    // A named question: the menu asks, exactly as with true, and carries the question for the reply.
+    const open = planResearch(short({ steering_could_help: true }), DEFAULT_RESEARCH_STEERING);
+    const named = planResearch(short({ steering_choice: QUESTION }), DEFAULT_RESEARCH_STEERING);
+    expect(open).toMatchObject({ next: "ask", steering_could_help: true });
+    expect(open).not.toHaveProperty("steering_choice");
+    expect(named).toEqual({ ...open, steering_choice: QUESTION });
+    expect(planResearch(short({ steering_choice: `  ${QUESTION} ` }), DEFAULT_RESEARCH_STEERING).steering_choice)
+      .toBe(QUESTION);
+    // When both are given, steering_choice decides.
+    expect(planResearch(short({ steering_could_help: true, steering_choice: "none" }), DEFAULT_RESEARCH_STEERING))
+      .toEqual(precise);
+    expect(planResearch(short({ steering_could_help: false, steering_choice: QUESTION }), DEFAULT_RESEARCH_STEERING))
+      .toEqual(named);
+    // none is an exact value, never a reading of meaning: any other text is a named question, in any language, so
+    // what is unclear asks.
+    for (const steering_choice of ["None.", "no", "n/a", "aucune", "none of these, I think"]) {
+      expect(planResearch(short({ steering_choice }), DEFAULT_RESEARCH_STEERING), steering_choice)
+        .toMatchObject({ next: "ask", steering_could_help: true, steering_choice });
+    }
+    // With neither, steering_could_help is read as before: left out, it counts as true and the result carries none.
+    const unsaid = planResearch(short(), DEFAULT_RESEARCH_STEERING);
+    expect(unsaid.next).toBe("ask");
+    expect(unsaid).not.toHaveProperty("steering_could_help");
+    expect(unsaid).not.toHaveProperty("steering_choice");
+    // The rest of the rule is the owner's as it was. The word none does not stop an ask that has another reason.
+    expect(planResearch(short({ tasks: [LONG_TASK], steering_choice: "none" }), DEFAULT_RESEARCH_STEERING))
+      .toMatchObject({ next: "ask", steering_could_help: false });
+    expect(planResearch(short({ steering_choice: "none" }), guided).next).toBe("ask");
+    expect(planResearch(short({ steering_choice: "none" }), DEFAULT_RESEARCH_STEERING, undefined,
+      { digest: "md1~x", changed: true }).next).toBe("ask");
+    expect(planResearch(short({ steering_choice: "none", done: [1] }), DEFAULT_RESEARCH_STEERING).next).toBe("ask");
+    // A named question does not stop autonomous research or the person's own allocation, and the result carries it
+    // only where the menu asks; where it asks for another reason too, the question still goes with it.
+    for (const going of [planResearch(short({ steering_choice: QUESTION }), autonomous),
+      planResearch(short({ steering_choice: QUESTION, allocation: [{ task: 1, minutes: 2 }], person_answered: true }),
+        DEFAULT_RESEARCH_STEERING)]) {
+      expect(going).toMatchObject({ next: "go_on", steering_could_help: true });
+      expect(going).not.toHaveProperty("steering_choice");
+    }
+    expect(planResearch(short({ tasks: [LONG_TASK], steering_choice: QUESTION }), guided))
+      .toMatchObject({ next: "ask", steering_choice: QUESTION });
+  });
+
+  it("puts the named question to the person in the reply and in next_step, in place of the general sentence", () => {
+    const HEAD = "Your reply: at most two sentences on what the first look suggests, saying it is not yet checked";
+    const GENERAL = ", and one on what their choices could change, such as their own situation, the form or dose " +
+      "they use, or the outcome that matters most to them";
+    const NAMED = `; then the question you named for them, in their language: ${JSON.stringify(QUESTION)}`;
+    const STEERS = "What they answer to the question you named decides what the research checks: do the tasks, and " +
+      "write the answer, for the reading or choice they gave.";
+    const TAIL = "; then this menu, numbered as here, saying for each task whether it means a quick look, reading " +
+      "in full or a method audit (the times are rough planning estimates):";
+    const lines = (plan: ResearchMenuInput, steering: ResearchSteering = DEFAULT_RESEARCH_STEERING) =>
+      planResearchText(planResearch(plan, steering), new Set(), false, PRECISE_TARGET).split("\n");
+    const reply = (words: string[]) => words.find((line) => line.startsWith("Your reply: "));
+    const open = lines(short({ steering_could_help: true }));
+    const named = lines(short({ steering_choice: QUESTION }));
+    // Two lines differ. The reply's first: the question stands where the general sentence stood. And the rule for
+    // the person's answer: it says what their answer to that question does, which nothing said (13 Nov 2026).
+    expect(reply(open)).toBe(HEAD + GENERAL + TAIL);
+    expect(reply(named)).toBe(HEAD + NAMED + TAIL);
+    expect(NAMED_ANSWER_STEERS).toBe(STEERS);
+    expect(named.filter((line) => line.includes(STEERS))).toHaveLength(1);
+    expect(named.find((line) => line.includes(STEERS))).toContain("the recommended allocation, with " +
+      `person_answered true too. ${STEERS} If the reply changes the question, register the plain answer again ` +
+      "for the new research target first");
+    expect(open.some((line) => line.includes(STEERS))).toBe(false);
+    expect(named.map((line) => line.replace(` ${STEERS}`, "")).filter((line) => line !== reply(named)))
+      .toEqual(open.filter((line) => line !== reply(open)));
+    expect(named).toHaveLength(open.length);
+    // The reason given is the AI's own judgment, as with true.
+    expect(named.join("\n")).toContain("their choices could steer the research, as they could here. Ask now, " +
+      "before any of these tasks");
+    // Guided research, and tasks past the 10 minutes, ask for their own reasons and put a named question all the
+    // same; with the word none they put none, and no general sentence either.
+    expect(reply(lines(short({ steering_could_help: true }), guided))).toBe(HEAD + TAIL);
+    expect(reply(lines(short({ steering_choice: QUESTION }), guided))).toBe(HEAD + NAMED + TAIL);
+    expect(reply(lines(short({ tasks: [LONG_TASK], steering_choice: QUESTION })))).toBe(HEAD + NAMED + TAIL);
+    expect(reply(lines(short({ tasks: [LONG_TASK], steering_choice: "none" })))).toBe(HEAD + TAIL);
+    expect(reply(lines(short({ tasks: [LONG_TASK] })))).toBe(HEAD + GENERAL + TAIL);
+    // next_step, for an app that hands its model only the structured content: the question right after the stop.
+    const STEP_TAIL = "show researchMenu.tasks as a numbered list with their times, the recommendation and how to " +
+      "answer (task numbers and minutes, or \"you decide\"). Make no research call and don't call finalize_research " +
+      "until they answer; then call action plan_research again with their allocation and person_answered true " +
+      "inside later_inputs.researchMenu (for \"you decide\", with you_decide_later_inputs as later_inputs, after " +
+      "replacing <true|false> in person_answered: true once they have answered, false before). Send " +
+      "person_answered true only once they have answered this menu in a message of their own: an allocation is the " +
+      "person's answer only with person_answered true, and one sent without it is not used.";
+    expect(planNextStep(planResearch(short({ steering_choice: QUESTION }), DEFAULT_RESEARCH_STEERING))).toBe("Ask " +
+      "the person now and end your turn: put the question you named to them, in their language " +
+      `(researchMenu.steering_choice), and ${STEP_TAIL} ${STEERS}`);
+    for (const plan of [short(), short({ steering_could_help: true }),
+      short({ tasks: [LONG_TASK], steering_choice: "none" })]) {
+      expect(planNextStep(planResearch(plan, DEFAULT_RESEARCH_STEERING))).toBe("Ask the person now and end your " +
+        `turn: ${STEP_TAIL}`);
+    }
+  });
+
+  it("gives the call back with the question's place marked, and reads the placeholder left in as not given", () => {
+    expect(MENU_PLACEHOLDERS.steering_choice).toBe(PLACEHOLDER);
     const example = correctedMenu(short({ plain_answer_receipt: "pa1~receipt" }), true);
     expect(example).toEqual({ researchMenu: { research_target: PRECISE_TARGET, plain_answer_receipt: "pa1~receipt",
-      steering_could_help: MENU_PLACEHOLDERS.steering_could_help, tasks: PRECISE_TASKS } });
-    expect(MENU_PLACEHOLDERS.steering_could_help).toBe("<true|false>");
-    // The judgment's place comes before the tasks, where the AI reads it first; one given is kept as given.
-    expect(Object.keys(example.researchMenu)).toEqual(["research_target", "plain_answer_receipt",
-      "steering_could_help", "tasks"]);
-    expect(correctedMenu(short({ steering_could_help: true }), true).researchMenu.steering_could_help).toBe(true);
-    expect(correctedMenu(short()).researchMenu).not.toHaveProperty("steering_could_help");
-    // The test both ways, in the owner's terms for false: tasks all needed to answer are not choices.
-    expect(STEERING_JUDGMENT).toContain("true, the usual case, when a choice the person could make, or something " +
-      "only they know, could materially change what the research checks");
-    expect(STEERING_JUDGMENT).toContain("false when no choice is left to them, because the question already fixes " +
-      "all of that and every task on the menu is needed to answer it whatever they would choose, as with one result " +
-      "of one named study");
+      steering_choice: PLACEHOLDER, tasks: PRECISE_TASKS } });
+    // The question's place comes before the tasks, where the AI reads it first, after a yes or no the call gave,
+    // which is kept; a question given is kept as given; and only this refusal marks the place.
+    expect(Object.keys(correctedMenu(short({ plain_answer_receipt: "pa1~receipt", steering_could_help: false }),
+      true).researchMenu)).toEqual(["research_target", "plain_answer_receipt", "steering_could_help",
+      "steering_choice", "tasks"]);
+    expect(correctedMenu(short({ steering_could_help: false }), true).researchMenu)
+      .toMatchObject({ steering_could_help: false, steering_choice: PLACEHOLDER });
+    expect(correctedMenu(short({ steering_choice: QUESTION }), true).researchMenu.steering_choice).toBe(QUESTION);
+    expect(correctedMenu({ ...short(), steering_choice: ` ${QUESTION} ` }).researchMenu.steering_choice)
+      .toBe(QUESTION);
+    expect(correctedMenu(short()).researchMenu).not.toHaveProperty("steering_choice");
+    // 294c's place for the yes or no, <true|false>, is marked no more.
+    for (const marked of [false, true]) {
+      expect(correctedMenu(short(), marked).researchMenu).not.toHaveProperty("steering_could_help");
+    }
+    expect(MENU_PLACEHOLDERS).not.toHaveProperty("steering_could_help");
+    // As plan_research reads the menu: the placeholder left in is not given, exactly, and so is null.
+    const read = (steering_choice: unknown) =>
+      readResearchMenu({ researchMenu: { ...short(), steering_choice } }).menu as Record<string, unknown>;
+    for (const unfilled of [PLACEHOLDER, ` ${PLACEHOLDER} `, null]) {
+      expect(read(unfilled), String(unfilled)).not.toHaveProperty("steering_choice");
+      expect(researchMenuSchema.safeParse(read(unfilled)).success, String(unfilled)).toBe(true);
+    }
+    // A question or the word none is kept, without the spaces around it.
+    expect(researchMenuSchema.parse(read(` ${QUESTION} `)).steering_choice).toBe(QUESTION);
+    expect(researchMenuSchema.parse(read(" None ")).steering_choice).toBe("None");
+    expect(researchMenuSchema.safeParse(read("x".repeat(300))).success).toBe(true);
+    // What is not a text of 1 to 300 characters is refused as unreadable: nothing, a yes or no, a list, or more.
+    for (const unreadable of ["", "   ", true, [QUESTION], "x".repeat(301)]) {
+      expect(researchMenuSchema.safeParse(read(unreadable)).success, String(unreadable)).toBe(false);
+    }
+    // The test the refusal gives: name the question first; none only when the question fixes what to look up; and
+    // tasks that are all needed are not by themselves a reason for none (the round-4 finding).
+    expect(STEERING_CHOICE).toBe("the one question you would ask this person before researching, because their " +
+      "answer could change what the research checks, such as which reading of the question they mean, what is to " +
+      "be compared with what, their own situation or what they have tried, the form, dose or route, or the outcome " +
+      "that matters most to them. Try to name that question first, as one sentence in their language: if you can " +
+      "name one, AskRigor asks the person first. Write none only when you can name no such question, because the " +
+      "question itself fixes exactly what to look up, as with one result of one named study. That every task on " +
+      "the menu is needed to answer is not by itself a reason for none: the person may mean a different reading or " +
+      "comparison than the one you picked (HRP StructuredUserSteeringAndApproval)");
   });
 
   async function session(subject: string, dev: boolean, surface: "/mcp" | "/mcp/claude" = "/mcp") {
@@ -1201,68 +1410,126 @@ describe("a short menu on a dev account needs the AI's own judgment (owner answe
   }
   type Refused = { ok: boolean; error: { code: string; message: string }; problems: string[];
     corrected_later_inputs: { researchMenu: Record<string, unknown> } };
+  type Planned = { ok: boolean; researchMenu: { next: string; menu_digest: string; steering_choice?: string };
+    next_step: string; you_decide_later_inputs: { researchMenu: Record<string, unknown> } };
+  const LEFT_OUT = "later_inputs.researchMenu.steering_choice: left out; name the one question you would ask this " +
+    "person, or write none";
+  const refusalText = (example: unknown) => "AskRigor planned nothing yet. These tasks are short, so whether to ask " +
+    "the person first rests on later_inputs.researchMenu.steering_choice, which this call left out " +
+    `(steering_could_help alone, true or false, does not replace it): ${STEERING_CHOICE}.\nCall ` +
+    "manage_research_access with action plan_research again with these later_inputs, which are yours, after " +
+    `replacing ${PLACEHOLDER} with that question or with the word none: ${JSON.stringify(example)}`;
+  const OWN = [{ task: 1, minutes: 2 }, { task: 2, minutes: 3 }];
 
-  it("plans nothing until a dev account's AI says true or false, then decides by what it said", async () => {
-    const { plan } = await session("auth0|dev", true);
-    const first = await plan(short());
-    expect(first.isError).toBe(true);
-    const refused = first.structuredContent as Refused;
-    expect(refused).toMatchObject({ ok: false, error: { code: "invalid_request" },
-      problems: ["later_inputs.researchMenu.steering_could_help: left out; say true or false for this question"] });
-    expect(refused).not.toHaveProperty("researchMenu");
-    expect(refused.corrected_later_inputs).toEqual({ researchMenu: { research_target: PRECISE_TARGET,
-      steering_could_help: "<true|false>", tasks: PRECISE_TASKS } });
-    // The text asks for the judgment with its test and hands the call back; the message carries the test for an app
-    // that gives its model only the structured content.
-    expect(first.content[0]!.text).toBe("AskRigor planned nothing yet. These tasks are short, so whether to ask the " +
-      "person first rests on one judgment of yours, which this call left out: " +
-      "later_inputs.researchMenu.steering_could_help, " +
-      `${STEERING_JUDGMENT}.\nCall manage_research_access with action plan_research again with these later_inputs, ` +
-      "which are yours, after replacing <true|false> with true or false, your judgment for this question: " +
-      JSON.stringify(refused.corrected_later_inputs));
-    expect(refused.error.message).toContain(STEERING_JUDGMENT);
-    // False: a precise question goes on, with no question to the person.
-    const precise = await plan({ ...refused.corrected_later_inputs.researchMenu, steering_could_help: false });
-    expect(precise.isError).not.toBe(true);
-    expect(precise.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
-      steering_could_help: false, recommended: [{ task: 1, minutes: 2 }, { task: 2, minutes: 3 }] } });
-    expect(text(precise)).toContain("Go on now: do these tasks in this order");
-    // True: it asks, and says the choices could steer the research here, by the AI's own judgment.
-    const open = await plan({ ...refused.corrected_later_inputs.researchMenu, steering_could_help: true });
-    expect(open.structuredContent).toMatchObject({ ok: true,
-      researchMenu: { next: "ask", steering_could_help: true } });
-    expect(text(open)).toContain("their choices could steer the research, as they could here. Ask now, before any " +
-      "of these tasks");
-    expect(text(open)).not.toContain("was left out");
-    // The words, as the example's placeholder invites, are read as the values.
-    for (const [word, next] of [["false", "go_on"], [" TRUE ", "ask"]] as const) {
-      const worded = await plan({ ...refused.corrected_later_inputs.researchMenu, steering_could_help: word });
-      expect(worded.isError, word).not.toBe(true);
-      expect(worded.structuredContent, word).toMatchObject({ researchMenu: { next,
-        steering_could_help: next === "ask" } });
-    }
-    // The placeholder sent back unfilled, or any other word, is no judgment: the menu is refused as unreadable.
-    for (const word of ["<true|false>", "maybe"]) {
-      const unfilled = await plan({ ...refused.corrected_later_inputs.researchMenu, steering_could_help: word });
-      expect(unfilled.isError, word).toBe(true);
-      expect((unfilled.structuredContent as Refused).problems[0], word)
-        .toMatch(/^later_inputs\.researchMenu\.steering_could_help: /u);
-    }
-  });
+  it("plans nothing until a dev account's AI names the question or writes none: a yes or no alone is handed back",
+    async () => {
+      const { plan } = await session("auth0|dev", true);
+      // Neither given, or the yes or no alone, true or false: nothing is planned, and the call comes back with the
+      // question's place marked and the test.
+      for (const given of [{}, { steering_could_help: true }, { steering_could_help: false }]) {
+        const first = await plan(short(given));
+        expect(first.isError, JSON.stringify(given)).toBe(true);
+        const refused = first.structuredContent as Refused;
+        expect(refused, JSON.stringify(given)).toMatchObject({ ok: false, error: { code: "invalid_request" },
+          problems: [LEFT_OUT] });
+        expect(refused).not.toHaveProperty("researchMenu");
+        expect(refused).not.toHaveProperty("next_step");
+        expect(refused.corrected_later_inputs, JSON.stringify(given)).toEqual({ researchMenu: {
+          research_target: PRECISE_TARGET, ...given, steering_choice: PLACEHOLDER, tasks: PRECISE_TASKS } });
+        // The text asks for the question with its test and hands the call back; the message carries the test for an
+        // app that gives its model only the structured content.
+        expect(first.content[0]!.text, JSON.stringify(given)).toBe(refusalText(refused.corrected_later_inputs));
+        expect(refused.error.message).toContain(STEERING_CHOICE);
+        // The placeholder left in is read as not given: the same refusal again, and still nothing planned.
+        const again = await plan(refused.corrected_later_inputs.researchMenu);
+        expect(again.isError, JSON.stringify(given)).toBe(true);
+        expect(again.structuredContent).toEqual(first.structuredContent);
+        expect(again.content[0]!.text).toBe(first.content[0]!.text);
+      }
+      // The word none, in any letter case: a precise question goes on, with no question to the person; beside a yes
+      // too, since steering_choice decides.
+      for (const given of [{ steering_choice: "none" }, { steering_choice: "None" }, { steering_choice: " NONE " },
+        { steering_could_help: true, steering_choice: "none" }]) {
+        const precise = await plan(short(given));
+        expect(precise.isError, JSON.stringify(given)).not.toBe(true);
+        expect(precise.structuredContent, JSON.stringify(given)).toMatchObject({ ok: true, researchMenu: {
+          next: "go_on", steering_could_help: false, recommended: OWN }, next_step: GO_ON_STEP });
+        expect(precise.structuredContent).not.toHaveProperty("researchMenu.steering_choice");
+        expect(precise.structuredContent).not.toHaveProperty("you_decide_later_inputs");
+        expect(text(precise)).toContain("Go on now: do these tasks in this order");
+      }
+      // A named question: it asks, says the choices could steer the research here, and carries the question into
+      // the reply, next_step, researchMenu and the "you decide" call.
+      const open = await plan(short({ steering_choice: QUESTION }));
+      expect(open.isError).not.toBe(true);
+      const asked = open.structuredContent as Planned;
+      expect(asked).toMatchObject({ ok: true, researchMenu: { next: "ask", steering_could_help: true,
+        steering_choice: QUESTION, recommended: OWN } });
+      expect(text(open)).toContain("their choices could steer the research, as they could here. Ask now, before any " +
+        "of these tasks");
+      expect(text(open)).toContain("saying it is not yet checked; then the question you named for them, in their " +
+        `language: ${JSON.stringify(QUESTION)}; then this menu, numbered as here`);
+      expect(text(open)).not.toContain("and one on what their choices could change");
+      expect(asked.next_step).toMatch(new RegExp("^Ask the person now and end your turn: put the question you " +
+        "named to them, in their language \\(researchMenu\\.steering_choice\\), and show researchMenu\\.tasks as a " +
+        "numbered list", "u"));
+      const youDecide = asked.you_decide_later_inputs;
+      expect(youDecide).toEqual({ researchMenu: { research_target: PRECISE_TARGET, steering_choice: QUESTION,
+        tasks: PRECISE_TASKS, allocation: OWN, person_answered: "<true|false>",
+        menu_digest: asked.researchMenu.menu_digest } });
+      expect(Object.keys(youDecide.researchMenu)).toEqual(["research_target", "steering_choice", "tasks",
+        "allocation", "person_answered", "menu_digest"]);
+      // That call sent as it is does not fall into the refusal again: it is the ask again, with the same question;
+      // once the person has answered and the call says so, it goes on.
+      const copied = await plan(youDecide.researchMenu);
+      expect(copied.isError).not.toBe(true);
+      expect(copied.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask",
+        allocation_not_used: true, steering_choice: QUESTION }, you_decide_later_inputs: youDecide });
+      const decided = await plan({ ...youDecide.researchMenu, person_answered: true });
+      expect(decided.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on", recommended: OWN },
+        next_step: GO_ON_STEP });
+      expect(decided.structuredContent).not.toHaveProperty("researchMenu.steering_choice");
+      // When both are given, steering_choice decides: false beside a named question asks.
+      const both = await plan(short({ steering_could_help: false, steering_choice: QUESTION }));
+      expect(both.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask",
+        steering_could_help: true, steering_choice: QUESTION } });
+      expect((both.structuredContent as Planned).you_decide_later_inputs.researchMenu).toMatchObject({
+        steering_could_help: false, steering_choice: QUESTION });
+      // What is not a text is no question: the menu is refused as unreadable, naming the field.
+      for (const unreadable of [true, [QUESTION], ""]) {
+        const unread = await plan({ ...short(), steering_choice: unreadable });
+        expect(unread.isError, String(unreadable)).toBe(true);
+        expect((unread.structuredContent as Refused).problems[0], String(unreadable))
+          .toMatch(/^later_inputs\.researchMenu\.steering_choice: /u);
+      }
+    });
 
-  it("asks for no judgment where it would change nothing, on a dev account too", async () => {
+  it("asks for no question where it would change nothing, on a dev account too", async () => {
     const { manage, plan } = await session("auth0|dev", true);
-    // Tasks past the 10 minutes ask whatever the judgment.
+    // Tasks past the 10 minutes ask whatever the judgment, with neither field or with the yes or no alone.
     const long = await plan(short({ tasks: [LONG_TASK] }));
     expect(long.isError).not.toBe(true);
     expect(long.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask" } });
+    expect(long.structuredContent).not.toHaveProperty("researchMenu.steering_choice");
     expect(text(long)).toContain("as they usually can (steering_could_help was left out)");
-    // The person's own allocation is their answer: it carries no judgment and goes on, once the AI declares it theirs
-    // (round 3 of 12 Nov 2026, below). One it does not declare is not used, so the judgment is still asked for.
-    const allocation = [{ task: 1, minutes: 2 }, { task: 2, minutes: 3 }];
-    const answered = await plan(short({ allocation, person_answered: true }));
+    const timed = await plan(short({ tasks: [LONG_TASK], steering_could_help: false }));
+    expect(timed.isError).not.toBe(true);
+    expect(timed.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask",
+      steering_could_help: false } });
+    // The person's own allocation is their answer: it needs no question and goes on, once the AI declares it theirs
+    // (round 3 of 12 Nov 2026, below). One it does not declare is not used, so the question is still asked for.
+    const answered = await plan(short({ allocation: OWN, person_answered: true }));
     expect(answered.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on" } });
-    expect((await plan(short({ allocation }))).isError).toBe(true);
+    expect((await plan(short({ allocation: OWN }))).isError).toBe(true);
+    // A menu the AI changed after the person saw it, and a re-plan, ask whatever the judgment.
+    const digest = (answered.structuredContent as Planned).researchMenu.menu_digest;
+    const changed = await plan(short({ tasks: [...PRECISE_TASKS, TASKS[3]!], menu_digest: digest }));
+    expect(changed.isError).not.toBe(true);
+    expect(changed.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask", menu_changed: true,
+      recommended_minutes: [4, 10] } });
+    const replanned = await plan(short({ done: [1] }));
+    expect(replanned.isError).not.toBe(true);
+    expect(replanned.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask" } });
     // Guided research asks before every menu, and autonomous research goes on.
     for (const [style, next] of [["guided", "ask"], ["autonomous", "go_on"]] as const) {
       await manage({ action: "set_research_steering", later_inputs: { researchSteering: { style } } });
@@ -1272,28 +1539,84 @@ describe("a short menu on a dev account needs the AI's own judgment (owner answe
     }
   });
 
-  it("carries the test in the message for Claude's surface, and leaves every other account's menus as they were",
+  it("carries the test in the message, for Claude's surface", async () => {
+    const claude = await session("auth0|dev-claude", true, "/mcp/claude");
+    const refused = await claude.plan(short({ steering_could_help: false }));
+    expect(refused.isError).toBe(true);
+    expect((refused.structuredContent as Refused).error.message).toBe("plan_research planned nothing yet: this " +
+      "menu's tasks are short, so whether to ask the person first rests on " +
+      "later_inputs.researchMenu.steering_choice, which the call left out (steering_could_help alone, true or " +
+      `false, does not replace it). Call it again with corrected_later_inputs, after replacing ${PLACEHOLDER} with ` +
+      `that question or with the word none: ${STEERING_CHOICE}.`);
+    expect((refused.structuredContent as Refused).corrected_later_inputs.researchMenu).toMatchObject({
+      steering_could_help: false, steering_choice: PLACEHOLDER });
+  });
+
+  it("plans every other account's menus as before when they give no steering_choice, and reads one they give",
     async () => {
-      const claude = await session("auth0|dev-claude", true, "/mcp/claude");
-      const refused = await claude.plan(short());
-      expect(refused.isError).toBe(true);
-      expect((refused.structuredContent as Refused).error.message).toBe("plan_research planned nothing yet: this " +
-        "menu's tasks are short, so whether to ask the person first rests on " +
-        "later_inputs.researchMenu.steering_could_help, which the call left out. Call it again with " +
-        `corrected_later_inputs, after replacing <true|false> with your judgment: ${STEERING_JUDGMENT}.`);
-      // An account that is not a dev account: left out still counts as yes (owner answer 284), with the same words.
       const person = await session("auth0|person", false);
+      // Neither field: left out still counts as yes (owner answer 284), and nothing is handed back.
       const asked = await person.plan(short());
       expect(asked.isError).not.toBe(true);
       expect(asked.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask" } });
       expect(asked.structuredContent).not.toHaveProperty("corrected_later_inputs");
-      expect(text(asked)).toContain("This person's research style asks first when their choices could steer the " +
-        "research, as they usually can (steering_could_help was left out). Ask now, before any of these tasks");
-      expect(asked.content[0]!.text).toBe(planResearchText(planResearch(short(), DEFAULT_RESEARCH_STEERING, undefined,
-        { digest: (asked.structuredContent as { researchMenu: { menu_digest: string } }).researchMenu.menu_digest,
-          changed: false }), new Set(), false, PRECISE_TARGET,
-        (asked.structuredContent as { you_decide_later_inputs: { researchMenu: ResearchMenuInput } })
-          .you_decide_later_inputs));
+      expect(asked.structuredContent).not.toHaveProperty("researchMenu.steering_could_help");
+      expect(asked.structuredContent).not.toHaveProperty("researchMenu.steering_choice");
+      // The lines pinned before 13 Nov 2026, byte for byte: the stop, the reply with its general sentence, the menu,
+      // the recommendation and the question. Only the two lines after them, on the person's answer, changed that
+      // day, for every account (below).
+      const lines = asked.content[0]!.text.split("\n");
+      expect(lines.slice(0, -2)).toEqual([
+        PEOPLE_TASK_MISSING,
+        "This person's research style asks first when their choices could steer the research, as they usually can " +
+          "(steering_could_help was left out). Ask now, before any of these tasks: your whole reply this turn is the " +
+          "message below, in the person's language, after the urgent action if the question is urgent; then end your " +
+          "turn. Make no research call and don't call finalize_research for this reply: it is a question, not an " +
+          "answer (HRP StructuredUserSteeringAndApproval: when approval is required, begin no substantive source " +
+          "collection in the same response).",
+        "Your reply: at most two sentences on what the first look suggests, saying it is not yet checked, and one on " +
+          "what their choices could change, such as their own situation, the form or dose they use, or the outcome " +
+          "that matters most to them; then this menu, numbered as here, saying for each task whether it means a " +
+          "quick look, reading in full or a method audit (the times are rough planning estimates):",
+        "1. Read the trial's adverse-event table in full: could change the conclusion; about 1 to 3 min.",
+        "2. Audit how the trial recorded adverse events: could change how sure the answer is; about 2 to 4 min.",
+        "Recommended: 1. 2 min, 2. 3 min, about 3 to 7 min in all; then about 4 to 10 min to check and write the " +
+          "answer.",
+        "How should I spend the time? Reply with task numbers and minutes, such as \"1. 5 min, 2. 4 min\", in your " +
+          "own words, or \"you decide\".",
+      ]);
+      expect(lines.at(-2)).toMatch(/^When the person replies: /u);
+      expect(lines.at(-1)).toMatch(/^Only once the person has replied "you decide", in a later message/u);
+      const { researchMenu: { menu_digest: digest }, you_decide_later_inputs: handedOver } =
+        asked.structuredContent as Planned;
+      expect(asked.content[0]!.text).toBe(planResearchText(
+        planResearch(short(), DEFAULT_RESEARCH_STEERING, undefined, { digest, changed: false }), new Set(), false,
+        PRECISE_TARGET, youDecideLaterInputsSchema.parse(handedOver)));
+      // The yes or no alone is planned there as before: false goes on, in the words pinned before.
+      const precise = await person.plan(short({ steering_could_help: false }));
+      expect(precise.isError).not.toBe(true);
+      expect(precise.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
+        steering_could_help: false, recommended: OWN }, next_step: GO_ON_STEP });
+      expect(text(precise)).toContain("Go on now: do these tasks in this order, each within its minutes, showing " +
+        "the menu as what you are doing; then check the answer with finalize_research and give it in this turn.");
+      const open = await person.plan(short({ steering_could_help: true }));
+      expect(open.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask",
+        steering_could_help: true } });
+      expect(text(open)).toContain("and one on what their choices could change");
+      // A steering_choice an account gives is read the same way on every account: none goes on, and a named question
+      // asks and goes to the person.
+      const none = await person.plan(short({ steering_choice: "none" }));
+      expect(none.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
+        steering_could_help: false }, next_step: GO_ON_STEP });
+      const named = await person.plan(short({ steering_choice: QUESTION }));
+      expect(named.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask",
+        steering_could_help: true, steering_choice: QUESTION } });
+      expect(text(named)).toContain(`then the question you named for them, in their language: ${
+        JSON.stringify(QUESTION)}; then this menu`);
+      // The placeholder left in is not given: planned as before, with neither.
+      const unfilled = await person.plan(short({ steering_choice: PLACEHOLDER }));
+      expect(unfilled.isError).not.toBe(true);
+      expect(unfilled.content[0]!.text).toBe(asked.content[0]!.text);
     });
 });
 
@@ -1301,10 +1624,13 @@ describe("a short menu on a dev account needs the AI's own judgment (owner answe
 // ready to copy, with the recommended allocation in it, and any allocation naming an open task counted as the
 // person's answer. In one run the AI sent that call itself 54 seconds after the ask, in the same turn; AskRigor said
 // go on, and it researched for 17 minutes without the person: "I treated AskRigor's returned you_decide_later_inputs
-// allocation as a usable default". On a dev account an allocation is now the person's answer only with
-// person_answered true, which the AI declares; every other account's menus are planned as before. These fixtures are
-// invented.
-describe("an allocation on a dev account needs the person's answer declared (round 3, 12 Nov 2026)", () => {
+// allocation as a usable default". So an allocation is the person's answer only with person_answered true, which the
+// AI declares: on dev accounts from #440 (live 12 Nov, 23:58 UTC), and on every account since 13 Nov 2026. Round 4 on
+// the owner's account (13 Nov, 00:03 to 00:39 UTC): no first turn went on with an allocation the person had not
+// given, and a real "you decide" went on at the first plan_research call, while every other account still got the
+// handed-over call as a usable default, which is how the AI took the person's answer for itself on 12 Nov. These
+// fixtures are invented.
+describe("an allocation needs the person's answer declared, on every account (round 3, 12 Nov 2026)", () => {
   const OPEN_TARGET = "Whether a warm salt-water gargle shortens a sore throat";
   const OPEN_TASKS: ResearchMenuInput["tasks"] = [
     { task: "Search trials of salt-water gargling for sore throats", kind: "study_search", could_change: "conclusion" },
@@ -1313,24 +1639,26 @@ describe("an allocation on a dev account needs the person's answer declared (rou
   ];
   const LONG_TASK: ResearchMenuInput["tasks"][number] = { task: "Read six more trials in full", kind: "full_text",
     sources: 6, could_change: "conclusion" };
-  // The AI said the person's choices could steer this menu, so its ask rests on no judgment left out (294c).
+  // The question a dev account's menu names (owner answer 296b, above); any other account may give the yes or no.
+  const QUESTION = "Is this for a sore throat you have now, or to keep one from coming?";
+  // The AI said the person's choices could steer this menu, so it asks.
   const open = (overrides: Partial<ResearchMenuInput> = {}): ResearchMenuInput =>
     ({ research_target: OPEN_TARGET, steering_could_help: true, tasks: OPEN_TASKS, ...overrides });
   // AskRigor's own recommendation for this menu, and an allocation that differs from it in tasks and minutes.
   const OWN = [{ task: 1, minutes: 2 }, { task: 2, minutes: 2 }];
   const THEIRS = [{ task: 1, minutes: 1.5 }, { task: 3, minutes: 4 }];
-  const required = (plan: ResearchMenuInput, steering: ResearchSteering = DEFAULT_RESEARCH_STEERING,
-    changed?: { digest: string; changed: boolean }) => planResearch(plan, steering, undefined, changed, true);
+  const planned = (plan: ResearchMenuInput, steering: ResearchSteering = DEFAULT_RESEARCH_STEERING,
+    changed?: { digest: string; changed: boolean }) => planResearch(plan, steering, undefined, changed);
   const autonomous: ResearchSteering = { ...DEFAULT_RESEARCH_STEERING, style: "autonomous" };
 
-  // The words, as the result gives them.
-  const NOT_USED = "The allocation this call carried was not used: on this account an allocation is the person's " +
-    "answer only with person_answered true, which the call did not give, ";
+  // The words, as the result gives them, to every account since 13 Nov 2026.
+  const NOT_USED = "The allocation this call carried was not used: an allocation is the person's answer only with " +
+    "person_answered true, which the call did not give, ";
   const STOP = `${NOT_USED}so this menu still waits for them. If the person has not replied since the menu was ` +
     "shown, this is still the turn of the ask.";
   const OWN_TASKS = `${NOT_USED}so the tasks recommended here are AskRigor's own, not the person's choice.`;
-  const NOT_USED_PROBLEM = "later_inputs.researchMenu.allocation: not used; on this account an allocation is the " +
-    "person's answer only with person_answered true, which the call did not give";
+  const NOT_USED_PROBLEM = "later_inputs.researchMenu.allocation: not used; an allocation is the person's answer " +
+    "only with person_answered true, which the call did not give";
   const RULE_HEAD = "When the person replies: call manage_research_access action plan_research again with the same " +
     "plain_answer_receipt, tasks and menu_digest (researchMenu.menu_digest in this result), research_target word " +
     `for word ${JSON.stringify(OPEN_TARGET)}, and their allocation inside researchMenu, as a list of {task, minutes}`;
@@ -1339,65 +1667,67 @@ describe("an allocation on a dev account needs the person's answer declared (rou
     "target first, with later_inputs.framing for it. Never send an allocation the person did not give or leave to " +
     "you.";
   const DECLARED = ", with person_answered true in researchMenu too (send it only once they have answered this " +
-    "menu in a message of their own; on this account an allocation without it is not used)";
+    "menu in a message of their own; an allocation without it is not used)";
   const ONLY_ONCE = "Only once the person has replied \"you decide\", in a later message, never in this turn: call " +
     "manage_research_access with action plan_research and ";
   const REPLACING = "these later_inputs, after replacing <true|false> in person_answered with whether the person " +
     "has answered this menu in a message of their own since it was shown (true once they have, false before); an " +
     "allocation sent with false, or without person_answered, is not used; ";
   const INSIDE = "the recommended allocation is inside researchMenu, where every allocation goes, never beside it: ";
-  const ASK_STEP = "Ask the person now and end your turn: show researchMenu.tasks as a numbered list with their " +
-    "times, the recommendation and how to answer (task numbers and minutes, or \"you decide\"). Make no research " +
-    "call and don't call finalize_research until they answer; then call action plan_research again with their " +
-    "allocation ";
-  const STEP_DECLARED = `${ASK_STEP}and person_answered true inside later_inputs.researchMenu (for "you decide", ` +
-    "with you_decide_later_inputs as later_inputs, after replacing <true|false> in person_answered: true once they " +
-    "have answered, false before). Send person_answered true only once they have answered this menu in a message " +
-    "of their own: on this account an allocation is the person's answer only with person_answered true, and one " +
-    "sent without it is not used.";
-  // Every other account's words, as they were before this change, byte for byte.
-  const RULE_AS_IT_WAS = RULE_HEAD + RULE_TAIL;
-  const DECIDE_AS_IT_WAS = `${ONLY_ONCE}exactly these later_inputs; ${INSIDE}`;
-  const STEP_AS_IT_WAS = `${ASK_STEP}inside later_inputs.researchMenu (for "you decide", with ` +
-    "you_decide_later_inputs as later_inputs, as they are).";
+  const ASK_NOW = "Ask the person now and end your turn: ";
+  const NAMED = "put the question you named to them, in their language (researchMenu.steering_choice), and ";
+  const ASK_STEP = "show researchMenu.tasks as a numbered list with their times, the recommendation and how to " +
+    "answer (task numbers and minutes, or \"you decide\"). Make no research call and don't call finalize_research " +
+    "until they answer; then call action plan_research again with their allocation and person_answered true inside " +
+    "later_inputs.researchMenu ";
+  const SEND_ONLY_ONCE = " Send person_answered true only once they have answered this menu in a message of their " +
+    "own: an allocation is the person's answer only with person_answered true, and one sent without it is not used.";
+  const STEP_DECLARED = `${ASK_NOW}${ASK_STEP}(for "you decide", with you_decide_later_inputs as later_inputs, after ` +
+    `replacing <true|false> in person_answered: true once they have answered, false before).${SEND_ONLY_ONCE}`;
+  // With a named question the step also ends with what the person's answer to it does (NAMED_ANSWER_STEERS).
+  const STEP_NAMED = `${STEP_DECLARED.replace(ASK_NOW, ASK_NOW + NAMED)} ${NAMED_ANSWER_STEERS}`;
   const GO_ON_STEP = "Do the recommended tasks now, in order, each within its minutes; then check the answer with " +
     "finalize_research and give it in this turn.";
+  const AUTONOMOUS_STEP = "Do the recommended tasks now; after about 10 minutes of research, check what you have " +
+    "with finalize_research and give that answer, ending it with the open tasks as a numbered menu and the " +
+    "question whether to spend more time on them.";
   const AFTER_A_STOP = "If the person stops you or changes direction, call plan_research again with done, their " +
-    "new allocation";
-  const AFTER_A_STOP_AS_IT_WAS = `${AFTER_A_STOP} and the last result's menu_digest; the research target stays ` +
-    "word for word the same.";
+    "new allocation, person_answered true (an allocation without it is not used) and the last result's " +
+    "menu_digest; the research target stays word for word the same.";
+  // The words every account but a dev account got until 13 Nov 2026, which no result gives any more.
+  const AS_THEY_ARE = ["exactly these later_inputs", "with you_decide_later_inputs as later_inputs, as they are",
+    "on this account"];
 
   it("uses an allocation only with person_answered true, and plans as if none had come without it", () => {
     expect(planResearch(open(), DEFAULT_RESEARCH_STEERING)).toMatchObject({ next: "ask", recommended: OWN,
       recommended_minutes: [2, 6] });
-    expect(PERSON_ANSWER_DECLARED).toBe("on this account an allocation is the person's answer only with " +
-      "person_answered true");
+    expect(PERSON_ANSWER_DECLARED).toBe("an allocation is the person's answer only with person_answered true");
     // Sent without the declaration, or with false: not used. The recommendation is AskRigor's own, the menu asks,
     // and the stop comes before anything else in the text and in next_step, with the ask after it.
     for (const overrides of [{ allocation: THEIRS }, { allocation: THEIRS, person_answered: false }]) {
-      const result = required(open(overrides));
+      const result = planned(open(overrides));
       expect(result, JSON.stringify(overrides)).toMatchObject({ next: "ask", allocation_not_used: true,
         recommended: OWN, recommended_minutes: [2, 6] });
       expect(allocationNotUsedStop(result)).toBe(STOP);
       const words = planResearchText(result, new Set(), true, OPEN_TARGET,
-        youDecideLaterInputs(open(overrides), result, true), true).split("\n");
+        youDecideLaterInputs(open(overrides), result)).split("\n");
       expect(words[0]).toBe(STOP);
       expect(words[1]).toMatch(new RegExp("^This person's research style asks first when their choices could steer " +
         "the research, as they could here\\. Ask now, before any of these tasks:", "u"));
-      expect(planNextStep(result, true)).toBe(`${STOP} ${STEP_DECLARED}`);
+      expect(planNextStep(result)).toBe(`${STOP} ${STEP_DECLARED}`);
     }
     // Declared the person's, it is their answer: their minutes as given, and no stop.
-    const theirs = required(open({ allocation: THEIRS, person_answered: true }));
+    const theirs = planned(open({ allocation: THEIRS, person_answered: true }));
     expect(theirs).toMatchObject({ next: "go_on", recommended: THEIRS, recommended_minutes: [5.5, 5.5] });
     expect(theirs).not.toHaveProperty("allocation_not_used");
     expect(allocationNotUsedStop(theirs)).toBeUndefined();
-    expect(planResearchText(theirs, new Set(), true, OPEN_TARGET, undefined, true)).not.toContain("was not used");
-    expect(planNextStep(theirs, true)).toBe(GO_ON_STEP);
+    expect(planResearchText(theirs, new Set(), true, OPEN_TARGET)).not.toContain("was not used");
+    expect(planNextStep(theirs)).toBe(GO_ON_STEP);
     // An allocation that names no open task counted as none before, so it is not one "not used"; and the
     // declaration with no allocation answers nothing.
     for (const overrides of [{ allocation: [{ task: 9, minutes: 5 }] },
       { allocation: [{ task: 9, minutes: 5 }], person_answered: true }, { person_answered: true }]) {
-      const result = required(open(overrides));
+      const result = planned(open(overrides));
       expect(result, JSON.stringify(overrides)).toMatchObject({ next: "ask", recommended: OWN });
       expect(result, JSON.stringify(overrides)).not.toHaveProperty("allocation_not_used");
     }
@@ -1412,60 +1742,54 @@ describe("an allocation on a dev account needs the person's answer declared (rou
         { digest: "md1~x", changed: true }],
     ];
     for (const [plan, steering, changed] of cases) {
-      expect(required(plan, steering, changed)).toMatchObject({ next: "ask", allocation_not_used: true });
-      const declared = required({ ...plan, person_answered: true }, steering, changed);
+      expect(planned(plan, steering, changed)).toMatchObject({ next: "ask", allocation_not_used: true });
+      const declared = planned({ ...plan, person_answered: true }, steering, changed);
       expect(declared).toMatchObject({ next: "go_on", recommended: plan.allocation });
       expect(declared).not.toHaveProperty("allocation_not_used");
     }
-    // The judgment (owner answer 294c) is planned with the same requirement: an allocation not used answers nothing,
-    // so a short menu that left the judgment out still rests on it; declared, the allocation needs none.
+    // A dev account's question (owner answer 296b) is read from the same planning: an allocation not used answers
+    // nothing, so a short menu that names no question still rests on it; declared, the allocation needs none.
     const unjudged: ResearchMenuInput = { research_target: OPEN_TARGET, tasks: OPEN_TASKS, allocation: THEIRS };
-    expect(asksOnlyForJudgmentLeftOut(unjudged, DEFAULT_RESEARCH_STEERING, required(unjudged), undefined, true))
-      .toBe(true);
-    const answered = { ...unjudged, person_answered: true };
-    expect(asksOnlyForJudgmentLeftOut(answered, DEFAULT_RESEARCH_STEERING, required(answered), undefined, true))
-      .toBe(false);
+    expect(steeringChoiceLeftOut(unjudged, DEFAULT_RESEARCH_STEERING)).toBe(true);
+    expect(steeringChoiceLeftOut({ ...unjudged, person_answered: true }, DEFAULT_RESEARCH_STEERING)).toBe(false);
     // And a menu that asks whatever the judgment (tasks past the 10 minutes, guided research, a changed menu, a
-    // re-plan) still needs none when its allocation is not used: with false it would ask all the same.
+    // re-plan) still needs none when its allocation is not used: planned as not steerable it would ask all the same.
     const guided: ResearchSteering = { ...DEFAULT_RESEARCH_STEERING, style: "guided" };
-    const rests = (plan: ResearchMenuInput, steering = DEFAULT_RESEARCH_STEERING,
-      changed?: { digest: string; changed: boolean }) =>
-      asksOnlyForJudgmentLeftOut(plan, steering, required(plan, steering, changed), changed, true);
     const long: ResearchMenuInput = { research_target: OPEN_TARGET, tasks: [LONG_TASK],
       allocation: [{ task: 1, minutes: 3 }] };
-    expect(required(long)).toMatchObject({ next: "ask", allocation_not_used: true, recommended_minutes: [6, 15] });
-    expect(rests(long)).toBe(false);
-    expect(rests(unjudged, guided)).toBe(false);
-    expect(rests(unjudged, DEFAULT_RESEARCH_STEERING, { digest: "md1~x", changed: true })).toBe(false);
-    expect(rests({ ...unjudged, allocation: [{ task: 3, minutes: 4 }], done: [1] })).toBe(false);
-    expect(rests(unjudged, autonomous)).toBe(false);
+    expect(planned(long)).toMatchObject({ next: "ask", allocation_not_used: true, recommended_minutes: [6, 15] });
+    expect(steeringChoiceLeftOut(long, DEFAULT_RESEARCH_STEERING)).toBe(false);
+    expect(steeringChoiceLeftOut(unjudged, guided)).toBe(false);
+    expect(steeringChoiceLeftOut(unjudged, DEFAULT_RESEARCH_STEERING, { digest: "md1~x", changed: true }))
+      .toBe(false);
+    expect(steeringChoiceLeftOut({ ...unjudged, allocation: [{ task: 3, minutes: 4 }], done: [1] },
+      DEFAULT_RESEARCH_STEERING)).toBe(false);
+    expect(steeringChoiceLeftOut(unjudged, autonomous)).toBe(false);
   });
 
   it("says the recommended tasks are AskRigor's own where the menu goes on whatever the person says", () => {
     // Autonomous research never waits, and a short menu the AI judged not steerable goes on: neither takes the
     // allocation for the person's.
     for (const [plan, steering, step] of [
-      [open({ allocation: THEIRS }), autonomous, "Do the recommended tasks now; after about 10 minutes of research, " +
-        "check what you have with finalize_research and give that answer, ending it with the open tasks as a " +
-        "numbered menu and the question whether to spend more time on them."],
+      [open({ allocation: THEIRS }), autonomous, AUTONOMOUS_STEP],
       [open({ steering_could_help: false, allocation: THEIRS }), DEFAULT_RESEARCH_STEERING, GO_ON_STEP],
+      [open({ steering_choice: "none", allocation: THEIRS }), DEFAULT_RESEARCH_STEERING, GO_ON_STEP],
     ] as const) {
-      const result = required(plan, steering);
+      const result = planned(plan, steering);
       expect(result).toMatchObject({ next: "go_on", allocation_not_used: true, recommended: OWN,
         recommended_minutes: [2, 6] });
       expect(allocationNotUsedStop(result)).toBe(OWN_TASKS);
-      const words = planResearchText(result, new Set(), true, OPEN_TARGET, undefined, true).split("\n");
+      const words = planResearchText(result, new Set(), true, OPEN_TARGET).split("\n");
       expect(words).toHaveLength(2);
       expect(words[0]).toBe(OWN_TASKS);
       expect(words[1]).toMatch(/^The menu to show the person, in their language, numbered as here/u);
       expect(words[1]).toContain("Recommended: 1. 2 min, 2. 2 min, about 2 to 6 min in all.");
-      expect(planNextStep(result, true)).toBe(`${OWN_TASKS} ${step}`);
+      expect(planNextStep(result)).toBe(`${OWN_TASKS} ${step}`);
       // Where the research goes on, the way back after a stop says an allocation goes with the declaration.
-      expect(words[1]).toContain(`${AFTER_A_STOP}, person_answered true (on this account an allocation without it ` +
-        "is not used) and the last result's menu_digest; the research target stays word for word the same.");
+      expect(words[1]).toContain(AFTER_A_STOP);
     }
     // Declared, autonomous research keeps the person's own allocation, as it did.
-    expect(required(open({ allocation: THEIRS, person_answered: true }), autonomous))
+    expect(planned(open({ allocation: THEIRS, person_answered: true }), autonomous))
       .toMatchObject({ next: "go_on", recommended: THEIRS });
   });
 
@@ -1503,8 +1827,8 @@ describe("an allocation on a dev account needs the person's answer declared (rou
     expect(correctedMenu(open({ allocation: THEIRS, person_answered: false }), true).researchMenu)
       .toMatchObject({ allocation: THEIRS, person_answered: false });
     expect(correctedMenu({ research_target: OPEN_TARGET, tasks: OPEN_TASKS, allocation: THEIRS }, true).researchMenu)
-      .toEqual({ research_target: OPEN_TARGET, steering_could_help: "<true|false>", tasks: OPEN_TASKS,
-        allocation: THEIRS });
+      .toEqual({ research_target: OPEN_TARGET, steering_choice: MENU_PLACEHOLDERS.steering_choice,
+        tasks: OPEN_TASKS, allocation: THEIRS });
     expect(correctedMenu({ ...open(), allocation: THEIRS, person_answered: "maybe" }).researchMenu)
       .not.toHaveProperty("person_answered");
   });
@@ -1512,80 +1836,55 @@ describe("an allocation on a dev account needs the person's answer declared (rou
   it("hands over the \"you decide\" call with person_answered's place marked, and says what replaces it", () => {
     const plan = open({ plain_answer_receipt: "rr1~x" });
     const result = planResearch(plan, DEFAULT_RESEARCH_STEERING, { matches: true, minutesSince: 2 },
-      { digest: "md1~d", changed: false }, true);
+      { digest: "md1~d", changed: false });
     expect(result).toMatchObject({ next: "ask", recommended: OWN });
-    const youDecide = youDecideLaterInputs(plan, result, true)!;
+    const youDecide = youDecideLaterInputs(plan, result)!;
     expect(youDecide).toEqual({ researchMenu: { research_target: OPEN_TARGET, plain_answer_receipt: "rr1~x",
       steering_could_help: true, tasks: OPEN_TASKS, allocation: OWN, person_answered: "<true|false>",
       menu_digest: "md1~d" } });
-    // The menu's own judgment goes with it, before the tasks, so the copy does not fall into the judgment's refusal;
-    // the placeholder stands right after the allocation it speaks for.
+    // The menu's own judgment goes with it, before the tasks, so the copy is planned as the same menu and, on a dev
+    // account, does not fall into the refusal for the question; the placeholder stands right after the allocation it
+    // speaks for.
     expect(Object.keys(youDecide.researchMenu)).toEqual(["research_target", "plain_answer_receipt",
       "steering_could_help", "tasks", "allocation", "person_answered", "menu_digest"]);
+    const named = open({ steering_choice: QUESTION });
+    expect(Object.keys(youDecideLaterInputs(named, planned(named))!.researchMenu)).toEqual(["research_target",
+      "steering_could_help", "steering_choice", "tasks", "allocation", "person_answered"]);
+    expect(youDecideLaterInputs(named, planned(named))!.researchMenu.steering_choice).toBe(QUESTION);
     // A menu that gave no judgment (its tasks pass the 10 minutes, so it asks whatever the judgment) carries none.
     const long: ResearchMenuInput = { research_target: OPEN_TARGET, tasks: [LONG_TASK], done: [] };
-    expect(youDecideLaterInputs(long, required(long), true)).toEqual({ researchMenu: { research_target: OPEN_TARGET,
+    expect(youDecideLaterInputs(long, planned(long))).toEqual({ researchMenu: { research_target: OPEN_TARGET,
       tasks: [LONG_TASK], allocation: [{ task: 1, minutes: 11 }], person_answered: "<true|false>" } });
-    // The rule for the person's answer, the call's own line and next_step each say it; nothing else in the ask changes.
-    const lines = planResearchText(result, new Set(), false, OPEN_TARGET, youDecide, true).split("\n");
+    // The call as a result carries it is checked as one: the placeholder, and nothing else, in person_answered.
+    expect(youDecideLaterInputsSchema.safeParse(youDecide).success).toBe(true);
+    for (const person_answered of [true, false, undefined]) {
+      expect(youDecideLaterInputsSchema.safeParse({ researchMenu: { ...youDecide.researchMenu, person_answered } })
+        .success, String(person_answered)).toBe(false);
+    }
+    // The rule for the person's answer, the call's own line and next_step each say it.
+    const lines = planResearchText(result, new Set(), false, OPEN_TARGET, youDecide).split("\n");
     expect(lines.at(-2)).toBe(RULE_HEAD + DECLARED + RULE_TAIL);
     expect(lines.at(-1)).toBe(ONLY_ONCE + REPLACING + INSIDE + JSON.stringify(youDecide));
     expect(youDecideLine(youDecide)).toBe(lines.at(-1));
-    expect(planNextStep(result, true)).toBe(STEP_DECLARED);
-    const asItWas = planResearchText(result, new Set(), false, OPEN_TARGET, youDecideLaterInputs(plan, result))
-      .split("\n");
-    expect(lines.slice(0, -2)).toEqual(asItWas.slice(0, -2));
+    expect(planNextStep(result)).toBe(STEP_DECLARED);
+    for (const gone of AS_THEY_ARE) expect(lines.join("\n") + planNextStep(result)).not.toContain(gone);
     // An ask with nothing recommended, or for a research target that is not the registered one, hands over no call:
     // its rule and next_step still say the person's allocation goes with the declaration.
-    const detail = required(open({ tasks: [OPEN_TASKS[2]!] }));
-    expect(youDecideLaterInputs(open({ tasks: [OPEN_TASKS[2]!] }), detail, true)).toBeUndefined();
-    expect(planResearchText(detail, new Set(), false, OPEN_TARGET, undefined, true).split("\n").at(-1)).toContain(
+    const detail = planned(open({ tasks: [OPEN_TASKS[2]!] }));
+    expect(youDecideLaterInputs(open({ tasks: [OPEN_TASKS[2]!] }), detail)).toBeUndefined();
+    expect(planResearchText(detail, new Set(), false, OPEN_TARGET).split("\n").at(-1)).toContain(
       `as a list of {task, minutes}${DECLARED}; for "you decide", or a reply that leaves the choice to you such as ` +
       "\"continue\", no more research: check the answer with finalize_research and give it.");
-    expect(planNextStep(detail, true)).toBe(`${ASK_STEP}and person_answered true inside later_inputs.researchMenu ` +
-      "or, for \"you decide\", do no more research: check the answer with finalize_research and give it. Send " +
-      "person_answered true only once they have answered this menu in a message of their own: on this account an " +
-      "allocation is the person's answer only with person_answered true, and one sent without it is not used.");
-    const other = planResearch(plan, DEFAULT_RESEARCH_STEERING, { matches: false, minutesSince: 2 }, undefined, true);
-    expect(youDecideLaterInputs(plan, other, true)).toBeUndefined();
-    expect(planResearchText(other, new Set(), false, OPEN_TARGET, undefined, true).split("\n").at(-1)).toContain(
+    expect(planNextStep(detail)).toBe(`${ASK_NOW}${ASK_STEP}or, for "you decide", do no more research: check the ` +
+      `answer with finalize_research and give it.${SEND_ONLY_ONCE}`);
+    const other = planResearch(plan, DEFAULT_RESEARCH_STEERING, { matches: false, minutesSince: 2 });
+    expect(youDecideLaterInputs(plan, other)).toBeUndefined();
+    expect(planResearchText(other, new Set(), false, OPEN_TARGET).split("\n").at(-1)).toContain(
       `as a list of {task, minutes}${DECLARED}; for "you decide", or a reply that leaves the choice to you such as ` +
       "\"continue\", the recommended allocation, with person_answered true too.");
-    expect(planNextStep(other, true)).toContain("and person_answered true inside later_inputs.researchMenu (for " +
-      "\"you decide\", the recommended one). Send person_answered true only once they have answered");
-  });
-
-  it("plans and words a menu without the requirement as before: an allocation alone is the person's answer", () => {
-    // The same calls, on an account that requires nothing: the allocation goes on as given, whatever person_answered
-    // says, and nothing is called not used.
-    for (const overrides of [{ allocation: THEIRS }, { allocation: THEIRS, person_answered: false },
-      { allocation: THEIRS, person_answered: true }]) {
-      for (const steering of [DEFAULT_RESEARCH_STEERING, autonomous]) {
-        const result = planResearch(open(overrides), steering);
-        expect(result, JSON.stringify(overrides)).toMatchObject({ next: "go_on", recommended: THEIRS,
-          recommended_minutes: [5.5, 5.5] });
-        expect(result).not.toHaveProperty("allocation_not_used");
-        expect(planResearchText(result, new Set(), true, OPEN_TARGET)).toContain(AFTER_A_STOP_AS_IT_WAS);
-        expect(planResearchText(result, new Set(), true, OPEN_TARGET) + planNextStep(result))
-          .not.toContain("person_answered");
-      }
-    }
-    expect(planNextStep(planResearch(open({ allocation: THEIRS }), DEFAULT_RESEARCH_STEERING))).toBe(GO_ON_STEP);
-    // The ask: the handed-over call, its line, the rule and next_step are the ones pinned before this change.
-    const plan = open({ plain_answer_receipt: "rr1~x" });
-    const result = planResearch(plan, DEFAULT_RESEARCH_STEERING, { matches: true, minutesSince: 2 },
-      { digest: "md1~d", changed: false });
-    const youDecide = youDecideLaterInputs(plan, result)!;
-    expect(youDecide).toEqual({ researchMenu: { research_target: OPEN_TARGET, plain_answer_receipt: "rr1~x",
-      tasks: OPEN_TASKS, allocation: OWN, menu_digest: "md1~d" } });
-    expect(Object.keys(youDecide.researchMenu)).toEqual(["research_target", "plain_answer_receipt", "tasks",
-      "allocation", "menu_digest"]);
-    expect(researchMenuSchema.safeParse(youDecide.researchMenu).success).toBe(true);
-    const words = planResearchText(result, new Set(), false, OPEN_TARGET, youDecide);
-    expect(words.split("\n").at(-2)).toBe(RULE_AS_IT_WAS);
-    expect(words.split("\n").at(-1)).toBe(DECIDE_AS_IT_WAS + JSON.stringify(youDecide));
-    expect(planNextStep(result)).toBe(STEP_AS_IT_WAS);
-    expect(words + planNextStep(result) + JSON.stringify(youDecide)).not.toContain("person_answered");
+    // There the correction for the research target comes first (13 Nov 2026, below), then the ask.
+    expect(planNextStep(other)).toBe(`${TARGET_NOT_REGISTERED} ${ASK_NOW}${ASK_STEP}(for "you decide", the ` +
+      `recommended one).${SEND_ONLY_ONCE}`);
   });
 
   async function session(subject: string, dev: boolean) {
@@ -1606,159 +1905,175 @@ describe("an allocation on a dev account needs the person's answer declared (rou
     you_decide_later_inputs?: { researchMenu: Record<string, unknown> } };
   type Refused = { ok: boolean; error: { code: string }; problems: string[];
     corrected_later_inputs: { researchMenu: Record<string, unknown> } };
+  // Every account gets the same stop, the same words and the same placeholder. A dev account's short menu names its
+  // question, which the ask then puts to the person; any other account's may give the yes or no, as before.
+  const ACCOUNTS = [
+    ["auth0|person", false, { steering_could_help: true }, { steering_could_help: false }, STEP_DECLARED],
+    ["auth0|dev", true, { steering_choice: QUESTION }, { steering_choice: "none" }, STEP_NAMED],
+  ] as const;
 
   it("asks again when the handed-over call comes back without the person's answer, and goes on once it is declared",
     async () => {
-      const { manage, plan, receipt } = await session("auth0|dev", true);
-      const menu = { research_target: OPEN_TARGET, plain_answer_receipt: receipt, steering_could_help: true,
-        tasks: OPEN_TASKS };
-      const first = await plan(menu);
-      expect(first.isError).not.toBe(true);
-      const asked = first.structuredContent as Planned;
-      expect(asked).toMatchObject({ ok: true, researchMenu: { next: "ask", recommended: OWN } });
-      expect(asked.researchMenu).not.toHaveProperty("allocation_not_used");
-      expect(asked).not.toHaveProperty("problems");
-      // The handed-over call: the same menu with its judgment, AskRigor's recommended allocation, and the
-      // placeholder where the AI says whether the person has answered.
-      const youDecide = asked.you_decide_later_inputs!;
-      expect(youDecide).toEqual({ researchMenu: { ...menu, allocation: OWN, person_answered: "<true|false>",
-        menu_digest: asked.researchMenu.menu_digest } });
-      const lines = first.content[0]!.text.split("\n");
-      expect(lines.at(-2)).toBe(RULE_HEAD + DECLARED + RULE_TAIL);
-      expect(lines.at(-1)).toBe(ONLY_ONCE + REPLACING + INSIDE + JSON.stringify(youDecide));
-      expect(asked.next_step).toBe(STEP_DECLARED);
-      // Round 3: the AI sends that call itself, in the turn of the ask. As it is, with false, without the field, or
-      // with an allocation of its own, the result is the ask again, not a refusal and not a call to correct: the
-      // stop first, AskRigor's own recommendation, and the same call handed over, its placeholder in place.
-      const { person_answered: placeholder, ...without } = youDecide.researchMenu;
-      expect(placeholder).toBe("<true|false>");
-      for (const [name, researchMenu] of [
-        ["as it is", youDecide.researchMenu],
-        ["with false", { ...youDecide.researchMenu, person_answered: false }],
-        ["with the word false", { ...youDecide.researchMenu, person_answered: "false" }],
-        ["without the field", without],
-        ["its own allocation", { ...without, allocation: THEIRS }],
-      ] as const) {
-        const again = await plan(researchMenu);
-        expect(again.isError, name).not.toBe(true);
-        const structured = again.structuredContent as Planned;
-        expect(structured, name).toMatchObject({ ok: true, researchMenu: { next: "ask", allocation_not_used: true,
-          recommended: OWN }, problems: [NOT_USED_PROBLEM] });
-        expect(structured, name).not.toHaveProperty("error");
-        expect(structured, name).not.toHaveProperty("corrected_later_inputs");
-        const said = again.content[0]!.text.split("\n");
-        expect(said[0], name).toBe(STOP);
-        expect(said[1], name).toMatch(new RegExp("^This person's research style asks first when their choices " +
-          "could steer the research, as they could here\\. Ask now, before any of these tasks:", "u"));
-        expect(said.at(-1), name).toBe(ONLY_ONCE + REPLACING + INSIDE + JSON.stringify(youDecide));
-        expect(structured.next_step, name).toBe(`${STOP} ${STEP_DECLARED}`);
-        expect(structured.you_decide_later_inputs, name).toEqual(youDecide);
+      for (const [subject, dev, steerable, , step] of ACCOUNTS) {
+        const { manage, plan, receipt } = await session(subject, dev);
+        const menu = { research_target: OPEN_TARGET, plain_answer_receipt: receipt, ...steerable, tasks: OPEN_TASKS };
+        const first = await plan(menu);
+        expect(first.isError, subject).not.toBe(true);
+        const asked = first.structuredContent as Planned;
+        expect(asked, subject).toMatchObject({ ok: true, researchMenu: { next: "ask", recommended: OWN } });
+        expect(asked.researchMenu).not.toHaveProperty("allocation_not_used");
+        expect(asked).not.toHaveProperty("problems");
+        // The handed-over call: the same menu with its judgment, AskRigor's recommended allocation, and the
+        // placeholder where the AI says whether the person has answered.
+        const youDecide = asked.you_decide_later_inputs!;
+        expect(youDecide, subject).toEqual({ researchMenu: { ...menu, allocation: OWN,
+          person_answered: "<true|false>", menu_digest: asked.researchMenu.menu_digest } });
+        const lines = first.content[0]!.text.split("\n");
+        // A menu that named a question (the dev account's) also says what the person's answer to it does.
+        expect(lines.at(-2), subject).toBe(RULE_HEAD + DECLARED + (dev
+          ? RULE_TAIL.replace("on the next line. If the reply", `on the next line. ${NAMED_ANSWER_STEERS} If the reply`)
+          : RULE_TAIL));
+        expect(lines.at(-1), subject).toBe(ONLY_ONCE + REPLACING + INSIDE + JSON.stringify(youDecide));
+        expect(asked.next_step, subject).toBe(step);
+        for (const gone of AS_THEY_ARE) expect(text(first) + JSON.stringify(asked), subject).not.toContain(gone);
+        // Round 3: the AI sends that call itself, in the turn of the ask. As it is, with false, without the field,
+        // or with an allocation of its own, the result is the ask again, not a refusal and not a call to correct:
+        // the stop first, AskRigor's own recommendation, and the same call handed over, its placeholder in place.
+        const { person_answered: placeholder, ...without } = youDecide.researchMenu;
+        expect(placeholder).toBe("<true|false>");
+        for (const [name, researchMenu] of [
+          ["as it is", youDecide.researchMenu],
+          ["with false", { ...youDecide.researchMenu, person_answered: false }],
+          ["with the word false", { ...youDecide.researchMenu, person_answered: "false" }],
+          ["without the field", without],
+          ["its own allocation", { ...without, allocation: THEIRS }],
+        ] as const) {
+          const again = await plan(researchMenu);
+          expect(again.isError, `${subject} ${name}`).not.toBe(true);
+          const structured = again.structuredContent as Planned;
+          expect(structured, `${subject} ${name}`).toMatchObject({ ok: true, researchMenu: { next: "ask",
+            allocation_not_used: true, recommended: OWN }, problems: [NOT_USED_PROBLEM] });
+          expect(structured, name).not.toHaveProperty("error");
+          expect(structured, name).not.toHaveProperty("corrected_later_inputs");
+          const said = again.content[0]!.text.split("\n");
+          expect(said[0], `${subject} ${name}`).toBe(STOP);
+          expect(said[1], name).toMatch(new RegExp("^This person's research style asks first when their choices " +
+            "could steer the research, as they could here\\. Ask now, before any of these tasks:", "u"));
+          expect(said.at(-1), name).toBe(ONLY_ONCE + REPLACING + INSIDE + JSON.stringify(youDecide));
+          expect(structured.next_step, `${subject} ${name}`).toBe(`${STOP} ${step}`);
+          expect(structured.you_decide_later_inputs, name).toEqual(youDecide);
+        }
+        // A problem of the call's own comes after the stop, and before the ask.
+        const past = await plan({ ...without, allocation: [{ task: 9, minutes: 3 }, { task: 1, minutes: 5 }] });
+        expect((past.structuredContent as Planned).problems).toEqual([NOT_USED_PROBLEM,
+          "Task numbers 9 are past the 3 tasks given; they were left out."]);
+        expect(past.content[0]!.text.split("\n").slice(0, 2)).toEqual([STOP,
+          "Task numbers 9 are past the 3 tasks given; they were left out."]);
+        expect(past.content[0]!.text.split("\n")[2]).toMatch(/^This person's research style asks first when /u);
+        // Sent with true once the person has replied "you decide", it goes on with that allocation; the word is
+        // read as the value, as the placeholder invites.
+        for (const answered of [true, "true"]) {
+          const decided = await plan({ ...youDecide.researchMenu, person_answered: answered });
+          expect(decided.isError, `${subject} ${String(answered)}`).not.toBe(true);
+          const structured = decided.structuredContent as Planned;
+          expect(structured, `${subject} ${String(answered)}`).toMatchObject({ ok: true, researchMenu: {
+            next: "go_on", recommended: OWN }, next_step: GO_ON_STEP });
+          expect(structured.researchMenu).not.toHaveProperty("allocation_not_used");
+          expect(structured).not.toHaveProperty("problems");
+          expect(structured).not.toHaveProperty("you_decide_later_inputs");
+          expect(text(decided)).not.toContain("was not used");
+        }
+        // The person's own allocation, declared theirs, goes on with their minutes as given, inside the menu or
+        // beside it; the way back after a stop says an allocation goes with the declaration.
+        const theirs = await plan({ ...without, allocation: THEIRS, person_answered: true });
+        expect(theirs.structuredContent, subject).toMatchObject({ ok: true, researchMenu: { next: "go_on",
+          recommended: THEIRS, recommended_minutes: [5.5, 5.5] } });
+        expect(text(theirs), subject).toContain(AFTER_A_STOP);
+        const beside = await manage({ action: "plan_research", later_inputs: { researchMenu: menu,
+          allocation: THEIRS, person_answered: true } });
+        expect(beside.structuredContent, subject).toMatchObject({ ok: true, researchMenu: { next: "go_on",
+          recommended: THEIRS }, problems: ["AskRigor read later_inputs.allocation as researchMenu.allocation, " +
+            "later_inputs.person_answered as researchMenu.person_answered: the allocation and done list go inside " +
+            "researchMenu."] });
+        // Any other word is no declaration: the menu is refused as unreadable, and the call handed back keeps the
+        // allocation and marks no place for person_answered.
+        const worded = await plan({ ...youDecide.researchMenu, person_answered: "yes" });
+        expect(worded.isError, subject).toBe(true);
+        const refused = worded.structuredContent as Refused;
+        expect(refused.problems[0]).toMatch(/^later_inputs\.researchMenu\.person_answered: /u);
+        expect(refused.corrected_later_inputs.researchMenu).toMatchObject({ allocation: OWN });
+        expect(refused.corrected_later_inputs.researchMenu).not.toHaveProperty("person_answered");
       }
-      // A problem of the call's own comes after the stop, and before the ask.
-      const past = await plan({ ...without, allocation: [{ task: 9, minutes: 3 }, { task: 1, minutes: 5 }] });
-      expect((past.structuredContent as Planned).problems).toEqual([NOT_USED_PROBLEM,
-        "Task numbers 9 are past the 3 tasks given; they were left out."]);
-      expect(past.content[0]!.text.split("\n").slice(0, 2)).toEqual([STOP,
-        "Task numbers 9 are past the 3 tasks given; they were left out."]);
-      expect(past.content[0]!.text.split("\n")[2]).toMatch(/^This person's research style asks first when /u);
-      // Sent with true once the person has replied "you decide", it goes on with that allocation; the word is read
-      // as the value, as the placeholder invites.
-      for (const answered of [true, "true"]) {
-        const decided = await plan({ ...youDecide.researchMenu, person_answered: answered });
-        expect(decided.isError, String(answered)).not.toBe(true);
-        const structured = decided.structuredContent as Planned;
-        expect(structured, String(answered)).toMatchObject({ ok: true, researchMenu: { next: "go_on",
-          recommended: OWN }, next_step: GO_ON_STEP });
-        expect(structured.researchMenu).not.toHaveProperty("allocation_not_used");
-        expect(structured).not.toHaveProperty("problems");
-        expect(structured).not.toHaveProperty("you_decide_later_inputs");
-        expect(text(decided)).not.toContain("was not used");
-      }
-      // The person's own allocation, declared theirs, goes on with their minutes as given, inside the menu or
-      // beside it; the way back after a stop says an allocation goes with the declaration.
-      const theirs = await plan({ ...without, allocation: THEIRS, person_answered: true });
-      expect(theirs.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on", recommended: THEIRS,
-        recommended_minutes: [5.5, 5.5] } });
-      expect(text(theirs)).toContain(`${AFTER_A_STOP}, person_answered true (on this account an allocation without ` +
-        "it is not used) and the last result's menu_digest; the research target stays word for word the same.");
-      const beside = await manage({ action: "plan_research", later_inputs: { researchMenu: menu, allocation: THEIRS,
-        person_answered: true } });
-      expect(beside.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on", recommended: THEIRS },
-        problems: ["AskRigor read later_inputs.allocation as researchMenu.allocation, later_inputs.person_answered " +
-          "as researchMenu.person_answered: the allocation and done list go inside researchMenu."] });
-      // Any other word is no declaration: the menu is refused as unreadable, and the call handed back keeps the
-      // allocation and marks no place for person_answered.
-      const worded = await plan({ ...youDecide.researchMenu, person_answered: "yes" });
-      expect(worded.isError).toBe(true);
-      const refused = worded.structuredContent as Refused;
-      expect(refused.problems[0]).toMatch(/^later_inputs\.researchMenu\.person_answered: /u);
-      expect(refused.corrected_later_inputs.researchMenu).toMatchObject({ allocation: OWN });
-      expect(refused.corrected_later_inputs.researchMenu).not.toHaveProperty("person_answered");
     });
 
   it("goes on with AskRigor's own tasks, and says so, where the menu never waits for the person", async () => {
-    const { manage, plan } = await session("auth0|dev", true);
-    // A short menu the AI judged not steerable goes on; the allocation it carried is not the person's.
-    const precise = await plan({ research_target: OPEN_TARGET, steering_could_help: false, tasks: OPEN_TASKS,
-      allocation: THEIRS });
-    // Autonomous research never waits.
-    await manage({ action: "set_research_steering", later_inputs: { researchSteering: { style: "autonomous" } } });
-    const unasked = await plan({ research_target: OPEN_TARGET, steering_could_help: true, tasks: OPEN_TASKS,
-      allocation: THEIRS });
-    for (const [result, step] of [[precise, GO_ON_STEP], [unasked, "Do the recommended tasks now; after about 10 " +
-      "minutes of research, check what you have with finalize_research and give that answer, ending it with the open " +
-      "tasks as a numbered menu and the question whether to spend more time on them."]] as const) {
-      expect(result.isError).not.toBe(true);
-      expect(result.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
-        allocation_not_used: true, recommended: OWN }, problems: [NOT_USED_PROBLEM],
-        next_step: `${OWN_TASKS} ${step}` });
-      expect(result.structuredContent).not.toHaveProperty("you_decide_later_inputs");
-      const said = result.content[0]!.text.split("\n");
-      expect(said[0]).toBe(OWN_TASKS);
-      expect(said[1]).toMatch(/^The menu to show the person, in their language, numbered as here/u);
+    for (const [subject, dev, steerable, notSteerable] of ACCOUNTS) {
+      const { manage, plan } = await session(subject, dev);
+      // A short menu the AI judged not steerable goes on; the allocation it carried is not the person's.
+      const precise = await plan({ research_target: OPEN_TARGET, ...notSteerable, tasks: OPEN_TASKS,
+        allocation: THEIRS });
+      // Autonomous research never waits.
+      await manage({ action: "set_research_steering", later_inputs: { researchSteering: { style: "autonomous" } } });
+      const unasked = await plan({ research_target: OPEN_TARGET, ...steerable, tasks: OPEN_TASKS,
+        allocation: THEIRS });
+      for (const [result, step] of [[precise, GO_ON_STEP], [unasked, AUTONOMOUS_STEP]] as const) {
+        expect(result.isError, subject).not.toBe(true);
+        expect(result.structuredContent, subject).toMatchObject({ ok: true, researchMenu: { next: "go_on",
+          allocation_not_used: true, recommended: OWN }, problems: [NOT_USED_PROBLEM],
+          next_step: `${OWN_TASKS} ${step}` });
+        expect(result.structuredContent).not.toHaveProperty("you_decide_later_inputs");
+        const said = result.content[0]!.text.split("\n");
+        expect(said[0], subject).toBe(OWN_TASKS);
+        expect(said[1]).toMatch(/^The menu to show the person, in their language, numbered as here/u);
+        expect(said[1], subject).toContain(AFTER_A_STOP);
+      }
+      // Declared the person's, autonomous research keeps their allocation.
+      const theirs = await plan({ research_target: OPEN_TARGET, ...steerable, tasks: OPEN_TASKS,
+        allocation: THEIRS, person_answered: true });
+      expect(theirs.structuredContent, subject).toMatchObject({ ok: true, researchMenu: { next: "go_on",
+        recommended: THEIRS } });
+      expect(theirs.structuredContent).not.toHaveProperty("researchMenu.allocation_not_used");
     }
-    // Declared the person's, autonomous research keeps their allocation.
-    const theirs = await plan({ research_target: OPEN_TARGET, steering_could_help: true, tasks: OPEN_TASKS,
-      allocation: THEIRS, person_answered: true });
-    expect(theirs.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on", recommended: THEIRS } });
-    expect(theirs.structuredContent).not.toHaveProperty("researchMenu.allocation_not_used");
   });
 
-  it("still asks a short menu for the judgment it left out, with or without an allocation that is not used (294c)",
+  it("still hands back a dev account's short menu that names no question, with or without an allocation not used",
     async () => {
       const { plan } = await session("auth0|dev", true);
       const unjudged = { research_target: OPEN_TARGET, tasks: OPEN_TASKS };
       for (const researchMenu of [unjudged, { ...unjudged, allocation: THEIRS },
-        { ...unjudged, allocation: THEIRS, person_answered: false }]) {
+        { ...unjudged, allocation: THEIRS, person_answered: false },
+        { ...unjudged, steering_could_help: true, allocation: THEIRS }]) {
         const result = await plan(researchMenu);
         expect(result.isError, JSON.stringify(researchMenu)).toBe(true);
         const refused = result.structuredContent as Refused;
         expect(refused).toMatchObject({ ok: false, error: { code: "invalid_request" },
-          problems: ["later_inputs.researchMenu.steering_could_help: left out; say true or false for this question"] });
+          problems: ["later_inputs.researchMenu.steering_choice: left out; name the one question you would ask " +
+            "this person, or write none"] });
         expect(refused).not.toHaveProperty("researchMenu");
-        // The call handed back is the AI's own, with the judgment's place marked and no place for person_answered.
+        // The call handed back is the AI's own, with the question's place marked and no place for person_answered.
         expect(refused.corrected_later_inputs).toEqual({ researchMenu: { ...researchMenu,
-          steering_could_help: "<true|false>" } });
+          steering_choice: MENU_PLACEHOLDERS.steering_choice } });
         expect(text(result)).toMatch(/^AskRigor planned nothing yet\. These tasks are short/u);
         expect(text(result)).not.toContain("was not used");
       }
-      // The judgment given, the allocation is still not the person's: true asks again with the stop first, false
-      // goes on with AskRigor's own tasks.
-      const steerable = await plan({ ...unjudged, steering_could_help: true, allocation: THEIRS });
+      // The question given, the allocation is still not the person's: a named question asks again with the stop
+      // first, and the word none goes on with AskRigor's own tasks.
+      const steerable = await plan({ ...unjudged, steering_choice: QUESTION, allocation: THEIRS });
       expect(steerable.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask",
-        allocation_not_used: true, recommended: OWN } });
+        allocation_not_used: true, recommended: OWN, steering_choice: QUESTION } });
       expect(steerable.content[0]!.text.split("\n")[0]).toBe(STOP);
-      const precise = await plan({ ...unjudged, steering_could_help: false, allocation: THEIRS });
+      expect((steerable.structuredContent as Planned).next_step).toBe(`${STOP} ${STEP_NAMED}`);
+      const precise = await plan({ ...unjudged, steering_choice: "none", allocation: THEIRS });
       expect(precise.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
         allocation_not_used: true, recommended: OWN } });
       expect(precise.content[0]!.text.split("\n")[0]).toBe(OWN_TASKS);
-      // Declared the person's, the allocation is their answer, which needs no judgment.
+      // Declared the person's, the allocation is their answer, which needs no question.
       const answered = await plan({ ...unjudged, allocation: THEIRS, person_answered: true });
       expect(answered.isError).not.toBe(true);
       expect(answered.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
         recommended: THEIRS } });
-      // Tasks past the 10 minutes ask whatever the judgment, so a menu that left it out is not refused for it when
-      // its allocation is not used: it is the ask again, with the stop first.
+      // Tasks past the 10 minutes ask whatever the judgment, so a menu that names no question is not handed back
+      // for it when its allocation is not used: it is the ask again, with the stop first.
       const long = await plan({ research_target: OPEN_TARGET, tasks: [LONG_TASK],
         allocation: [{ task: 1, minutes: 3 }] });
       expect(long.isError).not.toBe(true);
@@ -1768,47 +2083,153 @@ describe("an allocation on a dev account needs the person's answer declared (rou
       expect(text(long)).toContain("as they usually can (steering_could_help was left out)");
     });
 
-  it("leaves every other account's menus, words and \"you decide\" call as they were", async () => {
-    const { plan, receipt } = await session("auth0|person", false);
-    const menu = { research_target: OPEN_TARGET, plain_answer_receipt: receipt, steering_could_help: true,
-      tasks: OPEN_TASKS };
-    const first = await plan(menu);
-    expect(first.isError).not.toBe(true);
-    const asked = first.structuredContent as Planned;
-    expect(asked).toMatchObject({ ok: true, researchMenu: { next: "ask", recommended: OWN } });
-    // The handed-over call is the one it was: the menu's target, receipt and tasks, the recommended allocation and
-    // the digest, with no judgment and no placeholder.
-    const youDecide = asked.you_decide_later_inputs!;
-    expect(youDecide).toEqual({ researchMenu: { research_target: OPEN_TARGET, plain_answer_receipt: receipt,
-      tasks: OPEN_TASKS, allocation: OWN, menu_digest: asked.researchMenu.menu_digest } });
-    expect(Object.keys(youDecide.researchMenu)).toEqual(["research_target", "plain_answer_receipt", "tasks",
-      "allocation", "menu_digest"]);
-    // The words pinned before this change, byte for byte, and the whole text as the same planning gives it.
-    const lines = first.content[0]!.text.split("\n");
-    expect(lines.at(-2)).toBe(RULE_AS_IT_WAS);
-    expect(lines.at(-1)).toBe(DECIDE_AS_IT_WAS + JSON.stringify(youDecide));
-    expect(asked.next_step).toBe(STEP_AS_IT_WAS);
-    expect(first.content[0]!.text).toBe(planResearchText(planResearch(menu, DEFAULT_RESEARCH_STEERING,
-      { matches: true, minutesSince: 0 }, { digest: asked.researchMenu.menu_digest, changed: false }), new Set(),
-    false, OPEN_TARGET, youDecide as { researchMenu: ResearchMenuInput }));
-    expect(text(first) + JSON.stringify(asked)).not.toContain("person_answered");
-    // Sent as it is, the call goes on with the recommended allocation, as it did; so does the AI's own allocation,
-    // whatever person_answered says, since this account requires nothing.
-    const { menu_digest: digest } = asked.researchMenu;
-    for (const [researchMenu, recommended] of [
-      [youDecide.researchMenu, OWN],
-      [{ ...menu, allocation: THEIRS, menu_digest: digest }, THEIRS],
-      [{ ...menu, allocation: THEIRS, person_answered: false, menu_digest: digest }, THEIRS],
-    ] as const) {
-      const decided = await plan(researchMenu);
-      expect(decided.isError).not.toBe(true);
-      const structured = decided.structuredContent as Planned;
-      expect(structured).toMatchObject({ ok: true, researchMenu: { next: "go_on", recommended },
-        next_step: GO_ON_STEP });
-      expect(structured.researchMenu).not.toHaveProperty("allocation_not_used");
-      expect(structured).not.toHaveProperty("problems");
-      expect(decided.content[0]!.text).toContain(AFTER_A_STOP_AS_IT_WAS);
-      expect(text(decided) + JSON.stringify(structured)).not.toContain("person_answered");
+  it("gives a dev account and any other the same result for the same menu", async () => {
+    // One menu that needs nothing more on a dev account (it names its question), sent the same three ways to both:
+    // first, then the handed-over call as it is, then with the person's answer declared.
+    const results: string[][] = [];
+    for (const [subject, dev] of ACCOUNTS) {
+      const { plan } = await session(subject, dev);
+      const menu = { research_target: OPEN_TARGET, steering_choice: QUESTION, tasks: OPEN_TASKS };
+      const first = await plan(menu);
+      const youDecide = (first.structuredContent as Planned).you_decide_later_inputs!;
+      const copied = await plan(youDecide.researchMenu);
+      const decided = await plan({ ...youDecide.researchMenu, person_answered: true });
+      expect((copied.structuredContent as Planned).researchMenu, subject).toMatchObject({ next: "ask",
+        allocation_not_used: true });
+      expect((decided.structuredContent as Planned).researchMenu.next, subject).toBe("go_on");
+      results.push([first, copied, decided].map((result) =>
+        JSON.stringify([result.isError === true, result.content, result.structuredContent])));
+    }
+    expect(results[1]).toEqual(results[0]);
+  });
+});
+
+// Greptile's review of 12 Nov 2026 (P1), reproduced by an independent audit on 13 Nov: when the menu's research target
+// is not the one registered with the plain answer, the result's text carried the warning, but next_step only said to
+// do the tasks and finalize, or to ask. An app that hands its model the structured content (ChatGPT's model reads it
+// first, Claude Code reads only it) missed the correction, and the answer then ended without the comparison with the
+// quick answer. These fixtures are invented.
+describe("a research target that is not the registered one stops the go-ahead in next_step (13 Nov 2026)", () => {
+  const NOT_REGISTERED = "This menu's research_target is not the one registered with the plain answer, so the answer " +
+    "would end without the comparison with the quick answer. Before any research call, call action plan_research " +
+    "again with the same menu but research_target word for word as register_plain_answer's result quoted it, and " +
+    "give finalize_research the same words; or, if the question itself changed, register the plain answer again for " +
+    "the new research target, with later_inputs.framing for it, and then plan again.";
+  const NO_GO_AHEAD = "Do none of this menu's tasks before that: the go-ahead comes with that call's result.";
+  const WARNING = "This research_target is not the one registered with the plain answer: give plan_research and " +
+    "finalize_research the research target word for word as register_plain_answer's result quoted it, or the answer " +
+    "ends without the comparison with the quick answer.";
+  const autonomous: ResearchSteering = { ...DEFAULT_RESEARCH_STEERING, style: "autonomous" };
+  const planned = (overrides: Partial<ResearchMenuInput>, matches: boolean,
+    steering: ResearchSteering = DEFAULT_RESEARCH_STEERING) =>
+    planResearch(menu({ plain_answer_receipt: "rr1~x", ...overrides }), steering, { matches, minutesSince: 3 });
+  // Three menus that go on: a short one judged not steerable, autonomous research, and the person's own allocation.
+  const GOING_ON: Array<[Partial<ResearchMenuInput>, ResearchSteering]> = [
+    [{ tasks: [TASKS[3]!], steering_could_help: false }, DEFAULT_RESEARCH_STEERING],
+    [{}, autonomous],
+    [{ allocation: [{ task: 1, minutes: 5 }], person_answered: true }, DEFAULT_RESEARCH_STEERING],
+  ];
+
+  it("says the correction first in next_step: before the ask, and in place of the go-ahead", () => {
+    for (const [overrides, steering] of GOING_ON) {
+      const result = planned(overrides, false, steering);
+      expect(result, JSON.stringify(overrides)).toMatchObject({ next: "go_on", target_matches_plain_answer: false });
+      // No go-ahead: the tasks wait for the corrected call.
+      expect(planNextStep(result), JSON.stringify(overrides)).toBe(`${NOT_REGISTERED} ${NO_GO_AHEAD}`);
+      expect(planNextStep(result)).not.toContain("Do the recommended tasks now");
+      // The registered target, or none checked: the go-ahead as it was.
+      for (const same of [planned(overrides, true, steering),
+        planResearch(menu(overrides), steering)]) {
+        expect(planNextStep(same), JSON.stringify(overrides)).toMatch(/^Do the recommended tasks now[,;] /u);
+        expect(planNextStep(same)).not.toContain("not the one registered");
+      }
+    }
+    // A menu that asks: the correction first, then the ask, which hands over no "you decide" call for this target.
+    const asked = planned({}, false);
+    expect(asked).toMatchObject({ next: "ask", target_matches_plain_answer: false });
+    expect(planNextStep(asked).startsWith(`${NOT_REGISTERED} Ask the person now and end your turn: show ` +
+      "researchMenu.tasks as a numbered list")).toBe(true);
+    expect(planNextStep(asked)).toContain("(for \"you decide\", the recommended one).");
+    expect(planNextStep(asked)).not.toContain("Do none of this menu's tasks");
+    expect(planNextStep(planned({}, true))).toMatch(/^Ask the person now and end your turn: /u);
+    // The stop for an allocation not used still comes before everything else, then the correction, then the ask
+    // or, for a menu that never waits, the tasks held back.
+    const copied = planned({ allocation: [{ task: 1, minutes: 5 }] }, false);
+    expect(copied).toMatchObject({ next: "ask", allocation_not_used: true, target_matches_plain_answer: false });
+    expect(planNextStep(copied).startsWith(`${allocationNotUsedStop(copied)} ${NOT_REGISTERED} Ask the person now ` +
+      "and end your turn: ")).toBe(true);
+    const unasked = planned({ allocation: [{ task: 1, minutes: 5 }] }, false, autonomous);
+    expect(unasked).toMatchObject({ next: "go_on", allocation_not_used: true });
+    expect(planNextStep(unasked)).toBe(`${allocationNotUsedStop(unasked)} ${NOT_REGISTERED} ${NO_GO_AHEAD}`);
+    // The text of a menu that asks keeps its own warning: its rule for the person's answer names the registered
+    // target.
+    expect(planResearchText(asked, new Set(), false, TARGET).split("\n")[0]).toBe(WARNING);
+    expect(TARGET_NOT_REGISTERED).toBe(NOT_REGISTERED);
+    // The text of a menu that would go on says what next_step says, and gives no go-ahead either: until 13 Nov 2026
+    // it gave the warning and then "Go on now", so the text and next_step of one result disagreed.
+    for (const [overrides, steering] of GOING_ON) {
+      const held = planResearchText(planned(overrides, false, steering), new Set(), false, TARGET);
+      expect(held, JSON.stringify(overrides)).toContain(` ${NOT_REGISTERED} `);
+      expect(held.endsWith(` ${NO_GO_AHEAD}`), JSON.stringify(overrides)).toBe(true);
+      expect(held).not.toContain(WARNING);
+      for (const goAhead of ["Go on now", "go on with the recommended tasks now", "If the person stops you"]) {
+        expect(held, goAhead).not.toContain(goAhead);
+      }
+      // The registered target: the go-ahead as it was.
+      const same = planResearchText(planned(overrides, true, steering), new Set(), false, TARGET);
+      expect(same).toMatch(/Go on now: |go on with the recommended tasks now\./u);
+      expect(same).not.toContain("not the one registered");
+      expect(same).not.toContain(NO_GO_AHEAD);
     }
   });
+
+  async function session(subject: string, dev: boolean, surface: "/mcp" | "/mcp/claude" = "/mcp") {
+    const { service, connect } = await start();
+    await service.acceptFreeContributor(subject, agreement);
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", dev ? service.accountKeyForSubject(subject) : "");
+    const manage = await connect(surface, subject);
+    const registered = await manage({ action: "register_plain_answer", plainAnswer: PLAIN });
+    const receipt = (registered.structuredContent as { research_receipt: string }).research_receipt;
+    return { manage, receipt, plan: async (researchMenu: Record<string, unknown>) =>
+      await manage({ action: "plan_research", later_inputs: { researchMenu } }) };
+  }
+  type Planned = { ok: boolean; researchMenu: { next: string; target_matches_plain_answer?: boolean };
+    next_step: string; you_decide_later_inputs?: unknown };
+  const REWORDED = "Sodium potassium ratio and blood pressure";
+
+  it("gives it through the connector, for a dev account and any other, on ChatGPT's surface and Claude's",
+    async () => {
+      for (const [subject, dev, surface] of [["auth0|person", false, "/mcp"], ["auth0|dev", true, "/mcp"],
+        ["auth0|dev-claude", true, "/mcp/claude"]] as const) {
+        const { plan, receipt } = await session(subject, dev, surface);
+        // A short menu that says no question is left to the person goes on; with the reworded target it must not.
+        // It says so both ways: the yes or no any account may give, and the word none a dev account's menu needs.
+        const precise = { research_target: REWORDED, plain_answer_receipt: receipt, steering_could_help: false,
+          steering_choice: "none", tasks: [TASKS[3]!] };
+        const goingOn = await plan(precise);
+        expect(goingOn.isError, subject).not.toBe(true);
+        const structured = goingOn.structuredContent as Planned;
+        expect(structured, subject).toMatchObject({ ok: true, researchMenu: { next: "go_on",
+          target_matches_plain_answer: false }, next_step: `${NOT_REGISTERED} ${NO_GO_AHEAD}` });
+        // The text says the same, and gives no go-ahead either.
+        expect(text(goingOn), subject).toContain(`${NOT_REGISTERED} ${NO_GO_AHEAD}`);
+        expect(text(goingOn), subject).not.toContain("Go on now");
+        expect(text(goingOn), subject).not.toContain(WARNING);
+        // The call the correction asks for: the same menu with the registered target gets the go-ahead.
+        const corrected = await plan({ ...precise, research_target: TARGET });
+        expect(corrected.structuredContent, subject).toMatchObject({ ok: true, researchMenu: { next: "go_on",
+          target_matches_plain_answer: true }, next_step: "Do the recommended tasks now, in order, each within its " +
+          "minutes; then check the answer with finalize_research and give it in this turn." });
+        // A menu that asks (its tasks pass the 10 minutes) says the correction before the ask.
+        const asked = await plan({ research_target: REWORDED, plain_answer_receipt: receipt, tasks: TASKS });
+        expect(asked.isError, subject).not.toBe(true);
+        const asking = asked.structuredContent as Planned;
+        expect(asking, subject).toMatchObject({ ok: true, researchMenu: { next: "ask",
+          target_matches_plain_answer: false } });
+        expect(asking.next_step.startsWith(`${NOT_REGISTERED} Ask the person now and end your turn: `), subject)
+          .toBe(true);
+        expect(asking, subject).not.toHaveProperty("you_decide_later_inputs");
+        expect(asked.content[0]!.text.split("\n")[0], subject).toBe(WARNING);
+      }
+    });
 });
