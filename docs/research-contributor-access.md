@@ -410,9 +410,10 @@ owner's ChatGPT runs had left that judgment to the person's AI, and it went wron
 
 - **What the person's AI sends.** `inspect`, on a dev account while the call is on, asks for
   `later_inputs.asked` with the plain answer: the person's own words about the question, word for word and in
-  order (their question, and after it any answer they gave to a question of the AI's about it), at most 6,000
-  characters. A research target is the AI's wording, and in round 6 one already carried a reading the person did
-  not mean. Without `asked` the plan is made from the research target, and the result asks for it next time.
+  order (their question, and after it any answer they gave to a question of the AI's about it), as one text or as
+  a list with one message each (in round 7 four of five chats sent a list first and were refused once), at most
+  6,000 characters in all. A research target is the AI's wording, and in round 6 one already carried a reading the
+  person did not mean. Without `asked` the plan is made from the research target, and the result asks for it next time.
   `asked` goes only with `register_plain_answer`; on any other account it is not used.
 - **What comes back.** `register_plain_answer`'s first text and `next_step` say not to screen, give what the
   question is about (`research_plan.about`), and hand over the menu ready to send: `planned_later_inputs`, a

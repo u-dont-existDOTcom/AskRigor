@@ -56,6 +56,7 @@ import { callsPageSchema, laterInputShape } from "./later-inputs.js";
 import { MCP_RESULT_MAX_BYTES } from "./config.js";
 import { clientResultBytes } from "./tool-result.js";
 import {
+  ASKED_LIMIT,
   ASKED_REQUEST,
   COULD_CHANGE,
   MENU_PLACEHOLDERS,
@@ -972,8 +973,14 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         // later_inputs.asked is not used, and not kept.
         const planner = isDevAccount(options.service.accountKeyForSubject(auth.subject),
           options.devAccountKeys?.() ?? new Set()) ? options.researchPlanner?.() : undefined;
+        // The person's words as one text: a list's messages in order, a blank line between them.
+        const asked = Array.isArray(parsed.asked) ? parsed.asked.join("\n\n") : parsed.asked;
+        if (asked !== undefined && asked.length > ASKED_LIMIT) {
+          return accessError("invalid_request", `later_inputs.asked: at most ${ASKED_LIMIT.toLocaleString("en-US")} ` +
+            "characters in all; give the messages that ask the question, without pasted documents.");
+        }
         return await registerPlainAnswer(options.service, auth.subject, parsed.plainAnswer!, options.plainAnswer,
-          parsed.framing, planner?.enabled === true ? { planner, asked: parsed.asked } : undefined);
+          parsed.framing, planner?.enabled === true ? { planner, asked } : undefined);
       }
       if (parsed.action === "set_research_steering") {
         return await setResearchSteering(options.service, auth.subject, parsed.researchSteering!);

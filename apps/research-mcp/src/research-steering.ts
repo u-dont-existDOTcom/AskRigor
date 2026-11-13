@@ -747,8 +747,8 @@ export const ASKED_LIMIT = 6_000;
 export const ASKED_REQUEST = "On this account AskRigor plans the research itself, with its own model call, when the " +
   "plain answer is registered. With the plain answer, also give later_inputs.asked: the person's own words about " +
   "this question, word for word and in order (their question, and after it any answer they gave to a question of " +
-  `yours about it), at most ${ASKED_LIMIT.toLocaleString("en-US")} characters. AskRigor passes them to that call and ` +
-  "keeps none of them.";
+  `yours about it), as one text or a list with one message each, at most ${ASKED_LIMIT.toLocaleString("en-US")} ` +
+  "characters in all. AskRigor passes them to that call and keeps none of them.";
 
 /** Why a dev account's registration came back without AskRigor's own plan, when the planning call is on. */
 export const PLANNER_NOT_USED_REASONS = ["daily_budget", "account_limit", "error", "timeout", "refusal",
