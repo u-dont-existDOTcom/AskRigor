@@ -60,11 +60,15 @@ import {
 import type { MeaningJudge, MeaningJudgeBundle } from "../apps/research-mcp/src/meaning-judge.js";
 import { issueResearchReceipt, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import {
+  RESEARCH_BEHIND_NOTE,
   RESEARCH_MAP_OFFERED,
   researchMapReminder,
   TOOL_LIST_REFRESH_HINT,
   type FinalizeResearchOutput,
 } from "../apps/research-mcp/src/research-finalization-gate.js";
+import {
+  CLOSING_QUESTIONS_GUIDANCE, FIRST_PASS_GUIDANCE, PASSING_NOTES_HEADING, REPEAT_PASS_GUIDANCE, REPEAT_PASS_NOTES_HEADING,
+} from "../apps/research-mcp/src/final-check-messages.js";
 import { communitySkipCaveat } from "./helpers/community-skip.js";
 import { FakeGitHub } from "./helpers/fake-github-findings.js";
 import { CARD, parsedCard } from "./helpers/findings-fixtures.js";
@@ -813,6 +817,69 @@ describe("finalize_research, save_research_findings and the findings library", (
     expect(text(failing)).toContain("- The meaning judge did not run (the call failed); this check is as it would be without it.");
     const off = await tool({ enabled: false, judge: async () => { throw new Error("never called"); } })(request(), "auth0|free");
     expect(off.structuredContent).not.toHaveProperty("meaning_judge");
+  });
+
+  // Greptile's review of 12 Nov 2026 (P2): a pass after a pass in the same turn said not to call finalize_research again,
+  // while a new concern from the meaning judge, which a dev account's every passing check asks, still ended "check the
+  // answer again", and the result still asked for closing questions, which the same result said not to add. A repeat
+  // pass is the turn's last check, so everything it says follows that; a first pass says what it said.
+  it("gives a repeat pass one direction: no note asks for the check again, and no closing questions are asked for", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", service.accountKeyForSubject("auth0|free"));
+    const doubting = (why: string): MeaningJudge => ({ enabled: true, judge: async () => ({ cached: false, costUsd: 0,
+      milliseconds: 1, judgment: { status: "ran", youtube: [], comparison: [], limits: [], sourceLines: [],
+        standalone: [{ finding: 1, standsAlone: false, why }] } }) });
+    const { findingsSave } = recorder();
+    const tool = (judge: MeaningJudge) => connectorTool("finalize_research", {
+      researchContributorAccessService: service, findingsLibrary: true, findingsSave, meaningJudge: judge,
+    });
+    const text = (result: CallToolResult) => (result.content as Array<{ text: string }>)[0]!.text;
+    const doubt = (why: string) => "The meaning judge reads findings_card.findings[0] as not making sense on its own " +
+      `to a reader of the public Atlas who never saw the question (${why}). Rewrite its claim to say what was found, ` +
+      "about what and in whom, and applies_to to say whom it holds for, then send the card";
+    const restore = "If its receipt was omitted or failed to verify, copy the original research_receipt from " +
+      "manage_research_access exactly into receipts to restore the note when the receipt verifies.";
+
+    const first = await tool(doubting("It leans on this research."))(request(), "auth0|free");
+    const passed = first.structuredContent as unknown as FinalizeResearchOutput;
+    expect(passed).toMatchObject({ status: "ready_with_limits", meaning_judge: { status: "ran", notes: 1 } });
+    expect(passed).not.toHaveProperty("turn_already_passed");
+    expect(passed.notes).toEqual([RESEARCH_BEHIND_NOTE, `${doubt("It leans on this research")} and check the answer again.`]);
+    expect(text(first)).toContain(`\n${PASSING_NOTES_HEADING}\n${passed.notes!.map((note) => `- ${note}`).join("\n")}\n`);
+    expect(text(first)).toContain(`\n${CLOSING_QUESTIONS_GUIDANCE}\n`);
+    expect(text(first)).toContain(` ${restore} For a later question, register its plain answer before researching it.\n`);
+    expect(text(first)).toContain(`\n${FIRST_PASS_GUIDANCE}\n`);
+    expect(text(first)).toMatch(/\nThis was round 1 of 10 in this turn\. Pass this as round_token in this turn's next finalize_research call: cr2~\S+$/u);
+
+    // The same turn, the check passing again, and a new concern from the judge.
+    const again = await tool(doubting("Its claim names no group of people."))(
+      request({ carried_state: passed.carry_forward, round_token: passed.round_token }), "auth0|free");
+    const repeat = again.structuredContent as unknown as FinalizeResearchOutput;
+    expect(repeat).toMatchObject({ status: "ready_with_limits", turn_already_passed: true,
+      meaning_judge: { status: "ran", notes: 1 } });
+    // The new concern asks for the card, an input: for a later answer. The note not repeated asked for the check again.
+    expect(repeat.notes).toEqual([
+      `${doubt("Its claim names no group of people")} for a later answer, with no further check in this turn.`,
+      "One note an earlier check of this turn gave is not repeated. It still stands unless the draft or this call's " +
+        "declarations already meet it, in your own words; none asks you to remove a source or claim, and none asks " +
+        "for another check in this turn.",
+    ]);
+    expect(text(again)).toContain(`\n${REPEAT_PASS_NOTES_HEADING}\n${repeat.notes!.map((note) => `- ${note}`).join("\n")}\n`);
+    expect(text(again)).toContain(`\n${REPEAT_PASS_GUIDANCE}\n`);
+    expect(REPEAT_PASS_GUIDANCE).toContain("add no closing questions the checked draft doesn't have");
+    expect(text(again)).not.toContain(CLOSING_QUESTIONS_GUIDANCE);
+    // Why there is no note comparing a quick answer, without the call that would restore it in this turn.
+    expect(text(again)).toContain("\nPlain answer: No plain answer registered with manage_research_access before this " +
+      "research was passed in receipts, so the answer ends without the note comparing it with one. For a later " +
+      "question, register its plain answer before researching it.\n");
+    expect(text(again)).not.toContain(restore);
+    // The round token stays, for a call made all the same: it is what tells that call the turn had passed.
+    expect(text(again)).toMatch(/\nThis was round 1 of 10 in this turn, the turn's last check\. Only if finalize_research is called again in this turn despite that, pass this as round_token: cr2~\S+$/u);
+    expect(text(again)).not.toContain("this turn's next finalize_research call");
+    // Apart from the sentence that says not to, nothing in the result asks for another check or for closing questions.
+    expect(text(again).replace(REPEAT_PASS_GUIDANCE, ""))
+      .not.toMatch(/check the answer again|call finalize_research|call again|closing questions|questions whose answers/u);
   });
 
   it("shows findings-card saving to dev accounts only, and only they can switch their own setting", async () => {

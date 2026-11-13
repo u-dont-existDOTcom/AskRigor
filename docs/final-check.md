@@ -111,7 +111,8 @@ AskRigor ended its tirzepatide answer with three numbered questions: whether tir
 CPAP or as an add-on; obesity, overweight or normal weight; and the person's AHI, with examples (15, 30, 50 or 70). It
 also said what it would do with the answers. AskRigor's answer asked only for the AHI and whether the person uses CPAP,
 and never about weight, though the trials and the US approval cover only people with obesity. HRP's
-`ComplexAnswerFooter` already asks for the pivot point or most decision-changing next data. So, under every status, the
+`ComplexAnswerFooter` already asks for the pivot point or most decision-changing next data. So, under every status but
+a pass after a pass in the same turn (13 November 2026, below), the
 result's text guides the answer's close with one line (`CLOSING_QUESTIONS_GUIDANCE` in `final-check-messages.ts`): when
 the answer depends on the person's situation, it closes, before the lines the result puts at its end, with at most three
 questions whose answers would most change it: what they are deciding; whether they match the people the key studies
@@ -142,7 +143,19 @@ dataset) is fixed now. A change that fixes the answer itself (what a note says i
 what this person should believe or do, limits repeated word for word, or an error found in it) is checked once more,
 the turn's last. A pass after a pass in the same turn, known from the carried state's turn and last status and the
 round token, with no stored state, says it is the turn's last check and sets the runtime-only `turn_already_passed`;
-there the limits guidance, the repeated-limits note and the notes' heading ask for the fix with no further check. So
+there the limits guidance, the repeated-limits note and the notes' heading ask for the fix with no further check.
+Since 13 November 2026 everything such a result says follows that (Greptile's review of 12 November, P2: its guidance
+said not to call `finalize_research` again while a note of the same result could still end "check the answer again",
+as a new concern of the meaning judge's did on a dev account, and it still asked for closing questions, which the
+guidance says not to add). A note that asked for the check again says what the heading says of its kind
+(`repeatPassNote` in `final-check-messages.ts`): one about something wrong in the answer ends "with no further check in
+this turn", and one asking for an input ends "for a later answer, with no further check in this turn"; the line that
+stands for notes an earlier check gave adds that none asks for another check in this turn; the closing-questions line
+is left out; a reason why the answer has no comparison with the quick answer leaves out the call that would restore
+it, which the next turn's first check gives again; and the round token is given only for a call made despite all
+that, since the token is what tells such a call that the turn had already passed. The notes are compared and carried
+as a first pass words them, so each is still given once a turn. A first pass and a check that doesn't pass say what
+they said. So
 that nothing needs a later call, the reading tools give the `source_reading` entry's exact fields
 (`{source, reading, quote}`) and the method audits the study map's exact shape before the first check (on Gemini,
 whose catalog has no final check, only how the study was read, and to count groups of people, not papers), and a

@@ -2824,8 +2824,9 @@ function defineResearchOperations(
           (!passing || checkedInput === undefined || checkedInput.study_map !== undefined ||
             checkedInput.key_sources.length < 2 ? "" : `\n${STUDY_MAP_GUIDANCE}`) +
           // The owner's comparison of 6 Nov 2026: the questions whose answers would most change the answer, under every
-          // status.
-          `\n${CLOSING_QUESTIONS_GUIDANCE}` +
+          // status. 13 Nov 2026 (Greptile's review of 12 Nov): but for a pass after a pass in the same turn, the turn's
+          // last check, whose own sentence says to add no closing questions the checked draft doesn't have.
+          (result.turn_already_passed === true ? "" : `\n${CLOSING_QUESTIONS_GUIDANCE}`) +
           (result.plain_answer_note === undefined ? "" :
             `\nNear the end of the answer, before ${result.saved_line === undefined ? "" : "the saved line and "}the ` +
               "check line, give this note comparing the answer with the plain answer registered before research, its " +
@@ -2906,10 +2907,15 @@ function defineResearchOperations(
                 "carry_forward, pass that value as carried_state in this turn's next finalize_research call, so what " +
                 `it carried still holds; otherwise pass this one, in this turn or a later one: ${result.carry_forward}`
               : `\nPass this as carried_state in this conversation's next finalize_research call, in this turn or a later one: ${result.carry_forward}`) +
-          // Owner answer 172a: the round within this turn, carried by the model like the conversation's state.
+          // Owner answer 172a: the round within this turn, carried by the model like the conversation's state. 13 Nov
+          // 2026: after a pass that followed a pass in this turn no other call is due, so the token is given only for a
+          // call made despite that; it is what tells such a call that the turn had already passed.
           (result.round_token === undefined || result.round === undefined ? "" :
-            `\nThis was round ${result.round.number} of ${result.round.limit} in this turn. Pass this as round_token ` +
-              `in this turn's next finalize_research call: ${result.round_token}`),
+            `\nThis was round ${result.round.number} of ${result.round.limit} in this turn` +
+              (result.turn_already_passed === true
+                ? ", the turn's last check. Only if finalize_research is called again in this turn despite that, " +
+                  "pass this as round_token: "
+                : ". Pass this as round_token in this turn's next finalize_research call: ") + result.round_token),
         result as unknown as Record<string, unknown>
       );
       return toolResult;

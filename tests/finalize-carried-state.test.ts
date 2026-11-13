@@ -104,7 +104,10 @@ describe("conversation state carried between final checks", () => {
     expect(advisoryNotes(second)).not.toContain(note);
     const hidden = advisoryNotes(first).filter((text) => !advisoryNotes(second).includes(text)).length;
     expect(hidden).toBeGreaterThan(0);
-    expect(advisoryNotes(second)).toContain(repeatedNotesLine(hidden));
+    // The second check passes after a pass in this turn, the turn's last check, so the line that stands for the notes
+    // not repeated also says none of them asks for another check (13 Nov 2026).
+    expect(second.turn_already_passed).toBe(true);
+    expect(advisoryNotes(second)).toContain(repeatedNotesLine(hidden, true));
     // The digests carry on through the turn, so a third check repeats nothing either; the next turn gives it again.
     const third = call({ carried_state: second.carry_forward, round_token: second.round_token });
     expect(advisoryNotes(third)).not.toContain(note);
@@ -112,6 +115,9 @@ describe("conversation state carried between final checks", () => {
     expect(repeatedNotesLine(2)).toBe("2 notes an earlier check of this turn gave are not repeated. Each still stands " +
       "unless the draft or this call's declarations already meet it, in your own words; none asks you to remove a source or claim.");
     expect(repeatedNotesLine(1)).toMatch(/^One note an earlier check of this turn gave is not repeated\. It still stands /u);
+    expect(repeatedNotesLine(2, true)).toBe("2 notes an earlier check of this turn gave are not repeated. Each still " +
+      "stands unless the draft or this call's declarations already meet it, in your own words; none asks you to remove " +
+      "a source or claim, and none asks for another check in this turn.");
   });
   it("carries the turn's own observations when a check leaves user_observations out (review of 5 Nov)", () => {
     const first = check({ user_observations: [observation] });

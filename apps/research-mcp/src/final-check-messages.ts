@@ -95,6 +95,36 @@ export const PASSING_NOTES_HEADING = "Notes about the call (the check passed: a 
 export const REPEAT_PASS_NOTES_HEADING = "Notes about the call (this turn's check had already passed: a note asking " +
   "you to add or resend an input is for a later answer; a note saying something in the answer is wrong is fixed in " +
   "the answer, with no further check in this turn):";
+// Greptile's review of 12 Nov 2026 (P2): REPEAT_PASS_GUIDANCE says not to call finalize_research again, while the notes
+// of the same result could still end "check the answer again" (on a dev account a new concern from the meaning judge
+// adds such a note after an earlier pass), and the result still asked for closing questions, which the guidance says
+// not to add. A repeat pass is the turn's last check, so since 13 Nov 2026 everything it says follows that: a note
+// that asked for the check again says what the heading above says of its kind (repeatPassNote); the notes an earlier
+// check gave ask for no other check; the result asks for no closing questions and gives no way to restore a quick
+// answer's comparison in this turn; and the round token is for a call made despite it (register-tools.ts,
+// research-finalization-gate.ts). A first pass and a check that doesn't pass say what they said.
+const NO_FURTHER_CHECK = "with no further check in this turn";
+const FOR_A_LATER_ANSWER = `for a later answer, ${NO_FURTHER_CHECK}`;
+/**
+ * A note under a passing check as a repeat pass gives it. A note that asks for the check again ends in one of four
+ * ways, in the gate, source-lines.ts and study-map.ts; each is given here as a first pass words it, with what a repeat
+ * pass says instead. The first three are only ever said of an input (the source lines, the card). The last is said
+ * both of an input and of something wrong in the answer, so the gate names its notes that ask for an input (`asks`);
+ * any other note with that ending says the answer is wrong. A note with none of these endings is as it was.
+ */
+export function repeatPassNote(note: string, asks: "answer" | "input" = "answer"): string {
+  const endings: ReadonlyArray<readonly [first: string, repeat: string]> = [
+    [" Then check the answer again, and AskRigor looks the lines up.",
+      ` That is ${FOR_A_LATER_ANSWER}; AskRigor looks the lines up then.`],
+    [" Then check the answer again.", ` That is ${FOR_A_LATER_ANSWER}.`],
+    [", then send the card and check the answer again.", `, then send the card ${FOR_A_LATER_ANSWER}.`],
+    [", and check the answer again.", `, ${asks === "input" ? FOR_A_LATER_ANSWER : NO_FURTHER_CHECK}.`],
+  ];
+  for (const [first, repeat] of endings) {
+    if (note.endsWith(first)) return `${note.slice(0, -first.length)}${repeat}`;
+  }
+  return note;
+}
 // Owner answer 205a (30 October 2026): beside the limits of a passing check, which the panel lists in full.
 export const PASSING_LIMITS_GUIDANCE = "The panel lists every limit below beneath the checked answer, so the answer " +
   "need not repeat them. The answer " +
@@ -111,6 +141,7 @@ export const REPEAT_PASS_LIMITS_GUIDANCE = "The panel lists every limit below be
 // with examples) and said what it would do with the answers, while AskRigor's answer never asked about weight, though the
 // trials and the US approval cover only people with obesity. HRP ComplexAnswerFooter already asks for the most
 // decision-changing next data. Under every status; no word list or check reads the questions, in any field or language.
+// Since 13 Nov 2026 a repeat pass leaves it out, as it says to add no closing questions the checked draft doesn't have.
 export const CLOSING_QUESTIONS_GUIDANCE = "When the answer depends on the person's situation, close it, before the lines " +
   "this result puts at its end, with at most three questions whose answers would most change it (HRP " +
   "ComplexAnswerFooter: the most decision-changing next data): what they are deciding (for example, instead of what " +
