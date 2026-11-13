@@ -245,6 +245,16 @@ function createResearchActionRoute(
           }
         }
       }
+      // A claimed handle is committed only once the operation has run with it
+      // to a successor or to an end (below). Every other way out of this
+      // request releases the claim, by the store's rollback, so the same
+      // handle can be used again: an error, a receipt that neither continues
+      // nor ends the audit, and a request the operation refused as invalid
+      // input before running. That last one used to leave the handle claimed,
+      // so the corrected retry was answered
+      // youtube_action_continuation_invalid_or_expired and the audit's chain
+      // was lost (Greptile's review of 12 Nov 2026, P1).
+      let committed = false;
       try {
         const result = await operation.execute(operationInput, { surface: "action" });
         if (result.isError === true && result._meta?.["askrigor/errorCode"] === "invalid_input") {
@@ -286,16 +296,14 @@ function createResearchActionRoute(
             )
           ) {
             youtubeContinuationHandles.commit(previousHandle);
-          } else {
-            youtubeContinuationHandles.rollback(previousHandle);
+            committed = true;
           }
         }
         return { status: 200, body: validatedActionOutput.data };
-      } catch (error) {
-        if (previousHandle !== undefined) {
+      } finally {
+        if (previousHandle !== undefined && !committed) {
           youtubeContinuationHandles.rollback(previousHandle);
         }
-        throw error;
       }
     }
   });
