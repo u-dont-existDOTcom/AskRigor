@@ -3,11 +3,12 @@ import { readFileSync } from "node:fs";
 
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
+import { significanceMentions } from "./significance-language-lint.js";
 
 /**
  * The meaning judge (owner answer 221, 2 November 2026): one Claude API call made during the final check, for the
  * owner's dev accounts only, once the check passes. The check's exact comparisons cannot judge meaning; the judge does,
- * in five jobs: whether a findings card's finding rests on YouTube comments, whether each change the plain-answer
+ * in six jobs: whether a findings card's finding rests on YouTube comments, whether each change the plain-answer
  * comparison reports is backed by what it names, whether each limit applies to this answer, whether each finding
  * makes sense on its own to a reader of the public Atlas, and whether each source line's quotes back its claim (owner
  * answer 237a). Jobs 2 to 5 return notes for the AI only; job 1 holds the
@@ -20,12 +21,12 @@ import { z } from "zod";
  * AskRigor stores nothing it sends or receives here.
  */
 
-export const MEANING_JUDGE_RUBRIC_VERSION = "2026-11-04.1";
+export const MEANING_JUDGE_RUBRIC_VERSION = "2026-11-13.1";
 
 // Stable instructions first, so the API's prompt cache can serve them across checks; the bundle follows them.
 export const MEANING_JUDGE_RUBRIC = `You are the meaning judge of AskRigor, a health-research service. An AI researched a person's question with
 AskRigor's tools and wrote an answer. AskRigor's final check has already compared the AI's declarations with its
-signed receipts exactly, and the check passed. Exact comparisons cannot judge meaning; you do, in the five jobs below.
+signed receipts exactly, and the check passed. Exact comparisons cannot judge meaning; you do, in the six jobs below.
 Your judgments reach the AI as notes, and for job 1 they also keep a finding private. Do not judge whether the answer
 is right, do not redo the research, and judge each item only from what you are given. The answer and the declarations
 may be in any language.
@@ -45,6 +46,7 @@ You receive one JSON object:
 - key_sources: the studies the answer cites, each identifier with the label the answer shows for it.
 - limits: AskRigor's material limits for this answer, each with its number. Many are fixed sentences that a rule
   attaches whenever a declaration matches the rule, so a few may not fit this answer.
+- significance_mentions: each appearance of significant, significantly, significance, or nonsignificant in the answer, with its number and nearby sentence context; an appearance is not inherently an error.
 - source_lines: each key claim's line, with its number: source, claim (as the answer states it), sentence and conclusion
   (quotes the AI says are the paper's) and against (the strongest thing against the claim, in the AI's words).
 
@@ -102,6 +104,17 @@ than the paper's own words. Not backed: a claim wider or surer than its quotes, 
 group, or a conclusion that takes back what the sentence says. Read only these quotes, not what you know of the paper;
 whether the quotes are really in the paper is already checked apart from you. A claim that only restates its quotes is
 backed.
+
+Job 6, significance_language. For each numbered significance_mentions, decide from the answer and nearby text whether
+it MISUSES significant, significantly, significance or nonsignificant. Statistical significance, clinical/practical
+importance and ordinary English importance are DIFFERENT senses, all legitimate when used accurately. Ordinary prose
+like "a significant concern", "a significant improvement" meaning a substantial improvement, or "a significant
+undertaking" is not an error merely because no p-value appears. Nor is accurately reporting a source's statistical
+finding an error when the observed magnitude is reported elsewhere in the answer. Flag only a misleading inference:
+treating nonsignificance as proof of no effect/equivalence; treating significant-vs-nonsignificant labels as
+proof that effects differ; calling a p-value a measure of clinical importance or effect size; or materially
+ambiguous significant used as the sole evidence of an outcome with no measure or intended sense nearby.
+When unsure, set misused false: a word search cannot know intent. Keep the why concise and exact. Return [] for none.
 
 Each why is one short sentence of at most 200 characters, in English, quoting at most a few words and never a
 commenter's words; only a limit that applies has an empty why, and a limit whose premise you find true applies. Number each item exactly as given. Reply with the JSON
@@ -161,6 +174,7 @@ export interface MeaningJudgeBundle {
   key_sources: Array<{ id: string; label: string | null }>;
   limits: Array<{ number: number; text: string }>;
   source_lines: Array<{ number: number; source: string; claim: string; sentence: string; conclusion: string; against: string }>;
+  significance_mentions: Array<{ number: number; word: string; context: string }>;
 }
 
 /** The bundle one check sends, or undefined when it has nothing for any job to judge. */
@@ -187,7 +201,8 @@ export function meaningJudgeBundle(source: MeaningJudgeSource): MeaningJudgeBund
   }]);
   const limits = source.limits.map((text, index) => ({ number: index + 1, text }));
   const sourceLines = (source.sourceLines ?? []).map((line, index) => ({ number: index + 1, ...line }));
-  if (findings.length === 0 && comparison.length === 0 && limits.length === 0 && sourceLines.length === 0) return undefined;
+  const significance = significanceMentions(source.answer);
+  if (findings.length === 0 && comparison.length === 0 && limits.length === 0 && sourceLines.length === 0 && significance.length === 0) return undefined;
   return {
     answer: source.answer,
     comments_read: source.commentsRead,
@@ -200,6 +215,7 @@ export function meaningJudgeBundle(source: MeaningJudgeSource): MeaningJudgeBund
     key_sources: source.keySources.map(({ id, answer_marker }) => ({ id, label: answer_marker ?? null })),
     limits,
     source_lines: sourceLines,
+    significance_mentions: significance,
   };
 }
 
@@ -224,8 +240,11 @@ export const MEANING_JUDGE_OUTPUT_SCHEMA = {
     source_lines: { type: "array", items: { type: "object", properties: {
       line: { type: "integer" }, backed: { type: "boolean" }, why,
     }, required: ["line", "backed", "why"], additionalProperties: false } },
+    significance_language: { type: "array", items: { type: "object", properties: {
+      occurrence: { type: "integer" }, misused: { type: "boolean" }, why,
+    }, required: ["occurrence", "misused", "why"], additionalProperties: false } },
   },
-  required: ["youtube_comments", "comparison", "limits", "standalone", "source_lines"],
+  required: ["youtube_comments", "comparison", "limits", "standalone", "source_lines", "significance_language"],
   additionalProperties: false,
 } as const;
 
@@ -236,6 +255,7 @@ export interface MeaningJudgmentItems {
   limits: Array<{ limit: number; why: string }>;
   standalone: Array<{ finding: number; standsAlone: boolean; why: string }>;
   sourceLines: Array<{ line: number; backed: boolean; why: string }>;
+  significance: Array<{ occurrence: number; misused: boolean; why: string }>;
 }
 
 export type MeaningJudgeSkipReason = "off" | "daily_budget" | "error" | "timeout" | "refusal" | "unreadable";
@@ -299,6 +319,7 @@ const judgmentSchema = z.object({
   limits: z.array(z.unknown()),
   standalone: z.array(z.unknown()),
   source_lines: z.array(z.unknown()).default([]),
+  significance_language: z.array(z.unknown()).default([]),
 });
 
 /**
@@ -323,6 +344,7 @@ export function judgmentItems(reply: unknown, bundle: MeaningJudgeBundle, key = 
   const items = new Set(bundle.comparison.map(({ number }) => number));
   const limits = new Set(bundle.limits.map(({ number }) => number));
   const lines = new Set(bundle.source_lines.map(({ number }) => number));
+  const significance = new Set(bundle.significance_mentions.map(({ number }) => number));
   const once = <T extends Record<string, unknown>>(list: unknown[], field: string, known: ReadonlySet<number>,
     read: (entry: Record<string, unknown>, reason: string) => T | undefined): T[] => {
     const seen = new Set<number>();
@@ -350,6 +372,9 @@ export function judgmentItems(reply: unknown, bundle: MeaningJudgeBundle, key = 
       ? { finding: entry.finding as number, standsAlone: entry.stands_alone, why: reason } : undefined),
     sourceLines: once(parsed.data.source_lines, "line", lines, (entry, reason) => typeof entry.backed === "boolean"
       ? { line: entry.line as number, backed: entry.backed, why: reason } : undefined),
+    significance: once(parsed.data.significance_language, "occurrence", significance,
+      (entry, reason) => typeof entry.misused === "boolean"
+        ? { occurrence: entry.occurrence as number, misused: entry.misused, why: reason } : undefined),
   };
 }
 
