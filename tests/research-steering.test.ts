@@ -28,10 +28,8 @@ import {
   PERSON_ANSWER_DECLARED,
   PLAN_TASK_KINDS,
   RESEARCH_LOOPS,
-  QUESTION_IN_THE_MENU,
   READING_FIRST,
   RESEARCH_MENU_SHAPE,
-  RESEARCH_MENU_SHAPE_NAMED,
   STEERING_CHOICE,
   TARGET_NOT_REGISTERED,
   NAMED_ANSWER_STEERS,
@@ -2288,10 +2286,15 @@ describe("a research target that is not the registered one stops the go-ahead in
 
 // Owner answer 297c (13 Nov 2026). Round 5 of the owner's ChatGPT runs (build ea3a9283): two open questions went
 // straight to a checked answer, and in both the AI's first call already carried steering_could_help false, sent before
-// any result had asked it for a question; the refusal then got the word none. So a dev account's AI is asked for the
-// question where it first learns the menu, a menu refused for its shape comes back with the question's place marked,
-// and a menu that names none has the answer say its reading first.
-describe("a dev account is asked for the question at the screen, and says its reading when it names none (297c)", () => {
+// any result had asked it for a question; the refusal then got the word none. So a dev account's menu refused for its
+// shape comes back with the question's place marked, and a menu that names none has the answer say its reading first.
+//
+// Owner answer 298b (13 Nov 2026). The third part of 297c asked a dev account's AI for the question where it first
+// learns the menu, in register_plain_answer's result. In round 6 (build 2e231949) the control, one figure of one named
+// trial, then got a question in place of its answer: its first call already carried one, and asked why, the AI said
+// "none would have been the better choice". That part is taken back: register_plain_answer gives a dev account what
+// it gives every account.
+describe("a dev account's refused menu marks the question's place, and an answer after none says its reading (297c, 298b)", () => {
   const PRECISE_TARGET = "How often loose stools were recorded in one named trial of two fever medicines in children";
   const PRECISE_TASKS: ResearchMenuInput["tasks"] = [
     { task: "Read the trial's adverse-event table in full", kind: "full_text", could_change: "conclusion" },
@@ -2324,43 +2327,32 @@ describe("a dev account is asked for the question at the screen, and says its re
       await manage({ action: "plan_research", later_inputs: { researchMenu } }) };
   }
 
-  it("names steering_choice, with its test, in the shape and the next step a dev account is given", () => {
-    // The shape names the question where the yes or no stands, and keeps every other field and value.
-    expect(RESEARCH_MENU_SHAPE_NAMED).toContain(`in a few sentences; steering_choice, ${STEERING_CHOICE}; and tasks, `);
-    expect(RESEARCH_MENU_SHAPE_NAMED).not.toContain("steering_could_help");
-    const [start, tasks] = [RESEARCH_MENU_SHAPE.split("steering_could_help, ")[0]!,
-      RESEARCH_MENU_SHAPE.slice(RESEARCH_MENU_SHAPE.indexOf("and tasks, "))];
-    expect(RESEARCH_MENU_SHAPE_NAMED).toBe(`${start}steering_choice, ${STEERING_CHOICE}; ${tasks}`);
+  it("asks no account for the question at the screen: the shape and the next step name no steering_choice", () => {
     for (const style of STYLES) {
       const steering = { ...DEFAULT_RESEARCH_STEERING, style };
       for (const framing of FRAMINGS) {
-        // The guidance differs only by the shape, and the next step only by the sentence on the menu's question.
+        // The screen's text gives the menu's shape once, with the yes or no, and neither names the question.
         const guidance = framingGuidance(steering, framing);
         expect(guidance.split(RESEARCH_MENU_SHAPE)).toHaveLength(2);
-        expect(framingGuidance(steering, framing, true))
-          .toBe(guidance.replace(RESEARCH_MENU_SHAPE, RESEARCH_MENU_SHAPE_NAMED));
-        expect(framingNextStep(steering, framing, true))
-          .toBe(`${framingNextStep(steering, framing)} ${QUESTION_IN_THE_MENU}`);
-        // Every other account's words are as they were.
-        expect(framingGuidance(steering, framing, false)).toBe(guidance);
-        expect(framingNextStep(steering, framing, false)).toBe(framingNextStep(steering, framing));
         expect(guidance).not.toContain("steering_choice");
         expect(framingNextStep(steering, framing)).not.toContain("steering_choice");
+        expect(framingNextStep(steering, framing).endsWith("screen and call action plan_research.") ||
+          framingNextStep(steering, framing).endsWith("its result says whether to ask the person first.")).toBe(true);
       }
     }
-    expect(QUESTION_IN_THE_MENU).toContain("steering_choice is the one question you would ask this person");
-    expect(QUESTION_IN_THE_MENU).toContain("write the word none only when the question itself fixes exactly what to " +
-      "look up");
+    expect(RESEARCH_MENU_SHAPE).toContain("in a few sentences; steering_could_help, true when a choice the person " +
+      "could make");
+    expect(RESEARCH_MENU_SHAPE).not.toContain("steering_choice");
   });
 
-  it("keeps the shape every other account is given, to the letter", async () => {
-    // The shape as it was on the build before (ea3a9283), by its SHA-256: this change split the text in three parts.
+  it("keeps the shape every account is given, to the letter", async () => {
+    // The shape as it was on the build before 297c (ea3a9283), by its SHA-256.
     const { createHash } = await import("node:crypto");
     expect(createHash("sha256").update(RESEARCH_MENU_SHAPE, "utf8").digest("hex"))
       .toBe("4f4ce6e9576c57aab4499663d433543993060b85df0fd6514a18d5949f0c0c55");
   });
 
-  it("gives them with register_plain_answer, to a dev account alone, on ChatGPT's surface and Claude's", async () => {
+  it("gives a dev account register_plain_answer's words as every account gets them, on both surfaces", async () => {
     for (const [subject, dev, surface] of [["auth0|person", false, "/mcp"], ["auth0|dev", true, "/mcp"],
       ["auth0|dev-claude", true, "/mcp/claude"], ["auth0|person-claude", false, "/mcp/claude"]] as const) {
       const { manage } = await session(subject, dev, surface);
@@ -2368,12 +2360,15 @@ describe("a dev account is asked for the question at the screen, and says its re
         const registered = await manage({ action: "register_plain_answer", plainAnswer: PLAIN,
           ...(framing === undefined ? {} : { later_inputs: { framing } }) });
         expect(registered.isError, subject).not.toBe(true);
-        expect(registered.content[0]!.text.endsWith(framingGuidance(DEFAULT_RESEARCH_STEERING, framing, dev)), subject)
+        expect(registered.content[0]!.text.endsWith(framingGuidance(DEFAULT_RESEARCH_STEERING, framing)), subject)
           .toBe(true);
         expect(registered.structuredContent, subject).toMatchObject({
-          next_step: framingNextStep(DEFAULT_RESEARCH_STEERING, framing, dev) });
-        expect(text(registered).includes(STEERING_CHOICE), subject).toBe(dev);
-        expect(text(registered).includes("steering_could_help"), subject).toBe(!dev);
+          next_step: framingNextStep(DEFAULT_RESEARCH_STEERING, framing) });
+        // No account is asked for the question before its first menu (owner answer 298b).
+        expect(text(registered), subject).not.toContain("steering_choice");
+        expect(text(registered), subject).not.toContain(STEERING_CHOICE);
+        expect(JSON.stringify(registered.structuredContent), subject).not.toContain("steering_choice");
+        expect(text(registered).includes("steering_could_help"), subject).toBe(true);
       }
     }
   });

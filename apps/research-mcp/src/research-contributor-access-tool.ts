@@ -938,8 +938,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       }
       if (parsed.action === "register_plain_answer") {
         return await registerPlainAnswer(options.service, auth.subject, parsed.plainAnswer!, options.plainAnswer,
-          parsed.framing, isDevAccount(options.service.accountKeyForSubject(auth.subject),
-            options.devAccountKeys?.() ?? new Set()));
+          parsed.framing);
       }
       if (parsed.action === "set_research_steering") {
         return await setResearchSteering(options.service, auth.subject, parsed.researchSteering!);
@@ -1192,8 +1191,6 @@ async function registerPlainAnswer(
   plainAnswer: z.infer<typeof plainAnswerInputSchema>,
   plain: PlainAnswerOptions | undefined,
   framing?: Framing,
-  // Owner answer 297c: a dev account's next step names the menu's steering_choice before its first menu.
-  devAccount = false,
 ): Promise<CallToolResult> {
   const account = await plainAnswerAccount(service, subject, plain);
   if (account === undefined) return accessError("plain_answer_not_requested", plain === undefined ? PLAIN_ANSWER_SURFACE_UNAVAILABLE : PLAIN_ANSWER_NOT_REQUESTED);
@@ -1241,7 +1238,7 @@ async function registerPlainAnswer(
     // first, before the registration's details, so an ask is the first thing the model reads, and next_step carries it
     // to an app that hands its model only the structured content.
     content: [
-      { type: "text", text: framingGuidance(account.steering, framing, devAccount) },
+      { type: "text", text: framingGuidance(account.steering, framing) },
       { type: "text", text: summary },
       { type: "text", text: `research_receipt: ${receipt}` },
       { type: "text", text: FINALIZE_REMINDER },
@@ -1250,7 +1247,7 @@ async function registerPlainAnswer(
       ok: true,
       plainAnswer: { requested: true, note: account.note, claims: count },
       research_receipt: receipt,
-      next_step: framingNextStep(account.steering, framing, devAccount),
+      next_step: framingNextStep(account.steering, framing),
     }),
   };
 }

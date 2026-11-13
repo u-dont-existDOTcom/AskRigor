@@ -492,15 +492,6 @@ export function steeringChoiceRefusalText(example: CorrectedMenu): string {
 }
 
 /**
- * Owner answer 297c (13 Nov 2026): register_plain_answer's next step, on a dev account, says what the menu's
- * steering_choice is before the AI writes its first menu (framingNextStep), for an app that hands its model the
- * structured content and not the text that gives the menu's shape (RESEARCH_MENU_SHAPE_NAMED).
- */
-export const QUESTION_IN_THE_MENU = "In that menu, steering_choice is the one question you would ask this person " +
-  "before researching, because their answer could change what the research checks; try to name it first, and write " +
-  "the word none only when the question itself fixes exactly what to look up.";
-
-/**
  * Owner answer 297c (13 Nov 2026), the option the owner chose: when the AI still writes none, its answer opens with
  * one line saying how it read the question, so a reading the person did not mean shows at once. In round 5 the
  * orange-peel answer took a country from the app's memory of the person and the SMILES answer picked one of two
@@ -619,16 +610,14 @@ export const FORM_PEOPLE_USE = "When the answer turns on a form or preparation, 
  * ones included (a person's own three symptoms, an oil whose form changes its strength), against the owner's "usually
  * can unless the prompt is quite precise"; so the field now carries HRP's own test for when approval is required.
  */
-const MENU_SHAPE_START = "later_inputs.researchMenu in exactly this shape: research_target, the research target " +
+export const RESEARCH_MENU_SHAPE = "later_inputs.researchMenu in exactly this shape: research_target, the research target " +
   "word for word as register_plain_answer's result quoted it; plain_answer_receipt, that call's research_receipt; " +
-  "provisional_answer, what the screen suggests, in a few sentences; ";
-const MENU_SHAPE_JUDGMENT = "steering_could_help, true when a choice the " +
+  "provisional_answer, what the screen suggests, in a few sentences; steering_could_help, true when a choice the " +
   "person could make, or something only they know, could materially change what the research checks (HRP " +
   "StructuredUserSteeringAndApproval): such as their own situation or what they have tried, the form, dose or route " +
   "they use, what to compare it with, which outcome matters most to them, people's reports or studies, or how deep; " +
   "as it usually can, even when the question is clearly worded; false only when the question already fixes all of " +
-  "that, such as one result of one named study; ";
-const MENU_SHAPE_TASKS = "and tasks, the next tasks the screen found, in " +
+  "that, such as one result of one named study; and tasks, the next tasks the screen found, in " +
   "order, each {task, what it does in the person's language; kind, one of study_search, abstract_screen, full_text, " +
   "method_audit, forum_thread, video_comments, video_claims, trial_registry or other; could_change, one of conclusion, " +
   "confidence or detail; sources, how many searches, abstracts, papers, threads, videos or records it covers; loop, " +
@@ -636,29 +625,16 @@ const MENU_SHAPE_TASKS = "and tasks, the next tasks the screen found, in " +
   "high], only for a task of kind other or one much longer or shorter than its kind's usual time}. Leave out any other " +
   "field: allocation and done come only after the person answers or stops you, and menu_digest, as the last " +
   "plan_research result gave it, on every call after the first.";
-export const RESEARCH_MENU_SHAPE = MENU_SHAPE_START + MENU_SHAPE_JUDGMENT + MENU_SHAPE_TASKS;
-/**
- * Owner answer 297c (13 Nov 2026): the shape a dev account is given at the screen, with steering_choice and its test
- * (STEERING_CHOICE) where the yes or no stands. Round 5 of the owner's ChatGPT runs, on the build that asked for the
- * question only in a refusal (#441; 13 Nov, 02:51 to 03:18 UTC): two open questions went straight to a checked
- * answer, and in both the AI's first call, sent before any result had asked for a question, already carried
- * steering_could_help false with its reason; the refusal then got the word none. Asked afterwards, it named a question
- * both times, and said of the first that its none "was not fully justified". So the AI is asked for the question
- * before it has decided there is none. Every other account's shape is RESEARCH_MENU_SHAPE, as it was.
- */
-export const RESEARCH_MENU_SHAPE_NAMED = MENU_SHAPE_START + `steering_choice, ${STEERING_CHOICE}; ` + MENU_SHAPE_TASKS;
 /**
  * The screen, then the menu. The timing runs of 10 Nov 2026 (Codex, the 284 rule on the live build): the screens took 4
  * to 9 calls, and none of the 21 turns ended with the question AskRigor said to ask, so the screen says how short it is
  * and that an ask ends the turn, before the model starts it.
  */
-const screenFirst = (named: boolean): string => "Screen first: a few calls (about eight) of searches, abstracts, " +
-  "thread titles and the Atlas, " +
+const SCREEN_FIRST = "Screen first: a few calls (about eight) of searches, abstracts, thread titles and the Atlas, " +
   "with no full-text reading, long threads or video audits yet, ending with a provisional short answer. For each " +
   "claim on a premise of the person's question, include one search for what would show it wrong. " +
   PEOPLE_FIRST_WHEN_USED + " " + ALL_JOURNALS_AT_THE_SCREEN + " " + WORDS_ARE_NOT_SIZES + " Then call " +
-  "manage_research_access with action plan_research and " + (named ? RESEARCH_MENU_SHAPE_NAMED : RESEARCH_MENU_SHAPE) +
-  " AskRigor gives each task a time " +
+  "manage_research_access with action plan_research and " + RESEARCH_MENU_SHAPE + " AskRigor gives each task a time " +
   "range and says whether to ask the person first; when it says to ask, your reply is the message it gives, and the " +
   "turn ends there.";
 
@@ -681,12 +657,12 @@ const FRAMING_ANSWERED = "leaving later_inputs.framing out now that the person h
  * instructions in the same string reads as leave to go on, so the ask says the whole reply is the questions and the turn
  * ends there, as HRP's preflight-only response allows when steering is required.
  */
-export function framingGuidance(steering: ResearchSteering, framing: Framing | undefined, named = false): string {
+export function framingGuidance(steering: ResearchSteering, framing: Framing | undefined): string {
   if (framing === undefined) {
     return URGENT_FIRST + " Give later_inputs.framing with the plain answer next time: likely_question, the question the person most " +
       "likely means; premise_doubts, anything in it that looks inverted, unclear or possibly false; and " +
       "redirecting_questions, up to three questions whose answers could change what to research. " + FORM_PEOPLE_USE +
-      " " + screenFirst(named);
+      " " + SCREEN_FIRST;
   }
   const doubts = framing.premise_doubts ?? [];
   const questions = framing.redirecting_questions ?? [];
@@ -727,7 +703,7 @@ export function framingGuidance(steering: ResearchSteering, framing: Framing | u
         `keep these questions for your first check-back: ${asked} Ask now only if one could reverse the answer.`
       : "No question could redirect the research, so go on without asking.");
   }
-  parts.push(screenFirst(named));
+  parts.push(SCREEN_FIRST);
   return parts.join(" ");
 }
 
@@ -736,28 +712,25 @@ export function framingGuidance(steering: ResearchSteering, framing: Framing | u
  * its model a result's structured content and leaves out its text (docs/claude-connector.md, "What the model sees"), so
  * the stop goes there too. It follows framingGuidance's branches.
  */
-export function framingNextStep(steering: ResearchSteering, framing: Framing | undefined, named = false): string {
+export function framingNextStep(steering: ResearchSteering, framing: Framing | undefined): string {
   const asks = (framing?.redirecting_questions ?? []).length > 0;
   const doubts = (framing?.premise_doubts ?? []).length > 0;
-  // Owner answer 297c: a dev account's next step names the menu's question, for an app that hands its model this
-  // field and not the text with the menu's shape.
-  const question = named ? ` ${QUESTION_IN_THE_MENU}` : "";
   if (framing !== undefined && asks && steering.style !== "autonomous") {
     return "Ask the person your framing's redirecting_questions now and end your turn: no research call until they " +
       "answer. Then register the plain answer again if their answers change the question" +
       (doubts ? " or a doubt that could be false is not yet a claim" : "") + ", leaving later_inputs.framing out (its " +
-      "result's request for a framing is for the next question); then screen and call action plan_research." + question;
+      "result's request for a framing is for the next question); then screen and call action plan_research.";
   }
   if (framing !== undefined && !asks && steering.style === "guided") {
     return "Confirm the question you will research in one line, ask for the person's yes and end your turn; after " +
       "their yes, " + (doubts ? "register the plain answer again, leaving later_inputs.framing out (its result's " +
         "request for a framing is for the next question), if a doubt that could be false is not yet a claim; then "
-        : "") + "screen and call action plan_research." + question;
+        : "") + "screen and call action plan_research.";
   }
   return (doubts ? "If a doubt that could be false is not yet a claim of the plain answer, register the plain answer " +
     "again first, with the same later_inputs.framing. " : "") + "Screen in a few calls (searches, abstracts, thread " +
     "titles, the Atlas), then call action plan_research with later_inputs.researchMenu; its result says whether to ask " +
-    "the person first." + question;
+    "the person first.";
 }
 
 /**
