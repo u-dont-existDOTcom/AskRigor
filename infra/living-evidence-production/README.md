@@ -915,6 +915,36 @@ logs `key_file_unreadable`; nothing else changes. The API workspace ID is a
 line of `runtime.env` (`ASKRIGOR_RESEARCH_PLANNER_WORKSPACE_ID`) and is
 recorded nowhere in this repository.
 
+The planning call's counts across a restart: the overlay also gives
+`research-mcp` one folder it may write,
+`/opt/askrigor/state/research-planner:/run/askrigor-research-planner`, for the
+file that keeps the day's spend and each account's count of plans
+(`ASKRIGOR_RESEARCH_PLANNER_STATE_FILE=/run/askrigor-research-planner/state.json`;
+`../../docs/research-contributor-access.md`, "Across a restart").
+Without it both are numbers in process memory, so every release or restart
+starts them again and the day's cap can be passed on such a day. The release
+that sets it, before the deploy: on the host, as root, create
+`/opt/askrigor/state/research-planner` owned by the service user (UID and GID
+1000), mode `0700`; if a deploy of this overlay came first, Docker has made
+the folder itself, empty and owned by root: give it that owner and mode. Then
+add the line above to `runtime.env` and recreate `research-mcp` with both
+Compose files. Install no file: the service writes `state.json` itself, mode
+`0600`, the first time a dev account registers a plain answer, and replaces it
+whole at every change. It is one line of JSON: the UTC day, the day's spend in
+USD and each account's count under the first 16 hex characters of the SHA-256
+of its account key, and no key, question or plan. Check after the first plan
+that the file is there, owned by UID 1000, mode `0600`, with today's UTC day,
+and that the folder holds nothing else. With the line absent the service
+reads and writes nothing there and counts in memory as before. With a folder
+it cannot write, the call still runs, the counts stay in memory and the log
+says `state_write_failed` once. A file from a later day, or one that is not
+as the service writes it, is not used: the log says `state_file_malformed`,
+the day starts at zero and the next change replaces the file. To start a
+day's counts again on purpose, delete the file and recreate `research-mcp`:
+the running service holds them in memory and would write them back. Rollback:
+remove the line and recreate `research-mcp`; the folder and its file stay,
+read by nothing.
+
 The owner's private page (the owner, 5 November 2026; built, not yet released;
 plan `../../docs/superpowers/plans/2026-11-05-atlas-owner-page.md`):
 `/atlas/account/private`, there only while participation is on, shows the

@@ -170,9 +170,14 @@ describe("production living-evidence deployment", () => {
       "/opt/askrigor/state/private-comment-maps:/var/lib/askrigor-private-comment-maps:ro",
       // Owner answers 221 and 298b: the Claude API key file of AskRigor's own planning call, read-only.
       "/opt/askrigor/state/claude-api:/run/askrigor-claude-api:ro",
+      // The planning call's count of the day's spend and of each account's plans, kept across a restart: the one
+      // folder of these the service writes, so it is not read-only.
+      "/opt/askrigor/state/research-planner:/run/askrigor-research-planner",
     ]);
     expect(runbook).toContain(`\`${mounts[2]}\``);
     expect(runbook).toContain("`ASKRIGOR_RESEARCH_PLANNER_KEY_FILE=/run/askrigor-claude-api/key`");
+    expect(runbook).toContain(`\`${mounts[3]}\``);
+    expect(runbook).toContain("`ASKRIGOR_RESEARCH_PLANNER_STATE_FILE=/run/askrigor-research-planner/state.json`");
     // The runbook quotes that mount, adds none by hand, and its setting names a file inside it.
     expect(runbook).toContain(`\`${mounts[1]}\``);
     expect(runbook).toContain("Add no mount by hand");

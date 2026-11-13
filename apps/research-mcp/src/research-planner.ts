@@ -1,5 +1,6 @@
-import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { closeSync, fsyncSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
@@ -34,6 +35,14 @@ import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, steeringChoice
  * under governance/chat-work-authority-policy.json's OWNER_ANSWER_298B, beneath a daily cap in USD and a number of
  * calls per account and day. AskRigor stores nothing it sends or receives here: a plan lives for an hour in process
  * memory, for the same account's same words, and the day's spend and counts are numbers in process memory.
+ *
+ * Those numbers survive a restart when ASKRIGOR_RESEARCH_PLANNER_STATE_FILE names a file. Without it every release or
+ * restart set them back to zero, so the cap could be passed on such a day (the known limit in the release record of
+ * 13 November 2026, 15:30 UTC: two releases that day each started them again). The file holds the UTC day, the day's
+ * spend with what is held for running calls, and each account's count under the first 16 hex characters of the
+ * SHA-256 of its account key: never the key itself, and nothing of a question, an answer or a plan. It is read once,
+ * when the planner is made, and replaced whole after every change. A write that fails never reaches a registration:
+ * the counts go on in memory. Without the setting nothing is read or written.
  */
 
 export const RESEARCH_PLANNER_RUBRIC_VERSION = "2026-11-13.1";
@@ -288,9 +297,60 @@ export function researchPlanOf(reply: unknown, searches: number, key = "\u0000")
     searches: Number.isFinite(searches) ? Math.max(0, Math.trunc(searches)) : 0 };
 }
 
+/**
+ * The day's counts as the state file holds them: the UTC day, the day's spend in USD with what is held for running
+ * calls, and each account's new calls that day. An account is named by the first 16 hex characters of the SHA-256 of
+ * its account key, never by the key.
+ */
+const stateSchema = z.strictObject({
+  schema_version: z.literal(1),
+  utc_day: z.string().regex(/^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/u),
+  // A number is finite here: a figure too large to hold (1e999) parses to infinity, and is not one.
+  spent_usd: z.number().nonnegative(),
+  account_calls: z.record(z.string().regex(/^[0-9a-f]{16}$/u), z.number().int().nonnegative()),
+});
+export type ResearchPlannerState = z.output<typeof stateSchema>;
+
+/** The counts a state file's text holds, or undefined when it is not a file as the planner writes it. */
+function plannerStateOf(text: string): ResearchPlannerState | undefined {
+  let value: unknown;
+  try { value = JSON.parse(text); } catch { return undefined; }
+  const parsed = stateSchema.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
+}
+
+/** An account as the day's counts name it, in memory and in the state file. */
+const accountDigest = (accountKey: string): string =>
+  createHash("sha256").update(accountKey).digest("hex").slice(0, 16);
+
+/**
+ * Replaces a file whole: written under a temporary name in the same directory, mode 0600, then renamed over it, so a
+ * reader finds the counts from before the change or from after it, never half a file.
+ */
+function replaceFile(path: string, text: string): void {
+  const temporary = join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
+  try {
+    const descriptor = openSync(temporary, "wx", 0o600);
+    try {
+      writeFileSync(descriptor, text, "utf8");
+      fsyncSync(descriptor);
+    } finally {
+      closeSync(descriptor);
+    }
+    renameSync(temporary, path);
+  } catch (error) {
+    // Nothing is left behind; when it was never made, or cannot be removed, that changes nothing: it is never read.
+    try { unlinkSync(temporary); } catch { /* as above */ }
+    throw error;
+  }
+}
+
 export interface ResearchPlannerDependencies {
   env?: NodeJS.ProcessEnv;
+  /** Reads the key file, and the state file when one is named. */
   readFile?: (path: string) => string;
+  /** Replaces the state file whole; by default through a temporary file beside it, renamed over it. */
+  writeFile?: (path: string, text: string) => void;
   /** Builds the API client; the official SDK by default. */
   client?: (settings: { apiKey: string; workspaceId: string | undefined; timeoutMs: number }) => ResearchPlannerClient;
   now?: () => number;
@@ -311,6 +371,7 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
   const env = dependencies.env ?? process.env;
   const now = dependencies.now ?? Date.now;
   const log = dependencies.log ?? ((line: string) => console.error(`research planner: ${line}`));
+  const readFile = dependencies.readFile ?? ((path: string) => readFileSync(path, "utf8"));
   const skipped = (reason: ResearchPlannerSkipReason): ResearchPlannerCall =>
     ({ planning: { status: "skipped", reason }, cached: false, costUsd: 0, milliseconds: 0 });
   const off: ResearchPlanner = { enabled: false, plan: async () => skipped("off") };
@@ -319,7 +380,7 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
   if (keyFile === undefined || keyFile === "") { log("key_file_not_set"); return off; }
   let key: string | undefined;
   try {
-    key = keyFromSecretFile((dependencies.readFile ?? ((path: string) => readFileSync(path, "utf8")))(keyFile));
+    key = keyFromSecretFile(readFile(keyFile));
   } catch { key = undefined; }
   if (key === undefined) { log("key_file_unreadable"); return off; }
   const apiKey = key;
@@ -345,9 +406,42 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
   const cache = new Map<string, { until: number; call: Promise<ResearchPlannerCall> }>();
   let day = "";
   let spent = 0;
+  // By each account's digest, as the state file names it, so a count is looked up the same way after a restart.
   let calls = new Map<string, number>();
   const today = () => new Date(now()).toISOString().slice(0, 10);
-  const turnDay = () => { if (today() !== day) { day = today(); spent = 0; calls = new Map(); } };
+  const stateFile = env.ASKRIGOR_RESEARCH_PLANNER_STATE_FILE?.trim() || undefined;
+  const writeFile = dependencies.writeFile ?? replaceFile;
+  // The state file is read once, here. Today's counts are taken up. Another day's, and no file that can be read, leave
+  // the day to start at zero. So does a file that is not as save() writes it or that names a day still to come, with
+  // a line in the log, since the next change replaces it.
+  if (stateFile !== undefined) {
+    let text: string | undefined;
+    try { text = readFile(stateFile); } catch { text = undefined; }
+    if (text !== undefined) {
+      const kept = plannerStateOf(text);
+      if (kept === undefined || kept.utc_day > today()) log("state_file_malformed");
+      else if (kept.utc_day === today()) {
+        day = kept.utc_day;
+        spent = kept.spent_usd;
+        calls = new Map(Object.entries(kept.account_calls));
+      }
+    }
+  }
+  // After every change to the day's counts. A write that fails is logged once for the process, as a class and never
+  // with the path or the error's words, and never reaches a registration: the counts are right in memory, and the
+  // next change tries the file again.
+  let writeFailed = false;
+  const save = () => {
+    if (stateFile === undefined) return;
+    const state: ResearchPlannerState = { schema_version: 1, utc_day: day, spent_usd: spent,
+      account_calls: Object.fromEntries(calls) };
+    try {
+      writeFile(stateFile, `${JSON.stringify(state)}\n`);
+    } catch {
+      if (!writeFailed) { writeFailed = true; log("state_write_failed"); }
+    }
+  };
+  const turnDay = () => { if (today() !== day) { day = today(); spent = 0; calls = new Map(); save(); } };
   const count = (value: number | null | undefined) =>
     typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0;
   const priced = (name: string | null | undefined, tokens: { input: number; output: number; cacheWrite: number;
@@ -367,13 +461,15 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
     };
     // The reservation, made on the day the call is sent, which is the day the call counts toward: settled with what
     // the call really cost while that day lasts. A reply that arrives after midnight changes nothing of the new day,
-    // whose cap its call was never admitted under.
+    // whose cap its call was never admitted under. It is in the state file before the call is sent, so a call that
+    // was running when the server stopped keeps what was held for it, as one that timed out does.
     turnDay();
     const reservedOn = day;
     spent += RESERVED_USD;
+    save();
     const settle = (costUsd: number) => {
       turnDay();
-      if (day === reservedOn) spent = Math.max(0, spent + costUsd - RESERVED_USD);
+      if (day === reservedOn) { spent = Math.max(0, spent + costUsd - RESERVED_USD); save(); }
     };
     try {
       const timedOut = new Promise<never>((_, reject) => {
@@ -466,9 +562,11 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
       // A call is sent only while the cap has room for what is held for it, so the cap is passed only by a call that
       // costs more than that.
       if (spent + RESERVED_USD > cap) return skipped("daily_budget");
-      const used = calls.get(accountKey) ?? 0;
+      const account = accountDigest(accountKey);
+      const used = calls.get(account) ?? 0;
       if (used >= accountCalls) return skipped("account_limit");
-      calls.set(accountKey, used + 1);
+      calls.set(account, used + 1);
+      save();
       if (cache.size >= 200) cache.delete(cache.keys().next().value!);
       const call = request(source);
       cache.set(hash, { until: current + HOUR, call });

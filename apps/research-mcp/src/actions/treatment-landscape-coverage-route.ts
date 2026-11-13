@@ -1322,9 +1322,9 @@ export function assessTreatmentLandscapeCoverage(
   const validatedGeminiSparkCandidates = unique(geminiSparkFrontiers.flatMap(
     ({ validated_candidate_video_ids }) => validated_candidate_video_ids
   ));
-  // Discovery stops at saturation, not at a count: the last two valid batches,
-  // from different queries, found no new material program and no video selected
-  // for audit that earlier batches had not already found.
+  // Discovery stops at saturation, not at a count: the last two valid batches
+  // whose searches ran, from different queries, found no new material program
+  // and no video selected for audit that earlier batches had not already found.
   const discoverySaturated = discoverySaturation(validBatches, {
     materialSignatureOf: (fingerprintId) => {
       const fingerprint = fingerprintById.get(fingerprintId);
@@ -1607,9 +1607,13 @@ function evaluateDiscussionReceipt(
     depthBlockers.push(`Video ${videoId} discussion receipt counts do not reconcile.`);
     return false;
   }
-  const providerCountReconciles = audit.provider_reported_comments === undefined ||
-    Number(audit.provider_reported_comments) === audit.records_retrieved_cumulative;
   const receipt = audit.receipt;
+  // YouTube's own comment count (provider_reported_comments) is not part of
+  // this: it often differs from the records its API returns, and the audit
+  // reports the difference as a limitation without leaving api_visible_complete.
+  // Requiring the two to match left such an audit uncounted for good, since
+  // the boundary then asked for below cannot carry that status (two reviews
+  // of 13 Nov 2026).
   const complete = audit.metadata_access_status === "api_visible_complete" &&
     audit.access_status === "api_visible_complete" &&
     audit.extraction_coverage === "api_visible_complete" &&
@@ -1617,8 +1621,7 @@ function evaluateDiscussionReceipt(
     receipt.synthesis_lock === "pass" && receipt.chain_started_at_first_page &&
     receipt.top_level_pagination_exhausted && receipt.replies_reconciled &&
     receipt.blockers.length === 0 &&
-    audit.reply_count_mismatches.length === 0 && !audit.continuation_recommended &&
-    providerCountReconciles;
+    audit.reply_count_mismatches.length === 0 && !audit.continuation_recommended;
   if (complete && audit.access_boundary_id === undefined) return true;
   if (complete) {
     depthBlockers.push(`Video ${videoId} discussion cites a boundary despite complete retrieval.`);
@@ -1973,14 +1976,18 @@ type DiscoverySaturation = "saturated" | "too_few_batches" | "same_query" | "sti
 
 /** Whether the last two batches, from different queries, added nothing new; batches run in ledger order. */
 function discoverySaturation(
-  batches: ReadonlyArray<{ query_or_scope: string; candidate_video_ids: string[]; new_program_fingerprint_ids: string[] }>,
+  batches: ReadonlyArray<{
+    query_or_scope: string;
+    access_status: z.output<typeof accessStatusSchema>;
+    candidate_video_ids: string[];
+    new_program_fingerprint_ids: string[];
+  }>,
   context: {
     materialSignatureOf: (fingerprintId: string) => string | undefined;
     fingerprintOfCandidate: (videoId: string) => string | undefined;
     selectedVideoIds: ReadonlySet<string>;
   }
 ): DiscoverySaturation {
-  if (batches.length < 2) return "too_few_batches";
   const seenSignatures = new Set<string>();
   const seenVideos = new Set<string>();
   const found = batches.map((batch) => {
@@ -2000,10 +2007,19 @@ function discoverySaturation(
       if (!seenVideos.has(videoId) && context.selectedVideoIds.has(videoId)) foundNew = true;
       seenVideos.add(videoId);
     }
-    return foundNew;
+    return { batch, foundNew };
   });
-  const [previous, last] = batches.slice(-2);
-  if (found.at(-1) === true || found.at(-2) === true) return "still_finding";
+  // A batch whose search failed or only partly ran (a rate limit, the daily
+  // quota, an error, a refusal) cannot show that nothing new was left to
+  // find, so it is not one of the two closing rounds; what it did find still
+  // counts as a find. Two such batches used to read as saturation (review of
+  // 13 Nov 2026).
+  const rounds = found.filter(({ batch, foundNew }) =>
+    foundNew || isCompleteAccess(batch.access_status)
+  );
+  if (rounds.length < 2) return "too_few_batches";
+  const [previous, last] = rounds.slice(-2);
+  if (previous!.foundNew || last!.foundNew) return "still_finding";
   const angle = (query: string) => query.trim().toLowerCase().replace(/\s+/gu, " ");
-  return angle(previous!.query_or_scope) === angle(last!.query_or_scope) ? "same_query" : "saturated";
+  return angle(previous!.batch.query_or_scope) === angle(last!.batch.query_or_scope) ? "same_query" : "saturated";
 }

@@ -268,6 +268,25 @@ describe("treatment coverage from signed receipts", () => {
     expect(old.answer_boundary).toBe("continue_research");
   });
 
+  // The audit signs YouTube's own comment count (prc) beside the records it retrieved, and stays complete when the
+  // two differ. The check used to demand that they match, which a signed receipt gives the caller no way to change.
+  it("counts a complete video audit whose signed count differs from YouTube's own figure", () => {
+    const differing = sign("youtube_video_audit", {
+      video: "FFFFFFFFFFF", state: "api_visible_complete", lock: "pass", records: 120,
+      ch: "UCchannelFFFFFFFFFFFFFFF", ms: "api_visible_complete", acc: "api_visible_complete", cov: "api_visible_complete",
+      prc: "134", top: 80, rep: 40, ret: 100, rtop: 70, rrep: 30, mm: 0, cr: 0, f: 1, tx: 1, rr: 1, bl: 0
+    }, 6_000);
+    const result = assessTreatmentCoverageFromReceipts(input({ receipts: [...receipts.slice(0, 5), differing] }),
+      { secret: SECRET, now });
+    expect(result.receipt_derivation.input_problems).toEqual([]);
+    expect(result.depth_blockers).toEqual([]);
+    expect(result).toMatchObject({
+      answer_boundary: "ledger_consistent_for_synthesis",
+      per_video_depth_lock: "pass",
+      material_videos_fully_audited: 3
+    });
+  });
+
   it("refuses reserved IDs and asks for a per-video audit of a selected video", () => {
     const reserved = assessTreatmentCoverageFromReceipts(input({
       program_fingerprints: [
@@ -423,6 +442,26 @@ describe("treatment coverage from signed receipts", () => {
     expect(reserved.receipt_derivation.input_problems).toContain(
       "ID server:access:r9 is reserved for server-made records; rename it."
     );
+  });
+
+  it("does not read two closing rounds the daily quota stopped as discovery that found nothing new", () => {
+    const stopped = (query: string, t: number) => discovery("youtube_search", {
+      videos: [], access: "rate_limited", rl: 1, inc: 1, open: 0, q: discoveryQueryDigest([query])
+    }, t);
+    // The scout's round, then two searches from new angles that the quota stopped before they returned anything.
+    const result = assessTreatmentCoverageFromReceipts(input({
+      receipts: [scout, stopped("hip pain what finally worked", 2_000), stopped("hip methods named in comments", 3_000),
+        ...receipts.slice(3)],
+      rounds: [],
+      specific_searches: [],
+      not_material_videos: []
+    }), { secret: SECRET, now });
+    expect(result.receipt_derivation).toMatchObject({ discovery_rounds: 3, access_boundaries_derived: 2, input_problems: [] });
+    expect(result.discovery_saturated).toBe(false);
+    expect(result.breadth_gaps).toEqual(expect.arrayContaining([
+      "Discovery has not saturated: run discovery batches from different angles until two in a row add nothing new.",
+      "Discovery batch r1, r2 (2 records): stopped at a rate limit or daily quota; rerun it once the limit resets."
+    ]));
   });
 
   it("reports tampered receipts and never lets a tie hide a late find", () => {

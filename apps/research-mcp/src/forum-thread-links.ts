@@ -54,8 +54,35 @@ interface ThreadParts {
   query: Array<[string, string]>;
 }
 
+// The punctuation that ends a sentence or a quotation around a link, not the link.
+const TRAILING_PUNCTUATION = ".,;:!?\"'*`]";
+
+/**
+ * A text without the run of the given characters at its end: what replacing /[characters]+$/u with nothing gives, read
+ * once from the end. That pattern started over at every character of a run that wasn't at the end, so a link with a
+ * long run of dots or slashes inside it took time with the square of its length: 14 seconds on a 128 KB link, timed on
+ * 13 Nov 2026 (pull request 441 had listed it as known and queued), and a forum page may hand on a link as long as
+ * itself.
+ */
+function withoutTrailing(text: string, characters: string): string {
+  let end = text.length;
+  while (end > 0 && characters.includes(text[end - 1]!)) end -= 1;
+  return end === text.length ? text : text.slice(0, end);
+}
+
+/**
+ * A text without its fragment: what replacing /#.*$/u with nothing gives. The pattern's "." stops at a line break, so
+ * that is from the first "#" after the text's last line break, found without reading on from every "#" before it.
+ */
+function withoutFragment(text: string): string {
+  const lineBreak = Math.max(text.lastIndexOf("\n"), text.lastIndexOf("\r"), text.lastIndexOf("\u2028"),
+    text.lastIndexOf("\u2029"));
+  const fragment = text.indexOf("#", lineBreak + 1);
+  return fragment < 0 ? text : text.slice(0, fragment);
+}
+
 function threadParts(url: string): ThreadParts | undefined {
-  const trimmed = url.trim().replace(/[.,;:!?"'*`\]]+$/u, "");
+  const trimmed = withoutTrailing(url.trim(), TRAILING_PUNCTUATION);
   let link: URL;
   try {
     link = new globalThis.URL(trimmed);
@@ -77,8 +104,8 @@ function threadParts(url: string): ThreadParts | undefined {
   const query = [...link.searchParams]
     .filter(([key]) => !NON_THREAD_PARAMETER.test(key) && !(threadId && WITHIN_THREAD_PARAMETER.test(key)))
     .sort(([left], [right]) => left.localeCompare(right));
-  const path = link.pathname.replace(/;jsessionid=[^/]*/iu, "").replace(THREAD_PAGE_SUFFIX, "")
-    .replace(DISCOURSE_POST, "$1").replace(/\/+$/u, "").toLowerCase();
+  const path = withoutTrailing(link.pathname.replace(/;jsessionid=[^/]*/iu, "").replace(THREAD_PAGE_SUFFIX, "")
+    .replace(DISCOURSE_POST, "$1"), "/").toLowerCase();
   return { host, site, scheme, port, path, query };
 }
 
@@ -94,8 +121,8 @@ function threadParts(url: string): ThreadParts | undefined {
 export function comparableUrl(url: string): string {
   const parts = threadParts(url);
   if (parts === undefined) {
-    return url.trim().replace(/[.,;:!?"'*`\]]+$/u, "").toLowerCase().replace(/^https?:\/\//u, "").replace(/#.*$/u, "")
-      .replace(/\/+$/u, "");
+    return withoutTrailing(withoutFragment(withoutTrailing(url.trim(), TRAILING_PUNCTUATION).toLowerCase()
+      .replace(/^https?:\/\//u, "")), "/");
   }
   if (parts.post !== undefined) return `reddit.com/comments/${parts.post}`;
   const query = parts.query.map(([key, value]) => `${key}=${value}`).join("&");
@@ -136,6 +163,56 @@ export function forumPageDigest(url: string): string {
 // Whether a link picks a page of its thread after the first: the page reader's own rule, kept with it (the review of #421).
 export { pagePickedAfterFirst } from "@askrigor/sources";
 
+const PAGE_NUMBER = /^[0-9]{1,9}$/u;
+
+/**
+ * What picks a link's page of its thread, with the number it gives: its one page parameter (start, page, pg, offset),
+ * or its path's end ("path", for /page-2). "first" for a link that picks none, the thread's first page. Undefined for
+ * a link that picks a page twice or gives no number, whose page has no place among the others, and for no link.
+ */
+function pagePicked(url: string): { by: string; number: number } | "first" | undefined {
+  let link: URL;
+  try {
+    link = new globalThis.URL(url.trim());
+  } catch {
+    return undefined;
+  }
+  const picked = [...link.searchParams].filter(([key]) => PAGE_PARAMETER.test(key))
+    .map(([key, value]) => ({ by: key.toLowerCase(), value }));
+  const suffix = PAGE_SUFFIX.exec(link.pathname)?.[1];
+  if (suffix !== undefined) picked.push({ by: "path", value: suffix.replace(/^page[-/]?/iu, "") });
+  if (picked.length === 0) return "first";
+  if (picked.length > 1 || !PAGE_NUMBER.test(picked[0]!.value)) return undefined;
+  return { by: picked[0]!.by, number: Number(picked[0]!.value) };
+}
+
+/**
+ * The link to the page of a thread right after the page read, among the links to later pages that page lists (the
+ * page reader's later_page_links): one of the page's own thread, by the same comparable link, that picks its page the
+ * way the page read does (any way, for a first page). A numbered page (page, pg, /page-2) is next only when its number
+ * is one more than the page read's, so a link to a page further on ("Last") is never given as the next; a page picked
+ * by how many posts come before it (start, offset) is the lowest such count after the page read's, as the size of a
+ * page isn't known. Undefined when the page lists none, or lists such links picking their page in two ways, between
+ * which there is no order. Exact and structural, like every rule here (the code review of 13 Nov 2026, Codex, P2).
+ */
+export function nextPageLink(read: string, laterPages: readonly string[]): string | undefined {
+  const here = pagePicked(read);
+  if (here === undefined) return undefined;
+  const thread = comparableUrl(read);
+  let next: { link: string; by: string; number: number } | undefined;
+  for (const link of laterPages) {
+    if (comparableUrl(link) !== thread) continue;
+    const picked = pagePicked(link);
+    if (picked === undefined || picked === "first") continue;
+    const counted = picked.by === "start" || picked.by === "offset";
+    const from = here === "first" ? (counted ? 0 : 1) : here.by === picked.by ? here.number : undefined;
+    if (from === undefined || (counted ? picked.number <= from : picked.number !== from + 1)) continue;
+    if (next !== undefined && next.by !== picked.by) return undefined;
+    if (next === undefined || picked.number < next.number) next = { link, ...picked };
+  }
+  return next?.link;
+}
+
 /**
  * Whether a link the reader was sent on from names the same thread as the link it read, at the same site: the same
  * path and parameters at the same registrable host (a bare host sent on to a forum's subdomain, say). Only then does a
@@ -173,7 +250,7 @@ export function sameSiteRedirect(given: string, read: string): boolean {
   }
   const site = registrableHost(from.hostname);
   if (site === undefined || site !== registrableHost(to.hostname)) return false;
-  return !(FRONT_PAGE_PATH.test(to.pathname.replace(/\/+$/u, "")) && to.search === "");
+  return !(FRONT_PAGE_PATH.test(withoutTrailing(to.pathname, "/")) && to.search === "");
 }
 
 /**

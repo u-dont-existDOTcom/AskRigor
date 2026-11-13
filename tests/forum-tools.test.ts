@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "../apps/research-mcp/src/community-leads.js";
 import { forumThreadDigest } from "../apps/research-mcp/src/research-finalization-gate.js";
-import { forumPageDigest, forumSiteDigest } from "../apps/research-mcp/src/forum-thread-links.js";
+import { comparableUrl, forumPageDigest, forumSiteDigest, sameSiteRedirect } from "../apps/research-mcp/src/forum-thread-links.js";
 import { verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import type { RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
 import { builtContent } from "./helpers/text-payload.js";
@@ -537,7 +537,8 @@ describe("forum tools", () => {
   // pages, and says when the page held more (later_page_links_cut). A cut list with none of this thread doesn't show that
   // the page links none, so whether a page follows is unknown: the read reaches no end (e 0) and claims no page after it
   // (pa 0), and the final check reads the thread as part read. A list that left nothing out, or one holding a link of
-  // this thread, signs as before. The mark never reaches the published result.
+  // this thread, signs as before. The mark never reaches the published result. Since 13 Nov 2026 the published result
+  // says part-way exactly when the receipt signs no end (the code review of that day: it used to say complete).
   it("signs no end of the thread on a cut list of later pages with none of its own", async () => {
     const caller = await client();
     const url = "https://forum.example/showthread.php?t=77";
@@ -546,10 +547,11 @@ describe("forum tools", () => {
       page.mockResolvedValue({ url, access_state: "read", page_text: "a".repeat(1_500), truncated: false,
         later_page_links: links, ...(cut ? { later_page_links_cut: true } : {}) });
       const result = await caller.callTool({ name: "read_forum_thread", arguments: { url } });
-      expect(result.structuredContent).toMatchObject({ access_status: "complete", data: { access_state: "read" } });
+      expect(result.structuredContent).toMatchObject({ data: { access_state: "read" } });
       expect(result.structuredContent!.data).not.toHaveProperty("later_page_links_cut");
       const verified = verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET });
       if (!verified.ok) throw new Error("unverified");
+      expect(result.structuredContent!.access_status).toBe(verified.claims.e === "0" ? "partial" : "complete");
       return verified.claims;
     };
     expect(await claimsOf(others, true)).toMatchObject({ pv: "0", pa: "0", e: "0" });
@@ -612,5 +614,250 @@ describe("forum tools", () => {
     expect(forumSiteDigest("https://web.de/forum")).not.toBe(forumSiteDigest("https://mobile.de/forum"));
     expect(forumSiteDigest("https://m.forum.example/t/1")).toBe(forumSiteDigest("https://forum.example/t/1"));
     expect(forumSiteDigest("https://192.0.2.1/t/1")).toBeUndefined();
+  });
+});
+
+// Pull request 441 listed comparableUrl's patterns as slow and queued. Timed on 13 Nov 2026: 14 seconds on a 128 KB link
+// with a run of dots in its path, four times that for twice the length. Each started over at every character of a run
+// that wasn't at the link's end. read_forum_thread compares every later-page link a page hands on, and a link may be as
+// long as the page (3 MB), so one link held the server for as long.
+describe("forum thread links of any length", () => {
+  const KB = 1024;
+  const SIZES = [8 * KB, 32 * KB, 128 * KB, 512 * KB, 3 * KB * KB];
+  /** How long a step takes, in milliseconds, with what it returns. */
+  const timed = async <T>(step: () => T | Promise<T>) => {
+    const started = performance.now();
+    const value = await step();
+    return { value, milliseconds: performance.now() - started };
+  };
+  // Well under a second for a few hundred KB, and three seconds for the longest link a page can hold; a comparison
+  // whose time grows with the square of the length fails at a small size, in seconds.
+  const limit = (length: number): number => length <= 512 * KB ? 500 : 3_000;
+
+  it.each([
+    ["a run of dots in the path", (length: number) => `https://forum.example/a/${".".repeat(length)}x?page=2`,
+      (length: number) => `forum.example/a/${".".repeat(length)}x`],
+    ["a run of slashes in the path", (length: number) => `https://forum.example/a${"/".repeat(length)}x?page=2`,
+      (length: number) => `forum.example/a${"/".repeat(length)}x`],
+    ["a run of exclamation marks in a parameter", (length: number) => `https://forum.example/t?a=${"!".repeat(length)}&page=2`,
+      (length: number) => `forum.example/t?a=${"!".repeat(length)}`],
+    ["no link at all: hashes, a line break and a letter", (length: number) => `${"#".repeat(length)}\nx`,
+      (length: number) => `${"#".repeat(length)}\nx`],
+    ["no link at all: slashes and a letter", (length: number) => `${"/".repeat(length)}x`,
+      (length: number) => `${"/".repeat(length)}x`]
+  ])("compares a link in time linear in its length: %s", async (label, linkOf, comparable) => {
+    for (const length of SIZES) {
+      const { value, milliseconds } = await timed(() => comparableUrl(linkOf(length)));
+      expect(value === comparable(length), `${label}, ${length / KB} KB`).toBe(true);
+      expect(milliseconds, `${label}, ${length / KB} KB, took ${Math.round(milliseconds)} ms`).toBeLessThan(limit(length));
+    }
+  }, 120_000);
+
+  // What comparableUrl answered with its patterns (main at e24f6d3b), link by link: punctuation and slashes come off the
+  // end only, and a fragment only where no line break follows it, since the pattern's "." stopped at one.
+  it("compares links as its patterns did", () => {
+    for (const [link, comparable] of [
+      ["https://forum.example/thread/1.", "forum.example/thread/1"],
+      ["(https://forum.example/thread/1)!?\"'*`].,;:", "(https://forum.example/thread/1)"],
+      ["https://forum.example/thread/1///", "forum.example/thread/1"],
+      ["https://forum.example/a//b//?page=2", "forum.example/a//b"],
+      ["https://forum.example/thread/1/...", "forum.example/thread/1"],
+      ["https://forum.example/a...b/", "forum.example/a...b"],
+      ["https://forum.example/thread/1#post-5", "forum.example/thread/1"],
+      ["HTTPS://WWW.Forum.Example/Thread/1/?utm_source=x&b=2&a=1#frag.", "forum.example/thread/1?a=1&b=2"],
+      ["forum.example/thread/1/#a#b", "forum.example/thread/1"],
+      ["not a link #one\n#two//", "not a link #one\n"],
+      ["not a link #one\r\nstill #two", "not a link #one\r\nstill "],
+      ["see https://forum.example/t#x\u2028y//", "see https://forum.example/t#x\u2028y"],
+      ["plain text...", "plain text"],
+      ["//", ""],
+      ["http://", ""],
+      ["https://www.reddit.com/r/Example/comments/AbC123/a_title/?utm_source=share.", "reddit.com/comments/abc123"],
+      ["https://forum.example/;jsessionid=ABC/thread//page-2/", "forum.example//thread"],
+      ["https://forum.example/t/slug/42/7/", "forum.example/t/slug/42"]
+    ] as const) {
+      expect(comparableUrl(link), JSON.stringify(link)).toBe(comparable);
+    }
+    // A site's front page, with any slashes after it, is no page a redirect vouches for; another of its pages is.
+    const given = "https://forum.example/viewtopic.php?t=6";
+    expect(sameSiteRedirect(given, "https://forum.example///")).toBe(false);
+    expect(sameSiteRedirect(given, "https://forum.example/index.php//")).toBe(false);
+    expect(sameSiteRedirect(given, "https://forum.example//a")).toBe(true);
+  });
+
+  it("knows a site's own redirect in time linear in the link's length", async () => {
+    for (const length of SIZES) {
+      const { value, milliseconds } = await timed(() =>
+        sameSiteRedirect("https://forum.example/viewtopic.php?t=8", `https://forum.example/a${"/".repeat(length)}x`));
+      expect(value).toBe(true);
+      expect(milliseconds, `${length / KB} KB, took ${Math.round(milliseconds)} ms`).toBeLessThan(limit(length));
+    }
+  }, 120_000);
+
+  // Through the tool and the page reader itself: a thread's page whose pager links page 2 by a link nearly as long as
+  // the page. The link is the thread's own (the extra parameter is one the comparison keeps, so it is another thread's).
+  it("reads a page that hands on a later-page link as long as the page", async () => {
+    const { readForumPage } = await vi.importActual<typeof import("@askrigor/sources")>("@askrigor/sources");
+    const text = "A synthetic forum participant describes their experience. ".repeat(40);
+    let host = 0;
+    for (const length of SIZES.map((size) => Math.min(size, 3 * KB * KB - 8 * KB))) {
+      let time = 1_000_000;
+      const html = `<html><head><title>Synthetic thread</title></head><body><p>${text}</p>` +
+        `<a href="showthread.php?t=77&amp;page=2&amp;view=${".".repeat(length)}x">2</a></body></html>`;
+      const caller = await client({ forumPageReader: (url) => readForumPage(url, {
+        now: () => time, sleep: async (milliseconds) => { time += milliseconds; },
+        documentFetchRuntime: { resolveAddresses: async () => ["93.184.216.34"], requestDocument: async (destination) => ({
+          status: 200, headers: new Headers({ "content-type": "text/html" }),
+          bytes: new TextEncoder().encode(destination.pathname === "/robots.txt" ? "User-agent: *\nAllow: /" : html) }) }
+      }) });
+      const { value, milliseconds } = await timed(() => caller.callTool({ name: "read_forum_thread",
+        arguments: { url: `https://long-link-${host += 1}.example/showthread.php?t=77` } }));
+      expect(value.structuredContent, `${length / KB} KB`).toMatchObject({ data: { access_state: "read", truncated: false } });
+      const verified = verifyResearchReceipt(value.structuredContent!.research_receipt as string, { secret: SECRET });
+      // Another thread's later page, by the parameter the link adds: no page of this thread follows.
+      expect(verified, `${length / KB} KB`).toMatchObject({ ok: true, claims: { pv: "0", pa: "0", e: "1" } });
+      expect(milliseconds, `${length / KB} KB, took ${Math.round(milliseconds)} ms`).toBeLessThan(limit(length));
+    }
+  }, 120_000);
+});
+
+// The code review of 13 Nov 2026 (Codex, P2): a forum page whose pager has no rel tags was published as the whole
+// thread (access_status complete, pagination.exhausted true, no link to page 2) while its signed receipt said the
+// thread was part read (e 0). The reader had found the link, and the tool set it aside for the receipt alone. The
+// result now says what the receipt says, and gives the next page's link when the page links it.
+describe("read_forum_thread on a page of a longer thread", () => {
+  const first = "https://forum.example/showthread.php?t=88";
+  /** One read of a page as the page reader returned it: the published result, its text, and the receipt's claims. */
+  const readOf = async (read: Record<string, unknown>, url = first) => {
+    page.mockResolvedValue({ url, access_state: "read", page_text: "a".repeat(1_500), truncated: false, ...read });
+    const result = await (await client()).callTool({ name: "read_forum_thread", arguments: { url } });
+    expect(result.isError).not.toBe(true);
+    const verified = verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET });
+    if (!verified.ok) throw new Error("unverified");
+    const content = result.structuredContent as { access_status: string; limitations: string[];
+      pagination: { exhausted?: boolean; next_cursor?: string }; data: { next_page?: string } & Record<string, unknown> };
+    // The reader's own marks stay out of the published result, as before.
+    for (const mark of ["page_before", "page_after", "later_page_links", "later_page_links_cut"]) {
+      expect(content.data).not.toHaveProperty(mark);
+    }
+    return { content, claims: verified.claims, text: (result.content[0] as { text: string }).text };
+  };
+  const UNFINISHED = "The thread isn't finished: call read_forum_thread again with it before counting it as read.";
+  const NO_NEXT = "This page marks or links a page after it, but none the reader can follow as the next page, so " +
+    "AskRigor counts the thread as part read.";
+  const UNKNOWN = "This page links more later pages than the reader lists, none of them known as this thread's, so " +
+    "whether a page follows it is unknown and AskRigor counts the thread as part read.";
+
+  it("gives the next page's link and says the thread isn't finished, for a pager with no rel tags (the review's page)", async () => {
+    const { content, claims, text } = await readOf({ later_page_links: [`${first}&page=2`] });
+    expect(claims).toMatchObject({ pv: "0", pa: "1", e: "0" });
+    expect(content.access_status).toBe("partial");
+    expect(content.pagination).toMatchObject({ exhausted: false, next_cursor: `${first}&page=2` });
+    expect(content.data.next_page).toBe(`${first}&page=2`);
+    expect(content.limitations).toEqual([]);
+    expect(text.endsWith(UNFINISHED)).toBe(true);
+  });
+
+  // The same through the page reader itself, on a first page whose pager links pages 2, 3 and the last, without rel tags.
+  it("gives page 2's link from a page's own markup", async () => {
+    const { readForumPage } = await vi.importActual<typeof import("@askrigor/sources")>("@askrigor/sources");
+    const text = "A synthetic forum participant describes their experience. ".repeat(40);
+    let time = 1_000_000;
+    const html = `<html><head><title>Synthetic thread</title></head><body><p>${text}</p><div class="pagination">` +
+      `<a href="showthread.php?t=77&amp;page=9">Last</a><a href="showthread.php?t=77&amp;page=3">3</a>` +
+      `<a href="showthread.php?t=77&amp;page=2">2</a><a href="showthread.php?t=78&amp;page=2">another thread</a></div></body></html>`;
+    const caller = await client({ forumPageReader: (url) => readForumPage(url, {
+      now: () => time, sleep: async (milliseconds) => { time += milliseconds; },
+      documentFetchRuntime: { resolveAddresses: async () => ["93.184.216.34"], requestDocument: async (destination) => ({
+        status: 200, headers: new Headers({ "content-type": "text/html" }),
+        bytes: new TextEncoder().encode(destination.pathname === "/robots.txt" ? "User-agent: *\nAllow: /" : html) }) }
+    }) });
+    const url = "https://pager-without-rel.example/showthread.php?t=77";
+    const result = await caller.callTool({ name: "read_forum_thread", arguments: { url } });
+    expect(result.structuredContent).toMatchObject({ access_status: "partial",
+      pagination: { exhausted: false, next_cursor: `${url}&page=2` }, data: { access_state: "read", next_page: `${url}&page=2` } });
+    expect(verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET }))
+      .toMatchObject({ ok: true, claims: { pv: "0", pa: "1", e: "0" } });
+  });
+
+  it("picks the page right after the one read, by the page each link picks", async () => {
+    const thread = "https://forum.example/viewtopic.php?f=4&t=99";
+    const xenforo = "https://forum.example/threads/synthetic-topic.77";
+    for (const [url, links, next] of [
+      // A numbered page: the one numbered one more, wherever it stands in the list and whatever else its link carries.
+      [first, [`${first}&page=3`, `${first}&page=2`, `${first}&page=9`], `${first}&page=2`],
+      [`${first}&page=3`, [`${first}&page=2`, `${first}&page=5`, `${first}&page=4&sid=0a1b2c`], `${first}&page=4&sid=0a1b2c`],
+      [`${first}&page=1`, [`${first}&page=2`], `${first}&page=2`],
+      // A page picked by how many posts come before it (start, offset): the lowest count after the page read.
+      [thread, [`${thread}&start=30`, `${thread}&start=15`], `${thread}&start=15`],
+      [`${thread}&start=15`, [`${thread}&start=30`, `${thread}&start=45`], `${thread}&start=30`],
+      // A page picked by the path's end.
+      [`${xenforo}/`, [`${xenforo}/page-3`, `${xenforo}/page-2`], `${xenforo}/page-2`],
+      [`${xenforo}/page-2`, [`${xenforo}/page-3`], `${xenforo}/page-3`]
+    ] as const) {
+      const { content, claims } = await readOf({ later_page_links: [...links] }, url);
+      expect(content.data.next_page, url).toBe(next);
+      expect(content.pagination, url).toMatchObject({ exhausted: false, next_cursor: next });
+      expect(content.access_status, url).toBe("partial");
+      expect(claims, url).toMatchObject({ pa: "1", e: "0" });
+    }
+  });
+
+  it("says a thread is part read, and why, when a page follows that it has no link for", async () => {
+    for (const [label, read, url, limitation] of [
+      // A rel="next" tag the reader can't follow (another host, http), which the receipt already signed as a page after.
+      ["a rel tag it can't follow", { page_after: true }, first, NO_NEXT],
+      // A pager that links only a page further on, or only pages already behind the page read: which page is next is
+      // not known, and the link of a page further on is never given as the next.
+      ["only a page further on", { later_page_links: [`${first}&page=9`] }, first, NO_NEXT],
+      ["only pages before it", { later_page_links: [`${first}&page=2`] }, `${first}&page=3`, NO_NEXT],
+      // Links that pick their page in two ways, or two at once: no order between them.
+      ["two ways of picking a page", { later_page_links: [`${first}&page=2`, `${first}&start=15`] }, first, NO_NEXT],
+      ["a link picking a page twice", { later_page_links: [`${first}&page=2&start=15`] }, first, NO_NEXT],
+      ["another way than the page read", { later_page_links: [`${first}&start=30`] }, `${first}&page=2`, NO_NEXT],
+      // A link longer than read_forum_thread takes can't be given back to it.
+      ["a link too long to read", { later_page_links: [`${first}&page=2&sid=${"a".repeat(2_048)}`] }, first, NO_NEXT],
+      // More later-page links than the reader lists, none of them this thread's: whether a page follows is unknown.
+      ["a cut list with none of its own", { later_page_links: ["https://forum.example/showthread.php?t=1000&page=2"],
+        later_page_links_cut: true }, first, UNKNOWN]
+    ] as const) {
+      const { content, claims, text } = await readOf({ ...read }, url);
+      expect(claims, label).toMatchObject({ e: "0" });
+      expect(content.access_status, label).toBe("partial");
+      expect(content.pagination.exhausted, label).toBe(false);
+      expect(content.pagination, label).not.toHaveProperty("next_cursor");
+      expect(content.data, label).not.toHaveProperty("next_page");
+      expect(content.limitations, label).toEqual([limitation]);
+      expect(text, label).toContain(limitation);
+      expect(text, label).not.toContain(UNFINISHED);
+    }
+  });
+
+  it("publishes a read as part-way exactly when its receipt signs no end of the thread", async () => {
+    const other = "https://forum.example/showthread.php?t=1000&page=2";
+    for (const [label, read, url] of [
+      ["a whole thread on one page", {}, first],
+      ["links to other threads' later pages only", { later_page_links: [other] }, first],
+      ["a last page, with pages before it only", { page_before: true }, `${first}&page=3`],
+      ["a page cut at the size limit", { truncated: true }, first],
+      ["a next page the reader can follow", { next_page: `${first}&p=2`, page_after: true }, first],
+      ["a next page marked, not followable", { page_after: true }, first],
+      ["a pager with no rel tags", { later_page_links: [`${first}&page=2`, other] }, first],
+      ["a cut list with one of its own", { later_page_links: [`${first}&page=2`, other], later_page_links_cut: true }, first],
+      ["a cut list with none of its own", { later_page_links: [other], later_page_links_cut: true }, first]
+    ] as const) {
+      const { content, claims } = await readOf({ ...read }, url);
+      expect(content.access_status === "partial", label).toBe(claims.e === "0");
+      expect(content.pagination.exhausted, label).toBe(claims.e === "1");
+      // A link to go on with is always one the result also says to go on with.
+      expect(content.pagination.next_cursor, label).toBe(content.data.next_page);
+    }
+    // The reader's own next page, from a rel tag, stays the one given, whatever the pager links.
+    const followed = await readOf({ next_page: `${first}&p=2`, page_after: true, later_page_links: [`${first}&page=2`] });
+    expect(followed.content.data.next_page).toBe(`${first}&p=2`);
+    // A whole thread on one page is complete, with nothing after it, as before.
+    const whole = await readOf({});
+    expect(whole.content).toMatchObject({ access_status: "complete", pagination: { exhausted: true }, limitations: [] });
+    expect(whole.claims).toMatchObject({ pv: "0", pa: "0", e: "1" });
   });
 });

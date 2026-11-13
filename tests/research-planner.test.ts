@@ -1,3 +1,8 @@
+import { createHash } from "node:crypto";
+import { linkSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import Anthropic from "@anthropic-ai/sdk";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -25,6 +30,7 @@ import {
   type ResearchPlannerCall,
   type ResearchPlannerClient,
   type ResearchPlannerSource,
+  type ResearchPlannerState,
 } from "../apps/research-mcp/src/research-planner.js";
 import {
   ASKED_LIMIT,
@@ -90,6 +96,9 @@ function planner(options: {
   now?: () => number;
   otherDailyCapUsd?: number;
   readFile?: (path: string) => string;
+  writeFile?: (path: string, text: string) => void;
+  /** The module's own file operations, on real files: one test's, in a temporary directory. */
+  ownFiles?: boolean;
 } = {}) {
   const bodies: Body[] = [];
   const logs: string[] = [];
@@ -103,7 +112,8 @@ function planner(options: {
   };
   const made = createResearchPlanner({
     env: { ...ENV, ...options.env } as NodeJS.ProcessEnv,
-    readFile: options.readFile ?? (() => `${KEY}\n`),
+    ...(options.ownFiles === true ? {} : { readFile: options.readFile ?? (() => `${KEY}\n`) }),
+    ...(options.writeFile === undefined ? {} : { writeFile: options.writeFile }),
     client,
     log: (line) => logs.push(line),
     ...(options.now === undefined ? {} : { now: options.now }),
@@ -378,6 +388,388 @@ describe("AskRigor's own planning call (owner answer 298b): the call", () => {
   });
 });
 
+// The day's counts across a restart (ASKRIGOR_RESEARCH_PLANNER_STATE_FILE) ------------------------------------------
+
+const KEY_FILE = ENV.ASKRIGOR_RESEARCH_PLANNER_KEY_FILE;
+const STATE_FILE = "/run/askrigor-research-planner/state.json";
+const TODAY = Date.parse("2026-11-13T10:00:00Z");
+// What message() costs: 300 input and 600 output at Opus 5.5's prices, the cache written and read, and one search.
+const CALL_USD = (300 * 4 + 600 * 20 + 8_000 * 5 + 15_000 * 0.2) / 1e6 + 0.01;
+const digest = (accountKey: string): string => createHash("sha256").update(accountKey).digest("hex").slice(0, 16);
+/** The file's contents as the planner writes them. */
+const fileState = (spentUsd: number, accountCalls: Record<string, number>, utcDay = "2026-11-13") =>
+  ({ schema_version: 1, utc_day: utcDay, spent_usd: spentUsd, account_calls: accountCalls });
+const fileText = (changes: Record<string, unknown> = {}): string =>
+  `${JSON.stringify({ ...fileState(0, {}), ...changes })}\n`;
+
+/**
+ * The key file and the state file in memory, with every read and write: no test here touches a real file but the
+ * last, which is about the module's own file operations. A restart is a new planner on the same files.
+ */
+function memoryFiles(state?: string) {
+  const files = new Map<string, string>([[KEY_FILE, `${KEY}\n`]]);
+  if (state !== undefined) files.set(STATE_FILE, state);
+  const reads: string[] = [];
+  const writes: Array<{ path: string; text: string }> = [];
+  return {
+    files, reads, writes,
+    readFile: (path: string): string => {
+      reads.push(path);
+      const text = files.get(path);
+      if (text === undefined) {
+        throw Object.assign(new Error(`ENOENT: no such file or directory, open '${path}'`), { code: "ENOENT" });
+      }
+      return text;
+    },
+    writeFile: (path: string, text: string): void => {
+      writes.push({ path, text });
+      files.set(path, text);
+    },
+    state: (): ResearchPlannerState => JSON.parse(files.get(STATE_FILE)!) as ResearchPlannerState,
+  };
+}
+
+/** A planner on those files, with the state file named and the clock at TODAY unless the options say otherwise. */
+function onFiles(files: ReturnType<typeof memoryFiles>, options: NonNullable<Parameters<typeof planner>[0]> = {}) {
+  return planner({ now: () => TODAY, readFile: files.readFile, writeFile: files.writeFile, ...options,
+    env: { ASKRIGOR_RESEARCH_PLANNER_STATE_FILE: STATE_FILE, ...options.env } });
+}
+
+describe("AskRigor's own planning call: the day's counts across a restart", () => {
+  it("starts a restarted server from the day's file, so the day's cap still refuses", async () => {
+    const files = memoryFiles();
+    const env = { ASKRIGOR_RESEARCH_PLANNER_DAILY_CAP_USD: "0.15" };
+    const before = onFiles(files, { env });
+    expect((await before.planner.plan(SOURCE, "account-a")).planning.status).toBe("planned");
+    expect(files.state()).toEqual(fileState(expect.closeTo(CALL_USD, 10), { [digest("account-a")]: 1 }));
+    // The restart: a new planner, with nothing in memory, on the same file a minute later. What the day has spent
+    // leaves no room for what a call holds (0.066 and 0.12 would pass 0.15), so no call is sent.
+    const after = onFiles(files, { env, now: () => TODAY + 60_000 });
+    expect(after.logs).toEqual([]);
+    expect((await after.planner.plan({ ...SOURCE, asked: "another question" }, "account-b")).planning)
+      .toEqual({ status: "skipped", reason: "daily_budget" });
+    expect(after.bodies).toHaveLength(0);
+    // A refusal changes no count, so the file is as the first planner left it.
+    expect(files.state()).toEqual(fileState(expect.closeTo(CALL_USD, 10), { [digest("account-a")]: 1 }));
+  });
+
+  it("counts an account's plans across a restart, so the account's limit still refuses", async () => {
+    const files = memoryFiles();
+    const env = { ASKRIGOR_RESEARCH_PLANNER_ACCOUNT_DAILY_CALLS: "2" };
+    const before = onFiles(files, { env });
+    for (const [asked, account] of [["one", "account-a"], ["two", "account-a"], ["one", "account-b"]] as const) {
+      expect((await before.planner.plan({ ...SOURCE, asked }, account)).planning.status).toBe("planned");
+    }
+    expect(files.state().account_calls).toEqual({ [digest("account-a")]: 2, [digest("account-b")]: 1 });
+    // After the restart account-a has had its two, and account-b has one left.
+    const after = onFiles(files, { env, now: () => TODAY + 60_000 });
+    expect((await after.planner.plan({ ...SOURCE, asked: "three" }, "account-a")).planning)
+      .toEqual({ status: "skipped", reason: "account_limit" });
+    expect(after.bodies).toHaveLength(0);
+    expect((await after.planner.plan({ ...SOURCE, asked: "two" }, "account-b")).planning.status).toBe("planned");
+    expect((await after.planner.plan({ ...SOURCE, asked: "three" }, "account-b")).planning)
+      .toEqual({ status: "skipped", reason: "account_limit" });
+    expect(after.bodies).toHaveLength(1);
+    expect(files.state()).toEqual(fileState(expect.closeTo(4 * CALL_USD, 10),
+      { [digest("account-a")]: 2, [digest("account-b")]: 2 }));
+  });
+
+  it("starts a new day from zero: yesterday's file counts for nothing, and midnight starts it again", async () => {
+    // Yesterday's file, with the cap and the account's plans used up.
+    const files = memoryFiles(fileText({ utc_day: "2026-11-12", spent_usd: 2.95,
+      account_calls: { [digest("account-a")]: 10 } }));
+    let at = Date.parse("2026-11-13T23:59:00Z");
+    const made = onFiles(files, { now: () => at });
+    expect(made.logs).toEqual([]);
+    // Nothing is written until a count changes: the file is still yesterday's.
+    expect(files.writes).toHaveLength(0);
+    expect((await made.planner.plan(SOURCE, "account-a")).planning.status).toBe("planned");
+    expect(files.state()).toEqual(fileState(expect.closeTo(CALL_USD, 10), { [digest("account-a")]: 1 }));
+    // The first registration after midnight starts the file again, before anything is counted for the new day.
+    at = Date.parse("2026-11-14T00:00:05Z");
+    const written = files.writes.length;
+    expect((await made.planner.plan({ ...SOURCE, asked: "a new day's question" }, "account-b")).planning.status)
+      .toBe("planned");
+    expect(JSON.parse(files.writes[written]!.text)).toEqual(fileState(0, {}, "2026-11-14"));
+    expect(files.state()).toEqual(fileState(expect.closeTo(CALL_USD, 10), { [digest("account-b")]: 1 }, "2026-11-14"));
+  });
+
+  it("leaves the new day's file at zero when a call's reply comes after midnight", async () => {
+    let at = Date.parse("2026-11-13T23:59:50Z");
+    const files = memoryFiles();
+    const release: Array<() => void> = [];
+    const made = onFiles(files, { now: () => at,
+      reply: () => new Promise<Anthropic.Beta.BetaMessage>((resolve) => { release.push(() => resolve(message())); }) });
+    const pending = made.planner.plan(SOURCE, "account-a");
+    expect(files.state()).toEqual(fileState(0.12, { [digest("account-a")]: 1 }));
+    at = Date.parse("2026-11-14T00:00:05Z");
+    release[0]!();
+    expect((await pending).planning.status).toBe("planned");
+    // The call counted toward the day it was sent on: nothing of it is in the new day's file.
+    expect(files.state()).toEqual(fileState(0, {}, "2026-11-14"));
+  });
+
+  it("starts from zero, without throwing, on a file that is not as it writes it or that it cannot read", async () => {
+    // Each would refuse the call below, were its numbers taken: the cap used up, or the account's plans.
+    const spent = { spent_usd: 2.95 };
+    const used = { account_calls: { [digest("account-a")]: 10 } };
+    const notFinite = fileText(used).replace("\"spent_usd\":0", "\"spent_usd\":1e999");
+    expect(JSON.parse(notFinite)).toMatchObject({ spent_usd: Number.POSITIVE_INFINITY });
+    for (const [what, text] of [
+      ["not JSON", "not json"],
+      ["an empty file", ""],
+      ["half a file", fileText({ ...spent, ...used }).slice(0, 60)],
+      ["null", "null"],
+      ["a list", "[]"],
+      ["another version", fileText({ ...used, schema_version: 2 })],
+      ["a part missing", JSON.stringify({ schema_version: 1, utc_day: "2026-11-13", spent_usd: 2.95 })],
+      ["a part more", fileText({ ...used, question: "never kept" })],
+      ["a day that is no date", fileText({ ...used, utc_day: "today" })],
+      ["a day still to come", fileText({ ...spent, ...used, utc_day: "2026-11-14" })],
+      ["a negative spend", fileText({ ...used, spent_usd: -0.5 })],
+      ["a spend that is no number", fileText({ ...used, spent_usd: "2.95" })],
+      ["a spend that is not finite", notFinite],
+      ["a negative count", fileText({ ...spent, account_calls: { [digest("account-a")]: -1 } })],
+      ["a count that is no whole number", fileText({ ...spent, account_calls: { [digest("account-a")]: 2.5 } })],
+      ["a count that is not finite", fileText(used).replace(":10}", ":1e999}")],
+      ["an account key as it is", fileText({ ...spent, account_calls: { "account-a": 10 } })],
+    ] as const) {
+      const files = memoryFiles(text);
+      const made = onFiles(files);
+      expect(made.planner.enabled, what).toBe(true);
+      // Said once, as a class: the first change replaces the file, so nothing else would show it was not used.
+      expect(made.logs, what).toEqual(["state_file_malformed"]);
+      expect((await made.planner.plan(SOURCE, "account-a")).planning.status, what).toBe("planned");
+      expect(files.state(), what).toEqual(fileState(expect.closeTo(CALL_USD, 10), { [digest("account-a")]: 1 }));
+    }
+    // A file that is not there, or that cannot be read: zero too, and nothing in the log.
+    for (const failure of [
+      Object.assign(new Error(`ENOENT: no such file or directory, open '${STATE_FILE}'`), { code: "ENOENT" }),
+      Object.assign(new Error(`EACCES: permission denied, open '${STATE_FILE}'`), { code: "EACCES" }),
+      "not an error at all",
+    ]) {
+      const files = memoryFiles();
+      const made = onFiles(files, { readFile: (path) => {
+        if (path === STATE_FILE) throw failure;
+        return files.readFile(path);
+      } });
+      expect(made.planner.enabled).toBe(true);
+      expect(made.logs).toEqual([]);
+      expect((await made.planner.plan(SOURCE, "account-a")).planning.status).toBe("planned");
+      expect(files.state()).toEqual(fileState(expect.closeTo(CALL_USD, 10), { [digest("account-a")]: 1 }));
+    }
+  });
+
+  it("goes on in memory when the file cannot be written, and says so once", async () => {
+    const files = memoryFiles();
+    let broken = true;
+    let attempts = 0;
+    const made = onFiles(files, { env: { ASKRIGOR_RESEARCH_PLANNER_ACCOUNT_DAILY_CALLS: "1" },
+      writeFile: (path, text) => {
+        attempts += 1;
+        if (broken) throw new Error(`EACCES: permission denied, open '${path}'`);
+        files.writeFile(path, text);
+      } });
+    // The plan is made as if nothing had happened.
+    expect(await made.planner.plan(SOURCE, "account-a")).toMatchObject({ cached: false,
+      planning: { status: "planned" } });
+    // Four changes, four tries (the day's turn, the account's call, what is held, what the call cost), and one line:
+    // a class, never the path or the error's words.
+    expect(attempts).toBe(4);
+    expect(made.logs).toEqual(["state_write_failed"]);
+    expect(files.files.has(STATE_FILE)).toBe(false);
+    // The counts go on in memory: the account has had its one plan.
+    expect((await made.planner.plan({ ...SOURCE, asked: "a second question" }, "account-a")).planning)
+      .toEqual({ status: "skipped", reason: "account_limit" });
+    expect((await made.planner.plan(SOURCE, "account-b")).planning.status).toBe("planned");
+    expect(attempts).toBe(7);
+    expect(made.logs).toEqual(["state_write_failed"]);
+    // Each change tries the file again, so once it can be written it holds the whole day.
+    broken = false;
+    expect((await made.planner.plan(SOURCE, "account-c")).planning.status).toBe("planned");
+    expect(files.state()).toEqual(fileState(expect.closeTo(3 * CALL_USD, 10),
+      { [digest("account-a")]: 1, [digest("account-b")]: 1, [digest("account-c")]: 1 }));
+    expect(made.logs).toEqual(["state_write_failed"]);
+  });
+
+  it("holds a timed-out call's share in the file, so a restart does not give it back", async () => {
+    vi.useFakeTimers();
+    try {
+      const files = memoryFiles();
+      const env = { ASKRIGOR_RESEARCH_PLANNER_TIMEOUT_SECONDS: "1", ASKRIGOR_RESEARCH_PLANNER_DAILY_CAP_USD: "0.2" };
+      const slow = onFiles(files, { env, reply: () => new Promise<Anthropic.Beta.BetaMessage>(() => undefined) });
+      const pending = slow.planner.plan(SOURCE, "account-a");
+      // Held in the file before any answer, so a server stopped while the call runs starts again with it: the cap has
+      // no room for a second call (0.12 held and 0.12 more would pass 0.2).
+      expect(files.state()).toEqual(fileState(0.12, { [digest("account-a")]: 1 }));
+      const during = onFiles(files, { env });
+      expect((await during.planner.plan(SOURCE, "account-b")).planning)
+        .toEqual({ status: "skipped", reason: "daily_budget" });
+      await vi.advanceTimersByTimeAsync(1_100);
+      expect(await pending).toMatchObject({ planning: { status: "skipped", reason: "timeout" }, costUsd: 0.12 });
+      // The call may have run, so what was held for it stays in the file, and a restart finds it there.
+      expect(files.state()).toEqual(fileState(expect.closeTo(0.12, 10), { [digest("account-a")]: 1 }));
+      const after = onFiles(files, { env, now: () => TODAY + 60_000 });
+      expect((await after.planner.plan(SOURCE, "account-b")).planning)
+        .toEqual({ status: "skipped", reason: "daily_budget" });
+      expect(during.bodies.length + after.bodies.length).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("writes the file after every change, and reads it once", async () => {
+    const files = memoryFiles();
+    const release: Array<() => void> = [];
+    let fail = false;
+    const made = onFiles(files, { reply: () => new Promise<Anthropic.Beta.BetaMessage>((resolve, reject) => {
+      release.push(() => fail ? reject(new Anthropic.APIError(529, undefined, "overloaded", new Headers()))
+        : resolve(message()));
+    }) });
+    expect(files.reads).toEqual([KEY_FILE, STATE_FILE]);
+    expect(files.writes).toHaveLength(0);
+    const account = digest("account-a");
+    const first = made.planner.plan(SOURCE, "account-a");
+    // Before the call is answered: the day's turn, the account's call, and what is held for it.
+    expect(files.writes.map(({ text }) => JSON.parse(text))).toEqual([
+      fileState(0, {}), fileState(0, { [account]: 1 }), fileState(0.12, { [account]: 1 })]);
+    release[0]!();
+    expect((await first).planning.status).toBe("planned");
+    // Then what it cost, in place of what was held.
+    expect(files.writes).toHaveLength(4);
+    expect(files.state()).toEqual(fileState(expect.closeTo(CALL_USD, 10), { [account]: 1 }));
+    // The plan given again from memory changes no count, so nothing is written.
+    expect((await made.planner.plan(SOURCE, "account-a")).cached).toBe(true);
+    expect(files.writes).toHaveLength(4);
+    // A call the API answered with an error status: counted for the account, held, and what was held given back.
+    fail = true;
+    const second = made.planner.plan({ ...SOURCE, asked: "another question" }, "account-a");
+    expect(files.state()).toEqual(fileState(expect.closeTo(CALL_USD + 0.12, 10), { [account]: 2 }));
+    release[1]!();
+    expect((await second).planning).toEqual({ status: "skipped", reason: "error" });
+    expect(files.writes).toHaveLength(7);
+    expect(files.state()).toEqual(fileState(expect.closeTo(CALL_USD, 10), { [account]: 2 }));
+    // Each write is the whole file, one line of JSON, to the one path; the file was read when the planner was made
+    // and never again.
+    for (const { path, text } of files.writes) {
+      expect(path).toBe(STATE_FILE);
+      expect(text).toBe(`${JSON.stringify(JSON.parse(text))}\n`);
+    }
+    expect(files.reads).toEqual([KEY_FILE, STATE_FILE]);
+  });
+
+  it("names an account in the file by a digest of its key, and keeps nothing of the question there", async () => {
+    const files = memoryFiles();
+    const accountKey = "synthetic-account-key-of-a-dev-account-0123456789";
+    const made = onFiles(files);
+    const call = await made.planner.plan({ ...SOURCE, framing: { likely_question: "Does the oil work like the tea?",
+      premise_doubts: ["That the oil holds the compounds"] } }, accountKey);
+    expect(call.planning.status).toBe("planned");
+    // The first 16 hex characters of the SHA-256 of the account key, and nothing else of it. (For the key
+    // "account-a" that is fc164f8250803ea8, by sha256sum.)
+    const named = createHash("sha256").update(accountKey).digest("hex").slice(0, 16);
+    expect(named).toMatch(/^[0-9a-f]{16}$/u);
+    expect(digest("account-a")).toBe("fc164f8250803ea8");
+    expect(files.state()).toEqual(fileState(expect.closeTo(CALL_USD, 10), { [named]: 1 }));
+    for (const { text } of files.writes) {
+      // A day, a spend figure and counts: no account key, no API key, and no word of what was asked, answered or
+      // planned.
+      expect(Object.keys(JSON.parse(text) as object))
+        .toEqual(["schema_version", "utc_day", "spent_usd", "account_calls"]);
+      for (const kept of [accountKey, KEY, SOURCE.asked!, SOURCE.researchTarget, SOURCE.quickAnswer,
+        "Does the oil work like the tea?", "That the oil holds the compounds", REPLY.about, REPLY.steering_choice,
+        REPLY.tasks[0]!.task]) {
+        expect(text).not.toContain(kept);
+      }
+    }
+    // A count is looked up the same way: in a file that names the account so, its plans for the day are used up,
+    // and another account's are not.
+    const full = memoryFiles(fileText({ account_calls: { [named]: 10 } }));
+    const after = onFiles(full);
+    expect((await after.planner.plan(SOURCE, accountKey)).planning)
+      .toEqual({ status: "skipped", reason: "account_limit" });
+    expect((await after.planner.plan(SOURCE, "account-b")).planning.status).toBe("planned");
+  });
+
+  it("reads and writes nothing without the setting, and counts in memory as before", async () => {
+    for (const setting of [undefined, "", "  "]) {
+      // A file is there, with the cap used up, and nothing names it.
+      const files = memoryFiles(fileText({ spent_usd: 2.95 }));
+      const options = { now: () => TODAY, readFile: files.readFile, writeFile: files.writeFile,
+        env: { ASKRIGOR_RESEARCH_PLANNER_STATE_FILE: setting, ASKRIGOR_RESEARCH_PLANNER_DAILY_CAP_USD: "0.15" } };
+      const made = planner(options);
+      expect((await made.planner.plan(SOURCE, "account-a")).planning.status).toBe("planned");
+      expect((await made.planner.plan({ ...SOURCE, asked: "another question" }, "account-b")).planning)
+        .toEqual({ status: "skipped", reason: "daily_budget" });
+      // As before, a restart starts the day's counts again.
+      const again = planner(options);
+      expect((await again.planner.plan({ ...SOURCE, asked: "another question" }, "account-b")).planning.status)
+        .toBe("planned");
+      // Each planner read its key file, and that is all: no other read, and no write.
+      expect(files.reads, String(setting)).toEqual([KEY_FILE, KEY_FILE]);
+      expect(files.writes, String(setting)).toEqual([]);
+      expect([...made.logs, ...again.logs]).toEqual([]);
+    }
+    // A planner that is off reads and writes no state either, whatever names the file.
+    const files = memoryFiles(fileText());
+    const off = onFiles(files, { env: { ASKRIGOR_RESEARCH_PLANNER: undefined } });
+    expect((await off.planner.plan(SOURCE, "account-a")).planning).toEqual({ status: "skipped", reason: "off" });
+    expect(files.reads).toEqual([]);
+    expect(files.writes).toEqual([]);
+  });
+
+  it("replaces a real file whole with its own file operations: mode 0600, no temporary file left behind", async () => {
+    // The one test on real files, in a temporary directory: the temporary file, the rename and the mode are the
+    // module's own, which a file in memory cannot show.
+    const directory = mkdtempSync(join(tmpdir(), "askrigor-research-planner-"));
+    try {
+      const stateFile = join(directory, "state.json");
+      writeFileSync(join(directory, "key"), `${KEY}\n`, { mode: 0o600 });
+      const env = { ASKRIGOR_RESEARCH_PLANNER_KEY_FILE: join(directory, "key"),
+        ASKRIGOR_RESEARCH_PLANNER_STATE_FILE: stateFile, ASKRIGOR_RESEARCH_PLANNER_ACCOUNT_DAILY_CALLS: "1" };
+      const before = planner({ env, now: () => TODAY, ownFiles: true });
+      expect((await before.planner.plan(SOURCE, "account-a")).planning.status).toBe("planned");
+      const earlier = readFileSync(stateFile, "utf8");
+      expect(JSON.parse(earlier)).toEqual(fileState(expect.closeTo(CALL_USD, 10), { [digest("account-a")]: 1 }));
+      expect(statSync(stateFile).mode & 0o777).toBe(0o600);
+      // Four writes, each through a temporary file beside it, and only the file itself is left.
+      expect(readdirSync(directory).sort()).toEqual(["key", "state.json"]);
+      // The file is replaced, never rewritten in place: under a second name the earlier file stays whole, as it
+      // would for a reader that had it open.
+      linkSync(stateFile, join(directory, "earlier.json"));
+      expect((await before.planner.plan(SOURCE, "account-b")).planning.status).toBe("planned");
+      expect(readFileSync(join(directory, "earlier.json"), "utf8")).toBe(earlier);
+      expect(JSON.parse(readFileSync(stateFile, "utf8"))).toEqual(fileState(expect.closeTo(2 * CALL_USD, 10),
+        { [digest("account-a")]: 1, [digest("account-b")]: 1 }));
+      expect(statSync(stateFile).mode & 0o777).toBe(0o600);
+      expect(readdirSync(directory).sort()).toEqual(["earlier.json", "key", "state.json"]);
+      expect(before.logs).toEqual([]);
+      // The restart reads it back.
+      const after = planner({ env, now: () => TODAY + 60_000, ownFiles: true });
+      expect((await after.planner.plan({ ...SOURCE, asked: "another question" }, "account-a")).planning)
+        .toEqual({ status: "skipped", reason: "account_limit" });
+      expect(after.logs).toEqual([]);
+      // A file that cannot be replaced, here because a directory is in its place: the plan is made, the log says so
+      // once, and the temporary file is removed.
+      const blocked = join(directory, "blocked");
+      mkdirSync(join(blocked, "state.json"), { recursive: true });
+      const stuck = planner({ env: { ...env, ASKRIGOR_RESEARCH_PLANNER_STATE_FILE: join(blocked, "state.json") },
+        now: () => TODAY, ownFiles: true });
+      expect((await stuck.planner.plan(SOURCE, "account-b")).planning.status).toBe("planned");
+      expect(stuck.logs).toEqual(["state_write_failed"]);
+      expect(readdirSync(blocked)).toEqual(["state.json"]);
+      // No folder at all: the same, and none is made.
+      const nowhere = planner({ now: () => TODAY, ownFiles: true,
+        env: { ...env, ASKRIGOR_RESEARCH_PLANNER_STATE_FILE: join(directory, "none", "state.json") } });
+      expect((await nowhere.planner.plan(SOURCE, "account-c")).planning.status).toBe("planned");
+      expect(nowhere.logs).toEqual(["state_write_failed"]);
+      expect(readdirSync(directory).sort()).toEqual(["blocked", "earlier.json", "key", "state.json"]);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+});
+
 // The tool, with a planner that answers from memory -----------------------------------------------------------------
 
 const IDENTITY_SECRET = new TextEncoder().encode("synthetic-research-identity-secret-with-at-least-thirty-two-bytes");
@@ -437,6 +829,10 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
     expect(inspected.structuredContent).toMatchObject({ ok: true, next_step: ASKED_REQUEST });
     expect(ASKED_REQUEST).toContain("later_inputs.asked: the person's own words about this question, word for word");
     expect(ASKED_REQUEST).toContain("keeps none of them");
+    // Round 8 (13 Nov 2026): one chat added a reply it remembered from an earlier conversation, labelled as an
+    // earlier clarification, and the plan then rested on words the person had not written in that chat.
+    expect(ASKED_REQUEST).toContain("Give only what they wrote in this conversation: nothing from memory or from " +
+      "earlier conversations, and no note or explanation of yours.");
     // Any other account, and a dev account while the planner is off or absent, is asked for nothing more.
     const person = await on.call({ action: "inspect" }, "auth0|person");
     expect(words(person)).not.toContain("later_inputs.asked");

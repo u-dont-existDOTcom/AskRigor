@@ -33,6 +33,10 @@ import type {
   ActionRoute
 } from "./types.js";
 
+type YoutubeAuditActionOutput = z.output<typeof youtubeVideoCommunityAuditOutputSchema> & {
+  coverage_receipt: z.output<typeof discussionReceiptSchema>;
+};
+
 const ACTION_INPUT_INVALID_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -272,20 +276,15 @@ function createResearchActionRoute(
           : undefined;
         const actionOutput = originalYoutubeOutput === undefined
           ? parsedOutput.data
-          : (() => {
-              const bounded = youtubeAuditActionOutput(
-                originalYoutubeOutput, youtubeContinuationHandles
-              );
-              return {
-                ...bounded,
-                coverage_receipt: projectDiscussionCoverageReceipt(bounded)
-              };
-            })();
+          : youtubeAuditActionOutput(originalYoutubeOutput, youtubeContinuationHandles);
         const validatedActionOutput = actionOutputSchema.safeParse(actionOutput);
         if (!validatedActionOutput.success) {
           throw new Error("Research Action adapter returned invalid structured output");
         }
         if (previousHandle !== undefined) {
+          // youtubeAuditActionOutput measured the reply against the route's
+          // byte limit, so the router cannot refuse it for size once the
+          // handle is gone.
           const youtubeOutput = originalYoutubeOutput!;
           if (
             youtubeOutput.continuation_token !== undefined ||
@@ -322,28 +321,63 @@ function researchActionDescription(operation: ResearchOperation): string {
   return operation.description;
 }
 
+/**
+ * The audit as the Action sends it: its continuation token replaced by a short
+ * handle, its sample cut to fit, and the coverage receipt projected from what
+ * is sent.
+ *
+ * The reply returned here has been measured against the route's byte limit.
+ * The receipt repeats the audit's reply-count mismatches and blockers, so the
+ * 4,000 bytes held back for it are enough only while those lists are short;
+ * a receipt that needs more takes the room from the audit's sample. The reply
+ * used to be the audit cut to 56,000 bytes plus whatever the receipt came to,
+ * and with a few dozen mismatches it passed 60,000 bytes. The router refuses
+ * such a reply only after the route has returned, which is after the caller's
+ * handle was committed, so the audit could not continue (two reviews of
+ * 13 Nov 2026, both P1).
+ *
+ * A reply that fits at no sample size is refused here, with the error the
+ * router answers as 502 action_response_too_large. The handle issued for it is
+ * revoked, and the route rolls the caller's own handle back.
+ */
 function youtubeAuditActionOutput(
   output: z.output<typeof youtubeVideoCommunityAuditOutputSchema>,
   handles: YoutubeActionContinuationHandleStore
-): z.output<typeof youtubeVideoCommunityAuditOutputSchema> {
+): YoutubeAuditActionOutput {
   const statelessToken = output.continuation_token;
   let nextHandle: string | undefined;
   try {
-    const transportOutput = statelessToken === undefined
-      ? output
-      : {
-          ...output,
-          continuation_token: nextHandle = handles.issue(statelessToken)
-        };
-    const bounded = boundYoutubeAuditForAction(
-      youtubeVideoCommunityAuditOutputSchema.parse(transportOutput),
-      RESEARCH_ACTION_RESPONSE_MAX_BYTES - 4_000
+    const transportOutput = youtubeVideoCommunityAuditOutputSchema.parse(
+      statelessToken === undefined
+        ? output
+        : {
+            ...output,
+            continuation_token: nextHandle = handles.issue(statelessToken)
+          }
     );
-    return bounded;
+    let auditBytes = RESEARCH_ACTION_RESPONSE_MAX_BYTES - 4_000;
+    for (;;) {
+      // Throws ActionResponseTooLargeError once not even one record fits.
+      const bounded = boundYoutubeAuditForAction(transportOutput, auditBytes);
+      const reply = {
+        ...bounded,
+        coverage_receipt: projectDiscussionCoverageReceipt(bounded)
+      };
+      const excessBytes = serializedBytes(reply) - RESEARCH_ACTION_RESPONSE_MAX_BYTES;
+      if (excessBytes <= 0) return reply;
+      // Smaller each time round, so this ends: in a reply that fits, or in
+      // the refusal above.
+      auditBytes = Math.max(1, serializedBytes(bounded) - excessBytes);
+    }
   } catch (error) {
     if (nextHandle !== undefined) handles.revoke(nextHandle);
     throw error;
   }
+}
+
+/** The size the router measures a reply by. */
+function serializedBytes(value: unknown): number {
+  return Buffer.byteLength(JSON.stringify(value), "utf8");
 }
 
 function objectSchema(

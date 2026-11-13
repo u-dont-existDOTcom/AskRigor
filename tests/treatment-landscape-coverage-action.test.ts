@@ -291,6 +291,36 @@ describe("treatment-landscape coverage Action", () => {
     expect(result.synthesis_lock).toBe("block");
   });
 
+  // Two reviewers of 13 Nov 2026 (Claude P1, Codex P2), by reading: the per-video check also required YouTube's own
+  // comment count to equal the records retrieved. The audit reports a difference as a limitation and stays complete
+  // (its design: "Provider-reported comment counts may differ from the API-visible corpus"), so such an audit was never
+  // counted, and the access boundary the check then asked for could not be written: a boundary cannot carry the
+  // audit's own status, api_visible_complete.
+  it("counts a complete discussion audit whose retrieved count differs from YouTube's own figure", () => {
+    for (const providerCount of ["15", "9"]) {
+      const input = completeInput();
+      const video = input.selected_videos[0]!;
+      video.discussion_receipt = projectDiscussionCoverageReceipt({
+        ...communityAuditOutput(video.video_id, "UC-0-0"),
+        // The audit retrieved 12 records.
+        provider_reported_comments: providerCount,
+        limitations: [
+          "YouTube provider metadata and the complete API-visible comment/reply corpus reported different counts."
+        ]
+      });
+
+      const result = assessTreatmentLandscapeCoverage(input);
+
+      expect(result.depth_blockers).toEqual([]);
+      expect(result).toMatchObject({
+        material_videos_fully_audited: 8,
+        per_video_depth_lock: "pass",
+        synthesis_lock: "pass",
+        answer_boundary: "ledger_consistent_for_synthesis"
+      });
+    }
+  });
+
   it("blocks four audited videos even when they span four distinct programs", () => {
     const input = completeInput();
     const selectedIds = new Set(classSpecs.slice(0, 4).map(([id]) => `v-${id}-0`));
@@ -452,6 +482,68 @@ describe("treatment-landscape coverage Action", () => {
       batches[0] = { ...batches[0]!, access_status };
       expect(assessTreatmentLandscapeCoverage({ ...input, discovery_batches: batches }).first_pass_complete).toBe(complete);
     }
+  });
+
+  // Claude's review of 13 Nov 2026 (P2), by reading: the saturation check took every valid batch as a round, so two
+  // closing batches whose searches failed, and so returned nothing, read as two rounds that found nothing new.
+  it("does not count a discovery batch whose search failed as a round that found nothing new", () => {
+    const input = completeInput();
+    // Two audited videos: only saturation or two distinct rounds can complete the first pass.
+    const kept = new Set(input.selected_videos.slice(0, 2).map(({ video_id }) => video_id));
+    input.selected_videos = input.selected_videos.filter(({ video_id }) => kept.has(video_id));
+    input.candidate_videos = input.candidate_videos.map((candidate) => kept.has(candidate.video_id)
+      ? candidate
+      : { ...candidate, selection_status: "screened_not_selected" as const });
+    const firstRound = input.discovery_batches[0]!;
+    const closingRounds = (access_status: "api_visible_complete" | "rate_limited" | "error" | "partial" | "inaccessible") => [
+      { ...closingBatch("batch-late-0", "what finally worked for my joint pain", "strength"), access_status },
+      { ...closingBatch("batch-late-1", "methods named in the audited comments", "strength"), access_status }
+    ];
+    const assess = (discovery_batches: TreatmentLandscapeCoverageInput["discovery_batches"]) =>
+      assessTreatmentLandscapeCoverage({ ...input, discovery_batches });
+    const notSaturated =
+      "Discovery has not saturated: run discovery batches from different angles until two in a row add nothing new.";
+
+    // Two closing rounds from different angles that ran and added nothing: saturated.
+    expect(assess([firstRound, ...closingRounds("api_visible_complete")]))
+      .toMatchObject({ discovery_saturated: true, first_pass_complete: true });
+
+    // The same two rounds when their searches failed or only partly ran: one round of discovery, not saturation.
+    for (const failed of ["error", "partial", "inaccessible"] as const) {
+      const result = assess([firstRound, ...closingRounds(failed)]);
+      expect(result).toMatchObject({
+        discovery_saturated: false,
+        first_pass_complete: false,
+        answer_boundary: "continue_research"
+      });
+      expect(result.breadth_gaps).toContain(notSaturated);
+    }
+
+    // Rounds a rate limit or the daily quota stopped found nothing new either. They still count toward the
+    // first-pass cap, as open leads; that rule is unchanged.
+    const stopped = assess([firstRound, ...closingRounds("rate_limited")]);
+    expect(stopped).toMatchObject({ discovery_saturated: false, first_pass_complete: true });
+    expect(stopped.breadth_gaps).toContain(notSaturated);
+
+    // A failed round after two that ran and added nothing does not undo them; it stays its own problem.
+    const failedLater = assess([
+      firstRound,
+      ...closingRounds("api_visible_complete"),
+      { ...closingBatch("batch-late-2", "a third angle whose search failed", "strength"), access_status: "error" as const }
+    ]);
+    expect(failedLater.discovery_saturated).toBe(true);
+    expect(failedLater.blockers).toContain("discovery_batch batch-late-2 lacks a structured access boundary.");
+
+    // A round that only partly ran and still found a new program is a find, as before.
+    const partialFind = assess([
+      firstRound,
+      ...closingRounds("api_visible_complete"),
+      { ...input.discovery_batches[1]!, access_status: "partial" as const }
+    ]);
+    expect(partialFind.discovery_saturated).toBe(false);
+    expect(partialFind.breadth_gaps).toContain(
+      "Discovery has not saturated: one of the last two batches still found a new material program or a video selected for audit; run another batch from a new angle."
+    );
   });
 
   it("keeps a terminal access boundary as a stated limit of a first-pass answer", () => {

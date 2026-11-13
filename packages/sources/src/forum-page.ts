@@ -1,4 +1,4 @@
-import { extractHtmlText } from "./candidate-full-text.js";
+import { extractHtmlText, startTags } from "./candidate-full-text.js";
 import { DiscoveredDocumentError, fetchDiscoveredDocument, UpstreamHttpError, type DiscoveredDocumentFetchRuntime } from "./http.js";
 import { parseRobotsTxt, robotsTxtAllows, type RobotsGroup } from "./robots-txt.js";
 
@@ -284,9 +284,9 @@ function markupWithoutUnreadParts(html: string): string {
 /** The rel names of each a or link tag in a page's markup outside its unread parts, with its href. */
 function relTags(html: string): Array<{ rel: string[]; href: string | undefined }> {
   const markup = markupWithoutUnreadParts(html);
-  return [...markup.matchAll(/<(?:a|link)\b(?:[^>"']|"[^"]*"|'[^']*')*>/giu)].flatMap((tag) => {
+  return [...startTags(markup, "a|link")].flatMap((tag) => {
     const attributes = new Map<string, string>();
-    for (const match of tag[0].matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gu)) {
+    for (const match of tag.matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gu)) {
       attributes.set(match[1]!.toLowerCase(), match[2] ?? match[3] ?? match[4]!);
     }
     const rel = attributes.get("rel")?.toLowerCase().split(/\s+/u).filter((name) => name !== "") ?? [];
@@ -310,11 +310,100 @@ function linkedPage(html: string, base: URL): string | undefined {
  * Whether a page is a bot challenge, by its markup: Cloudflare's challenge script (window._cf_chl_opt inside a script
  * element), an element whose class or id is one of its cf-chl- names, or its challenge form. Text that only mentions them
  * is no challenge, nor is any title.
+ *
+ * Each of the three gives the answer of the one pattern in its note, in time that grows with the page's size and no
+ * faster (the code review of 13 Nov 2026, Codex, P1). The patterns themselves started over at every "<script", tag or
+ * "<form" of a page that never closed them and read on to its end each time: 3.8 seconds on 128 KB of "<script" text,
+ * and 15 seconds on 16 KB of "<a class=", where the second pattern's time grew with the cube of the size. A page may be
+ * 3 MB, and the read is synchronous, so the server answered nothing else meanwhile.
  */
 function challengeMarkup(html: string): boolean {
-  return /<script\b[^>]*>(?:(?!<\/script)[\s\S])*_cf_chl_opt/iu.test(html) ||
-    /<[a-z][\w-]*\s[^>]*\b(?:class|id)\s*=\s*["']?[^"'>]*\bcf-chl-/iu.test(html) ||
-    /<form\b[^>]*\bid\s*=\s*["']?challenge-form\b/iu.test(html);
+  return challengeScript(html) || challengeElement(html) || challengeForm(html);
+}
+
+/**
+ * Where a pattern (with the g flag) next matches at or after a place, or Infinity for nowhere. The answer is kept while
+ * the places asked for stay between the place it was found from and the match, so places asked for in rising order,
+ * as every caller here asks, read the text once between them.
+ */
+function nextMatch(text: string, pattern: RegExp): (from: number) => number {
+  let asked = Infinity;
+  let found = -1;
+  return (from) => {
+    if (from < asked || from > found) {
+      pattern.lastIndex = from;
+      found = pattern.exec(text)?.index ?? Infinity;
+      asked = from;
+    }
+    return found;
+  };
+}
+
+/**
+ * /<script\b[^>]*>(?:(?!<\/script)[\s\S])*_cf_chl_opt/iu: after the first ">" that follows a "<script", the name
+ * _cf_chl_opt before any "</script".
+ */
+function challengeScript(html: string): boolean {
+  const optionsOf = nextMatch(html, /_cf_chl_opt/giu);
+  const closeOf = nextMatch(html, /<\/script/giu);
+  let tagEnd = -1;
+  for (const open of html.matchAll(/<script\b/giu)) {
+    const from = open.index + open[0].length;
+    if (tagEnd < from) tagEnd = html.indexOf(">", from);
+    // No ">" after this "<script", or no such name after its tag: none after any later one either.
+    if (tagEnd < 0) return false;
+    const options = optionsOf(tagEnd + 1);
+    if (options === Infinity) return false;
+    if (options < closeOf(tagEnd + 1)) return true;
+  }
+  return false;
+}
+
+/**
+ * /<[a-z][\w-]*\s[^>]*\b(?:class|id)\s*=\s*["']?[^"'>]*\bcf-chl-/iu: after a tag's name and a space, and before any ">",
+ * a class or id whose value holds a cf-chl- name: after the "=", or after one quote that only spaces come before, with
+ * no quote or ">" between.
+ */
+function challengeElement(html: string): boolean {
+  const nameOf = nextMatch(html, /\bcf-chl-/giu);
+  if (nameOf(0) === Infinity) return false;
+  const valueEndOf = nextMatch(html, /["'>]/gu);
+  const tagEndOf = nextMatch(html, />/gu);
+  const named = (from: number): boolean => nameOf(from) < valueEndOf(from);
+  const attribute = /\b(?:class|id)\s*=/giu;
+  const spaces = /\s*/yu;
+  // The first class or id at or after the last tag asked about whose value holds such a name. Each class or id of the
+  // page is looked at once, whichever tags it may belong to.
+  let found = -1;
+  for (const open of html.matchAll(/<[a-z][\w-]*\s/giu)) {
+    const from = open.index + open[0].length;
+    while (found < from) {
+      attribute.lastIndex = Math.max(attribute.lastIndex, from);
+      const match = attribute.exec(html);
+      if (match === null) return false;
+      const value = match.index + match[0].length;
+      spaces.lastIndex = value;
+      spaces.exec(html);
+      const quote = spaces.lastIndex;
+      if (named(value) || ((html[quote] === '"' || html[quote] === "'") && named(quote + 1))) found = match.index;
+    }
+    if (found < tagEndOf(from)) return true;
+  }
+  return false;
+}
+
+/** /<form\b[^>]*\bid\s*=\s*["']?challenge-form\b/iu: after a "<form" and before any ">", the id challenge-form. */
+function challengeForm(html: string): boolean {
+  const idOf = nextMatch(html, /\bid\s*=\s*["']?challenge-form\b/giu);
+  let tagEnd = -1;
+  for (const open of html.matchAll(/<form\b/giu)) {
+    const from = open.index + open[0].length;
+    const id = idOf(from);
+    if (id === Infinity) return false;
+    if (tagEnd < from) tagEnd = html.indexOf(">", from);
+    if (tagEnd < 0 || id < tagEnd) return true;
+  }
+  return false;
 }
 
 /**
@@ -330,8 +419,8 @@ function laterPageLinks(html: string, base: URL): { links: string[]; cut: boolea
   const own = new Set<string>();
   const others = new Set<string>();
   let cut = false;
-  for (const tag of markupWithoutUnreadParts(html).matchAll(/<a\b(?:[^>"']|"[^"]*"|'[^']*')*>/giu)) {
-    const href = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/iu.exec(tag[0]);
+  for (const tag of startTags(markupWithoutUnreadParts(html), "a")) {
+    const href = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/iu.exec(tag);
     const value = href?.[1] ?? href?.[2] ?? href?.[3];
     if (value === undefined) continue;
     let link: URL;

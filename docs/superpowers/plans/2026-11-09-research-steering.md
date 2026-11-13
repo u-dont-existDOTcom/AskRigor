@@ -643,6 +643,56 @@ the person meant. It did not make a low-effort AI do the tasks or the check. To 
 when the owner's ChatGPT allows it; and, as the owner's question, whether AskRigor should do more of the research
 itself for an AI that will not.
 
+Round 8, on the live build 28527285 (#447; 13 Nov, 16:13 to 16:37 UTC), at Extra High: the owner had set the effort
+themselves (their Inbox, 16:02 UTC: "chatgpt usage is no where near used up, i just set it myself to extra high")
+and chose all five questions (owner answer 300b). Five chats at once, findings-card saving off from 16:12:46 to
+16:36:41 UTC; the call record's rows in that window are all the five chats' own.
+
+- The plan arrived in all five registrations (14.2 to 20.8 seconds), and no `plan_research` call was refused. No
+  chat sent `asked` in a form that was refused.
+- The control: none, `go_on`, one turn of 9 minutes 11 seconds. The reading line first ("I interpreted your question
+  as asking what percentage of children experienced diarrhoea in each PITCH treatment group during the five-day
+  follow-up"), the right figures (31 of 156; 10, 9 and 12 of 52), the full text read, a study audit validated, and
+  the final check passed at its second call (`not_ready` for a reading declaration, then `ready_with_limits`).
+- Three open questions ended their first turn with the planner's question, 1 minute 11 seconds to 1 minute 35
+  seconds after the message. Orange peel: "What matters most for your soil: retaining water during drought, adding
+  nutrients and organic matter, or both?" PewDiePie: "Are you referring to something PewDiePie claimed in his Ajax
+  launch video, something reported in news or comments, or your own conclusion that Chinese researchers couldn't
+  extract OpenAI's hidden reasoning?" Syrian rue: "Which type of Syrian rue oil do you mean?"
+- SMILES got no question: the plan's search had found where "4x" comes from ("The 4x figure comes from setting that
+  number beside separate antidepressant-placebo trials"), so `steering_choice` was none. The first turn still ended
+  with the menu and "Which should I investigate?", because the recommended tasks' high estimate was past ten
+  minutes (`ASK_ABOVE_MINUTES`, owner answer 284). The research then took about 15 minutes, so the rule asked
+  rightly; the AI called it "an unnecessary extra interaction".
+- Every reply went on at the next call (4 of 4), and all five answers passed the final check (`ready_with_limits`;
+  one or two calls each, nine in all), with full texts read and method audits validated. On Instant in round 7 it
+  was 0 of 4. Second turns took 8 minutes 31 seconds to 16 minutes 52 seconds.
+- Read against the owner's wanted answers. PewDiePie: met but for its first line, which is still a verdict ("There
+  is no evidence that PewDiePie accomplished something ... that Chinese AI researchers couldn't. In fact ...
+  Chinese laboratories used very similar techniques"); then what he says he did, with the video's minute marks,
+  the paper the trick comes from, and what Chinese labs are reported to have done. SMILES: not met. It opens "No.",
+  names neither AMMEND nor HELFIMED although it searched Europe PMC for both by name, and leaves out the remission
+  figures; it has 1.16 against 0.30, the 46 of 67 on medication, and a 2025 review's pooled 0.83.
+- Memory. All five chats said earlier conversations had shaped, or could have shaped, their reading. One put a
+  remembered reply into
+  `later_inputs.asked` ("Earlier clarification from this user: PewDiePie's launch video. I'm trying to understand
+  why China wasn't able to use the same trick ..."), so its plan was made from words the person had not written in
+  that chat. `ASKED_REQUEST` now says: only what they wrote in this conversation, nothing from memory or from
+  earlier conversations, no note of the AI's.
+- In no chat did ChatGPT load a protocol section (`load_protocol` was not called by any of the five), and each
+  answer passed the final check. Nothing in AskRigor's instructions to ChatGPT's app tells it to load one.
+
+So with an AI that does the work, the plan gives the right question early and a checked answer, and what is left
+is the answer's content against what the person meant. Tried the same day, off to the side (plan workers, 14 runs;
+the kit's `reviewer/` folder): a fresh call that reads the person's words and the finished answer, searches twice
+at most, and names up to three things the person would otherwise have to ask for. For the SMILES answer it named
+HELFIMED and AMMEND in 4 of 4 runs and the remission figures in 3 of 4; for the PewDiePie answer it said "Open
+with his claim" in 2 of 2; for an answer with the fault of bug report 445's fourth comment (7 of 7 against 4 of 6,
+"not significantly better") it said "The opening 'No' denies a benefit that the draft's own figures point
+towards"; for the control it returned nothing in 3 of 3 after one tightening. It never asked for a different
+opening verdict on SMILES, and it is untested on the API. It is the owner's question 301 (a new paid call, and
+the finished answer would go to Anthropic), not built.
+
 ### Next stages
 
 1. Measure on the owner's regression list, on plan workers with no API spend: whether the framing asks the right

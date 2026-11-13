@@ -412,8 +412,11 @@ owner's ChatGPT runs had left that judgment to the person's AI, and it went wron
   `later_inputs.asked` with the plain answer: the person's own words about the question, word for word and in
   order (their question, and after it any answer they gave to a question of the AI's about it), as one text or as
   a list with one message each (in round 7 four of five chats sent a list first and were refused once), at most
-  6,000 characters in all. A research target is the AI's wording, and in round 6 one already carried a reading the
-  person did not mean. Without `asked` the plan is made from the research target, and the result asks for it next time.
+  6,000 characters in all. Only what the person wrote in this conversation: nothing from memory or from earlier
+  conversations, and no note of the AI's (in round 8 one chat of five added a reply it remembered from an earlier
+  chat, and the plan was made from it). A research target is the AI's wording, and in round 6 one already carried a
+  reading the person did not mean. Without `asked` the plan is made from the research target, and the result asks
+  for it next time.
   `asked` goes only with `register_plain_answer`; on any other account it is not used.
 - **What comes back.** `register_plain_answer`'s first text and `next_step` say not to screen, give what the
   question is about (`research_plan.about`), and hand over the menu ready to send: `planned_later_inputs`, a
@@ -439,15 +442,26 @@ owner's ChatGPT runs had left that judgment to the person's AI, and it went wron
   with no answer from the API, keeps what was held; one the API answered with an error status costs nothing. So
   the cap is passed only by a call that costs more than USD 0.12 (the dearest measured: USD 0.094), and its reply
   is limited to 8,000 output tokens. A refusal's category, as the API names it, is logged as a class.
+- **Across a restart.** The day's spend and each account's count were numbers in process memory only, so a release
+  or restart started both again and the cap could be passed on such a day. With
+  `ASKRIGOR_RESEARCH_PLANNER_STATE_FILE` naming a file, the planner reads it once after the server starts and
+  replaces it whole after every change. It holds the UTC day, the day's spend in USD with what is held for running
+  calls, and each account's count under the first 16 hex characters of the SHA-256 of its account key: never the
+  key itself, a question or a plan. A call that was running when the server stopped keeps the USD 0.12 held for
+  it, as one that timed out does. A file for another day, or one that is missing, unreadable or not as the planner
+  writes it, starts the day at zero; for one from a later day or of another form the log says
+  `state_file_malformed`. A write that fails is logged once (`state_write_failed`) and the counts go on in memory,
+  so it never fails a registration. Without the setting nothing is read or written.
 - **Settings.** Off unless `ASKRIGOR_RESEARCH_PLANNER=on`, with the key read from the file
   `ASKRIGOR_RESEARCH_PLANNER_KEY_FILE` names (a read-only mounted secret), `ASKRIGOR_RESEARCH_PLANNER_WORKSPACE_ID`
   for an organization-scoped key, and optional `_MODEL` (`claude-opus-5-5` by default), `_EFFORT` (`low`, `medium`
-  or `high`; `low` by default), `_DAILY_CAP_USD` (3 by default), `_ACCOUNT_DAILY_CALLS` (10 by default) and
-  `_TIMEOUT_SECONDS` (45 by default, at most 120). Its daily cap and the meaning judge's together may not pass the
-  owner's USD 3 a day, or it stays off. A request the model's safety classifiers decline is answered by
-  Anthropic's default fallback model in the same call (`fallbacks: "default"`); when the whole chain declines,
-  the AI plans as before. The SDK's own logging and tracing are off for this client and the meaning judge's,
-  whatever the environment says: at debug level the SDK logs requests and replies whole.
+  or `high`; `low` by default), `_DAILY_CAP_USD` (3 by default), `_ACCOUNT_DAILY_CALLS` (10 by default),
+  `_TIMEOUT_SECONDS` (45 by default, at most 120) and `_STATE_FILE` (none by default). Its daily cap and the
+  meaning judge's together may not pass the owner's USD 3 a day, or it stays off. A request the model's safety
+  classifiers decline is answered by Anthropic's default fallback model in the same call
+  (`fallbacks: "default"`); when the whole chain declines, the AI plans as before. The SDK's own logging and
+  tracing are off for this client and the meaning judge's, whatever the environment says: at debug level the SDK
+  logs requests and replies whole.
 - **What it costs and keeps.** Paid from the owner's monthly Claude API credit
   (`governance/chat-work-authority-policy.json`, `OWNER_ANSWER_298B`). Measured on 13 November on the five test
   questions: 6 to 9 cents and 10 to 22 seconds a call with one or two searches. AskRigor stores nothing it sends or
