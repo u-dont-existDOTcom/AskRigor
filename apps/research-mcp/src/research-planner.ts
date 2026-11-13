@@ -26,6 +26,13 @@ import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, steeringChoice
  * GPT model. What a question is about, and whether a choice of the person's could change the research, are judgments
  * of meaning: they go to a model, not to a word list (AGENTS.md).
  *
+ * The tasks' wording (rubric 2026-11-13.2). A report of 13 November 2026 (AskRigor#451): a menu offered "Search for human
+ * trials of D-chiro-inositol and testosterone in men ..." and "Read the full text of the main D-chiro-inositol trial in
+ * men ...", and the person asked what the difference was. Each task's line now starts with what the task finds out and
+ * then says how; a task that uses an earlier one's result says so; one that needs a paper to be open says the answer
+ * will say so if it is not; one piece of work is never two tasks; and a line has at most 180 characters, since the menu
+ * cuts a task at 200 (PLAN_LIMITS.task) and longer lines were being cut.
+ *
  * It never blocks: off, over its budget, over the account's calls for the day, timed out, refused, failed or unreadable,
  * register_plain_answer gives the words it gives every account and the AI screens and plans as before, with one
  * sentence saying the call was not used.
@@ -45,7 +52,7 @@ import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, steeringChoice
  * the counts go on in memory. Without the setting nothing is read or written.
  */
 
-export const RESEARCH_PLANNER_RUBRIC_VERSION = "2026-11-13.1";
+export const RESEARCH_PLANNER_RUBRIC_VERSION = "2026-11-13.2";
 
 // Stable instructions first, so the API's prompt cache can serve them across calls; the bundle follows them.
 export const RESEARCH_PLANNER_RUBRIC = `You plan research for AskRigor, a health and science research service. A person asked their AI assistant a
@@ -87,7 +94,14 @@ paper reports; when asked shows the person has already answered such a question;
 emergency happening now.
 
 3. The next research tasks: two to five, in the order to do them. Each has task, what it does, written in the person's
-language as a line of a menu they will read, naming the study, source or search concretely; kind; could_change, what
+language as one line of a menu they will read, of at most 180 characters: it starts with what the task finds out
+and then says how, naming the
+study, source or search concretely, so that a reader who is not a researcher sees what each line adds that the
+others do not. Two tasks on the same subject must differ in what they answer, not only in their verb: a search
+finds which studies exist and whether they agree; reading one paper in full shows its doses, who took part, what
+it was compared with and how far its result can be trusted. A task that uses what an earlier one finds says so
+("after task 1"), and one that depends on a paper being open to read says the answer will say so if it is not.
+Never list as two tasks what will be done as one piece of work. Each task also has kind; could_change, what
 its result could change: the conclusion, how sure the answer can be (confidence), or only detail; and sources, how many
 searches, abstracts, papers, threads, videos or records it covers.
 The kinds: study_search (a search of the research literature), abstract_screen (reading the abstracts of candidate
@@ -221,8 +235,9 @@ export interface ResearchPlannerClient {
 
 /** USD per million tokens: input, output, 5-minute cache write, cache read. */
 interface Prices { input: number; output: number; cacheWrite: number; cacheRead: number }
-// Claude API list prices (Claude API reference, 3 November 2026).
-const PRICES: Readonly<Record<string, Prices>> = {
+// Claude API list prices (Claude API reference, 3 November 2026). Shared with AskRigor's own review of a draft answer
+// (research-reviewer.ts, owner answer 301a), whose models are the same.
+export const PRICES: Readonly<Record<string, Prices>> = {
   "claude-opus-5-5": { input: 4, output: 20, cacheWrite: 5, cacheRead: 0.2 },
   "claude-sonnet-5-5": { input: 2, output: 10, cacheWrite: 2.5, cacheRead: 0.1 },
   "claude-haiku-5-5": { input: 0.1, output: 0.5, cacheWrite: 0.125, cacheRead: 0.01 },
@@ -231,7 +246,56 @@ const PRICES: Readonly<Record<string, Prices>> = {
 // model, so the day's cap is never undercounted.
 const CEILING_PRICES: Prices = { input: 10, output: 50, cacheWrite: 12.5, cacheRead: 1 };
 /** USD per web search (USD 10 per 1,000). */
-const SEARCH_USD = 0.01;
+export const SEARCH_USD = 0.01;
+/** The tokens of one reply, or of one sampling iteration of it. */
+export interface ReplyTokens { input: number; output: number; cacheWrite: number; cacheRead: number }
+
+/** A count from a reply's usage: a finite number not below zero, otherwise 0. */
+const count = (value: number | null | undefined) =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0;
+
+/** What tokens cost at a model's list price; a model not listed is counted at the ceiling's. */
+export function priced(name: string | null | undefined, tokens: ReplyTokens): number {
+  const prices = (name === null || name === undefined ? undefined : PRICES[name]) ?? CEILING_PRICES;
+  return (tokens.input * prices.input + tokens.output * prices.output + tokens.cacheWrite * prices.cacheWrite +
+    tokens.cacheRead * prices.cacheRead) / 1e6;
+}
+
+/**
+ * What a reply cost: each sampling iteration at its own model's price when the reply lists them (a fallback's are another
+ * model's), otherwise the whole reply at the answering model's, and each web search at SEARCH_USD; with the reply's
+ * tokens and searches as its usage gives them.
+ */
+export function replyCost(message: Anthropic.Beta.BetaMessage): { costUsd: number; tokens: ReplyTokens; searches: number } {
+  const usage = message.usage;
+  const searches = count(usage?.server_tool_use?.web_search_requests);
+  const tokens = {
+    input: count(usage?.input_tokens),
+    output: count(usage?.output_tokens),
+    cacheWrite: count(usage?.cache_creation_input_tokens),
+    cacheRead: count(usage?.cache_read_input_tokens),
+  };
+  const iterations = (usage?.iterations ?? []).filter((entry) =>
+    entry.type === "message" || entry.type === "fallback_message");
+  const tokenUsd = iterations.length === 0 ? priced(message.model, tokens)
+    : iterations.reduce((sum, entry) => sum + priced(entry.model ?? message.model, {
+      input: count(entry.input_tokens), output: count(entry.output_tokens),
+      cacheWrite: count(entry.cache_creation_input_tokens), cacheRead: count(entry.cache_read_input_tokens),
+    }), 0);
+  return { costUsd: tokenUsd + searches * SEARCH_USD, tokens, searches };
+}
+
+/** A refusal's category as the API names it (bio, cyber, ...), when it is a class; never its explanation. */
+export function refusalCategoryOf(message: Anthropic.Beta.BetaMessage): string | undefined {
+  return typeof message.stop_details?.category === "string" && /^[a-z_]{1,40}$/u.test(message.stop_details.category)
+    ? message.stop_details.category : undefined;
+}
+
+/** A structured reply's text: the last text block, since with searches earlier blocks hold their calls and results. */
+export function replyTextOf(message: Anthropic.Beta.BetaMessage): string | undefined {
+  return message.content.filter((block): block is Anthropic.Beta.BetaTextBlock => block.type === "text").at(-1)?.text;
+}
+
 /**
  * Held against the day's cap from the moment a call is sent until its real cost is known, so calls sent at the same
  * time cannot all pass a cap that only one of them fits under; more than the dearest call measured (USD 0.094, 13 Nov
@@ -239,15 +303,17 @@ const SEARCH_USD = 0.01;
  */
 const RESERVED_USD = 0.12;
 
-const HOUR = 60 * 60 * 1_000;
+export const HOUR = 60 * 60 * 1_000;
 const DEFAULT_TIMEOUT_SECONDS = 45;
 const DEFAULT_DAILY_CAP_USD = 3;
 const DEFAULT_ACCOUNT_DAILY_CALLS = 10;
 // Eight times the longest reply measured (1,006 output tokens, thinking included): room to think, and a bound on
 // what one call can cost.
 const MAX_OUTPUT_TOKENS = 8_000;
-const EFFORTS = new Set(["low", "medium", "high"]);
-const FALLBACK_BETA = "server-side-fallback-2026-07-01";
+export const EFFORTS: ReadonlySet<string> = new Set(["low", "medium", "high"]);
+export const FALLBACK_BETA = "server-side-fallback-2026-07-01";
+/** An organization's API workspace, as the setting names it. */
+export const WORKSPACE_ID = /^wrkspc_[A-Za-z0-9]{8,64}$/u;
 
 const replySchema = z.object({
   about: z.string(),
@@ -261,7 +327,7 @@ const replySchema = z.object({
 });
 
 /** One line of plain text, as a result shows it to the AI: no control or formatting characters, never the key. */
-function plainLine(value: string, key: string, limit: number): string | undefined {
+export function plainLine(value: string, key: string, limit: number): string | undefined {
   const text = value.replace(/[\p{Cc}\p{Cf}]+/gu, " ").replace(/\s+/gu, " ").trim();
   if (text === "" || text.includes(key) || /sk-ant-/u.test(text)) return undefined;
   return text.length <= limit ? text : `${text.slice(0, limit - 1).trimEnd()}…`;
@@ -302,7 +368,7 @@ export function researchPlanOf(reply: unknown, searches: number, key = "\u0000")
  * calls, and each account's new calls that day. An account is named by the first 16 hex characters of the SHA-256 of
  * its account key, never by the key.
  */
-const stateSchema = z.strictObject({
+export const stateSchema = z.strictObject({
   schema_version: z.literal(1),
   utc_day: z.string().regex(/^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/u),
   // A number is finite here: a figure too large to hold (1e999) parses to infinity, and is not one.
@@ -312,7 +378,7 @@ const stateSchema = z.strictObject({
 export type ResearchPlannerState = z.output<typeof stateSchema>;
 
 /** The counts a state file's text holds, or undefined when it is not a file as the planner writes it. */
-function plannerStateOf(text: string): ResearchPlannerState | undefined {
+export function plannerStateOf(text: string): ResearchPlannerState | undefined {
   let value: unknown;
   try { value = JSON.parse(text); } catch { return undefined; }
   const parsed = stateSchema.safeParse(value);
@@ -320,14 +386,14 @@ function plannerStateOf(text: string): ResearchPlannerState | undefined {
 }
 
 /** An account as the day's counts name it, in memory and in the state file. */
-const accountDigest = (accountKey: string): string =>
+export const accountDigest = (accountKey: string): string =>
   createHash("sha256").update(accountKey).digest("hex").slice(0, 16);
 
 /**
  * Replaces a file whole: written under a temporary name in the same directory, mode 0600, then renamed over it, so a
  * reader finds the counts from before the change or from after it, never half a file.
  */
-function replaceFile(path: string, text: string): void {
+export function replaceFile(path: string, text: string): void {
   const temporary = join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
   try {
     const descriptor = openSync(temporary, "wx", 0o600);
@@ -363,7 +429,11 @@ export interface ResearchPlannerDependencies {
   otherDailyCapUsd?: number;
 }
 
-/** The owner's ceiling for paid Claude API features together, a day (owner answer 221: "a hard cap of $3 a day"). */
+/**
+ * The owner's ceiling for the planning call and the meaning judge together, a day (owner answer 221: "a hard cap of $3
+ * a day"; owner answer 298b put the planning call beneath it). The review of a draft answer has the ceiling for all
+ * three, USD 7 a day (owner answer 301a: research-reviewer.ts, OWNER_DAILY_CEILING_WITH_REVIEW_USD).
+ */
 export const OWNER_DAILY_CEILING_USD = 3;
 
 /** A new instance reads its settings once; the production instance below is process-local. */
@@ -393,7 +463,7 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
   if (PRICES[model] === undefined || !Number.isFinite(cap) || cap < 0 || !EFFORTS.has(effort) ||
     !Number.isInteger(accountCalls) || accountCalls < 1 || accountCalls > 1_000 ||
     !Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0 || timeoutSeconds > 120 ||
-    (workspace !== undefined && !/^wrkspc_[A-Za-z0-9]{8,64}$/u.test(workspace))) {
+    (workspace !== undefined && !WORKSPACE_ID.test(workspace))) {
     log("settings_invalid");
     return off;
   }
@@ -442,14 +512,6 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
     }
   };
   const turnDay = () => { if (today() !== day) { day = today(); spent = 0; calls = new Map(); save(); } };
-  const count = (value: number | null | undefined) =>
-    typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0;
-  const priced = (name: string | null | undefined, tokens: { input: number; output: number; cacheWrite: number;
-    cacheRead: number }): number => {
-    const prices = (name === null || name === undefined ? undefined : PRICES[name]) ?? CEILING_PRICES;
-    return (tokens.input * prices.input + tokens.output * prices.output + tokens.cacheWrite * prices.cacheWrite +
-      tokens.cacheRead * prices.cacheRead) / 1e6;
-  };
 
   async function request(source: ResearchPlannerSource): Promise<ResearchPlannerCall> {
     const started = now();
@@ -491,37 +553,20 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
         system: [{ type: "text", text: RESEARCH_PLANNER_RUBRIC, cache_control: { type: "ephemeral" } }],
         messages: [{ role: "user", content: JSON.stringify(researchPlannerBundle(source, today())) }],
       }, { signal: controller.signal, timeout: timeoutMs, maxRetries: 0 })), timedOut]);
-      const usage = message.usage;
-      const searches = count(usage?.server_tool_use?.web_search_requests);
-      const tokens = {
-        input: count(usage?.input_tokens),
-        output: count(usage?.output_tokens),
-        cacheWrite: count(usage?.cache_creation_input_tokens),
-        cacheRead: count(usage?.cache_read_input_tokens),
-      };
       // Each sampling iteration at its own model's price when the reply lists them (a fallback's are another
       // model's); otherwise the whole reply at the answering model's.
-      const iterations = (usage?.iterations ?? []).filter((entry) =>
-        entry.type === "message" || entry.type === "fallback_message");
-      const tokenUsd = iterations.length === 0 ? priced(message.model, tokens)
-        : iterations.reduce((sum, entry) => sum + priced(entry.model ?? message.model, {
-          input: count(entry.input_tokens), output: count(entry.output_tokens),
-          cacheWrite: count(entry.cache_creation_input_tokens), cacheRead: count(entry.cache_read_input_tokens),
-        }), 0);
-      const costUsd = tokenUsd + searches * SEARCH_USD;
+      const { costUsd, tokens, searches } = replyCost(message);
       settle(costUsd);
       const measured = { costUsd, milliseconds: now() - started, model: message.model, usage: { ...tokens, searches } };
       // A refusal is read before the content, which it may leave incomplete. Its category is logged with it, a class
       // of the API's own naming, so the trial can count which questions the model's classifiers decline.
       if (message.stop_reason === "refusal") {
-        const category = typeof message.stop_details?.category === "string" &&
-          /^[a-z_]{1,40}$/u.test(message.stop_details.category) ? message.stop_details.category : undefined;
+        const category = refusalCategoryOf(message);
         if (category !== undefined) log(`refusal_category_${category}`);
         return { ...fail("refusal", costUsd), ...measured, ...(category === undefined ? {} : { refusalCategory: category }) };
       }
       // The answer is the last text block: with searches, earlier blocks hold their calls and results.
-      const text = message.content.filter((block): block is Anthropic.Beta.BetaTextBlock => block.type === "text")
-        .at(-1)?.text;
+      const text = replyTextOf(message);
       if (message.stop_reason !== "end_turn" || text === undefined) return { ...fail("unreadable", costUsd), ...measured };
       let reply: unknown;
       try { reply = JSON.parse(text); } catch { return { ...fail("unreadable", costUsd), ...measured }; }
@@ -581,7 +626,7 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
 }
 
 /** The official SDK's client, bound to the API itself whatever the environment says, with no retries of its own. */
-function sdkClient(settings: { apiKey: string; workspaceId: string | undefined; timeoutMs: number }): ResearchPlannerClient {
+export function sdkClient(settings: { apiKey: string; workspaceId: string | undefined; timeoutMs: number }): ResearchPlannerClient {
   return new Anthropic({
     apiKey: settings.apiKey,
     baseURL: "https://api.anthropic.com",

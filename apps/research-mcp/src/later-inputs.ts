@@ -36,6 +36,39 @@ export const callsPageSchema = z.object({
 export const SEARCH_INDEXES = ["europe_pmc", "all_journals"] as const;
 
 /**
+ * The person's own words about the question, as the AI passes them on in later_inputs.asked (owner answer 298b): one
+ * text, or a list with one message each (round 7, 13 Nov 2026: four of the five chats first sent a list). Read so by
+ * register_plain_answer, for the planning call, and by finalize_research, for the review of the draft (owner answer
+ * 301a).
+ */
+export const askedInputSchema = z.union([
+  z.string().trim().min(1).max(ASKED_LIMIT),
+  z.array(z.string().trim().min(1).max(ASKED_LIMIT)).min(1).max(20),
+]);
+
+/** The person's words as one text: a list's messages in order, a blank line between them. */
+export function askedText(asked: string | readonly string[]): string {
+  return typeof asked === "string" ? asked : asked.join("\n\n");
+}
+
+/**
+ * finalize_research's later_inputs.asked (owner answer 301a): read from the raw call on its own, as findings_save is,
+ * in later_inputs or else at the top level, and parsed as register_plain_answer parses its own (askedInputSchema, then
+ * askedText, at most ASKED_LIMIT characters in all). Undefined when absent or unusable, which is never a problem or a
+ * next step: AskRigor's review of the draft then reads the research target alone.
+ */
+export function finalCheckAsked(raw: unknown): string | undefined {
+  const object = (value: unknown): value is Record<string, unknown> =>
+    value !== null && typeof value === "object" && !Array.isArray(value);
+  if (!object(raw)) return undefined;
+  const later = raw.later_inputs;
+  const parsed = askedInputSchema.safeParse(object(later) && Object.hasOwn(later, "asked") ? later.asked : raw.asked);
+  if (!parsed.success) return undefined;
+  const text = askedText(parsed.data);
+  return text.length > ASKED_LIMIT ? undefined : text;
+}
+
+/**
  * Owner answer 189a: published tool definitions stay fixed. A new input gets a later shape entry; a newer form
  * of an existing input (enum, nested field or relaxed limit) redeclares that input in the later shape. Either
  * form reaches runtime validation at the top level or through later_inputs, never both. A new action or category
@@ -120,7 +153,14 @@ const LATER_INPUT_SHAPES = Object.freeze({
     // The free Claude test of 5 Nov 2026: a test run's cards are never saved. It can only turn saving off.
     findings_save: findingsSaveMarkerSchema
       .describe("off: save no findings card from this call, whatever the account's setting, as a test run does. It " +
-        "can only turn saving off; any value other than off leaves the account's setting to decide.")
+        "can only turn saving off; any value other than off leaves the account's setting to decide."),
+    // Owner answer 301a (13 Nov 2026): the person's words, for AskRigor's own review of the draft on a dev account. Read
+    // from the raw call (finalCheckAsked), so any value parses here and none is ever a problem or a step; used in memory
+    // for that call only, and never signed, stored or logged.
+    asked: z.unknown().optional()
+      .describe("When a registration result asks for it: the person's own words about this question, word for word " +
+        "and in order, as one text or a list with one message each, as given to register_plain_answer, with any later " +
+        "message of theirs about this question added. Used only by AskRigor's review of the draft; never kept."),
   },
   // Owner answer 219b: the card exactly as finalize_research checked it, its findings' declarations included.
   save_research_findings: {
@@ -184,10 +224,7 @@ const LATER_INPUT_SHAPES = Object.freeze({
     // in memory for that call only; never signed, stored or logged.
     // Round 7 (13 Nov 2026): four of the five chats first sent them as a list, one message each, and were refused
     // once; a list is read as its messages in order.
-    asked: z.union([
-      z.string().trim().min(1).max(ASKED_LIMIT),
-      z.array(z.string().trim().min(1).max(ASKED_LIMIT)).min(1).max(20),
-    ]).optional()
+    asked: askedInputSchema.optional()
       .describe("With register_plain_answer, when inspect asks for it: the person's own words about this question, " +
         "word for word and in order: their question, and after it any answer they gave to a question of yours " +
         "about it; as one text, or as a list with one message each."),

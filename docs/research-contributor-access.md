@@ -471,6 +471,58 @@ owner's ChatGPT runs had left that judgment to the person's AI, and it went wron
   notice to say that the question goes to Anthropic, so it is the owner's next decision, after the trial. The
   call's reading is not checked against anything: it is one model's judgment, shown to the person's AI as such.
 
+### AskRigor's own review of a draft answer, on dev accounts (owner answer 301a, 13 November 2026)
+
+On a dev account, with the call switched on, `finalize_research` given an answer draft also makes one Claude API call
+of AskRigor's own that reads the person's words and the draft, may run two web searches, and names up to three gaps:
+what this person would most likely have to ask next because the draft left it out, buried it, or put it more strongly
+or more weakly than its own evidence supports (`apps/research-mcp/src/research-reviewer.ts`, whose rubric
+was tried first on plan workers and then on the API). It is advice only: owner answers 193a, 195a and 217b allow no new blocking check, so the check's
+status, next steps, receipts and findings card are the same with it as without it; it adds one note.
+
+- **What the person's AI sends.** `later_inputs.asked` on `finalize_research`, read exactly as
+  `register_plain_answer` reads its own (one text or a list with one message each, at most 6,000 characters in all).
+  A registration result that carries the planner's texts says, while the review is on, to give it again at the final
+  check with any later message of the person's about the question. Absent or unusable, the review reads the research
+  target alone; it never makes a problem or a step. On any other account it is not used.
+- **What it sends to Anthropic.** Today's date, the person's words (or null), the research target and the draft cut
+  to 24,000 characters; no account key, receipt or other declaration.
+- **What comes back.** What the searches showed a good answer names, which the reply must give first so that it
+  rests on a search (the note does not carry it), and gaps, each with what is missing or wrong, the follow-up the person would otherwise ask, what
+  to add, and its kind (`missing`, `wrong`, `overstated` or `understated`); at most three are kept, and a gap with an
+  unusable field is dropped alone. The note lists them and asks the AI to revise the draft before answering, reading
+  a study or figure it has not read when a few minutes cover it and otherwise saying in one line that it was not
+  checked, and then to check the revised draft with `finalize_research` once more, unless that result's check is
+  the turn's last (a repeat pass), when the changes are made in the answer with no further check. No gaps: the note
+  says the review found nothing.
+- **Once per question.** Keyed by a digest of the model, the effort, the rubric's version, the account key and the
+  person's words (or the research target): while a call for it runs, and for an hour after it gave a review, the
+  same question's next final check gets no review and no note, with no call and no count. A call that ended without a
+  review frees it.
+- **It never blocks.** Off, over its budget, over the account's calls for the day, timed out, refused, failed or
+  unreadable, the check stands as it is, with a note that the review did not run and why in plain words.
+- **The cap and settings.** Off unless `ASKRIGOR_RESEARCH_REVIEWER=on`, with the key read from the file
+  `ASKRIGOR_RESEARCH_REVIEWER_KEY_FILE` names, or `ASKRIGOR_RESEARCH_PLANNER_KEY_FILE`'s when that is not set;
+  `ASKRIGOR_RESEARCH_REVIEWER_WORKSPACE_ID`, or the planner's; and optional `_MODEL` (`claude-opus-5-5` by default),
+  `_EFFORT` (`medium` by default), `_DAILY_CAP_USD` (3 by default), `_ACCOUNT_DAILY_CALLS` (10 by default),
+  `_TIMEOUT_SECONDS` (60 by default, at most 120) and `_STATE_FILE` (none by default; the same form as the planner's,
+  in its own file). Settings that are not valid are logged as a class and leave it off. Its daily cap with the
+  meaning judge's and the planner's, each while it is on, may not pass the owner's USD 7 a day for all three, or it
+  stays off (`daily_caps_exceed_owner_ceiling`); the planner's and the judge's keep their own USD 3 a day together.
+  USD 0.50 is held for each call until its cost is known, as the planner holds
+  its USD 0.12, and the reply is limited to 8,000 output tokens.
+- **Measured on 13 November 2026.** On plan workers the rubric named, for the owner's five test answers, what the
+  owner's own follow-up questions had asked for, and nothing for the one-figure look-up. On the API at low effort
+  the same rubric ran no search for two of three drafts, in three wordings, and one reply named a trial from memory
+  with the wrong comparison; at medium effort it searched every time (three drafts): 23 to 39 seconds, 7 to 10 US
+  cents a review, no gap for the look-up. So the effort is medium, and the time limit 60 seconds.
+- **What it costs and keeps.** Paid from the owner's monthly Claude API credit
+  (`governance/chat-work-authority-policy.json`, `OWNER_ANSWER_301A`). AskRigor stores nothing it sends or receives
+  (`docs/privacy-data-map.md`): only the question key's digest, in process memory for the hour, and the day's
+  numbers, in process memory and in the state file when one is named.
+- **Not done.** The call record does not yet show whether a final check was reviewed: it keeps no outcome of the
+  planning call either, and adding one is a change to what it keeps. The Atlas account page does not list the review.
+
 ## The call record (owner answer 280a, 9 November 2026; released the same day)
 
 So a person can tell "never called" from "called and refused" (AskRigor#434), the server keeps a content-free record of

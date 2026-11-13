@@ -6,7 +6,7 @@ import {
   PASSING_NOTES_HEADING, REPEAT_PASS_GUIDANCE, REPEAT_PASS_LIMITS_GUIDANCE, REPEAT_PASS_NOTES_HEADING
 } from "./final-check-messages.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "./community-leads.js";
-import { findingsSaveOff, withLaterInputs } from "./later-inputs.js";
+import { finalCheckAsked, findingsSaveOff, withLaterInputs } from "./later-inputs.js";
 import { openToolOutputSchema } from "./connector-input-schema.js";
 import { atlasLookupInputSchema, atlasLookupOutputSchema, atlasLookupToolResult, configuredAtlasLookupSource } from "./atlas/lookup-tool.js";
 import type { AtlasPageSource } from "@askrigor/evidence-repository";
@@ -15,6 +15,9 @@ import { createHash } from "node:crypto";
 import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
 import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./meaning-judge.js";
 import { researchPlannerFromEnv, type ResearchPlanner } from "./research-planner.js";
+import {
+  answerReviewNote, researchReviewerFromEnv, type ResearchReviewer, type ResearchReviewerCall,
+} from "./research-reviewer.js";
 import {
   abstractDocument, lookUpSourceLines, quoteCache, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument,
   type SourceLineTexts
@@ -906,6 +909,8 @@ export interface RegisterToolsOptions {
   meaningJudge?: MeaningJudge;
   /** Replaces the configured planning call (owner answer 298b) for deterministic tests. */
   researchPlanner?: ResearchPlanner;
+  /** Replaces the configured review of a draft at the final check (owner answer 301a) for deterministic tests. */
+  researchReviewer?: ResearchReviewer;
   /** Where source lines are looked up (owner answer 237a); AskRigor's held full texts and PubMed otherwise. */
   sourceLineTexts?: SourceLineTexts;
   /**
@@ -2065,8 +2070,9 @@ function defineResearchOperations(
       devAccountKeys: () => devAccountKeysFromEnv(),
       // Owner answer 298b: AskRigor's own planning call, for dev accounts. Its daily cap and the meaning judge's
       // together stay within the owner's USD 3 a day, or it stays off.
-      researchPlanner: () => options.researchPlanner ?? researchPlannerFromEnv(
-        ((judge) => judge.enabled ? judge.dailyCapUsd : undefined)(options.meaningJudge ?? meaningJudgeFromEnv())),
+      researchPlanner: () => configuredPlanner(options),
+      // Owner answer 301a: AskRigor's own review of a draft at the final check, which a planned registration mentions.
+      researchReviewer: () => configuredReviewer(options),
       ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
       ...(sharing === undefined ? {} : { sharedAnswers: { ...sharing, versions: async () =>
@@ -2573,6 +2579,21 @@ function defineResearchOperations(
       const library = options.findingsLibrary ?? findingsLibraryEnabledFromEnv();
       const researcher = await researchUseAccount(extra, options.researchContributorAccessService);
       const account = library ? researcher : undefined;
+      // Owner answer 301a: for the owner's dev accounts, AskRigor's own review of the draft, once per call whatever the
+      // check's status. It starts as soon as its inputs are known, so it runs while the check's other lookups wait, and
+      // is awaited before the result is returned. Advice only: it adds one note and changes nothing else of the result.
+      const draft = checkedInput?.answer_draft;
+      const reviewer = researcher !== undefined && checkedInput !== undefined && draft !== undefined &&
+        draft.trim() !== "" && isDevAccount(researcher.accountKey, devAccountKeysFromEnv())
+        ? configuredReviewer(options) : undefined;
+      const reviewing = reviewer?.enabled !== true ? undefined
+        : Promise.resolve().then(() => reviewer.review({
+          // The person's words, read from the raw call as register_plain_answer reads its own; absent or unusable,
+          // the review reads the research target alone.
+          asked: finalCheckAsked(input),
+          researchTarget: checkedInput!.research_target,
+          answer: draft!,
+        }, researcher!.accountKey)).catch(() => REVIEW_FAILED);
       const finalizeOptions = {
         secret,
         protocolNames: await protocolNames(),
@@ -2786,6 +2807,12 @@ function defineResearchOperations(
       }
       // Owner answer 200a: a research account's answer ends with the offer to share a de-identified copy of it.
       if (sharing !== undefined && researcher !== undefined) result.share_offer = { ...SHARE_OFFER };
+      // Owner answer 301a: the review's one note, after every other part of the result is settled, so no later pass of
+      // the check can drop it and nothing else of the result depends on it.
+      if (reviewing !== undefined) {
+        const reviewNote = answerReviewNote(await reviewing);
+        if (reviewNote !== undefined) result.notes = [...(result.notes ?? []), reviewNote];
+      }
       const card = result.findings_card;
       const analyses = result.analyses_saved;
       const passing = result.status === "ready" || result.status === "ready_with_limits";
@@ -3013,6 +3040,31 @@ function findingsSaveAccount(account: {
 }): FindingsSaveAccount {
   return { mode: account.mode, noticeVersion: account.noticeVersion };
 }
+
+/**
+ * The planning call (owner answer 298b): the tests' own, or the process's, whose daily cap and the meaning judge's (when
+ * it is on) together stay within the owner's daily ceiling.
+ */
+function configuredPlanner(options: RegisterToolsOptions): ResearchPlanner {
+  if (options.researchPlanner !== undefined) return options.researchPlanner;
+  const judge = options.meaningJudge ?? meaningJudgeFromEnv();
+  return researchPlannerFromEnv(judge.enabled ? judge.dailyCapUsd : undefined);
+}
+
+/**
+ * The review of a draft at the final check (owner answer 301a): the tests' own, or the process's, whose daily cap with
+ * the meaning judge's and the planner's (each while it is on) stays within the owner's daily ceiling, or it stays off.
+ */
+function configuredReviewer(options: RegisterToolsOptions): ResearchReviewer {
+  if (options.researchReviewer !== undefined) return options.researchReviewer;
+  const judge = options.meaningJudge ?? meaningJudgeFromEnv();
+  const planner = configuredPlanner(options);
+  return researchReviewerFromEnv((judge.enabled ? judge.dailyCapUsd ?? 0 : 0) +
+    (planner.enabled ? planner.dailyCapUsd ?? 0 : 0));
+}
+
+/** A review that could not be asked for at all (it threw): counted as a failed call, so the check says it did not run. */
+const REVIEW_FAILED: ResearchReviewerCall = { reviewing: { status: "skipped", reason: "error" }, costUsd: 0, milliseconds: 0 };
 
 /** The work's result, or `late` once the deadline passes; the work itself carries on. */
 async function withinDeadline<T>(work: Promise<T>, milliseconds: number, late: T): Promise<T> {

@@ -755,6 +755,12 @@ export const ASKED_REQUEST = "On this account AskRigor plans the research itself
   `yours about it), as one text or a list with one message each, at most ${ASKED_LIMIT.toLocaleString("en-US")} ` +
   "characters in all. Give only what they wrote in this conversation: nothing from memory or from earlier " +
   "conversations, and no note or explanation of yours. AskRigor passes them to that call and keeps none of them.";
+/**
+ * Owner answer 301a (13 Nov 2026): on a dev account whose drafts AskRigor's own review reads at the final check, the
+ * registration result that carries the planner's texts also asks for the person's words there.
+ */
+export const ANSWER_REVIEW_ASKED = "At the final check, give later_inputs.asked again, with any later message of " +
+  "theirs about this question added: AskRigor's review of your draft reads them, and AskRigor keeps none of them.";
 
 /** Why a dev account's registration came back without AskRigor's own plan, when the planning call is on. */
 export const PLANNER_NOT_USED_REASONS = ["daily_budget", "account_limit", "error", "timeout", "refusal",
@@ -1181,6 +1187,22 @@ const HOW_TO_SPEND = "How should I spend the time? Reply with task numbers and m
   "in your own words, or \"you decide\".";
 
 /**
+ * The owner, 13 Nov 2026: "the menu of question should mention that people can set their menu preference to the diff
+ * modes". A menu that asks ends by naming the three research styles and the person's own, so someone who would rather
+ * not be asked, or be asked every time, learns from the menu that it is a setting. Until then only inspect's text
+ * named the styles, and that text is written for the AI.
+ */
+export function menuPreferenceLine(style: ResearchStyle): string {
+  return "To change how often I ask you, say \"guided\" (I ask at the start and before every long task), " +
+    "\"balanced\" (I ask only when your answer could change the research, or when it could take more than about 10 " +
+    `minutes) or "autonomous" (I go on and report as I go). Yours is ${style} now.`;
+}
+/** What the AI does when the person's reply to a menu names a style: the setting first, then the plan again. */
+export const STYLE_REPLY = "If the reply asks for another research style, set it first with action " +
+  "set_research_steering (later_inputs.researchSteering with style guided, balanced or autonomous), then call " +
+  "plan_research again.";
+
+/**
  * How the tasks are done once the research goes on (the 279a plan: a task that runs out of time stops and says what it
  * reached; a new fork that could change the conclusion comes back to the person, now through the menu).
  */
@@ -1343,6 +1365,7 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
         : `Recommended: ${chosen}, ${range(result.recommended_minutes)} in all; then about ${ANSWER_MINUTES[0]} to ` +
           `${ANSWER_MINUTES[1]} min to check and write the answer.`,
       HOW_TO_SPEND,
+      menuPreferenceLine(result.style),
     ];
     // A menu whose research target is not the registered one gets the registered one named instead, as the first line
     // says; without the plain answer's receipt AskRigor can't tell, so the menu's own is quoted.
@@ -1363,7 +1386,7 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
       // What the person answers to the named question is what the research then checks (NAMED_ANSWER_STEERS).
       (result.steering_choice === undefined ? "" : ` ${NAMED_ANSWER_STEERS}`) + " If the reply " +
       "changes the question, register the plain answer again for the new research target first, with " +
-      "later_inputs.framing for it. Never send an allocation the person did not give or leave to you.";
+      `later_inputs.framing for it. Never send an allocation the person did not give or leave to you. ${STYLE_REPLY}`;
     return [
       ...first,
       ...(before.length === 0 ? [] : [before.join(" ")]),
@@ -1429,7 +1452,9 @@ export function planNextStep(result: ResearchPlanResult): string {
       "Ask the person now and end your turn: " + (result.steering_choice === undefined ? ""
         : "put the question you named to them, in their language (researchMenu.steering_choice), and ") +
       "show researchMenu.tasks as a numbered list with their times, the recommendation and how to answer (task " +
-      "numbers and minutes, or \"you decide\"). Make no research call and don't call finalize_research until they " +
+      "numbers and minutes, or \"you decide\"), and end with one line saying they can change how often AskRigor " +
+      `asks by saying guided, balanced or autonomous (theirs is ${result.style} now). Make no research call and ` +
+      "don't call finalize_research until they " +
       "answer; then call action plan_research again with their allocation and person_answered true inside " +
       "later_inputs.researchMenu " + (result.recommended.length === 0
         ? "or, for \"you decide\", do no more research: check the answer with finalize_research and give it."
@@ -1438,7 +1463,7 @@ export function planNextStep(result: ResearchPlanResult): string {
             `${MENU_PLACEHOLDERS.person_answered} in person_answered: true once they have answered, false before).`) +
       " Send person_answered true only once they have answered this menu in a message of their own: " +
       `${PERSON_ANSWER_DECLARED}, and one sent without it is not used.` +
-      (result.steering_choice === undefined ? "" : ` ${NAMED_ANSWER_STEERS}`);
+      (result.steering_choice === undefined ? "" : ` ${NAMED_ANSWER_STEERS}`) + ` ${STYLE_REPLY}`;
   }
   if (notRegistered) return first + NO_GO_AHEAD_YET;
   return first + (result.style === "autonomous"
