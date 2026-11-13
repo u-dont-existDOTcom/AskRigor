@@ -4416,7 +4416,13 @@ function collectResearchOperations(
       // readable is refused with an example built from the call's own (withResearchMenuReading).
       const evolvingExecute = name === "manage_research_access"
         ? withResearchMenuReading(evolving.execute, { ...(options.toolListVersion === undefined ? {}
-          : { toolListVersion: options.toolListVersion }) })
+          : { toolListVersion: options.toolListVersion }),
+          // Owner answer 297c (13 Nov 2026): a dev account's refused menu comes back with steering_choice's place
+          // marked, so the corrected call names the question it would ask, or none.
+          devAccount: async (extra) => {
+            const researcher = await researchUseAccount(extra, options.researchContributorAccessService);
+            return researcher !== undefined && isDevAccount(researcher.accountKey, devAccountKeysFromEnv());
+          } })
         // 13 Nov 2026: a study audit refused for its input says so in its structured content too, when it can.
         : name === STUDY_AUDIT_TOOL ? withStudyAuditInputRefusal(evolving.execute)
         : evolving.execute;
