@@ -328,18 +328,20 @@ was released on 12 November:
   around it: none is a value of the field, not a judgment, and every other text is a named question, in any
   language, so what is unclear asks. It is a text the model writes, read in memory only; the person's reply to it is
   never sent. An account that is not a dev account and gives no `steering_choice` is planned as before.
-  Since owner answer 297c (13 November 2026) a dev account's model is asked for that question where it first learns
-  the menu. Round 5 of the owner's ChatGPT runs, on the build that asked for it only in a refusal (#441; 13 November,
-  02:51 to 03:18 UTC): two open questions went straight to a checked answer, and in both the model's first call, sent
-  before any result had asked for a question, already carried `steering_could_help` false with a reason; the refusal
-  then got the word none, and asked afterwards the model named a question both times. So, on a dev account,
-  `register_plain_answer`'s text gives the menu's shape with `steering_choice` and its test where the yes or no
-  stands (`RESEARCH_MENU_SHAPE_NAMED`), and its `next_step` ends with what the field is (`QUESTION_IN_THE_MENU`); and
-  a menu refused because it could not be read comes back with `steering_choice`'s placeholder in
-  `corrected_later_inputs` when the call named no question, the text and the error's message saying what replaces
-  it, with the test, so the corrected call is planned and not handed back a second time. Every other account's
-  words are as they were: a test pins the shape by its SHA-256, and the guidance and the next step for each style
-  and framing. And on every account, a menu that gives the word none and goes on carries
+  Round 5 of the owner's ChatGPT runs, on the build that asked for that question only in a refusal (#441; 13
+  November, 02:51 to 03:18 UTC): two open questions went straight to a checked answer, and in both the model's first
+  call, sent before any result had asked for a question, already carried `steering_could_help` false with a reason;
+  the refusal then got the word none, and asked afterwards the model named a question both times. Since owner
+  answer 297c (13 November 2026), on a dev account, a menu refused because it could not be read comes back with
+  `steering_choice`'s placeholder in `corrected_later_inputs` when the call named no question, the text and the
+  error's message saying what replaces it, with the test, so the corrected call is planned and not handed back a
+  second time. From 12:19 UTC that day to the next release, `register_plain_answer` also asked a dev account's
+  model for the question where it first learns the menu (the menu's shape with `steering_choice` where the yes or no
+  stands, and a last sentence in `next_step`). In round 6 the control, one figure of one named trial, then got a
+  question in place of its answer: its first call already carried one, and asked why, the model said "none would
+  have been the better choice". The owner took that part back the same day (owner answer 298b):
+  `register_plain_answer` gives a dev account the words it gives every account, pinned by a test with the shape's
+  SHA-256. And on every account, a menu that gives the word none and goes on carries
   `researchMenu.say_reading_first` true (runtime only), and its go-ahead, in the text and in `next_step`, is followed
   by "You named no question for this person, so before the answer itself say in one line, in their language, how
   you read their question: which meaning, comparison or situation you took it to be about. A reading they did not

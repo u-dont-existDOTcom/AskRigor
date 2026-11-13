@@ -484,6 +484,30 @@ first wrote none for the control (2 of 2), named a question for the four open on
 an api call rather than hope the AI can figure it out", and "we want to get the best of a chain of answers in the
 first answer": from the next round on, each test answer is also judged against the answer the owner wanted.
 
+### The question at the screen taken back (13 Nov 2026, owner answer 298b)
+
+The owner chose 298b (their Inbox, 13 Nov, 13:07 UTC, and in chat, "298b"): AskRigor's own planning call is built
+for dev accounts and tried beside today's way, "and meanwhile take back the part of this morning's change that made
+the PITCH look-up ask you a question. The line saying how the AI read your question stays." Their reason (Inbox,
+13:12 UTC): "it makes sense to me with limited info that we wouldn't want to include the change that messed up the
+PITCH look up".
+
+Which part that is, from round 6's debriefs: every first call already carried `steering_choice`, the control's with
+a question, so the look-up's question came from being asked at the screen (`register_plain_answer`'s shape and its
+next step), before the AI had made its own yes or no. Taken back: that shape (`RESEARCH_MENU_SHAPE_NAMED`), the
+sentence in `next_step` (`QUESTION_IN_THE_MENU`), and the dev-account argument of `framingGuidance`,
+`framingNextStep` and `registerPlainAnswer`. Kept: the refused menu's marked place, which is reached only when the
+call named no question and words the question exactly as round 5's second refusal did, one call earlier; and the
+reading said first after none, on every account.
+
+Criteria, written before any run. DEVELOPMENT / DISCOVERY, as above; one run of the control on the live build.
+
+- The control: its first call carries no `steering_choice`; its first accepted menu carries none; the turn ends
+  with a checked answer and no question; the answer opens with the line on how it read the question.
+- Cost: at most one refused call for its first menu.
+- The four open questions are not rerun on this build: on them it stands where round 5 stood (two of four named a
+  question), and the planning call is what is tried next.
+
 ### Next stages
 
 1. Measure on the owner's regression list, on plan workers with no API spend: whether the framing asks the right
