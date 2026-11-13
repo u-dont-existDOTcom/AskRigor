@@ -196,7 +196,9 @@ describe("later_inputs (owner answer 189a)", () => {
         // key name as the answer writes it, which a name form must differ from.
         : operation.name === "finalize_research" ? ["community_evidence", "treatment_choice", "open_leads", "another_pass_estimate", "findings_card", "source_lines", "study_map", "user_observations", "community_leads", "source_reading", "name_forms", "key_name", "search_coverage",
           // AskRigor#431: each listed video claim's status, a note only.
-          "claim_coverage", "findings_save"]
+          "claim_coverage", "findings_save",
+          // Owner answer 301a: the person's words, for AskRigor's own review of a dev account's draft.
+          "asked"]
           : operation.name === "save_research_findings" ? ["findings_card"]
           // The recheck of 5 Nov 2026: a test run's audits are marked, so nothing of them is held for the review inbox.
           : operation.name === "validate_study_method_audit" ? ["audit", "findings_save"]

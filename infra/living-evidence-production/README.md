@@ -934,7 +934,8 @@ whole at every change. It is one line of JSON: the UTC day, the day's spend in
 USD and each account's count under the first 16 hex characters of the SHA-256
 of its account key, and no key, question or plan. Check after the first plan
 that the file is there, owned by UID 1000, mode `0600`, with today's UTC day,
-and that the folder holds nothing else. With the line absent the service
+and that the folder holds nothing else (but the review's `reviewer-state.json`,
+below, once that is on). With the line absent the service
 reads and writes nothing there and counts in memory as before. With a folder
 it cannot write, the call still runs, the counts stay in memory and the log
 says `state_write_failed` once. A file from a later day, or one that is not
@@ -944,6 +945,30 @@ day's counts again on purpose, delete the file and recreate `research-mcp`:
 the running service holds them in memory and would write them back. Rollback:
 remove the line and recreate `research-mcp`; the folder and its file stay,
 read by nothing.
+
+AskRigor's own review of a draft answer (owner answer 301a, 13 November 2026;
+`../../docs/research-contributor-access.md`, "AskRigor's own review of a draft
+answer"): no new mount and no change to `compose.yaml`. It is off unless
+`runtime.env` has `ASKRIGOR_RESEARCH_REVIEWER=on`. Its key file is
+`ASKRIGOR_RESEARCH_REVIEWER_KEY_FILE`, or the planning call's
+(`/run/askrigor-claude-api/key`) when that line is absent, and its API
+workspace `ASKRIGOR_RESEARCH_REVIEWER_WORKSPACE_ID`, or the planning call's;
+optional `ASKRIGOR_RESEARCH_REVIEWER_MODEL` (`claude-opus-5-5`),
+`ASKRIGOR_RESEARCH_REVIEWER_EFFORT` (`medium`),
+`ASKRIGOR_RESEARCH_REVIEWER_DAILY_CAP_USD` (3),
+`ASKRIGOR_RESEARCH_REVIEWER_ACCOUNT_DAILY_CALLS` (10) and
+`ASKRIGOR_RESEARCH_REVIEWER_TIMEOUT_SECONDS` (60, at most 120). Its daily cap
+with the meaning judge's and the planning call's, each while it is on, may not
+pass the owner's USD 7 a day: set the three caps so they fit (for example 1.5,
+1.5 and 4), or the review stays off and logs `daily_caps_exceed_owner_ceiling`.
+The planning call's and the judge's caps keep their own USD 3 a day together.
+Its day's counts go in the planning call's writable folder, in a file of their
+own: `ASKRIGOR_RESEARCH_REVIEWER_STATE_FILE=/run/askrigor-research-planner/reviewer-state.json`,
+written by the service, mode `0600`, in the planning call's form, with the
+same checks after the first review and the same rollback. Settings that are
+not valid are logged as a class (`settings_invalid`, `key_file_not_set`,
+`key_file_unreadable`) and leave it off; nothing else changes. Rollback: remove
+`ASKRIGOR_RESEARCH_REVIEWER=on` and recreate `research-mcp`.
 
 The owner's private page (the owner, 5 November 2026; built, not yet released;
 plan `../../docs/superpowers/plans/2026-11-05-atlas-owner-page.md`):

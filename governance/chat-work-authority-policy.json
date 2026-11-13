@@ -133,6 +133,31 @@
         "the API workspace ID"
       ],
       "codexOrWorkMayAuthorPaidProposal": false
+    },
+    {
+      "decisionId": "OWNER_ANSWER_301A",
+      "date": "2026-11-13",
+      "provider": "ANTHROPIC_CLAUDE_API",
+      "scopes": [
+        "ANSWER_REVIEW_ON_OWNER_DEV_ACCOUNTS"
+      ],
+      "funding": "OWNER_MONTHLY_CLAUDE_API_CREDITS",
+      "ceiling": {
+        "basis": "OWNER_DAILY_CEILING_OF_USD_7_FOR_ALL_CLAUDE_API_FEATURES",
+        "maximumModelApiSpendUsdPerMonth": 217,
+        "spendBeyondCreditsPermitted": false,
+        "note": "The meaning judge's, the planning call's and the review's daily caps together never exceed USD 7 a day (USD 217 over 31 days), inside the monthly credits OWNER_ANSWER_221 names; the judge's and the planning call's stay within their own USD 3 a day together (OWNER_ANSWER_221, OWNER_ANSWER_298B). Each account also gets a set number of reviews a day."
+      },
+      "question": "301. Let AskRigor review each answer before you see it, with its own AI call? a: build it for your account in the week's trial, as advice only, and raise the daily ceiling from USD 3 to 7.",
+      "ownerWords": [
+        "ok i have $200/mo claude api calls, so you could spend upo to $7 per day if needed (i also have another $200 on my other account)",
+        "301a yes. inbox."
+      ],
+      "notRecorded": [
+        "the key file's path",
+        "the API workspace ID"
+      ],
+      "codexOrWorkMayAuthorPaidProposal": false
     }
   ],
   "completion": {

@@ -52,10 +52,11 @@ import {
   sentencesOf,
 } from "./research-finalization-gate.js";
 import { researchMapSavedLine } from "./findings/card.js";
-import { callsPageSchema, laterInputShape } from "./later-inputs.js";
+import { askedText, callsPageSchema, laterInputShape } from "./later-inputs.js";
 import { MCP_RESULT_MAX_BYTES } from "./config.js";
 import { clientResultBytes } from "./tool-result.js";
 import {
+  ANSWER_REVIEW_ASKED,
   ASKED_LIMIT,
   ASKED_REQUEST,
   COULD_CHANGE,
@@ -99,6 +100,7 @@ import {
   type ResearchSteeringInput,
 } from "./research-steering.js";
 import type { ResearchPlanner } from "./research-planner.js";
+import type { ResearchReviewer } from "./research-reviewer.js";
 import type { ResearchOperationExtra, ResearchOperationHandler } from "./research-operation.js";
 import {
   SHARED_ANSWER_KEPT,
@@ -491,6 +493,11 @@ export interface ResearchContributorToolOptions {
   menuDigestSecret?: () => string | undefined;
   /** AskRigor's own planning call (owner answer 298b), for dev accounts; undefined or not enabled: every account plans as before. */
   researchPlanner?: () => ResearchPlanner | undefined;
+  /**
+   * AskRigor's own review of a draft at the final check (owner answer 301a), for dev accounts; while it is on, a planned
+   * registration also asks for the person's words at the final check.
+   */
+  researchReviewer?: () => ResearchReviewer | undefined;
 }
 
 export interface ResearchMapOptions {
@@ -971,16 +978,21 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       if (parsed.action === "register_plain_answer") {
         // Owner answer 298b: on a dev account, AskRigor's own planning call makes the plan. Any other account's
         // later_inputs.asked is not used, and not kept.
-        const planner = isDevAccount(options.service.accountKeyForSubject(auth.subject),
-          options.devAccountKeys?.() ?? new Set()) ? options.researchPlanner?.() : undefined;
-        // The person's words as one text: a list's messages in order, a blank line between them.
-        const asked = Array.isArray(parsed.asked) ? parsed.asked.join("\n\n") : parsed.asked;
+        const devAccount = isDevAccount(options.service.accountKeyForSubject(auth.subject),
+          options.devAccountKeys?.() ?? new Set());
+        const planner = devAccount ? options.researchPlanner?.() : undefined;
+        // The person's words as one text: a list's messages in order, a blank line between them (askedText, which the
+        // final check's review reads them with too).
+        const asked = parsed.asked === undefined ? undefined : askedText(parsed.asked);
         if (asked !== undefined && asked.length > ASKED_LIMIT) {
           return accessError("invalid_request", `later_inputs.asked: at most ${ASKED_LIMIT.toLocaleString("en-US")} ` +
             "characters in all; give the messages that ask the question, without pasted documents.");
         }
+        // Owner answer 301a: with the planner's texts, a dev account whose drafts AskRigor reviews is asked to give the
+        // person's words again at the final check.
+        const reviewed = planner?.enabled === true && options.researchReviewer?.()?.enabled === true;
         return await registerPlainAnswer(options.service, auth.subject, parsed.plainAnswer!, options.plainAnswer,
-          parsed.framing, planner?.enabled === true ? { planner, asked } : undefined);
+          parsed.framing, planner?.enabled === true ? { planner, asked, reviewed } : undefined);
       }
       if (parsed.action === "set_research_steering") {
         return await setResearchSteering(options.service, auth.subject, parsed.researchSteering!);
@@ -1236,8 +1248,9 @@ async function registerPlainAnswer(
   plainAnswer: z.infer<typeof plainAnswerInputSchema>,
   plain: PlainAnswerOptions | undefined,
   framing?: Framing,
-  // Owner answer 298b: a dev account's planner, with the person's own words when the call gave them.
-  planning?: { planner: ResearchPlanner; asked: string | undefined },
+  // Owner answer 298b: a dev account's planner, with the person's own words when the call gave them; and whether
+  // AskRigor's own review reads its drafts at the final check (owner answer 301a).
+  planning?: { planner: ResearchPlanner; asked: string | undefined; reviewed?: boolean },
 ): Promise<CallToolResult> {
   const account = await plainAnswerAccount(service, subject, plain);
   if (account === undefined) return accessError("plain_answer_not_requested", plain === undefined ? PLAIN_ANSWER_SURFACE_UNAVAILABLE : PLAIN_ANSWER_NOT_REQUESTED);
@@ -1301,6 +1314,8 @@ async function registerPlainAnswer(
       { type: "text", text: summary },
       { type: "text", text: `research_receipt: ${receipt}` },
       { type: "text", text: FINALIZE_REMINDER },
+      // Owner answer 301a: what the final check's review of the draft reads, said where the planner's texts are.
+      ...(planning?.reviewed === true ? [{ type: "text" as const, text: ANSWER_REVIEW_ASKED }] : []),
     ],
     structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
       ok: true,

@@ -871,3 +871,70 @@ what counts as a question or a premise.
   280, a privacy change).
 - Hard gates that refuse research tools out of order, before the soft version is measured.
 - Any change to the tool list.
+
+## The review of a draft at the final check (owner answer 301a, 13 November 2026)
+
+**What the owner approved.** Question 301, asked after round 8 and the fourth comment on AskRigor#445 (an answer made
+a 33-point survival difference look like nothing because it was "not statistically significant"): after the
+research, a fresh call of AskRigor's own gets the person's words and the draft, looks the question up, and names up to
+three things the person would otherwise have to ask for. The owner chose a in the Inbox at 18:06 UTC and typed "301a
+yes" in chat at 21:22 UTC: build it for dev accounts in the week's trial, as advice only, and raise the daily ceiling
+for Claude API calls from USD 3 to USD 7 ("you could spend upo to $7 per day if needed").
+
+**How it is built** (`apps/research-mcp/src/research-reviewer.ts`, `docs/research-contributor-access.md`).
+
+- It runs at the first `finalize_research` call that carries a draft, whatever the check's status: four of round 8's
+  five chats had a first check that was not ready, so the review's points arrive with the steps the AI must do anyway.
+- It is advice only (owner answers 193a, 195a and 217b): one note in the result, nothing else of the check changes.
+- Once per question, by a digest of the account and the person's words; a call that fails frees the question.
+- The person's words come again with the final check (`later_inputs.asked`), since AskRigor keeps none of them.
+- The note asks for one more check of the revised draft, unless that check was the turn's last (a repeat pass).
+- Its outcome is not in the call record: the record keeps nothing of a result but `plan_research`'s decision.
+
+**What the tests showed.**
+
+| Step | What was run | Result |
+|---|---|---|
+| Plan workers, rubric 3 (13 Nov, 16:39 to 16:45 UTC) | 14 runs on round 8's answers and four written cases | SMILES: HELFIMED and AMMEND named 4 of 4, the remission figures 3 of 4. PewDiePie: "Open with his claim" 2 of 2. The "not significant" fault caught. Nothing for the PITCH look-up, 3 of 3, after one tightening. It never said the SMILES answer should not open with "No." |
+| The owner's Inbox reply, 21:20 UTC | "i still don't understand why the chinese labs can't distill the way he does. that's my central question" | Rubric 4 adds: say what the person most wants to know, in their words; when a question asks how or why and takes for granted what the draft's own evidence contradicts, the first lines must say so in the person's terms and say what is true instead. "There is no evidence that ..." does not answer a why. |
+| Plan workers, rubric 4 (21:38 to 21:40 UTC) | PewDiePie twice, PITCH, SMILES | PewDiePie, both runs: "Open in the person's terms. China could use it, and by Anthropic's and OpenAI's reports Chinese labs did". PITCH: no gap. SMILES: the remission figures (32.3% against 8.0%). |
+| The API at low effort (22:04 to 22:07 UTC), rubrics 4, 5 and 6 | The same three drafts, three wordings of the search instruction, the last with a reply field that must say what the searches showed | No search for the SMILES and PewDiePie drafts in any wording (the short PITCH draft got one search in two of its three runs). The points on the first lines were as good as on plan workers. But one reply named a trial from memory with the wrong comparison ("CALM ... dietary support vs befriending ... found no difference"). |
+| The API at medium effort (22:08 to 22:09 UTC), rubric 6 | The three drafts | It searched every time (2, 2 and 1 searches): 23 to 39 seconds, 7 to 10 US cents. PewDiePie: open by saying China was not unable; what he claims Ajax can do; the dates (the hole closed on 30 September, the video on 1 October). SMILES: the remission figures with the number needed to treat and its interval; that SMILES never compared diet with antidepressants; how imprecise 1.16 is. PITCH: no gap. |
+
+So the review runs at medium effort with a 60-second limit. The same instructions behaved differently on plan workers
+and on the API, as the planner's did on 13 November: tune on plan workers, confirm on the API.
+
+**Spend on 13 November:** 17 API calls for this build (12 reviews, 5 plans), USD 1.12; with the morning's USD 1.47
+the laptop's day is USD 2.59, and the server's about USD 0.9.
+
+## The menu names the research styles; the tasks say what each finds out (13 November 2026)
+
+- **The owner, 21:33 UTC:** "the menu of question should mention that people can set their menu preference to the
+  diff modes". A menu that asks now ends: "To change how often I ask you, say "guided" (I ask at the start and before
+  every long task), "balanced" (I ask only when your answer could change the research, or when it could take more
+  than about 10 minutes) or "autonomous" (I go on and report as I go). Yours is balanced now." The rule for the
+  person's reply says to set the style first when the reply names one (`menuPreferenceLine`, `STYLE_REPLY`).
+- **AskRigor#451** (20:22 UTC): a menu offered "Search for human trials of D-chiro-inositol and testosterone in men
+  ..." and "Read the full text of the main D-chiro-inositol trial in men ...", and the person asked what the
+  difference was. The lines are the planning call's, so its rubric (2026-11-13.2) now says: a line starts with what
+  the task finds out and then says how; a task that uses an earlier one says so; one that needs a paper to be open
+  says the answer will say so if it is not; one piece of work is never two tasks; at most 180 characters, since the
+  menu cuts a task at 200 and longer lines were being cut. On plan workers (three runs on "does d-chiro-inositol raise
+  testosterone in men?") and on the API (the five test questions: 12.7 to 18.7 seconds, 7 to 9 US cents, one or two
+  searches, every line under 200 characters, the PITCH look-up still "none" and three of the four open questions
+  still asked; SMILES "none", as in round 8). Example: "Find how many children had diarrhoea in each group
+  (paracetamol, ibuprofen, both) by reading the adverse events table of Hay et al. 2008 in the BMJ in full".
+
+## Open with the owner (13 November 2026, evening)
+
+- **Question 302, stepping aside for plain look-ups.** The owner (Inbox, 21:20 UTC): "pitch lookup taking 9 minutes is
+  kind of insane ... we should figure out when to simply abandon the entire askrigor process if it's too much and say
+  "askrigor says this question doesn't require askrigor, here's the regular AI's answer:"". Measured: the owner's
+  ChatGPT on Extra High without AskRigor answered the PITCH question in under 25 seconds with the same figures (31 of
+  156; 10, 9 and 12 of 52); AskRigor's way took 9 min 11 s, about 7 of them the full paper and a method audit that was
+  refused twice. A `lookup` field in the planner's reply marked 4 of 4 look-ups and 0 of 6 research questions on plan
+  workers, one run each (among the six, "what is the maximum daily dose of paracetamol for a 2 year old?", kept for
+  research because a wrong answer is dangerous). Not built.
+- **Question 303, learning from menu choices, and a learn mode.** The owner (chat, 21:46 UTC): "can we also learn from
+  users menu choices (especially if they give reasons), and let users turn on learn mode for their own menu choices?"
+  The call record keeps only `plan_research`'s decision today. Not built.

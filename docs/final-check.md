@@ -644,6 +644,17 @@ development measurement on #393's run is `docs/audits/2026-11-02-meaning-judge-d
 question put it, it returns notes only and stops no answer until a regression run has measured it against the
 owner's judges.
 
+Owner answer 301a (13 November 2026) adds AskRigor's own review of the draft, for the owner's dev accounts only, and
+no blocking rule. When a dev account's call carries an answer draft, whatever the check's status, one Claude API call
+(`apps/research-mcp/src/research-reviewer.ts`, the owner's rubric, up to two web searches) reads the person's words
+(`later_inputs.asked`, read as `register_plain_answer` reads it), the research target and the draft, and names up to
+three things this person would most likely have to ask next. The check adds them as one note, last among the notes,
+saying the check's result stands whatever the AI does with it and asking it to revise the draft before answering; its
+status, next steps, receipts, limits and findings card are the same as without it. A question is reviewed once (for
+an hour after its review, and while one runs, the next check gets no review and no note). A failure, timeout,
+refusal, unreadable reply or reached limit adds one note saying the review did not run. Settings, cap and what is
+kept: `docs/research-contributor-access.md`, "AskRigor's own review of a draft answer".
+
 The forum reader (owner answers 211a and 213b) adds no declaration or blocking rule. A `threads_read` URL with a
 verified `forum_thread_read` receipt was read through AskRigor. A community or subreddit all of whose declared
 threads have those receipts is left out of the own-web-search and Reddit-existence-only limits. A partially

@@ -31,6 +31,7 @@ import {
   READING_FIRST,
   RESEARCH_MENU_SHAPE,
   STEERING_CHOICE,
+  STYLE_REPLY,
   TARGET_NOT_REGISTERED,
   NAMED_ANSWER_STEERS,
   URGENT_FIRST,
@@ -45,6 +46,7 @@ import {
   correctedMenu,
   framingGuidance,
   menuDigest,
+  menuPreferenceLine,
   framingNextStep,
   planNextStep,
   planResearch,
@@ -422,6 +424,25 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     }
   });
 
+  it("ends a menu that asks with the research styles and the person's own (the owner, 13 Nov 2026)", () => {
+    for (const style of ["guided", "balanced"] as const) {
+      const steering = { ...DEFAULT_RESEARCH_STEERING, style };
+      const asked = planResearch(menu(), steering);
+      expect(asked.next).toBe("ask");
+      const lines = planResearchText(asked, new Set()).split("\n");
+      const question = lines.findIndex((line) => line.startsWith("How should I spend the time?"));
+      expect(question).toBeGreaterThanOrEqual(0);
+      expect(lines[question + 1]).toBe("To change how often I ask you, say \"guided\" (I ask at the start and before " +
+        "every long task), \"balanced\" (I ask only when your answer could change the research, or when it could " +
+        "take more than about 10 minutes) or \"autonomous\" (I go on and report as I go). Yours is " +
+        `${style} now.`);
+      const going = planResearch(menu({ allocation: [{ task: 1, minutes: 5 }], person_answered: true }), steering);
+      expect(going.next).toBe("go_on");
+      expect(planResearchText(going, new Set()).split("\n")
+        .filter((line) => line.startsWith("To change how often I ask you"))).toEqual([]);
+    }
+  });
+
   // The owner, 11 Nov 2026: "it's still not asking me any steering questions". In the 10 Nov timing runs the rule asked
   // on 9 of 15 first menus and the AI stopped on 2; the ask came after the menu, five paragraphs followed it, and nothing
   // said to end the turn.
@@ -451,6 +472,9 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
         "write the answer.",
       "How should I spend the time? Reply with task numbers and minutes, such as \"1. 5 min, 2. 4 min\", in your own " +
         "words, or \"you decide\".",
+      "To change how often I ask you, say \"guided\" (I ask at the start and before every long task), \"balanced\" " +
+        "(I ask only when your answer could change the research, or when it could take more than about 10 minutes) " +
+        "or \"autonomous\" (I go on and report as I go). Yours is balanced now.",
       "When the person replies: call manage_research_access action plan_research again with the same " +
         "plain_answer_receipt, tasks and menu_digest (researchMenu.menu_digest in this result), research_target word " +
         `for word ${JSON.stringify(TARGET)}, and their ` +
@@ -459,9 +483,13 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
         "used); for \"you decide\", or a reply that leaves the choice to you such as \"continue\", the recommended " +
         "allocation, with person_answered true too. If the reply changes the question, register the plain answer " +
         "again for the new research target first, with later_inputs.framing for it. Never send an allocation the " +
-        "person did not give or leave to you.",
+        "person did not give or leave to you. If the reply asks for another research style, set it first with " +
+        "action set_research_steering (later_inputs.researchSteering with style guided, balanced or autonomous), " +
+        "then call plan_research again.",
     ]);
-    expect(asked.endsWith("Never send an allocation the person did not give or leave to you.")).toBe(true);
+    expect(asked.endsWith("Never send an allocation the person did not give or leave to you. If the reply asks " +
+      "for another research style, set it first with action set_research_steering (later_inputs.researchSteering " +
+      "with style guided, balanced or autonomous), then call plan_research again.")).toBe(true);
     // A first menu with no task reading people's reports, or a research target not the registered one: said first.
     const fixes = planResearchText(planResearch(menu({ tasks: [TASKS[0]!, TASKS[1]!] }), DEFAULT_RESEARCH_STEERING,
       { matches: false, minutesSince: 3 }), new Set(), false, TARGET);
@@ -865,7 +893,9 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     expect(text(foreign).indexOf("is not a current plain-answer receipt of this account"))
       .toBeLessThan(text(foreign).indexOf("Ask now, before any of these tasks"));
     const foreignLines = foreign.content[0]!.text.split("\n");
-    expect(foreignLines.at(-2)!.endsWith("Never send an allocation the person did not give or leave to you."))
+    expect(foreignLines.at(-2)!.endsWith("Never send an allocation the person did not give or leave to you. If the " +
+      "reply asks for another research style, set it first with action set_research_steering " +
+      "(later_inputs.researchSteering with style guided, balanced or autonomous), then call plan_research again."))
       .toBe(true);
     expect(foreignLines.at(-1)).toBe(`Only once the person has replied "you decide", in a later message, never in this turn: call ` +
       `manage_research_access with action plan_research and ` +
@@ -1341,7 +1371,9 @@ describe("a short menu on a dev account names the question it would ask, or none
     expect(reply(lines(short({ tasks: [LONG_TASK] })))).toBe(HEAD + GENERAL + TAIL);
     // next_step, for an app that hands its model only the structured content: the question right after the stop.
     const STEP_TAIL = "show researchMenu.tasks as a numbered list with their times, the recommendation and how to " +
-      "answer (task numbers and minutes, or \"you decide\"). Make no research call and don't call finalize_research " +
+      "answer (task numbers and minutes, or \"you decide\"), and end with one line saying they can change how often " +
+      "AskRigor asks by saying guided, balanced or autonomous (theirs is balanced now). Make no research call " +
+      "and don't call finalize_research " +
       "until they answer; then call action plan_research again with their allocation and person_answered true " +
       "inside later_inputs.researchMenu (for \"you decide\", with you_decide_later_inputs as later_inputs, after " +
       "replacing <true|false> in person_answered: true once they have answered, false before). Send " +
@@ -1349,11 +1381,15 @@ describe("a short menu on a dev account names the question it would ask, or none
       "person's answer only with person_answered true, and one sent without it is not used.";
     expect(planNextStep(planResearch(short({ steering_choice: QUESTION }), DEFAULT_RESEARCH_STEERING))).toBe("Ask " +
       "the person now and end your turn: put the question you named to them, in their language " +
-      `(researchMenu.steering_choice), and ${STEP_TAIL} ${STEERS}`);
+      `(researchMenu.steering_choice), and ${STEP_TAIL} ${STEERS} ` +
+      "If the reply asks for another research style, set it first with action set_research_steering " +
+      "(later_inputs.researchSteering with style guided, balanced or autonomous), then call plan_research again.");
     for (const plan of [short(), short({ steering_could_help: true }),
       short({ tasks: [LONG_TASK], steering_choice: "none" })]) {
       expect(planNextStep(planResearch(plan, DEFAULT_RESEARCH_STEERING))).toBe("Ask the person now and end your " +
-        `turn: ${STEP_TAIL}`);
+        `turn: ${STEP_TAIL} If the reply asks for another research style, set it first with action ` +
+        "set_research_steering (later_inputs.researchSteering with style guided, balanced or autonomous), then " +
+        "call plan_research again.");
     }
   });
 
@@ -1591,6 +1627,7 @@ describe("a short menu on a dev account names the question it would ask, or none
           "answer.",
         "How should I spend the time? Reply with task numbers and minutes, such as \"1. 5 min, 2. 4 min\", in your " +
           "own words, or \"you decide\".",
+        menuPreferenceLine("balanced"),
       ]);
       expect(lines.at(-2)).toMatch(/^When the person replies: /u);
       expect(lines.at(-1)).toMatch(/^Only once the person has replied "you decide", in a later message/u);
@@ -1672,7 +1709,8 @@ describe("an allocation needs the person's answer declared, on every account (ro
   const RULE_TAIL = "; for \"you decide\", or a reply that leaves the choice to you such as \"continue\", the call " +
     "on the next line. If the reply changes the question, register the plain answer again for the new research " +
     "target first, with later_inputs.framing for it. Never send an allocation the person did not give or leave to " +
-    "you.";
+    "you. If the reply asks for another research style, set it first with action set_research_steering " +
+    "(later_inputs.researchSteering with style guided, balanced or autonomous), then call plan_research again.";
   const DECLARED = ", with person_answered true in researchMenu too (send it only once they have answered this " +
     "menu in a message of their own; an allocation without it is not used)";
   const ONLY_ONCE = "Only once the person has replied \"you decide\", in a later message, never in this turn: call " +
@@ -1684,15 +1722,20 @@ describe("an allocation needs the person's answer declared, on every account (ro
   const ASK_NOW = "Ask the person now and end your turn: ";
   const NAMED = "put the question you named to them, in their language (researchMenu.steering_choice), and ";
   const ASK_STEP = "show researchMenu.tasks as a numbered list with their times, the recommendation and how to " +
-    "answer (task numbers and minutes, or \"you decide\"). Make no research call and don't call finalize_research " +
+    "answer (task numbers and minutes, or \"you decide\"), and end with one line saying they can change how often " +
+    "AskRigor asks by saying guided, balanced or autonomous (theirs is balanced now). Make no research call and " +
+    "don't call finalize_research " +
     "until they answer; then call action plan_research again with their allocation and person_answered true inside " +
     "later_inputs.researchMenu ";
   const SEND_ONLY_ONCE = " Send person_answered true only once they have answered this menu in a message of their " +
     "own: an allocation is the person's answer only with person_answered true, and one sent without it is not used.";
   const STEP_DECLARED = `${ASK_NOW}${ASK_STEP}(for "you decide", with you_decide_later_inputs as later_inputs, after ` +
-    `replacing <true|false> in person_answered: true once they have answered, false before).${SEND_ONLY_ONCE}`;
+    `replacing <true|false> in person_answered: true once they have answered, false before).${SEND_ONLY_ONCE} ` +
+    "If the reply asks for another research style, set it first with action set_research_steering " +
+    "(later_inputs.researchSteering with style guided, balanced or autonomous), then call plan_research again.";
   // With a named question the step also ends with what the person's answer to it does (NAMED_ANSWER_STEERS).
-  const STEP_NAMED = `${STEP_DECLARED.replace(ASK_NOW, ASK_NOW + NAMED)} ${NAMED_ANSWER_STEERS}`;
+  const STEP_NAMED = STEP_DECLARED.replace(ASK_NOW, ASK_NOW + NAMED)
+    .replace(SEND_ONLY_ONCE, `${SEND_ONLY_ONCE} ${NAMED_ANSWER_STEERS}`);
   const GO_ON_STEP = "Do the recommended tasks now, in order, each within its minutes; then check the answer with " +
     "finalize_research and give it in this turn.";
   const AUTONOMOUS_STEP = "Do the recommended tasks now; after about 10 minutes of research, check what you have " +
@@ -1884,7 +1927,9 @@ describe("an allocation needs the person's answer declared, on every account (ro
       `as a list of {task, minutes}${DECLARED}; for "you decide", or a reply that leaves the choice to you such as ` +
       "\"continue\", no more research: check the answer with finalize_research and give it.");
     expect(planNextStep(detail)).toBe(`${ASK_NOW}${ASK_STEP}or, for "you decide", do no more research: check the ` +
-      `answer with finalize_research and give it.${SEND_ONLY_ONCE}`);
+      `answer with finalize_research and give it.${SEND_ONLY_ONCE} If the reply asks for another research style, ` +
+      "set it first with action set_research_steering (later_inputs.researchSteering with style guided, balanced " +
+      "or autonomous), then call plan_research again.");
     const other = planResearch(plan, DEFAULT_RESEARCH_STEERING, { matches: false, minutesSince: 2 });
     expect(youDecideLaterInputs(plan, other)).toBeUndefined();
     expect(planResearchText(other, new Set(), false, OPEN_TARGET).split("\n").at(-1)).toContain(
@@ -1892,7 +1937,7 @@ describe("an allocation needs the person's answer declared, on every account (ro
       "\"continue\", the recommended allocation, with person_answered true too.");
     // There the correction for the research target comes first (13 Nov 2026, below), then the ask.
     expect(planNextStep(other)).toBe(`${TARGET_NOT_REGISTERED} ${ASK_NOW}${ASK_STEP}(for "you decide", the ` +
-      `recommended one).${SEND_ONLY_ONCE}`);
+      `recommended one).${SEND_ONLY_ONCE} ${STYLE_REPLY}`);
   });
 
   async function session(subject: string, dev: boolean) {
@@ -1934,7 +1979,7 @@ describe("an allocation needs the person's answer declared, on every account (ro
     const LEAVES = "A reply that answers it and gives no allocation leaves the allocation to you, as \"you decide\" " +
       "does.";
     expect(NAMED_ANSWER_STEERS.endsWith(` ${LEAVES}`)).toBe(true);
-    expect(asked.next_step.endsWith(` ${NAMED_ANSWER_STEERS}`)).toBe(true);
+    expect(asked.next_step.endsWith(` ${NAMED_ANSWER_STEERS} ${STYLE_REPLY}`)).toBe(true);
     expect(first.content[0]!.text.split("\n").at(-2)).toContain(`the call on the next line. ${NAMED_ANSWER_STEERS} ` +
       "If the reply changes the question, ");
     // Why they are needed: the declaration with no allocation is no answer to the menu, so the same menu asks
