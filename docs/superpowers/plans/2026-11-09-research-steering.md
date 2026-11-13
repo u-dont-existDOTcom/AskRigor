@@ -464,6 +464,26 @@ If an open question still goes on with none, or the control asks, that is the ow
 change. The owner's question of 13 Nov, whether this judgment belongs in a model call on AskRigor's side and not in
 instructions to the person's AI, is then the next design to weigh.
 
+Round 6, on the live build 2e231949 (#442; 13 Nov, 12:22 to 12:45 UTC; the record is
+`docs/audits/2026-11-13-owner-answer-297c-production-release.md`): 2 of 5 by these criteria, with different questions
+failing than in round 5. The control asked a question its AI then called unnecessary ("none would have been the
+better choice"); orange peel and Syrian rue named a question and asked; PewDiePie and SMILES wrote none in their
+first call and went straight to a checked answer. What held: every first call already carried `steering_choice`, so
+each first menu cost one refused call; both answers after none opened with the reading; a reply that only answered
+the named question went on at once (3 of 3). What did not: being asked earlier did not steady the AI's judgment, and
+the app's memory of earlier chats, round 5's test chats included, shaped three of the five readings (PewDiePie's
+none rested on "earlier conversation context"). Read against the owner's wanted answers, the SMILES answer is the
+same miss as before: "No", with no effect-size comparison and no AMMEND or HELFIMED.
+
+So both the control asking and open questions going on are now the owner's to see: owner question 298. Tried
+offline on the same five questions (DEVELOPMENT / DISCOVERY; `claude -p`, haiku and sonnet): a model call with the
+question alone named a question for the four open ones in 23 of 24 runs and none for the control in 6 of 6, but took
+Ajax for a football club (6 of 6) and asked on 16 of 18 wider questions; the same call with up to two web searches
+first wrote none for the control (2 of 2), named a question for the four open ones (8 of 8) and identified Ajax
+(2 of 2), in 10 to 28 seconds. The owner, during the round: "perhaps the research plan should be tried directly as
+an api call rather than hope the AI can figure it out", and "we want to get the best of a chain of answers in the
+first answer": from the next round on, each test answer is also judged against the answer the owner wanted.
+
 ### Next stages
 
 1. Measure on the owner's regression list, on plan workers with no API spend: whether the framing asks the right
