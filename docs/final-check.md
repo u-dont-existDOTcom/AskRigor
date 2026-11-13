@@ -308,7 +308,11 @@ comes before it (`pv`: any `rel="prev"` tag on the page, followable or not, or t
 `page=2`, `/page-2`) and after it (`pa`: its next page, any `rel="next"` tag, or a link to a later page of its own
 thread, by the same comparable link and a page after the first, as pagers without rel tags give, MyBB's, vBulletin 3's,
 phpBB 3.0's or a "Weiter ›" link, in any language), and reaches the end (`e`) only with nothing after it and nothing
-cut. Separate page reads are never stitched together, so a thread of several pages is part read however many of its
+cut. The reader lists at most 50 links to later pages, its own thread's first, wherever they stand on the page
+(Greptile's review of 12 Nov 2026: 50 links to other threads' later pages, in a sidebar, stood before the thread's own
+page 2, which was never listed, and page 1 read as the whole thread); when a page holds more such links than the list
+and none listed is its own thread's, whether a page follows is unknown, so the read reaches no end (`e` 0, with `pa` 0)
+and the thread is part read. Separate page reads are never stitched together, so a thread of several pages is part read however many of its
 pages were read, and the step says what was seen ("its page marks a page before or after it") and asks for
 `partial_text`; a one-page topic whose rel tags link an adjacent topic reads as part read too, by the same rule (the owner regressions on
 #412's build, judged 6 November 2026: r376-later-phase read both pages of a thread, its second at `?p=2`; the review of

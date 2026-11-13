@@ -533,6 +533,69 @@ describe("forum tools", () => {
     expect(await claimsOf("https://forum.example/thema/55", [])).toMatchObject({ pa: "0", e: "1" });
   });
 
+  // Greptile's review of 12 Nov 2026 (P1), reproduced by an independent audit: the reader lists at most 50 links to later
+  // pages, and says when the page held more (later_page_links_cut). A cut list with none of this thread doesn't show that
+  // the page links none, so whether a page follows is unknown: the read reaches no end (e 0) and claims no page after it
+  // (pa 0), and the final check reads the thread as part read. A list that left nothing out, or one holding a link of
+  // this thread, signs as before. The mark never reaches the published result.
+  it("signs no end of the thread on a cut list of later pages with none of its own", async () => {
+    const caller = await client();
+    const url = "https://forum.example/showthread.php?t=77";
+    const others = Array.from({ length: 50 }, (_, index) => `https://forum.example/showthread.php?t=${1_000 + index}&page=2`);
+    const claimsOf = async (links: string[], cut: boolean) => {
+      page.mockResolvedValue({ url, access_state: "read", page_text: "a".repeat(1_500), truncated: false,
+        later_page_links: links, ...(cut ? { later_page_links_cut: true } : {}) });
+      const result = await caller.callTool({ name: "read_forum_thread", arguments: { url } });
+      expect(result.structuredContent).toMatchObject({ access_status: "complete", data: { access_state: "read" } });
+      expect(result.structuredContent!.data).not.toHaveProperty("later_page_links_cut");
+      const verified = verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET });
+      if (!verified.ok) throw new Error("unverified");
+      return verified.claims;
+    };
+    expect(await claimsOf(others, true)).toMatchObject({ pv: "0", pa: "0", e: "0" });
+    expect(await claimsOf(others, false)).toMatchObject({ pv: "0", pa: "0", e: "1" });
+    expect(await claimsOf([`${url}&page=2`, ...others.slice(1)], true)).toMatchObject({ pv: "0", pa: "1", e: "0" });
+  });
+
+  // The same, through the page reader itself on the audit's page: a thread's first page with 50 links to other threads'
+  // later pages (a "related threads" list) before its own page 2. It read as a whole thread (pa 0, e 1).
+  it("reads a thread's first page as one of several though 50 links to other threads come before its own page 2", async () => {
+    const { readForumPage } = await vi.importActual<typeof import("@askrigor/sources")>("@askrigor/sources");
+    const text = "A synthetic forum participant describes their experience. ".repeat(40);
+    const related = (count: number) => Array.from({ length: count }, (_, index) =>
+      `<li><a href="showthread.php?t=${1_000 + index}&amp;page=2">Related thread ${index}</a></li>`).join("");
+    const claimsOf = async (host: string, markup: string) => {
+      let time = 1_000_000;
+      const html = `<html><head><title>Synthetic thread</title></head><body><p>${text}</p>${markup}</body></html>`;
+      const caller = await client({ forumPageReader: (url) => readForumPage(url, {
+        now: () => time, sleep: async (milliseconds) => { time += milliseconds; },
+        documentFetchRuntime: { resolveAddresses: async () => ["93.184.216.34"], requestDocument: async (destination) => ({
+          status: 200, headers: new Headers({ "content-type": "text/html" }),
+          bytes: new TextEncoder().encode(destination.pathname === "/robots.txt" ? "User-agent: *\nAllow: /" : html) }) }
+      }) });
+      const result = await caller.callTool({ name: "read_forum_thread", arguments: { url: `https://${host}/showthread.php?t=77` } });
+      expect(result.structuredContent, host).toMatchObject({ data: { access_state: "read", truncated: false } });
+      expect(result.structuredContent!.data, host).not.toHaveProperty("later_page_links");
+      expect(result.structuredContent!.data, host).not.toHaveProperty("later_page_links_cut");
+      const verified = verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET });
+      if (!verified.ok) throw new Error("unverified");
+      return verified.claims;
+    };
+    const pager = `<div class="pagination"><a href="showthread.php?t=77&amp;page=2">2</a></div>`;
+    expect(await claimsOf("audit-own-last.example", `<ul>${related(50)}</ul>${pager}`)).toMatchObject({ pv: "0", pa: "1", e: "0" });
+    expect(await claimsOf("audit-own-first.example", `${pager}<ul>${related(50)}</ul>`)).toMatchObject({ pv: "0", pa: "1", e: "0" });
+    // 51 links to other threads and none of its own: the list is cut, and whether a page follows is unknown.
+    expect(await claimsOf("audit-cut.example", `<ul>${related(51)}</ul>`)).toMatchObject({ pv: "0", pa: "0", e: "0" });
+    // 50 and none of its own: the list holds them all, and the page links no later page of its thread.
+    expect(await claimsOf("audit-whole.example", `<ul>${related(50)}</ul>`)).toMatchObject({ pv: "0", pa: "0", e: "1" });
+    // Its own page 2 in a form only this tool's comparison knows as its own (a session id beside the thread's), behind
+    // 50 others: left out of the list, so not known to follow, and the page is not read as the whole thread either.
+    const withSession = `<a href="showthread.php?t=77&amp;page=2&amp;sid=0a1b2c">2</a>`;
+    expect(await claimsOf("audit-session.example", `<ul>${related(50)}</ul>${withSession}`)).toMatchObject({ pv: "0", pa: "0", e: "0" });
+    // Within the list, it is this thread's, as before.
+    expect(await claimsOf("audit-session-listed.example", `<ul>${related(49)}</ul>${withSession}`)).toMatchObject({ pv: "0", pa: "1", e: "0" });
+  });
+
   // The review of #421: the reader's own refusal of a link, before any request to the site, says nothing of the site, so
   // it signs no receipt; and a site is its host, so forums hosted as subdomains of one service are each their own.
   it("signs nothing for a link the reader refuses itself, and keys a site on its host", async () => {
