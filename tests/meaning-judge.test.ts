@@ -221,6 +221,7 @@ describe("the meaning judge's call", () => {
       limits: [{ limit: 2, why: "" }],
       standalone: [{ finding: 1, standsAlone: true, why: "" }, { finding: 2, standsAlone: false, why: `${"x".repeat(199)}…` }],
       sourceLines: [],
+      significance: [],
     });
     // Its cost from the reply's usage: 4,000 input, 700 output and 3,000 cached tokens at Opus 5.5's prices.
     expect(call.costUsd).toBeCloseTo((4_000 * 4 + 700 * 20 + 3_000 * 0.2) / 1e6, 10);
