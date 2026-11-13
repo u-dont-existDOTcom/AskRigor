@@ -70,6 +70,7 @@ import {
   menuProblems,
   menuDigest,
   menuReadingSentence,
+  choicePlaceholderWords,
   menuRefusalText,
   planNextStep,
   planResearch,
@@ -297,6 +298,8 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     steering_could_help: z.boolean().optional(),
     // Owner answer 296b (13 Nov 2026): the question the menu named, with an ask, for the reply to put to the person.
     steering_choice: z.string().optional(),
+    // Owner answer 297c (13 Nov 2026): the menu named no question and goes on, so the answer says its reading first.
+    say_reading_first: z.literal(true).optional(),
     style: z.enum(RESEARCH_STYLES),
     check_back_minutes: z.number().int(),
     adjustment_detail: z.enum(ADJUSTMENT_DETAILS),
@@ -717,8 +720,14 @@ function withToolListNotice(result: CallToolResult, input: Record<string, unknow
  * in a result whose structured content is valid (ChatGPT shows an error result without it only as "The tool failed
  * internally"). A call with no later_inputs, or another action, goes on as it came.
  */
-export function withResearchMenuReading(execute: ResearchOperationHandler, options: { toolListVersion?: string }):
-  ResearchOperationHandler {
+export function withResearchMenuReading(execute: ResearchOperationHandler, options: {
+  toolListVersion?: string;
+  /**
+   * Whether the call is a dev account's (owner answer 297c): its refused menu comes back with steering_choice's place
+   * marked and its test, so the corrected call names the question. A caller not signed in, or any other, is not one.
+   */
+  devAccount?: (extra: ResearchOperationExtra | undefined) => Promise<boolean>;
+}): ResearchOperationHandler {
   return async (input, extra) => {
     const later = input.later_inputs;
     if (input.action !== "plan_research" || later === null || typeof later !== "object" || Array.isArray(later)) {
@@ -728,7 +737,8 @@ export function withResearchMenuReading(execute: ResearchOperationHandler, optio
     const sentence = menuReadingSentence(reading);
     const parsed = reading.menu === undefined ? undefined : researchMenuSchema.safeParse(reading.menu);
     if (parsed === undefined || !parsed.success) {
-      return withToolListNotice(menuRefusal(reading, parsed?.error.issues), input, options.toolListVersion);
+      const named = await (options.devAccount?.(extra) ?? Promise.resolve(false)).catch(() => false);
+      return withToolListNotice(menuRefusal(reading, parsed?.error.issues, named), input, options.toolListVersion);
     }
     const result = await execute({ ...input, later_inputs: reading.later }, extra);
     return sentence === undefined ? result : withMenuReadingSentence(result, sentence);
@@ -737,15 +747,18 @@ export function withResearchMenuReading(execute: ResearchOperationHandler, optio
 
 /** A plan_research call's refusal for its menu: what could not be read, and the example to call with. */
 function menuRefusal(reading: Pick<MenuReading, "menu" | "flat" | "ignored" | "moved">,
-  issues?: readonly z.core.$ZodIssue[]): CallToolResult {
+  issues?: readonly z.core.$ZodIssue[], named = false): CallToolResult {
   const missing = reading.menu === undefined;
   const problems = missing
     ? ["later_inputs.researchMenu: missing; plan_research's menu, with its research_target and tasks, goes inside it"]
     : menuProblems(issues ?? []);
-  const example = correctedMenu(missing ? reading.flat : reading.menu);
+  // Owner answer 297c: a dev account's example carries steering_choice's placeholder when the call named no question,
+  // and the text and the message say what replaces it.
+  const example = correctedMenu(missing ? reading.flat : reading.menu, named);
   const sentence = menuReadingSentence(reading);
   const message = "plan_research could not read later_inputs.researchMenu: call it again with " +
-    "corrected_later_inputs, after replacing each <...> with one of the values it lists.";
+    "corrected_later_inputs, after replacing each <...> with one of the values it lists" +
+    `${choicePlaceholderWords(example)}.`;
   return {
     content: [{ type: "text", text: menuRefusalText(problems, example, sentence) }],
     structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
@@ -925,7 +938,8 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       }
       if (parsed.action === "register_plain_answer") {
         return await registerPlainAnswer(options.service, auth.subject, parsed.plainAnswer!, options.plainAnswer,
-          parsed.framing);
+          parsed.framing, isDevAccount(options.service.accountKeyForSubject(auth.subject),
+            options.devAccountKeys?.() ?? new Set()));
       }
       if (parsed.action === "set_research_steering") {
         return await setResearchSteering(options.service, auth.subject, parsed.researchSteering!);
@@ -1178,6 +1192,8 @@ async function registerPlainAnswer(
   plainAnswer: z.infer<typeof plainAnswerInputSchema>,
   plain: PlainAnswerOptions | undefined,
   framing?: Framing,
+  // Owner answer 297c: a dev account's next step names the menu's steering_choice before its first menu.
+  devAccount = false,
 ): Promise<CallToolResult> {
   const account = await plainAnswerAccount(service, subject, plain);
   if (account === undefined) return accessError("plain_answer_not_requested", plain === undefined ? PLAIN_ANSWER_SURFACE_UNAVAILABLE : PLAIN_ANSWER_NOT_REQUESTED);
@@ -1225,7 +1241,7 @@ async function registerPlainAnswer(
     // first, before the registration's details, so an ask is the first thing the model reads, and next_step carries it
     // to an app that hands its model only the structured content.
     content: [
-      { type: "text", text: framingGuidance(account.steering, framing) },
+      { type: "text", text: framingGuidance(account.steering, framing, devAccount) },
       { type: "text", text: summary },
       { type: "text", text: `research_receipt: ${receipt}` },
       { type: "text", text: FINALIZE_REMINDER },
@@ -1234,7 +1250,7 @@ async function registerPlainAnswer(
       ok: true,
       plainAnswer: { requested: true, note: account.note, claims: count },
       research_receipt: receipt,
-      next_step: framingNextStep(account.steering, framing),
+      next_step: framingNextStep(account.steering, framing, devAccount),
     }),
   };
 }

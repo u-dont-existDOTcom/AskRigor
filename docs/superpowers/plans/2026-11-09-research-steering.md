@@ -419,6 +419,51 @@ cannot confirm it for other accounts or models.
 If an open question still goes on with none, or the control asks, that is the owner's to see before any further
 change.
 
+### The question asked for at the screen, and the reading said first (13 Nov 2026, owner answer 297c)
+
+Round 5, on the live build ea3a9283 (#441; the five prompts, Extra High; 13 Nov, 02:51 to 03:18 UTC; the record is
+`docs/audits/2026-11-13-greptile-fixes-question-named-production-release.md`): 3 of 5 by the criteria above. The
+control carried none and gave a checked answer in one turn. The PewDiePie and Syrian-rue questions named a question,
+asked, and put it to the person with the menu; a reply that answered only that question went on at the first call
+both times. The orange-peel and SMILES questions carried none and went straight to a checked answer (about 22 and 12
+minutes). In both, `steering_could_help` false was already in the AI's first call, with a reason ("User already
+specified identification, mechanism and practical soil treatment"; "This is a narrowly defined claim about one named
+study"), sent before any result had asked for a question: the AI learned of `steering_choice` only from the refusal,
+and wrote none. Asked afterwards, it named a question both times ("Is your main priority improving soil water
+retention during drought, restoring soil fertility, or both?", with "'none' was not fully justified"; and which of
+two fourfold figures was meant). The orange-peel answer gave its soil advice for a country it took from the app's
+memory of the person, not from the question. Refused calls per first menu: 2, 2, 2, 2, 1.
+
+The owner chose 297c (their Inbox, 13 Nov, 11:29 UTC, and in chat), with: "the orange peel question is a perfect
+example of wasted time without steering", and of the SMILES answer "i don't think No is a justified answer ... the
+best ones were closer to yes but more nuanced".
+
+Built, on a dev account: `register_plain_answer`'s text gives the menu's shape with `steering_choice` and its test
+(`STEERING_CHOICE`) where `steering_could_help` stands (`RESEARCH_MENU_SHAPE_NAMED`), and its `next_step` ends with
+what the field is (`QUESTION_IN_THE_MENU`), so the AI is asked for the question before it has decided there is none;
+a menu refused for its shape comes back with `steering_choice`'s placeholder in the example when the call named no
+question, and the text and the message say what replaces it, so the corrected call is planned at once. On every
+account, a menu that gives the word none and goes on carries `say_reading_first`, and its go-ahead is followed by
+`READING_FIRST`: before the answer itself, one line on how the AI read the question. Every other account's words are
+as they were: 304 comparisons of the old source with the new, across styles, framings and menus that do not carry
+none, differ nowhere, and a test pins the shape by its SHA-256.
+
+Criteria, written before any run. DEVELOPMENT / DISCOVERY, as above.
+
+- The control: its first accepted menu carries none, the turn ends with a checked answer and no question, and the
+  answer says in one line, before the answer itself, how it read the question.
+- Each of the four open questions: its first accepted menu carries a named question; the result asks; and the reply
+  puts that question to the person with the menu.
+- Cost: at most one refused call per first menu (rounds 4 and 5: two in nine of ten).
+- Read, not pass criteria: what each answer does with the person's reply to the named question (the owner's replies
+  of 13 Nov: for the PewDiePie question they meant why China could not use the same trick, and wanted what he is
+  claimed to have done, not only what is verified; for SMILES, the best answers were "closer to yes but more
+  nuanced"); and whether each answer says how much of each study it read (the owner's question of 13 Nov).
+
+If an open question still goes on with none, or the control asks, that is the owner's to see before any further
+change. The owner's question of 13 Nov, whether this judgment belongs in a model call on AskRigor's side and not in
+instructions to the person's AI, is then the next design to weigh.
+
 ### Next stages
 
 1. Measure on the owner's regression list, on plan workers with no API spend: whether the framing asks the right

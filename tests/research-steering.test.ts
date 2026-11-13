@@ -28,7 +28,10 @@ import {
   PERSON_ANSWER_DECLARED,
   PLAN_TASK_KINDS,
   RESEARCH_LOOPS,
+  QUESTION_IN_THE_MENU,
+  READING_FIRST,
   RESEARCH_MENU_SHAPE,
+  RESEARCH_MENU_SHAPE_NAMED,
   STEERING_CHOICE,
   TARGET_NOT_REGISTERED,
   NAMED_ANSWER_STEERS,
@@ -40,6 +43,7 @@ import {
   adjustmentGuidance,
   allocationAnswered,
   allocationNotUsedStop,
+  choicePlaceholderWords,
   correctedMenu,
   framingGuidance,
   menuDigest,
@@ -730,8 +734,9 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
   // The timing runs of 9 Nov 2026: every case's first plan_research call was refused, the model guessing the fields.
   it("names the menu's every field and value at the screen, and takes a menu written in that shape", () => {
     // person_answered goes with the allocation, after the person answers, and the ask names it (round 3 of 12 Nov
-    // 2026, below). steering_choice is asked for by a dev account's refusal alone (owner answer 296b, 13 Nov 2026,
-    // below). So the screen's words are every account's as they were.
+    // 2026, below). steering_choice is asked for on a dev account alone: by its refusal (owner answer 296b, 13 Nov
+    // 2026) and, since owner answer 297c, in the shape it is given at the screen (below). So the screen's words are
+    // every other account's as they were.
     const fields = [...Object.keys(researchMenuSchema.shape).filter((key) => key !== "allocation" && key !== "done" &&
       key !== "person_answered" && key !== "steering_choice"), ...Object.keys(planTaskSchema.shape)];
     for (const name of [...fields, ...PLAN_TASK_KINDS, ...COULD_CHANGE, ...RESEARCH_LOOPS]) {
@@ -1245,12 +1250,14 @@ describe("a short menu on a dev account names the question it would ask, or none
   });
 
   it("reads a named question as steerable and the word none as not, in place of the yes or no", () => {
-    // The word none, in any letter case and with spaces around it: a short menu goes on, exactly as with false.
+    // The word none, in any letter case and with spaces around it: a short menu goes on, exactly as with false, and
+    // has the answer say its reading first (owner answer 297c, below).
     const precise = planResearch(short({ steering_could_help: false }), DEFAULT_RESEARCH_STEERING);
     expect(precise).toMatchObject({ next: "go_on", steering_could_help: false });
+    expect(precise).not.toHaveProperty("say_reading_first");
     for (const steering_choice of ["none", "None", "NONE", " nOnE "]) {
       const result = planResearch(short({ steering_choice }), DEFAULT_RESEARCH_STEERING);
-      expect(result, steering_choice).toEqual(precise);
+      expect(result, steering_choice).toEqual({ ...precise, say_reading_first: true });
       expect(result, steering_choice).not.toHaveProperty("steering_choice");
     }
     // A named question: the menu asks, exactly as with true, and carries the question for the reply.
@@ -1263,7 +1270,7 @@ describe("a short menu on a dev account names the question it would ask, or none
       .toBe(QUESTION);
     // When both are given, steering_choice decides.
     expect(planResearch(short({ steering_could_help: true, steering_choice: "none" }), DEFAULT_RESEARCH_STEERING))
-      .toEqual(precise);
+      .toEqual({ ...precise, say_reading_first: true });
     expect(planResearch(short({ steering_could_help: false, steering_choice: QUESTION }), DEFAULT_RESEARCH_STEERING))
       .toEqual(named);
     // none is an exact value, never a reading of meaning: any other text is a named question, in any language, so
@@ -1454,7 +1461,8 @@ describe("a short menu on a dev account names the question it would ask, or none
         const precise = await plan(short(given));
         expect(precise.isError, JSON.stringify(given)).not.toBe(true);
         expect(precise.structuredContent, JSON.stringify(given)).toMatchObject({ ok: true, researchMenu: {
-          next: "go_on", steering_could_help: false, recommended: OWN }, next_step: GO_ON_STEP });
+          next: "go_on", steering_could_help: false, recommended: OWN, say_reading_first: true },
+          next_step: `${GO_ON_STEP} ${READING_FIRST}` });
         expect(precise.structuredContent).not.toHaveProperty("researchMenu.steering_choice");
         expect(precise.structuredContent).not.toHaveProperty("you_decide_later_inputs");
         expect(text(precise)).toContain("Go on now: do these tasks in this order");
@@ -1608,7 +1616,7 @@ describe("a short menu on a dev account names the question it would ask, or none
       // asks and goes to the person.
       const none = await person.plan(short({ steering_choice: "none" }));
       expect(none.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
-        steering_could_help: false }, next_step: GO_ON_STEP });
+        steering_could_help: false, say_reading_first: true }, next_step: `${GO_ON_STEP} ${READING_FIRST}` });
       const named = await person.plan(short({ steering_choice: QUESTION }));
       expect(named.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask",
         steering_could_help: true, steering_choice: QUESTION } });
@@ -1774,7 +1782,8 @@ describe("an allocation needs the person's answer declared, on every account (ro
     for (const [plan, steering, step] of [
       [open({ allocation: THEIRS }), autonomous, AUTONOMOUS_STEP],
       [open({ steering_could_help: false, allocation: THEIRS }), DEFAULT_RESEARCH_STEERING, GO_ON_STEP],
-      [open({ steering_choice: "none", allocation: THEIRS }), DEFAULT_RESEARCH_STEERING, GO_ON_STEP],
+      [open({ steering_choice: "none", allocation: THEIRS }), DEFAULT_RESEARCH_STEERING,
+        `${GO_ON_STEP} ${READING_FIRST}`],
     ] as const) {
       const result = planned(plan, steering);
       expect(result).toMatchObject({ next: "go_on", allocation_not_used: true, recommended: OWN,
@@ -2053,7 +2062,9 @@ describe("an allocation needs the person's answer declared, on every account (ro
       await manage({ action: "set_research_steering", later_inputs: { researchSteering: { style: "autonomous" } } });
       const unasked = await plan({ research_target: OPEN_TARGET, ...steerable, tasks: OPEN_TASKS,
         allocation: THEIRS });
-      for (const [result, step] of [[precise, GO_ON_STEP], [unasked, AUTONOMOUS_STEP]] as const) {
+      // A dev account's menu says so with the word none, so its go-ahead has the reading said first (297c).
+      for (const [result, step] of [[precise, dev ? `${GO_ON_STEP} ${READING_FIRST}` : GO_ON_STEP],
+        [unasked, AUTONOMOUS_STEP]] as const) {
         expect(result.isError, subject).not.toBe(true);
         expect(result.structuredContent, subject).toMatchObject({ ok: true, researchMenu: { next: "go_on",
           allocation_not_used: true, recommended: OWN }, problems: [NOT_USED_PROBLEM],
@@ -2255,8 +2266,12 @@ describe("a research target that is not the registered one stops the go-ahead in
         // The call the correction asks for: the same menu with the registered target gets the go-ahead.
         const corrected = await plan({ ...precise, research_target: TARGET });
         expect(corrected.structuredContent, subject).toMatchObject({ ok: true, researchMenu: { next: "go_on",
-          target_matches_plain_answer: true }, next_step: "Do the recommended tasks now, in order, each within its " +
-          "minutes; then check the answer with finalize_research and give it in this turn." });
+          target_matches_plain_answer: true, say_reading_first: true }, next_step: "Do the recommended tasks now, " +
+          "in order, each within its minutes; then check the answer with finalize_research and give it in this " +
+          `turn. ${READING_FIRST}` });
+        // Held back, the menu says nothing of what follows a go-ahead.
+        expect(structured.researchMenu, subject).not.toHaveProperty("say_reading_first");
+        expect(text(goingOn), subject).not.toContain(READING_FIRST);
         // A menu that asks (its tasks pass the 10 minutes) says the correction before the ask.
         const asked = await plan({ research_target: REWORDED, plain_answer_receipt: receipt, tasks: TASKS });
         expect(asked.isError, subject).not.toBe(true);
@@ -2267,6 +2282,207 @@ describe("a research target that is not the registered one stops the go-ahead in
           .toBe(true);
         expect(asking, subject).not.toHaveProperty("you_decide_later_inputs");
         expect(asked.content[0]!.text.split("\n")[0], subject).toBe(WARNING);
+      }
+    });
+});
+
+// Owner answer 297c (13 Nov 2026). Round 5 of the owner's ChatGPT runs (build ea3a9283): two open questions went
+// straight to a checked answer, and in both the AI's first call already carried steering_could_help false, sent before
+// any result had asked it for a question; the refusal then got the word none. So a dev account's AI is asked for the
+// question where it first learns the menu, a menu refused for its shape comes back with the question's place marked,
+// and a menu that names none has the answer say its reading first.
+describe("a dev account is asked for the question at the screen, and says its reading when it names none (297c)", () => {
+  const PRECISE_TARGET = "How often loose stools were recorded in one named trial of two fever medicines in children";
+  const PRECISE_TASKS: ResearchMenuInput["tasks"] = [
+    { task: "Read the trial's adverse-event table in full", kind: "full_text", could_change: "conclusion" },
+    { task: "Audit how the trial recorded adverse events", kind: "method_audit", could_change: "confidence" },
+  ];
+  const QUESTION = "Do you mean loose stools on either medicine, or the difference between the two?";
+  const PLACEHOLDER = "<the one question you would ask this person, or none>";
+  const GO_ON_STEP = "Do the recommended tasks now, in order, each within its minutes; then check the answer with " +
+    "finalize_research and give it in this turn.";
+  const GO_AHEAD = "Go on now: do these tasks in this order, each within its minutes, showing the menu as what you " +
+    "are doing; then check the answer with finalize_research and give it in this turn.";
+  const short = (overrides: Partial<ResearchMenuInput> = {}): ResearchMenuInput =>
+    ({ research_target: PRECISE_TARGET, tasks: PRECISE_TASKS, ...overrides });
+  const FRAMINGS = [undefined,
+    { likely_question: "Does it help?" },
+    { likely_question: "Does it help?", premise_doubts: ["The premise may be inverted"] },
+    { likely_question: "Does it help?", redirecting_questions: ["Which form do you use?"] },
+    { likely_question: "Does it help?", premise_doubts: ["The premise may be inverted"],
+      redirecting_questions: ["Which form do you use?"] }];
+  const STYLES = ["guided", "balanced", "autonomous"] as const;
+  type Refused = { ok: boolean; error: { code: string; message: string }; problems: string[];
+    corrected_later_inputs: { researchMenu: Record<string, unknown> & { tasks: Array<Record<string, unknown>> } } };
+
+  async function session(subject: string, dev: boolean, surface: "/mcp" | "/mcp/claude" = "/mcp") {
+    const { service, connect } = await start();
+    await service.acceptFreeContributor(subject, agreement);
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", dev ? service.accountKeyForSubject(subject) : "");
+    const manage = await connect(surface, subject);
+    return { manage, plan: async (researchMenu: unknown) =>
+      await manage({ action: "plan_research", later_inputs: { researchMenu } }) };
+  }
+
+  it("names steering_choice, with its test, in the shape and the next step a dev account is given", () => {
+    // The shape names the question where the yes or no stands, and keeps every other field and value.
+    expect(RESEARCH_MENU_SHAPE_NAMED).toContain(`in a few sentences; steering_choice, ${STEERING_CHOICE}; and tasks, `);
+    expect(RESEARCH_MENU_SHAPE_NAMED).not.toContain("steering_could_help");
+    const [start, tasks] = [RESEARCH_MENU_SHAPE.split("steering_could_help, ")[0]!,
+      RESEARCH_MENU_SHAPE.slice(RESEARCH_MENU_SHAPE.indexOf("and tasks, "))];
+    expect(RESEARCH_MENU_SHAPE_NAMED).toBe(`${start}steering_choice, ${STEERING_CHOICE}; ${tasks}`);
+    for (const style of STYLES) {
+      const steering = { ...DEFAULT_RESEARCH_STEERING, style };
+      for (const framing of FRAMINGS) {
+        // The guidance differs only by the shape, and the next step only by the sentence on the menu's question.
+        const guidance = framingGuidance(steering, framing);
+        expect(guidance.split(RESEARCH_MENU_SHAPE)).toHaveLength(2);
+        expect(framingGuidance(steering, framing, true))
+          .toBe(guidance.replace(RESEARCH_MENU_SHAPE, RESEARCH_MENU_SHAPE_NAMED));
+        expect(framingNextStep(steering, framing, true))
+          .toBe(`${framingNextStep(steering, framing)} ${QUESTION_IN_THE_MENU}`);
+        // Every other account's words are as they were.
+        expect(framingGuidance(steering, framing, false)).toBe(guidance);
+        expect(framingNextStep(steering, framing, false)).toBe(framingNextStep(steering, framing));
+        expect(guidance).not.toContain("steering_choice");
+        expect(framingNextStep(steering, framing)).not.toContain("steering_choice");
+      }
+    }
+    expect(QUESTION_IN_THE_MENU).toContain("steering_choice is the one question you would ask this person");
+    expect(QUESTION_IN_THE_MENU).toContain("write the word none only when the question itself fixes exactly what to " +
+      "look up");
+  });
+
+  it("keeps the shape every other account is given, to the letter", async () => {
+    // The shape as it was on the build before (ea3a9283), by its SHA-256: this change split the text in three parts.
+    const { createHash } = await import("node:crypto");
+    expect(createHash("sha256").update(RESEARCH_MENU_SHAPE, "utf8").digest("hex"))
+      .toBe("4f4ce6e9576c57aab4499663d433543993060b85df0fd6514a18d5949f0c0c55");
+  });
+
+  it("gives them with register_plain_answer, to a dev account alone, on ChatGPT's surface and Claude's", async () => {
+    for (const [subject, dev, surface] of [["auth0|person", false, "/mcp"], ["auth0|dev", true, "/mcp"],
+      ["auth0|dev-claude", true, "/mcp/claude"], ["auth0|person-claude", false, "/mcp/claude"]] as const) {
+      const { manage } = await session(subject, dev, surface);
+      for (const framing of [undefined, FRAMINGS[1]!, FRAMINGS[3]!]) {
+        const registered = await manage({ action: "register_plain_answer", plainAnswer: PLAIN,
+          ...(framing === undefined ? {} : { later_inputs: { framing } }) });
+        expect(registered.isError, subject).not.toBe(true);
+        expect(registered.content[0]!.text.endsWith(framingGuidance(DEFAULT_RESEARCH_STEERING, framing, dev)), subject)
+          .toBe(true);
+        expect(registered.structuredContent, subject).toMatchObject({
+          next_step: framingNextStep(DEFAULT_RESEARCH_STEERING, framing, dev) });
+        expect(text(registered).includes(STEERING_CHOICE), subject).toBe(dev);
+        expect(text(registered).includes("steering_could_help"), subject).toBe(!dev);
+      }
+    }
+  });
+
+  it("hands a dev account's unreadable menu back with the question's place marked, so the next call is planned",
+    async () => {
+      // What ChatGPT sent first in every run of rounds 4 and 5: its own guess at the menu, with no tasks.
+      const guessed = { researchTarget: PRECISE_TARGET, screening: { searches: 3 }, steering_could_help: false };
+      const asText = { research_target: PRECISE_TARGET, tasks: PRECISE_TASKS.map(({ task }) => task) };
+      const dev = await session("auth0|dev", true);
+      for (const menu of [guessed, asText]) {
+        const first = await dev.plan(menu);
+        expect(first.isError).toBe(true);
+        const refused = first.structuredContent as Refused;
+        expect(refused).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+        expect(refused.corrected_later_inputs.researchMenu.steering_choice).toBe(PLACEHOLDER);
+        // The text and the message say what replaces the placeholder, with the test.
+        const words = `, and ${PLACEHOLDER} with ${STEERING_CHOICE}`;
+        expect(first.content[0]!.text).toContain(`or only detail)${words}; the allocation, once the person gives one`);
+        expect(refused.error.message).toBe("plan_research could not read later_inputs.researchMenu: call it again " +
+          `with corrected_later_inputs, after replacing each <...> with one of the values it lists${words}.`);
+        // Filled in, with the word none or a question, the example is planned at once: one refused call, not two.
+        const filled = (steering_choice: string) => ({ ...refused.corrected_later_inputs.researchMenu, steering_choice,
+          tasks: PRECISE_TASKS });
+        const none = await dev.plan(filled("none"));
+        expect(none.isError, text(none)).not.toBe(true);
+        expect(none.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
+          say_reading_first: true } });
+        const named = await dev.plan(filled(QUESTION));
+        expect(named.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask",
+          steering_choice: QUESTION } });
+        // The placeholder left in is read as not given, so the call comes back for the question alone.
+        const unchanged = await dev.plan({ ...refused.corrected_later_inputs.researchMenu, tasks: PRECISE_TASKS });
+        expect(unchanged.isError).toBe(true);
+        expect((unchanged.structuredContent as Refused).problems).toEqual(["later_inputs.researchMenu." +
+          "steering_choice: left out; name the one question you would ask this person, or write none"]);
+      }
+      // A question the guessed menu already named is kept, with no placeholder.
+      const kept = (await dev.plan({ ...asText, steering_choice: QUESTION })).structuredContent as Refused;
+      expect(kept.corrected_later_inputs.researchMenu.steering_choice).toBe(QUESTION);
+      expect(kept.error.message).not.toContain(PLACEHOLDER);
+      // Any other account's refusal is as it was: no steering_choice in the example, the text or the message.
+      const person = await session("auth0|person", false);
+      for (const menu of [guessed, asText]) {
+        const first = await person.plan(menu);
+        const refused = first.structuredContent as Refused;
+        expect(refused.corrected_later_inputs.researchMenu).not.toHaveProperty("steering_choice");
+        expect(first.content[0]!.text).not.toContain("steering_choice");
+        expect(first.content[0]!.text).toContain("or only detail); the allocation, once the person gives one");
+        expect(refused.error.message).toBe("plan_research could not read later_inputs.researchMenu: call it again " +
+          "with corrected_later_inputs, after replacing each <...> with one of the values it lists.");
+      }
+      expect(choicePlaceholderWords(correctedMenu(asText))).toBe("");
+      expect(choicePlaceholderWords(correctedMenu({ ...asText, steering_choice: QUESTION }, true))).toBe("");
+    });
+
+  it("has the answer say its reading first when a menu names no question and goes on", () => {
+    const autonomous: ResearchSteering = { ...DEFAULT_RESEARCH_STEERING, style: "autonomous" };
+    const none = planResearch(short({ steering_choice: "none" }), DEFAULT_RESEARCH_STEERING);
+    expect(none).toMatchObject({ next: "go_on", say_reading_first: true });
+    // The text says it right after the go-ahead, and next_step at its end.
+    expect(planResearchText(none, new Set(), false, PRECISE_TARGET)).toContain(`${GO_AHEAD} ${READING_FIRST} `);
+    expect(planNextStep(none)).toBe(`${GO_ON_STEP} ${READING_FIRST}`);
+    expect(READING_FIRST).toBe("You named no question for this person, so before the answer itself say in one line, " +
+      "in their language, how you read their question: which meaning, comparison or situation you took it to be " +
+      "about. A reading they did not mean then shows at once.");
+    // Autonomous research that names none says it too.
+    const unasked = planResearch(short({ steering_choice: "none" }), autonomous);
+    expect(unasked).toMatchObject({ next: "go_on", say_reading_first: true });
+    expect(planResearchText(unasked, new Set(), false, PRECISE_TARGET)).toContain(` ${READING_FIRST} `);
+    expect(planNextStep(unasked).endsWith(` ${READING_FIRST}`)).toBe(true);
+    // The person's own allocation on a menu that named none: the research goes on, and the answer says its reading.
+    expect(planResearch(short({ steering_choice: "none", allocation: [{ task: 1, minutes: 2 }], person_answered: true }),
+      DEFAULT_RESEARCH_STEERING)).toMatchObject({ next: "go_on", say_reading_first: true });
+    // Not with a named question, the yes or no alone, or neither; not while the menu asks; and not while its
+    // research target holds the tasks back.
+    for (const [plan, steering, plain] of [
+      [short({ steering_choice: QUESTION }), DEFAULT_RESEARCH_STEERING, undefined],
+      [short({ steering_choice: QUESTION }), autonomous, undefined],
+      [short({ steering_could_help: false }), DEFAULT_RESEARCH_STEERING, undefined],
+      [short(), autonomous, undefined],
+      [short({ steering_choice: "none" }), { ...DEFAULT_RESEARCH_STEERING, style: "guided" }, undefined],
+      [short({ steering_choice: "none", done: [1] }), DEFAULT_RESEARCH_STEERING, undefined],
+      [short({ steering_choice: "none" }), DEFAULT_RESEARCH_STEERING, { matches: false, minutesSince: 2 }],
+    ] as const) {
+      const result = planResearch(plan, steering, plain);
+      expect(result, JSON.stringify(plan)).not.toHaveProperty("say_reading_first");
+      expect(planResearchText(result, new Set(plan.done ?? []), false, PRECISE_TARGET), JSON.stringify(plan))
+        .not.toContain(READING_FIRST);
+      expect(planNextStep(result), JSON.stringify(plan)).not.toContain(READING_FIRST);
+    }
+    // With the registered target, the same menu gets the go-ahead and the sentence.
+    expect(planResearch(short({ steering_choice: "none" }), DEFAULT_RESEARCH_STEERING,
+      { matches: true, minutesSince: 2 })).toMatchObject({ next: "go_on", say_reading_first: true });
+  });
+
+  it("says it through the connector, on ChatGPT's surface and Claude's, for any account whose menu names none",
+    async () => {
+      for (const [subject, dev, surface] of [["auth0|dev", true, "/mcp"], ["auth0|dev-claude", true, "/mcp/claude"],
+        ["auth0|person", false, "/mcp"]] as const) {
+        const { plan } = await session(subject, dev, surface);
+        const none = await plan(short({ steering_choice: "none" }));
+        expect(none.isError, subject).not.toBe(true);
+        expect(none.structuredContent, subject).toMatchObject({ ok: true, researchMenu: { next: "go_on",
+          say_reading_first: true }, next_step: `${GO_ON_STEP} ${READING_FIRST}` });
+        expect(text(none), subject).toContain(`${GO_AHEAD} ${READING_FIRST} `);
+        const named = await plan(short({ steering_choice: QUESTION }));
+        expect(named.structuredContent, subject).not.toHaveProperty("researchMenu.say_reading_first");
+        expect(text(named), subject).not.toContain(READING_FIRST);
       }
     });
 });
