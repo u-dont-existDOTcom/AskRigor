@@ -963,6 +963,9 @@ const isNoChoice = (choice: string): boolean => choice.trim().toLowerCase() === 
  * handed back for the exact word or the question (steeringChoiceUnclearDecides); every other text is a named
  * question, as before.
  */
+// A question of one bare word ("Pourquoi") or one that begins with the word none and has no question mark is handed
+// back too (the review of 13 Nov 2026): the refusal says how to write it so that it reads as a question, at the cost
+// of one more call; read as a question without it, "none_needed" would ask again.
 export function steeringChoiceUnclear(choice: string | undefined): boolean {
   if (choice === undefined) return false;
   const value = choice.trim();
@@ -990,7 +993,8 @@ export function steeringChoiceUnclearText(choice: string, example: CorrectedMenu
       "which is neither the word none nor a question, and whether to ask the person first rests on it.",
     "Call manage_research_access with action plan_research again with these later_inputs, which are yours, after " +
       `replacing ${MENU_PLACEHOLDERS.steering_choice} with exactly the word none, when you would ask this person ` +
-      "nothing before researching, or with the one question you would ask them, as a sentence: " +
+      "nothing before researching, or with the one question you would ask them, written out as a sentence with its " +
+      "question mark: " +
       JSON.stringify(example),
   ].join("\n");
 }

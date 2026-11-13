@@ -1,4 +1,4 @@
-import type Anthropic from "@anthropic-ai/sdk";
+import Anthropic from "@anthropic-ai/sdk";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -262,6 +262,17 @@ describe("AskRigor's own planning call (owner answer 298b): the call", () => {
     expect(refusal.planning).toEqual({ status: "skipped", reason: "refusal" });
     expect(refusal.costUsd).toBeGreaterThan(0);
     expect(refused.logs).toEqual(["refusal"]);
+    expect(refusal).not.toHaveProperty("refusalCategory");
+    // The category the API names is logged with it, as a class; anything that is not one is left out.
+    const named = planner({ reply: () => message({ stop_reason: "refusal", content: [],
+      stop_details: { type: "refusal", category: "bio", explanation: "An explanation that is not logged." } }) });
+    expect(await named.planner.plan(SOURCE, "account-a")).toMatchObject({ refusalCategory: "bio",
+      planning: { status: "skipped", reason: "refusal" } });
+    expect(named.logs).toEqual(["refusal_category_bio", "refusal"]);
+    const odd = planner({ reply: () => message({ stop_reason: "refusal", content: [],
+      stop_details: { type: "refusal", category: "Not A Class!", explanation: null } }) });
+    expect(await odd.planner.plan(SOURCE, "account-a")).not.toHaveProperty("refusalCategory");
+    expect(odd.logs).toEqual(["refusal"]);
     for (const reply of [
       () => message({}, "not json"),
       () => message({}, { about: "Only this." }),
@@ -273,11 +284,16 @@ describe("AskRigor's own planning call (owner answer 298b): the call", () => {
       expect((await made.planner.plan(SOURCE, "account-a")).planning).toEqual({ status: "skipped", reason: "unreadable" });
       expect(made.logs).toEqual(["unreadable"]);
     }
+    // A failure with no answer from the API may have run, so it keeps what was held for it; one the API answered
+    // with an error status did not run, and costs nothing.
     const failed = planner({ reply: () => { throw new Error(`request failed for ${KEY}`); } });
     expect(await failed.planner.plan(SOURCE, "account-a")).toMatchObject({
-      planning: { status: "skipped", reason: "error" }, costUsd: 0 });
+      planning: { status: "skipped", reason: "error" }, costUsd: 0.12 });
     // The log holds the failure's class only, never its message.
     expect(failed.logs).toEqual(["error"]);
+    const answered = planner({ reply: () => { throw new Anthropic.APIError(529, undefined, "overloaded", new Headers()); } });
+    expect(await answered.planner.plan(SOURCE, "account-a")).toMatchObject({
+      planning: { status: "skipped", reason: "error" }, costUsd: 0 });
     vi.useFakeTimers();
     try {
       const slow = planner({ env: { ASKRIGOR_RESEARCH_PLANNER_TIMEOUT_SECONDS: "1" },
@@ -322,9 +338,9 @@ describe("AskRigor's own planning call (owner answer 298b): the call", () => {
   it("holds each call's share of the cap while it runs, so calls sent together cannot all pass it", async () => {
     const at = Date.parse("2026-11-13T10:00:00Z");
     const release: Array<() => void> = [];
-    const made = planner({ now: () => at, env: { ASKRIGOR_RESEARCH_PLANNER_DAILY_CAP_USD: "0.2" },
+    const made = planner({ now: () => at, env: { ASKRIGOR_RESEARCH_PLANNER_DAILY_CAP_USD: "0.3" },
       reply: () => new Promise<Anthropic.Beta.BetaMessage>((resolve) => { release.push(() => resolve(message())); }) });
-    // Three calls sent before any has answered: USD 0.12 is held for each, so the third finds the cap reached.
+    // Three calls sent before any has answered: USD 0.12 is held for each, and the cap has room for two.
     const first = made.planner.plan({ ...SOURCE, asked: "one" }, "account-a");
     const second = made.planner.plan({ ...SOURCE, asked: "two" }, "account-b");
     const third = await made.planner.plan({ ...SOURCE, asked: "three" }, "account-c");
@@ -344,14 +360,15 @@ describe("AskRigor's own planning call (owner answer 298b): the call", () => {
   it("stops at the day's cap, and does not keep a failed call's result", async () => {
     let at = Date.parse("2026-11-13T10:00:00Z");
     let fail = true;
-    const made = planner({ now: () => at, env: { ASKRIGOR_RESEARCH_PLANNER_DAILY_CAP_USD: "0.05" },
-      reply: () => { if (fail) throw new Error("down"); return message(); } });
+    const made = planner({ now: () => at, env: { ASKRIGOR_RESEARCH_PLANNER_DAILY_CAP_USD: "0.15" },
+      reply: () => { if (fail) throw new Anthropic.APIError(529, undefined, "overloaded", new Headers()); return message(); } });
     expect((await made.planner.plan(SOURCE, "account-a")).planning).toEqual({ status: "skipped", reason: "error" });
     fail = false;
-    // The failed call was not kept: the same words are asked again, and now planned (about USD 0.07, past the cap).
+    // The failed call was not kept: the same words are asked again, and now planned (about USD 0.07).
     const planned = await made.planner.plan(SOURCE, "account-a");
     expect(planned).toMatchObject({ cached: false, planning: { status: "planned" } });
     expect(planned.costUsd).toBeGreaterThan(0.05);
+    // The cap no longer has room for what a call holds (0.07 spent and 0.12 held would pass 0.15).
     expect((await made.planner.plan({ ...SOURCE, asked: "another question" }, "account-b")).planning)
       .toEqual({ status: "skipped", reason: "daily_budget" });
     // A plan already made is still given from memory; a new day starts the budget again.
@@ -548,6 +565,11 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
     const thrown = await tool({ enabled: true, plan: async () => { throw new Error("broken"); } });
     const stands = await thrown.call({ action: "register_plain_answer", plainAnswer: PLAIN });
     expect(stands.structuredContent).toMatchObject({ ok: true, research_plan_not_used: "error" });
+    // One that throws before it returns a promise is a failure too, not a failed registration.
+    const sync = await tool({ enabled: true, plan: () => { throw new Error("broken at once"); } });
+    const still = await sync.call({ action: "register_plain_answer", plainAnswer: PLAIN });
+    expect(still.isError).not.toBe(true);
+    expect(still.structuredContent).toMatchObject({ ok: true, research_plan_not_used: "error" });
   });
 
   it("takes the person's words only with register_plain_answer, and only up to their limit", async () => {
@@ -616,7 +638,8 @@ describe("a steering_choice that is neither the word none nor a question is hand
         corrected_later_inputs: { researchMenu: Record<string, unknown> } };
       expect(structured.error.code).toBe("invalid_request");
       expect(structured.problems).toEqual(["later_inputs.researchMenu.steering_choice: \"none_needed\" is neither the " +
-        "word none nor a question; write exactly none, or the one question you would ask this person, as a sentence"]);
+        "word none nor a question; write exactly none, or the one question you would ask this person, written out " +
+        "as a sentence with its question mark"]);
       // The call comes back as it was, with the field's place marked.
       expect(structured.corrected_later_inputs.researchMenu).toEqual(menu({
         steering_choice: "<the one question you would ask this person, or none>" }));

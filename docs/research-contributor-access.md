@@ -421,10 +421,23 @@ owner's ChatGPT runs had left that judgment to the person's AI, and it went wron
   and the reply puts it to the person with the menu; none goes on, and the answer opens with how the question was
   read. When the reading found differs from the plain answer's, the AI says so in one line, and registers again
   only when the research target itself names the wrong thing (the plan is kept for an hour for the same words).
+- **The order of its tasks.** By how directly each could answer what the person asked, not by which source is best
+  known: for harm or benefit in people, studies in people that compare come first, then series that give doses and
+  counts, then what else could cause the same thing, and animal and cell studies after them; for what a
+  preparation contains or how strong it is, measurements of that preparation; and a study the question names is
+  read across all its doses or groups. Bug report #445 (13 November 2026): a first answer on a solvent's harm to
+  children led with a cell study and a mouse study, and the trials and case series in people came only after the
+  person challenged it.
 - **It never blocks.** Off, over its budget, over the account's calls for the day, timed out, refused, failed or
   unreadable, the result is the one every account gets, and the AI screens and plans as before, with one sentence
   after the first text and `research_plan_not_used` naming why. At a day's limit the sentence asks the AI to tell
-  the person so in one line, and `next_step` carries it too.
+  the person so in one line, and `next_step` carries it too. A planner that throws, rejects or never settles is a
+  failure like any other: the registration waits for it 125 seconds at most.
+- **The cap.** A call is sent only while the day's cap has room for the USD 0.12 held for it, and that is settled
+  with the call's real cost when the reply comes, on the day the call was sent. A call that timed out, or failed
+  with no answer from the API, keeps what was held; one the API answered with an error status costs nothing. So
+  the cap is passed only by a call that costs more than USD 0.12 (the dearest measured: USD 0.094), and its reply
+  is limited to 8,000 output tokens. A refusal's category, as the API names it, is logged as a class.
 - **Settings.** Off unless `ASKRIGOR_RESEARCH_PLANNER=on`, with the key read from the file
   `ASKRIGOR_RESEARCH_PLANNER_KEY_FILE` names (a read-only mounted secret), `ASKRIGOR_RESEARCH_PLANNER_WORKSPACE_ID`
   for an organization-scoped key, and optional `_MODEL` (`claude-opus-5-5` by default), `_EFFORT` (`low`, `medium`
@@ -432,7 +445,8 @@ owner's ChatGPT runs had left that judgment to the person's AI, and it went wron
   `_TIMEOUT_SECONDS` (45 by default, at most 120). Its daily cap and the meaning judge's together may not pass the
   owner's USD 3 a day, or it stays off. A request the model's safety classifiers decline is answered by
   Anthropic's default fallback model in the same call (`fallbacks: "default"`); when the whole chain declines,
-  the AI plans as before.
+  the AI plans as before. The SDK's own logging and tracing are off for this client and the meaning judge's,
+  whatever the environment says: at debug level the SDK logs requests and replies whole.
 - **What it costs and keeps.** Paid from the owner's monthly Claude API credit
   (`governance/chat-work-authority-policy.json`, `OWNER_ANSWER_298B`). Measured on 13 November on the five test
   questions: 6 to 9 cents and 10 to 22 seconds a call with one or two searches. AskRigor stores nothing it sends or

@@ -1312,6 +1312,9 @@ async function registerPlainAnswer(
   };
 }
 
+/** How long a registration waits for the planner at most: a little past the planner's own longest timeout. */
+const PLANNER_WAIT_MS = 125_000;
+
 /**
  * AskRigor's own plan for a dev account's research (owner answer 298b): the planning call's reading, question and
  * tasks as a menu for the registered research target and the receipt just signed, ready for plan_research; or why
@@ -1324,9 +1327,15 @@ async function plannedResearch(
   receipt: string,
   accountKey: string,
 ): Promise<PlannedResearch | { reason: PlannerNotUsedReason } | undefined> {
-  const call = await planning.planner.plan({ asked: planning.asked, researchTarget: plainAnswer.researchTarget,
-    quickAnswer: plainAnswer.text, claims: plainAnswer.claims, framing }, accountKey)
-    .catch(() => undefined);
+  // Whatever the planner does (a throw before its promise, a rejection, a promise that never settles), the
+  // registration goes on: the planner's own timeout is at most 120 seconds, and this wait ends a little after it.
+  let waited: ReturnType<typeof setTimeout> | undefined;
+  const call = await Promise.race([
+    Promise.resolve().then(() => planning.planner.plan({ asked: planning.asked,
+      researchTarget: plainAnswer.researchTarget, quickAnswer: plainAnswer.text, claims: plainAnswer.claims, framing },
+    accountKey)),
+    new Promise<undefined>((resolve) => { waited = setTimeout(() => resolve(undefined), PLANNER_WAIT_MS); }),
+  ]).catch(() => undefined).finally(() => clearTimeout(waited));
   if (call === undefined) return { reason: "error" };
   if (call.planning.status === "skipped") {
     return call.planning.reason === "off" ? undefined : { reason: call.planning.reason };
@@ -1369,14 +1378,16 @@ function steeringChoiceUnclearRefusal(plan: ResearchMenuInput): CallToolResult {
   const message = "plan_research planned nothing yet: later_inputs.researchMenu.steering_choice is neither the " +
     "word none nor a question, and whether to ask the person first rests on it. Call it again with " +
     `corrected_later_inputs, after replacing ${MENU_PLACEHOLDERS.steering_choice} with exactly the word none, when ` +
-    "you would ask this person nothing before researching, or with the one question you would ask them, as a sentence.";
+    "you would ask this person nothing before researching, or with the one question you would ask them, written " +
+    "out as a sentence with its question mark.";
   return {
     content: [{ type: "text", text: steeringChoiceUnclearText(given ?? "", example) }],
     structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
       ok: false,
       error: { code: "invalid_request", message },
       problems: [`later_inputs.researchMenu.steering_choice: ${JSON.stringify((given ?? "").trim())} is neither the ` +
-        "word none nor a question; write exactly none, or the one question you would ask this person, as a sentence"],
+        "word none nor a question; write exactly none, or the one question you would ask this person, written out " +
+        "as a sentence with its question mark"],
       corrected_later_inputs: example,
     }),
     isError: true,

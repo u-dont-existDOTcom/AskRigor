@@ -564,6 +564,29 @@ about USD 1.33 of the owner's credit in all):
 In-sample: the wording was changed twice on these same five questions, so they no longer test it. What the trial
 measures is the owner's own research over the week.
 
+Reviewed before the release, on four named risks (privacy, the key, money, never blocking), by me and by Codex on
+`503a7814` (the owner's rule of 13 Nov: a second model and tests before a Greptile credit). Changed for it: USD
+0.12 is held against the cap for each running call, and a call is sent only while the cap has room for it; a call
+counts toward the day it was sent; a failure with no answer from the API keeps what was held; a reply is limited
+to 8,000 output tokens; the SDK's logging and tracing are off for the client; a planner that throws at once or
+never settles cannot fail or hang a registration; a plan whose question is neither the word none nor a sentence is
+not used; a plan leaves memory at the hour in an idle process too. Not changed: a question of one bare word, or one
+that begins with the word none and has no question mark, is handed back like `none_needed`, and the refusal says
+how to write it.
+
+The order of the tasks (bug report #445, filed 13 Nov at 13:30 UTC from a first answer on a solvent's harm to
+children: the cell and mouse studies came first, and the trials and series in people only after the person
+challenged the answer). The call's instructions now order tasks by how directly each could answer what was asked:
+studies in people that compare first for harm or benefit in people, measurements of a preparation first for what
+it contains, a named study read across all its doses. Tried on plan workers only (`claude -p`, Opus 5.5, the same
+instructions; no API spend; one run each): on that question the plan went from two full-text reads of the named
+papers, a dose conversion and then the clinical search, to the named mouse study read across its doses and the
+search for neurological harm in children with washed and reduced-solvent comparisons; Syrian rue kept "which oil"
+and put the 1999 study that measured the alkaloids in the oil first; SMILES, orange peel and PewDiePie each named
+a question; the control wrote none. One planning call on that question was refused by the model's safety
+classifiers on the API and answered on the next try: a refusal's category is now logged, to count them in the
+trial.
+
 Criteria for round 7, written before any run. DEVELOPMENT / DISCOVERY; the owner's five questions, word for word,
 in the owner's ChatGPT at Extra High, one run each, on the build that carries the call.
 
