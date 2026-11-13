@@ -14,6 +14,7 @@ import { currentProtocolElementNames } from "./protocol-rule-names.js";
 import { createHash } from "node:crypto";
 import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
 import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./meaning-judge.js";
+import { researchPlannerFromEnv, type ResearchPlanner } from "./research-planner.js";
 import {
   abstractDocument, lookUpSourceLines, quoteCache, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument,
   type SourceLineTexts
@@ -903,6 +904,8 @@ export interface RegisterToolsOptions {
   secondReader?: SecondReader;
   /** Replaces the configured meaning judge (owner answer 221) for deterministic tests. */
   meaningJudge?: MeaningJudge;
+  /** Replaces the configured planning call (owner answer 298b) for deterministic tests. */
+  researchPlanner?: ResearchPlanner;
   /** Where source lines are looked up (owner answer 237a); AskRigor's held full texts and PubMed otherwise. */
   sourceLineTexts?: SourceLineTexts;
   /**
@@ -2060,6 +2063,10 @@ function defineResearchOperations(
       // The review of 12 Nov 2026: plan_research's menu digest, keyed like the research receipts.
       menuDigestSecret: () => researchReceiptSecretFromEnv(),
       devAccountKeys: () => devAccountKeysFromEnv(),
+      // Owner answer 298b: AskRigor's own planning call, for dev accounts. Its daily cap and the meaning judge's
+      // together stay within the owner's USD 3 a day, or it stays off.
+      researchPlanner: () => options.researchPlanner ?? researchPlannerFromEnv(
+        ((judge) => judge.enabled ? judge.dailyCapUsd : undefined)(options.meaningJudge ?? meaningJudgeFromEnv())),
       ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
       ...(sharing === undefined ? {} : { sharedAnswers: { ...sharing, versions: async () =>

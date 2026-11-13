@@ -17,6 +17,7 @@ import { infoAccessClientFromEnv } from "../infoaccess-client.js";
 import { MONTHLY_AI_BUDGET_NANO_USD } from "../lessons/ai-budget.js";
 import { DAILY_ATTEMPT_LIMIT, HOURLY_ATTEMPT_LIMIT } from "../lessons/rate-limit.js";
 import { meaningJudgeFromEnv } from "../meaning-judge.js";
+import { researchPlannerFromEnv } from "../research-planner.js";
 import { redditReaderFromEnv, SEARCH_PAGE_SIZE } from "../reddit-reader-client.js";
 import { isDevAccount } from "../research-contributor-access-tool.js";
 import { PLAIN_ANSWER_LIMITS } from "../research-finalization-gate.js";
@@ -46,6 +47,8 @@ export interface AtlasServerFeatures {
   videoSecondsLeft: number | null;
   /** The meaning judge (owner answer 221), and its daily cap in USD while it is on. */
   meaningJudge: { on: boolean; dailyCapUsd: number | null };
+  /** AskRigor's own planning call (owner answer 298b), with its daily cap in USD and its calls per account while on. */
+  researchPlanner: { on: boolean; dailyCapUsd: number | null; accountDailyCalls: number | null };
   /** The owner's library (InfoAccess) is set up. */
   ownerLibrary: boolean;
   /** Shared answers (owner answer 200a) are kept. */
@@ -391,6 +394,27 @@ export function atlasFeatureRows(account: AtlasResearchAccount, server: AtlasSer
       whoPays: "AskRigor's owner, from their monthly Claude API credits.",
       limit: server.meaningJudge.on && cap !== null ? `At most ${dollars(cap)} a day.` : "Nothing is spent while it is off.",
     },
+    {
+      id: "research-planner",
+      name: "AskRigor's own research plan",
+      on: server.researchPlanner.on && account.devAccount && usable,
+      forYou: !server.researchPlanner.on
+        ? "Switched off on this server. When it is on, it runs only for the owner's dev accounts."
+        : !account.devAccount ? "It runs only for the owner's dev accounts."
+          : !usable ? NEEDS_ACCESS
+            : "Your account is one of the owner's dev accounts: right after your AI's quick answer, Claude, " +
+              "Anthropic's AI, looks up what your question is about with up to two web searches, then names the " +
+              "one question to put to you before the research, or none, and the research tasks. Your question as " +
+              "you wrote it, your AI's quick answer and the search words go to Anthropic for this; AskRigor keeps " +
+              "none of them.",
+      whoPays: "AskRigor's owner, from their monthly Claude API credits.",
+      limit: server.researchPlanner.on && server.researchPlanner.dailyCapUsd !== null &&
+          server.researchPlanner.accountDailyCalls !== null
+        ? `At most ${dollars(server.researchPlanner.dailyCapUsd)} a day from everyone together, and ` +
+          `${server.researchPlanner.accountDailyCalls} plans a day for your account; after that your AI plans the ` +
+          "research itself until 00:00 UTC, and tells you so."
+        : "Nothing is spent while it is off.",
+    },
   ];
 }
 
@@ -426,6 +450,7 @@ export function atlasServerFeaturesFromEnv(env: NodeJS.ProcessEnv = process.env)
       ])
       : [null, null];
     const judge = meaningJudgeFromEnv();
+    const planner = researchPlannerFromEnv(judge.enabled ? judge.dailyCapUsd : undefined);
     return {
       redditReader,
       youtube,
@@ -433,6 +458,8 @@ export function atlasServerFeaturesFromEnv(env: NodeJS.ProcessEnv = process.env)
       aiBudgetLeftNanoUsd,
       videoSecondsLeft,
       meaningJudge: { on: judge.enabled, dailyCapUsd: judge.enabled ? judge.dailyCapUsd ?? null : null },
+      researchPlanner: { on: planner.enabled, dailyCapUsd: planner.enabled ? planner.dailyCapUsd ?? null : null,
+        accountDailyCalls: planner.enabled ? planner.accountDailyCalls ?? null : null },
       ownerLibrary,
       sharedAnswers: configured(() => sharedAnswersFromEnv()),
       findingsLibrary,

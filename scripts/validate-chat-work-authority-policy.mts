@@ -92,6 +92,8 @@ export const PAID_MODEL_INFERENCE_SCOPES = [
   "MEANING_JUDGE_ON_OWNER_DEV_ACCOUNTS",
   // Owner answer 221: "we can also maybe try the web app".
   "ASKRIGOR_WEB_APP_TRIAL",
+  // Owner answer 298b (13 November 2026): AskRigor's own planning call when a dev account registers its plain answer.
+  "RESEARCH_PLANNER_ON_OWNER_DEV_ACCOUNTS",
 ] as const;
 
 export interface GateRequest {

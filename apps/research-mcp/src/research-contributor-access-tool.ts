@@ -56,9 +56,11 @@ import { callsPageSchema, laterInputShape } from "./later-inputs.js";
 import { MCP_RESULT_MAX_BYTES } from "./config.js";
 import { clientResultBytes } from "./tool-result.js";
 import {
+  ASKED_REQUEST,
   COULD_CHANGE,
   MENU_PLACEHOLDERS,
   PERSON_ANSWER_DECLARED,
+  PLANNER_NOT_USED_REASONS,
   PLAN_TASK_KINDS,
   RESEARCH_LOOPS,
   FORM_PEOPLE_USE,
@@ -75,19 +77,27 @@ import {
   planNextStep,
   planResearch,
   planResearchText,
+  plannedGuidance,
+  plannedNextStep,
+  plannerNotUsedSentence,
   readResearchMenu,
   researchMenuSchema,
   steeringChoiceLeftOut,
   steeringChoiceRefusalText,
+  steeringChoiceUnclearDecides,
+  steeringChoiceUnclearText,
   steeringInspectText,
   steeringSentence,
   youDecideLaterInputs,
   youDecideLaterInputsSchema,
   type Framing,
   type MenuReading,
+  type PlannedResearch,
+  type PlannerNotUsedReason,
   type ResearchMenuInput,
   type ResearchSteeringInput,
 } from "./research-steering.js";
+import type { ResearchPlanner } from "./research-planner.js";
 import type { ResearchOperationExtra, ResearchOperationHandler } from "./research-operation.js";
 import {
   SHARED_ANSWER_KEPT,
@@ -320,6 +330,22 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
   corrected_later_inputs: correctedMenuSchema.optional()
     .describe("With a plan_research call whose menu could not be read: its later_inputs as they should be, built from " +
       "its own; replace each <...> with one of the values it lists."),
+  // Owner answer 298b (13 Nov 2026; runtime only): with register_plain_answer on a dev account, the plan AskRigor's
+  // own model call made, the plan_research call that carries it, or why that call was not used.
+  research_plan: z.object({
+    source: z.literal("askrigor_planning_call"),
+    about: z.string(),
+    steering_choice: z.string(),
+    searches: z.number().int().min(0),
+    from_asked: z.boolean(),
+  }).strict().optional()
+    .describe("With register_plain_answer on a dev account: what AskRigor's own planning call found the question to " +
+      "be about, the one question it would put to the person or the word none, how many web searches it ran, and " +
+      "whether it had the person's own words."),
+  planned_later_inputs: z.object({ researchMenu: researchMenuSchema }).strict().optional()
+    .describe("With research_plan: the later_inputs to send to plan_research next, exactly as given."),
+  research_plan_not_used: z.enum(PLANNER_NOT_USED_REASONS).optional()
+    .describe("With register_plain_answer on a dev account: why AskRigor's own planning call was not used."),
 }).strict();
 
 /**
@@ -462,6 +488,8 @@ export interface ResearchContributorToolOptions {
   atlasReports?: AtlasReportDoor;
   /** The secret plan_research keys its menu digest with (the review of 12 Nov 2026); undefined: no digest. */
   menuDigestSecret?: () => string | undefined;
+  /** AskRigor's own planning call (owner answer 298b), for dev accounts; undefined or not enabled: every account plans as before. */
+  researchPlanner?: () => ResearchPlanner | undefined;
 }
 
 export interface ResearchMapOptions {
@@ -920,6 +948,9 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       if (parsed.framing !== undefined && parsed.action !== "register_plain_answer") {
         return accessError("invalid_request", "later_inputs.framing goes only with action register_plain_answer.");
       }
+      if (parsed.asked !== undefined && parsed.action !== "register_plain_answer") {
+        return accessError("invalid_request", "later_inputs.asked goes only with action register_plain_answer.");
+      }
       // A plan_research call with no menu at all gets the refusal a menu that can't be read gets, with an example.
       if (parsed.action === "plan_research" && parsed.researchMenu === undefined) {
         return menuRefusal({ ignored: [], moved: [] });
@@ -937,8 +968,12 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         );
       }
       if (parsed.action === "register_plain_answer") {
+        // Owner answer 298b: on a dev account, AskRigor's own planning call makes the plan. Any other account's
+        // later_inputs.asked is not used, and not kept.
+        const planner = isDevAccount(options.service.accountKeyForSubject(auth.subject),
+          options.devAccountKeys?.() ?? new Set()) ? options.researchPlanner?.() : undefined;
         return await registerPlainAnswer(options.service, auth.subject, parsed.plainAnswer!, options.plainAnswer,
-          parsed.framing);
+          parsed.framing, planner?.enabled === true ? { planner, asked: parsed.asked } : undefined);
       }
       if (parsed.action === "set_research_steering") {
         return await setResearchSteering(options.service, auth.subject, parsed.researchSteering!);
@@ -1005,6 +1040,8 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       // Inspected, an account whose research waits on the notice is told to show it and ask, with the notice itself in
       // the text too, for an app that shows the model a tool's text alone.
       const nextStep = parsed.action === "inspect" && access.status !== "ACTIVE" ? noticeNextStep() : undefined;
+      // Owner answer 298b: a dev account whose research AskRigor plans itself is asked for the person's own words.
+      const planned = devAccount && plain !== undefined && options.researchPlanner?.()?.enabled === true;
       return {
         content: [{
           type: "text",
@@ -1016,6 +1053,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
               : "Choose free contributor mode or activate an existing paid private entitlement before research use.") +
             (nextStep === undefined ? "" : ` ${nextStep} The notice, ${access.noticeVersion}: ${access.notice}`) +
             (plain === undefined ? "" : ` ${plainAnswerRequest(plain.note)}`) +
+            (planned ? ` ${ASKED_REQUEST}` : "") +
             (settings === undefined
               ? ""
               : ` ${settings.detailedLessonReports ? DETAILED_REPORTS_ON : DETAILED_REPORTS_OFF}`) +
@@ -1032,7 +1070,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           ...(settings === undefined || !devAccount ? {} : { findingsSave: settings.findingsSave }),
           ...(settings === undefined ? {} : { steering: settings.steering }),
           accountReference,
-          ...(nextStep === undefined ? {} : { next_step: nextStep }),
+          ...(nextStep !== undefined ? { next_step: nextStep } : planned ? { next_step: ASKED_REQUEST } : {}),
         }),
       };
     } catch (error) {
@@ -1191,6 +1229,8 @@ async function registerPlainAnswer(
   plainAnswer: z.infer<typeof plainAnswerInputSchema>,
   plain: PlainAnswerOptions | undefined,
   framing?: Framing,
+  // Owner answer 298b: a dev account's planner, with the person's own words when the call gave them.
+  planning?: { planner: ResearchPlanner; asked: string | undefined },
 ): Promise<CallToolResult> {
   const account = await plainAnswerAccount(service, subject, plain);
   if (account === undefined) return accessError("plain_answer_not_requested", plain === undefined ? PLAIN_ANSWER_SURFACE_UNAVAILABLE : PLAIN_ANSWER_NOT_REQUESTED);
@@ -1233,12 +1273,24 @@ async function registerPlainAnswer(
     "research_target word for word, in a later turn too (only case and spacing are ignored): a reworded one can't be " +
     "matched to this plain answer, and the answer then ends without the comparison. " +
     (account.note ? NOTE_ON : NOTE_OFF);
+  // Owner answer 298b: AskRigor's own planning call, for a dev account, once the plain answer is signed. It never
+  // stops the registration: without a plan, the result is the one every account gets, with one sentence on why.
+  const planned = planning === undefined ? undefined
+    : await plannedResearch(planning, plainAnswer, framing, receipt, account.accountKey);
+  const plan = planned !== undefined && "later_inputs" in planned ? planned : undefined;
+  const notUsed = planned !== undefined && !("later_inputs" in planned)
+    ? plannerNotUsedSentence(planned.reason, planning!.planner.accountDailyCalls) : undefined;
+  // A day's limit is the person's to know, so it goes to an app that hands its model only next_step too.
+  const limitReached = planned !== undefined && !("later_inputs" in planned) &&
+    (planned.reason === "account_limit" || planned.reason === "daily_budget");
   return {
     // Owner answer 279a: what to do next, by the framing and the account's research style. Since 11 Nov 2026 it comes
     // first, before the registration's details, so an ask is the first thing the model reads, and next_step carries it
     // to an app that hands its model only the structured content.
     content: [
-      { type: "text", text: framingGuidance(account.steering, framing) },
+      { type: "text", text: plan === undefined ? framingGuidance(account.steering, framing)
+        : plannedGuidance(framing, plan) },
+      ...(notUsed === undefined ? [] : [{ type: "text" as const, text: notUsed }]),
       { type: "text", text: summary },
       { type: "text", text: `research_receipt: ${receipt}` },
       { type: "text", text: FINALIZE_REMINDER },
@@ -1247,9 +1299,52 @@ async function registerPlainAnswer(
       ok: true,
       plainAnswer: { requested: true, note: account.note, claims: count },
       research_receipt: receipt,
-      next_step: framingNextStep(account.steering, framing),
+      next_step: plan !== undefined ? plannedNextStep(framing, plan)
+        : `${framingNextStep(account.steering, framing)}${limitReached ? ` ${notUsed}` : ""}`,
+      ...(plan === undefined ? {} : {
+        research_plan: { source: "askrigor_planning_call", about: plan.about,
+          steering_choice: plan.later_inputs.researchMenu.steering_choice ?? "none", searches: plan.searches,
+          from_asked: plan.asked },
+        planned_later_inputs: plan.later_inputs,
+      }),
+      ...(planned !== undefined && !("later_inputs" in planned) ? { research_plan_not_used: planned.reason } : {}),
     }),
   };
+}
+
+/** How long a registration waits for the planner at most: a little past the planner's own longest timeout. */
+const PLANNER_WAIT_MS = 125_000;
+
+/**
+ * AskRigor's own plan for a dev account's research (owner answer 298b): the planning call's reading, question and
+ * tasks as a menu for the registered research target and the receipt just signed, ready for plan_research; or why
+ * there is none. The person's words and the plan are used here and kept nowhere.
+ */
+async function plannedResearch(
+  planning: { planner: ResearchPlanner; asked: string | undefined },
+  plainAnswer: z.infer<typeof plainAnswerInputSchema>,
+  framing: Framing | undefined,
+  receipt: string,
+  accountKey: string,
+): Promise<PlannedResearch | { reason: PlannerNotUsedReason } | undefined> {
+  // Whatever the planner does (a throw before its promise, a rejection, a promise that never settles), the
+  // registration goes on: the planner's own timeout is at most 120 seconds, and this wait ends a little after it.
+  let waited: ReturnType<typeof setTimeout> | undefined;
+  const call = await Promise.race([
+    Promise.resolve().then(() => planning.planner.plan({ asked: planning.asked,
+      researchTarget: plainAnswer.researchTarget, quickAnswer: plainAnswer.text, claims: plainAnswer.claims, framing },
+    accountKey)),
+    new Promise<undefined>((resolve) => { waited = setTimeout(() => resolve(undefined), PLANNER_WAIT_MS); }),
+  ]).catch(() => undefined).finally(() => clearTimeout(waited));
+  if (call === undefined) return { reason: "error" };
+  if (call.planning.status === "skipped") {
+    return call.planning.reason === "off" ? undefined : { reason: call.planning.reason };
+  }
+  const { about, steering_choice, tasks, searches } = call.planning.plan;
+  const menu = researchMenuSchema.safeParse({ research_target: plainAnswer.researchTarget,
+    plain_answer_receipt: receipt, steering_choice, tasks });
+  if (!menu.success) return { reason: "unreadable" };
+  return { about, searches, asked: planning.asked !== undefined, later_inputs: { researchMenu: menu.data } };
 }
 
 /** Changes the account's research style when the person asks (owner answer 279a); only the choice is stored. */
@@ -1276,6 +1371,29 @@ async function setResearchSteering(
  * question's place marked, in its text and in a structured content that is valid, with the test in its message for
  * an app that hands its model only the structured content.
  */
+/** A menu whose steering_choice is neither the word none nor a question: handed back with the field's place marked. */
+function steeringChoiceUnclearRefusal(plan: ResearchMenuInput): CallToolResult {
+  const { steering_choice: given, ...rest } = plan;
+  const example = correctedMenu(rest, true);
+  const message = "plan_research planned nothing yet: later_inputs.researchMenu.steering_choice is neither the " +
+    "word none nor a question, and whether to ask the person first rests on it. Call it again with " +
+    `corrected_later_inputs, after replacing ${MENU_PLACEHOLDERS.steering_choice} with exactly the word none, when ` +
+    "you would ask this person nothing before researching, or with the one question you would ask them, written " +
+    "out as a sentence with its question mark.";
+  return {
+    content: [{ type: "text", text: steeringChoiceUnclearText(given ?? "", example) }],
+    structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
+      ok: false,
+      error: { code: "invalid_request", message },
+      problems: [`later_inputs.researchMenu.steering_choice: ${JSON.stringify((given ?? "").trim())} is neither the ` +
+        "word none nor a question; write exactly none, or the one question you would ask this person, written out " +
+        "as a sentence with its question mark"],
+      corrected_later_inputs: example,
+    }),
+    isError: true,
+  };
+}
+
 function steeringChoiceRefusal(plan: ResearchMenuInput): CallToolResult {
   const example = correctedMenu(plan, true);
   const message = "plan_research planned nothing yet: this menu's tasks are short, so whether to ask the person " +
@@ -1341,6 +1459,9 @@ async function planResearchAction(
   // no longer answers there. So the AI decides a short menu, not the default, and decides it by trying to name a
   // choice of the person's first.
   if (devAccount && steeringChoiceLeftOut(plan, account.steering, menu)) return steeringChoiceRefusal(plan);
+  // 13 Nov 2026, on every account: a steering_choice that is neither the word none nor a question ("none_needed")
+  // is handed back when the decision rests on it, for the exact word or the question.
+  if (steeringChoiceUnclearDecides(plan, account.steering, menu)) return steeringChoiceUnclearRefusal(plan);
   // Round 3 of 12 Nov 2026 (every account since 13 Nov 2026): an allocation is the person's answer only with
   // person_answered true; any other is not used, and the menu is planned as if none had come.
   const result = planResearch(plan, account.steering, read === undefined ? undefined : {

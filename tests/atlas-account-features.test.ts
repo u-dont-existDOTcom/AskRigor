@@ -51,7 +51,7 @@ afterEach(closeAtlasServers);
 
 const NOW = "2026-11-05T09:00:00.000Z";
 const IDS = ["research-access", "plain-answer-note", "findings-cards", "detailed-lesson-reports", "forums", "video-search",
-  "video-scout", "video-reading", "owner-library", "sharing", "meaning-judge"];
+  "video-scout", "video-reading", "owner-library", "sharing", "meaning-judge", "research-planner"];
 
 /** Every server feature set up, with room left in this month's AI budget and in today's video time. */
 const SERVER: AtlasServerFeatures = {
@@ -60,7 +60,7 @@ const SERVER: AtlasServerFeatures = {
   gemini: true,
   aiBudgetLeftNanoUsd: 30_000_000_000,
   videoSecondsLeft: 20_000,
-  meaningJudge: { on: true, dailyCapUsd: 3 },
+  meaningJudge: { on: true, dailyCapUsd: 3 }, researchPlanner: { on: false, dailyCapUsd: null, accountDailyCalls: null },
   ownerLibrary: true,
   sharedAnswers: true,
   findingsLibrary: true,
@@ -329,7 +329,7 @@ describe("the features' words", () => {
 
   it("says when a server feature is not set up, closed, used up or unreadable", () => {
     const off = rows({}, { redditReader: false, youtube: false, gemini: false, aiBudgetLeftNanoUsd: null,
-      videoSecondsLeft: null, meaningJudge: { on: false, dailyCapUsd: null }, ownerLibrary: false, sharedAnswers: false,
+      videoSecondsLeft: null, meaningJudge: { on: false, dailyCapUsd: null }, researchPlanner: { on: false, dailyCapUsd: null, accountDailyCalls: null }, ownerLibrary: false, sharedAnswers: false,
       findingsLibrary: false });
     expect(row(off, "forums")).toMatchObject({ on: true, forYou: "Your AI can read public forum pages. AskRigor's Reddit " +
       "reader isn't set up on this server, so Reddit stays with your AI's own search.", limit: "No limit of its own." });
@@ -435,7 +435,7 @@ describe("the features from the server's settings", () => {
         // No video ledger yet: the whole day is left.
         videoSecondsLeft: 28_800,
         // The process's own judge and shared answers, which these tests' environment leaves off.
-        meaningJudge: { on: false, dailyCapUsd: null }, ownerLibrary: true, sharedAnswers: false, findingsLibrary: true,
+        meaningJudge: { on: false, dailyCapUsd: null }, researchPlanner: { on: false, dailyCapUsd: null, accountDailyCalls: null }, ownerLibrary: true, sharedAnswers: false, findingsLibrary: true,
       });
       for (const value of Object.values(secrets)) expect(JSON.stringify(features)).not.toContain(value);
 
@@ -443,7 +443,7 @@ describe("the features from the server's settings", () => {
       expect(await atlasServerFeaturesFromEnv({ ...env, ASKRIGOR_GEMINI_BILLING: "paid" })()).toMatchObject({
         gemini: false, aiBudgetLeftNanoUsd: null, videoSecondsLeft: null });
       expect(await atlasServerFeaturesFromEnv({})()).toEqual({ redditReader: false, youtube: false, gemini: false,
-        aiBudgetLeftNanoUsd: null, videoSecondsLeft: null, meaningJudge: { on: false, dailyCapUsd: null },
+        aiBudgetLeftNanoUsd: null, videoSecondsLeft: null, meaningJudge: { on: false, dailyCapUsd: null }, researchPlanner: { on: false, dailyCapUsd: null, accountDailyCalls: null },
         ownerLibrary: false, sharedAnswers: false, findingsLibrary: false });
       // A ledger in an unsafe place cannot be read: null, and the page says so.
       expect(await atlasServerFeaturesFromEnv({ ...env, ASKRIGOR_AI_BUDGET_LEDGER: "relative/ai-budget.json" })())

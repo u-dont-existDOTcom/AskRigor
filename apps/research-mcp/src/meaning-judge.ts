@@ -489,6 +489,10 @@ function sdkClient(settings: { apiKey: string; workspaceId: string | undefined; 
     baseURL: "https://api.anthropic.com",
     timeout: settings.timeoutMs,
     maxRetries: 0,
+    // The SDK's own logging and tracing stay off whatever the environment says: at debug level it logs requests and
+    // replies whole (the review of 13 Nov 2026).
+    logLevel: "off",
+    openTelemetry: false,
     // An organization-scoped key names the workspace it bills.
     ...(settings.workspaceId === undefined ? {} : { defaultHeaders: { "anthropic-workspace-id": settings.workspaceId } }),
   });

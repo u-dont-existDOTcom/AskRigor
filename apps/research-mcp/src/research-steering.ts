@@ -734,6 +734,92 @@ export function framingNextStep(steering: ResearchSteering, framing: Framing | u
 }
 
 /**
+ * Owner answer 298b (13 Nov 2026): on a dev account AskRigor plans the research itself, with its own model call made
+ * when the plain answer is registered (research-planner.ts), and the registration's result hands the plan back as a
+ * menu ready for plan_research. The owner, the same day: "perhaps the research plan should be tried directly as an
+ * api call rather than hope the AI can figure it out". These are the words that go with it. What the question is
+ * about, the question to ask and the tasks are that call's judgment; nothing here reads them.
+ *
+ * The call plans best from the person's own words: a research target is the AI's wording, and in round 6 one already
+ * carried a reading the person did not mean. So inspect asks a dev account for them, in later_inputs.asked.
+ */
+export const ASKED_LIMIT = 6_000;
+export const ASKED_REQUEST = "On this account AskRigor plans the research itself, with its own model call, when the " +
+  "plain answer is registered. With the plain answer, also give later_inputs.asked: the person's own words about " +
+  "this question, word for word and in order (their question, and after it any answer they gave to a question of " +
+  `yours about it), at most ${ASKED_LIMIT.toLocaleString("en-US")} characters. AskRigor passes them to that call and ` +
+  "keeps none of them.";
+
+/** Why a dev account's registration came back without AskRigor's own plan, when the planning call is on. */
+export const PLANNER_NOT_USED_REASONS = ["daily_budget", "account_limit", "error", "timeout", "refusal",
+  "unreadable"] as const;
+export type PlannerNotUsedReason = (typeof PLANNER_NOT_USED_REASONS)[number];
+
+/** The plan AskRigor's own call made, as register_plain_answer's result words it. */
+export interface PlannedResearch {
+  about: string;
+  searches: number;
+  /** Whether the call had the person's own words, or only the research target. */
+  asked: boolean;
+  later_inputs: { researchMenu: ResearchMenuInput };
+}
+
+const DOUBT_BEFORE_PLANNED = "If a doubt that could be false, not only unclear, is not yet a claim of the plain " +
+  "answer, register the plain answer again first, with the same later_inputs.framing and later_inputs.asked and a " +
+  "sentence giving your quick verdict on it among the claims, so the final check compares it (the plan is kept).";
+
+/** register_plain_answer's first text when AskRigor made the plan: no screen, the reading found, and the call to send. */
+export function plannedGuidance(framing: Framing | undefined, planned: PlannedResearch): string {
+  const searched = planned.searches === 0 ? "no web search" : planned.searches === 1 ? "1 web search"
+    : `${planned.searches} web searches`;
+  return [
+    URGENT_FIRST,
+    `AskRigor planned this research itself, with its own model call (${searched}), so do not screen and do not write ` +
+      "a menu of your own.",
+    `What the question is about, as that call found it: ${JSON.stringify(planned.about)}. If your plain answer or ` +
+      "your research target rests on another reading, say so in one line at the start of your reply; and when the " +
+      "research target itself names the wrong thing, register the plain answer again for the corrected research " +
+      "target, with the same later_inputs.asked, before the next step (the plan is kept).",
+    ...((framing?.premise_doubts ?? []).length > 0 ? [DOUBT_BEFORE_PLANNED] : []),
+    "Then call manage_research_access with action plan_research and exactly these later_inputs, which carry the " +
+      `plan: ${JSON.stringify(planned.later_inputs)} AskRigor gives each task a time range and says whether to ask ` +
+      "the person first; when it says to ask, your reply is the message it gives, and the turn ends there.",
+    ...(planned.asked ? [] : ["This plan was made from your research target alone. Next time give later_inputs.asked " +
+      "with the plain answer: the person's own words about the question, word for word."]),
+  ].join(" ");
+}
+
+/** The same for an app that hands its model only the structured content: the call is in planned_later_inputs. */
+export function plannedNextStep(framing: Framing | undefined, planned: PlannedResearch): string {
+  return ((framing?.premise_doubts ?? []).length > 0 ? `${DOUBT_BEFORE_PLANNED} ` : "") +
+    "AskRigor planned this research itself: do not screen. Call action plan_research now with planned_later_inputs, " +
+    "exactly as given; its result says whether to ask the person first. research_plan.about says what the question " +
+    "is about: if your plain answer or your research target rests on another reading, say so in one line at the " +
+    "start of your reply, and when the research target itself names the wrong thing, register the plain answer " +
+    "again for the corrected one first, with the same later_inputs.asked." +
+    (planned.asked ? "" : " Next time give later_inputs.asked with the plain answer: the person's own words about " +
+      "the question, word for word.");
+}
+
+/**
+ * One sentence for a dev account's registration that came back without AskRigor's plan. A day's limit is the person's
+ * to know (the owner, 13 Nov 2026: "let them know once they are not using the api calls on their questions anymore
+ * until limit resets"); a call that failed is not, and the AI plans as it does on every account.
+ */
+export function plannerNotUsedSentence(reason: PlannerNotUsedReason, accountDailyCalls: number | undefined): string {
+  if (reason === "account_limit") {
+    return "AskRigor's own planning call was not used for this question: this account has had today's " +
+      `${accountDailyCalls === undefined ? "" : `${accountDailyCalls} `}calls, and they start again at 00:00 UTC. ` +
+      "Tell the person so in one line; you screen and plan yourself, as this result says.";
+  }
+  if (reason === "daily_budget") {
+    return "AskRigor's own planning call was not used for this question: its budget for today is spent, and it " +
+      "starts again at 00:00 UTC. Tell the person so in one line; you screen and plan yourself, as this result says.";
+  }
+  return "AskRigor's own planning call did not answer this time, so you screen and plan yourself, as this result says.";
+}
+
+/**
  * Owner answer 284 (10 November 2026), in the owner's words: balanced "should ask if the research could take longer
  * than 10 mins OR if there is reason to believe from the initial analysis that steering could direct the research more
  * usefully, which i'd say it usually can unless the prompt is quite precise". So balanced asks when the recommended
@@ -865,6 +951,53 @@ const NO_CHOICE = "none";
  * field, as true and false are of another, never a reading of meaning: every other text is a named question.
  */
 const isNoChoice = (choice: string): boolean => choice.trim().toLowerCase() === NO_CHOICE;
+
+/**
+ * Whether a steering_choice is neither of the two things the field takes: exactly the word none, or the question as
+ * a sentence. The check of the control on the build after owner answer 298b (4fbd6c6b; 13 Nov 2026, 14:04 UTC): the
+ * AI wrote "none_needed", with the reason "User supplied paper, trial and outcome; no material ambiguity or decision
+ * requires clarification"; AskRigor read it as a named question, and the look-up got the menu in place of its answer.
+ * This is a structural check of the declared value, never a reading of meaning: a value that begins with the word
+ * none and goes on without a question mark (none_needed, "none.", "none: the question is precise"), or a single run
+ * of ASCII letters, digits, "_", "-", "/" and "." (n/a, null, no), which a sentence in no language is. Such a value is
+ * handed back for the exact word or the question (steeringChoiceUnclearDecides); every other text is a named
+ * question, as before.
+ */
+// A question of one bare word ("Pourquoi") or one that begins with the word none and has no question mark is handed
+// back too (the review of 13 Nov 2026): the refusal says how to write it so that it reads as a question, at the cost
+// of one more call; read as a question without it, "none_needed" would ask again.
+export function steeringChoiceUnclear(choice: string | undefined): boolean {
+  if (choice === undefined) return false;
+  const value = choice.trim();
+  if (isNoChoice(value)) return false;
+  return (/^none(?!\p{L})/iu.test(value) && !/[?？]/u.test(value)) || /^[A-Za-z0-9_\-/.]+$/u.test(value);
+}
+
+/**
+ * Whether a menu's decision rests on a steering_choice that is neither the word none nor a question: read as none
+ * the menu would go on, read as a question it would ask. Only then is it handed back; a menu the person has already
+ * answered, or one that asks or goes on either way, is planned as it came.
+ */
+export function steeringChoiceUnclearDecides(plan: ResearchMenuInput, steering: ResearchSteering,
+  menu?: { digest: string; changed: boolean }): boolean {
+  if (!steeringChoiceUnclear(plan.steering_choice)) return false;
+  const next = (steering_choice: string) =>
+    planResearch({ ...plan, steering_choice }, steering, undefined, menu).next;
+  return next(NO_CHOICE) !== next(plan.steering_choice!);
+}
+
+/** The refusal's text for a menu whose steering_choice is neither the word none nor a question. */
+export function steeringChoiceUnclearText(choice: string, example: CorrectedMenu): string {
+  return [
+    `AskRigor planned nothing yet. later_inputs.researchMenu.steering_choice was ${JSON.stringify(choice.trim())}, ` +
+      "which is neither the word none nor a question, and whether to ask the person first rests on it.",
+    "Call manage_research_access with action plan_research again with these later_inputs, which are yours, after " +
+      `replacing ${MENU_PLACEHOLDERS.steering_choice} with exactly the word none, when you would ask this person ` +
+      "nothing before researching, or with the one question you would ask them, written out as a sentence with its " +
+      "question mark: " +
+      JSON.stringify(example),
+  ].join("\n");
+}
 
 /**
  * The menu: each task with its time range; a recommendation, when the person gave none (tasks that could change the

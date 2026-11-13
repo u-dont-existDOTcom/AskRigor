@@ -328,6 +328,14 @@ was released on 12 November:
   around it: none is a value of the field, not a judgment, and every other text is a named question, in any
   language, so what is unclear asks. It is a text the model writes, read in memory only; the person's reply to it is
   never sent. An account that is not a dev account and gives no `steering_choice` is planned as before.
+  Since 13 November 2026 one kind of value is handed back, on every account: one that is neither the word none nor
+  a sentence, when the menu's decision rests on it. In the check of the control on build `4fbd6c6b` the model wrote
+  `"none_needed"`, AskRigor read it as a named question, and the look-up got the menu in place of its answer. The
+  check is of the value's form, never of its meaning: a value that begins with the word none and goes on without a
+  question mark (`none_needed`, `none.`, `none: the question is precise`), or a single run of ASCII letters,
+  digits, `_`, `-`, `/` and `.` (`n/a`, `null`, `no`). The refusal (`invalid_request`) gives the call back in
+  `corrected_later_inputs` with the field's place marked, to be filled with exactly none or the question; a menu
+  the person has already answered, or one that asks or goes on either way, is planned as it came.
   Round 5 of the owner's ChatGPT runs, on the build that asked for that question only in a refusal (#441; 13
   November, 02:51 to 03:18 UTC): two open questions went straight to a checked answer, and in both the model's first
   call, sent before any result had asked for a question, already carried `steering_could_help` false with a reason;
@@ -390,6 +398,63 @@ was released on 12 November:
   moment, so two chats changing different parts at once both keep theirs (the review of 12 November 2026: the service
   read the whole style and wrote it back, so the later write undid the other's change); the account's other switches
   each write only their own column.
+
+### AskRigor's own planning call, on dev accounts (owner answer 298b, 13 November 2026)
+
+On a dev account, with the call switched on, AskRigor plans the research itself when the plain answer is registered:
+one Claude API call that first searches the web (at most two searches) for what the question refers to, then says
+what it is about, names the one question to put to the person before researching, or the word none, and lists two
+to five research tasks (`apps/research-mcp/src/research-planner.ts`). The owner, 13 November: "perhaps the research
+plan should be tried directly as an api call rather than hope the AI can figure it out". Rounds 4 to 6 of the
+owner's ChatGPT runs had left that judgment to the person's AI, and it went wrong in a different place each round.
+
+- **What the person's AI sends.** `inspect`, on a dev account while the call is on, asks for
+  `later_inputs.asked` with the plain answer: the person's own words about the question, word for word and in
+  order (their question, and after it any answer they gave to a question of the AI's about it), at most 6,000
+  characters. A research target is the AI's wording, and in round 6 one already carried a reading the person did
+  not mean. Without `asked` the plan is made from the research target, and the result asks for it next time.
+  `asked` goes only with `register_plain_answer`; on any other account it is not used.
+- **What comes back.** `register_plain_answer`'s first text and `next_step` say not to screen, give what the
+  question is about (`research_plan.about`), and hand over the menu ready to send: `planned_later_inputs`, a
+  `researchMenu` with the registered research target, the receipt just signed, the planner's `steering_choice`
+  and its tasks. Sent as it is, `plan_research` plans it at once, by the account's style: a named question asks,
+  and the reply puts it to the person with the menu; none goes on, and the answer opens with how the question was
+  read. When the reading found differs from the plain answer's, the AI says so in one line, and registers again
+  only when the research target itself names the wrong thing (the plan is kept for an hour for the same words).
+- **The order of its tasks.** By how directly each could answer what the person asked, not by which source is best
+  known: for harm or benefit in people, studies in people that compare come first, then series that give doses and
+  counts, then what else could cause the same thing, and animal and cell studies after them; for what a
+  preparation contains or how strong it is, measurements of that preparation; and a study the question names is
+  read across all its doses or groups. Bug report #445 (13 November 2026): a first answer on a solvent's harm to
+  children led with a cell study and a mouse study, and the trials and case series in people came only after the
+  person challenged it.
+- **It never blocks.** Off, over its budget, over the account's calls for the day, timed out, refused, failed or
+  unreadable, the result is the one every account gets, and the AI screens and plans as before, with one sentence
+  after the first text and `research_plan_not_used` naming why. At a day's limit the sentence asks the AI to tell
+  the person so in one line, and `next_step` carries it too. A planner that throws, rejects or never settles is a
+  failure like any other: the registration waits for it 125 seconds at most.
+- **The cap.** A call is sent only while the day's cap has room for the USD 0.12 held for it, and that is settled
+  with the call's real cost when the reply comes, on the day the call was sent. A call that timed out, or failed
+  with no answer from the API, keeps what was held; one the API answered with an error status costs nothing. So
+  the cap is passed only by a call that costs more than USD 0.12 (the dearest measured: USD 0.094), and its reply
+  is limited to 8,000 output tokens. A refusal's category, as the API names it, is logged as a class.
+- **Settings.** Off unless `ASKRIGOR_RESEARCH_PLANNER=on`, with the key read from the file
+  `ASKRIGOR_RESEARCH_PLANNER_KEY_FILE` names (a read-only mounted secret), `ASKRIGOR_RESEARCH_PLANNER_WORKSPACE_ID`
+  for an organization-scoped key, and optional `_MODEL` (`claude-opus-5-5` by default), `_EFFORT` (`low`, `medium`
+  or `high`; `low` by default), `_DAILY_CAP_USD` (3 by default), `_ACCOUNT_DAILY_CALLS` (10 by default) and
+  `_TIMEOUT_SECONDS` (45 by default, at most 120). Its daily cap and the meaning judge's together may not pass the
+  owner's USD 3 a day, or it stays off. A request the model's safety classifiers decline is answered by
+  Anthropic's default fallback model in the same call (`fallbacks: "default"`); when the whole chain declines,
+  the AI plans as before. The SDK's own logging and tracing are off for this client and the meaning judge's,
+  whatever the environment says: at debug level the SDK logs requests and replies whole.
+- **What it costs and keeps.** Paid from the owner's monthly Claude API credit
+  (`governance/chat-work-authority-policy.json`, `OWNER_ANSWER_298B`). Measured on 13 November on the five test
+  questions: 6 to 9 cents and 10 to 22 seconds a call with one or two searches. AskRigor stores nothing it sends or
+  receives (`docs/privacy-data-map.md`). The Atlas account page lists it with its limits.
+- **Not done.** Other accounts: the owner's direction is to give everyone the call, with about 10 a day for a free
+  account and a word to the person when they are used up; that needs a ceiling for the spend and the free-use
+  notice to say that the question goes to Anthropic, so it is the owner's next decision, after the trial. The
+  call's reading is not checked against anything: it is one model's judgment, shown to the person's AI as such.
 
 ## The call record (owner answer 280a, 9 November 2026; released the same day)
 
