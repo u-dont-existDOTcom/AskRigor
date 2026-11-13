@@ -182,10 +182,15 @@ const LATER_INPUT_SHAPES = Object.freeze({
         "what each could change, and the person's allocation once given."),
     // Owner answer 298b (13 Nov 2026): the person's own words, for AskRigor's own planning call on a dev account. Read
     // in memory for that call only; never signed, stored or logged.
-    asked: z.string().trim().min(1).max(ASKED_LIMIT).optional()
+    // Round 7 (13 Nov 2026): four of the five chats first sent them as a list, one message each, and were refused
+    // once; a list is read as its messages in order.
+    asked: z.union([
+      z.string().trim().min(1).max(ASKED_LIMIT),
+      z.array(z.string().trim().min(1).max(ASKED_LIMIT)).min(1).max(20),
+    ]).optional()
       .describe("With register_plain_answer, when inspect asks for it: the person's own words about this question, " +
         "word for word and in order: their question, and after it any answer they gave to a question of yours " +
-        "about it."),
+        "about it; as one text, or as a list with one message each."),
     researchSteering: researchSteeringInputSchema.optional()
       .describe("With set_research_steering, when the person asks: style, checkBackMinutes and adjustmentDetail, any " +
         "of them."),

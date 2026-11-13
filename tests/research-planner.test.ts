@@ -572,6 +572,25 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
     expect(still.structuredContent).toMatchObject({ ok: true, research_plan_not_used: "error" });
   });
 
+  it("takes the person's words as one text or as a list of messages, in order", async () => {
+    // Round 7 (13 Nov 2026): four of five chats sent a list first, and were refused once each.
+    const memory = memoryPlanner();
+    const { call } = await tool(memory.planner);
+    const listed = await call({ action: "register_plain_answer", plainAnswer: PLAIN,
+      later_inputs: { asked: [" would the oil work as well as the tea? ", "seeds soaked in oil, by mouth"] } });
+    expect(listed.isError, words(listed)).not.toBe(true);
+    expect(memory.seen[0]!.source.asked).toBe("would the oil work as well as the tea?\n\nseeds soaked in oil, by mouth");
+    expect(listed.structuredContent).toMatchObject({ research_plan: { from_asked: true } });
+    // Not a list of anything else, not an empty list, and not more than the limit in all.
+    for (const asked of [[], [""], [{ role: "user", content: "words" }], [1, 2],
+      ["x".repeat(ASKED_LIMIT - 10), "y".repeat(20)]]) {
+      const refused = await call({ action: "register_plain_answer", plainAnswer: PLAIN, later_inputs: { asked } });
+      expect(refused.isError, JSON.stringify(asked).slice(0, 60)).toBe(true);
+    }
+    expect(memory.seen).toHaveLength(1);
+    expect(ASKED_REQUEST).toContain("as one text or a list with one message each, at most 6,000 characters in all");
+  });
+
   it("takes the person's words only with register_plain_answer, and only up to their limit", async () => {
     const memory = memoryPlanner();
     const { call } = await tool(memory.planner);
