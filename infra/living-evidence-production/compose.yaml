@@ -5,6 +5,7 @@ services:
       - /opt/askrigor/state/reddit-reader:/run/askrigor-reddit-reader:ro
       - /opt/askrigor/state/private-comment-maps:/var/lib/askrigor-private-comment-maps:ro
       - /opt/askrigor/state/claude-api:/run/askrigor-claude-api:ro
+      - /opt/askrigor/state/research-planner:/run/askrigor-research-planner
     depends_on:
       living-evidence-postgres:
         condition: service_healthy

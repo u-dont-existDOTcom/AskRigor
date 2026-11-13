@@ -290,6 +290,95 @@ describe("YouTube community audit", () => {
     expect(sampleWithinResponseBudget(comments.slice(0, 5), 250, budget)).toHaveLength(5);
   });
 
+  // Two reviewers of 13 Nov 2026 (Codex and Claude, both P2), by reading: the label came from comparing the corpus with
+  // the requested sample size, so a sample the reply's budget had cut below that size was still called "all". The
+  // counts and the limitation beside it were right. Every identifier and every word of text here is invented.
+  it("does not label a sample cut to the reply's budget as all the comments", async () => {
+    const videoId = "invented_01";
+    const channelId = "UCinvented0000000000000A";
+    const snippet = {
+      publishedAt: "2025-01-02T03:04:05Z",
+      channelId,
+      channelTitle: "Invented channel",
+      title: "Invented video title",
+      description: "Invented video description"
+    };
+    // Sixty long comments: fewer than the 250 asked for, more than the 30,000-character sample budget holds.
+    const threads = Array.from({ length: 60 }, (_, index) => {
+      const at = new Date(Date.UTC(2025, 1, 1, 0, index)).toISOString().replace(".000Z", "Z");
+      return {
+        kind: "youtube#commentThread",
+        id: `invented-thread-${String(index).padStart(2, "0")}`,
+        snippet: {
+          videoId,
+          topLevelComment: {
+            kind: "youtube#comment",
+            id: `invented-comment-${String(index).padStart(2, "0")}`,
+            snippet: {
+              videoId,
+              textDisplay: `Invented comment ${index}. ${"made-up words for a label test ".repeat(30)}`,
+              authorDisplayName: `Invented author ${index}`,
+              likeCount: 0,
+              publishedAt: at,
+              updatedAt: at
+            }
+          },
+          totalReplyCount: 0
+        }
+      };
+    });
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/search")) {
+        return new Response(JSON.stringify({
+          kind: "youtube#searchListResponse",
+          pageInfo: { totalResults: 1, resultsPerPage: 1 },
+          items: [{ kind: "youtube#searchResult", id: { kind: "youtube#video", videoId }, snippet }]
+        }), { status: 200 });
+      }
+      if (url.pathname.endsWith("/videos")) {
+        return new Response(JSON.stringify({
+          kind: "youtube#videoListResponse",
+          pageInfo: { totalResults: 1, resultsPerPage: 1 },
+          items: [{ kind: "youtube#video", id: videoId, snippet, statistics: { commentCount: "60" } }]
+        }), { status: 200 });
+      }
+      if (url.pathname.endsWith("/commentThreads")) {
+        return new Response(JSON.stringify({
+          kind: "youtube#commentThreadListResponse",
+          pageInfo: { totalResults: threads.length, resultsPerPage: 100 },
+          items: threads
+        }), { status: 200 });
+      }
+      throw new Error(`Unexpected YouTube request: ${url.pathname}${url.search}`);
+    }));
+
+    const result = await auditYoutubeCommunity({
+      research_question: "An invented question for a label test",
+      searches: [{ direction: "general", query: "invented subject experience" }],
+      max_videos: 1
+    }, YOUTUBE);
+
+    const video = result.videos[0]!;
+    const sample = video.sample!;
+    expect(video.manifest).toMatchObject({ total_comments_and_replies: 60, extraction_coverage: "api_visible_complete" });
+    expect(sample.corpus_count).toBe(60);
+    expect(sample.sampled_count).toBe(sample.comments.length);
+    expect(sample.sampled_count).toBeGreaterThan(1);
+    expect(sample.sampled_count).toBeLessThan(60);
+    expect(video.limitations).toContain(
+      `Returned a deterministic chronological sample of ${sample.sampled_count} from 60 retrieved comments and replies; the sample does not establish prevalence.`
+    );
+    expect(sample.mode).toBe("systematic_chronological");
+    // The MCP view keeps the audit's label when it trims nothing further.
+    const view = compactYoutubeCommunityAuditForMcp(result, 60_000, "MCP bounded sample.");
+    expect(view.videos[0]!.sample).toMatchObject({
+      mode: "systematic_chronological",
+      corpus_count: 60,
+      sampled_count: sample.sampled_count
+    });
+  });
+
   it("treats an exhausted zero-candidate search as terminal without inventing signal", async () => {
     const searchBody = await fixture("search-empty.json");
     vi.stubGlobal("fetch", vi.fn(async () => new Response(searchBody, { status: 200 })));

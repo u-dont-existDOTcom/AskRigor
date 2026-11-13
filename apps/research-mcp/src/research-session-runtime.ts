@@ -96,8 +96,10 @@ export function createResearchSessionRuntimeDependencies(
   const youtubeApiKey = env.YOUTUBE_API_KEY ?? "";
   const transcriptRoute = options.transcriptRoute ??
     createYoutubeTranscriptActionRoute();
+  // The controller calls the route inside the process, where the Action route's byte limit binds nothing: it keeps
+  // the whole audit reply, as before the reply was fitted to that limit for the HTTP route (13 Nov 2026).
   const discussionRoute = options.discussionRoute ?? requiredActionRoute(
-    createResearchActionRoutes(),
+    createResearchActionRoutes({ replyWithinActionLimit: false }),
     "audit_youtube_video_community"
   );
   const openFullText = options.openFullText ?? createOpenFullTextExecutor();

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { startTags } from "../packages/sources/src/candidate-full-text.js";
 import { FORUM_READER_USER_AGENT, readForumPage, type ForumPageRuntime } from "../packages/sources/src/forum-page.js";
 import { DiscoveredDocumentError, type DiscoveredDocumentFetchRuntime } from "../packages/sources/src/http.js";
 
@@ -409,5 +410,169 @@ describe("public forum page reader", () => {
     expect((await readForumPage(data.url, data.runtime)).access_state).toBe("robots_disallowed");
     expect(data.requests.map((request) => new URL(request.url).pathname)).toEqual(["/robots.txt", "/robot-rules"]);
     expect(data.requests[1]!.at - data.requests[0]!.at).toBeGreaterThanOrEqual(1_000);
+  });
+});
+
+// The code review of 13 Nov 2026 (Codex, P1): the bot-challenge check read a page with three backtracking patterns,
+// each starting over at every "<script", tag or "<form" of a page that never closed them. Timed on its own, the first
+// took 3.8 seconds on 128 KB of "<script" text, about 38 minutes by the same rule at the reader's 3 MB limit, and the
+// second took 15 seconds on 16 KB of "<a class=": the cube of the size. The read is synchronous, so the server answered
+// nothing else meanwhile.
+describe("public forum page reader on hostile markup", () => {
+  const KB = 1024;
+  /** A unit repeated to a length. */
+  const filled = (unit: string, length: number): string => unit.repeat(Math.ceil(length / unit.length)).slice(0, length);
+  /** How long one read of a page takes, with what it returns. */
+  const timedRead = async (html: string) => {
+    const data = fixture({ page: html });
+    const started = performance.now();
+    const read = await readForumPage(data.url, data.runtime);
+    return { read, milliseconds: performance.now() - started };
+  };
+  // Sizes four times apart, up to a page as large as the reader takes (3 MB): a read whose time grows with the square
+  // or the cube of the size fails at a small size, in seconds, rather than holding the run for hours.
+  const SIZES = [8 * KB, 32 * KB, 128 * KB, 512 * KB, 3 * KB * KB - 8 * KB];
+  const withinTime = async (label: string, pageOf: (length: number) => string, state = "read") => {
+    for (const length of SIZES) {
+      const { read, milliseconds } = await timedRead(pageOf(length));
+      expect(read.access_state, `${label}, ${length / KB} KB`).toBe(state);
+      // Well under a second for a few hundred KB, as the review asked, and three seconds for the largest page.
+      expect(milliseconds, `${label}, ${length / KB} KB, took ${Math.round(milliseconds)} ms`)
+        .toBeLessThan(length <= 512 * KB ? 500 : 3_000);
+    }
+  };
+
+  // Each hostile text stands inside one script that closes, with a mention of all three markers after it. The text
+  // extractor drops such a script in one step, so the time measured is the challenge check's; and the mention keeps the
+  // check reading on, where a page that names no marker at all is answered at once.
+  const mention = "<p>The page said window._cf_chl_opt, cf-chl-widget and challenge-form before it loaded.</p>";
+  const inScript = (hostile: string, end = "") => (length: number): string =>
+    `<html><body><script>${filled(hostile, length)}${end}</script>${mention}<p>${text}</p></body></html>`;
+
+  it.each([
+    ["a script full of \"<script>\" strings (the review's page)", "var a = \"<script>\";", ""],
+    // One ">" ends them all, just before the script closes: with none, the patterns took the script's own end for
+    // theirs and read the mention after it as a script's text, a challenge by their rule.
+    ["a script full of \"<script\" that one \">\" ends", "<script ", ">"],
+    ["tags with a class and no end (\"<a class=\")", "<a class=", ""],
+    ["tags with an id and an open quote (\"<div id='\")", "<div id='", ""],
+    ["tags with no end (\"<a \")", "<a ", ""],
+    ["forms with no end (\"<form \")", "<form ", ""],
+    ["forms with an id (\"<form id=\")", "<form id=", ""]
+  ])("checks for a bot challenge in time linear in the page's size: %s", async (label, hostile, end) => {
+    await withinTime(label, inScript(hostile, end));
+  }, 120_000);
+
+  it("still knows a challenge on a page of that size, and a page that only mentions one", async () => {
+    const hostile = filled("var a = \"<script>\"; <a class= <form id= ", 512 * KB);
+    for (const marker of ["<script>window._cf_chl_opt = {}</script>", "<div class=\"cf-chl-container\"></div>",
+      "<form id=\"challenge-form\" action=\"/\" method=\"POST\"></form>"]) {
+      const { read, milliseconds } = await timedRead(`<html><body><script>${hostile}</script>${marker}<p>${text}</p></body></html>`);
+      expect(read, marker).toEqual({ url: expect.any(String), access_state: "blocked" });
+      expect(milliseconds, marker).toBeLessThan(500);
+    }
+    const { read } = await timedRead(inScript("var a = \"<script>\"; <a class= <form id= ")(512 * KB));
+    expect(read.access_state).toBe("read");
+  }, 120_000);
+
+  // The same answers as the three patterns the check used to be (main at e24f6d3b), on pages built from the pieces those
+  // patterns read and on challenge pages with a few edits, so both answers come up often. Deterministic: its own seed.
+  it("answers as the three patterns it replaces did, on generated pages", async () => {
+    const formerly = (html: string): boolean =>
+      /<script\b[^>]*>(?:(?!<\/script)[\s\S])*_cf_chl_opt/iu.test(html) ||
+      /<[a-z][\w-]*\s[^>]*\b(?:class|id)\s*=\s*["']?[^"'>]*\bcf-chl-/iu.test(html) ||
+      /<form\b[^>]*\bid\s*=\s*["']?challenge-form\b/iu.test(html);
+    let state = 20261113;
+    const random = (): number => {
+      state = (state + 0x6d2b79f5) >>> 0;
+      let mixed = state;
+      mixed = Math.imul(mixed ^ (mixed >>> 15), mixed | 1);
+      mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), mixed | 61);
+      return ((mixed ^ (mixed >>> 14)) >>> 0) / 4_294_967_296;
+    };
+    const pick = (list: readonly string[]): string => list[Math.floor(random() * list.length)]!;
+    const pieces = ["<script", "<SCRIPT", "<script ", "<script>", "</script", "</SCRIPT>", ">", ">", "_cf_chl_opt", "_CF_CHL_OPT",
+      "<div", "<a", "<A ", "<x-y", "<", "<1", " ", " ", "\n", "\t", "class", "CLASS", "id", "ID", "=", " = ", "\"", "'", "cf-chl-",
+      "CF-CHL-widget", "xcf-chl-", "-cf-chl-", "x", "-", "data-", "_", "/", "<form", "<FORM ", "<forms", "<form-", "challenge-form",
+      "CHALLENGE-FORM", "challenge-forms", "xchallenge-form", " class=\"", " id='", " id=", "<class ", " ", "😀",
+      // Letters that fold to s and k where a pattern ignores case, as the patterns did.
+      "<ſcript", "claſſ", "<K "];
+    const challenges = ["<script>window._cf_chl_opt = {}</script>", "<SCRIPT type='x'>a</script><script>_cf_chl_opt",
+      "<script </script >_cf_chl_opt", "<script><script>_cf_chl_opt", "<div class=\"cf-chl-container\"></div>",
+      "<a id = 'x cf-chl-y'>", "<x-y\ndata-id=cf-chl-", "<div a='>' class=\"a\" id=cf-chl-1>", "<a <b class= \"cf-chl-",
+      "<class =cf-chl-", "<div <data-id =\"cf-chl-x\"", "<form id=\"challenge-form\" action=\"/\" method=\"POST\"></form>",
+      "<FORM x=y ID = 'challenge-form'>", "<form\nid=challenge-form>", "<form <form id= \"challenge-form\"",
+      "<form data-id=challenge-form."];
+    const options = { page: "" };
+    const data = fixture(options);
+    let blocked = 0;
+    for (let run = 0; run < 3_000; run += 1) {
+      let html = "";
+      if (run % 2 === 0) {
+        const count = 1 + Math.floor(random() * 18);
+        for (let index = 0; index < count; index += 1) html += pick(pieces);
+      } else {
+        html = pick(challenges);
+        for (let edits = 1 + Math.floor(random() * 4); edits > 0; edits -= 1) {
+          const at = Math.floor(random() * (html.length + 1));
+          const kind = random();
+          html = kind < 0.5 ? html.slice(0, at) + pick(pieces) + html.slice(at)
+            : kind < 0.8 ? html.slice(0, at) + html.slice(at + 1 + Math.floor(random() * 4))
+              : html.slice(0, at) + pick(challenges) + html.slice(at);
+        }
+      }
+      options.page = html;
+      const was = formerly(html);
+      if (was) blocked += 1;
+      expect((await readForumPage(data.url, data.runtime)).access_state === "blocked", JSON.stringify(html)).toBe(was);
+    }
+    // Both answers came up often enough to compare.
+    expect(blocked).toBeGreaterThan(600);
+    expect(blocked).toBeLessThan(2_400);
+  }, 120_000);
+
+  // Pull request 441 listed the pattern that finds a page's tags (a, link and meta, with their quoted values) as slow
+  // and queued. Timed on 13 Nov 2026 on its own: 11 seconds on 128 KB of "<a " closed by nothing but one open quote,
+  // four times that for twice the size. In a nav the links are read (a pager stands there) and the text extractor drops
+  // the element in one step; in a script the extractor's meta tags are looked for before the script is dropped.
+  it.each([
+    ["links with no end and one open quote, in a nav", (length: number) =>
+      `<html><body><p>${text}</p><nav>${filled("<a href=/thread ", length)}"</nav></body></html>`],
+    ["link tags with no end and one open quote, in a nav", (length: number) =>
+      `<html><body><p>${text}</p><nav>${filled("<link rel=next  ", length)}'</nav></body></html>`],
+    ["meta tags with no end and one open quote, in a script", (length: number) =>
+      `<html><body><p>${text}</p><script>${filled("<meta name=key  ", length)}"</script></body></html>`]
+  ])("finds a page's tags in time linear in the page's size: %s", async (label, pageOf) => {
+    await withinTime(label, pageOf);
+  }, 120_000);
+
+  // The same tags as the pattern found (main at e24f6d3b), in the same order, on generated markup: tags that end, tags
+  // that never do, quoted values that hold a ">" or the other quote, and quotes left open.
+  it("finds the tags the pattern it replaces found, on generated markup", () => {
+    let state = 441;
+    const random = (): number => {
+      state = (state + 0x6d2b79f5) >>> 0;
+      let mixed = state;
+      mixed = Math.imul(mixed ^ (mixed >>> 15), mixed | 1);
+      mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), mixed | 61);
+      return ((mixed ^ (mixed >>> 14)) >>> 0) / 4_294_967_296;
+    };
+    const pieces = ["<a", "<A", "<a ", "<link", "<LINK ", "<meta", "<META ", "<abbr", "<a-b", "<lin\u212a", "<linked", "<", ">", ">",
+      ">", "\"", "\"", "'", "'", " ", "\n", "x", "href=", "rel=next", "=", "/", "</a>", "<a>", "<link>", "<meta>",
+      "\ud83d\ude00", "&quot;", "a", "link", "meta", "<b>", "\u00a0"];
+    let found = 0;
+    for (let run = 0; run < 20_000; run += 1) {
+      let html = "";
+      for (let count = 1 + Math.floor(random() * 30); count > 0; count -= 1) {
+        html += pieces[Math.floor(random() * pieces.length)]!;
+      }
+      for (const names of ["a|link", "a", "meta"]) {
+        const formerly = [...html.matchAll(new RegExp(`<(?:${names})\\b(?:[^>"']|"[^"]*"|'[^']*')*>`, "giu"))]
+          .map((match) => match[0]);
+        expect([...startTags(html, names)], `${names} in ${JSON.stringify(html)}`).toEqual(formerly);
+        found += formerly.length;
+      }
+    }
+    expect(found).toBeGreaterThan(20_000);
   });
 });

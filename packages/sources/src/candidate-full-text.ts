@@ -223,9 +223,9 @@ function superscript(element: string, inner: string): string {
  * No script execution, subresource requests, cookies, or browser rendering. */
 export function extractHtmlText(html: string): { text: string; title?: string; doi?: string } {
   const meta = new Map<string, string>();
-  for (const tag of html.matchAll(/<meta\b(?:[^>"']|"[^"]*"|'[^']*')*>/giu)) {
+  for (const tag of startTags(html, "meta")) {
     const attributes = new Map<string, string>();
-    for (const attribute of tag[0].matchAll(/([\w:-]+)\s*=\s*(["'])(.*?)\2/gsu)) {
+    for (const attribute of tag.matchAll(/([\w:-]+)\s*=\s*(["'])(.*?)\2/gsu)) {
       attributes.set(attribute[1]!.toLowerCase(), attribute[3]!);
     }
     const name = attributes.get("name")?.toLowerCase();
@@ -243,6 +243,53 @@ export function extractHtmlText(html: string): { text: string; title?: string; d
   return { text: decodeEntities(withoutTags(laidOut, " ")).replace(/[ \t\f\v]+/gu, " ").replace(/\s*\n\s*/gu, "\n").trim(),
     ...(title === undefined ? {} : { title: decodeEntities(title).replace(/\s+/gu, " ").trim() }),
     ...(meta.get("citation_doi") === undefined ? {} : { doi: decodeEntities(meta.get("citation_doi")!) }) };
+}
+/**
+ * The start tags of the named elements in a page's markup, each from its "<" to the ">" that ends it, a ">" inside a
+ * quoted value aside: what /<(?:names)\b(?:[^>"']|"[^"]*"|'[^']*')*>/giu matches, in the same order, with `names` the
+ * pattern's own alternation of names, such as "a|link".
+ *
+ * That pattern started over at every "<name" of a page whose tags never end ("<a <a <a" up to one open quote, say) and
+ * read on to the page's end each time, so its time grew with the square of the page's size: 11 seconds on 128 KB,
+ * timed on its own on 13 Nov 2026 (pull request 441 had listed it as known and queued). Here the page's ">" and quotes
+ * are listed once, and where a tag read on from each of them ends is settled once, from the last back.
+ */
+export function* startTags(html: string, names: string): Generator<string> {
+  const open = new RegExp(`<(?:${names})\\b`, "giu");
+  let tag = open.exec(html);
+  if (tag === null) return;
+  // Every ">" and quote from the first such name on: where a tag may end, and where a quoted value opens or closes.
+  const marks: number[] = [];
+  for (let at = tag.index; at < html.length; at += 1) {
+    const code = html.charCodeAt(at);
+    if (code === 62 || code === 34 || code === 39) marks.push(at);
+  }
+  // For each mark, the ">" that ends a tag read on from it outside any quoted value, or -1 when a quote stays open or
+  // the text runs out first. A quote's is that of the mark after the quote that closes it; past the last mark, none.
+  const ends = new Int32Array(marks.length + 1).fill(-1);
+  let double = -1;
+  let single = -1;
+  for (let mark = marks.length - 1; mark >= 0; mark -= 1) {
+    const code = html.charCodeAt(marks[mark]!);
+    if (code === 62) ends[mark] = marks[mark]!;
+    else if (code === 34) {
+      ends[mark] = double < 0 ? -1 : ends[double + 1]!;
+      double = mark;
+    } else {
+      ends[mark] = single < 0 ? -1 : ends[single + 1]!;
+      single = mark;
+    }
+  }
+  let mark = 0;
+  for (; tag !== null; tag = open.exec(html)) {
+    const from = tag.index + tag[0].length;
+    while (mark < marks.length && marks[mark]! < from) mark += 1;
+    const end = ends[mark]!;
+    // A name whose tag never ends is no tag, and the next name is looked for after it, as the pattern did.
+    if (end < 0) continue;
+    yield html.slice(tag.index, end + 1);
+    open.lastIndex = end + 1;
+  }
 }
 /**
  * Every tag replaced (by nothing, or by a space between words), again until nothing changes, so split markup can't

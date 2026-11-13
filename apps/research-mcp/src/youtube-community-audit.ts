@@ -261,9 +261,11 @@ export async function auditYoutubeCommunity(
       video.manifest = commentData.data.manifest;
       video.corpus_sha256 = hashYoutubeCommentCorpus(commentData.data.comments);
       video.sample = {
-        mode: comments.length <= parsed.sample_comments_per_video
-          ? "all"
-          : "systematic_chronological",
+        // Says what was sent: the response budget can cut the sample below
+        // the requested size, and such a sample used to be labelled "all".
+        mode: sampled.length < comments.length
+          ? "systematic_chronological"
+          : "all",
         corpus_count: comments.length,
         sampled_count: sampled.length,
         comments: sampled
