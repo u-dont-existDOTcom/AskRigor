@@ -16,7 +16,7 @@ import { communityLeadVideo, leadKey, leadPhrase, readCommunityLeads } from "./c
 import { ABSENCE_SWEEP_RULES, nameFormInQuery, sameName } from "./absence-searches.js";
 import {
   answerReadingRule, DECLARABLE_WITHOUT_RECEIPT, declarableReading, deepestShown, identifierShown, judgeSourceReading,
-  LINKED_READINGS_SHOWN, linkedReadingCheckSchema, readingShown, receiptReadings, sourceReadingCheckSchema,
+  LINKED_READINGS_SHOWN, linkedReading, linkedReadingCheckSchema, readingShown, receiptReadings, sourceReadingCheckSchema,
   verifiedAnswerReading, type AnswerReading, type LinkedReadingCheck, type ShownReading, type SourceReadingCheck,
   type SourceReadingQuote
 } from "./source-reading.js";
@@ -3251,7 +3251,13 @@ export function finalizeResearch(
         addBlockingStep("read_depth", "answer_draft", joinRules(
           rule`source_reading gives ${source.id} the reading ${given} (${answerReadingRule(given)}), more than `,
           reading === undefined
-            ? rule`this call's receipts show: they show ${bar} (${answerReadingRule(bar)}). `
+            // Greptile's review of 12 Nov 2026: a lead that found an abstract or part of a text readable gave the AI
+            // none of it, so the receipts show no reading there, and the step says what the bar then is: the most an
+            // entry may say (declarableReading), not a reading they show.
+            ? readingShown(bar, shownSet)
+              ? rule`this call's receipts show: they show ${bar} (${answerReadingRule(bar)}). `
+              : joinRules(rule`this call's receipts show: they show no reading of it, only a full-text lead that `,
+                rule`found no more of it readable than ${bar} (${answerReadingRule(bar)}), the most an entry may say. `)
             : rule`this call's receipts show: this check verifies ${bar} (${answerReadingRule(bar)}). `,
           rule`Remove the source_reading entry claiming ${given} for ${source.id}, or change its reading to ${bar}, with `,
           "the answer's words saying so, in its language, copied into its quote",
@@ -3316,7 +3322,10 @@ export function finalizeResearch(
       const linkPages = linkedPapers.pages(linkIds);
       const names = [...linkIds, ...linkPages.keys()];
       if (names.some((name) => listed.has(name))) continue;
-      const deepest = deepestShown(receiptReadings(paperReceipts({ linkIds, linkPages }), checkedInAtlas(paper)));
+      // Greptile's review of 12 Nov 2026: a linked study a lead alone found partly readable is found, not read
+      // (linkedReading), where it used to get "abstract only" or "part of the text read".
+      const shown = receiptReadings(paperReceipts({ linkIds, linkPages }), checkedInAtlas(paper));
+      const deepest = deepestShown(shown);
       // A bare doi.org address whose DOI no receipt names may hold the text after it (a table's "|", an italic "_", a
       // possessive's "'s": the review of #422, fourth round), so it is never "not looked up": it gets the note instead.
       // A Markdown link's or an autolink's end is exact, and so is a PubMed, PubMed Central or Europe PMC address's,
@@ -3327,8 +3336,7 @@ export function finalizeResearch(
       }
       for (const name of names) listed.add(name);
       const name = linkedStudyName(label, paper);
-      linkedReadings.push({ source: paper, name, reading: deepest === undefined ? "not_looked_up"
-        : declarableReading(deepest) });
+      linkedReadings.push({ source: paper, name, reading: linkedReading(shown) });
       if (deepest === undefined) unlooked.push(name);
     }
     // The first thing to do is to look a study up (the review of #422, fourth round): a PubMed page of a study read by

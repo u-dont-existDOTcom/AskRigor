@@ -4,6 +4,9 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import {
+  availableOpenFullTextActionOutputSchema, openFullTextLeadActionOutputSchema
+} from "../apps/research-mcp/src/actions/open-full-text-route.js";
 import { FINAL_CHECK_PANEL_RENDER_SOURCE } from "../apps/research-mcp/src/final-check-panel.js";
 import {
   europePmcRecordGroups, readingSummarySentence, researchReadingSummary, type ReadingSummary
@@ -18,6 +21,7 @@ import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import {
   ANSWER_READING_LABELS, LINKED_READING_LABELS, linkedReadingGuidance, STUDY_LINK_GUIDANCE, STUDY_READING_DISCLOSURE
 } from "../apps/research-mcp/src/source-reading.js";
+import { fullTextCandidateSchema } from "../packages/sources/src/full-text-admission.js";
 import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
 // The owner, 6 Nov 2026: "make sure we get it working so it tells you to what extent it read the studies". Two ChatGPT
@@ -80,17 +84,95 @@ describe("the research-wide reading, counted exactly from the receipts", () => {
       sign("full_text_read", { doi: "10.1000/summary-full", content: "c".repeat(16) }),
       COHORT_RECORD, BARE_RECORD,
       sign("doi_resolution", { doi: "10.1000/summary-registered", url: "https://journal.example.org/a" }),
+      // A lead was not read, whatever state it signs (Greptile's review of 12 Nov 2026, below), and a route failure
+      // read nothing.
       sign("full_text_lead", { doi: "10.1000/summary-part", state: "PARTIAL_TEXT_READABLE" }),
       sign("full_text_lead", { doi: "10.1000/summary-abstract", state: "ABSTRACT_ONLY" }),
-      // A paywalled lead was not read, and a route failure read nothing.
       sign("full_text_lead", { doi: "10.1000/summary-paywall", state: "PAYWALL_OR_LOGIN_REQUIRED" }),
       sign("full_text_route_failure", { doi: "10.1000/summary-failed", routes: ["europe_pmc"], http: ["500"] })
     );
     expect(counted).toEqual({
-      audited: 1, audited_from_ai_copies: 0, full_text: 1, full_text_from_ai_copies: 0, part_text: 1,
-      abstract_only: 2, record_only: 2, listed_not_read: 0,
-      sentence: "AskRigor read 1 study in full and checked its methods, 1 more in full, 1 more only in part, 2 more " +
-        "only as abstracts, and 2 more only by their titles and records."
+      audited: 1, audited_from_ai_copies: 0, full_text: 1, full_text_from_ai_copies: 0, part_text: 0,
+      abstract_only: 1, record_only: 2, listed_not_read: 0,
+      sentence: "AskRigor read 1 study in full and checked its methods, 1 more in full, 1 more only as an abstract, " +
+        "and 2 more only by their titles and records."
+    });
+  });
+
+  // Greptile's review of 12 Nov 2026: one lead receipt with a DOI and the state ABSTRACT_ONLY gave "AskRigor read 1
+  // study only as an abstract.", and one with PARTIAL_TEXT_READABLE "AskRigor read 1 study only in part." A lead's
+  // result tells the AI where a copy is and what state it is in, and gives it none of the copy's text and no handle to
+  // read it, so its receipt shows what was available at a source, not what was read.
+  describe("a full-text lead, which gives the AI none of the paper's text", () => {
+    const abstractLead = sign("full_text_lead", { doi: COHORT, state: "ABSTRACT_ONLY" });
+    const partLead = sign("full_text_lead", { doi: COHORT, pmid: COHORT_PMID, state: "PARTIAL_TEXT_READABLE" });
+    const nothingRead = { audited: 0, audited_from_ai_copies: 0, full_text: 0, full_text_from_ai_copies: 0,
+      part_text: 0, abstract_only: 0, record_only: 0 };
+
+    it("is not counted as read as an abstract when only an abstract was available at the source", () => {
+      expect(summary(abstractLead)).toEqual({ ...nothingRead, listed_not_read: 0, sentence: "AskRigor read no studies." });
+      // By its PMID or its PMC copy alone too, as acquire_open_full_text takes them.
+      expect(summary(sign("full_text_lead", { pmid: COHORT_PMID, state: "ABSTRACT_ONLY" }))?.sentence)
+        .toBe("AskRigor read no studies.");
+      expect(summary(sign("full_text_lead", { pmcid: "PMC2718281", state: "ABSTRACT_ONLY" }))?.sentence)
+        .toBe("AskRigor read no studies.");
+    });
+
+    it("is not counted as read in part when only part of the text was available at the source", () => {
+      expect(summary(partLead)).toEqual({ ...nothingRead, listed_not_read: 0, sentence: "AskRigor read no studies." });
+      // No receipt signs that part of a text was given to the AI, so no study counts as read in part.
+      expect(summary(AUDIT, COHORT_RECORD, partLead, abstractLead)).toMatchObject({ audited: 1, part_text: 0 });
+    });
+
+    it("leaves its study among the records a search listed and AskRigor didn't read", () => {
+      const listed = search("europepmc", [COHORT, COHORT_PMID, "11235813"], { rg: ["0.1", "2"] });
+      for (const lead of [abstractLead, partLead]) {
+        expect(summary(listed, lead)).toEqual({ ...nothingRead, listed_not_read: 2,
+          sentence: "AskRigor read no studies; its searches listed 2 records it didn't read." });
+      }
+      expect(summary(AUDIT, search("pubmed", ["31415926", COHORT_PMID]), partLead)?.sentence).toBe("AskRigor read 1 " +
+        "study in full and checked its methods; its searches listed 1 other record it didn't read.");
+    });
+
+    // No lead's result gives the AI the abstract or the readable part, and no claim of its receipt says it did, so
+    // there is no such lead to keep counting. What a tool did give the AI counts as it did before: the abstract a
+    // PubMed record returned, and a text read to its end after an earlier attempt left only a lead.
+    it("keeps the count of an abstract or a text a tool did give the AI, with a lead beside it", () => {
+      expect(summary(COHORT_RECORD, abstractLead)).toEqual({ ...nothingRead, abstract_only: 1, listed_not_read: 0,
+        sentence: "AskRigor read 1 study only as an abstract." });
+      expect(summary(partLead, sign("full_text_read", { doi: COHORT, content: "d".repeat(16) }))?.sentence)
+        .toBe("AskRigor read 1 study in full.");
+      expect(summary(AUDIT, sign("full_text_lead", { doi: TRIAL, state: "ABSTRACT_ONLY" }))?.sentence)
+        .toBe("AskRigor read 1 study in full and checked its methods.");
+    });
+
+    it("counts the study no deeper than its other receipts show it read", () => {
+      // The record's abstract is the deepest reading shown: a copy readable in part at a source adds nothing to it.
+      expect(summary(COHORT_RECORD, partLead)).toEqual({ ...nothingRead, abstract_only: 1, listed_not_read: 0,
+        sentence: "AskRigor read 1 study only as an abstract." });
+      expect(summary(sign("doi_resolution", { doi: COHORT, url: "https://journal.example.org/c" }), abstractLead))
+        .toEqual({ ...nothingRead, record_only: 1, listed_not_read: 0,
+          sentence: "AskRigor read 1 study only by its title and record." });
+      expect(summary(BARE_RECORD, sign("full_text_lead", { pmid: RECORD_PMID, state: "PARTIAL_TEXT_READABLE" }))?.sentence)
+        .toBe("AskRigor read 1 study only by its title and record.");
+    });
+
+    // What the count rests on: the lead's result has no place for the paper's text, or for a handle to read it.
+    it("has no text and no reading handle in its result", () => {
+      const lead = Object.keys(openFullTextLeadActionOutputSchema.shape);
+      expect(lead).toEqual(expect.arrayContaining(["status", "acquisition_state", "candidates", "access_boundary",
+        "unseen_content_used_as_evidence"]));
+      for (const field of ["blocks", "source", "coverage_receipt"]) {
+        expect(Object.keys(availableOpenFullTextActionOutputSchema.shape)).toContain(field);
+        expect(lead).not.toContain(field);
+      }
+      expect(Object.keys(fullTextCandidateSchema.shape)).not.toContain("text");
+      // A lead with the text in it is refused: its result cannot carry any.
+      const result = { status: "possibly_useful_lead", discovery_attempts: [], acquisition_state: "ABSTRACT_ONLY",
+        access_boundary: "Synthetic boundary.", unseen_content_used_as_evidence: false };
+      expect(openFullTextLeadActionOutputSchema.safeParse(result).success).toBe(true);
+      expect(openFullTextLeadActionOutputSchema.safeParse({ ...result, blocks: [{ text: "Synthetic abstract." }] }).success)
+        .toBe(false);
     });
   });
 
@@ -263,6 +345,23 @@ describe("the panel", () => {
     expect(render(none).children[1]?.tagName).not.toBe("p");
   });
 
+  // Greptile's review of 12 Nov 2026: with a lead as a key study's only receipt, the line read "AskRigor read 1 study
+  // only as an abstract." though the lead gave the AI no abstract. The answer's own "abstract only" still passes, as a
+  // read_depth no receipt can contradict; the line says only what AskRigor's receipts show read.
+  it("says AskRigor read no studies when a key study's only receipt is a lead that gave the AI none of its text", () => {
+    const lead = (state: string, depth: "abstract_only" | "partial_text") => check({
+      receipts: [sign("full_text_lead", { doi: TRIAL, state })],
+      key_sources: [{ id: TRIAL, status: "lead_only", read_depth: depth, answer_marker: "Trial" }],
+      answer_draft: draft(`[Trial](https://doi.org/${TRIAL}) (${ANSWER_READING_LABELS[depth]}) compared two routines.`),
+      later_inputs: { source_reading: [{ source: TRIAL, reading: depth, quote: ANSWER_READING_LABELS[depth] }] } });
+    for (const result of [lead("ABSTRACT_ONLY", "abstract_only"), lead("PARTIAL_TEXT_READABLE", "partial_text")]) {
+      expect(result.status).toBe("ready_with_limits");
+      expect(result.next_steps).toEqual([]);
+      expect(result.reading_summary).toMatchObject({ part_text: 0, abstract_only: 0, sentence: "AskRigor read no studies." });
+      expect(render(result).children[1]?.textContent).toBe("AskRigor read no studies.");
+    }
+  });
+
   it("lists the linked studies apart, under a passing check", () => {
     const passed = check({ receipts: [AUDIT, COHORT_RECORD],
       answer_draft: draft(STUDY, `[A cohort](https://pubmed.ncbi.nlm.nih.gov/${COHORT_PMID}/) and ` +
@@ -343,6 +442,70 @@ describe("through the tool", () => {
       expect(none.text).not.toContain(STUDY_READING_DISCLOSURE);
       expect(none.text).not.toContain(STUDY_LINK_GUIDANCE);
       expect(none.text).not.toContain("how much AskRigor read");
+    } finally { await client.close(); await server.close(); }
+  });
+
+  // Greptile's review of 12 Nov 2026, through the tools themselves. The copy passed for the paper holds its abstract and
+  // nothing more, or its methods and results without a discussion, so acquire_open_full_text returns a lead: where the
+  // copy is and its state, none of its text, no handle to read it, and a receipt signing the DOI and that state alone.
+  // The final check then counts no reading of it.
+  const sentences = (part: string) => Array.from({ length: 30 }, (_, n) => `Synthetic ${part} sentence ${n} describes ` +
+    "generated fixture participants and their generated routines.").join(" ");
+  it.each([
+    ["ABSTRACT_ONLY", "abstract_only", ""],
+    ["PARTIAL_TEXT_READABLE", "partial_text", `\nMethods\n${sentences("methods")}\nResults\n${sentences("results")}`]
+  ])("gets a lead with none of the copy's text from acquire_open_full_text (%s), and counts no reading for its receipt", async (state, completeness, body) => {
+    vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", SECRET);
+    vi.stubEnv("ASKRIGOR_FINDINGS_LIBRARY", "false");
+    const title = "A synthetic cohort of two daily routines";
+    const abstract = sentences("abstract");
+    // Europe PMC's record of the DOI, and Unpaywall's, which lists no open copy. Nothing else is fetched.
+    const hosts: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (request: string | URL | Request) => {
+      const url = new URL(request instanceof Request ? request.url : String(request));
+      hosts.push(url.hostname);
+      if (url.hostname === "www.ebi.ac.uk") {
+        return new Response(JSON.stringify({ version: "6.9", hitCount: 1,
+          request: { queryString: url.searchParams.get("query"), cursorMark: "*", pageSize: Number(url.searchParams.get("pageSize")) },
+          resultList: { result: [{ source: "MED", id: COHORT_PMID, pmid: COHORT_PMID, doi: COHORT, title, abstractText: abstract }] }
+        }), { status: 200 });
+      }
+      if (url.hostname === "api.unpaywall.org") {
+        return new Response(JSON.stringify({ doi: COHORT, title, is_oa: false, oa_status: "closed",
+          best_oa_location: null, oa_locations: [] }), { status: 200 });
+      }
+      return new Response("Synthetic fixture: no such page", { status: 404 });
+    }));
+    const server = createAskRigorServer("standard", { mcpSurface: "/mcp", researchAccessRequired: false, findingsLibrary: false });
+    const client = new Client({ name: "reading-summary-test", version: "1" });
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    try {
+      await server.connect(b); await client.connect(a);
+      const acquired = await client.callTool({ name: "acquire_open_full_text", arguments: {
+        doi: COHORT,
+        candidate_texts: [{ url: "https://journal.example.org/synthetic-cohort", retrieved_via: "client_search_index",
+          text: `${title}\nDOI ${COHORT}\nAbstract\n${abstract}${body}` }],
+        public_copy_search: { queries: [`"${COHORT}" full text`, `"${title}" pdf`] } } });
+      expect(acquired.isError).not.toBe(true);
+      const lead = acquired.structuredContent as Record<string, unknown>;
+      expect(lead).toMatchObject({ status: "possibly_useful_lead", acquisition_state: state,
+        unseen_content_used_as_evidence: false, public_copy_search: { status: "declared" },
+        candidates: [{ state, completeness, identity_verification: "doi_exact", retrieval_provider: "client_search_index" }] });
+      for (const field of ["blocks", "source", "coverage_receipt"]) expect(lead).not.toHaveProperty(field);
+      // Neither the result's fields nor its text hold a sentence of the copy.
+      expect(JSON.stringify(acquired)).not.toMatch(/Synthetic (?:abstract|methods|results) sentence/u);
+      const receipt = lead.research_receipt as string;
+      const signed = verifyResearchReceipt(receipt, { secret: SECRET });
+      expect(signed).toMatchObject({ ok: true, kind: "full_text_lead", claims: { doi: COHORT, state } });
+      expect(signed.ok && Object.keys(signed.claims).filter((key) => key !== "t").sort()).toEqual(["doi", "state"]);
+      const response = await client.callTool({ name: "finalize_research", arguments: input({ receipts: [AUDIT, receipt] }) });
+      expect(response.isError).not.toBe(true);
+      const output = response.structuredContent as FinalizeResearchOutput;
+      expect(output.reading_summary).toMatchObject({ audited: 1, part_text: 0, abstract_only: 0,
+        sentence: "AskRigor read 1 study in full and checked its methods." });
+      expect((response.content as Array<{ text: string }>)[0]!.text).toContain("so the reader sees how much AskRigor " +
+        "read: AskRigor read 1 study in full and checked its methods.\n");
+      expect([...new Set(hosts)].sort()).toEqual(["api.unpaywall.org", "www.ebi.ac.uk"]);
     } finally { await client.close(); await server.close(); }
   });
 });

@@ -10,7 +10,7 @@ import { z } from "zod";
  * A study is one by its identifiers as the receipts tie them: a PubMed record ties its PMID, DOI and PMC copy; a
  * full-text reading or audit ties the copy's identifiers; a Europe PMC search's record ties its own (the receipt's
  * record groups, rg, since 6 November 2026). Each study counts once, at the deepest reading its receipts show: its
- * methods audited, its full text read, part of it readable, its abstract, or its record alone. A study only a search
+ * methods audited, its full text read, part of it, its abstract, or its record alone. A study only a search
  * listed counts among the records listed and not read, and only when every search receipt names its records exactly: a
  * PubMed search's identifiers are its records' PMIDs, one each, and a Europe PMC search's records are grouped from
  * 6 November 2026 on; an older Europe PMC receipt that listed records leaves that count out, rather than estimate it.
@@ -19,6 +19,15 @@ import { z } from "zod";
  * its paper exactly. Every research receipt passed counts, earlier research in the same chat included. Exact, the same
  * in any language: identifiers are forms, not meanings. A paper listed under one identifier and read under another that
  * no receipt ties counts in both.
+ *
+ * A full-text lead is no reading (Greptile's review of 12 November 2026). Until then a lead whose copy held only an
+ * abstract, or only part of the text, counted its study as read that far, and one such receipt alone gave "AskRigor
+ * read 1 study only as an abstract." But a lead's result tells the AI where a copy is and what state it is in; it
+ * gives none of the copy's text and no handle to read it, and its receipt signs the identifiers asked for and that
+ * state alone. So it shows what was available at a source, not what was read, and its study counts by its other
+ * receipts: at the abstract a PubMed record returned, among the records a search listed, or not at all. No receipt
+ * shows part of a text read, so that count stays at none; a lead could count again only if its result returned the
+ * abstract or the readable part and its receipt signed that it did.
  */
 
 /** A verified research receipt, as the counts read it. */
@@ -107,12 +116,11 @@ export function researchReadingSummary(
       const id = groups.add(identifiers(claims, ["doi"]));
       if (id !== undefined) readings.push({ id, depth: "record", aiCopy: false });
     } else if (kind === "full_text_lead") {
-      // A lead's identifiers are those the AI asked for, which no copy confirmed, so they tie nothing: its reading goes
-      // to one of them. Only a copy whose abstract or part of whose text was readable was read at all.
-      const depth = claims.state === "ABSTRACT_ONLY" ? "abstract" as const
-        : claims.state === "PARTIAL_TEXT_READABLE" ? "part_text" as const : undefined;
-      const id = identifiers(claims, ["doi", "pmid", "pmcid"])[0];
-      if (depth !== undefined && id !== undefined) readings.push({ id: groups.add([id])!, depth, aiCopy: false });
+      // Greptile's review of 12 Nov 2026: a lead in the state ABSTRACT_ONLY counted here as an abstract read, and one in
+      // PARTIAL_TEXT_READABLE as part of the text read. Those states say how much of a copy was readable at a source;
+      // the lead's result gives the AI none of that text, and no claim of its receipt says it did. So a lead counts
+      // no reading, whatever state it signs, and adds no study: the identifiers it names are those the AI asked for.
+      continue;
     } else if (kind === "literature_search") {
       const records = searchRecords(claims, normalize);
       if (records === undefined) {

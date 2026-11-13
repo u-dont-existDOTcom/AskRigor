@@ -369,9 +369,14 @@ AskRigor; …", so the reader sees them even when the answer is reworded, and ap
 found in a search, not read); …". A receipt shows a reading when it shows that reading or a deeper one of the same text:
 an audit or a full reading (of AskRigor's copy or the AI's), a PubMed record (its abstract, unless the record had none,
 which its receipt now signs), a DOI's record, a search's listing, a full-text lead, by the state it signs, in the words
-the check's lead note gives it (a copy whose abstract alone was readable shows "only its abstract was readable", and so
-an abstract read; part of its text, "only part of its text was readable"; a paywall, "not read, its full text needs a
-login or a subscription"; and so on), or a full-text service failure; another source's description and another tool's
+the check's lead note gives it (a copy whose abstract alone was readable shows "only its abstract was readable"; part of
+its text, "only part of its text was readable"; a paywall, "not read, its full text needs a login or a subscription";
+and so on), or a full-text service failure. A lead shows no reading of the text (Greptile's review of 12 Nov 2026; until
+then a lead's readable abstract counted as an abstract read): its result tells the AI where a copy is and what state it
+is in, and gives none of the copy's text and no handle to read it. So an abstract or a part the answer says it read, on
+a lead alone, is listed apart as the AI's own account, with the lead's words beside it ("… abstract only (AskRigor's
+receipts show: only its abstract was readable)"), unless another receipt shows it, as a PubMed record's abstract does;
+what an entry may say without being held back is as it was. Another source's description and another tool's
 reading are never shown by a receipt. Before
 any check, the tools that establish a reading name its words and its name in their results, with where to give them: a
 signed `fetch_pubmed_record` ("abstract only", or "only its title and record read" for a record without an abstract,
@@ -438,9 +443,11 @@ identifiers and links are forms, not meanings.
   AskRigor can't match to a study exactly, so link each study by its doi.org or PubMed address in a Markdown link, for
   its reading to show. Any other link gets nothing. None of it is a step.
 - One research-wide sentence (`reading_summary`), with exact counts of distinct studies: methods audited (a study or
-  review audit), read in full (a reading to its end), part of the text (a lead whose copy was readable only in part),
-  and abstract or record only (a PubMed record, with its abstract or without one, a DOI's record, or a lead whose
-  abstract alone was readable); a count of copies the AI found is named within its own; and, only when every search
+  review audit), read in full (a reading to its end), and abstract or record only (a PubMed record, with its abstract or
+  without one, or a DOI's record). A full-text lead counts no reading, whatever state it signs, since its result gives
+  the AI none of the copy's text (Greptile's review of 12 Nov 2026: one lead whose copy held only an abstract gave
+  "AskRigor read 1 study only as an abstract."); its study counts by its other receipts, or not at all, and no receipt
+  shows part of a text read, so that count stays at none. A count of copies the AI found is named within its own; and, only when every search
   receipt names its records exactly, the records the searches listed that AskRigor didn't read. For example: "AskRigor
   read 3 studies in full and checked their methods, and 3 more only as abstracts; its searches listed 41 other records
   it didn't read." Those are named records, not studies (the review of #422): a search lists books, theses and patents
