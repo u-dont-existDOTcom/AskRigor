@@ -14,6 +14,11 @@ import {
 } from "../apps/research-mcp/src/index.js";
 import { validateActionRoutes } from
   "../apps/research-mcp/src/actions/router.js";
+import {
+  createYoutubeActionContinuationHandleStore,
+  type YoutubeActionContinuationHandleStore
+} from "../apps/research-mcp/src/actions/youtube-continuation-handle.js";
+import { withLaterInputs } from "../apps/research-mcp/src/later-inputs.js";
 import { youtubeVideoCommunityAuditOutputSchema } from
   "../apps/research-mcp/src/youtube-video-community-audit.js";
 import { youtubeVideoCommunityAuditInputSchema } from
@@ -366,6 +371,112 @@ describe("read-only research Action routes", () => {
     release();
     await expect(claimed).resolves.toMatchObject({ status: 200 });
     expect(calls).toBe(2);
+  });
+
+  // Greptile's review of 12 Nov 2026 (P1), reproduced by an independent audit: a request carrying a handle claims it, and
+  // when the operation then refused the request as invalid input, before running, the route answered 422 with the handle
+  // still claimed. The corrected retry was told its handle was invalid or expired, and the audit's chain was lost.
+  it("releases a claimed handle when the operation refuses the request as invalid input, so the corrected retry continues", async () => {
+    const statelessToken = `payload.${"s".repeat(43)}`;
+    const receivedInputs: Record<string, unknown>[] = [];
+    const operation = registeredYoutubeAuditOperation(async (input) => {
+      receivedInputs.push(input);
+      return receivedInputs.length === 1 ? youtubeAuditContinuationOutput(statelessToken) : oversizedYoutubeAuditOutput();
+    });
+    const store = recordingHandleStore();
+    const [route] = createResearchActionRoutes({ operations: [operation], youtubeContinuationHandles: store.handles });
+    const first = await route!.handle(context({ video_id_or_url: "XpZHKGGCK-o", analysis_limit: 100 }));
+    const handle = (first.body as { continuation_token: string }).continuation_token;
+    expect(handle).toMatch(/^arh1_[A-Za-z0-9_-]{32}$/u);
+
+    // The route's own schema lets this through, as it does for every registered operation; the operation refuses it
+    // (an analysis limit over its maximum) before it runs.
+    await expect(route!.handle(context({ continuation_token: handle, analysis_limit: 1_000 }))).resolves.toEqual({
+      status: 422,
+      body: { error: { code: "action_input_invalid", retryable: false } }
+    });
+    expect(receivedInputs).toHaveLength(1);
+
+    await expect(route!.handle(context({ continuation_token: handle }))).resolves.toMatchObject({
+      status: 200,
+      body: { receipt: { synthesis_lock: "pass" } }
+    });
+    expect(receivedInputs[1]).toEqual({ continuation_token: statelessToken });
+    // Released by the store's own rollback, once; consumed once the operation has run with it to its end.
+    expect(store.calls).toEqual(["issue", "claim", "rollback", "claim", "commit"]);
+    await expect(route!.handle(context({ continuation_token: handle }))).resolves.toMatchObject({
+      status: 422,
+      body: { error: { code: "youtube_action_continuation_invalid_or_expired" } }
+    });
+    expect(receivedInputs).toHaveLength(2);
+  });
+
+  it("consumes a claimed handle once the operation has run with it to a next segment", async () => {
+    const tokens = [`first.${"s".repeat(43)}`, `second.${"s".repeat(43)}`];
+    const receivedInputs: Record<string, unknown>[] = [];
+    const operation = registeredYoutubeAuditOperation(async (input) => {
+      receivedInputs.push(input);
+      return receivedInputs.length <= 2
+        ? youtubeAuditContinuationOutput(tokens[receivedInputs.length - 1]!)
+        : oversizedYoutubeAuditOutput();
+    });
+    const store = recordingHandleStore();
+    const [route] = createResearchActionRoutes({ operations: [operation], youtubeContinuationHandles: store.handles });
+    const first = await route!.handle(context({ video_id_or_url: "XpZHKGGCK-o", analysis_limit: 100 }));
+    const firstHandle = (first.body as { continuation_token: string }).continuation_token;
+
+    const second = await route!.handle(context({ continuation_token: firstHandle }));
+    const secondHandle = (second.body as { continuation_token: string }).continuation_token;
+    expect(second.status).toBe(200);
+    expect(secondHandle).toMatch(/^arh1_[A-Za-z0-9_-]{32}$/u);
+    expect(secondHandle).not.toBe(firstHandle);
+    // The successor is issued, then the handle that reached it is committed: never rolled back, never usable again.
+    expect(store.calls).toEqual(["issue", "claim", "issue", "commit"]);
+    await expect(route!.handle(context({ continuation_token: firstHandle }))).resolves.toMatchObject({
+      status: 422,
+      body: { error: { code: "youtube_action_continuation_invalid_or_expired" } }
+    });
+    await expect(route!.handle(context({ continuation_token: secondHandle }))).resolves.toMatchObject({
+      status: 200,
+      body: { receipt: { synthesis_lock: "pass" } }
+    });
+    expect(receivedInputs).toEqual([
+      { video_id_or_url: "XpZHKGGCK-o", analysis_limit: 100 },
+      { continuation_token: tokens[0] },
+      { continuation_token: tokens[1] }
+    ]);
+  });
+
+  // The handle's design (docs/superpowers/specs/2026-08-16-youtube-action-continuation-handle-design.md): a claim is
+  // "rolled back after an exception", so a failed call leaves the current handle usable. The error itself passes on, and
+  // the HTTP layer answers it as 500 action_internal_error.
+  it("rolls a claimed handle back when an error is thrown after the claim, and passes the error on", async () => {
+    const statelessToken = `payload.${"s".repeat(43)}`;
+    let calls = 0;
+    const operation = registeredYoutubeAuditOperation(async (input) => {
+      calls += 1;
+      if (calls === 1) return youtubeAuditContinuationOutput(statelessToken);
+      expect(input).toEqual({ continuation_token: statelessToken });
+      // The operation throws; then it answers something that is no audit, which the route refuses with an error.
+      if (calls === 2) throw new Error("synthetic provider failure");
+      return calls === 3 ? { not: "an audit" } : oversizedYoutubeAuditOutput();
+    });
+    const store = recordingHandleStore();
+    const [route] = createResearchActionRoutes({ operations: [operation], youtubeContinuationHandles: store.handles });
+    const first = await route!.handle(context({ video_id_or_url: "XpZHKGGCK-o", analysis_limit: 100 }));
+    const handle = (first.body as { continuation_token: string }).continuation_token;
+
+    await expect(route!.handle(context({ continuation_token: handle }))).rejects.toThrow("synthetic provider failure");
+    expect(store.calls).toEqual(["issue", "claim", "rollback"]);
+    await expect(route!.handle(context({ continuation_token: handle })))
+      .rejects.toThrow("Research operation returned invalid structured output");
+    expect(store.calls).toEqual(["issue", "claim", "rollback", "claim", "rollback"]);
+    await expect(route!.handle(context({ continuation_token: handle }))).resolves.toMatchObject({
+      status: 200,
+      body: { receipt: { synthesis_lock: "pass" } }
+    });
+    expect(store.calls).toEqual(["issue", "claim", "rollback", "claim", "rollback", "claim", "commit"]);
+    expect(calls).toBe(4);
   });
 
   it("fails closed with a stable 422 when an Action handle is unavailable", async () => {
@@ -736,6 +847,34 @@ function youtubeAuditOperation(
         content: [{ type: "text", text: "YouTube audit fixture" }],
         structuredContent: await execute(input)
       };
+    }
+  };
+}
+
+/**
+ * The audit as register-tools.ts registers every operation: a permissive input schema, and the later-inputs wrapper, which
+ * answers a request its runtime schema refuses with an invalid_input result, before the operation runs.
+ */
+function registeredYoutubeAuditOperation(
+  execute: (input: Record<string, unknown>) => Promise<unknown>
+): ResearchOperation {
+  const operation = youtubeAuditOperation(execute);
+  const registered = withLaterInputs(operation.name, youtubeVideoCommunityAuditInputSchema, operation.execute);
+  return { ...operation, inputSchema: registered.inputSchema, execute: registered.execute };
+}
+
+/** A handle store that records, in order, what the route asked of it. */
+function recordingHandleStore(): { handles: YoutubeActionContinuationHandleStore; calls: string[] } {
+  const store = createYoutubeActionContinuationHandleStore();
+  const calls: string[] = [];
+  return {
+    calls,
+    handles: {
+      issue(token) { calls.push("issue"); return store.issue(token); },
+      claim(handle) { calls.push("claim"); return store.claim(handle); },
+      commit(handle) { calls.push("commit"); store.commit(handle); },
+      rollback(handle) { calls.push("rollback"); store.rollback(handle); },
+      revoke(handle) { calls.push("revoke"); store.revoke(handle); }
     }
   };
 }

@@ -167,6 +167,20 @@ describe("finalize_research compares the answer with the plain answer registered
         "with low levels only). Name in its sources what shows this change, give the sentence that states what the " +
         "research found, or give it as not_checked, and check the answer again."
     ]);
+    // 13 Nov 2026 (Greptile's review of 12 Nov): a pass after a pass in the same turn is the turn's last check, and the
+    // judge can raise this doubt there for the first time. It asks for the comparison's declarations, an input, so it
+    // is for a later answer; it never asks for the check again.
+    const again = assertNextStepsContract(finalizeResearch({ ...base(), round_token: judged.round_token }, {
+      secret: SECRET, plainAnswer: { note: true, account: ACCOUNT },
+      meaningJudgment: { status: "ran", youtube: [], limits: [], standalone: [], sourceLines: [],
+        comparison: [{ item: 1, backed: false, why: "The trial studied people with low levels only." }] }
+    }));
+    expect(again).toMatchObject({ status: result.status, turn_already_passed: true, plain_answer_note: NOTE });
+    expect((again.notes ?? []).filter((note) => note.startsWith("The meaning judge"))).toEqual([
+      "The meaning judge doubts that plain_answer_comparison[0] is backed by what it names (The trial studied people " +
+        "with low levels only). Name in its sources what shows this change, give the sentence that states what the " +
+        "research found, or give it as not_checked, for a later answer, with no further check in this turn."
+    ]);
   });
 
   it("quotes claims in any language exactly as the comparison copies them", () => {
@@ -389,7 +403,9 @@ describe("finalize_research compares the answer with the plain answer registered
     expect(withinTurn.carried).toMatchObject({ turn: result.carried!.turn, first_turn: true });
     // The same notes, the problem among them, come back within the turn only as their count (5 Nov 2026).
     expect(advisoryNotes(withinTurn)).not.toContain(problem);
-    expect(advisoryNotes(withinTurn)).toContain(repeatedNotesLine(advisoryNotes(result).length));
+    // That check is the turn's repeat pass, so the line also says none of them asks for another check (13 Nov 2026).
+    expect(withinTurn.turn_already_passed).toBe(true);
+    expect(advisoryNotes(withinTurn)).toContain(repeatedNotesLine(advisoryNotes(result).length, true));
     // A new turn passes the earlier state's token without the round token: that claim may have been shown.
     const later = check({ ...correction, carried_state: result.carry_forward });
     expect(later.status).toBe("ready_with_limits");
@@ -437,6 +453,28 @@ describe("finalize_research compares the answer with the plain answer registered
         expect(result, status).toMatchObject({ status: "ready_with_limits", next_steps: [], plain_answer: { status, reason } });
         expect(result).not.toHaveProperty("plain_answer_note");
       }
+    }
+    // 13 Nov 2026 (Greptile's review of 12 Nov): a pass after a pass in the same turn is the turn's last check, and its
+    // result says not to call finalize_research again. There the reason says why there is no note and what to do for a
+    // later question, without the call that would restore the note in this turn; the next turn's first check gives it.
+    const lastCheck: Array<[string[], string, string]> = [
+      [[audit()], "no_receipt", "No plain answer registered with manage_research_access before this research was " +
+        `passed in receipts, so the answer ends without the note comparing it with one.${later}`],
+      [[audit(), plainReceipt(2_500)], "after_research", "The plain answer passed was registered after a research " +
+        "receipt passed here was issued, so it cannot show what a quick answer would have said, and the answer ends " +
+        "without the note. For a later question, register its plain answer before researching it, and pass only " +
+        "receipts issued after it."],
+      [[plainReceipt(1_000, CLAIMS, "Another question"), audit()], "other_target", "The plain answer passed was " +
+        `registered for another research target, so the answer ends without the note comparing it with this research.${later}`],
+      [[plainReceipt(1_000, CLAIMS, TARGET, plainAnswerAccountBinding(SECRET, "b".repeat(64))), audit()], "other_account",
+        `The plain answer passed was registered by another account, so the answer ends without the note comparing it with one.${later}`],
+    ];
+    for (const [receipts, status, reason] of lastCheck) {
+      const first = check({ receipts });
+      const again = check({ receipts, round_token: first.round_token, carried_state: first.carry_forward });
+      expect(again, status).toMatchObject({ status: "ready_with_limits", turn_already_passed: true,
+        plain_answer: { status, reason } });
+      expect(again.plain_answer!.reason).not.toMatch(/call again|restore the note|pass its research_receipt/u);
     }
   });
 
@@ -703,6 +741,15 @@ describe("manage_research_access and finalize_research through the connector (ow
     expect(failed.structuredContent).not.toHaveProperty("plain_answer_note");
     expect(text(failed)).toContain("Copy the original research_receipt from manage_research_access exactly into receipts to restore the note");
     expect(text(failed)).not.toContain(copied);
+    // After a repeat pass, the turn's last check, the same receipt is still said not to verify, without the call that
+    // would restore the note in this turn (13 Nov 2026).
+    const failedState = failed.structuredContent as { round_token: string; carry_forward: string };
+    const failedAgain = await finalize({ ...request([copied, laterAudit()]), round_token: failedState.round_token,
+      carried_state: failedState.carry_forward }, subject);
+    expect(failedAgain.structuredContent).toMatchObject({ status: "ready_with_limits", turn_already_passed: true,
+      plain_answer: { status: "no_receipt", reason: "The receipt marked plain_answer did not verify, so the answer " +
+        "ends without the note comparing it with the quick answer." } });
+    expect(text(failedAgain)).not.toContain("to restore the note");
     const omitted = await finalize(request([laterAudit()]), subject);
     expect(text(omitted)).toContain("If its receipt was omitted or failed to verify");
     expect(text(omitted)).toContain("exactly into receipts to restore the note");

@@ -94,7 +94,8 @@ export const PLAN_TASK_KINDS = ["study_search", "abstract_screen", "full_text", 
 export type PlanTaskKind = (typeof PLAN_TASK_KINDS)[number];
 export const COULD_CHANGE = ["conclusion", "confidence", "detail"] as const;
 export const RESEARCH_LOOPS = ["people_to_studies", "studies_to_people"] as const;
-export const PLAN_LIMITS = Object.freeze({ tasks: 12, task: 200, sources: 50, minutes: 240, provisional: 1_500 });
+export const PLAN_LIMITS = Object.freeze({ tasks: 12, task: 200, sources: 50, minutes: 240, provisional: 1_500,
+  choice: 300 });
 
 const minutesSchema = z.number().min(0).max(PLAN_LIMITS.minutes);
 
@@ -128,6 +129,13 @@ export const researchMenuSchema = z.object({
     .describe("From the screen: true when the person's own choices, such as which tasks, how deep, or which reading " +
       "or form they mean, could make the research more useful to them, as they usually can; false only when the " +
       "question is precise enough that they could not. Left out, it counts as true."),
+  steering_choice: z.string().trim().min(1).max(PLAN_LIMITS.choice).optional()
+    .describe("The one question you would ask this person before researching, because their answer could change " +
+      "what the research checks (which reading of the question they mean, what is to be compared with what, their " +
+      "own situation or what they have tried, the form, dose or route, the outcome that matters most to them), as " +
+      "one sentence in their language; or the word none when you can name no such question because the question " +
+      "itself fixes exactly what to look up. Given, it decides in place of steering_could_help: a question counts " +
+      "as true, the word none as false."),
   tasks: z.array(planTaskSchema).min(1).max(PLAN_LIMITS.tasks)
     .describe("The next tasks the screen found, in the order you would do them."),
   allocation: z.array(z.object({
@@ -137,8 +145,8 @@ export const researchMenuSchema = z.object({
     .describe("The person's own allocation, by task number and minutes, once they gave one; leave it out before."),
   person_answered: z.boolean().optional()
     .describe("With an allocation: true once the person has answered this menu in a message of their own, giving " +
-      "the allocation or leaving it to you (\"you decide\"); never true for an allocation you chose yourself. On an " +
-      "account that requires it, an allocation without it is not used."),
+      "the allocation or leaving it to you (\"you decide\"); never true for an allocation you chose yourself. An " +
+      "allocation without it is not used."),
   done: z.array(z.number().int().min(1).max(PLAN_LIMITS.tasks)).max(PLAN_LIMITS.tasks).optional()
     .describe("Task numbers already done, when you call again after a stop or a change of direction."),
   menu_digest: z.string().trim().min(1).max(100).optional()
@@ -175,11 +183,13 @@ export function menuDigest(tasks: readonly PlanTask[], secret: string): string {
  * optional field is left out, user_allocation and allocations are the allocation, and an allocation or done list
  * beside the menu goes inside it when it has none. Anything else is left out and named in the result. Nothing here
  * reads meaning: kind and could_change must still be one of their values, and each task must still be an object.
- * The words true and false given for steering_could_help are the values (the judgment refusal's example writes it as
- * <true|false>); any other word is still refused. So are they for person_answered (12 Nov 2026, round 3 of the owner's
- * ChatGPT runs; the "you decide" call writes it as <true|false>), which also goes inside the menu when given beside
- * it; that placeholder left as it is reads as not given, so the call copied unchanged is planned as unanswered, not
- * refused.
+ * The words true and false given for steering_could_help are the values (12 Nov 2026, owner answer 294c: the refusal
+ * of that day wrote its place as <true|false>); any other word is still refused. So are they for person_answered (12
+ * Nov 2026, round 3 of the owner's ChatGPT runs; the "you decide" call writes it as <true|false>), which also goes
+ * inside the menu when given beside it; that placeholder left as it is reads as not given, so the call copied
+ * unchanged is planned as unanswered, not refused. A steering_choice left as its placeholder reads as not given too
+ * (13 Nov 2026, owner answer 296b), exactly, so the call a dev account's refusal hands back, sent unchanged, is handed
+ * back again and not planned.
  */
 export interface MenuReading {
   /** The call's later_inputs as plan_research reads them: the menu alone, in its own names. */
@@ -259,6 +269,9 @@ function readMenu(menu: Record<string, unknown>, path: string, ignored: string[]
     const word = read.steering_could_help.trim().toLowerCase();
     if (word === "true" || word === "false") read.steering_could_help = word === "true";
   }
+  if (typeof read.steering_choice === "string" && read.steering_choice.trim() === MENU_PLACEHOLDERS.steering_choice) {
+    delete read.steering_choice;
+  }
   if (read.person_answered !== undefined) {
     const answered = readPersonAnswered(read.person_answered);
     if (answered === undefined) delete read.person_answered;
@@ -310,15 +323,15 @@ export function menuReadingSentence({ ignored, moved }: Pick<MenuReading, "ignor
 }
 
 /**
- * A menu's placeholders, each to be replaced by a value it lists: in a refusal's example, and person_answered's in the
- * "you decide" call an ask hands over where the account requires it.
+ * A menu's placeholders, each to be replaced by a value it lists or names: in a refusal's example, and
+ * person_answered's in the "you decide" call an ask hands over.
  */
 export const MENU_PLACEHOLDERS = Object.freeze({
   research_target: "<the research target, word for word as register_plain_answer's result quoted it>",
   task: "<what the task does, in the person's language>",
   kind: `<${PLAN_TASK_KINDS.join("|")}>`,
   could_change: `<${COULD_CHANGE.join("|")}>`,
-  steering_could_help: "<true|false>",
+  steering_choice: "<the one question you would ask this person, or none>",
   person_answered: "<true|false>",
 });
 
@@ -328,7 +341,8 @@ export const correctedMenuSchema = z.object({
     research_target: z.string(),
     plain_answer_receipt: z.string().optional(),
     provisional_answer: z.string().optional(),
-    steering_could_help: z.union([z.boolean(), z.literal(MENU_PLACEHOLDERS.steering_could_help)]).optional(),
+    steering_could_help: z.boolean().optional(),
+    steering_choice: z.string().optional(),
     tasks: z.array(z.object({
       task: z.string(),
       kind: z.string(),
@@ -348,12 +362,12 @@ export type CorrectedMenu = z.output<typeof correctedMenuSchema>;
 /**
  * A refused menu's example, built from the call's own: its research target and task texts (a task given as text is
  * that text), each with its kind and could_change when they are one of their values and a placeholder listing them
- * when not, and every other field the call gave that is valid as given. With judgment, a menu that gives no
- * steering_could_help gets its placeholder, for the refusal that asks for it (judgmentRefusalText). A person_answered
- * the call gave is kept as given, and one it did not give gets no placeholder: whether the person answered is never
- * something a refusal asks the AI to fill in.
+ * when not, and every other field the call gave that is valid as given. With choice, a menu that gives no
+ * steering_choice gets its placeholder, after a steering_could_help the call gave, for the refusal that asks for it
+ * (steeringChoiceRefusalText). A person_answered the call gave is kept as given, and one it did not give gets no
+ * placeholder: whether the person answered is never something a refusal asks the AI to fill in.
  */
-export function correctedMenu(source: unknown, judgment = false): CorrectedMenu {
+export function correctedMenu(source: unknown, choice = false): CorrectedMenu {
   const menu = isRecord(source) ? source : {};
   const valid = (shape: z.ZodRawShape, field: string, value: unknown) =>
     value !== undefined && z.safeParse(shape[field]!, value).success;
@@ -362,11 +376,12 @@ export function correctedMenu(source: unknown, judgment = false): CorrectedMenu 
   const example: CorrectedMenu["researchMenu"] = {
     research_target: valid(researchMenuSchema.shape, "research_target", target) ? (target as string).trim()
       : MENU_PLACEHOLDERS.research_target,
-    ...Object.fromEntries((["plain_answer_receipt", "provisional_answer", "steering_could_help"] as const)
+    ...Object.fromEntries((["plain_answer_receipt", "provisional_answer", "steering_could_help",
+      "steering_choice"] as const)
       .filter((field) => valid(researchMenuSchema.shape, field, menu[field]))
       .map((field) => [field, typeof menu[field] === "string" ? (menu[field] as string).trim() : menu[field]])),
-    ...(judgment && !valid(researchMenuSchema.shape, "steering_could_help", menu.steering_could_help)
-      ? { steering_could_help: MENU_PLACEHOLDERS.steering_could_help } : {}),
+    ...(choice && !valid(researchMenuSchema.shape, "steering_choice", menu.steering_choice)
+      ? { steering_choice: MENU_PLACEHOLDERS.steering_choice } : {}),
     tasks: tasks.map((task) => {
       const given = isRecord(task) ? task : {};
       const text = typeof task === "string" ? task : given.task;
@@ -416,28 +431,52 @@ export function menuRefusalText(problems: readonly string[], example: CorrectedM
  * Owner answer 294c (12 Nov 2026). The PITCH question, one figure from one named paper, got the menu instead of an
  * answer in both of the owner's ChatGPT runs, and the owner: "those choices should have not been given as choices
  * since they were required to answer the question". In all 10 runs of that day the AI left steering_could_help out,
- * so the default (owner answer 284: left out counts as yes) decided every short menu, not the AI. On a dev account, a
- * menu whose ask rests only on the judgment left out plans nothing until the AI gives it (asksOnlyForJudgmentLeftOut);
- * every other account's menus are planned as before, until the owner's five test questions show that the judgment
- * tells a precise question from an open one. Whether the person's choices could change the research is the model's
- * judgment, in any language (HRP StructuredUserSteeringAndApproval: approval is required for an unresolved choice that
- * could materially change the research, and a clear scope proceeds without a ceremonial pause); AskRigor checks only
- * that it was given. The owner's test is the false side: tasks that are all needed to answer are not choices.
+ * so the default (owner answer 284: left out counts as yes) decided every short menu, not the AI. So from #440 (live
+ * 12 Nov, 23:58 UTC), on a dev account, a menu whose ask rested only on that judgment planned nothing until the AI
+ * gave it, true or false, with the test both ways: false when no choice is left to the person because the question
+ * fixes it and every task on the menu is needed to answer.
+ *
+ * Owner answer 296b (13 Nov 2026). Round 4 of the owner's ChatGPT runs on that build (13 Nov, 00:03 to 00:39 UTC):
+ * the control got false and a checked answer in one turn, and the orange-peel and Syrian-rue questions got true and
+ * asked, as wanted; but the PewDiePie question and the SMILES question got false and went straight to a checked
+ * answer. Asked why, the AI said of the first: "I judged that all three checks were necessary to answer the question
+ * and that asking you to choose among them would merely delay the research. However, you could have clarified
+ * whether the comparison concerned Chinese AI-distillation attempts specifically or China's broader AI-development
+ * capabilities ... therefore, true would have been defensible, and my false judgment was too categorical"; and of the
+ * second: "I interpreted your question as a narrowly specified factual verification of one trial ... You could have
+ * chosen a broader comparison of dietary interventions against antidepressant trials ... I selected the narrow
+ * approach myself." So a bare yes or no let "every task is needed" stand for "nothing to ask", though the reading or
+ * comparison was the AI's own pick: made to name a choice of the person's, it could, both times. The owner, 13 Nov:
+ * "for pewdiepie, i do recall it answered mostly the wrong question". So the AI first tries to name the question it
+ * would ask this person, in the menu's steering_choice, and writes the word none only when it can name none. On a
+ * dev account, a menu whose decision rests on the judgment plans nothing until it carries one (steeringChoiceLeftOut);
+ * steering_could_help alone, true or false, no longer answers there. On every account that gives it, a named
+ * question counts as steering_could_help true and the word none as false, in place of what steering_could_help says;
+ * a menu of any other account that gives no steering_choice is planned as before.
+ *
+ * What the question is, and whether there is one, stays the model's judgment, in any language (HRP
+ * StructuredUserSteeringAndApproval: ask the fewest questions that could materially redirect the evidence map;
+ * approval is required for an unresolved choice that could materially change the research, and a clear scope proceeds
+ * without a ceremonial pause). AskRigor checks only that one was given, and reads only whether the declared value is
+ * exactly the word none (isNoChoice): it never reads whether a text is a question, so anything else asks.
  */
-export const STEERING_JUDGMENT = "true, the usual case, when a choice the person could make, or something only they " +
-  "know, could materially change what the research checks: their own situation or what they have tried, the form, " +
-  "dose or route they use, what to compare it with, which outcome matters most to them, or which tasks to spend " +
-  "time on when the answer does not need them all; false when no choice is left to them, because the question " +
-  "already fixes all of that and every task on the menu is needed to answer it whatever they would choose, as with " +
-  "one result of one named study, so that asking would only delay the answer (HRP StructuredUserSteeringAndApproval)";
+export const STEERING_CHOICE = "the one question you would ask this person before researching, because their " +
+  "answer could change what the research checks, such as which reading of the question they mean, what is to be " +
+  "compared with what, their own situation or what they have tried, the form, dose or route, or the outcome that " +
+  "matters most to them. Try to name that question first, as one sentence in their language: if you can name one, " +
+  "AskRigor asks the person first. Write none only when you can name no such question, because the question itself " +
+  "fixes exactly what to look up, as with one result of one named study. That every task on the menu is needed to " +
+  "answer is not by itself a reason for none: the person may mean a different reading or comparison than the one " +
+  "you picked (HRP StructuredUserSteeringAndApproval)";
 
-/** The refusal's text for a short menu that left the judgment out: what is asked, and the call to send. */
-export function judgmentRefusalText(example: CorrectedMenu): string {
+/** The refusal's text for a short menu that names no question: what is asked, and the call to send. */
+export function steeringChoiceRefusalText(example: CorrectedMenu): string {
   return [
-    "AskRigor planned nothing yet. These tasks are short, so whether to ask the person first rests on one judgment " +
-      `of yours, which this call left out: later_inputs.researchMenu.steering_could_help, ${STEERING_JUDGMENT}.`,
+    "AskRigor planned nothing yet. These tasks are short, so whether to ask the person first rests on " +
+      "later_inputs.researchMenu.steering_choice, which this call left out (steering_could_help alone, true or " +
+      `false, does not replace it): ${STEERING_CHOICE}.`,
     "Call manage_research_access with action plan_research again with these later_inputs, which are yours, after " +
-      `replacing ${MENU_PLACEHOLDERS.steering_could_help} with true or false, your judgment for this question: ` +
+      `replacing ${MENU_PLACEHOLDERS.steering_choice} with that question or with the word none: ` +
       JSON.stringify(example),
   ].join("\n");
 }
@@ -697,8 +736,13 @@ export interface ResearchPlanResult {
   recommended: { task: number; minutes: number }[];
   recommended_minutes: [number, number];
   next: "ask" | "go_on";
-  /** The menu's own steering_could_help, when it gave one. */
+  /**
+   * The judgment the menu gave, when it gave one: its steering_choice read as one (a named question true, the word
+   * none false), otherwise its own steering_could_help.
+   */
   steering_could_help?: boolean;
+  /** The question the menu named in steering_choice, when the menu asks: the reply puts it to the person. */
+  steering_choice?: string;
   style: ResearchStyle;
   check_back_minutes: number;
   adjustment_detail: AdjustmentDetail;
@@ -709,8 +753,8 @@ export interface ResearchPlanResult {
   /** The tasks differ from the menu the call's menu_digest names: the person hasn't seen this menu. */
   menu_changed?: true;
   /**
-   * The call carried an allocation that would have counted as the person's answer, and it was not used: the account
-   * requires person_answered true with it, which the call did not give (PERSON_ANSWER_DECLARED).
+   * The call carried an allocation that would have counted as the person's answer, and it was not used: it came
+   * without person_answered true (PERSON_ANSWER_DECLARED).
    */
   allocation_not_used?: true;
 }
@@ -753,16 +797,21 @@ export function allocationAnswered(plan: Pick<ResearchMenuInput, "tasks" | "allo
  * was following the general instruction to continue substantive work rather than ask unnecessary clarification, and I
  * treated AskRigor's returned you_decide_later_inputs allocation as a usable default. That was an instruction-following
  * error." The same prompt ignored the ask in round 2 as well (2 of 3 runs). So the handed-over allocation worked as a
- * default the AI could take for the person. On a dev account, an allocation is the person's answer only when the AI
- * declares it, with person_answered true in the menu; one sent with false or without it is not used: the menu
- * recommends and decides as if none had come, and its result says so first, as a stop and not as a call to correct
+ * default the AI could take for the person. So an allocation is the person's answer only when the AI declares it,
+ * with person_answered true in the menu; one sent with false or without it is not used: the menu recommends and
+ * decides as if none had come, and its result says so first, as a stop and not as a call to correct
  * (allocationNotUsedStop). The handed-over call carries the placeholder <true|false> in person_answered's place, so a
  * copy sent as it is asks again. Whether the person answered is the model's knowledge, in any language; AskRigor
- * checks only that it was declared true, and receives no word of the person's. Every other account's menus are planned
- * as before, in the same words, until the owner's five test prompts show whether a declaration holds.
+ * checks only that it was declared true, and receives no word of the person's.
+ *
+ * It was required on dev accounts first (#440, live 12 Nov, 23:58 UTC), and is on every account since 13 Nov 2026.
+ * Round 4 on the owner's account (13 Nov, 00:03 to 00:39 UTC): no first turn went on with an allocation the person
+ * had not given, and a real "you decide" went on at the first plan_research call. Every other account still got the
+ * handed-over call as a usable default, which is how the AI took the person's answer for itself on 12 Nov. An
+ * allocation the person did not give was never their answer, so this is a fix, under the owner's standing rule for
+ * fixes; the owner was told on 13 Nov and did not object.
  */
-export const PERSON_ANSWER_DECLARED = "on this account an allocation is the person's answer only with " +
-  "person_answered true";
+export const PERSON_ANSWER_DECLARED = "an allocation is the person's answer only with person_answered true";
 
 /**
  * What a result says before anything else, in its text and in next_step, when the call's allocation was not used
@@ -781,19 +830,27 @@ export function allocationNotUsedStop(result: ResearchPlanResult): string | unde
     : `${notUsed}so the tasks recommended here are AskRigor's own, not the person's choice.`;
 }
 
+/** The word that says a menu names no question in steering_choice. */
+const NO_CHOICE = "none";
+/**
+ * Whether a steering_choice the menu gave is the word none (owner answer 296b, STEERING_CHOICE): an exact check of
+ * the declared value, in any letter case and without the spaces around it, and nothing else. It is a value of the
+ * field, as true and false are of another, never a reading of meaning: every other text is a named question.
+ */
+const isNoChoice = (choice: string): boolean => choice.trim().toLowerCase() === NO_CHOICE;
+
 /**
  * The menu: each task with its time range; a recommendation, when the person gave none (tasks that could change the
  * conclusion first, then how sure it is, each given its range's middle, while the total stays within the check-back
  * allowance, or the first such task alone when even it is longer); and whether to ask the person before working.
- * With personAnswerRequired, an allocation is the person's answer only with person_answered true
- * (PERSON_ANSWER_DECLARED).
+ * An allocation is the person's answer only with person_answered true (PERSON_ANSWER_DECLARED), and a steering_choice
+ * the menu gives decides in place of its steering_could_help (STEERING_CHOICE).
  */
 export function planResearch(
   plan: ResearchMenuInput,
   steering: ResearchSteering,
   plainAnswer?: { matches: boolean; minutesSince: number },
   menu?: { digest: string; changed: boolean },
-  personAnswerRequired = false,
 ): ResearchPlanResult {
   const done = new Set(plan.done ?? []);
   // A menu that changed after the person saw it is theirs to see first: an allocation given for the one they saw is
@@ -812,11 +869,11 @@ export function planResearch(
   // themselves when they redirected the research (Greptile's review of 12 Nov 2026: with a changed menu, the person's new
   // allocation was dropped, and autonomous research went on with the default tasks instead). A changed menu with no such
   // answer is the AI's own re-plan, which the person is shown first (below).
-  // Where the account requires it (round 3 of 12 Nov 2026, PERSON_ANSWER_DECLARED), an allocation counts only when
-  // the AI declares it the person's, with person_answered true: any other is not used, and everything below follows
-  // as if none had come.
+  // An allocation counts only when the AI declares it the person's, with person_answered true (round 3 of 12 Nov
+  // 2026 on dev accounts, every account since 13 Nov 2026; PERSON_ANSWER_DECLARED): any other is not used, and
+  // everything below follows as if none had come.
   const carried = allocationAnswered(plan);
-  const answered = carried && (!personAnswerRequired || plan.person_answered === true);
+  const answered = carried && plan.person_answered === true;
   let recommended: { task: number; minutes: number }[];
   if (answered) {
     // The person's own minutes, as they gave them (the review of 12 Nov 2026: 1.5 minutes became 2).
@@ -846,10 +903,16 @@ export function planResearch(
   // has a new fork come back to them (the review of 12 Nov 2026: a precise menu re-planned after the person skipped a
   // task went on, did the task they skipped and never asked about the new one).
   const replanned = tasks.some(({ n }) => done.has(n)) && !answered;
+  // Owner answer 296b (13 Nov 2026): a steering_choice the menu gave decides in place of its steering_could_help, a
+  // named question as true and the word none as false; without one, steering_could_help is read as before (left out,
+  // it counts as true).
+  const question = plan.steering_choice === undefined || isNoChoice(plan.steering_choice) ? undefined
+    : plan.steering_choice.trim();
+  const steerable = plan.steering_choice === undefined ? plan.steering_could_help : question !== undefined;
   const next = steering.style === "autonomous" ? "go_on"
     : answered ? "go_on"
     : changed ? "ask"
-    : steering.style === "guided" || recommendedMinutes[1] > ASK_ABOVE_MINUTES || plan.steering_could_help !== false ||
+    : steering.style === "guided" || recommendedMinutes[1] > ASK_ABOVE_MINUTES || steerable !== false ||
         (replanned && recommended.length > 0)
       ? "ask"
       : "go_on";
@@ -858,7 +921,9 @@ export function planResearch(
     recommended,
     recommended_minutes: recommendedMinutes,
     next,
-    ...(plan.steering_could_help === undefined ? {} : { steering_could_help: plan.steering_could_help }),
+    ...(steerable === undefined ? {} : { steering_could_help: steerable }),
+    // The named question goes back with an ask, whatever its reason, for the reply to put to the person.
+    ...(next === "ask" && question !== undefined ? { steering_choice: question } : {}),
     style: steering.style,
     check_back_minutes: steering.checkBackMinutes,
     adjustment_detail: steering.adjustmentDetail,
@@ -873,17 +938,21 @@ export function planResearch(
 }
 
 /**
- * Whether a menu's ask rests only on a judgment the AI left out (owner answer 294c): it asks, steering_could_help
- * was not given, and the same menu with false would go on. It is read from the rule itself, by planning the menu
- * again with false, so it follows every change to the rule: guided research, tasks past the 10 minutes, a menu
- * changed after the person saw it and a re-plan ask whatever the judgment, and need none. It plans with the same
- * personAnswerRequired as the result it is given, so an allocation that is not used answers nothing here either.
+ * Whether a menu leaves out the question its decision rests on (owner answers 294c and 296b): it gives no
+ * steering_choice, and the same menu planned as steerable would ask and planned as not steerable would go on. It is
+ * read from the rule itself, by planning the menu both ways, so it follows every change to the rule: guided
+ * research, tasks past the 10 minutes, a menu changed after the person saw it and a re-plan ask whatever the
+ * judgment, autonomous research and the person's own allocation go on whatever it is, and none of them needs a
+ * question. What the menu's steering_could_help says does not enter into it: on 12 Nov it did (a menu that gave it,
+ * true or false, was planned), and round 4 showed that a yes or no alone does not carry the judgment
+ * (STEERING_CHOICE). An allocation that is not used answers nothing here either.
  */
-export function asksOnlyForJudgmentLeftOut(plan: ResearchMenuInput, steering: ResearchSteering,
-  result: ResearchPlanResult, menu?: { digest: string; changed: boolean }, personAnswerRequired = false): boolean {
-  return result.next === "ask" && plan.steering_could_help === undefined &&
-    planResearch({ ...plan, steering_could_help: false }, steering, undefined, menu, personAnswerRequired).next ===
-      "go_on";
+export function steeringChoiceLeftOut(plan: ResearchMenuInput, steering: ResearchSteering,
+  menu?: { digest: string; changed: boolean }): boolean {
+  if (plan.steering_choice !== undefined) return false;
+  const next = (steering_could_help: boolean) =>
+    planResearch({ ...plan, steering_could_help }, steering, undefined, menu).next;
+  return next(true) === "ask" && next(false) === "go_on";
 }
 
 const CHANGE_WORDS: Readonly<Record<(typeof COULD_CHANGE)[number], string>> = {
@@ -961,12 +1030,12 @@ export function offersYouDecide(result: ResearchPlanResult): boolean {
 }
 
 /**
- * The "you decide" call as a result carries it: the menu, whose person_answered may be its placeholder, to be replaced
- * before the call is sent (PERSON_ANSWER_DECLARED).
+ * The "you decide" call as a result carries it: the menu, with person_answered's placeholder, to be replaced before
+ * the call is sent (PERSON_ANSWER_DECLARED).
  */
 export const youDecideLaterInputsSchema = z.object({
   researchMenu: researchMenuSchema.extend({
-    person_answered: z.union([z.boolean(), z.literal(MENU_PLACEHOLDERS.person_answered)]).optional(),
+    person_answered: z.literal(MENU_PLACEHOLDERS.person_answered),
   }).strict(),
 }).strict();
 export type YouDecideLaterInputs = z.output<typeof youDecideLaterInputsSchema>;
@@ -976,59 +1045,95 @@ export type YouDecideLaterInputs = z.output<typeof youDecideLaterInputsSchema>;
  * took seven calls, as the allocation went beside the menu, into a setting or nowhere, and the one that went through
  * had none, so the same menu asked again): the same menu, with the recommended allocation inside it. A research target
  * that is not the registered one gets none, since the call must name the registered one, which AskRigor only checks.
- * With personAnswerRequired (round 3 of 12 Nov 2026, PERSON_ANSWER_DECLARED), it also carries person_answered as a
- * placeholder, so a copy sent as it is counts as no answer, and the menu's steering_could_help when it gave one, so
- * that copy asks again instead of being refused for the judgment left out. Its limit: an ask that came only from a
- * menu changed after the person saw it. Passed back with this result's digest, the menu no longer counts as changed,
- * so the copy sent as it is follows the rule alone: a short menu that gave no judgment is asked for it first, and
- * one judged not steerable goes on with AskRigor's own tasks.
+ * It also carries person_answered as a placeholder (round 3 of 12 Nov 2026 on dev accounts, every account since 13
+ * Nov 2026; PERSON_ANSWER_DECLARED), so a copy sent as it is counts as no answer, and the judgment the menu gave,
+ * its steering_could_help and its steering_choice, so that copy is planned as the same menu: it asks again, and on a
+ * dev account it is not handed back for the question left out (owner answer 296b). Its limit: an ask that came only
+ * from a menu changed after the person saw it. Passed back with this result's digest, the menu no longer counts as
+ * changed, so the copy sent as it is follows the rule alone: on a dev account a short menu that names no question
+ * is handed back for it first, and one judged not steerable goes on with AskRigor's own tasks.
  */
-export function youDecideLaterInputs(plan: ResearchMenuInput, result: ResearchPlanResult,
-  personAnswerRequired = false): YouDecideLaterInputs | undefined {
+export function youDecideLaterInputs(plan: ResearchMenuInput, result: ResearchPlanResult):
+  YouDecideLaterInputs | undefined {
   if (!offersYouDecide(result)) return undefined;
   return { researchMenu: {
     research_target: plan.research_target,
     ...(plan.plain_answer_receipt === undefined ? {} : { plain_answer_receipt: plan.plain_answer_receipt }),
-    ...(personAnswerRequired && plan.steering_could_help !== undefined
-      ? { steering_could_help: plan.steering_could_help } : {}),
+    ...(plan.steering_could_help === undefined ? {} : { steering_could_help: plan.steering_could_help }),
+    ...(plan.steering_choice === undefined ? {} : { steering_choice: plan.steering_choice }),
     tasks: plan.tasks,
     allocation: result.recommended.map(({ task, minutes }) => ({ task, minutes })),
-    ...(personAnswerRequired ? { person_answered: MENU_PLACEHOLDERS.person_answered } : {}),
+    person_answered: MENU_PLACEHOLDERS.person_answered,
     ...((plan.done ?? []).length === 0 ? {} : { done: plan.done }),
     ...(result.menu_digest === undefined ? {} : { menu_digest: result.menu_digest }),
   } };
 }
 
 /**
- * The line after the rule for the person's answer: the "you decide" call, as it is to be sent. A call that carries
- * person_answered's placeholder says what replaces it, and that an allocation sent without true is not used.
+ * The line after the rule for the person's answer: the "you decide" call, as it is to be sent. It says what replaces
+ * person_answered's placeholder, and that an allocation sent without true is not used.
  */
 export function youDecideLine(youDecide: YouDecideLaterInputs): string {
   return "Only once the person has replied \"you decide\", in a later message, never in this turn: call " +
-    "manage_research_access with action plan_research and " +
-    (youDecide.researchMenu.person_answered === MENU_PLACEHOLDERS.person_answered
-      ? `these later_inputs, after replacing ${MENU_PLACEHOLDERS.person_answered} in person_answered with whether ` +
-        "the person has answered this menu in a message of their own since it was shown (true once they have, false " +
-        "before); an allocation sent with false, or without person_answered, is not used; "
-      : "exactly these later_inputs; ") +
-    "the recommended allocation is inside researchMenu, where every allocation goes, never beside it: " +
-    JSON.stringify(youDecide);
+    "manage_research_access with action plan_research and these later_inputs, after replacing " +
+    `${MENU_PLACEHOLDERS.person_answered} in person_answered with whether the person has answered this menu in a ` +
+    "message of their own since it was shown (true once they have, false before); an allocation sent with false, " +
+    "or without person_answered, is not used; the recommended allocation is inside researchMenu, where every " +
+    `allocation goes, never beside it: ${JSON.stringify(youDecide)}`;
 }
+
+/**
+ * Greptile's review of 12 Nov 2026 (P1), reproduced by an independent audit on 13 Nov: when the menu's research
+ * target is not the one registered with the plain answer, the result's text said so, but next_step only said to do
+ * the tasks and finalize, or to ask. An app that hands its model the structured content missed the correction
+ * (ChatGPT's model reads it first, Claude Code reads only it), and the answer then ended without the comparison with
+ * the quick answer. So next_step says it too, before the ask and in place of the go-ahead: the registered research
+ * target, or a new registration when the question itself changed, and no research call before that, since the final
+ * check compares only a plain answer registered before the research receipts passed with it. AskRigor compares the
+ * two targets' digests, exactly; whether the question changed is the model's knowledge, in any language.
+ *
+ * The text of a menu that would go on says the same since that day (planResearchText): until then it gave its own
+ * warning and then "Go on now", so the text and next_step of one result disagreed. A menu that asks keeps the text's
+ * warning: its rule for the person's answer names the registered target.
+ */
+export const TARGET_NOT_REGISTERED = "This menu's research_target is not the one registered with the plain answer, " +
+  "so the answer would end without the comparison with the quick answer. Before any research call, call action " +
+  "plan_research again with the same menu but research_target word for word as register_plain_answer's result " +
+  "quoted it, and give finalize_research the same words; or, if the question itself changed, register the plain " +
+  "answer again for the new research target, with later_inputs.framing for it, and then plan again.";
+/** In place of the go-ahead, for a menu that would go on with a research target that is not the registered one. */
+const NO_GO_AHEAD_YET = "Do none of this menu's tasks before that: the go-ahead comes with that call's result.";
+
+/**
+ * Owner answer 296b (13 Nov 2026): what the person answers to the question the menu named steers the research. The
+ * rule for the person's answer covered an allocation and a changed question only, so an answer that keeps the
+ * question and picks a reading or a comparison had no instruction, and the question would have been asked for
+ * nothing. Which reading or choice they gave is the model's to read, in any language; AskRigor receives no word of it.
+ *
+ * Greptile's review of this change (13 Nov 2026, P2): a reply that answers the question and gives no allocation, as
+ * "the difference" answers "do you mean either medicine or the difference?", had no way forward. The rule forbids an
+ * allocation the person did not give, and person_answered true with no allocation is no answer to the menu, so the
+ * same menu asked again and the model would have put the same question to them twice. Such a reply leaves the
+ * allocation to the AI, as "you decide" does: the handed-over call, declared the person's, goes on at once.
+ */
+export const NAMED_ANSWER_STEERS = "What they answer to the question you named decides what the research checks: " +
+  "do the tasks, and write the answer, for the reading or choice they gave. A reply that answers it and gives no " +
+  "allocation leaves the allocation to you, as \"you decide\" does.";
 
 /**
  * The plan_research result's text, by the account's style: the ask, or the menu to show while going on. numbered is
  * true once an allocation or a done list refers to the menu's task numbers, which must then stay as they are, so the
  * menu asks for no task near the top. researchTarget, the menu's own, goes word for word into the rule for the person's
  * answer, which a later turn reads, unless the plain answer's receipt shows it is not the registered one.
- * With personAnswerRequired (round 3 of 12 Nov 2026, PERSON_ANSWER_DECLARED), the rule for the person's answer, and
- * the way back after a stop, say their allocation goes with person_answered true; every other account's text is as it
- * was. Before everything else comes the stop for an allocation not used (allocationNotUsedStop), then the call's
- * problems, each on a line of its own (11 Nov 2026: the problems come before the ask, so its text ends with the rule
- * for the person's answer).
+ * The rule for the person's answer, and the way back after a stop, say their allocation goes with person_answered
+ * true (round 3 of 12 Nov 2026 on dev accounts, every account since 13 Nov 2026; PERSON_ANSWER_DECLARED). An ask
+ * whose menu named a question hands it over in the reply, in place of the general sentence on what the person's
+ * choices could change (owner answer 296b, 13 Nov 2026; STEERING_CHOICE). Before everything else comes the stop for
+ * an allocation not used (allocationNotUsedStop), then the call's problems, each on a line of its own (11 Nov 2026:
+ * the problems come before the ask, so its text ends with the rule for the person's answer).
  */
 export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<number>, numbered = false,
-  researchTarget?: string, youDecide?: YouDecideLaterInputs, personAnswerRequired = false,
-  problems: readonly string[] = []): string {
+  researchTarget?: string, youDecide?: YouDecideLaterInputs, problems: readonly string[] = []): string {
   const stop = allocationNotUsedStop(result);
   const first = [...(stop === undefined ? [] : [stop]), ...(problems.length === 0 ? [] : [problems.join(" ")])];
   const lines = result.tasks.map(({ n, task, could_change, loop, minutes }) =>
@@ -1037,20 +1142,29 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
   const chosen = result.recommended.map(({ task, minutes }) => `${task}. ${minutes} min`).join(", ");
   const before: string[] = [];
   if (!numbered && !result.tasks.some(readsPeoplesReports)) before.push(PEOPLE_TASK_MISSING);
+  // A research target that is not the registered one. A menu that asks keeps the warning it had: its rule for the
+  // person's answer names the registered target. A menu that would go on gets the correction next_step gives, and no
+  // go-ahead (13 Nov 2026, TARGET_NOT_REGISTERED).
+  const heldBack = result.target_matches_plain_answer === false && result.next !== "ask";
   if (result.target_matches_plain_answer === false) {
-    before.push("This research_target is not the one registered with the plain answer: give plan_research and " +
-      "finalize_research the research target word for word as register_plain_answer's result quoted it, or the " +
-      "answer ends without the comparison with the quick answer.");
+    before.push(heldBack ? TARGET_NOT_REGISTERED
+      : "This research_target is not the one registered with the plain answer: give plan_research and " +
+        "finalize_research the research target word for word as register_plain_answer's result quoted it, or the " +
+        "answer ends without the comparison with the quick answer.");
   }
   const since = result.minutes_since_plain_answer === undefined ? [] : [`About ${result.minutes_since_plain_answer} ` +
     `${result.minutes_since_plain_answer === 1 ? "minute has" : "minutes have"} passed since the plain answer was ` +
     "registered."];
   if (result.next === "ask") {
     const reply = [
+      // The question the menu named goes to the person as it is, whatever the reason for the ask; with none named,
+      // an ask for the person's choices gets the general sentence, as before.
       "Your reply: at most two sentences on what the first look suggests, saying it is not yet checked" +
-        (result.style !== "guided" && result.steering_could_help !== false
-          ? ", and one on what their choices could change, such as their own situation, the form or dose they use, " +
-            "or the outcome that matters most to them" : "") +
+        (result.steering_choice !== undefined
+          ? `; then the question you named for them, in their language: ${JSON.stringify(result.steering_choice)}`
+          : result.style !== "guided" && result.steering_could_help !== false
+            ? ", and one on what their choices could change, such as their own situation, the form or dose they " +
+              "use, or the outcome that matters most to them" : "") +
         "; then this menu, numbered as here, saying for each task whether it means a quick look, reading in full or a " +
         "method audit (the times are rough planning estimates):",
       ...lines,
@@ -1063,20 +1177,20 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
     // says; without the plain answer's receipt AskRigor can't tell, so the menu's own is quoted.
     const target = result.target_matches_plain_answer === false ? " as register_plain_answer's result quoted it"
       : researchTarget === undefined ? "" : ` ${JSON.stringify(researchTarget)}`;
-    // Where the account requires it, the person's allocation is declared theirs (PERSON_ANSWER_DECLARED); the "you
-    // decide" call on the next line says so for itself.
-    const declared = personAnswerRequired ? ", with person_answered true in researchMenu too (send it only once " +
-      "they have answered this menu in a message of their own; on this account an allocation without it is not " +
-      "used)" : "";
+    // The person's allocation is declared theirs (PERSON_ANSWER_DECLARED); the "you decide" call on the next line
+    // says so for itself.
+    const declared = ", with person_answered true in researchMenu too (send it only once they have answered this " +
+      "menu in a message of their own; an allocation without it is not used)";
     const rule = "When the person replies: call manage_research_access action plan_research again with the same " +
       `plain_answer_receipt, tasks and menu_digest (researchMenu.menu_digest in this result), research_target word for ` +
       `word${target}, and their allocation inside ` +
       `researchMenu, as a list of {task, minutes}${declared}; for "you decide", or a reply that leaves the choice to ` +
       "you such as \"continue\", " + (result.recommended.length === 0
         ? "no more research: check the answer with finalize_research and give it"
-        : youDecide === undefined
-          ? `the recommended allocation${personAnswerRequired ? ", with person_answered true too" : ""}`
-          : "the call on the next line") + ". If the reply " +
+        : youDecide === undefined ? "the recommended allocation, with person_answered true too"
+          : "the call on the next line") + "." +
+      // What the person answers to the named question is what the research then checks (NAMED_ANSWER_STEERS).
+      (result.steering_choice === undefined ? "" : ` ${NAMED_ANSWER_STEERS}`) + " If the reply " +
       "changes the question, register the plain answer again for the new research target first, with " +
       "later_inputs.framing for it. Never send an allocation the person did not give or leave to you.";
     return [
@@ -1094,57 +1208,66 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
     "The menu to show the person, in their language, numbered as here (times are rough planning estimates, and say " +
       "whether a task means a quick look, reading in full or a method audit): " + lines.join(" ") + " " + recommendation +
       ` Then the final check and writing the answer: about ${ANSWER_MINUTES[0]} to ${ANSWER_MINUTES[1]} min.`,
-    ...before,
-    ...since,
-    result.style === "autonomous"
-      ? "The person chose autonomous research: show the menu as what you are doing and go on with the recommended " +
-        `tasks now. After about ${result.check_back_minutes} minutes of research, or sooner if a new finding could ` +
-        "change the conclusion, check what you have with finalize_research and give that answer, ending it with the " +
-        "open tasks as a numbered menu and the question whether to spend more time on them."
-      : "Go on now: do these tasks in this order, each within its minutes, showing the menu as what you are doing; " +
-        "then check the answer with finalize_research and give it in this turn.",
-    result.style === "autonomous" ? TASK_PROGRESS : `${TASK_PROGRESS} ${NEW_FORK}`,
-    WORDS_ARE_NOT_SIZES,
-    // Where the account requires it, an allocation sent after a stop is declared the person's too, or it is not used.
-    "If the person stops you or changes direction, call plan_research again with done, their new allocation" +
-      (personAnswerRequired ? ", person_answered true (on this account an allocation without it is not used)" : "") +
-      " and the last result's menu_digest; the research target stays word for word the same.",
-    "Leads between people's reports and studies are part of the research when the question has both: when the screen " +
-      "found something in people's reports that studies could check, or a study finding that people's reports could " +
-      "check, and no task covers it, add that task (loop people_to_studies or studies_to_people), and declare each " +
-      "lead in finalize_research's later_inputs.community_leads.",
-    adjustmentGuidance(result.adjustment_detail),
+    // The tasks held back: the correction last, with no go-ahead after it and none of what follows one, which the
+    // corrected call's result gives.
+    ...(heldBack ? [...since, ...before, NO_GO_AHEAD_YET] : [
+      ...before,
+      ...since,
+      result.style === "autonomous"
+        ? "The person chose autonomous research: show the menu as what you are doing and go on with the recommended " +
+          `tasks now. After about ${result.check_back_minutes} minutes of research, or sooner if a new finding could ` +
+          "change the conclusion, check what you have with finalize_research and give that answer, ending it with " +
+          "the open tasks as a numbered menu and the question whether to spend more time on them."
+        : "Go on now: do these tasks in this order, each within its minutes, showing the menu as what you are " +
+          "doing; then check the answer with finalize_research and give it in this turn.",
+      result.style === "autonomous" ? TASK_PROGRESS : `${TASK_PROGRESS} ${NEW_FORK}`,
+      WORDS_ARE_NOT_SIZES,
+      // An allocation sent after a stop is declared the person's too, or it is not used.
+      "If the person stops you or changes direction, call plan_research again with done, their new allocation, " +
+        "person_answered true (an allocation without it is not used) and the last result's menu_digest; the " +
+        "research target stays word for word the same.",
+      "Leads between people's reports and studies are part of the research when the question has both: when the " +
+        "screen found something in people's reports that studies could check, or a study finding that people's " +
+        "reports could check, and no task covers it, add that task (loop people_to_studies or studies_to_people), " +
+        "and declare each lead in finalize_research's later_inputs.community_leads.",
+      adjustmentGuidance(result.adjustment_detail),
+    ]),
   ].join(" ")].join("\n");
 }
 
 /**
  * plan_research's next step as a runtime field, for an app that hands its model only the structured content (Claude
  * Code): whether to ask and end the turn, or go on, as the text says. ChatGPT's model reads the structured content
- * first, so with personAnswerRequired (round 3 of 12 Nov 2026, PERSON_ANSWER_DECLARED) an ask says here too that the
- * person's allocation goes with person_answered true, and what replaces the placeholder in you_decide_later_inputs;
- * and the stop for an allocation not used comes before everything else (allocationNotUsedStop).
+ * first, so an ask says here too that the person's allocation goes with person_answered true, and what replaces the
+ * placeholder in you_decide_later_inputs (round 3 of 12 Nov 2026 on dev accounts, every account since 13 Nov 2026;
+ * PERSON_ANSWER_DECLARED), and to put the question the menu named to the person (owner answer 296b, 13 Nov 2026);
+ * and the stop for an allocation not used comes before everything else (allocationNotUsedStop). After that stop, and
+ * before any ask, comes the correction for a research target that is not the registered one (TARGET_NOT_REGISTERED),
+ * which a menu that would go on gets in place of its go-ahead.
  */
-export function planNextStep(result: ResearchPlanResult, personAnswerRequired = false): string {
+export function planNextStep(result: ResearchPlanResult): string {
   const stop = allocationNotUsedStop(result);
-  const first = stop === undefined ? "" : `${stop} `;
+  const notRegistered = result.target_matches_plain_answer === false;
+  const first = (stop === undefined ? "" : `${stop} `) + (notRegistered ? `${TARGET_NOT_REGISTERED} ` : "");
   if (result.next === "ask") {
     // A menu with nothing recommended (detail only) gives "you decide" the text's own exit: an empty recommended
     // allocation counts as no answer, so the same menu would ask again (the review of 12 Nov 2026).
     return first +
-      "Ask the person now and end your turn: show researchMenu.tasks as a numbered list with their times, the " +
-      "recommendation and how to answer (task numbers and minutes, or \"you decide\"). Make no research call and " +
-      "don't call finalize_research until they answer; then call action plan_research again with their allocation " +
-      (personAnswerRequired ? "and person_answered true " : "") +
-      "inside later_inputs.researchMenu " + (result.recommended.length === 0
+      "Ask the person now and end your turn: " + (result.steering_choice === undefined ? ""
+        : "put the question you named to them, in their language (researchMenu.steering_choice), and ") +
+      "show researchMenu.tasks as a numbered list with their times, the recommendation and how to answer (task " +
+      "numbers and minutes, or \"you decide\"). Make no research call and don't call finalize_research until they " +
+      "answer; then call action plan_research again with their allocation and person_answered true inside " +
+      "later_inputs.researchMenu " + (result.recommended.length === 0
         ? "or, for \"you decide\", do no more research: check the answer with finalize_research and give it."
         : !offersYouDecide(result) ? "(for \"you decide\", the recommended one)."
-          : personAnswerRequired
-            ? "(for \"you decide\", with you_decide_later_inputs as later_inputs, after replacing " +
-              `${MENU_PLACEHOLDERS.person_answered} in person_answered: true once they have answered, false before).`
-            : "(for \"you decide\", with you_decide_later_inputs as later_inputs, as they are).") +
-      (personAnswerRequired ? " Send person_answered true only once they have answered this menu in a message of " +
-        `their own: ${PERSON_ANSWER_DECLARED}, and one sent without it is not used.` : "");
+          : "(for \"you decide\", with you_decide_later_inputs as later_inputs, after replacing " +
+            `${MENU_PLACEHOLDERS.person_answered} in person_answered: true once they have answered, false before).`) +
+      " Send person_answered true only once they have answered this menu in a message of their own: " +
+      `${PERSON_ANSWER_DECLARED}, and one sent without it is not used.` +
+      (result.steering_choice === undefined ? "" : ` ${NAMED_ANSWER_STEERS}`);
   }
+  if (notRegistered) return first + NO_GO_AHEAD_YET;
   return first + (result.style === "autonomous"
     ? `Do the recommended tasks now; after about ${result.check_back_minutes} minutes of research, check what you ` +
       "have with finalize_research and give that answer, ending it with the open tasks as a numbered menu and the " +

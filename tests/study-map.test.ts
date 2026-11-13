@@ -182,7 +182,22 @@ describe("the study map's shape", () => {
         ] },
       ],
     } } };
-    const { result, notes } = await check(raw);
+    const { result, notes, lookup } = await check(raw);
+    // 13 Nov 2026 (Greptile's review of 12 Nov): a pass after a pass in the same turn is the turn's last check, so there
+    // the map's notes that asked for the check again ask for none. The round token alone marks the turn as passed.
+    const again = finalizeResearch({ ...raw, round_token: result.round_token }, { ...OPTIONS, studyMapLookup: lookup! });
+    expect(again).toMatchObject({ status: result.status, turn_already_passed: true });
+    expect(again.notes).toEqual(expect.arrayContaining([
+      "The passage given in study_map.links[1] isn't in the text of either study AskRigor looked in. Copy each whole and " +
+        "exactly, with no ellipsis, in the paper's language, or take it out of the map, with no further check in this turn.",
+      "The passage given in study_map.claims[1].passages[1] (from A, in the full text) isn't in the text AskRigor looked " +
+        "in. Copy each whole and exactly, with no ellipsis, in the paper's language, or take it out of the map, with no " +
+        "further check in this turn.",
+      "study_map.claims[1] counts 3 independent groups of people, but the map links B to C (study_map.links[1], " +
+        "same_cohort), so AskRigor counts 2: count them once, or, if they are different people, give each its own " +
+        "group, with no further check in this turn.",
+    ]));
+    expect((again.notes ?? []).join("\n")).not.toContain("check the answer again");
     expect(notes).toEqual(expect.arrayContaining([
       "study_map.studies[0]: dropped as a whole, since its required source and group could not be used: send it again " +
         "with those fields usable, or leave it out.",

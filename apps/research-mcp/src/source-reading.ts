@@ -116,8 +116,16 @@ export function answerReadingRule(reading: AnswerReading): CheckRule {
 /**
  * What a full-text lead's receipt shows, by the state it signs, in the words the check's lead note gives it (the recheck
  * of 5 Nov 2026: a lead whose abstract was readable showed "not read, no access to it"). Receipts show these; an answer
- * gives the readings above, so each maps to the one it is (declarableReading). A copy whose abstract alone, or part of
- * whose text, was readable is one AskRigor read that far.
+ * gives the readings above, so each maps to the most an entry may say of it (declarableReading).
+ *
+ * That recheck also took a copy whose abstract alone, or part of whose text, was readable as one AskRigor read that
+ * far, so the panel listed "abstract only" under "What AskRigor read" on a lead alone. Greptile's review of 12 Nov 2026:
+ * a lead's result tells the AI where a copy is and what state it is in; it gives none of the copy's text and no handle
+ * to read it, and its receipt signs the identifiers asked for and that state alone. So these two states say what was
+ * readable at a source, not what was read. They keep their own words, and show no reading of the text
+ * (readingShown): an abstract or a part the answer says it read is then the AI's own account, which the panel lists
+ * apart with these words beside it, unless another receipt shows it (a PubMed record's abstract). What an entry may say
+ * without being held back is as it was (readingWithinReceipts), so the six blocking checks hold back the same answers.
  */
 export const LEAD_READINGS = LEAD_READING_NAMES;
 export type LeadReading = typeof LEAD_READINGS[number];
@@ -175,7 +183,8 @@ export function receiptReadings(receipts: readonly ReadingReceipt[], atlasChecke
 
 // How much of a source each reading read: its full text audited, its full text, part of it, its abstract, its record, a
 // search's listing of it, and nothing of it. A checked Atlas finding stands with an audit, and another tool's reading
-// with a full text, which is what the AI's word claims of it; AskRigor read neither here.
+// with a full text, which is what the AI's word claims of it; AskRigor read neither here. A lead that found part of a
+// text or its abstract readable stands with that much read only as the most an entry may say (READABLE_NOT_READ).
 const READING_DEPTH: Readonly<Record<ShownReading, number>> = {
   full_text_audited: 6, search_copy_audited: 6, atlas_checked: 6,
   full_text_read: 5, search_copy_read: 5, other_tool: 5,
@@ -187,6 +196,9 @@ const READING_DEPTH: Readonly<Record<ShownReading, number>> = {
 // The readings a deeper one of the same text shows too: part of it, an abstract, a record and a listing.
 const ENTAILED_READINGS: ReadonlySet<ShownReading> = new Set(["partial_text", "abstract_only", "conference_abstract",
   "metadata_only", "found_in_search"]);
+// The lead states that found some of a text readable at a source and gave the AI none of it (Greptile's review of
+// 12 Nov 2026, at LEAD_READINGS): no reading of the text is shown by them.
+const READABLE_NOT_READ: ReadonlySet<ShownReading> = new Set(["lead_part_readable", "lead_abstract_readable"]);
 // The not-read readings a lead or a failure shows: no access to it, or it could not be fetched.
 const NOT_READ_SHOWN_BY: Readonly<Partial<Record<ShownReading, ReadonlySet<ShownReading>>>> = {
   inaccessible: new Set(["lead_paywalled", "lead_no_copy_found", "lead_identity_unverified", "lead_no_open_copy"]),
@@ -198,17 +210,33 @@ const SHOWN_ORDER: readonly ShownReading[] = ["atlas_checked", "full_text_audite
   "found_in_search", "lead_paywalled", "lead_fetch_blocked", "lead_no_copy_found", "lead_identity_unverified",
   "lead_no_open_copy", "route_error"];
 
+// Whether what the receipts show reaches as deep as an entailed reading: by what they show read, or, with readableToo,
+// also by what a lead found readable at a source.
+const reaches = (reading: ShownReading, shown: ReadonlySet<ShownReading>, readableToo: boolean): boolean =>
+  ENTAILED_READINGS.has(reading) && [...shown].some((other) => other !== "atlas_checked" &&
+    (readableToo || !READABLE_NOT_READ.has(other)) && READING_DEPTH[other] >= READING_DEPTH[reading]);
+
 /**
  * Whether a source's receipts show a reading: they show it, or show a deeper reading of the text it reads (a full text
- * read shows part of it, its abstract, a record and a listing too; a lead's readable abstract shows an abstract read),
- * or, for a reading of nothing, a lead or a failure that says why. Another source's description and another tool's
- * reading are the AI's own account: no receipt shows them.
+ * read shows part of it, its abstract, a record and a listing too), or, for a reading of nothing, a lead or a failure
+ * that says why. Another source's description and another tool's reading are the AI's own account: no receipt shows
+ * them. Nor does a lead show an abstract or a part read because it found that much readable (Greptile's review of
+ * 12 Nov 2026, at LEAD_READINGS): the lead gave the AI none of it.
  */
 export function readingShown(reading: ShownReading, shown: ReadonlySet<ShownReading>): boolean {
   if (shown.has(reading)) return true;
   if ([...NOT_READ_SHOWN_BY[reading] ?? []].some((by) => shown.has(by))) return true;
-  return ENTAILED_READINGS.has(reading) && [...shown].some((other) => other !== "atlas_checked" &&
-    READING_DEPTH[other] >= READING_DEPTH[reading]);
+  return reaches(reading, shown, false);
+}
+
+/**
+ * Whether a reading an entry gives says no more than a source's receipts leave room for: a reading they show
+ * (readingShown), or one no deeper than the abstract or the part a lead found readable. The second is the AI's own
+ * account, not a reading the receipts show; it counts here as it did from the recheck of 5 Nov 2026 to Greptile's review
+ * of 12 Nov 2026, so that review changes what the panel lists as read and nothing the read_depth check holds back.
+ */
+function readingWithinReceipts(reading: ShownReading, shown: ReadonlySet<ShownReading>): boolean {
+  return readingShown(reading, shown) || reaches(reading, shown, true);
 }
 
 /** The deepest reading receipts show, for saying what they do show; undefined when they show none. */
@@ -216,7 +244,25 @@ export function deepestShown(shown: ReadonlySet<ShownReading>): ShownReading | u
   return SHOWN_ORDER.find((reading) => shown.has(reading));
 }
 
-/** The reading an answer gives for what a receipt shows: a lead's state is the reading it is. */
+/**
+ * The deepest reading of a source its receipts show read, in the words an answer gives it: an abstract, a record or a
+ * search's listing that stands beside a lead (a deeper reading would be shown outright). Undefined when they show none
+ * read: what a lead found readable is no reading (READABLE_NOT_READ), and why nothing was read, no access or a
+ * failure, is none either. It is for saying what the receipts do show when the bar an entry is held to is only what a
+ * lead found readable (Greptile's review of #441, 13 Nov 2026: with a PubMed record's abstract beside a lead that
+ * found part of the text readable, the read-depth step said the receipts showed "no reading of it").
+ */
+export function deepestRead(shown: ReadonlySet<ShownReading>): AnswerReading | undefined {
+  const read = SHOWN_ORDER.find((reading) => shown.has(reading) && !READABLE_NOT_READ.has(reading) &&
+    READING_DEPTH[reading] > 0);
+  return read === undefined ? undefined : declarableReading(read);
+}
+
+/**
+ * The most an entry may say for what a receipt shows, in a reading an answer gives: for a lead, the reading its state
+ * would be. For a lead that found an abstract or part of a text readable this is the bar an entry is held to, as since
+ * the recheck of 5 Nov 2026, and not a reading the receipts show (readingShown).
+ */
 export function declarableReading(reading: ShownReading): AnswerReading {
   switch (reading) {
     case "lead_abstract_readable": return "abstract_only";
@@ -254,9 +300,10 @@ const AI_FULL_TEXT: ReadonlySet<AnswerReading> = new Set(["search_copy_audited",
 /**
  * How the reading a source_reading entry gives a source compares with the reading the check verifies, or with what its
  * receipts show when the check verifies none (the review of 5 Nov 2026 and its recheck): more holds the answer back
- * under read_depth, less is a note. A reading the source's receipts show claims no more than they show, and less only
- * when the check verifies a deeper one. Another tool's reading is the AI's own account only for a source key_sources
- * declares read through another tool (other_route read); for any other source it claims more than the check verifies.
+ * under read_depth, less is a note. A reading the source's receipts show, or one no deeper than what a lead found
+ * readable (readingWithinReceipts), claims no more than they leave room for, and less only when the check verifies a
+ * deeper one. Another tool's reading is the AI's own account only for a source key_sources declares read through
+ * another tool (other_route read); for any other source it claims more than the check verifies.
  */
 export function judgeSourceReading(
   declared: AnswerReading,
@@ -265,7 +312,7 @@ export function judgeSourceReading(
   { otherRoute = false }: { otherRoute?: boolean } = {}
 ): "same" | "more" | "less" {
   if (declared === "other_tool" && !otherRoute) return verified === "other_tool" ? "same" : "more";
-  if (readingShown(declared, shown)) return READING_DEPTH[declared] < READING_DEPTH[verified] ? "less" : "same";
+  if (readingWithinReceipts(declared, shown)) return READING_DEPTH[declared] < READING_DEPTH[verified] ? "less" : "same";
   return compareReadings(declared, verified);
 }
 
@@ -337,6 +384,22 @@ export const linkedReadingCheckSchema = z.object({
   reading: z.enum(LINKED_READINGS)
 }).strict();
 export type LinkedReadingCheck = z.output<typeof linkedReadingCheckSchema>;
+
+/**
+ * A linked study's reading, from what its receipts show (receiptReadings): the deepest reading they show read, in the
+ * words an answer gives it; why nothing was read, when that is all they show; or "not looked up" when no receipt names
+ * the study. A lead that found an abstract or part of a text readable gave the AI none of it (Greptile's review of
+ * 12 Nov 2026, at LEAD_READINGS). So on such a lead alone the study was found, not read: never "abstract only" or "part
+ * of the text read", and never "no access", since some of it was readable. A PubMed record's abstract or a DOI's record
+ * beside the lead still gives that reading.
+ */
+export function linkedReading(shown: ReadonlySet<ShownReading>): LinkedReading {
+  const readable = [...READABLE_NOT_READ].some((reading) => shown.has(reading));
+  const deepest = SHOWN_ORDER.find((reading) => shown.has(reading) && !READABLE_NOT_READ.has(reading));
+  if (deepest === undefined) return readable ? "found_in_search" : "not_looked_up";
+  return readable && READING_DEPTH[deepest] < READING_DEPTH.found_in_search ? "found_in_search"
+    : declarableReading(deepest);
+}
 
 /**
  * The result's line naming each linked study's reading up front, beside the key sources' line: the answer says it

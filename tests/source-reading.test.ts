@@ -13,8 +13,10 @@ import {
 import { discoveryQueryDigest, issueResearchReceipt, researchTargetDigest } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import {
-  ANSWER_READINGS, ANSWER_READING_LABELS, READING_RESULT_WHEN, compareReadings, identifierShown, readingResultNote,
-  receiptReadingNote, sourceReadingGuidance, sourceReadingQuoteSchema, verifiedAnswerReading, type AnswerReading
+  ANSWER_READINGS, ANSWER_READING_LABELS, LINKED_READING_LABELS, READING_RESULT_WHEN, SHOWN_READINGS, compareReadings,
+  declarableReading, deepestRead, deepestShown, identifierShown, judgeSourceReading, linkedReading, readingResultNote, readingShown,
+  receiptReadingNote, receiptReadings, sourceReadingGuidance, sourceReadingQuoteSchema, verifiedAnswerReading,
+  type AnswerReading, type ShownReading
 } from "../apps/research-mcp/src/source-reading.js";
 import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
@@ -67,10 +69,19 @@ const missing = (id: string, reading?: AnswerReading) => reading === undefined
 // The step for a reading claiming more: it names the verified reading, or with none what the receipts show, names the
 // entry to remove or change exactly (the fourth check of 5 Nov 2026), and offers a lower reading a read_depth declares
 // with no receipt (the recheck of 5 Nov 2026).
+// With leadOnly, the receipts show no reading, only a lead that found that much readable (Greptile's review of 12 Nov
+// 2026): the step names it as the most an entry may say, not as a reading the receipts show.
+// With read too, they show that reading read beside the lead, which the step names and never denies (Greptile's review
+// of #441, 13 Nov 2026).
 const claimsMore = (id: string, given: AnswerReading, verified: AnswerReading,
-  { shownOnly = false, offer = false }: { shownOnly?: boolean; offer?: boolean } = {}) => `source_reading gives ${id} ` +
+  { shownOnly = false, offer = false, leadOnly = false, read }:
+  { shownOnly?: boolean; offer?: boolean; leadOnly?: boolean; read?: AnswerReading } = {}) => `source_reading gives ${id} ` +
   `the reading ${given} (${ANSWER_READING_LABELS[given]}), more than this call's receipts show: ` +
-  (shownOnly ? "they show" : "this check verifies") + ` ${verified} (${ANSWER_READING_LABELS[verified]}). Remove the ` +
+  (leadOnly ? (read === undefined ? "they show no reading of it, only a full-text lead that"
+    : `they show ${read} (${ANSWER_READING_LABELS[read]}), and a full-text lead that`) +
+    ` found no more of it readable than ${verified} (${ANSWER_READING_LABELS[verified]}), the most an entry may say.`
+    : (shownOnly ? "they show" : "this check verifies") + ` ${verified} (${ANSWER_READING_LABELS[verified]}).`) +
+  " Remove the " +
   `source_reading entry claiming ${given} for ${id}, or change its reading to ${verified}, with the answer's words ` +
   "saying so, in its language, copied into its quote" +
   (offer ? `; or, if it was read so, give key_sources.read_depth ${given} for it, ` +
@@ -406,6 +417,30 @@ describe("the reading each entry gives, held to what the check verifies", () => 
     // A lead's state is what its receipt shows: a paywall shows no access.
     expect(run([sign("full_text_lead", { doi: DOI, state: "PAYWALL_OR_LOGIN_REQUIRED" })], "full_text_read").next_steps)
       .toEqual([claimsMore(DOI, "full_text_read", "inaccessible", { shownOnly: true })]);
+    // A lead that found the abstract readable holds an entry to no more than an abstract, as it did before Greptile's
+    // review of 12 Nov 2026, which changed what the panel lists as read and nothing this check holds back.
+    expect(run([LEAD], "abstract_only").next_steps).toEqual([]);
+    // The step no longer says the receipts show an abstract: the lead gave the AI none of it.
+    expect(run([LEAD], "full_text_read").next_steps)
+      .toEqual([claimsMore(DOI, "full_text_read", "abstract_only", { leadOnly: true })]);
+    expect(run([LEAD], "full_text_read").next_steps.join(" ")).not.toContain("they show abstract_only");
+    // Greptile's review of #441 (13 Nov 2026): beside a PubMed record's abstract, a lead that found part of the text
+    // readable sets the bar at part of the text, and the step named no reading at all ("they show no reading of
+    // it"), though the abstract was read. It now names the abstract, and the lead as the reason for the bar.
+    const PART_LEAD = sign("full_text_lead", { doi: DOI, state: "PARTIAL_TEXT_READABLE" });
+    const beside = run([PUBMED, PART_LEAD], "full_text_read").next_steps;
+    expect(beside).toEqual([claimsMore(DOI, "full_text_read", "partial_text", { leadOnly: true, read: "abstract_only",
+      offer: false })]);
+    expect(beside.join(" ")).toContain("they show abstract_only (abstract only), and a full-text lead that found no " +
+      "more of it readable than partial_text (part of the text read), the most an entry may say.");
+    expect(beside.join(" ")).not.toContain("no reading of it");
+    // With the lead alone there is no reading to name.
+    expect(run([PART_LEAD], "full_text_read").next_steps)
+      .toEqual([claimsMore(DOI, "full_text_read", "partial_text", { leadOnly: true })]);
+    expect(deepestRead(new Set(["abstract_only", "lead_part_readable"]))).toBe("abstract_only");
+    expect(deepestRead(new Set(["found_in_search", "lead_abstract_readable"]))).toBe("found_in_search");
+    expect(deepestRead(new Set(["lead_part_readable"]))).toBeUndefined();
+    expect(deepestRead(new Set(["lead_paywalled", "lead_abstract_readable"]))).toBeUndefined();
   });
 
   // The recheck of 5 Nov 2026: an abstract the AI read through its own search, behind a paywall AskRigor met, is a
@@ -767,21 +802,43 @@ describe("the panel lists apart the readings AskRigor's receipts don't show", ()
   });
 
   // The recheck of 5 Nov 2026: a lead whose abstract was readable showed "not read, no access to it". Each lead state
-  // shows its own words, as the check's lead note gives them, and a copy whose abstract alone was readable is one
-  // AskRigor read that far.
-  it("words each lead's state as the check's note does, and shows the abstract a lead read", () => {
+  // shows its own words, as the check's lead note gives them. That recheck also took a copy whose abstract alone, or
+  // part of whose text, was readable as one AskRigor read that far, and listed it under "What AskRigor read".
+  // Greptile's review of 12 Nov 2026: a lead's result gives the AI where a copy is and what state it is in, and none of
+  // its text, so what was readable at a source is no reading AskRigor's receipts show. The answer's "abstract only"
+  // still passes, as the AI's own account, and the panel lists it apart, with the lead's own words beside it.
+  it("words each lead's state as the check's note does, and lists apart an abstract or a part only a lead found readable", () => {
     const lead = (state: string) => sign("full_text_lead", { doi: DOI, state });
     const run = (state: string, depth: string) => check({ receipts: [lead(state)],
       key_sources: [{ id: DOI, status: "lead_only", read_depth: depth, answer_marker: "Trial" }],
       answer_draft: draft(`[Trial](https://doi.org/${DOI}) (${ANSWER_READING_LABELS[depth as AnswerReading]}) ` +
         "compared two routines."),
       later_inputs: { source_reading: [entry(DOI, depth as AnswerReading)] } });
+    const lines = (result: FinalizeResearchOutput) => fold(render(result), "What AskRigor checked").children
+      .map(({ textContent }) => textContent);
     const abstract = run("ABSTRACT_ONLY", "abstract_only");
+    expect(abstract.status).toBe("ready_with_limits");
     expect(abstract.next_steps).toEqual([]);
-    expect(abstract.source_reading).toEqual([{ source: DOI, name: `"Trial" (${DOI})`, reading: "abstract_only", shown: true }]);
-    expect(fold(render(abstract), "What AskRigor checked").children.map(({ textContent }) => textContent))
-      .toContain(`What AskRigor read: "Trial" (${DOI}), abstract only.`);
-    expect(run("PARTIAL_TEXT_READABLE", "partial_text").source_reading![0]).toMatchObject({ reading: "partial_text", shown: true });
+    expect(abstract.source_reading).toEqual([{ source: DOI, name: `"Trial" (${DOI})`, reading: "abstract_only",
+      shown: false, receipts: "lead_abstract_readable" }]);
+    expect(lines(abstract)).toContain(`As the AI gives them, which AskRigor's receipts don't show: "Trial" (${DOI}), ` +
+      "abstract only (AskRigor's receipts show: only its abstract was readable).");
+    expect(lines(abstract).join("\n")).not.toContain("What AskRigor read");
+    // The result's line tells the AI the same, before the answer is written.
+    expect(sourceReadingGuidance(abstract.source_reading!)).toBe(GUIDANCE_LEAD + `"Trial" (${DOI}), "abstract only" ` +
+      "(abstract_only), by your account alone: AskRigor's receipts show \"only its abstract was readable\".");
+    const part = run("PARTIAL_TEXT_READABLE", "partial_text");
+    expect(part.status).toBe("ready_with_limits");
+    expect(part.next_steps).toEqual([]);
+    expect(part.source_reading).toEqual([{ source: DOI, name: `"Trial" (${DOI})`, reading: "partial_text",
+      shown: false, receipts: "lead_part_readable" }]);
+    expect(lines(part)).toContain(`As the AI gives them, which AskRigor's receipts don't show: "Trial" (${DOI}), ` +
+      "part of the text read (AskRigor's receipts show: only part of its text was readable).");
+    expect(lines(part).join("\n")).not.toContain("What AskRigor read");
+    // An abstract said to be read where a lead found part of the text readable is the AI's account too.
+    expect(run("PARTIAL_TEXT_READABLE", "abstract_only").source_reading).toEqual([{ source: DOI,
+      name: `"Trial" (${DOI})`, reading: "abstract_only", shown: false, receipts: "lead_part_readable" }]);
+    // A lead that read nothing still shows why nothing was read.
     expect(run("PAYWALL_OR_LOGIN_REQUIRED", "inaccessible").source_reading![0]).toMatchObject({ reading: "inaccessible", shown: true });
     expect(run("CANDIDATE_FOUND_FETCH_BLOCKED", "route_error").source_reading![0]).toMatchObject({ reading: "route_error", shown: true });
     // A secondary account stands apart, with the lead's own words beside it.
@@ -797,6 +854,98 @@ describe("the panel lists apart the readings AskRigor's receipts don't show", ()
     expect(words("IDENTITY_MISMATCH")).toContain("(AskRigor's receipts show: not read, no copy found could be verified as " +
       "the same paper)");
     expect(words("PROVIDER_UNAVAILABLE")).toContain("(AskRigor's receipts show: not read, no open full text was available)");
+  });
+
+  // Greptile's review of 12 Nov 2026: what another receipt shows read is still shown with such a lead beside it, and
+  // no deeper than that receipt shows.
+  it("lists under What AskRigor read the abstract a PubMed record gave the AI, with a lead beside it", () => {
+    const run = (state: string, depth: AnswerReading) => check({
+      receipts: [PUBMED, sign("full_text_lead", { doi: DOI, state })],
+      key_sources: [{ id: DOI, status: "lead_only", read_depth: depth, answer_marker: "Trial" }],
+      answer_draft: draft(`[Trial](https://doi.org/${DOI}) (${ANSWER_READING_LABELS[depth]}) compared two routines.`),
+      later_inputs: { source_reading: [entry(DOI, depth)] } });
+    for (const state of ["ABSTRACT_ONLY", "PARTIAL_TEXT_READABLE"]) {
+      const result = run(state, "abstract_only");
+      expect(result.next_steps).toEqual([]);
+      expect(result.source_reading).toEqual([{ source: DOI, name: `"Trial" (${DOI})`, reading: "abstract_only", shown: true }]);
+      expect(fold(render(result), "What AskRigor checked").children.map(({ textContent }) => textContent))
+        .toContain(`What AskRigor read: "Trial" (${DOI}), abstract only.`);
+    }
+    // Part of the text is more than the record's abstract, and the lead gave the AI none of it.
+    const part = run("PARTIAL_TEXT_READABLE", "partial_text");
+    expect(part.next_steps).toEqual([]);
+    expect(part.source_reading).toEqual([{ source: DOI, name: `"Trial" (${DOI})`, reading: "partial_text", shown: false,
+      receipts: "lead_part_readable" }]);
+  });
+
+  // The same review: the six blocking checks stay as they were. What a lead found readable at a source is no reading
+  // the receipts show, but it still bounds what an entry may say, so the read_depth check holds back the answers it
+  // held back before, and no others.
+  it("shows no reading of the text from what a lead found readable, and holds an entry to the same bar as before", () => {
+    const shownBy = (...receipts: Array<[string, Record<string, unknown>]>) =>
+      receiptReadings(receipts.map(([kind, claims]) => ({ kind, claims })), false);
+    const abstractLead = shownBy(["full_text_lead", { doi: DOI, state: "ABSTRACT_ONLY" }]);
+    const partLead = shownBy(["full_text_lead", { doi: DOI, state: "PARTIAL_TEXT_READABLE" }]);
+    expect([...abstractLead]).toEqual(["lead_abstract_readable"]);
+    expect([...partLead]).toEqual(["lead_part_readable"]);
+    for (const reading of ["partial_text", "abstract_only", "conference_abstract", "metadata_only", "found_in_search"] as const) {
+      expect(readingShown(reading, abstractLead), reading).toBe(false);
+      expect(readingShown(reading, partLead), reading).toBe(false);
+    }
+    // The lead's own words are what its receipt shows.
+    expect(readingShown("lead_abstract_readable", abstractLead)).toBe(true);
+    expect(deepestShown(abstractLead)).toBe("lead_abstract_readable");
+    expect(deepestShown(partLead)).toBe("lead_part_readable");
+    // Beside the lead, a PubMed record shows its abstract, its record and a listing, and no part of the text.
+    const withRecord = shownBy(["pubmed_record", { pmid: PMID, doi: DOI }],
+      ["full_text_lead", { doi: DOI, state: "PARTIAL_TEXT_READABLE" }]);
+    for (const reading of ["abstract_only", "conference_abstract", "metadata_only", "found_in_search"] as const) {
+      expect(readingShown(reading, withRecord), reading).toBe(true);
+    }
+    expect(readingShown("partial_text", withRecord)).toBe(false);
+    // A lead that read nothing shows why, as before, and a full reading shows what it shows.
+    expect(readingShown("inaccessible", shownBy(["full_text_lead", { doi: DOI, state: "PAYWALL_OR_LOGIN_REQUIRED" }]))).toBe(true);
+    expect(readingShown("route_error", shownBy(["full_text_lead", { doi: DOI, state: "CANDIDATE_FOUND_FETCH_BLOCKED" }]))).toBe(true);
+    expect(readingShown("partial_text", shownBy(["full_text_read", { doi: DOI }]))).toBe(true);
+    // The bar an entry is held to is as it was: no more than the lead found readable, whatever read_depth declares.
+    expect(declarableReading("lead_abstract_readable")).toBe("abstract_only");
+    expect(declarableReading("lead_part_readable")).toBe("partial_text");
+    expect(judgeSourceReading("abstract_only", "abstract_only", abstractLead)).toBe("same");
+    expect(judgeSourceReading("abstract_only", "inaccessible", abstractLead)).toBe("same");
+    expect(judgeSourceReading("metadata_only", "abstract_only", abstractLead)).toBe("less");
+    expect(judgeSourceReading("partial_text", "abstract_only", abstractLead)).toBe("more");
+    expect(judgeSourceReading("full_text_read", "abstract_only", abstractLead)).toBe("more");
+    expect(judgeSourceReading("partial_text", "partial_text", partLead)).toBe("same");
+    expect(judgeSourceReading("abstract_only", "partial_text", partLead)).toBe("less");
+    expect(judgeSourceReading("full_text_read", "partial_text", partLead)).toBe("more");
+  });
+
+  // The same review, for a study the answer links that isn't a key source, which on such a lead alone read "abstract
+  // only" or "part of the text read": linkedReading gives it as found, not read, and every other study as before.
+  it("gives a linked study the deepest reading its receipts show read, and found, not read, on such a lead alone", () => {
+    const of = (...shown: ShownReading[]) => linkedReading(new Set(shown));
+    expect(of("lead_abstract_readable")).toBe("found_in_search");
+    expect(of("lead_part_readable")).toBe("found_in_search");
+    expect(LINKED_READING_LABELS[of("lead_abstract_readable")]).toBe("found in a search, not read");
+    // Beside the lead, what another receipt shows read is the reading, and no deeper.
+    expect(of("lead_part_readable", "abstract_only")).toBe("abstract_only");
+    expect(of("lead_abstract_readable", "metadata_only")).toBe("metadata_only");
+    expect(of("lead_abstract_readable", "found_in_search")).toBe("found_in_search");
+    expect(of("lead_part_readable", "full_text_read")).toBe("full_text_read");
+    // Some of it was readable, so another attempt's paywall or failure doesn't make it "no access".
+    expect(of("lead_abstract_readable", "lead_paywalled")).toBe("found_in_search");
+    expect(of("lead_part_readable", "route_error")).toBe("found_in_search");
+    expect(of()).toBe("not_looked_up");
+    expect(of("lead_paywalled")).toBe("inaccessible");
+    // Without such a lead, every set of readings gives what the deepest shown gave before.
+    const others = SHOWN_READINGS.filter((reading) => reading !== "lead_abstract_readable" && reading !== "lead_part_readable");
+    for (let mask = 0; mask < 1 << others.length; mask += 1) {
+      const shown = new Set(others.filter((_, bit) => (mask & (1 << bit)) !== 0));
+      const deepest = deepestShown(shown);
+      if (linkedReading(shown) !== (deepest === undefined ? "not_looked_up" : declarableReading(deepest))) {
+        throw new Error(`linkedReading changed for ${[...shown].join(", ")}`);
+      }
+    }
   });
 });
 

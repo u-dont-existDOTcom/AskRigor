@@ -3651,6 +3651,16 @@ describe("findings card at the final gate", () => {
         "Give each finding draws_on_youtube_comments: true when any part of it rests on what commenters wrote, false " +
         "when none does. Send the whole card, with that field in each finding, in later_inputs.findings_card, and check " +
         "the answer again.");
+      // 13 Nov 2026 (Greptile's review of 12 Nov): after a pass that followed a pass in the same turn, the turn's last
+      // check, the note asks for the card with a later answer, and for no further check.
+      const again = finalizeResearch({ ...input, round_token: result.round_token }, options);
+      expect(again).toMatchObject({ status: plain.status, turn_already_passed: true });
+      expect(again.notes).toContainEqual("This research read YouTube comments, and findings_card.findings[2] does not " +
+        "say whether it draws on them, so AskRigor holds it privately for its owner's review and never publishes it. " +
+        "Give each finding draws_on_youtube_comments: true when any part of it rests on what commenters wrote, false " +
+        "when none does. Send the whole card, with that field in each finding, in later_inputs.findings_card, for a " +
+        "later answer, with no further check in this turn.");
+      expect((again.notes ?? []).join("\n")).not.toContain("check the answer again");
     }
     // Declaring every finding leaves only the declared one held, with no note.
     const declared = { ...card, findings: [card.findings[0], card.findings[1], { ...card.findings[2], draws_on_youtube_comments: false }] };

@@ -68,6 +68,14 @@ describe("the closing questions", () => {
       expect(blocked.text).toContain(`\n${CLOSING_QUESTIONS_GUIDANCE}`);
       // No step and no note reads the questions.
       expect([...blocked.output.next_steps, ...blocked.output.notes ?? []].join(" ")).not.toContain("questions whose answers");
+      // Greptile's review of 12 Nov 2026 (P2): a pass after a pass in the same turn is the turn's last check, and says
+      // to add no closing questions the checked draft doesn't have. So it doesn't ask for them: the one status without
+      // the line.
+      const again = await call(input({ round_token: passed.output.round_token, carried_state: passed.output.carry_forward }));
+      expect(again.output).toMatchObject({ status: passed.output.status, turn_already_passed: true });
+      expect(again.text).toContain("add no closing questions the checked draft doesn't have");
+      expect(again.text).not.toContain(CLOSING_QUESTIONS_GUIDANCE);
+      expect(again.text).not.toContain("questions whose answers");
     } finally { await client.close(); await server.close(); }
   });
 });

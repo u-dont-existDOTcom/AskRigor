@@ -239,6 +239,90 @@ describe("public forum page reader", () => {
     expect((await readForumPage(none.url, none.runtime)).later_page_links).toBeUndefined();
   });
 
+  // Greptile's review of 12 Nov 2026 (P1), reproduced by an independent audit: a thread page carried 50 links to other
+  // threads' later pages (a sidebar, a "related threads" list) before its own page 2. The list stopped at 50 links of any
+  // thread, so the thread's own page 2 was never listed and page 1 read as the whole thread. The links of the page's own
+  // thread (the page's own link but for the page it picks) are now found before the limit applies, wherever they stand.
+  const otherThread = (index: number): string => `/showthread.php?t=${1_000 + index}&page=2`;
+  const laterPagesOf = (count: number, link = otherThread): string => Array.from({ length: count }, (_, index) =>
+    `<li><a href="${link(index).replaceAll("&", "&amp;")}">Related thread ${index}</a></li>`).join("");
+  const readThread = async (path: string, markup: string) => {
+    const data = fixture({ page: page.replaceAll("</body>", `${markup}</body>`) });
+    const origin = new URL(data.url).origin;
+    const read = await readForumPage(`${origin}${path}`, data.runtime);
+    expect(read.access_state).toBe("read");
+    // The links as paths, as the page wrote them.
+    return { read, links: (read.later_page_links ?? []).map((link) => link.slice(origin.length)) };
+  };
+  const pager = `<div class="pagination"><a href="showthread.php?t=77&amp;page=2">2</a></div>`;
+
+  it("lists the thread's own later page behind 50 links to other threads' later pages", async () => {
+    const { read, links } = await readThread("/showthread.php?t=77", `<ul>${laterPagesOf(50)}</ul>${pager}`);
+    // First in the list, which still holds no more than 50 links and says that it left one out.
+    expect(links).toEqual(["/showthread.php?t=77&page=2", ...Array.from({ length: 49 }, (_, index) => otherThread(index))]);
+    expect(read.later_page_links_cut).toBe(true);
+    // The page's own text is whole: its place in its thread is said by its links, not as a cut text.
+    expect(read.truncated).toBe(false);
+  });
+
+  it("lists the thread's own later page before 50 links to other threads' later pages", async () => {
+    const { read, links } = await readThread("/showthread.php?t=77", `${pager}<ul>${laterPagesOf(50)}</ul>`);
+    expect(links).toEqual(["/showthread.php?t=77&page=2", ...Array.from({ length: 49 }, (_, index) => otherThread(index))]);
+    expect(read.later_page_links_cut).toBe(true);
+  });
+
+  it("knows the thread's own later pages as the page's own link, but for the page each picks", async () => {
+    // XenForo's path form, read at page 2: its own pages differ from it only in the path's page end and a last slash.
+    const xenforo = await readThread("/threads/synthetic-topic.77/page-2",
+      `${laterPagesOf(50, (index) => `/threads/other-topic.${index}/page-2`)}<a href="/threads/synthetic-topic.77/">1</a>` +
+      `<a href="/threads/synthetic-topic.77/page-3">3</a>`);
+    expect(xenforo.links[0]).toBe("/threads/synthetic-topic.77/page-3");
+    // phpBB's parameters in another order, with the page's own start: one thread by its parameters' names and values.
+    const phpbb = await readThread("/viewtopic.php?f=4&t=99&start=15",
+      `${laterPagesOf(50, (index) => `/viewtopic.php?f=4&t=${1_000 + index}&start=15`)}<a href="./viewtopic.php?t=99&amp;f=4&amp;start=30">3</a>`);
+    expect(phpbb.links[0]).toBe("/viewtopic.php?t=99&f=4&start=30");
+    // Another thread is none of the page's own: another number, another parameter, another path. Each is listed in its
+    // place on the page, as before.
+    const others = await readThread("/showthread.php?t=77", `<a href="showthread.php?t=770&amp;page=2">a</a>` +
+      `<a href="showthread.php?t=77&amp;view=print&amp;page=2">b</a><a href="/archive/showthread.php?t=77&amp;page=2">c</a>` +
+      laterPagesOf(50));
+    expect(others.links).toEqual(["/showthread.php?t=770&page=2", "/showthread.php?t=77&view=print&page=2",
+      "/archive/showthread.php?t=77&page=2", ...Array.from({ length: 47 }, (_, index) => otherThread(index))]);
+    expect(others.read.later_page_links_cut).toBe(true);
+  });
+
+  it("lists no more than 50 links when the thread links more than 50 of its own later pages", async () => {
+    const ownPage = (index: number): string => `/showthread.php?t=77&page=${index + 2}`;
+    const sixty = await readThread("/showthread.php?t=77", laterPagesOf(60, ownPage));
+    expect(sixty.links).toEqual(Array.from({ length: 50 }, (_, index) => ownPage(index)));
+    expect(sixty.read.later_page_links_cut).toBe(true);
+    // Behind ten links to other threads: its own come first, and the reader reads no further once a link is left out
+    // of a list with one of its own in it, which settles that a page follows.
+    const behind = await readThread("/showthread.php?t=77", `${laterPagesOf(10)}${laterPagesOf(60, ownPage)}`);
+    expect(behind.links).toEqual([...Array.from({ length: 41 }, (_, index) => ownPage(index)),
+      ...Array.from({ length: 9 }, (_, index) => otherThread(index))]);
+    expect(behind.read.later_page_links_cut).toBe(true);
+    // A link counts once: sixty links to one later page are one link, and nothing is left out.
+    const repeated = await readThread("/showthread.php?t=77", pager.repeat(60));
+    expect(repeated.links).toEqual(["/showthread.php?t=77&page=2"]);
+    expect(repeated.read.later_page_links_cut).toBeUndefined();
+  });
+
+  // A list that left links out and holds none of the page's own thread doesn't show that the page links none, as its
+  // caller compares threads: the read says the list was cut, and read_forum_thread then signs no end of the thread. No
+  // mark on a page shows it whole: whole is only a list that left nothing out, with none of its own thread in it.
+  it("says when its list of later pages left links out, and not when it holds them all", async () => {
+    const cut = await readThread("/showthread.php?t=77", laterPagesOf(51));
+    expect(cut.links).toEqual(Array.from({ length: 50 }, (_, index) => otherThread(index)));
+    expect(cut.read.later_page_links_cut).toBe(true);
+    const full = await readThread("/showthread.php?t=77", laterPagesOf(50));
+    expect(full.links).toEqual(Array.from({ length: 50 }, (_, index) => otherThread(index)));
+    expect(full.read.later_page_links_cut).toBeUndefined();
+    const few = await readThread("/showthread.php?t=77", `${laterPagesOf(3)}${pager}`);
+    expect(few.links).toEqual(["/showthread.php?t=77&page=2", otherThread(0), otherThread(1), otherThread(2)]);
+    expect(few.read.later_page_links_cut).toBeUndefined();
+  });
+
   it("does not extract a next-page link from scripts or comments", async () => {
     const data = fixture({ page: `${page}<script><a rel='next' href='/script'></a></script><!-- <link rel='next' href='/comment'> -->` });
     expect((await readForumPage(data.url, data.runtime)).next_page).toBeUndefined();

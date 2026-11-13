@@ -111,7 +111,8 @@ AskRigor ended its tirzepatide answer with three numbered questions: whether tir
 CPAP or as an add-on; obesity, overweight or normal weight; and the person's AHI, with examples (15, 30, 50 or 70). It
 also said what it would do with the answers. AskRigor's answer asked only for the AHI and whether the person uses CPAP,
 and never about weight, though the trials and the US approval cover only people with obesity. HRP's
-`ComplexAnswerFooter` already asks for the pivot point or most decision-changing next data. So, under every status, the
+`ComplexAnswerFooter` already asks for the pivot point or most decision-changing next data. So, under every status but
+a pass after a pass in the same turn (13 November 2026, below), the
 result's text guides the answer's close with one line (`CLOSING_QUESTIONS_GUIDANCE` in `final-check-messages.ts`): when
 the answer depends on the person's situation, it closes, before the lines the result puts at its end, with at most three
 questions whose answers would most change it: what they are deciding; whether they match the people the key studies
@@ -142,7 +143,19 @@ dataset) is fixed now. A change that fixes the answer itself (what a note says i
 what this person should believe or do, limits repeated word for word, or an error found in it) is checked once more,
 the turn's last. A pass after a pass in the same turn, known from the carried state's turn and last status and the
 round token, with no stored state, says it is the turn's last check and sets the runtime-only `turn_already_passed`;
-there the limits guidance, the repeated-limits note and the notes' heading ask for the fix with no further check. So
+there the limits guidance, the repeated-limits note and the notes' heading ask for the fix with no further check.
+Since 13 November 2026 everything such a result says follows that (Greptile's review of 12 November, P2: its guidance
+said not to call `finalize_research` again while a note of the same result could still end "check the answer again",
+as a new concern of the meaning judge's did on a dev account, and it still asked for closing questions, which the
+guidance says not to add). A note that asked for the check again says what the heading says of its kind
+(`repeatPassNote` in `final-check-messages.ts`): one about something wrong in the answer ends "with no further check in
+this turn", and one asking for an input ends "for a later answer, with no further check in this turn"; the line that
+stands for notes an earlier check gave adds that none asks for another check in this turn; the closing-questions line
+is left out; a reason why the answer has no comparison with the quick answer leaves out the call that would restore
+it, which the next turn's first check gives again; and the round token is given only for a call made despite all
+that, since the token is what tells such a call that the turn had already passed. The notes are compared and carried
+as a first pass words them, so each is still given once a turn. A first pass and a check that doesn't pass say what
+they said. So
 that nothing needs a later call, the reading tools give the `source_reading` entry's exact fields
 (`{source, reading, quote}`) and the method audits the study map's exact shape before the first check (on Gemini,
 whose catalog has no final check, only how the study was read, and to count groups of people, not papers), and a
@@ -308,7 +321,11 @@ comes before it (`pv`: any `rel="prev"` tag on the page, followable or not, or t
 `page=2`, `/page-2`) and after it (`pa`: its next page, any `rel="next"` tag, or a link to a later page of its own
 thread, by the same comparable link and a page after the first, as pagers without rel tags give, MyBB's, vBulletin 3's,
 phpBB 3.0's or a "Weiter ›" link, in any language), and reaches the end (`e`) only with nothing after it and nothing
-cut. Separate page reads are never stitched together, so a thread of several pages is part read however many of its
+cut. The reader lists at most 50 links to later pages, its own thread's first, wherever they stand on the page
+(Greptile's review of 12 Nov 2026: 50 links to other threads' later pages, in a sidebar, stood before the thread's own
+page 2, which was never listed, and page 1 read as the whole thread); when a page holds more such links than the list
+and none listed is its own thread's, whether a page follows is unknown, so the read reaches no end (`e` 0, with `pa` 0)
+and the thread is part read. Separate page reads are never stitched together, so a thread of several pages is part read however many of its
 pages were read, and the step says what was seen ("its page marks a page before or after it") and asks for
 `partial_text`; a one-page topic whose rel tags link an adjacent topic reads as part read too, by the same rule (the owner regressions on
 #412's build, judged 6 November 2026: r376-later-phase read both pages of a thread, its second at `?p=2`; the review of
@@ -352,9 +369,14 @@ AskRigor; …", so the reader sees them even when the answer is reworded, and ap
 found in a search, not read); …". A receipt shows a reading when it shows that reading or a deeper one of the same text:
 an audit or a full reading (of AskRigor's copy or the AI's), a PubMed record (its abstract, unless the record had none,
 which its receipt now signs), a DOI's record, a search's listing, a full-text lead, by the state it signs, in the words
-the check's lead note gives it (a copy whose abstract alone was readable shows "only its abstract was readable", and so
-an abstract read; part of its text, "only part of its text was readable"; a paywall, "not read, its full text needs a
-login or a subscription"; and so on), or a full-text service failure; another source's description and another tool's
+the check's lead note gives it (a copy whose abstract alone was readable shows "only its abstract was readable"; part of
+its text, "only part of its text was readable"; a paywall, "not read, its full text needs a login or a subscription";
+and so on), or a full-text service failure. A lead shows no reading of the text (Greptile's review of 12 Nov 2026; until
+then a lead's readable abstract counted as an abstract read): its result tells the AI where a copy is and what state it
+is in, and gives none of the copy's text and no handle to read it. So an abstract or a part the answer says it read, on
+a lead alone, is listed apart as the AI's own account, with the lead's words beside it ("… abstract only (AskRigor's
+receipts show: only its abstract was readable)"), unless another receipt shows it, as a PubMed record's abstract does;
+what an entry may say without being held back is as it was. Another source's description and another tool's
 reading are never shown by a receipt. Before
 any check, the tools that establish a reading name its words and its name in their results, with where to give them: a
 signed `fetch_pubmed_record` ("abstract only", or "only its title and record read" for a record without an abstract,
@@ -421,9 +443,11 @@ identifiers and links are forms, not meanings.
   AskRigor can't match to a study exactly, so link each study by its doi.org or PubMed address in a Markdown link, for
   its reading to show. Any other link gets nothing. None of it is a step.
 - One research-wide sentence (`reading_summary`), with exact counts of distinct studies: methods audited (a study or
-  review audit), read in full (a reading to its end), part of the text (a lead whose copy was readable only in part),
-  and abstract or record only (a PubMed record, with its abstract or without one, a DOI's record, or a lead whose
-  abstract alone was readable); a count of copies the AI found is named within its own; and, only when every search
+  review audit), read in full (a reading to its end), and abstract or record only (a PubMed record, with its abstract or
+  without one, or a DOI's record). A full-text lead counts no reading, whatever state it signs, since its result gives
+  the AI none of the copy's text (Greptile's review of 12 Nov 2026: one lead whose copy held only an abstract gave
+  "AskRigor read 1 study only as an abstract."); its study counts by its other receipts, or not at all, and no receipt
+  shows part of a text read, so that count stays at none. A count of copies the AI found is named within its own; and, only when every search
   receipt names its records exactly, the records the searches listed that AskRigor didn't read. For example: "AskRigor
   read 3 studies in full and checked their methods, and 3 more only as abstracts; its searches listed 41 other records
   it didn't read." Those are named records, not studies (the review of #422): a search lists books, theses and patents

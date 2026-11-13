@@ -165,14 +165,19 @@ export function registerForumTools(
       const read = withoutReaderHints(reddit ? await reader!.readThread(url, more) : await (options.forumPageReader ?? readForumPage)(url));
       // Whether the page's markup marks a page before or after it, which only the receipt reads (pv and e, below): the
       // published result is unchanged.
-      const { page_before: pageBefore, page_after: pageAfter, later_page_links: laterPageLinks, ...fields } =
-        read.fields as typeof read.fields & { page_before?: boolean; page_after?: boolean; later_page_links?: string[] };
+      const { page_before: pageBefore, page_after: pageAfter, later_page_links: laterPageLinks,
+        later_page_links_cut: laterPageLinksCut, ...fields } = read.fields as typeof read.fields &
+        { page_before?: boolean; page_after?: boolean; later_page_links?: string[]; later_page_links_cut?: boolean };
       const login = fields.access_state === "login_required";
       const data = readData.parse({ ...base, ...fields, ...(login ? { access_state: "blocked" } : {}) });
       // A page linking a later page of its own thread (the same comparable link, picking a page after the first) is a
       // page of several, whatever its pager looks like, in any language (MyBB's, vBulletin 3's, phpBB 3.0's pagers carry
       // no rel tags; the review of #421). A single-page thread links no later page of itself.
       const pagedHere = (laterPageLinks ?? []).some((link) => comparableUrl(link) === comparableUrl(data.url));
+      // The reader lists at most 50 such links, and says when the page held more. A cut list with none of this thread
+      // doesn't show that the page links none: whether a page follows is unknown, so the read reaches no end (e), and
+      // claims no page after it (pa) either (Greptile's review of 12 Nov 2026: a part must never pass as the whole).
+      const pagesUnknown = laterPageLinksCut === true && !pagedHere;
       // A Reddit read also signs the subreddit the reader returned (`c`), the only source of the community and link the
       // Atlas publishes for it (the review of 5 November, finding 1); a post on a person's profile signs u_ alone.
       const subreddit = reddit ? signedSubreddit(data.community) : undefined;
@@ -200,8 +205,9 @@ export function registerForumTools(
         // final check reads a thread read to its end as fully read, and one left part-way as part read (the third
         // check of 5 Nov 2026). A page cut at the reader's size limit, or a Reddit read that missed comments, is
         // part-way, as the result's own partial access status says (its fourth check). A forum page with a page after
-        // it, by any rel="next" tag, followable or not, is part-way too (the review of #421).
-        e: data.more || data.next_page || pageAfter === true || pagedHere || data.truncated ? "0" : "1",
+        // it, by any rel="next" tag, followable or not, is part-way too (the review of #421), and so is one whose links
+        // to later pages the reader couldn't all list, none of them this thread's (Greptile's review of 12 Nov 2026).
+        e: data.more || data.next_page || pageAfter === true || pagedHere || pagesUnknown || data.truncated ? "0" : "1",
         // Whether a forum page has a page before it (pv), by any rel="prev" tag, followable or not, or the page its link
         // picks (start=30, page=2, /page-2): the final check reads a forum thread in full only from one read of a page
         // with nothing before it and nothing after it, a whole thread on one page; a thread of several pages is part

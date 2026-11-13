@@ -9,13 +9,16 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { verifyCarriedState } from "../apps/research-mcp/src/carried-state.js";
 import {
-  FIRST_PASS_GUIDANCE, PASS_SCOPE, PASSING_NOTES_HEADING, REPEAT_PASS_GUIDANCE, REPEAT_PASS_NOTES_HEADING
+  CLOSING_QUESTIONS_GUIDANCE, FIRST_PASS_GUIDANCE, PASS_SCOPE, PASSING_NOTES_HEADING, REPEAT_PASS_GUIDANCE,
+  REPEAT_PASS_NOTES_HEADING, SOURCE_LINE_EXAMPLE, SOURCE_LINE_FIELDS, SOURCE_LINE_SHAPE_NOTE, repeatPassNote
 } from "../apps/research-mcp/src/final-check-messages.js";
 import {
-  TOOL_LIST_REFRESH_HINT, finalizeResearch as finalizeResearchUnwrapped, uncheckedLine, type FinalizeResearchInput, type FinalizeResearchOutput
+  RESEARCH_BEHIND_NOTE, TOOL_LIST_REFRESH_HINT, finalizeResearch as finalizeResearchUnwrapped, uncheckedLine,
+  type FinalizeResearchInput, type FinalizeResearchOutput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
+import { sourceLineNotes } from "../apps/research-mcp/src/source-lines.js";
 
 import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { withSourceReading } from "./helpers/source-reading.js";
@@ -190,6 +193,46 @@ describe("an answer given before the final check passes (AskRigor#354)", () => {
   });
 });
 
+// Greptile's review of 12 Nov 2026 (P2): the repeat pass said not to call finalize_research again, while its notes could
+// still end "check the answer again". A repeat pass words each such note as its heading says of the note's kind.
+describe("a note that asked for the check again, as a repeat pass gives it", () => {
+  const LATER = "for a later answer, with no further check in this turn";
+
+  it("is for a later answer when it asks for an input, in each way such a note ends", () => {
+    // The source lines' shape.
+    expect(SOURCE_LINE_SHAPE_NOTE).toMatch(/ Then check the answer again, and AskRigor looks the lines up\.$/u);
+    expect(repeatPassNote(SOURCE_LINE_SHAPE_NOTE)).toBe("source_lines: a line was left out because of its shape. Give " +
+      `each line as ${SOURCE_LINE_EXAMPLE}, with these five fields and no others: ${SOURCE_LINE_FIELDS}. That is ` +
+      `${LATER}; AskRigor looks the lines up then.`);
+    // The card's research behind each finding.
+    expect(RESEARCH_BEHIND_NOTE).toMatch(/ when the reports agree\. Then check the answer again\.$/u);
+    expect(repeatPassNote(RESEARCH_BEHIND_NOTE)).toBe(RESEARCH_BEHIND_NOTE.replace(/ Then check the answer again\.$/u,
+      ` That is ${LATER}.`));
+    // A card to rewrite, and a declaration to give: the gate names the second as asking for an input.
+    expect(repeatPassNote("Rewrite its claim, then send the card and check the answer again."))
+      .toBe(`Rewrite its claim, then send the card ${LATER}.`);
+    expect(repeatPassNote("Send the whole card in later_inputs.findings_card, and check the answer again.", "input"))
+      .toBe(`Send the whole card in later_inputs.findings_card, ${LATER}.`);
+  });
+
+  it("is fixed in the answer with no further check when it says the answer is wrong, and is otherwise as it was", () => {
+    // A quote the paper doesn't have, as source-lines.ts words it.
+    const [unfound] = sourceLineNotes({ source: "10.1000/unchecked", label: "Study", sentence: "not_found",
+      conclusion: "found", text: "full_text", shown: true });
+    expect(unfound).toBe("The sentence given for Study isn't in the full text AskRigor looked in. Copy each whole and " +
+      "exactly, with no ellipsis, in the paper's language, or take it out of the answer and of source_lines, and check " +
+      "the answer again.");
+    expect(repeatPassNote(unfound!)).toBe("The sentence given for Study isn't in the full text AskRigor looked in. Copy " +
+      "each whole and exactly, with no ellipsis, in the paper's language, or take it out of the answer and of " +
+      "source_lines, with no further check in this turn.");
+    // A note that never asked for the check, and one that names it elsewhere than at its end, are as they were.
+    for (const note of ["user_observations is missing: with answer_draft, it lists each observation.",
+      "receipts[0] does not verify: copy it again exactly as the tool returned it.",
+      "A note about how to check the answer again, which goes on."]) expect(repeatPassNote(note)).toBe(note);
+    expect(repeatPassNote("")).toBe("");
+  });
+});
+
 describe("the unchecked line and the previous check in finalize_research's result text", () => {
   let server: Server | undefined;
   let client: Client | undefined;
@@ -299,6 +342,15 @@ describe("the unchecked line and the previous check in finalize_research's resul
     expect(again.output.turn_already_passed).toBe(true);
     expect(again.text).toContain(`\n${REPEAT_PASS_GUIDANCE}`);
     expect(again.text).not.toContain(FIRST_PASS_GUIDANCE);
+    // Greptile's review of 12 Nov 2026 (P2): the repeat pass says to add no closing questions the checked draft doesn't
+    // have, so it doesn't ask for them, and its round token is for a call made despite the last check, not for a
+    // next call. A first pass asks for the questions and gives the token for the next call, as before.
+    expect(first.text).toContain(`\n${CLOSING_QUESTIONS_GUIDANCE}\n`);
+    expect(first.text).toMatch(/\nThis was round 1 of 10 in this turn\. Pass this as round_token in this turn's next finalize_research call: cr2~\S+\n/u);
+    expect(again.text).not.toContain(CLOSING_QUESTIONS_GUIDANCE);
+    expect(again.text).toMatch(/\nThis was round 1 of 10 in this turn, the turn's last check\. Only if finalize_research is called again in this turn despite that, pass this as round_token: cr2~\S+\n/u);
+    expect(again.text.replace(REPEAT_PASS_GUIDANCE, ""))
+      .not.toMatch(/check the answer again|call finalize_research|call again|closing questions|this turn's next finalize_research call/u);
     // A later turn passes the state without the round token: a first pass again.
     const later = await call(base({ carried_state: first.output.carry_forward }));
     expect(later.output.status).toMatch(/^ready/u);
@@ -312,6 +364,9 @@ describe("the unchecked line and the previous check in finalize_research's resul
     expect(blocked.text).not.toContain(FIRST_PASS_GUIDANCE);
     expect(blocked.text).not.toContain(REPEAT_PASS_GUIDANCE);
     expect(blocked.text).toContain("AskRigor's final check has not passed");
+    // It asks for closing questions and gives its token for the next call, as any check that doesn't pass.
+    expect(blocked.text).toContain(`\n${CLOSING_QUESTIONS_GUIDANCE}\n`);
+    expect(blocked.text).toMatch(/\nThis was round 2 of 10 in this turn\. Pass this as round_token in this turn's next finalize_research call: cr2~\S+\n/u);
     // The review of 12 Nov 2026: the turn keeps its pass through a call that doesn't, so the fix of an edited draft that
     // failed is still the turn's repeat pass; a new turn starts without it.
     const fixed = await call(base({ carried_state: blocked.output.carry_forward, round_token: blocked.output.round_token }));
@@ -350,6 +405,32 @@ describe("the unchecked line and the previous check in finalize_research's resul
     expect(notedBlocked.output.status).toBe("not_ready");
     expect(notedBlocked.text).toContain("\nNotes about the call:\n- receipts[1]");
     expect(notedBlocked.text).not.toContain(PASSING_NOTES_HEADING);
+  });
+
+  // Greptile's review of 12 Nov 2026 (P2): a repeat pass's notes could still end "check the answer again".
+  it("gives a note that asks for the check again that way only until the turn's last check", async () => {
+    // A source line under names of its own is left out for its shape, with a note that every check of the call repeats.
+    const lines = { later_inputs: { source_lines: [{ study_id: STUDY, evidence_quote: "A sentence." }] } };
+    const first = await call({ ...base({}), ...lines } as FinalizeResearchInput);
+    expect(first.output.status).toMatch(/^ready/u);
+    expect(first.output.notes).toContain(SOURCE_LINE_SHAPE_NOTE);
+    expect(first.text).toContain(`\n${PASSING_NOTES_HEADING}\n`);
+    expect(first.text).toContain(`- ${SOURCE_LINE_SHAPE_NOTE}`);
+    const again = await call({ ...base({ carried_state: first.output.carry_forward, round_token: first.output.round_token }),
+      ...lines } as FinalizeResearchInput);
+    expect(again.output.turn_already_passed).toBe(true);
+    expect(again.output.notes).not.toContain(SOURCE_LINE_SHAPE_NOTE);
+    expect(again.output.notes).toContain(repeatPassNote(SOURCE_LINE_SHAPE_NOTE));
+    expect(again.text).toContain(`\n${REPEAT_PASS_NOTES_HEADING}\n`);
+    expect(again.text).toContain(`- ${repeatPassNote(SOURCE_LINE_SHAPE_NOTE)}`);
+    expect((again.output.notes ?? []).join("\n")).not.toContain("check the answer again");
+    expect(again.text.replace(REPEAT_PASS_GUIDANCE, "")).not.toMatch(/check the answer again|call finalize_research/u);
+    // A check of the same turn that doesn't pass says it as a first check does.
+    const blocked = await call({ ...base({ ...DEPTH_GAP, carried_state: first.output.carry_forward,
+      round_token: first.output.round_token }), ...lines } as FinalizeResearchInput);
+    expect(blocked.output.status).toBe("not_ready");
+    expect(blocked.text).toContain("\nNotes about the call:\n");
+    expect(blocked.output.notes).toContain(SOURCE_LINE_SHAPE_NOTE);
   });
 
   it("says the same where the result's unchecked_line is published", async () => {

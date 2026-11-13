@@ -173,7 +173,9 @@ describe("list_calls", () => {
     const asked = await handler({ action: "plan_research", researchMenu: {
       research_target: "Synthetic target", tasks: [task("conclusion")] } }, signedIn);
     const goneOn = await handler({ action: "plan_research", researchMenu: {
-      research_target: "Synthetic target", tasks: [task("conclusion")], allocation: [{ task: 1, minutes: 3 }] } }, signedIn);
+      research_target: "Synthetic target", tasks: [task("conclusion")], allocation: [{ task: 1, minutes: 3 }],
+      // 13 Nov 2026: on every account an allocation is the person's answer only with person_answered true.
+      person_answered: true } }, signedIn);
     expect(asked.structuredContent).toMatchObject({ researchMenu: { next: "ask" } });
     expect(goneOn.structuredContent).toMatchObject({ researchMenu: { next: "go_on" } });
     await handler({ action: "inspect" }, signedIn);

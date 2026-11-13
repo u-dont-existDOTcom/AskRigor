@@ -62,11 +62,9 @@ import {
   PLAN_TASK_KINDS,
   RESEARCH_LOOPS,
   FORM_PEOPLE_USE,
-  STEERING_JUDGMENT,
-  asksOnlyForJudgmentLeftOut,
+  STEERING_CHOICE,
   correctedMenu,
   correctedMenuSchema,
-  judgmentRefusalText,
   framingGuidance,
   framingNextStep,
   menuProblems,
@@ -78,6 +76,8 @@ import {
   planResearchText,
   readResearchMenu,
   researchMenuSchema,
+  steeringChoiceLeftOut,
+  steeringChoiceRefusalText,
   steeringInspectText,
   steeringSentence,
   youDecideLaterInputs,
@@ -292,7 +292,11 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     recommended: z.array(z.object({ task: z.number().int(), minutes: z.number() }).strict()),
     recommended_minutes: z.tuple([z.number(), z.number()]),
     next: z.enum(["ask", "go_on"]),
+    // The judgment the menu gave: its steering_choice read as one (a named question true, the word none false),
+    // otherwise its own steering_could_help.
     steering_could_help: z.boolean().optional(),
+    // Owner answer 296b (13 Nov 2026): the question the menu named, with an ask, for the reply to put to the person.
+    steering_choice: z.string().optional(),
     style: z.enum(RESEARCH_STYLES),
     check_back_minutes: z.number().int(),
     adjustment_detail: z.enum(ADJUSTMENT_DETAILS),
@@ -300,16 +304,16 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     target_matches_plain_answer: z.boolean().optional(),
     menu_digest: z.string().optional(),
     menu_changed: z.literal(true).optional(),
-    // Round 3 of the owner's ChatGPT runs (12 Nov 2026): the call's allocation was not used, as the account requires
-    // person_answered true with it and the call did not give it.
+    // Round 3 of the owner's ChatGPT runs (12 Nov 2026; every account since 13 Nov 2026): the call's allocation was
+    // not used, as it came without person_answered true.
     allocation_not_used: z.literal(true).optional(),
   }).strict().optional(),
   // 12 Nov 2026 (runtime only): an ask's "you decide" call, ready to copy, and a refused menu's example, built from the
-  // call's own. On an account that requires person_answered, the call carries its placeholder, to be replaced.
+  // call's own. The call carries person_answered's placeholder, to be replaced (every account since 13 Nov 2026).
   you_decide_later_inputs: youDecideLaterInputsSchema.optional()
-    .describe("With plan_research's ask: the later_inputs for the person's \"you decide\", as they are to be sent, " +
-      "with the recommended allocation inside researchMenu; where person_answered is <true|false>, after replacing " +
-      "it with whether the person has answered this menu in a message of their own."),
+    .describe("With plan_research's ask: the later_inputs for the person's \"you decide\", with the recommended " +
+      "allocation inside researchMenu, to be sent after replacing <true|false> in person_answered with whether the " +
+      "person has answered this menu in a message of their own."),
   corrected_later_inputs: correctedMenuSchema.optional()
     .describe("With a plan_research call whose menu could not be read: its later_inputs as they should be, built from " +
       "its own; replace each <...> with one of the values it lists."),
@@ -1254,22 +1258,24 @@ async function setResearchSteering(
 }
 
 /**
- * A short menu that left the judgment out, on a dev account (owner answer 294c): nothing is planned, and the result
- * gives the call back with the judgment's place marked, in its text and in a structured content that is valid, with
- * the test in its message for an app that hands its model only the structured content.
+ * A short menu that names no question, on a dev account (owner answer 296b, 13 Nov 2026; until then the refusal of
+ * owner answer 294c, for the yes or no left out): nothing is planned, and the result gives the call back with the
+ * question's place marked, in its text and in a structured content that is valid, with the test in its message for
+ * an app that hands its model only the structured content.
  */
-function judgmentRefusal(plan: ResearchMenuInput): CallToolResult {
+function steeringChoiceRefusal(plan: ResearchMenuInput): CallToolResult {
   const example = correctedMenu(plan, true);
   const message = "plan_research planned nothing yet: this menu's tasks are short, so whether to ask the person " +
-    "first rests on later_inputs.researchMenu.steering_could_help, which the call left out. Call it again with " +
-    `corrected_later_inputs, after replacing ${MENU_PLACEHOLDERS.steering_could_help} with your judgment: ` +
-    `${STEERING_JUDGMENT}.`;
+    "first rests on later_inputs.researchMenu.steering_choice, which the call left out (steering_could_help alone, " +
+    "true or false, does not replace it). Call it again with corrected_later_inputs, after replacing " +
+    `${MENU_PLACEHOLDERS.steering_choice} with that question or with the word none: ${STEERING_CHOICE}.`;
   return {
-    content: [{ type: "text", text: judgmentRefusalText(example) }],
+    content: [{ type: "text", text: steeringChoiceRefusalText(example) }],
     structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
       ok: false,
       error: { code: "invalid_request", message },
-      problems: ["later_inputs.researchMenu.steering_could_help: left out; say true or false for this question"],
+      problems: ["later_inputs.researchMenu.steering_choice: left out; name the one question you would ask this " +
+        "person, or write none"],
       corrected_later_inputs: example,
     }),
     isError: true,
@@ -1282,11 +1288,14 @@ function judgmentRefusal(plan: ResearchMenuInput): CallToolResult {
  * research target is the registered one (AskRigor#434) and says how long ago the plain answer was registered. Nothing
  * of the plan is stored.
  *
- * On a dev account (devAccount), two things the AI declares are required, each tried there before any other account
- * gets it: the judgment a short menu's ask rests on (owner answer 294c, 12 Nov 2026), and person_answered true with an
- * allocation (round 3 of the owner's ChatGPT runs, 12 Nov 2026: the AI sent the handed-over "you decide" allocation
- * itself, 54 seconds after the ask, and researched for 17 minutes without the person). AskRigor checks only that each
- * was declared; what it says is the model's.
+ * Two things the AI declares decide what a menu's result says, and AskRigor checks only that each was declared; what
+ * it says is the model's. An allocation is the person's answer only with person_answered true (round 3 of the
+ * owner's ChatGPT runs, 12 Nov 2026: the AI sent the handed-over "you decide" allocation itself, 54 seconds after the
+ * ask, and researched for 17 minutes without the person): on dev accounts from 12 Nov, and on every account since 13
+ * Nov 2026, after round 4 showed it held on the owner's account while every other account still got the handed-over
+ * call as a usable default. And on a dev account (devAccount) alone, tried there before any other account gets it, a
+ * short menu names the question the AI would ask the person, or none (owner answer 296b, 13 Nov 2026: round 4 showed
+ * that the yes or no of owner answer 294c let "every task is needed" stand for "nothing to ask").
  */
 async function planResearchAction(
   service: ResearchContributorAccessService,
@@ -1314,27 +1323,27 @@ async function planResearchAction(
   const digest = digestSecret === undefined || digestSecret === "" ? undefined : menuDigest(plan.tasks, digestSecret);
   const menu = digest === undefined ? undefined
     : { digest, changed: plan.menu_digest !== undefined && plan.menu_digest !== digest };
-  // Round 3 of 12 Nov 2026: on a dev account, an allocation is the person's answer only with person_answered true;
-  // any other is not used, and the menu is planned as if none had come.
+  // Owner answers 294c (12 Nov 2026) and 296b (13 Nov 2026): on a dev account, a menu whose decision rests on the
+  // judgment plans nothing until it names the question the AI would ask this person, or none; the yes or no alone
+  // no longer answers there. So the AI decides a short menu, not the default, and decides it by trying to name a
+  // choice of the person's first.
+  if (devAccount && steeringChoiceLeftOut(plan, account.steering, menu)) return steeringChoiceRefusal(plan);
+  // Round 3 of 12 Nov 2026 (every account since 13 Nov 2026): an allocation is the person's answer only with
+  // person_answered true; any other is not used, and the menu is planned as if none had come.
   const result = planResearch(plan, account.steering, read === undefined ? undefined : {
     matches: read.target === researchTargetDigest(plan.research_target),
     minutesSince: Math.max(0, Math.round((Date.now() - Date.parse(read.issuedAt)) / 60_000)),
-  }, menu, devAccount);
-  // Owner answer 294c (12 Nov 2026): on a dev account, a menu whose ask rests only on the judgment the AI left out
-  // plans nothing until the AI gives it, so the AI decides a short menu and not the default.
-  if (devAccount && asksOnlyForJudgmentLeftOut(plan, account.steering, result, menu, devAccount)) {
-    return judgmentRefusal(plan);
-  }
+  }, menu);
   // 11 Nov 2026: the problems come first, so an ask's text ends with the rule for the person's answer; only the stop
   // for an allocation not used comes before them (planResearchText). Whether the menu's numbers must stay as they are
   // goes by whether an allocation or a done list was given at all, even one that names no open task or is not used;
-  // whether to ask goes by allocationAnswered and the dev account's person_answered, inside planResearch.
+  // whether to ask goes by allocationAnswered and person_answered, inside planResearch.
   const numbered = (plan.allocation ?? []).length > 0 || (plan.done ?? []).length > 0;
-  // 12 Nov 2026: an ask hands over the "you decide" call ready to copy, in its text and as a runtime field; on a dev
-  // account with person_answered's placeholder in it, so the call copied as it is asks again.
-  const youDecide = youDecideLaterInputs(plan, result, devAccount);
+  // 12 Nov 2026: an ask hands over the "you decide" call ready to copy, in its text and as a runtime field, with
+  // person_answered's placeholder in it, so the call copied as it is asks again.
+  const youDecide = youDecideLaterInputs(plan, result);
   const text = planResearchText(result, new Set(plan.done ?? []), numbered, plan.research_target, youDecide,
-    devAccount, problems);
+    problems);
   // An allocation not used is the first thing the text and next_step say, as a stop; the structured content also
   // names it first among its problems. The result is the ask again (or the menu that goes on), not an error.
   const structuredProblems = result.allocation_not_used === true
@@ -1347,7 +1356,7 @@ async function planResearchAction(
       ok: true,
       researchMenu: result,
       ...(structuredProblems.length === 0 ? {} : { problems: structuredProblems }),
-      next_step: planNextStep(result, devAccount),
+      next_step: planNextStep(result),
       ...(youDecide === undefined ? {} : { you_decide_later_inputs: youDecide }),
     }),
   };

@@ -11,12 +11,13 @@ import { REPORT_PROTOCOL_VERSIONS } from "./check-report-vocabulary.js";
 import { askrigorBuildCommitFromEnv } from "./config.js";
 import type { RunningVersions } from "./version.js";
 import { createHash } from "node:crypto";
-import { COMPLETE_CHECKS_TIP, SOURCE_LINE_SHAPE_NOTE } from "./final-check-messages.js";
+import { COMPLETE_CHECKS_TIP, repeatPassNote, SOURCE_LINE_SHAPE_NOTE } from "./final-check-messages.js";
 import { communityLeadVideo, leadKey, leadPhrase, readCommunityLeads } from "./community-leads.js";
 import { ABSENCE_SWEEP_RULES, nameFormInQuery, sameName } from "./absence-searches.js";
 import {
-  answerReadingRule, DECLARABLE_WITHOUT_RECEIPT, declarableReading, deepestShown, identifierShown, judgeSourceReading,
-  LINKED_READINGS_SHOWN, linkedReadingCheckSchema, readingShown, receiptReadings, sourceReadingCheckSchema,
+  answerReadingRule, DECLARABLE_WITHOUT_RECEIPT, declarableReading, deepestRead, deepestShown, identifierShown,
+  judgeSourceReading,
+  LINKED_READINGS_SHOWN, linkedReading, linkedReadingCheckSchema, readingShown, receiptReadings, sourceReadingCheckSchema,
   verifiedAnswerReading, type AnswerReading, type LinkedReadingCheck, type ShownReading, type SourceReadingCheck,
   type SourceReadingQuote
 } from "./source-reading.js";
@@ -1367,11 +1368,27 @@ function earlierObservations(carried: CarriedState | undefined, turn: string): C
   return carried.observations.filter((_, index) => !own.has(index));
 }
 
-/** The line that stands for the notes an earlier check of this turn gave, which this check does not repeat. */
-export function repeatedNotesLine(count: number): string {
+/**
+ * How the read-depth step names what the receipts show when the bar an entry is held to is only what a full-text lead
+ * found readable: the reading they do show read beside the lead, or that they show none (Greptile's review of #441,
+ * 13 Nov 2026).
+ */
+function leadBarRead(read: AnswerReading | undefined): CheckRule {
+  return read === undefined
+    ? rule`this call's receipts show: they show no reading of it, only a full-text lead that `
+    : rule`this call's receipts show: they show ${read} (${answerReadingRule(read)}), and a full-text lead that `;
+}
+
+/**
+ * The line that stands for the notes an earlier check of this turn gave, which this check does not repeat. After a
+ * repeat pass, the turn's last check (`lastCheck`), it also says none of them asks for another check: a note it stands
+ * for may have ended "check the answer again" (13 Nov 2026).
+ */
+export function repeatedNotesLine(count: number, lastCheck = false): string {
   return `${count === 1 ? "One note" : `${count} notes`} an earlier check of this turn gave ${count === 1 ? "is" : "are"} ` +
     `not repeated. ${count === 1 ? "It still stands" : "Each still stands"} unless the draft or this call's declarations ` +
-    "already meet it, in your own words; none asks you to remove a source or claim.";
+    `already meet it, in your own words; none asks you to remove a source or claim${lastCheck
+      ? ", and none asks for another check in this turn" : ""}.`;
 }
 
 /**
@@ -1926,6 +1943,13 @@ export function finalizeResearch(
   const notes = [...new Set(parsed.notes)];
   // Notes on the call's own input or continuity, which repeat at every check (see ALWAYS_REPEATED_NOTE_KINDS).
   const repeatedNotes = new Set(notes);
+  // Notes that ask for an input and then, ", and check the answer again." A repeat pass gives them as for a later
+  // answer, where a note with that ending about the answer itself is fixed with no further check (repeatPassNote).
+  const inputNotes = new Set<string>();
+  const inputNote = (note: string): string => {
+    inputNotes.add(note);
+    return note;
+  };
   let researchAdvised = false;
   const addCheckStep = (step: CheckStep, blockingRule?: FinalCheckBlockingRule): void => {
     if (step.deferUntilNextTurn === true) {
@@ -3239,7 +3263,15 @@ export function finalizeResearch(
         addBlockingStep("read_depth", "answer_draft", joinRules(
           rule`source_reading gives ${source.id} the reading ${given} (${answerReadingRule(given)}), more than `,
           reading === undefined
-            ? rule`this call's receipts show: they show ${bar} (${answerReadingRule(bar)}). `
+            // Greptile's review of 12 Nov 2026: a lead that found an abstract or part of a text readable gave the AI
+            // none of it, so the receipts show no such reading, and the step says what the bar then is: the most an
+            // entry may say (declarableReading), not a reading they show. It names what they do show read beside the
+            // lead, a PubMed record's abstract say, and never denies it (Greptile's review of #441, 13 Nov 2026: "no
+            // reading of it" stood there beside an abstract read, so the AI could have fetched it again).
+            ? readingShown(bar, shownSet)
+              ? rule`this call's receipts show: they show ${bar} (${answerReadingRule(bar)}). `
+              : joinRules(leadBarRead(deepestRead(shownSet)),
+                rule`found no more of it readable than ${bar} (${answerReadingRule(bar)}), the most an entry may say. `)
             : rule`this call's receipts show: this check verifies ${bar} (${answerReadingRule(bar)}). `,
           rule`Remove the source_reading entry claiming ${given} for ${source.id}, or change its reading to ${bar}, with `,
           "the answer's words saying so, in its language, copied into its quote",
@@ -3304,7 +3336,10 @@ export function finalizeResearch(
       const linkPages = linkedPapers.pages(linkIds);
       const names = [...linkIds, ...linkPages.keys()];
       if (names.some((name) => listed.has(name))) continue;
-      const deepest = deepestShown(receiptReadings(paperReceipts({ linkIds, linkPages }), checkedInAtlas(paper)));
+      // Greptile's review of 12 Nov 2026: a linked study a lead alone found partly readable is found, not read
+      // (linkedReading), where it used to get "abstract only" or "part of the text read".
+      const shown = receiptReadings(paperReceipts({ linkIds, linkPages }), checkedInAtlas(paper));
+      const deepest = deepestShown(shown);
       // A bare doi.org address whose DOI no receipt names may hold the text after it (a table's "|", an italic "_", a
       // possessive's "'s": the review of #422, fourth round), so it is never "not looked up": it gets the note instead.
       // A Markdown link's or an autolink's end is exact, and so is a PubMed, PubMed Central or Europe PMC address's,
@@ -3315,8 +3350,7 @@ export function finalizeResearch(
       }
       for (const name of names) listed.add(name);
       const name = linkedStudyName(label, paper);
-      linkedReadings.push({ source: paper, name, reading: deepest === undefined ? "not_looked_up"
-        : declarableReading(deepest) });
+      linkedReadings.push({ source: paper, name, reading: linkedReading(shown) });
       if (deepest === undefined) unlooked.push(name);
     }
     // The first thing to do is to look a study up (the review of #422, fourth round): a PubMed page of a study read by
@@ -4202,12 +4236,12 @@ export function finalizeResearch(
           finding.draws_on_youtube_comments === undefined && !heldByCardFields(finding, cardBases![index]) ? [index] : []);
         if (undeclared.length > 0) {
           const one = undeclared.length === 1;
-          notes.push(`This research read YouTube comments, and ${joinNames(undeclared.map((index) =>
+          notes.push(inputNote(`This research read YouTube comments, and ${joinNames(undeclared.map((index) =>
             `findings_card.findings[${index}]`))} ${one ? "does" : "do"} not say whether ${one ? "it draws" : "they draw"} ` +
             `on them, so AskRigor holds ${one ? "it" : "them"} privately for its owner's review and never publishes ` +
             `${one ? "it" : "them"}. Give each finding draws_on_youtube_comments: true when any part of it rests on what ` +
             "commenters wrote, false when none does. Send the whole card, with that field in each finding, in " +
-            "later_inputs.findings_card, and check the answer again.");
+            "later_inputs.findings_card, and check the answer again."));
         }
         const beyond = cardBases.filter((bases) => bases.length > 0).length;
         // A checked card has declared whom its findings would help (findingsCardCheck).
@@ -4572,9 +4606,9 @@ export function finalizeResearch(
       // Only an entry the note credits to its work was the judge's question.
       for (const { item, backed, why } of judgment.comparison) {
         if (backed || !creditedComparison.has(item - 1)) continue;
-        judgeNotes.push(`The meaning judge doubts that plain_answer_comparison[${item - 1}] is backed by what it names` +
-          `${because(why)}. Name in its sources what shows this change, give the sentence that states what the research ` +
-          "found, or give it as not_checked, and check the answer again.");
+        judgeNotes.push(inputNote(`The meaning judge doubts that plain_answer_comparison[${item - 1}] is backed by ` +
+          `what it names${because(why)}. Name in its sources what shows this change, give the sentence that states ` +
+          "what the research found, or give it as not_checked, and check the answer again."));
       }
       for (const { limit, why } of judgment.limits) {
         const text = limits[limit - 1];
@@ -4609,11 +4643,18 @@ export function finalizeResearch(
   const givenNotes = notes.filter((note) => !repeatedNotes.has(note));
   const givenThisTurn = new Set(carried?.turn === callRound.turn ? carried.turn_notes ?? [] : []);
   const newNotes = notes.filter((note) => repeatedNotes.has(note) || !givenThisTurn.has(noteDigest(note)));
-  if (newNotes.length < notes.length) newNotes.push(repeatedNotesLine(notes.length - newNotes.length));
+  // 13 Nov 2026 (Greptile's review of 12 Nov): a pass after a pass in this turn is the turn's last check, so none of its
+  // notes asks for the check again, whichever module wrote them and whether or not an earlier check gave them (on a
+  // dev account the meaning judge can raise a new concern at every pass). The notes are compared and carried as a
+  // first pass words them, so the turn still gives each once.
+  const lastCheck = passed && passedEarlierThisTurn;
+  if (newNotes.length < notes.length) newNotes.push(repeatedNotesLine(notes.length - newNotes.length, lastCheck));
+  const shownNotes = lastCheck
+    ? newNotes.map((note) => repeatPassNote(note, inputNotes.has(note) ? "input" : "answer")) : newNotes;
   const output: FinalizeResearchOutput = {
     contract: FINALIZE_RESEARCH_CONTRACT,
     status,
-    ...(newNotes.length === 0 ? {} : { notes: newNotes }),
+    ...(shownNotes.length === 0 ? {} : { notes: shownNotes }),
     ...(researchPlan(input) === undefined ? {} : { research_plan: researchPlan(input) }),
     next_steps: nextSteps,
     next_step_kinds: stepKinds,
@@ -4673,7 +4714,7 @@ export function finalizeResearch(
       Object.assign(output, stoppedReport(checkRound, options, input.receipts, offTarget.map(({ index }) => index)));
     }
   }
-  if (passed && passedEarlierThisTurn) output.turn_already_passed = true;
+  if (lastCheck) output.turn_already_passed = true;
   // A check that did not pass, carried from earlier in this conversation (AskRigor#354): whatever answer went out
   // after it went out unchecked, which only the model knows, so the result says so and the model says what changed.
   if (previousOpen !== undefined) {
@@ -4682,15 +4723,12 @@ export function finalizeResearch(
   if (plainAnswer !== undefined) {
     const note = options.plainAnswer?.note !== false;
     output.plain_answer = plainAnswer.status !== "registered"
-      ? { status: plainAnswer.status, reason: plainAnswer.status === "no_receipt" && rejected.some(({ index }) =>
-          input.receipts[index]?.startsWith("rr1~plain_answer~"))
-          ? "The receipt marked plain_answer did not verify, so the answer ends without the note comparing it with " +
-            "the quick answer. Copy the original research_receipt from manage_research_access exactly into receipts " +
-            "to restore the note when the receipt verifies and the comparison is backed."
-          : PLAIN_ANSWER_REASONS[plainAnswer.status] }
+      ? { status: plainAnswer.status, reason: plainAnswerReason(plainAnswer.status === "no_receipt" &&
+          rejected.some(({ index }) => input.receipts[index]?.startsWith("rr1~plain_answer~"))
+          ? "receipt_unverified" : plainAnswer.status, lastCheck) }
       : note
         ? { status: "registered", claims: plainAnswer.claims.length }
-        : { status: "note_off", claims: plainAnswer.claims.length, reason: PLAIN_ANSWER_REASONS.note_off };
+        : { status: "note_off", claims: plainAnswer.claims.length, reason: plainAnswerReason("note_off", lastCheck) };
     // The account's setting removes the note only: the plain answer is still compared with the answer.
     if (passed && note && compared !== undefined) {
       output.plain_answer_note = plainAnswerNote(compared, draft!) +
@@ -5525,29 +5563,41 @@ export function researchMapReminder(work: VerifiedWork): string {
     "own. Nothing here holds back the answer.";
 }
 
-// Why an active research account's answer ends without the plain-answer note; nothing is held back for it.
+// Why an active research account's answer ends without the plain-answer note; nothing is held back for it. Each reason
+// says why, then how a call restores the note where one can, then what to do for a later question. After a repeat pass,
+// the turn's last check, the way to restore it is left out (13 Nov 2026): it asks for another call in this turn, which
+// that result says not to make, and the next turn's first check gives it again.
 const NEXT_PLAIN_ANSWER = " For a later question, register its plain answer before researching it.";
 const PLAIN_ANSWER_REASONS = {
-  no_receipt: "No plain answer registered with manage_research_access before this research was passed in receipts, " +
-    "so the answer ends without the note comparing it with one. If its receipt was omitted or failed to verify, " +
+  no_receipt: ["No plain answer registered with manage_research_access before this research was passed in receipts, " +
+    "so the answer ends without the note comparing it with one.", " If its receipt was omitted or failed to verify, " +
     "copy the original research_receipt from manage_research_access exactly into receipts to restore the note " +
-    `when the receipt verifies.${NEXT_PLAIN_ANSWER}`,
-  other_account: "The plain answer passed was registered by another account, so the answer ends without the note " +
-    `comparing it with one.${NEXT_PLAIN_ANSWER}`,
+    "when the receipt verifies.", NEXT_PLAIN_ANSWER],
+  // The receipt marked plain_answer was passed and did not verify.
+  receipt_unverified: ["The receipt marked plain_answer did not verify, so the answer ends without the note comparing " +
+    "it with the quick answer.", " Copy the original research_receipt from manage_research_access exactly into " +
+    "receipts to restore the note when the receipt verifies and the comparison is backed.", ""],
+  other_account: ["The plain answer passed was registered by another account, so the answer ends without the note " +
+    "comparing it with one.", "", NEXT_PLAIN_ANSWER],
   // #434 (8 Nov 2026): a check given the question in other words after a "continue" lost the comparison, and nothing
   // said how to get it back. Whether two wordings ask the same question is the AI's to judge, not this check's.
-  other_target: "The plain answer passed was registered for another research target, so the answer ends without the " +
-    "note comparing it with this research. If it is the quick answer to this same question, worded differently here, " +
-    "call again with research_target word for word as given to register_plain_answer (only case and spacing are " +
-    `ignored); its result quoted it.${NEXT_PLAIN_ANSWER}`,
-  after_research: "The plain answer passed was registered after a research receipt passed here was issued, so it " +
-    "cannot show what a quick answer would have said, and the answer ends without the note. If a plain answer for this " +
-    "research target was registered before the research began, pass its research_receipt with the others: the check " +
-    "compares that one. For a later question, register its plain answer before researching it, and pass only receipts " +
-    "issued after it.",
-  note_off: "This account has turned off the note comparing the answer with its plain answer, so the answer ends " +
-    "without it; manage_research_access with action set_plain_answer_note turns it back on."
+  other_target: ["The plain answer passed was registered for another research target, so the answer ends without the " +
+    "note comparing it with this research.", " If it is the quick answer to this same question, worded differently " +
+    "here, call again with research_target word for word as given to register_plain_answer (only case and spacing " +
+    "are ignored); its result quoted it.", NEXT_PLAIN_ANSWER],
+  after_research: ["The plain answer passed was registered after a research receipt passed here was issued, so it " +
+    "cannot show what a quick answer would have said, and the answer ends without the note.", " If a plain answer for " +
+    "this research target was registered before the research began, pass its research_receipt with the others: the " +
+    "check compares that one.", " For a later question, register its plain answer before researching it, and pass " +
+    "only receipts issued after it."],
+  note_off: ["This account has turned off the note comparing the answer with its plain answer, so the answer ends " +
+    "without it; manage_research_access with action set_plain_answer_note turns it back on.", "", ""]
 } as const;
+/** Why no note compares the answer with a plain answer; `lastCheck` leaves out the call that would restore one. */
+function plainAnswerReason(status: keyof typeof PLAIN_ANSWER_REASONS, lastCheck: boolean): string {
+  const [why, restore, next] = PLAIN_ANSWER_REASONS[status];
+  return `${why}${lastCheck ? "" : restore}${next}`;
+}
 
 /**
  * What a plain-answer receipt signs for each claim: 16 hex characters of its SHA-256, compared as quotes are, so the

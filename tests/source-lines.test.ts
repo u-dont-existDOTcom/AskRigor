@@ -646,6 +646,18 @@ describe("the source line in the final check", () => {
     expect(unfound.next_steps).toEqual([]);
     expect(unfound.round).toEqual(found.round);
     expect(unfound.notes).toContainEqual(expect.stringMatching(/^The sentence given for \[Smith 2021\] isn't in the full text/u));
+    // 13 Nov 2026 (Greptile's review of 12 Nov): a pass after a pass in the same turn is the turn's last check. A quote
+    // that isn't in the paper is something wrong in the answer, fixed there with no further check; a first pass still
+    // asks for the check again.
+    const tail = "Copy each whole and exactly, with no ellipsis, in the paper's language, or take it out of the answer " +
+      "and of source_lines";
+    expect(unfound.notes).toContain("The sentence given for [Smith 2021] isn't in the full text AskRigor looked in. " +
+      `${tail}, and check the answer again.`);
+    const again = finalizeResearch({ ...input, round_token: unfound.round_token }, { secret: SECRET, sourceLineLookups: [missing] });
+    expect(again).toMatchObject({ status: found.status, turn_already_passed: true });
+    expect(again.notes).toContain("The sentence given for [Smith 2021] isn't in the full text AskRigor looked in. " +
+      `${tail}, with no further check in this turn.`);
+    expect((again.notes ?? []).join("\n")).not.toContain("check the answer again");
   });
 
   it("says when the answer doesn't show the quotes", () => {
@@ -676,6 +688,18 @@ describe("the meaning judge reads the lines", () => {
       comparison: [], limits: [], standalone: [], sourceLines: [{ line: 1, backed: false, why: "It says more than the quotes do." }] } });
     expect(judged.status).toBe(passing.status);
     expect(judged.notes).toContainEqual(expect.stringMatching(/^The meaning judge doubts that the quotes of source_lines\[0\] back its claim \(It says more than the quotes do\)/u));
+    // 13 Nov 2026 (Greptile's review of 12 Nov): on a dev account the judge can raise this doubt for the first time at a
+    // pass after a pass in the same turn, the turn's last check. It says the claim is wrong: fixed in the answer, with
+    // no further check.
+    const doubt = "The meaning judge doubts that the quotes of source_lines[0] back its claim (It says more than the " +
+      "quotes do). Bring the claim into line with what the paper says, or give the sentence that does back it";
+    expect(judged.notes).toContain(`${doubt}, and check the answer again.`);
+    const again = finalizeResearch({ ...input, round_token: passing.round_token }, { secret: SECRET, sourceLineLookups: [LOOKUP],
+      meaningJudgment: { status: "ran", youtube: [], comparison: [], limits: [], standalone: [],
+        sourceLines: [{ line: 1, backed: false, why: "It says more than the quotes do." }] } });
+    expect(again).toMatchObject({ status: passing.status, turn_already_passed: true });
+    expect(again.notes).toContain(`${doubt}, with no further check in this turn.`);
+    expect((again.notes ?? []).join("\n")).not.toContain("check the answer again");
   });
 });
 

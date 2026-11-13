@@ -48,14 +48,29 @@ export interface ForumPage {
   /**
    * The page's links, on its own host, to a page after the first by the page its link picks (start>0, page>1,
    * /page-N>1), at most 50: a pager without rel tags (MyBB's, vBulletin 3's, phpBB 3.0's, a "Weiter ›" link). The caller
-   * keeps those of the page's own thread (the review of #421).
+   * keeps those of the page's own thread (the review of #421). The links that are the page's own but for the page they
+   * pick come first, wherever they stand on the page, so no other thread's links take their place in the list
+   * (Greptile's review of 12 Nov 2026, P1: 50 links to other threads' later pages, in a sidebar, stood before the
+   * thread's own page 2, which was never listed, and page 1 read as the whole thread).
    */
   later_page_links?: string[];
+  /**
+   * Whether the page holds more such links than the list. A cut list with no link of the page's own thread, as the
+   * caller compares threads, doesn't show that the page links none: whether a page follows is then unknown, not no
+   * (Greptile's review of 12 Nov 2026).
+   */
+  later_page_links_cut?: boolean;
 }
 
 // The parameters, and the path's end, that pick a page of a thread: phpBB's start, vBulletin's and Discourse's page, a
 // page count or offset elsewhere, XenForo's /page-2.
 const PAGE_PARAMETER = /^(?:start|page|pg|offset)$/iu;
+const PAGE_PATH_END = /\/page[-/]?([0-9]{1,9})\/?$/iu;
+// How many links to later pages a read lists. Its caller compares each with the page's own thread, a URL parse and more
+// on a link the page wrote, so the limit bounds the list a page can hand on and the work done on it, however many links
+// the page holds. It is no limit on finding the page's own: those are looked for to the end of the page (Greptile's
+// review of 12 Nov 2026).
+const LATER_PAGE_LINKS_LIMIT = 50;
 
 /**
  * Whether a link picks a page of its thread after the first, by the parameter or the path's end that picks a page
@@ -75,8 +90,22 @@ export function pagePickedAfterFirst(url: string): boolean {
     return /^(?:start|offset)$/iu.test(key) ? number > 0 : number > 1;
   };
   if ([...link.searchParams].some(([key, value]) => PAGE_PARAMETER.test(key) && after(key, value))) return true;
-  const suffix = /\/page[-/]?([0-9]{1,9})\/?$/iu.exec(link.pathname)?.[1];
+  const suffix = PAGE_PATH_END.exec(link.pathname)?.[1];
   return suffix !== undefined && Number(suffix) > 1;
+}
+
+/**
+ * A link without what picks a page of its thread: its path without the page at its end (/page-2) and one last slash, and
+ * its other parameters by name, each with its values in the link's order. Two links on one host with the same one are
+ * one thread's pages: each is the other but for the page it picks. Exact and structural, and narrower than the caller's
+ * own comparison of threads, which also sets aside a session, a sort order or a forum's id beside a thread's: it only
+ * puts a link first in the list, and the caller still decides whose thread a link is (the review of #421).
+ */
+function withoutPagePicked(link: URL): string {
+  const path = link.pathname.replace(PAGE_PATH_END, "");
+  const parameters = [...link.searchParams].filter(([key]) => !PAGE_PARAMETER.test(key))
+    .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
+  return JSON.stringify([path.endsWith("/") ? path.slice(0, -1) : path, parameters]);
 }
 
 export async function readForumPage(value: string, runtime: ForumPageRuntime = {}): Promise<ForumPage> {
@@ -118,11 +147,12 @@ export async function readForumPage(value: string, runtime: ForumPageRuntime = {
     if (extracted.text.length < 1_500) return { url: fetched.finalUrl, access_state: "needs_a_browser" };
     const next = contentType === "text/plain" ? undefined : linkedPage(html, new URL(fetched.finalUrl));
     const marked = contentType === "text/plain" ? { before: false, after: false } : pagesMarked(html);
-    const later = contentType === "text/plain" ? [] : laterPageLinks(html, new URL(fetched.finalUrl));
+    const later = contentType === "text/plain" ? { links: [], cut: false } : laterPageLinks(html, new URL(fetched.finalUrl));
     return { url: fetched.finalUrl, access_state: "read", ...(title === undefined ? {} : { title }),
       page_text: extracted.text.slice(0, MAXIMUM_CHARACTERS), truncated: extracted.text.length > MAXIMUM_CHARACTERS,
       ...(next === undefined ? {} : { next_page: next }), ...(marked.before ? { page_before: true } : {}),
-      ...(marked.after ? { page_after: true } : {}), ...(later.length === 0 ? {} : { later_page_links: later }) };
+      ...(marked.after ? { page_after: true } : {}), ...(later.links.length === 0 ? {} : { later_page_links: later.links }),
+      ...(later.cut ? { later_page_links_cut: true } : {}) };
   } catch (error) {
     if (robotsDenied) return { url: url.toString(), access_state: "robots_disallowed" };
     // Only exact refusals: 401 asks for a login; 403 refuses the reader, and 451 the page for legal reasons. A busy or
@@ -287,23 +317,41 @@ function challengeMarkup(html: string): boolean {
     /<form\b[^>]*\bid\s*=\s*["']?challenge-form\b/iu.test(html);
 }
 
-/** The page's links on its own host, over https, to a page after the first by the page each picks; at most 50. */
-function laterPageLinks(html: string, base: URL): string[] {
-  const links = new Set<string>();
+/**
+ * The page's links on its own host, over https, to a page after the first by the page each picks: at most 50, those of
+ * the page's own thread first, and whether any was left out (cut). The limit is on the list, not on the search
+ * (Greptile's review of 12 Nov 2026): the search used to stop at 50 links of any thread, so 50 links to other threads
+ * standing first hid the thread's own page 2. The page is now read on, in the same one pass, until a link is left out
+ * of a list that holds one of the page's own thread, which settles that a page follows, or to the page's end, as it
+ * always was read with fewer than 50 such links.
+ */
+function laterPageLinks(html: string, base: URL): { links: string[]; cut: boolean } {
+  const thread = withoutPagePicked(base);
+  const own = new Set<string>();
+  const others = new Set<string>();
+  let cut = false;
   for (const tag of markupWithoutUnreadParts(html).matchAll(/<a\b(?:[^>"']|"[^"]*"|'[^']*')*>/giu)) {
     const href = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/iu.exec(tag[0]);
     const value = href?.[1] ?? href?.[2] ?? href?.[3];
     if (value === undefined) continue;
+    let link: URL;
     try {
-      const link = new URL(extractHtmlText(`<h1>${value}</h1>`).title!, base);
-      link.hash = "";
-      if (link.protocol === "https:" && link.host === base.host && pagePickedAfterFirst(link.toString())) {
-        links.add(link.toString());
-      }
-    } catch { /* An invalid link names no page. */ }
-    if (links.size >= 50) break;
+      link = new URL(extractHtmlText(`<h1>${value}</h1>`).title!, base);
+    } catch { continue; /* An invalid link names no page. */ }
+    link.hash = "";
+    const listed = link.toString();
+    if (link.protocol !== "https:" || link.host !== base.host || !pagePickedAfterFirst(listed)) continue;
+    if (own.has(listed) || others.has(listed)) continue;
+    if (withoutPagePicked(link) === thread) {
+      if (own.size < LATER_PAGE_LINKS_LIMIT) own.add(listed);
+      else cut = true;
+    } else if (own.size + others.size < LATER_PAGE_LINKS_LIMIT) others.add(listed);
+    else cut = true;
+    // One of the page's own takes the place of another thread's link in a full list.
+    if (own.size + others.size > LATER_PAGE_LINKS_LIMIT) cut = true;
+    if (cut && own.size > 0) break;
   }
-  return [...links];
+  return { links: [...own, ...others].slice(0, LATER_PAGE_LINKS_LIMIT), cut };
 }
 
 /**
