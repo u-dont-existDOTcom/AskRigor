@@ -244,9 +244,14 @@ describe("AskRigor's own planning call (owner answer 298b): the call", () => {
       { ...REPLY, tasks: [{ ...REPLY.tasks[0], could_change: "everything" }] },
       { ...REPLY, tasks: [{ ...REPLY.tasks[0], task: "ab" }] },
       { ...REPLY, about: "   " }, { ...REPLY, steering_choice: "" },
-      { ...REPLY, about: `The key is ${KEY}` }, { ...REPLY, steering_choice: "sk-ant-something else?" }]) {
+      { ...REPLY, about: `The key is ${KEY}` }, { ...REPLY, steering_choice: "sk-ant-something else?" },
+      // Neither the word none nor a question: AskRigor does not guess which was meant.
+      { ...REPLY, steering_choice: "none needed" }, { ...REPLY, steering_choice: "n/a" }]) {
       expect(researchPlanOf(reply, 0, KEY), JSON.stringify(reply)).toBeUndefined();
     }
+    // The searches are a whole number, whatever the usage said.
+    expect(researchPlanOf(REPLY, 1.7)?.searches).toBe(1);
+    expect(researchPlanOf(REPLY, Number.NaN)?.searches).toBe(0);
     // Every kind and every thing a task could change that the menu takes is in the output schema.
     expect(RESEARCH_PLANNER_OUTPUT_SCHEMA.properties.tasks.items.properties.kind.enum).toEqual([...PLAN_TASK_KINDS]);
   });
@@ -279,8 +284,8 @@ describe("AskRigor's own planning call (owner answer 298b): the call", () => {
         reply: () => new Promise<Anthropic.Beta.BetaMessage>(() => undefined) });
       const pending = slow.planner.plan(SOURCE, "account-a");
       await vi.advanceTimersByTimeAsync(1_100);
-      // A call that timed out may have run, so it counts toward the day.
-      expect(await pending).toMatchObject({ planning: { status: "skipped", reason: "timeout" }, costUsd: 0.1 });
+      // A call that timed out may have run, so it keeps what was held for it against the day.
+      expect(await pending).toMatchObject({ planning: { status: "skipped", reason: "timeout" }, costUsd: 0.12 });
       expect(slow.logs).toEqual(["timeout"]);
     } finally {
       vi.useRealTimers();
@@ -312,6 +317,28 @@ describe("AskRigor's own planning call (owner answer 298b): the call", () => {
     expect((await made.planner.plan(SOURCE, "account-a")).planning).toEqual({ status: "skipped", reason: "account_limit" });
     at = Date.parse("2026-11-14T00:00:05Z");
     expect(await made.planner.plan(SOURCE, "account-a")).toMatchObject({ cached: false, planning: { status: "planned" } });
+  });
+
+  it("holds each call's share of the cap while it runs, so calls sent together cannot all pass it", async () => {
+    const at = Date.parse("2026-11-13T10:00:00Z");
+    const release: Array<() => void> = [];
+    const made = planner({ now: () => at, env: { ASKRIGOR_RESEARCH_PLANNER_DAILY_CAP_USD: "0.2" },
+      reply: () => new Promise<Anthropic.Beta.BetaMessage>((resolve) => { release.push(() => resolve(message())); }) });
+    // Three calls sent before any has answered: USD 0.12 is held for each, so the third finds the cap reached.
+    const first = made.planner.plan({ ...SOURCE, asked: "one" }, "account-a");
+    const second = made.planner.plan({ ...SOURCE, asked: "two" }, "account-b");
+    const third = await made.planner.plan({ ...SOURCE, asked: "three" }, "account-c");
+    expect(third.planning).toEqual({ status: "skipped", reason: "daily_budget" });
+    expect(made.bodies).toHaveLength(2);
+    release.forEach((answer) => answer());
+    expect((await first).planning.status).toBe("planned");
+    expect((await second).planning.status).toBe("planned");
+    // Settled at what they cost (about USD 0.065 each), a third call now fits.
+    release.length = 0;
+    const next = made.planner.plan({ ...SOURCE, asked: "three" }, "account-c");
+    await vi.waitFor(() => expect(release).toHaveLength(1));
+    release[0]!();
+    expect((await next).planning.status).toBe("planned");
   });
 
   it("stops at the day's cap, and does not keep a failed call's result", async () => {

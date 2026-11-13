@@ -5,7 +5,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 
 import { keyFromSecretFile } from "./meaning-judge.js";
-import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, type Framing, type PlanTask,
+import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, steeringChoiceUnclear, type Framing, type PlanTask,
   type PlannerNotUsedReason } from "./research-steering.js";
 
 /**
@@ -213,14 +213,20 @@ const PRICES: Readonly<Record<string, Prices>> = {
 const CEILING_PRICES: Prices = { input: 10, output: 50, cacheWrite: 12.5, cacheRead: 1 };
 /** USD per web search (USD 10 per 1,000). */
 const SEARCH_USD = 0.01;
-/** Counted for a call that timed out: it may have run, and its usage never arrived. */
-const TIMED_OUT_USD = 0.1;
+/**
+ * Held against the day's cap from the moment a call is sent until its real cost is known, so calls sent at the same
+ * time cannot all pass a cap that only one of them fits under; more than the dearest call measured (USD 0.094, 13 Nov
+ * 2026). A call that timed out keeps it: it may have run, and its usage never arrived.
+ */
+const RESERVED_USD = 0.12;
 
 const HOUR = 60 * 60 * 1_000;
 const DEFAULT_TIMEOUT_SECONDS = 45;
 const DEFAULT_DAILY_CAP_USD = 3;
 const DEFAULT_ACCOUNT_DAILY_CALLS = 10;
-const MAX_OUTPUT_TOKENS = 16_000;
+// Eight times the longest reply measured (1,006 output tokens, thinking included): room to think, and a bound on
+// what one call can cost.
+const MAX_OUTPUT_TOKENS = 8_000;
 const EFFORTS = new Set(["low", "medium", "high"]);
 const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 
@@ -263,9 +269,13 @@ export function researchPlanOf(reply: unknown, searches: number, key = "\u0000")
       ...(entry.kind === "other" ? { minutes: [...PLANNED_OTHER_MINUTES] as [number, number] } : {}) });
   }
   if (tasks.length === 0) return undefined;
-  // The word none, however the model cased it, is given as the menu reads it.
+  // The word none, however the model cased it, is given as the menu reads it. Any other value that is neither the
+  // word nor a sentence ("none needed", "n/a") is not a plan: plan_research would hand it back, and AskRigor does not
+  // guess which of the two it means.
   const none = choice.replace(/[.!\s]+$/u, "").toLowerCase() === "none";
-  return { about, steering_choice: none ? "none" : choice, tasks, searches };
+  if (!none && steeringChoiceUnclear(choice)) return undefined;
+  return { about, steering_choice: none ? "none" : choice, tasks,
+    searches: Number.isFinite(searches) ? Math.max(0, Math.trunc(searches)) : 0 };
 }
 
 export interface ResearchPlannerDependencies {
@@ -345,6 +355,14 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
       log(reason);
       return { planning: { status: "skipped", reason }, cached: false, costUsd, milliseconds: now() - started };
     };
+    // The reservation, made on the day the call is sent; settled with what the call really cost, on the reply's day.
+    turnDay();
+    const reservedOn = day;
+    spent += RESERVED_USD;
+    const settle = (costUsd: number) => {
+      turnDay();
+      spent = Math.max(0, spent + costUsd - (day === reservedOn ? RESERVED_USD : 0));
+    };
     try {
       const timedOut = new Promise<never>((_, reject) => {
         timer = setTimeout(() => { controller.abort(); reject(new Error("timeout")); }, timeoutMs);
@@ -384,8 +402,7 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
         }), 0);
       const costUsd = tokenUsd + searches * SEARCH_USD;
       // Charge the reply's UTC day, including a request that crossed midnight.
-      turnDay();
-      spent += costUsd;
+      settle(costUsd);
       const measured = { costUsd, milliseconds: now() - started, model: message.model, usage: { ...tokens, searches } };
       // A refusal is read before the content, which it may leave incomplete.
       if (message.stop_reason === "refusal") return { ...fail("refusal", costUsd), ...measured };
@@ -399,10 +416,10 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
       if (plan === undefined) return { ...fail("unreadable", costUsd), ...measured };
       return { planning: { status: "planned", plan }, cached: false, ...measured };
     } catch {
-      if (!controller.signal.aborted) return fail("error");
-      turnDay();
-      spent += TIMED_OUT_USD;
-      return fail("timeout", TIMED_OUT_USD);
+      // A request the API refused or that never reached it costs nothing; one that timed out keeps its reservation.
+      if (!controller.signal.aborted) { settle(0); return fail("error"); }
+      settle(RESERVED_USD);
+      return fail("timeout", RESERVED_USD);
     } finally {
       clearTimeout(timer);
     }
