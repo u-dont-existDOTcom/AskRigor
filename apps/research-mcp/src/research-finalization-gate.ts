@@ -4631,7 +4631,7 @@ export function finalizeResearch(
       // Meaning is context-dependent: unlike the lexical scanner, the optional existing semantic judge
       // can distinguish legitimate ordinary English from misleading statistical conclusions.
       const usages = draft === undefined ? [] : significanceMentions(draft);
-      for (const { occurrence, misused, why } of judgment.significance) {
+      for (const { occurrence, misused, why } of judgment.significance ?? []) {
         const usage = usages[occurrence - 1];
         if (!misused || usage === undefined) continue;
         judgeNotes.push("Significance-language linter flags " + JSON.stringify(usage.context) +
