@@ -282,6 +282,7 @@ only closes standard input; it is not a Kubernetes namespace (Claude Code's
 
 ## Code review rules
 
+- **Greptile credit conservation (owner, 2026-11-13):** read `docs/greptile-credit-policy.md` before any Greptile review request; Greptile is manual-only and exceptional for named consequential unresolved risks, never a routine PR/push review. Use existing Claude/Codex review and deterministic tests first; a second review requires a genuinely new high-risk question. The `.greptile/config.json` guard is source-side only, not proof of provider-wide settings.
 - A required module or receipt cannot be treated as complete without its executable evidence; strong evidence from another layer does not silently deselect it.
 - Do not synthesize a full verdict while the project router says required work is incomplete or blocked.
 - Preserve the privacy data map and bounded live-validation contract; never broaden collected or exported data accidentally.
