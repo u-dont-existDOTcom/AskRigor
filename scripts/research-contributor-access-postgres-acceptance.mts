@@ -483,6 +483,8 @@ async function verify(
     // without it (an image from before 0031) clears both, and only the two named ways are admitted.
     await verifyNoticeAcceptance({ admin, restricted, store, adminUrl, checks });
     await verifyCallRecord({ admin, restricted, checks });
+    // Owner answer 303a: learn mode, a dev account's own menu choices, and the plan's lane in the call record (0035).
+    await verifyMenuLearning({ admin, restricted, store, checks });
 
     // Owner answer 143a: a paid private account files only this research's map, and only under the user's yes to the
     // answer's offer. The database stores that finalization receipt's SHA-256, never the receipt, and takes it once;
@@ -857,6 +859,162 @@ async function verifyCallRecord(context: { admin: Pool; restricted: Pool; checks
     [accountKey, otherKey, planKey]);
   checks.push("call_record_kept_7_days_own_account_only");
   checks.push("call_record_plan_decision_on_its_rows_only");
+}
+
+async function verifyMenuLearning(context: {
+  admin: Pool;
+  restricted: Pool;
+  store: PostgresResearchContributorAccessStore;
+  checks: string[];
+}): Promise<void> {
+  const { admin, restricted, store, checks } = context;
+  const applied = await admin.query(`SELECT migration_id FROM ${SCHEMA}.schema_migrations
+    WHERE migration_id = '0035_research_menu_learning'`);
+  assert(applied.rowCount === 1, "MIGRATION_0035_NOT_APPLIED");
+  // Safe to run again: the columns, table, checks, index and grants are as they were after two more runs.
+  const snapshot = async () => JSON.stringify({
+    table: (await admin.query(`SELECT c.oid, c.relfilenode, c.relacl, a.attname, a.atttypid, a.attnotnull
+      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace JOIN pg_attribute a ON a.attrelid = c.oid
+      WHERE n.nspname = $1 AND c.relname = 'research_menu_choices' ORDER BY a.attnum`, [SCHEMA])).rows,
+    columns: (await admin.query(`SELECT table_name, column_name, data_type, is_nullable, column_default
+      FROM information_schema.columns WHERE table_schema = $1
+        AND ((table_name = 'research_use_accounts' AND column_name = 'learn_menu_choices')
+          OR (table_name = 'research_call_record' AND column_name = 'plan_lane'))
+      ORDER BY table_name`, [SCHEMA])).rows,
+    constraints: (await admin.query(`SELECT conrelid::regclass::text AS relation, conname,
+        pg_get_constraintdef(oid) AS definition FROM pg_constraint
+      WHERE conrelid IN ('${SCHEMA}.research_menu_choices'::regclass, '${SCHEMA}.research_call_record'::regclass)
+      ORDER BY relation, conname`)).rows,
+    indexes: (await admin.query(`SELECT indexname, indexdef FROM pg_indexes
+      WHERE schemaname = $1 AND tablename = 'research_menu_choices' ORDER BY indexname`, [SCHEMA])).rows,
+  });
+  const migration = (await readFile(resolve("packages/evidence-repository/migrations/0035_research_menu_learning.sql"),
+    "utf8")).replaceAll("__SCHEMA__", SCHEMA);
+  const original = await snapshot();
+  await admin.query(migration);
+  await admin.query(migration);
+  assert(await snapshot() === original, "MENU_LEARNING_MIGRATION_NOT_IDEMPOTENT");
+
+  // The access role inserts, reads and deletes the rows and nothing more; the canonical reader and the review role
+  // read none of them.
+  const table = `${SCHEMA}.research_menu_choices`;
+  for (const privilege of ["INSERT", "SELECT", "DELETE", "UPDATE", "TRUNCATE", "REFERENCES", "TRIGGER"]) {
+    const result = await restricted.query<{ allowed: boolean }>(
+      `SELECT has_table_privilege(current_user, $1, $2) AS allowed`, [table, privilege]);
+    assert(result.rows[0]?.allowed === ["INSERT", "SELECT", "DELETE"].includes(privilege),
+      "MENU_CHOICES_ROLE_PRIVILEGES_WRONG");
+  }
+  await expectPermissionDenied(() => restricted.query(`UPDATE ${table} SET reason = NULL`));
+  await expectPermissionDenied(() => restricted.query(`TRUNCATE ${table}`));
+  for (const role of ["askrigor_reader", "askrigor_research_review"]) {
+    const exists = await admin.query(`SELECT 1 FROM pg_roles WHERE rolname = $1`, [role]);
+    if (exists.rowCount === 0) continue;
+    const read = await admin.query<{ allowed: boolean }>(
+      `SELECT has_table_privilege($1, $2, 'SELECT') AS allowed`, [role, table]);
+    assert(read.rows[0]?.allowed === false, "MENU_CHOICES_EXPOSED_TO_ANOTHER_ROLE");
+  }
+
+  // The store, through the access role: off by default, kept only while on, the newest 20, deleted when off.
+  let clock = Date.parse("2026-11-14T10:00:00.000Z");
+  const learner = new ResearchContributorAccessService({ store, identitySecret: IDENTITY_SECRET,
+    now: () => new Date(clock).toISOString() });
+  const subject = "auth0|synthetic-postgres-learner";
+  await learner.acceptFreeContributor(subject, {
+    noticeVersion: RESEARCH_USE_NOTICE_VERSION,
+    eligibleDeidentifiedResearchContributionRequired: true,
+    prohibitedPrivateAndRawContentExcluded: true,
+    proposalReviewAndNoAuthorityAcknowledged: true,
+    paidPrivateAlternativeAcknowledged: true,
+  });
+  const key = learner.accountKeyForSubject(subject);
+  const rows = async () => Number((await admin.query<{ count: string }>(
+    `SELECT count(*) AS count FROM ${table} WHERE account_key = $1`, [key])).rows[0]!.count);
+  const choice = { lane: "research" as const, youDecide: false, reason: "Synthetic reason in the person's words.",
+    tasks: [{ kind: "full_text", could_change: "conclusion" as const, recommended: true, minutes: 4 },
+      { kind: "forum_thread", could_change: "detail" as const, recommended: false, minutes: 0 }] };
+  assert((await learner.activeAccount(subject)).steering.learnMenuChoices === false, "LEARN_MODE_NOT_OFF_BY_DEFAULT");
+  assert(await learner.recordMenuChoice(key, choice) === false && await rows() === 0, "MENU_CHOICE_KEPT_WHILE_OFF");
+  const on = await learner.setResearchSteering(subject, { learnMenuChoices: true });
+  assert(on.learnMenuChoices && on.style === "balanced", "LEARN_MODE_NOT_SET");
+  assert((await learner.activeAccount(subject)).steering.learnMenuChoices, "LEARN_MODE_NOT_READ_BACK");
+  for (let index = 1; index <= 24; index += 1) {
+    clock += 60_000;
+    assert(await learner.recordMenuChoice(key, { ...choice, reason: `reason ${index}` }), "MENU_CHOICE_NOT_KEPT");
+  }
+  const kept = await learner.menuChoices(key);
+  assert(await rows() === 20 && kept.length === 20 && kept[0]!.reason === "reason 24" && kept[19]!.reason === "reason 5" &&
+    kept[0]!.tasks.length === 2 && kept[0]!.chosenAt === new Date(clock).toISOString(), "MENU_CHOICES_NEWEST_20_WRONG");
+  // Saving the account anew keeps the switch and the choices.
+  await learner.acceptFreeContributor(subject, {
+    noticeVersion: RESEARCH_USE_NOTICE_VERSION,
+    eligibleDeidentifiedResearchContributionRequired: true,
+    prohibitedPrivateAndRawContentExcluded: true,
+    proposalReviewAndNoAuthorityAcknowledged: true,
+    paidPrivateAlternativeAcknowledged: true,
+  });
+  assert((await learner.activeAccount(subject)).steering.learnMenuChoices && await rows() === 20,
+    "LEARN_MODE_CHANGED_BY_SAVE");
+  // Six answers kept at the same moment still leave the newest 20: writers go one after the other on the account's
+  // row (with a shared lock two could insert and neither prune; the review of 14 Nov 2026).
+  clock += 60_000;
+  const together = await Promise.all(Array.from({ length: 6 }, (_, index) =>
+    learner.recordMenuChoice(key, { ...choice, reason: `together ${index}` })));
+  assert(together.every(Boolean) && await rows() === 20, "MENU_CHOICES_CONCURRENT_PRUNE_WRONG");
+  assert((await learner.menuChoices(key)).slice(0, 6).every(({ reason }) => reason?.startsWith("together ") === true),
+    "MENU_CHOICES_CONCURRENT_NEWEST_WRONG");
+  // The table's checks refuse a lane, tasks or reason that is not one.
+  for (const [lane, tasks, reason] of [["aside", "[]", null], ["research", "{}", null],
+    ["research", "[]", "x".repeat(301)]] as const) {
+    await expectCode(() => restricted.query(`INSERT INTO ${table} (account_key, chosen_at, lane, you_decide, tasks, reason)
+      VALUES ($1, $2, $3, false, $4::jsonb, $5)`, [key, new Date(clock).toISOString(), lane, tasks, reason]), "23514");
+  }
+  // Off deletes them all, in the same transaction as the switch, and nothing is kept after it.
+  const off = await learner.setResearchSteering(subject, { learnMenuChoices: false });
+  assert(!off.learnMenuChoices && await rows() === 0, "MENU_CHOICES_NOT_DELETED_WHEN_OFF");
+  assert(await learner.recordMenuChoice(key, choice) === false && (await learner.menuChoices(key)).length === 0,
+    "MENU_CHOICE_KEPT_AFTER_OFF");
+  // A choice kept at the moment learn mode goes off never outlives the switch, in either order.
+  for (let round = 0; round < 5; round += 1) {
+    await learner.setResearchSteering(subject, { learnMenuChoices: true });
+    clock += 60_000;
+    await Promise.all([learner.recordMenuChoice(key, choice), learner.setResearchSteering(subject, {
+      learnMenuChoices: false })]);
+    assert(await rows() === 0, "MENU_CHOICE_OUTLIVED_LEARN_MODE_OFF");
+  }
+
+  // Learn mode is turned off, and what was kept deleted, for an account whose access was revoked: revoked access
+  // must not leave a person's choices and reasons with no way to delete them (the review of 14 Nov 2026).
+  await learner.setResearchSteering(subject, { learnMenuChoices: true });
+  clock += 60_000;
+  assert(await learner.recordMenuChoice(key, choice) && await rows() === 1, "MENU_CHOICE_NOT_KEPT_BEFORE_REVOKE");
+  await learner.revoke(subject);
+  assert(await rows() === 1, "REVOKE_CHANGED_MENU_CHOICES");
+  const forgotten = await learner.forgetMenuChoices(subject);
+  assert(forgotten?.learnMenuChoices === false && await rows() === 0, "MENU_CHOICES_NOT_DELETED_AFTER_REVOKE");
+
+  // The call record's plan_lane: only on a register_plain_answer row, only research, light or aside.
+  const record = new PostgresResearchCallRecordStore(restricted, SCHEMA);
+  const at = new Date();
+  const laneKey = "synthetic-call-record-lane-key";
+  for (const [tool, action, lane] of [["manage_research_access", "register_plain_answer", "heavy"],
+    ["manage_research_access", "plan_research", "light"], ["manage_research_access", null, "light"],
+    ["load_protocol", null, "aside"]] as const) {
+    await expectCode(() => restricted.query(`INSERT INTO ${SCHEMA}.research_call_record
+      (account_key, received_at, tool, action, route, chatgpt, outcome, code, duration_ms, plan_lane)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, [laneKey, at, tool, action, "/mcp", false, "answered", null, 0, lane]),
+    "23514");
+  }
+  const entry = { accountKey: laneKey, receivedAt: at, tool: "manage_research_access", action: "register_plain_answer",
+    route: "/mcp" as const, chatgpt: true, outcome: "answered" as const, code: null, durationMs: 400 };
+  await record.record({ ...entry, planLane: "aside" });
+  await record.record({ ...entry, receivedAt: new Date(at.getTime() - 1), action: "inspect", planLane: "light" });
+  const laneRows = await record.list(laneKey, at);
+  assert(laneRows.length === 2 && laneRows[0]?.planLane === "aside" && !Object.hasOwn(laneRows[1]!, "planLane"),
+    "CALL_RECORD_PLAN_LANE_WRONG");
+  await restricted.query(`DELETE FROM ${SCHEMA}.research_call_record WHERE account_key = $1`, [laneKey]);
+  checks.push("learn_mode_off_by_default_newest_20_while_on_deleted_when_off");
+  checks.push("learn_mode_concurrent_answers_keep_20_and_off_works_after_revoke");
+  checks.push("call_record_plan_lane_on_its_rows_only");
 }
 
 async function verifyNoticeAcceptance(context: {

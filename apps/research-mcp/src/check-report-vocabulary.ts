@@ -1700,6 +1700,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "lead_only",
   "lead_part_readable",
   "lead_paywalled",
+  "learn_mode_unavailable",
   "ledger_consistency_only",
   "ledger_consistent_for_synthesis",
   "legacy_spark_annotation_not_transcript_verified_by_askrigor",

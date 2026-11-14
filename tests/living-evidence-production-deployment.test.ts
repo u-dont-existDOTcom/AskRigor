@@ -310,7 +310,7 @@ describe("production living-evidence deployment", () => {
     expect(provision).toContain(
       "GRANT UPDATE (status, mode, notice_version, agreement_json, activated_at, revoked_at, updated_at,\n" +
       "  plain_answer_note, detailed_lesson_reports, findings_save, notice_accepted_by, notice_accepted_at,\n" +
-      "  research_style, check_back_minutes, adjustment_detail)\n" +
+      "  research_style, check_back_minutes, adjustment_detail, learn_menu_choices)\n" +
       "  ON TABLE living_evidence.research_use_accounts",
     );
     expect(provision).not.toContain("GRANT SELECT, INSERT, UPDATE ON TABLE living_evidence.research_use_accounts");
@@ -508,7 +508,7 @@ describe("production living-evidence deployment", () => {
       '"0025_atlas_placements",\n      "0026_atlas_reports",\n      "0027_atlas_glance_rows",\n      ' +
       '"0028_research_use_notice_v5",\n      "0029_atlas_research_behind",\n      "0030_atlas_challenges",\n      ' +
       '"0031_research_notice_acceptance",\n      "0032_research_call_record",\n      "0033_research_steering",\n      ' +
-      '"0034_research_call_record_plan_next",\n    ]');
+      '"0034_research_call_record_plan_next",\n      "0035_research_menu_learning",\n    ]');
     // append_only_guard on exactly the eight canonical tables; the two private review tables are not among them.
     const guarded = migration.slice(migration.indexOf("FOREACH table_name IN ARRAY ARRAY["));
     expect([...guarded.slice(0, guarded.indexOf("] LOOP")).matchAll(/'([a-z_]+)'/gu)].map(([, table]) => table))
@@ -877,11 +877,11 @@ describe("production living-evidence deployment", () => {
     // people's reports (owner answer 229a), 0027, a problem's rows at a glance, 0028, notice version 5 (owner answer
     // 253a), 0029, the research behind each finding (owner answers 254a and 255a), and 0030, the findings that challenge
     // the usual view (the owner, 6 November 2026).
-    expect(order.slice(-14)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
+    expect(order.slice(-15)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
       "0023_research_findings_save_switch", "0024_atlas_kept_for_research", "0025_atlas_placements", "0026_atlas_reports",
       "0027_atlas_glance_rows", "0028_research_use_notice_v5", "0029_atlas_research_behind", "0030_atlas_challenges",
       "0031_research_notice_acceptance", "0032_research_call_record",
-      "0033_research_steering", "0034_research_call_record_plan_next"]);
+      "0033_research_steering", "0034_research_call_record_plan_next", "0035_research_menu_learning"]);
     // One table and its sequence, safe to run again; the reason lists replaced on every run.
     expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS atlas_publication_number_seq AS bigint START WITH 1001");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS atlas_publications (");
@@ -1043,6 +1043,64 @@ describe("production living-evidence deployment", () => {
     expect(runbook).toContain("Requested and confirmed");
     expect(registry).toContain("Expected 35 research operations");
     expect(registry).toContain('registerTool(\n    "get_research_frontier"');
+  });
+
+  // Owner answer 303a (14 Nov 2026): learn mode, a dev account's own menu choices; and the plan's lane in the call record.
+  it("ships migration 0035's learn mode and plan lane, safe to run again, kept from every role but the access role", async () => {
+    const migration = await read("packages/evidence-repository/migrations/0035_research_menu_learning.sql");
+    const repository = await read("packages/evidence-repository/src/postgres.ts");
+    const access = await read("infra/living-evidence-production/provision-research-access-role.sh");
+    const review = await read("infra/living-evidence-production/provision-research-review-role.sh");
+    const gaps = await read("infra/living-evidence-production/provision-evidence-gap-role.sh");
+    const reader = await read("infra/living-evidence-production/init-reader.sh");
+    // Last in the migrate list, right after 0034.
+    const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
+    const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
+    expect(order.slice(-2)).toEqual(["0034_research_call_record_plan_next", "0035_research_menu_learning"]);
+    // Safe to run again: the columns, the table and the index come once, and every check is added by its name only
+    // when it is missing.
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS learn_menu_choices boolean NOT NULL DEFAULT false");
+    expect(migration).toContain("CREATE TABLE IF NOT EXISTS research_menu_choices (");
+    expect(migration).toContain("CREATE INDEX IF NOT EXISTS research_menu_choices_account_chosen_at\n" +
+      "  ON research_menu_choices (account_key, chosen_at DESC);");
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS plan_lane text");
+    const checks = [...migration.matchAll(/ADD CONSTRAINT (\w+) CHECK/gu)].map(([, name]) => name!);
+    expect(checks).toEqual(["research_menu_choices_lane_check", "research_menu_choices_tasks_check",
+      "research_menu_choices_reason_check", "research_call_record_plan_lane_check"]);
+    for (const name of checks) expect(migration).toContain(`WHERE conname = '${name}'`);
+    expect(migration).not.toMatch(/DROP |CREATE TABLE research|ADD COLUMN (?!IF NOT EXISTS)/u);
+    expect(migration).toContain("CHECK (lane IS NULL OR lane IN ('research', 'light'))");
+    expect(migration).toContain("CHECK (jsonb_typeof(tasks) = 'array')");
+    expect(migration).toContain("CHECK (reason IS NULL OR char_length(reason) <= 300)");
+    expect(migration).toContain("plan_lane IN ('research', 'light', 'aside')");
+    expect(migration).toContain("AND action = 'register_plain_answer'");
+    // The table holds no research target, task wording or answer, and refers to nothing that holds a question.
+    const start = migration.indexOf("CREATE TABLE IF NOT EXISTS research_menu_choices (");
+    const table = migration.slice(start, migration.indexOf("\n);", start));
+    expect([...table.matchAll(/^ {2}(\w+) /gmu)].map(([, column]) => column)).toEqual(
+      ["account_key", "chosen_at", "lane", "you_decide", "tasks", "reason"]);
+    expect(migration).not.toMatch(/REFERENCES|FOREIGN KEY|research_target|question_text|answer_text/iu);
+    // A comment on every new column.
+    for (const column of ["research_use_accounts.learn_menu_choices", "research_menu_choices.account_key",
+      "research_menu_choices.chosen_at", "research_menu_choices.lane", "research_menu_choices.you_decide",
+      "research_menu_choices.tasks", "research_menu_choices.reason", "research_call_record.plan_lane"]) {
+      expect(migration).toContain(`COMMENT ON COLUMN ${column} IS`);
+    }
+    // Kept from PUBLIC and the canonical reader, whose default grants would otherwise read it, as the call record is.
+    expect(reader).toContain("GRANT SELECT ON TABLES TO askrigor_reader");
+    expect(migration).toContain("REVOKE ALL ON TABLE research_menu_choices FROM PUBLIC;");
+    expect(migration).toContain("REVOKE ALL ON TABLE research_menu_choices FROM askrigor_reader;");
+    expect(migration).toContain("REVOKE ALL ON TABLE research_call_record FROM askrigor_reader;");
+    // The access role inserts, reads and deletes the rows, as it does the call record's, and sets the switch; the
+    // review and evidence-gap roles revoke every table and are granted nothing on it.
+    expect(access).toContain("GRANT INSERT, SELECT, DELETE ON TABLE living_evidence.research_menu_choices\n" +
+      "  TO askrigor_research_access;");
+    expect(access).toContain("adjustment_detail, learn_menu_choices)\n  ON TABLE living_evidence.research_use_accounts");
+    expect(access.match(/research_menu_choices/gu)).toHaveLength(1);
+    for (const script of [review, gaps]) {
+      expect(script).toContain("REVOKE ALL ON ALL TABLES IN SCHEMA living_evidence FROM");
+      expect(script).not.toMatch(/research_menu_choices|learn_menu_choices|research_call_record/u);
+    }
   });
 });
 

@@ -5,8 +5,11 @@ import { z } from "zod";
 import {
   ADJUSTMENT_DETAILS,
   CHECK_BACK_MINUTES,
+  MENU_CHOICES_KEPT,
+  MENU_CHOICE_LIMITS,
   RESEARCH_STYLES,
   type AdjustmentDetail,
+  type ResearchMenuChoiceInput,
   type ResearchSteering,
   type ResearchStyle,
 } from "@askrigor/evidence-repository";
@@ -60,6 +63,12 @@ export const researchSteeringInputSchema = z.object({
   adjustmentDetail: z.enum(ADJUSTMENT_DETAILS).optional()
     .describe("What the answer says about the variables each key observational study adjusted for: flagged (the " +
       "default), only those that look doubtful on a quick check; all, each one with its likely role."),
+  // Owner answer 303a (14 Nov 2026): learn mode, which the connector takes from a dev account only, while AskRigor's
+  // own planning call is on; any other account's call is refused whole (LEARN_MODE_UNAVAILABLE).
+  learnMenuChoices: z.boolean().optional()
+    .describe("true: on this account AskRigor remembers the person's own menu choices and their reasons, in their " +
+      "own words, to plan their next research better; false: stop, and delete what was kept. Only when the person " +
+      "asks for it."),
 }).strict();
 export type ResearchSteeringInput = z.output<typeof researchSteeringInputSchema>;
 
@@ -173,6 +182,13 @@ export const researchMenuSchema = z.object({
   lane: z.enum(["light"]).optional()
     .describe("Set by AskRigor's own plan only: light, for a look-up of one fact that one named source states. Leave " +
       "it out of a menu you write yourself."),
+  // Owner answer 303a (14 Nov 2026): learn mode keeps it, for a dev account whose learn mode is on, with the menu
+  // choice it goes with; every other call reads nothing of it. It is not part of the menu's digest.
+  // Any value is accepted, as a menu's unknown fields were before it: a reason that is too long, empty or not a text
+  // must never refuse a menu, least of all on an account that keeps none (cleanedReason reads it where it is used).
+  person_reason: z.unknown().optional()
+    .describe("With person_answered true, when the person said why they chose as they did: their reason in their " +
+      "own words, at most 300 characters; leave it out when they gave none. Never a reason of yours."),
 }).strict();
 export type ResearchMenuInput = z.output<typeof researchMenuSchema>;
 
@@ -377,6 +393,7 @@ export const correctedMenuSchema = z.object({
     done: z.array(z.number().int()).optional(),
     menu_digest: z.string().optional(),
     lane: z.enum(["light"]).optional(),
+    person_reason: z.string().optional(),
   }).strict(),
 }).strict();
 export type CorrectedMenu = z.output<typeof correctedMenuSchema>;
@@ -429,6 +446,9 @@ export function correctedMenu(source: unknown, choice = false): CorrectedMenu {
       ? { menu_digest: (menu.menu_digest as string).trim() } : {}),
     // Owner answer 302: AskRigor's own light plan stays light when its menu comes back to be corrected.
     ...(valid(researchMenuSchema.shape, "lane", menu.lane) ? { lane: menu.lane as "light" } : {}),
+    // Owner answer 303a: the person's reason goes back with the menu, cleaned and cut as it would be kept, never as
+    // raw text in a refusal (the review of 14 Nov 2026).
+    ...(cleanedReason(menu.person_reason) === undefined ? {} : { person_reason: cleanedReason(menu.person_reason)! }),
   };
   return correctedMenuSchema.parse({ researchMenu: example });
 }
@@ -1284,6 +1304,101 @@ export const STYLE_REPLY = "If the reply asks for another research style, set it
   "plan_research again.";
 
 /**
+ * Owner answer 303a (14 November 2026), from the owner's words in chat on 13 November: "can we also learn from users
+ * menu choices (especially if they give reasons), and let users turn on learn mode for their own menu choices?" The
+ * option chosen: "learn mode on your account now, inside the week's trial. It keeps your own choices and reasons and
+ * nothing of anyone else's." So on a dev account, while AskRigor's own planning call is on, a menu that asks ends with
+ * one more line after menuPreferenceLine, naming learn mode and whether it is on; no other account gets it, and their
+ * menus stay as they were. Whether the person asked to turn it on, and what their reason is, are the model's to read,
+ * in any language; AskRigor reads only the true or false it is sent, and keeps the reason as given.
+ */
+export function learnModeLine(on: boolean): string {
+  return on
+    ? "Learn mode is on: I remember your choices on these menus, and your reasons. Say \"learn mode off\" to stop " +
+      "and delete them."
+    : "Say \"learn mode on\" and I'll remember your choices on these menus, and your reasons, to plan better next " +
+      "time. It is off now.";
+}
+/** Beside STYLE_REPLY, on the same accounts as learnModeLine: the setting first, and the person's reason with their answer. */
+export const LEARN_MODE_REPLY = "If the reply turns learn mode on or off, set it with action set_research_steering " +
+  "(later_inputs.researchSteering.learnMenuChoices true or false), then call plan_research again. When the person " +
+  "says why they chose as they did, give their reason, word for word and at most 300 characters, as person_reason in " +
+  "later_inputs.researchMenu with their allocation.";
+/** set_research_steering's words once learn mode is on, and once it is off. */
+export const LEARN_MODE_ON = "Learn mode is on: AskRigor now keeps this account's menu choices (which tasks, how many " +
+  "minutes, and the person's reason when they give one, in their own words, the last 20) and gives them to its own " +
+  "planning call. Say \"learn mode off\" to stop and delete them.";
+export const LEARN_MODE_OFF = "Learn mode is off, and what was kept of this account's menu choices is deleted.";
+/** The refusal for any other account, or while the planning call is off: the whole call, its other settings too. */
+export const LEARN_MODE_UNAVAILABLE = "Learn mode is being tried on AskRigor's own test accounts only; nothing was " +
+  "kept or changed.";
+
+/** What inspect adds for a dev account, where the research style is described: learn mode, and how many are kept. */
+export function learnModeInspectSentence(on: boolean, kept: number | undefined): string {
+  return on
+    ? `Learn mode is on for this account: AskRigor keeps ${kept === undefined ? "its" : `${kept} of its`} menu ` +
+      `choices (the newest ${MENU_CHOICES_KEPT} at most, with the person's reasons in their own words) for its own ` +
+      "planning call, and turning it off, when the person asks (action set_research_steering with " +
+      "later_inputs.researchSteering.learnMenuChoices false), deletes them."
+    : "Learn mode is off for this account, so AskRigor keeps none of its menu choices; only when the person asks, " +
+      "action set_research_steering with later_inputs.researchSteering.learnMenuChoices true turns it on.";
+}
+
+/**
+ * The person's reason as learn mode keeps it and as a result may echo it (owner answer 303a): one line of plain text,
+ * with no control or formatting characters, cut to 300 characters; undefined when it is not a text, is empty after
+ * cleaning, or holds what looks like a key.
+ */
+export function cleanedReason(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const text = value.replace(/[\p{Cc}\p{Cf}]+/gu, " ").replace(/\s+/gu, " ").trim();
+  if (text === "" || /sk-ant-/u.test(text)) return undefined;
+  return text.length <= MENU_CHOICE_LIMITS.reason ? text : `${text.slice(0, MENU_CHOICE_LIMITS.reason - 1).trimEnd()}…`;
+}
+
+/**
+ * Learn mode's record of the menu a call answers (owner answer 303a), or undefined for a call that does not carry the
+ * person's answer (an allocation naming an open task, with person_answered true: allocationAnswered and
+ * PERSON_ANSWER_DECLARED), the "you decide" call included. The lane is the menu's own, else research; each task keeps
+ * its kind, what it could change, whether AskRigor recommended it and the minutes the person gave it, 0 when none (a
+ * task done or past the list gets none); never its words. you_decide is true when the allocation is the recommendation
+ * the same menu gets without one, which is what an ask hands over for "you decide" (youDecideLaterInputs): AskRigor
+ * marks that call in no other way once person_answered is filled in, so an allocation the person gave that equals the
+ * recommendation counts as "you decide" too. The reason is the caller's, already cleaned, or null. Exact: it counts
+ * and compares what the menu declares, never its words.
+ */
+export function menuChoiceOf(plan: ResearchMenuInput, steering: ResearchSteering, reason: string | null):
+  ResearchMenuChoiceInput | undefined {
+  if (!allocationAnswered(plan) || plan.person_answered !== true) return undefined;
+  const byTask = (entries: readonly { task: number; minutes: number }[]) => {
+    const minutes = new Map<number, number>();
+    for (const { task, minutes: given } of entries) minutes.set(task, minutesSum([minutes.get(task) ?? 0, given]));
+    return minutes;
+  };
+  const given = byTask(planResearch(plan, steering).recommended);
+  const offered = byTask(planResearch({ ...plan, allocation: undefined, person_answered: undefined }, steering)
+    .recommended);
+  // Compared without the tasks either side gives no minutes: a recommended task whose estimate rounds to zero is
+  // handed over with 0 minutes and then left out of the answered plan, and must not make "you decide" look like a
+  // choice of the person's (the review of 14 Nov 2026).
+  const timed = (minutes: ReadonlyMap<number, number>) => new Map([...minutes].filter(([, value]) => value > 0));
+  const [offeredTimed, givenTimed] = [timed(offered), timed(given)];
+  const youDecide = offeredTimed.size > 0 && offeredTimed.size === givenTimed.size &&
+    [...offeredTimed].every(([task, minutes]) => givenTimed.get(task) === minutes);
+  return {
+    lane: plan.lane ?? "research",
+    youDecide,
+    tasks: plan.tasks.map(({ kind, could_change }, index) => ({
+      kind,
+      could_change,
+      recommended: offered.has(index + 1),
+      minutes: given.get(index + 1) ?? 0,
+    })),
+    reason,
+  };
+}
+
+/**
  * How the tasks are done once the research goes on (the 279a plan: a task that runs out of time stops and says what it
  * reached; a new fork that could change the conclusion comes back to the person, now through the menu).
  */
@@ -1360,6 +1475,8 @@ export function youDecideLaterInputs(plan: ResearchMenuInput, result: ResearchPl
     ...(result.menu_digest === undefined ? {} : { menu_digest: result.menu_digest }),
     // Owner answer 302: the copy of a light plan's menu stays light.
     ...(plan.lane === undefined ? {} : { lane: plan.lane }),
+    // Owner answer 303a: and a reason the menu carried stays with it.
+    ...(cleanedReason(plan.person_reason) === undefined ? {} : { person_reason: cleanedReason(plan.person_reason)! }),
   } };
 }
 
@@ -1424,10 +1541,13 @@ export const NAMED_ANSWER_STEERS = "What they answer to the question you named d
  * whose menu named a question hands it over in the reply, in place of the general sentence on what the person's
  * choices could change (owner answer 296b, 13 Nov 2026; STEERING_CHOICE). Before everything else comes the stop for
  * an allocation not used (allocationNotUsedStop), then the call's problems, each on a line of its own (11 Nov 2026:
- * the problems come before the ask, so its text ends with the rule for the person's answer).
+ * the problems come before the ask, so its text ends with the rule for the person's answer). learnMode is given only
+ * for a dev account while AskRigor's own planning call is on (owner answer 303a): whether its learn mode is on, for the
+ * ask's line after menuPreferenceLine and the rule beside STYLE_REPLY; left out, the text is as it was.
  */
 export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<number>, numbered = false,
-  researchTarget?: string, youDecide?: YouDecideLaterInputs, problems: readonly string[] = []): string {
+  researchTarget?: string, youDecide?: YouDecideLaterInputs, problems: readonly string[] = [],
+  learnMode?: boolean): string {
   const stop = allocationNotUsedStop(result);
   const first = [...(stop === undefined ? [] : [stop]), ...(problems.length === 0 ? [] : [problems.join(" ")])];
   const lines = result.tasks.map(({ n, task, could_change, loop, minutes }) =>
@@ -1469,6 +1589,7 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
           `${ANSWER_MINUTES[1]} min to check and write the answer.`,
       HOW_TO_SPEND,
       menuPreferenceLine(result.style),
+      ...(learnMode === undefined ? [] : [learnModeLine(learnMode)]),
     ];
     // A menu whose research target is not the registered one gets the registered one named instead, as the first line
     // says; without the plain answer's receipt AskRigor can't tell, so the menu's own is quoted.
@@ -1489,7 +1610,8 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
       // What the person answers to the named question is what the research then checks (NAMED_ANSWER_STEERS).
       (result.steering_choice === undefined ? "" : ` ${NAMED_ANSWER_STEERS}`) + " If the reply " +
       "changes the question, register the plain answer again for the new research target first, with " +
-      `later_inputs.framing for it. Never send an allocation the person did not give or leave to you. ${STYLE_REPLY}`;
+      `later_inputs.framing for it. Never send an allocation the person did not give or leave to you. ${STYLE_REPLY}` +
+      (learnMode === undefined ? "" : ` ${LEARN_MODE_REPLY}`);
     return [
       ...first,
       ...(before.length === 0 ? [] : [before.join(" ")]),
@@ -1548,9 +1670,10 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
  * PERSON_ANSWER_DECLARED), and to put the question the menu named to the person (owner answer 296b, 13 Nov 2026);
  * and the stop for an allocation not used comes before everything else (allocationNotUsedStop). After that stop, and
  * before any ask, comes the correction for a research target that is not the registered one (TARGET_NOT_REGISTERED),
- * which a menu that would go on gets in place of its go-ahead.
+ * which a menu that would go on gets in place of its go-ahead. learnMode, as for planResearchText: a dev account's ask
+ * also ends with learnModeLine and gets LEARN_MODE_REPLY beside STYLE_REPLY (owner answer 303a).
  */
-export function planNextStep(result: ResearchPlanResult): string {
+export function planNextStep(result: ResearchPlanResult, learnMode?: boolean): string {
   const stop = allocationNotUsedStop(result);
   const notRegistered = result.target_matches_plain_answer === false;
   const first = (stop === undefined ? "" : `${stop} `) + (notRegistered ? `${TARGET_NOT_REGISTERED} ` : "");
@@ -1562,7 +1685,9 @@ export function planNextStep(result: ResearchPlanResult): string {
         : "put the question you named to them, in their language (researchMenu.steering_choice), and ") +
       "show researchMenu.tasks as a numbered list with their times, the recommendation and how to answer (task " +
       "numbers and minutes, or \"you decide\"), and end with one line saying they can change how often AskRigor " +
-      `asks by saying guided, balanced or autonomous (theirs is ${result.style} now). Make no research call and ` +
+      `asks by saying guided, balanced or autonomous (theirs is ${result.style} now)` +
+      (learnMode === undefined ? "." : `, and after it this line, in their language: ${learnModeLine(learnMode)}`) +
+      " Make no research call and " +
       "don't call finalize_research until they " +
       "answer; then call action plan_research again with their allocation and person_answered true inside " +
       "later_inputs.researchMenu " + (result.recommended.length === 0
@@ -1572,7 +1697,8 @@ export function planNextStep(result: ResearchPlanResult): string {
             `${MENU_PLACEHOLDERS.person_answered} in person_answered: true once they have answered, false before).`) +
       " Send person_answered true only once they have answered this menu in a message of their own: " +
       `${PERSON_ANSWER_DECLARED}, and one sent without it is not used.` +
-      (result.steering_choice === undefined ? "" : ` ${NAMED_ANSWER_STEERS}`) + ` ${STYLE_REPLY}`;
+      (result.steering_choice === undefined ? "" : ` ${NAMED_ANSWER_STEERS}`) + ` ${STYLE_REPLY}` +
+      (learnMode === undefined ? "" : ` ${LEARN_MODE_REPLY}`);
   }
   if (notRegistered) return first + NO_GO_AHEAD_YET;
   // Owner answer 302: a light look-up goes on with LIGHT_LOOKUP alone, in any style.

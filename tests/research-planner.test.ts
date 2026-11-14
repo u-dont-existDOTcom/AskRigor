@@ -9,6 +9,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  DEFAULT_RESEARCH_STEERING as STORED_DEFAULT_STEERING,
   InMemoryResearchContributorAccessStore,
   RESEARCH_USE_NOTICE_VERSION,
   ResearchContributorAccessService,
@@ -26,6 +27,7 @@ import {
   createResearchPlanner,
   researchPlanOf,
   researchPlannerBundle,
+  type MenuHistoryEntry,
   type ResearchPlanner,
   type ResearchPlannerCall,
   type ResearchPlannerClient,
@@ -33,6 +35,8 @@ import {
   type ResearchPlannerState,
 } from "../apps/research-mcp/src/research-planner.js";
 import { FINALIZE_REMINDER } from "../apps/research-mcp/src/research-finalization-gate.js";
+import { menuHistoryOf, personReasonOf, waitForPendingMenuChoices }
+  from "../apps/research-mcp/src/research-contributor-access-tool.js";
 import type { ResearchReviewer } from "../apps/research-mcp/src/research-reviewer.js";
 import {
   ANSWER_REVIEW_ASKED,
@@ -40,15 +44,23 @@ import {
   ASKED_LIMIT,
   ASKED_REQUEST,
   DEFAULT_RESEARCH_STEERING,
+  LEARN_MODE_OFF,
+  LEARN_MODE_ON,
+  LEARN_MODE_REPLY,
+  LEARN_MODE_UNAVAILABLE,
   LIGHT_LANE_PLANNED,
   LIGHT_LOOKUP,
   PLAN_TASK_KINDS,
   READING_FIRST,
   RESEARCH_LANES,
+  STYLE_REPLY,
   asideGuidance,
   asideNextStep,
   framingGuidance,
   framingNextStep,
+  learnModeInspectSentence,
+  learnModeLine,
+  menuPreferenceLine,
   plannedGuidance,
   plannedNextStep,
   plannerNotUsedSentence,
@@ -198,6 +210,8 @@ describe("AskRigor's own planning call (owner answer 298b): the call", () => {
       quick_answer_claims: [...SOURCE.claims],
       framing: { likely_question: "Does the oil work like the tea?", premise_doubts: ["That the oil holds the compounds"],
         redirecting_questions: [] },
+      // Learn mode's history (owner answer 303a): null without one.
+      menu_history: null,
     });
     // The key is the client's alone: it is in no part of the request.
     expect(JSON.stringify(body)).not.toContain(KEY);
@@ -223,7 +237,7 @@ describe("AskRigor's own planning call (owner answer 298b): the call", () => {
   it("gives the bundle null for words and a framing the AI did not pass on", () => {
     expect(researchPlannerBundle({ researchTarget: "T", quickAnswer: "Q.", claims: ["Q."] }, "2026-11-13")).toEqual({
       today: "2026-11-13", asked: null, research_target: "T", quick_answer: "Q.", quick_answer_claims: ["Q."],
-      framing: null });
+      framing: null, menu_history: null });
   });
 
   it("prices each iteration at its own model's rate, and an unlisted fallback model at the ceiling", async () => {
@@ -1292,6 +1306,19 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
       expect(words(registered)).toContain("AskRigor's own planning call did not answer this time");
     });
 
+  it("does not step aside on a plan made without a web search", async () => {
+    // The aside lane's own condition is that the call's search showed the fact stated plainly.
+    const memory = memoryPlanner(() => ({ status: "planned", plan: researchPlanOf({ ...NONE, lane: "aside" }, 0)! }));
+    const { call } = await tool(memory.planner, ["auth0|dev"], { researchReviewer: reviewing });
+    const registered = await call({ action: "register_plain_answer", plainAnswer: PLAIN,
+      later_inputs: { asked: SOURCE.asked } });
+    expect(registered.isError, words(registered)).not.toBe(true);
+    const structured = registered.structuredContent as Record<string, unknown>;
+    expect(structured).toMatchObject({ ok: true, research_plan_not_used: "unreadable" });
+    expect(structured).not.toHaveProperty("research_plan");
+    expect(words(registered)).not.toContain(ASIDE_OPENING);
+  });
+
   it("hands over a light plan's menu with its lane, and plan_research goes on with the light look-up", async () => {
     const memory = memoryPlanner(() => ({ status: "planned", plan: researchPlanOf(LIGHT_REPLY, 1)! }));
     const { call } = await tool(memory.planner, ["auth0|dev"], { researchReviewer: reviewing });
@@ -1426,5 +1453,299 @@ describe("a steering_choice that is neither the word none nor a question is hand
       tasks: [{ task: "Read twelve papers in full", kind: "full_text", could_change: "conclusion", sources: 12 }] }) } });
     expect(long.isError, words(long)).not.toBe(true);
     expect(long.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask" } });
+  });
+});
+
+// Owner answer 303a (14 Nov 2026): learn mode, on a dev account while the planning call is on. The store's side is in
+// tests/research-steering.test.ts.
+describe("learn mode on a dev account (owner answer 303a)", () => {
+  const first = (result: Result): string => result.content[0]!.type === "text" ? result.content[0]!.text : "";
+  const learn = (learnMenuChoices: boolean, more: Record<string, unknown> = {}) =>
+    ({ action: "set_research_steering", later_inputs: { researchSteering: { learnMenuChoices, ...more } } });
+  const disabled = { enabled: false, plan: async () => { throw new Error("never"); } } as unknown as ResearchPlanner;
+  type Store = InMemoryResearchContributorAccessStore;
+  const storeOf = (service: ResearchContributorAccessService) => (service as unknown as { store: Store }).store;
+
+  /** Registers the plain answer and returns the planned menu, ready for plan_research. */
+  async function plannedMenu(call: (input: Record<string, unknown>, subject?: string) => Promise<Result>) {
+    const registered = await call({ action: "register_plain_answer", plainAnswer: PLAIN,
+      later_inputs: { asked: SOURCE.asked } });
+    expect(registered.isError, words(registered)).not.toBe(true);
+    return (registered.structuredContent as { planned_later_inputs: { researchMenu: Record<string, unknown> } })
+      .planned_later_inputs;
+  }
+  /** The ask's "you decide" call, with person_answered given as true. */
+  const youDecide = (asked: Result) => {
+    const copy = structuredClone((asked.structuredContent as { you_decide_later_inputs: { researchMenu:
+      Record<string, unknown> } }).you_decide_later_inputs);
+    copy.researchMenu.person_answered = true;
+    return copy;
+  };
+
+  it("turns off and deletes what was kept for an account whose access was revoked", async () => {
+    // Revoked access must not leave a person's choices and reasons on the server with no way to delete them.
+    const { call, service } = await tool(memoryPlanner().planner);
+    await call(learn(true));
+    await service.recordMenuChoice(service.accountKeyForSubject("auth0|dev"), { lane: "research", youDecide: false,
+      reason: "Trials only.", tasks: [{ kind: "full_text", could_change: "conclusion", recommended: true, minutes: 3 }] });
+    expect(storeOf(service).allMenuChoices()).toHaveLength(1);
+    await service.revoke("auth0|dev");
+    expect(storeOf(service).allMenuChoices()).toHaveLength(1);
+    const off = await call(learn(false));
+    expect(off.isError, words(off)).not.toBe(true);
+    expect(first(off)).toBe(LEARN_MODE_OFF);
+    expect(storeOf(service).allMenuChoices()).toEqual([]);
+  });
+
+  it("is turned on only on a dev account while the planning call is on, refused whole otherwise; off is never refused",
+    async () => {
+    const { call, service } = await tool(memoryPlanner().planner);
+    const on = await call(learn(true));
+    expect(on.isError, words(on)).not.toBe(true);
+    expect(first(on)).toBe(LEARN_MODE_ON);
+    expect(on.structuredContent).toEqual({ ok: true, steering: { ...STORED_DEFAULT_STEERING, learnMenuChoices: true } });
+    const both = await call(learn(false, { style: "guided" }));
+    expect(first(both)).toBe("Research style: guided (asks you at the start and before every long task), checking " +
+      "back after 10 minutes; for what key observational studies adjusted for, only adjustments that look doubtful " +
+      `on a quick check. This applies to this account's research until the person changes it. ${LEARN_MODE_OFF}`);
+    expect((await service.activeAccount("auth0|dev")).steering).toEqual({ ...STORED_DEFAULT_STEERING,
+      style: "guided", learnMenuChoices: false });
+    // Any other account: turning it on is refused with its own code and words, and the style it named is not
+    // applied either.
+    const refused = await call(learn(true, { style: "autonomous" }), "auth0|person");
+    expect(refused.isError).toBe(true);
+    expect(first(refused)).toBe(LEARN_MODE_UNAVAILABLE);
+    expect(refused.structuredContent).toEqual({ ok: false, error: { code: "learn_mode_unavailable",
+      message: LEARN_MODE_UNAVAILABLE } });
+    expect((await service.activeAccount("auth0|person")).steering).toEqual(STORED_DEFAULT_STEERING);
+    // Turning it off is never refused, since it deletes what was kept: any account may, and its result still names no
+    // setting it was never offered.
+    const offAnyway = await call(learn(false), "auth0|person");
+    expect(offAnyway.isError, words(offAnyway)).not.toBe(true);
+    expect(first(offAnyway)).toBe(LEARN_MODE_OFF);
+    expect(offAnyway.structuredContent).toEqual({ ok: true, steering: { style: "balanced", checkBackMinutes: 10,
+      adjustmentDetail: "flagged" } });
+    expect((await service.activeAccount("auth0|person")).steering).toEqual(STORED_DEFAULT_STEERING);
+    // Its style alone is changed as before, and its result names no learn mode.
+    const style = await call({ action: "set_research_steering", later_inputs: { researchSteering: { style: "guided" } } },
+      "auth0|person");
+    expect(style.structuredContent).toEqual({ ok: true, steering: { style: "guided", checkBackMinutes: 10,
+      adjustmentDetail: "flagged" } });
+    expect(words(style)).not.toMatch(/learn/iu);
+    // A dev account while the planning call is off or absent is refused the same way when it turns learn mode on, and
+    // nothing is changed; turning it off still works there, so what was kept can always be deleted.
+    for (const planner of [undefined, disabled]) {
+      const off = await tool(planner);
+      const refusedOn = await off.call(learn(true, { checkBackMinutes: 30 }));
+      expect(refusedOn.structuredContent).toMatchObject({ ok: false, error: { code: "learn_mode_unavailable" } });
+      expect((await off.service.activeAccount("auth0|dev")).steering).toEqual(STORED_DEFAULT_STEERING);
+      const allowedOff = await off.call(learn(false));
+      expect(allowedOff.isError, words(allowedOff)).not.toBe(true);
+      expect(first(allowedOff)).toBe(LEARN_MODE_OFF);
+    }
+  });
+
+  it("says in a dev account's inspect whether it is on and how many choices are kept, and nothing to others", async () => {
+    const { call, service } = await tool(memoryPlanner().planner);
+    const off = await call({ action: "inspect" });
+    expect(first(off)).toContain(` ${learnModeInspectSentence(false, 0)} `);
+    expect(off.structuredContent).toMatchObject({ steering: { learnMenuChoices: false } });
+    await call(learn(true));
+    await service.recordMenuChoice(service.accountKeyForSubject("auth0|dev"), { lane: "research", youDecide: true,
+      reason: null, tasks: [{ kind: "full_text", could_change: "conclusion", recommended: true, minutes: 3 }] });
+    const on = await call({ action: "inspect" });
+    expect(first(on)).toContain(` ${learnModeInspectSentence(true, 1)} `);
+    expect(on.structuredContent).toMatchObject({ steering: { learnMenuChoices: true } });
+    // Right after the research style's words.
+    expect(first(on).indexOf("Learn mode is on")).toBeGreaterThan(first(on).indexOf("Research style: "));
+    const person = await call({ action: "inspect" }, "auth0|person");
+    expect(words(person)).not.toMatch(/learn mode|learnMenuChoices/iu);
+    expect((person.structuredContent as { steering: object }).steering).toEqual({ style: "balanced",
+      checkBackMinutes: 10, adjustmentDetail: "flagged" });
+  });
+
+  it("names learn mode in a dev account's ask while the planning call is on, and every other account's ask is as it was",
+    async () => {
+      const { call } = await tool(memoryPlanner().planner);
+      const planned = await plannedMenu(call);
+      const asked = await call({ action: "plan_research", later_inputs: planned });
+      expect(asked.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask" } });
+      const step = (asked.structuredContent as { next_step: string }).next_step;
+      expect(first(asked)).toContain(`${menuPreferenceLine("balanced")}\n${learnModeLine(false)}\n`);
+      expect(first(asked)).toContain(`${STYLE_REPLY} ${LEARN_MODE_REPLY}`);
+      expect(step).toContain(`in their language: ${learnModeLine(false)} Make no research call`);
+      expect(step).toContain(`${STYLE_REPLY} ${LEARN_MODE_REPLY}`);
+      await call(learn(true));
+      const again = await call({ action: "plan_research", later_inputs: planned });
+      expect(first(again)).toContain(`${menuPreferenceLine("balanced")}\n${learnModeLine(true)}\n`);
+      // The same menu, without the dev account's receipt, on another account and on a dev account whose planning
+      // call is off: no line and no rule, and every other word the same.
+      const menu = { researchMenu: { ...planned.researchMenu, plain_answer_receipt: undefined } };
+      const dev = await call({ action: "plan_research", later_inputs: menu });
+      const person = await call({ action: "plan_research", later_inputs: menu }, "auth0|person");
+      const off = await tool(disabled);
+      const offDev = await off.call({ action: "plan_research", later_inputs: menu });
+      for (const other of [person, offDev]) {
+        expect(words(other)).not.toMatch(/learn mode|person_reason/iu);
+        expect(first(other)).toBe(first(dev).replace(`\n${learnModeLine(true)}`, "").replace(` ${LEARN_MODE_REPLY}`, ""));
+        expect((other.structuredContent as { next_step: string }).next_step).toBe(
+          (dev.structuredContent as { next_step: string }).next_step
+            .replace(`, and after it this line, in their language: ${learnModeLine(true)}`, ".")
+            .replace(` ${LEARN_MODE_REPLY}`, ""));
+      }
+    });
+
+  it("keeps the person's answer to a menu only on a dev account with learn mode on, and gives it to the next plan",
+    async () => {
+      const memory = memoryPlanner();
+      const { call, service } = await tool(memory.planner);
+      const key = service.accountKeyForSubject("auth0|dev");
+      // Off: the person's answer is planned as before, and nothing is kept.
+      let planned = await plannedMenu(call);
+      let asked = await call({ action: "plan_research", later_inputs: planned });
+      expect((await call({ action: "plan_research", later_inputs: youDecide(asked) })).structuredContent)
+        .toMatchObject({ ok: true, researchMenu: { next: "go_on" } });
+      await waitForPendingMenuChoices(service);
+      expect(storeOf(service).allMenuChoices()).toEqual([]);
+      // On: the ask itself keeps nothing; the "you decide" call is kept as such, with no reason.
+      await call(learn(true));
+      planned = await plannedMenu(call);
+      asked = await call({ action: "plan_research", later_inputs: planned });
+      await waitForPendingMenuChoices(service);
+      expect(storeOf(service).allMenuChoices()).toEqual([]);
+      const decided = await call({ action: "plan_research", later_inputs: youDecide(asked) });
+      expect(decided.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on" } });
+      await waitForPendingMenuChoices(service);
+      const tasks = researchPlanOf(REPLY, 1)!.tasks;
+      expect(await service.menuChoices(key)).toEqual([{ chosenAt: expect.any(String), lane: "research",
+        youDecide: true, reason: null, tasks: [
+          { kind: tasks[0]!.kind, could_change: "conclusion", recommended: true, minutes: 3 },
+          { kind: tasks[1]!.kind, could_change: "confidence", recommended: true, minutes: 1 },
+          { kind: tasks[2]!.kind, could_change: "detail", recommended: false, minutes: 0 },
+        ] }]);
+      // The person's own allocation, with their reason, cleaned to one line.
+      const own = { researchMenu: { ...planned.researchMenu, allocation: [{ task: 1, minutes: 6 }, { task: 3, minutes: 2 }],
+        person_answered: true, person_reason: "  I want\u0000 the trials,\n\tnot forums.  " } };
+      expect((await call({ action: "plan_research", later_inputs: own })).isError).not.toBe(true);
+      await waitForPendingMenuChoices(service);
+      const kept = await service.menuChoices(key);
+      expect(kept).toHaveLength(2);
+      expect(kept[0]).toMatchObject({ youDecide: false, reason: "I want the trials, not forums." });
+      expect(kept[0]!.tasks.map(({ minutes }) => minutes)).toEqual([6, 0, 2]);
+      expect(JSON.stringify(kept)).not.toContain(tasks[0]!.task);
+      expect(JSON.stringify(kept)).not.toContain(PLAIN.researchTarget);
+      // The next registration gives the planner both, newest first; the bundle carries them.
+      const before = memory.seen.length;
+      await plannedMenu(call);
+      const history = memory.seen[before]!.source.menuHistory!;
+      expect(history).toEqual(menuHistoryOf(kept, Date.now()));
+      expect(history.map(({ you_decide, reason, days_ago }) => [you_decide, reason, days_ago])).toEqual([
+        [false, "I want the trials, not forums.", 0], [true, null, 0]]);
+      expect(history[0]).toEqual({ days_ago: 0, lane: "research", you_decide: false,
+        reason: "I want the trials, not forums.", tasks: [
+          { kind: tasks[0]!.kind, recommended: true, minutes: 6 }, { kind: tasks[1]!.kind, recommended: true, minutes: 0 },
+          { kind: tasks[2]!.kind, recommended: false, minutes: 2 }] });
+      expect(researchPlannerBundle(memory.seen[before]!.source, "2026-11-14").menu_history).toEqual(history);
+      // Turned off: deleted, and the next registration gives the planner none.
+      await call(learn(false));
+      expect(storeOf(service).allMenuChoices()).toEqual([]);
+      await plannedMenu(call);
+      expect(memory.seen.at(-1)!.source).not.toHaveProperty("menuHistory");
+    });
+
+  it("keeps nothing of another account, or of a dev account while the planning call is off, whatever the menu carries",
+    async () => {
+      const { call, service } = await tool(memoryPlanner().planner);
+      // Learn mode switched on for the other account in the store itself, as no connector call can.
+      await service.setResearchSteering("auth0|person", { learnMenuChoices: true });
+      const menu = { research_target: PLAIN.researchTarget, steering_choice: "none", tasks: researchPlanOf(REPLY, 1)!.tasks,
+        allocation: [{ task: 1, minutes: 3 }], person_answered: true, person_reason: "A reason of the other account." };
+      const answered = await call({ action: "plan_research", later_inputs: { researchMenu: menu } }, "auth0|person");
+      expect(answered.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on" } });
+      expect(words(answered)).not.toContain("A reason of the other account.");
+      await waitForPendingMenuChoices(service);
+      expect(storeOf(service).allMenuChoices()).toEqual([]);
+      // A dev account with learn mode on, while the planning call is off: nothing is kept either.
+      const off = await tool(disabled);
+      await off.service.setResearchSteering("auth0|dev", { learnMenuChoices: true });
+      await off.call({ action: "plan_research", later_inputs: { researchMenu: menu } });
+      await waitForPendingMenuChoices(off.service);
+      expect(storeOf(off.service).allMenuChoices()).toEqual([]);
+    });
+
+  it("never fails or delays plan_research when a choice cannot be kept, and logs its class only", async () => {
+    const { call, service } = await tool(memoryPlanner().planner);
+    await call(learn(true));
+    const planned = await plannedMenu(call);
+    const asked = await call({ action: "plan_research", later_inputs: planned });
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const failing = vi.spyOn(service, "recordMenuChoice").mockRejectedValueOnce(new Error("private failure detail"));
+      const decided = await call({ action: "plan_research", later_inputs: youDecide(asked) });
+      expect(decided.isError, words(decided)).not.toBe(true);
+      expect(decided.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on" } });
+      await waitForPendingMenuChoices(service);
+      expect(failing).toHaveBeenCalledOnce();
+      expect(errors.mock.calls).toEqual([["research access: menu_choice_not_recorded"]]);
+      // A write that never ends does not hold the result back.
+      vi.spyOn(service, "recordMenuChoice").mockImplementationOnce(() => new Promise<boolean>(() => undefined));
+      const slow = await call({ action: "plan_research", later_inputs: youDecide(asked) });
+      expect(slow.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on" } });
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("cleans the person's reason as the planner's lines are, and cuts it to 300 characters", () => {
+    expect(personReasonOf(undefined)).toBeNull();
+    expect(personReasonOf("  Trials,\u0000 not\n\tforums.  ")).toBe("Trials, not forums.");
+    // A reason empty after cleaning is no reason; so is one holding something like a key.
+    expect(personReasonOf("​\u0001 ⁠")).toBeNull();
+    expect(personReasonOf("my key is sk-ant-000")).toBeNull();
+    const long = personReasonOf(`${"word ".repeat(100)}end`)!;
+    expect(long).toHaveLength(300);
+    expect(long.endsWith("…")).toBe(true);
+    expect(personReasonOf("x".repeat(300))).toBe("x".repeat(300));
+  });
+
+  it("puts the history in the planning call's bundle, and keeps the hour's plan whatever is chosen meanwhile", async () => {
+    const entry: MenuHistoryEntry = { days_ago: 2, lane: "research", you_decide: false, reason: "Trials only.",
+      tasks: [{ kind: "full_text", recommended: true, minutes: 4 }] };
+    expect(researchPlannerBundle({ ...SOURCE, menuHistory: [] }, "2026-11-14").menu_history).toBeNull();
+    // Only the history's own fields, whatever else an entry holds.
+    expect(researchPlannerBundle({ ...SOURCE, menuHistory: [{ ...entry, extra: "x" } as MenuHistoryEntry] },
+      "2026-11-14").menu_history).toEqual([entry]);
+    const at = Date.parse("2026-11-14T10:00:00Z");
+    let reply: unknown = REPLY;
+    const made = planner({ now: () => at, reply: () => message({}, reply) });
+    await made.planner.plan({ ...SOURCE, menuHistory: [entry] }, "account-a");
+    expect(JSON.parse(made.bodies[0]!.messages[0]!.content as string).menu_history).toEqual([entry]);
+    // The same words within the hour keep their plan, whatever the person chose meanwhile: a registration repeated
+    // after they answered the menu (to add a claim, to correct the research target) must not change the menu they
+    // answered, nor make a second paid call.
+    expect((await made.planner.plan({ ...SOURCE, menuHistory: [entry] }, "account-a")).cached).toBe(true);
+    reply = LIGHT_REPLY;
+    const newer = { ...entry, days_ago: 0, reason: "Now the forums too." };
+    expect((await made.planner.plan({ ...SOURCE, menuHistory: [newer, entry] }, "account-a")).cached).toBe(true);
+    expect((await made.planner.plan(SOURCE, "account-a")).cached).toBe(true);
+    expect(await made.planner.lane(SOURCE.asked, "account-a")).toBe("research");
+    expect(made.bodies).toHaveLength(1);
+    // Other words are a new plan, made with the history as it is then.
+    expect((await made.planner.plan({ ...SOURCE, asked: "another question", menuHistory: [newer, entry] }, "account-a"))
+      .cached).toBe(false);
+    expect(JSON.parse(made.bodies[1]!.messages[0]!.content as string).menu_history).toEqual([newer, entry]);
+    expect(made.bodies).toHaveLength(2);
+    // The days since each choice, in whole days, newest first as kept.
+    expect(menuHistoryOf([
+      { chosenAt: "2026-11-14T09:00:00.000Z", lane: "light", youDecide: true, reason: null,
+        tasks: [{ kind: "full_text", could_change: "conclusion", recommended: true, minutes: 3 }] },
+      { chosenAt: "2026-11-11T11:00:00.000Z", lane: "research", youDecide: false, reason: "R.",
+        tasks: [{ kind: "forum_thread", could_change: "detail", recommended: false, minutes: 2 }] },
+    ], at)).toEqual([
+      { days_ago: 0, lane: "light", you_decide: true, reason: null, tasks: [{ kind: "full_text", recommended: true,
+        minutes: 3 }] },
+      { days_ago: 2, lane: "research", you_decide: false, reason: "R.", tasks: [{ kind: "forum_thread",
+        recommended: false, minutes: 2 }] },
+    ]);
   });
 });

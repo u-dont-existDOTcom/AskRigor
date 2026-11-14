@@ -164,6 +164,48 @@ describe("background call recording", () => {
     }
   });
 
+  // Its twin (owner answer 303a's build, migration 0035): an answered register_plain_answer call keeps the lane AskRigor's
+  // own plan gave it, from its own result; nothing the person or the AI wrote, and no other call, stores one.
+  it.each(["research", "light", "aside"] as const)("keeps the lane of AskRigor's own plan from its result: %s",
+    async (lane) => {
+      const { store, recording } = setup();
+      const result: CallToolResult = { content: [{ type: "text", text: "private plan text" }], structuredContent: {
+        ok: true, research_plan: { source: "askrigor_planning_call", about: "private about marker", lane } } };
+      await forTextClients("manage_research_access", async () => result, recording)({ action: "register_plain_answer",
+        later_inputs: { asked: "private words marker" } }, extra());
+      await waitForPendingCallRecords(store);
+      const rows = await store.list(accountKey, new Date());
+      expect(rows).toEqual([expect.objectContaining({ action: "register_plain_answer", outcome: "answered",
+        planLane: lane })]);
+      expect(rows[0]).not.toHaveProperty("planNext");
+      expect(JSON.stringify(rows)).not.toMatch(/private about marker|private plan text|private words marker/u);
+    });
+
+  it("stores no lane for another call, a refused registration, a plan not AskRigor's own, or one only the input gave",
+    async () => {
+      const plan = (research_plan: unknown): CallToolResult => ({ content: [{ type: "text", text: "x" }],
+        structuredContent: { ok: true, research_plan } });
+      const own = { source: "askrigor_planning_call", lane: "light" };
+      const cases: Array<[string, Record<string, unknown>, CallToolResult]> = [
+        ["manage_research_access", { action: "plan_research" }, plan(own)],
+        ["manage_research_access", { action: "inspect" }, plan(own)],
+        ["load_protocol", { action: "register_plain_answer" }, plan(own)],
+        ["manage_research_access", { action: "register_plain_answer" }, { ...plan(own), isError: true }],
+        ["manage_research_access", { action: "register_plain_answer" }, plan({ ...own, source: "other" })],
+        ["manage_research_access", { action: "register_plain_answer" }, plan({ ...own, lane: "heavy" })],
+        ["manage_research_access", { action: "register_plain_answer" }, plan("light")],
+        ["manage_research_access", { action: "register_plain_answer", research_plan: own }, answered],
+      ];
+      for (const [tool, input, result] of cases) {
+        const { store, recording } = setup();
+        await forTextClients(tool, async () => result, recording)(input, extra());
+        await waitForPendingCallRecords(store);
+        const rows = await store.list(accountKey, new Date());
+        expect(rows, JSON.stringify([tool, input])).toHaveLength(1);
+        expect(rows[0], JSON.stringify([tool, input])).not.toHaveProperty("planLane");
+      }
+    });
+
   it.each([[0, 399.6, 400], [20, 19, 0], [0, 99_999_999, 86_400_000]])(
     "rounds and clamps duration (%s, %s)", async (start, end, expected) => {
       const { store, recording } = setup();

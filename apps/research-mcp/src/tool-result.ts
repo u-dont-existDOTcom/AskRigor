@@ -1,6 +1,8 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { ProtocolName } from "@askrigor/protocol";
-import type { ResearchCallRecordEntry, ResearchCallRecordStore, ResearchPlanDecision } from "@askrigor/evidence-repository";
+import type {
+  ResearchCallRecordEntry, ResearchCallRecordStore, ResearchPlanDecision, ResearchPlanLane,
+} from "@askrigor/evidence-repository";
 import type { ResearchOperationExtra } from "./research-operation.js";
 
 export interface CallRecordingOptions {
@@ -38,6 +40,20 @@ function planDecisionOf(structured: unknown): ResearchPlanDecision | undefined {
   return next === "ask" || next === "go_on" ? next : undefined;
 }
 
+/**
+ * The lane AskRigor's own plan gave a register_plain_answer call, in its own result (research_plan.lane, with
+ * research_plan.source askrigor_planning_call), when it is one of the three fixed values (owner answer 302; migration
+ * 0035, planNext's twin).
+ */
+function planLaneOf(structured: unknown): ResearchPlanLane | undefined {
+  const plan = structured !== null && typeof structured === "object"
+    ? (structured as Record<string, unknown>).research_plan : undefined;
+  if (plan === null || typeof plan !== "object") return undefined;
+  const { source, lane } = plan as Record<string, unknown>;
+  return source === "askrigor_planning_call" && (lane === "research" || lane === "light" || lane === "aside")
+    ? lane : undefined;
+}
+
 function startCallRecord(tool: string, input: unknown, extra: unknown, recording?: CallRecordingOptions) {
   if (recording === undefined) return undefined;
   try {
@@ -67,9 +83,12 @@ function startCallRecord(tool: string, input: unknown, extra: unknown, recording
         // two fixed values read from its structured content, never anything the person or the AI wrote.
         const planNext = outcome === "answered" && tool === "manage_research_access" && action === "plan_research"
           ? planDecisionOf(result!.structuredContent) : undefined;
+        // And its twin: an answered register_plain_answer call keeps the lane AskRigor's own plan gave it, when it made one.
+        const planLane = outcome === "answered" && tool === "manage_research_access" &&
+          action === "register_plain_answer" ? planLaneOf(result!.structuredContent) : undefined;
         enqueueCallRecord(recording.store, { ...base, outcome, code,
           durationMs: Math.min(86_400_000, Math.max(0, Math.round(performance.now() - started))),
-          ...(planNext === undefined ? {} : { planNext }) });
+          ...(planNext === undefined ? {} : { planNext }), ...(planLane === undefined ? {} : { planLane }) });
       } catch { /* A call record must never affect a tool result or emit a log. */ }
     };
   } catch { return undefined; }

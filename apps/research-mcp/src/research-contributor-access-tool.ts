@@ -25,10 +25,14 @@ import {
   researchSteeringSchema,
   type CanonicalIdentityReader,
   type ResearchAccessView,
+  type ResearchMenuChoice,
+  type ResearchMenuChoiceInput,
   type ResearchSteering,
   type ResearchCallRecordStore,
+  MENU_CHOICE_LIMITS,
   RESEARCH_CALL_RECORD_RETENTION_DAYS,
   RESEARCH_PLAN_DECISIONS,
+  RESEARCH_PLAN_LANES,
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
@@ -60,6 +64,9 @@ import {
   ASKED_LIMIT,
   ASKED_REQUEST,
   COULD_CHANGE,
+  LEARN_MODE_OFF,
+  LEARN_MODE_ON,
+  LEARN_MODE_UNAVAILABLE,
   MENU_PLACEHOLDERS,
   PERSON_ANSWER_DECLARED,
   PLANNER_NOT_USED_REASONS,
@@ -74,6 +81,9 @@ import {
   correctedMenuSchema,
   framingGuidance,
   framingNextStep,
+  learnModeInspectSentence,
+  cleanedReason,
+  menuChoiceOf,
   menuProblems,
   menuDigest,
   menuReadingSentence,
@@ -102,7 +112,7 @@ import {
   type ResearchMenuInput,
   type ResearchSteeringInput,
 } from "./research-steering.js";
-import type { ResearchPlanner } from "./research-planner.js";
+import type { MenuHistoryEntry, ResearchPlanner } from "./research-planner.js";
 import type { ResearchReviewer } from "./research-reviewer.js";
 import type { ResearchOperationExtra, ResearchOperationHandler } from "./research-operation.js";
 import {
@@ -261,7 +271,9 @@ const noticeAcceptanceSchema = z.object({
 /** Its results as the server checks them: the published fields and the shared answer's (owner answer 200a). */
 export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutputSchema.extend({
   error: researchAccessErrorSchema.extend({
-    code: z.union([researchAccessErrorSchema.shape.code, z.literal("call_record_unavailable")]),
+    // Owner answer 303a: learn mode asked of an account that is not a dev account, or while the planning call is off.
+    code: z.union([researchAccessErrorSchema.shape.code, z.literal("call_record_unavailable"),
+      z.literal("learn_mode_unavailable")]),
   }).optional(),
   calls: z.array(z.object({
     received_at: z.iso.datetime(), tool: z.string(), action: z.string().nullable(),
@@ -270,6 +282,8 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     duration_ms: z.number().int().min(0).max(86_400_000),
     // Owner answer 289a: plan_research's decision, from AskRigor's own result, on its rows only.
     plan_next: z.enum(RESEARCH_PLAN_DECISIONS).optional(),
+    // Its twin (migration 0035): the lane AskRigor's own plan gave a register_plain_answer call, on its rows only.
+    plan_lane: z.enum(RESEARCH_PLAN_LANES).optional(),
   }).strict()).max(500).optional(),
   retention_days: z.literal(RESEARCH_CALL_RECORD_RETENTION_DAYS).optional(),
   // The review of 12 Nov 2026: a listing that shows only some of the calls says which, and where the next ones start.
@@ -295,8 +309,9 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     .describe("What to do next. With inspect, for an account that is not active on the current notice: show the user " +
       "the notice and ask; never accept it for them. With register_plain_answer and plan_research: whether to ask the " +
       "person and end the turn, or go on."),
-  // Owner answer 279a (runtime only): the account's research style, and the menu plan_research made.
-  steering: researchSteeringSchema.optional(),
+  // Owner answer 279a (runtime only): the account's research style, and the menu plan_research made. Learn mode (owner
+  // answer 303a) is shown to a dev account only (shownSteering).
+  steering: researchSteeringSchema.partial({ learnMenuChoices: true }).optional(),
   researchMenu: z.object({
     tasks: z.array(z.object({
       n: z.number().int(),
@@ -508,6 +523,8 @@ export interface ResearchContributorToolOptions {
    * registration also asks for the person's words at the final check.
    */
   researchReviewer?: () => ResearchReviewer | undefined;
+  /** A failure's class only, never its message (owner answer 303a: menu_choice_not_recorded); console.error by default. */
+  log?: (failureClass: string) => void;
 }
 
 export interface ResearchMapOptions {
@@ -855,7 +872,8 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       const calls = entries.map((entry) => ({ received_at: entry.receivedAt.toISOString(), tool: entry.tool,
         action: entry.action, route: entry.route, chatgpt: entry.chatgpt, outcome: entry.outcome,
         code: entry.code, duration_ms: entry.durationMs,
-        ...(entry.planNext === undefined ? {} : { plan_next: entry.planNext }) }));
+        ...(entry.planNext === undefined ? {} : { plan_next: entry.planNext }),
+        ...(entry.planLane === undefined ? {} : { plan_lane: entry.planLane }) }));
       // The review of 12 Nov 2026: the budget counts the result as the app gets it, the tool-list notice included.
       return listedCalls(calls, page.data,
         (result) => clientResultBytes(withToolListNotice(result, input, options.toolListVersion)));
@@ -1005,12 +1023,21 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           parsed.framing, planner?.enabled === true ? { planner, asked, reviewed } : undefined);
       }
       if (parsed.action === "set_research_steering") {
-        return await setResearchSteering(options.service, auth.subject, parsed.researchSteering!);
+        // Owner answer 303a: learn mode only for a dev account, while AskRigor's own planning call is on.
+        const devAccount = isDevAccount(options.service.accountKeyForSubject(auth.subject),
+          options.devAccountKeys?.() ?? new Set());
+        return await setResearchSteering(options.service, auth.subject, parsed.researchSteering!, devAccount,
+          devAccount && options.researchPlanner?.()?.enabled === true);
       }
       if (parsed.action === "plan_research") {
+        const devAccount = isDevAccount(options.service.accountKeyForSubject(auth.subject),
+          options.devAccountKeys?.() ?? new Set());
+        // Owner answer 303a: on a dev account while AskRigor's own planning call is on, the menu names learn mode, and a
+        // call that carries the person's answer is kept while learn mode is on.
+        const learning = devAccount && options.researchPlanner?.()?.enabled === true
+          ? { log: options.log ?? defaultLog } : undefined;
         return await planResearchAction(options.service, auth.subject, parsed.researchMenu!, options.plainAnswer,
-          options.menuDigestSecret?.(), isDevAccount(options.service.accountKeyForSubject(auth.subject),
-            options.devAccountKeys?.() ?? new Set()));
+          options.menuDigestSecret?.(), devAccount, learning);
       }
       if (parsed.action === "set_plain_answer_note") {
         return await setPlainAnswerNote(options.service, auth.subject, parsed.plainAnswerNote!, options.plainAnswer);
@@ -1071,6 +1098,10 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       const nextStep = parsed.action === "inspect" && access.status !== "ACTIVE" ? noticeNextStep() : undefined;
       // Owner answer 298b: a dev account whose research AskRigor plans itself is asked for the person's own words.
       const planned = devAccount && plain !== undefined && options.researchPlanner?.()?.enabled === true;
+      // Owner answer 303a: a dev account is told whether learn mode is on and how many of its menu choices are kept.
+      const learnOn = settings?.steering.learnMenuChoices === true;
+      const learnMode = settings === undefined || !devAccount ? undefined : { on: learnOn,
+        kept: learnOn ? (await options.service.menuChoices(accountKey).catch(() => undefined))?.length : 0 };
       return {
         content: [{
           type: "text",
@@ -1088,6 +1119,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
               : ` ${settings.detailedLessonReports ? DETAILED_REPORTS_ON : DETAILED_REPORTS_OFF}`) +
             (settings === undefined || !devAccount ? "" : ` ${settings.findingsSave ? FINDINGS_SAVE_ON : FINDINGS_SAVE_OFF}`) +
             (settings === undefined ? "" : ` ${steeringInspectText(settings.steering)}`) +
+            (learnMode === undefined ? "" : ` ${learnModeInspectSentence(learnMode.on, learnMode.kept)}`) +
             (options.callRecord === undefined ? "" : ` ${CALL_RECORD_SENTENCE}`) +
             ` This account's reference, to give the user only when they ask for it: ${accountReference}.`,
         }],
@@ -1097,7 +1129,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           ...(plain === undefined ? {} : { plainAnswer: { requested: true, note: plain.note } }),
           ...(settings === undefined ? {} : { detailedLessonReports: settings.detailedLessonReports }),
           ...(settings === undefined || !devAccount ? {} : { findingsSave: settings.findingsSave }),
-          ...(settings === undefined ? {} : { steering: settings.steering }),
+          ...(settings === undefined ? {} : { steering: shownSteering(settings.steering, devAccount) }),
           accountReference,
           ...(nextStep !== undefined ? { next_step: nextStep } : planned ? { next_step: ASKED_REQUEST } : {}),
         }),
@@ -1126,9 +1158,11 @@ function listedCalls(calls: readonly ListedCall[], page: z.infer<typeof callsPag
     ? `AskRigor received no calls from this signed-in account in the last 7 days${at}.`
     : `AskRigor received ${total === 500 ? "at least " : ""}${total} ${total === 1 ? "call" : "calls"} from this ` +
       `signed-in account in the last 7 days${at}.`;
+  // plan_research's decision, or the lane AskRigor's own plan gave a register_plain_answer call (migration 0035).
+  const decided = (call: ListedCall) => call.plan_next ?? call.plan_lane;
   const line = (call: ListedCall) =>
     `${call.received_at.slice(0, 19).replace("T", " ")} UTC · ${call.tool}${call.action === null ? ""
-      : ` (${call.action}${call.plan_next === undefined ? "" : `: ${call.plan_next}`})`} · ` +
+      : ` (${call.action}${decided(call) === undefined ? "" : `: ${decided(call)}`})`} · ` +
     `${call.outcome}${call.outcome === "refused" ? ` [${call.code}]` : ""} · ${(call.duration_ms / 1_000).toFixed(1)} s · ` +
     `${call.chatgpt ? "ChatGPT" : "other app"} · ${call.route}`;
   // A page that would end inside a group of calls with the same time ends before the group instead, unless the group
@@ -1305,8 +1339,12 @@ async function registerPlainAnswer(
     (account.note ? NOTE_ON : NOTE_OFF);
   // Owner answer 298b: AskRigor's own planning call, for a dev account, once the plain answer is signed. It never
   // stops the registration: without a plan, the result is the one every account gets, with one sentence on why.
+  // Owner answer 303a: with learn mode on, it also gets the account's own earlier menu choices; a history that cannot be
+  // read is none.
+  const menuHistory = planning === undefined || !account.steering.learnMenuChoices ? []
+    : menuHistoryOf(await service.menuChoices(account.accountKey).catch(() => []), Date.now());
   const planned = planning === undefined ? undefined
-    : await plannedResearch(planning, plainAnswer, framing, receipt, account.accountKey);
+    : await plannedResearch(planning, plainAnswer, framing, receipt, account.accountKey, menuHistory);
   const plan = planned !== undefined && "later_inputs" in planned ? planned : undefined;
   const notPlanned = planned !== undefined && "reason" in planned ? planned : undefined;
   const notUsed = notPlanned === undefined ? undefined
@@ -1391,13 +1429,15 @@ async function plannedResearch(
   framing: Framing | undefined,
   receipt: string,
   accountKey: string,
+  menuHistory: readonly MenuHistoryEntry[] = [],
 ): Promise<PlannedResearch | PlannedAside | { reason: PlannerNotUsedReason } | undefined> {
   // Whatever the planner does (a throw before its promise, a rejection, a promise that never settles), the
   // registration goes on: the planner's own timeout is at most 120 seconds, and this wait ends a little after it.
   let waited: ReturnType<typeof setTimeout> | undefined;
   const call = await Promise.race([
     Promise.resolve().then(() => planning.planner.plan({ asked: planning.asked,
-      researchTarget: plainAnswer.researchTarget, quickAnswer: plainAnswer.text, claims: plainAnswer.claims, framing },
+      researchTarget: plainAnswer.researchTarget, quickAnswer: plainAnswer.text, claims: plainAnswer.claims, framing,
+      ...(menuHistory.length === 0 ? {} : { menuHistory }) },
     accountKey)),
     new Promise<undefined>((resolve) => { waited = setTimeout(() => resolve(undefined), PLANNER_WAIT_MS); }),
   ]).catch(() => undefined).finally(() => clearTimeout(waited));
@@ -1410,7 +1450,12 @@ async function plannedResearch(
   // AskRigor steps aside only from the person's own words. A plan made from the AI's research target alone cannot
   // tell what the person asked, and nothing in a step-aside answer is checked: such a plan is not used, and the AI
   // screens and plans as on every account (in doubt, AskRigor researches).
-  if (lane === "aside") return asked ? { aside: true, about, searches, asked } : { reason: "unreadable" };
+  // Nor does it step aside on a plan made without a web search: the lane's own condition is that the call's search
+  // showed the fact stated plainly, and a call that searched nothing answered from memory (14 Nov 2026: a call given
+  // a history of skipped forum tasks ran no search, three runs of three).
+  if (lane === "aside") {
+    return asked && searches > 0 ? { aside: true, about, searches, asked } : { reason: "unreadable" };
+  }
   const light = lane === "light";
   const menu = researchMenuSchema.safeParse({ research_target: plainAnswer.researchTarget,
     plain_answer_receipt: receipt, steering_choice, tasks, ...(light ? { lane: "light" } : {}) });
@@ -1418,22 +1463,117 @@ async function plannedResearch(
   return { about, searches, asked, lane: light ? "light" : "research", later_inputs: { researchMenu: menu.data } };
 }
 
-/** Changes the account's research style when the person asks (owner answer 279a); only the choice is stored. */
+/**
+ * Changes the account's research style when the person asks (owner answer 279a); only the choice is stored. Learn mode
+ * (owner answer 303a) is turned on only for a dev account while AskRigor's own planning call is on
+ * (learnModeAvailable); any other call that turns it on is refused whole, its other settings too, with nothing kept
+ * or changed. Turning it off is never refused, since it deletes what was kept.
+ */
 async function setResearchSteering(
   service: ResearchContributorAccessService,
   subject: string,
   change: ResearchSteeringInput,
+  devAccount = false,
+  learnModeAvailable = false,
 ): Promise<CallToolResult> {
-  if (change.style === undefined && change.checkBackMinutes === undefined && change.adjustmentDetail === undefined) {
+  const style = change.style !== undefined || change.checkBackMinutes !== undefined ||
+    change.adjustmentDetail !== undefined;
+  if (!style && change.learnMenuChoices === undefined) {
     return accessError("invalid_request", "later_inputs.researchSteering needs at least one of style, " +
       "checkBackMinutes and adjustmentDetail.");
   }
-  const steering = await service.setResearchSteering(subject, change);
+  // Turning learn mode on needs a dev account with the planning call on. Turning it off never does: it deletes what
+  // was kept, and an account taken off the list, or one whose planning call was switched off, must still be able to.
+  if (change.learnMenuChoices === true && !learnModeAvailable) return learnModeUnavailable();
+  // Turning learn mode off is done by itself, for an account in any state (forgetMenuChoices): revoked access must
+  // not keep a person from deleting what was kept. Whatever else the call sets still needs active access, after it.
+  const { learnMenuChoices, ...styleChange } = change;
+  let steering = learnMenuChoices === false ? await service.forgetMenuChoices(subject) : undefined;
+  if (style || learnMenuChoices === true) {
+    steering = await service.setResearchSteering(subject, learnMenuChoices === true ? change : styleChange);
+  }
+  const text = [
+    ...(style ? [`${steeringSentence(steering!)} This applies to this account's research until the person changes it.`]
+      : []),
+    ...(learnMenuChoices === undefined ? [] : [learnMenuChoices ? LEARN_MODE_ON : LEARN_MODE_OFF]),
+  ].join(" ");
   return {
-    content: [{ type: "text", text: `${steeringSentence(steering)} This applies to this account's research until ` +
-      "the person changes it." }],
-    structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: true, steering }),
+    content: [{ type: "text", text }],
+    // An account with no row had nothing kept and has no style to show.
+    structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: true,
+      ...(steering === undefined ? {} : { steering: shownSteering(steering, devAccount) }) }),
   };
+}
+
+/** Learn mode asked of an account that is not a dev account, or while the planning call is off (owner answer 303a). */
+function learnModeUnavailable(): CallToolResult {
+  return {
+    content: [{ type: "text", text: LEARN_MODE_UNAVAILABLE }],
+    structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: false,
+      error: { code: "learn_mode_unavailable", message: LEARN_MODE_UNAVAILABLE } }),
+    isError: true,
+  };
+}
+
+/**
+ * The research style as a result shows it: learn mode only to a dev account, the only kind that may change it, so no
+ * other account is offered it and its results stay as they were (owner answer 303a).
+ */
+function shownSteering(steering: ResearchSteering, devAccount: boolean):
+  Omit<ResearchSteering, "learnMenuChoices"> & { learnMenuChoices?: boolean } {
+  const { learnMenuChoices, ...style } = steering;
+  return devAccount ? { ...style, learnMenuChoices } : style;
+}
+
+/**
+ * The person's reason as learn mode keeps it (owner answer 303a): one line of plain text, cleaned and cut by
+ * cleanedReason; a reason that is not a text, or is empty after cleaning, is no reason.
+ */
+export function personReasonOf(reason: unknown): string | null {
+  return cleanedReason(reason) ?? null;
+}
+
+/** Learn mode's kept choices as the planner reads them, newest first, with whole days since each (owner answer 303a). */
+export function menuHistoryOf(choices: readonly ResearchMenuChoice[], now: number): MenuHistoryEntry[] {
+  return choices.map(({ chosenAt, lane, youDecide, reason, tasks }) => ({
+    days_ago: Math.max(0, Math.floor((now - Date.parse(chosenAt)) / 86_400_000)),
+    lane,
+    you_decide: youDecide,
+    reason,
+    tasks: tasks.map(({ kind, recommended, minutes }) => ({ kind, recommended, minutes })),
+  }));
+}
+
+/** A failure's class, to the server's error output only. */
+const defaultLog = (failureClass: string): void => console.error(`research access: ${failureClass}`);
+
+const pendingMenuChoices = new WeakMap<ResearchContributorAccessService, Set<Promise<void>>>();
+
+/** Test seam: waits for the menu choices this service is still keeping, without delaying any result. */
+export async function waitForPendingMenuChoices(service: ResearchContributorAccessService): Promise<void> {
+  const pending = pendingMenuChoices.get(service);
+  while (pending !== undefined && pending.size > 0) await Promise.all([...pending]);
+}
+
+/**
+ * Keeps one menu choice after the result is made (owner answer 303a): it never fails or delays the call, and a failure
+ * logs its class only (menu_choice_not_recorded), never what failed or the choice.
+ */
+function keepMenuChoice(service: ResearchContributorAccessService, accountKey: string,
+  choice: () => ResearchMenuChoiceInput | undefined, log: (failureClass: string) => void): void {
+  let pending = pendingMenuChoices.get(service);
+  if (pending === undefined) {
+    pending = new Set();
+    pendingMenuChoices.set(service, pending);
+  }
+  const write = Promise.resolve().then(async () => {
+    const made = choice();
+    if (made !== undefined) await service.recordMenuChoice(accountKey, made);
+  }).catch(() => {
+    try { log("menu_choice_not_recorded"); } catch { /* A log that fails changes nothing. */ }
+  });
+  pending.add(write);
+  void write.then(() => pending.delete(write));
 }
 
 /**
@@ -1506,6 +1646,8 @@ async function planResearchAction(
   plain: PlainAnswerOptions | undefined,
   digestSecret?: string,
   devAccount = false,
+  // Owner answer 303a: given only for a dev account while AskRigor's own planning call is on.
+  learning?: { log: (failureClass: string) => void },
 ): Promise<CallToolResult> {
   const account = await service.activeAccount(subject);
   const accountKey = service.accountKeyForSubject(subject);
@@ -1547,8 +1689,15 @@ async function planResearchAction(
   // 12 Nov 2026: an ask hands over the "you decide" call ready to copy, in its text and as a runtime field, with
   // person_answered's placeholder in it, so the call copied as it is asks again.
   const youDecide = youDecideLaterInputs(plan, result);
+  // Owner answer 303a: the ask names learn mode on a dev account while the planning call is on, and a call that carries
+  // the person's answer is kept while learn mode is on (menuChoiceOf decides whether it does), after the result.
+  const learnMode = learning === undefined ? undefined : account.steering.learnMenuChoices;
+  if (learning !== undefined && learnMode === true) {
+    keepMenuChoice(service, accountKey, () => menuChoiceOf(plan, account.steering, personReasonOf(plan.person_reason)),
+      learning.log);
+  }
   const text = planResearchText(result, new Set(plan.done ?? []), numbered, plan.research_target, youDecide,
-    problems);
+    problems, learnMode);
   // An allocation not used is the first thing the text and next_step say, as a stop; the structured content also
   // names it first among its problems. The result is the ask again (or the menu that goes on), not an error.
   const structuredProblems = result.allocation_not_used === true
@@ -1561,7 +1710,7 @@ async function planResearchAction(
       ok: true,
       researchMenu: result,
       ...(structuredProblems.length === 0 ? {} : { problems: structuredProblems }),
-      next_step: planNextStep(result),
+      next_step: planNextStep(result, learnMode),
       ...(youDecide === undefined ? {} : { you_decide_later_inputs: youDecide }),
     }),
   };

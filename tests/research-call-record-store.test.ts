@@ -38,6 +38,52 @@ describe("content-free call record store", () => {
     expect(rows.filter((row) => Object.hasOwn(row, "planNext"))).toHaveLength(1);
   });
 
+  // Its twin (owner answer 303a's build, migration 0035): the lane AskRigor's own plan gave a register_plain_answer call.
+  it("keeps register_plain_answer's lane on its rows only, and only research, light or aside", async () => {
+    const store = new InMemoryResearchCallRecordStore();
+    const registered = { ...entry(), action: "register_plain_answer", planLane: "light" as const };
+    await store.record(registered);
+    await store.record({ ...registered, receivedAt: new Date(now.getTime() - 1), planLane: "aside" });
+    await store.record({ ...registered, receivedAt: new Date(now.getTime() - 2), planLane: "research" });
+    await store.record({ ...entry(new Date(now.getTime() - 3)), planLane: "light" });
+    await store.record({ ...registered, receivedAt: new Date(now.getTime() - 4), planLane: "maybe" as never });
+    await store.record({ ...registered, receivedAt: new Date(now.getTime() - 5), tool: "load_protocol" });
+    await store.record({ ...registered, receivedAt: new Date(now.getTime() - 6), action: "plan_research" });
+    const rows = await store.list("synthetic-account-a", now);
+    expect(rows.map((row) => row.planLane)).toEqual(["light", "aside", "research", undefined, undefined, undefined,
+      undefined]);
+    expect(rows.filter((row) => Object.hasOwn(row, "planLane"))).toHaveLength(3);
+  });
+
+  // No test reaches a database: the Postgres store gets a pool that answers from memory and keeps each statement.
+  it("writes and reads the lane in the Postgres store as it does plan_research's decision", async () => {
+    const statements: Array<{ sql: string; values: unknown[] }> = [];
+    const pool = { query: async (sql: string, values: unknown[]) => {
+      statements.push({ sql: sql.replace(/\s+/gu, " ").trim(), values });
+      return sql.includes("SELECT") ? { rows: [
+        { account_key: "synthetic-account-a", received_at: now, tool: "manage_research_access",
+          action: "register_plain_answer", route: "/mcp", chatgpt: true, outcome: "answered", code: null,
+          duration_ms: 400, plan_next: null, plan_lane: "light" },
+        { account_key: "synthetic-account-a", received_at: now, tool: "manage_research_access", action: "plan_research",
+          route: "/mcp", chatgpt: true, outcome: "answered", code: null, duration_ms: 400, plan_next: "ask",
+          plan_lane: null },
+      ], rowCount: 2 } : { rows: [], rowCount: 0 };
+    } };
+    const store = new PostgresResearchCallRecordStore(pool as never, "living_evidence");
+    await store.record({ ...entry(), action: "register_plain_answer", planLane: "aside" });
+    await store.record({ ...entry(), action: "inspect", planLane: "aside" });
+    const inserts = statements.filter(({ sql }) => sql.startsWith("INSERT"));
+    expect(inserts[0]!.sql).toContain("duration_ms, plan_next, plan_lane) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, " +
+      "$10, $11)");
+    expect(inserts.map(({ values }) => values.slice(9))).toEqual([[null, "aside"], [null, null]]);
+    const rows = await store.list("synthetic-account-a", now);
+    expect(statements.at(-1)!.sql).toContain("duration_ms, plan_next, plan_lane FROM living_evidence.research_call_record");
+    expect(rows[0]).toMatchObject({ action: "register_plain_answer", planLane: "light" });
+    expect(rows[0]).not.toHaveProperty("planNext");
+    expect(rows[1]).toMatchObject({ action: "plan_research", planNext: "ask" });
+    expect(rows[1]).not.toHaveProperty("planLane");
+  });
+
   it("uses exactly seven days and excludes the boundary to the millisecond", async () => {
     expect(RESEARCH_CALL_RECORD_RETENTION_DAYS).toBe(7);
     expect(RESEARCH_CALL_RECORD_RETENTION_MS).toBe(604_800_000);

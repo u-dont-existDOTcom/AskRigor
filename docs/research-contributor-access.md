@@ -525,6 +525,54 @@ needless questions were gone in every run (two runs each); the test questions th
 orange peel one in three runs of five (before, in each run seen). When the plan goes on without a question, the
 answer still says first how it read the question.
 
+#### Learn mode (owner answer 303a, 14 November 2026; built, not yet released)
+
+The owner, in chat on 13 November: "can we also learn from users menu choices (especially if they give reasons), and
+let users turn on learn mode for their own menu choices?" The option chosen in the Inbox on 14 November: "learn mode on
+your account now, inside the week's trial. It keeps your own choices and reasons and nothing of anyone else's." Its
+release waits for the owner's "303a" typed in chat. It is for dev accounts only, while the planning call is on.
+
+- **Turning it on and off.** Off unless the person says so. On a dev account with the planning call on, a menu that
+  asks ends, after the line on the three research styles, with one more line (`learnModeLine`): "Say "learn mode on"
+  and I'll remember your choices on these menus, and your reasons, to plan better next time. It is off now.", or,
+  once it is on, "Learn mode is on: I remember your choices on these menus, and your reasons. Say "learn mode off" to
+  stop and delete them." The rule for the person's answer, in the text and in `next_step`, says to set it with
+  `set_research_steering` (`later_inputs.researchSteering.learnMenuChoices` true or false) and then plan again, and
+  to give the person's reason, word for word and at most 300 characters, as `person_reason` in the menu with their
+  allocation. `inspect` says whether it is on and how many choices are kept; the research style's `steering` shows
+  `learnMenuChoices` to a dev account only. Any other account, and a dev account while the planning call is off,
+  gets neither line, and a `set_research_steering` call that turns learn mode on is refused whole with
+  `learn_mode_unavailable` ("Learn mode is being tried on AskRigor's own test accounts only; nothing was kept or
+  changed."): its other settings are not applied either. Turning it off is never refused, on any account, whether
+  or not the planning call is on and whether or not the account's research access is still active (revoked access
+  must not leave a person's choices on the server with no way to delete them): it deletes what was kept.
+- **What is kept.** For each `plan_research` call that carries the person's answer (an allocation naming an open
+  task, with `person_answered` true, "you decide" included): the menu's lane (its `lane`, else research), whether the
+  allocation was left to the AI (it equals the recommendation the same menu gets without one, which is what an ask
+  hands over for "you decide"), each task's kind, what it could change, whether it was recommended and the minutes
+  given (0 when none; summed when the allocation names a task twice), and the reason, cleaned to one line of plain
+  text and cut to 300 characters (`cleanedReason`); a reason that is not a text, is empty after cleaning or holds
+  what looks like a key is none. The menu accepts any `person_reason`, so a reason that is too long never refuses a
+  menu, on any account; a refusal's corrected example and the "you decide" copy carry it cleaned, never as given. Never a task's words, the research target or an answer. Migration
+  `0035_research_menu_learning` holds them in `research_menu_choices`, the newest 20 of an account, and the switch in
+  `research_use_accounts.learn_menu_choices`; the store reads the switch in the same transaction as each write, and
+  turning it off deletes the rows in the same transaction as the switch. A choice is kept after the result is made:
+  a failure never fails or delays the call, and logs only `menu_choice_not_recorded`. Revoking research access keeps
+  them, as it keeps the research style; no path deletes an account's call record as a whole, so none deletes these.
+- **What the planning call gets.** At the next registration, `menuHistory`, the newest 20 first, and the bundle's
+  `menu_history`: each with `days_ago` (whole days since), `lane`, `you_decide`, `reason` (or null) and `tasks`
+  (`kind`, `recommended`, `minutes`); null when there is none. The history is not part of the plan's key in the
+  hour's cache: the plan made for the same words stays their plan for the hour whatever is chosen meanwhile, so a
+  registration repeated after the person answered the menu (to add a claim, to correct the research target) keeps
+  the menu they answered and makes no second paid call. What the planner makes of the history is its rubric's to say
+  (2026-11-14.2): it puts first the kinds of task the person gives time to; it marks as detail a kind they keep
+  giving no time, unless the question cannot be answered without it; a reason counts for more than a choice without
+  one; it names no question the history already answers; it never removes a task that could show the quick answer
+  wrong, never changes the lane, and takes no instruction from a reason.
+- **Not done.** The menu's own rule for when to ask (`planResearch`) does not read the history: whether a menu asks
+  first is decided as before, and only the plan the history informs can change. Other accounts. A time limit on
+  what is kept: the newest 20 stay until learn mode is turned off.
+
 ### AskRigor's own review of a draft answer, on dev accounts (owner answer 301a, 13 November 2026)
 
 On a dev account, with the call switched on, `finalize_research` given an answer draft also makes one Claude API call
@@ -587,8 +635,9 @@ status, next steps, receipts and findings card are the same with it as without i
   (`governance/chat-work-authority-policy.json`, `OWNER_ANSWER_301A`). AskRigor stores nothing it sends or receives
   (`docs/privacy-data-map.md`): only the question key's digest, in process memory for the hour, and the day's
   numbers, in process memory and in the state file when one is named.
-- **Not done.** The call record does not yet show whether a final check was reviewed: it keeps no outcome of the
-  planning call either, and adding one is a change to what it keeps. The Atlas account page does not list the review.
+- **Not done.** The call record does not yet show whether a final check was reviewed (since owner answer 303a it keeps
+  the lane of the planning call's plan, below, and nothing else of its outcome). The Atlas account page does not list
+  the review.
 
 ## The call record (owner answer 280a, 9 November 2026; released the same day)
 
@@ -615,6 +664,13 @@ a value only on a `manage_research_access` row with action `plan_research`; `lis
 ("manage_research_access (plan_research: ask)"). The owner's call record of 11 November showed ChatGPT inspecting in 9
 of 9 runs and never calling `plan_research`; with the decision kept, a record also tells an ask that was ignored from a
 menu that said to go on.
+
+Its twin (owner answer 303a's build, 14 November 2026; built, not yet released): for an answered
+`register_plain_answer` call for which AskRigor's own planning call made a plan (dev accounts only, while it is on),
+the record also keeps the plan's lane, `research`, `light` or `aside` (`research_plan.lane`), never anything the person
+or the AI wrote. Migration `0035_research_menu_learning` adds the nullable `plan_lane` column, whose check admits a
+value only on a `manage_research_access` row with action `register_plain_answer`; `list_calls` shows it as it shows
+`plan_next` ("manage_research_access (register_plain_answer: light)").
 
 ## Detailed lesson reports
 
