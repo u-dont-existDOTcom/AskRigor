@@ -64,9 +64,12 @@ import {
   PERSON_ANSWER_DECLARED,
   PLANNER_NOT_USED_REASONS,
   PLAN_TASK_KINDS,
+  RESEARCH_LANES,
   RESEARCH_LOOPS,
   FORM_PEOPLE_USE,
   STEERING_CHOICE,
+  asideGuidance,
+  asideNextStep,
   correctedMenu,
   correctedMenuSchema,
   framingGuidance,
@@ -313,6 +316,9 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     steering_choice: z.string().optional(),
     // Owner answer 297c (13 Nov 2026): the menu named no question and goes on, so the answer says its reading first.
     say_reading_first: z.literal(true).optional(),
+    // Owner answer 302 (14 Nov 2026): AskRigor's own light plan, whose go-ahead is one task and one final check.
+    // Runtime only: every published output schema is open, so the frozen tool lists stay as they are.
+    lane: z.literal("light").optional(),
     style: z.enum(RESEARCH_STYLES),
     check_back_minutes: z.number().int(),
     adjustment_detail: z.enum(ADJUSTMENT_DETAILS),
@@ -335,16 +341,20 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
       "its own; replace each <...> with one of the values it lists."),
   // Owner answer 298b (13 Nov 2026; runtime only): with register_plain_answer on a dev account, the plan AskRigor's
   // own model call made, the plan_research call that carries it, or why that call was not used.
+  // Owner answer 302 (14 Nov 2026; runtime only, as the rest of this field): every plan has a lane.
   research_plan: z.object({
     source: z.literal("askrigor_planning_call"),
     about: z.string(),
     steering_choice: z.string(),
     searches: z.number().int().min(0),
     from_asked: z.boolean(),
+    lane: z.enum(RESEARCH_LANES),
   }).strict().optional()
     .describe("With register_plain_answer on a dev account: what AskRigor's own planning call found the question to " +
-      "be about, the one question it would put to the person or the word none, how many web searches it ran, and " +
-      "whether it had the person's own words."),
+      "be about, the one question it would put to the person or the word none, how many web searches it ran, " +
+      "whether it had the person's own words, and its lane: research; light, one fact that one named source states, " +
+      "opened and quoted with one final check; or aside, a plain look-up AskRigor steps aside for, with no " +
+      "planned_later_inputs."),
   planned_later_inputs: z.object({ researchMenu: researchMenuSchema }).strict().optional()
     .describe("With research_plan: the later_inputs to send to plan_research next, exactly as given."),
   research_plan_not_used: z.enum(PLANNER_NOT_USED_REASONS).optional()
@@ -1298,11 +1308,31 @@ async function registerPlainAnswer(
   const planned = planning === undefined ? undefined
     : await plannedResearch(planning, plainAnswer, framing, receipt, account.accountKey);
   const plan = planned !== undefined && "later_inputs" in planned ? planned : undefined;
-  const notUsed = planned !== undefined && !("later_inputs" in planned)
-    ? plannerNotUsedSentence(planned.reason, planning!.planner.accountDailyCalls) : undefined;
+  const notPlanned = planned !== undefined && "reason" in planned ? planned : undefined;
+  const notUsed = notPlanned === undefined ? undefined
+    : plannerNotUsedSentence(notPlanned.reason, planning!.planner.accountDailyCalls);
   // A day's limit is the person's to know, so it goes to an app that hands its model only next_step too.
-  const limitReached = planned !== undefined && !("later_inputs" in planned) &&
-    (planned.reason === "account_limit" || planned.reason === "daily_budget");
+  const limitReached = notPlanned?.reason === "account_limit" || notPlanned?.reason === "daily_budget";
+  // Owner answer 302: AskRigor steps aside for a plain look-up. The plain answer is still signed and its receipt given,
+  // in case the person asks for the research after all; nothing else is said, since every other text of this result
+  // asks for research or for the final check.
+  if (planned !== undefined && "aside" in planned) {
+    return {
+      content: [
+        { type: "text", text: asideGuidance(planned) },
+        { type: "text", text: `research_receipt: ${receipt} Keep it only in case the person asks for the research ` +
+          "after all." },
+      ],
+      structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
+        ok: true,
+        plainAnswer: { requested: true, note: account.note, claims: count },
+        research_receipt: receipt,
+        next_step: asideNextStep(),
+        research_plan: { source: "askrigor_planning_call", about: planned.about, steering_choice: "none",
+          searches: planned.searches, from_asked: planned.asked, lane: "aside" },
+      }),
+    };
+  }
   return {
     // Owner answer 279a: what to do next, by the framing and the account's research style. Since 11 Nov 2026 it comes
     // first, before the registration's details, so an ask is the first thing the model reads, and next_step carries it
@@ -1314,8 +1344,11 @@ async function registerPlainAnswer(
       { type: "text", text: summary },
       { type: "text", text: `research_receipt: ${receipt}` },
       { type: "text", text: FINALIZE_REMINDER },
-      // Owner answer 301a: what the final check's review of the draft reads, said where the planner's texts are.
-      ...(planning?.reviewed === true ? [{ type: "text" as const, text: ANSWER_REVIEW_ASKED }] : []),
+      // Owner answer 301a: what the final check's review of the draft reads, said where the planner's texts are. Not
+      // for a light plan (owner answer 302), whose draft is not reviewed: the request would promise a review that is
+      // not made, and the final check knows a light look-up by its research target.
+      ...(planning?.reviewed === true && plan?.lane !== "light"
+        ? [{ type: "text" as const, text: ANSWER_REVIEW_ASKED }] : []),
     ],
     structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
       ok: true,
@@ -1326,12 +1359,21 @@ async function registerPlainAnswer(
       ...(plan === undefined ? {} : {
         research_plan: { source: "askrigor_planning_call", about: plan.about,
           steering_choice: plan.later_inputs.researchMenu.steering_choice ?? "none", searches: plan.searches,
-          from_asked: plan.asked },
+          from_asked: plan.asked, lane: plan.lane },
         planned_later_inputs: plan.later_inputs,
       }),
-      ...(planned !== undefined && !("later_inputs" in planned) ? { research_plan_not_used: planned.reason } : {}),
+      ...(notPlanned === undefined ? {} : { research_plan_not_used: notPlanned.reason }),
     }),
   };
+}
+
+/** AskRigor's own plan stepped aside for a plain look-up (owner answer 302): no menu, only what the question is about. */
+interface PlannedAside {
+  aside: true;
+  about: string;
+  searches: number;
+  /** Whether the call had the person's own words, or only the research target. */
+  asked: boolean;
 }
 
 /** How long a registration waits for the planner at most: a little past the planner's own longest timeout. */
@@ -1340,7 +1382,8 @@ const PLANNER_WAIT_MS = 125_000;
 /**
  * AskRigor's own plan for a dev account's research (owner answer 298b): the planning call's reading, question and
  * tasks as a menu for the registered research target and the receipt just signed, ready for plan_research; or why
- * there is none. The person's words and the plan are used here and kept nowhere.
+ * there is none. The person's words and the plan are used here and kept nowhere. Since owner answer 302 (14 Nov 2026)
+ * a light plan's menu says lane light, and an aside plan gives no menu at all, only what the question is about.
  */
 async function plannedResearch(
   planning: { planner: ResearchPlanner; asked: string | undefined },
@@ -1348,7 +1391,7 @@ async function plannedResearch(
   framing: Framing | undefined,
   receipt: string,
   accountKey: string,
-): Promise<PlannedResearch | { reason: PlannerNotUsedReason } | undefined> {
+): Promise<PlannedResearch | PlannedAside | { reason: PlannerNotUsedReason } | undefined> {
   // Whatever the planner does (a throw before its promise, a rejection, a promise that never settles), the
   // registration goes on: the planner's own timeout is at most 120 seconds, and this wait ends a little after it.
   let waited: ReturnType<typeof setTimeout> | undefined;
@@ -1362,11 +1405,17 @@ async function plannedResearch(
   if (call.planning.status === "skipped") {
     return call.planning.reason === "off" ? undefined : { reason: call.planning.reason };
   }
-  const { about, steering_choice, tasks, searches } = call.planning.plan;
+  const { about, steering_choice, tasks, searches, lane } = call.planning.plan;
+  const asked = planning.asked !== undefined;
+  // AskRigor steps aside only from the person's own words. A plan made from the AI's research target alone cannot
+  // tell what the person asked, and nothing in a step-aside answer is checked: such a plan is not used, and the AI
+  // screens and plans as on every account (in doubt, AskRigor researches).
+  if (lane === "aside") return asked ? { aside: true, about, searches, asked } : { reason: "unreadable" };
+  const light = lane === "light";
   const menu = researchMenuSchema.safeParse({ research_target: plainAnswer.researchTarget,
-    plain_answer_receipt: receipt, steering_choice, tasks });
+    plain_answer_receipt: receipt, steering_choice, tasks, ...(light ? { lane: "light" } : {}) });
   if (!menu.success) return { reason: "unreadable" };
-  return { about, searches, asked: planning.asked !== undefined, later_inputs: { researchMenu: menu.data } };
+  return { about, searches, asked, lane: light ? "light" : "research", later_inputs: { researchMenu: menu.data } };
 }
 
 /** Changes the account's research style when the person asks (owner answer 279a); only the choice is stored. */

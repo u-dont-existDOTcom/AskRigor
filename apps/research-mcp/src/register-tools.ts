@@ -15,6 +15,7 @@ import { createHash } from "node:crypto";
 import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
 import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./meaning-judge.js";
 import { researchPlannerFromEnv, type ResearchPlanner } from "./research-planner.js";
+import type { ResearchLane } from "./research-steering.js";
 import {
   answerReviewNote, researchReviewerFromEnv, type ResearchReviewer, type ResearchReviewerCall,
 } from "./research-reviewer.js";
@@ -2586,14 +2587,19 @@ function defineResearchOperations(
       const reviewer = researcher !== undefined && checkedInput !== undefined && draft !== undefined &&
         draft.trim() !== "" && isDevAccount(researcher.accountKey, devAccountKeysFromEnv())
         ? configuredReviewer(options) : undefined;
+      // The person's words, read from the raw call as register_plain_answer reads its own; absent or unusable, the
+      // review reads the research target alone.
+      const asked = reviewer?.enabled === true ? finalCheckAsked(input) : undefined;
+      // Owner answer 302: a light look-up's draft is not reviewed, and the review counts nothing for it. The lane is
+      // the one AskRigor's own plan gave this account's same words or research target (plannedLane), which can
+      // neither fail the check nor hold it up: no lane, a throw or a rejection, and the draft is reviewed as before.
+      const reviewed = (lane: ResearchLane | undefined) => lane === "light" ? LIGHT_LANE_NOT_REVIEWED
+        : reviewer!.review({ asked, researchTarget: checkedInput!.research_target, answer: draft! },
+          researcher!.accountKey);
       const reviewing = reviewer?.enabled !== true ? undefined
-        : Promise.resolve().then(() => reviewer.review({
-          // The person's words, read from the raw call as register_plain_answer reads its own; absent or unusable,
-          // the review reads the research target alone.
-          asked: finalCheckAsked(input),
-          researchTarget: checkedInput!.research_target,
-          answer: draft!,
-        }, researcher!.accountKey)).catch(() => REVIEW_FAILED);
+        : plannedLane(options, asked, researcher!.accountKey, checkedInput!.research_target)
+          .then(reviewed, () => reviewed(undefined))
+          .catch(() => REVIEW_FAILED);
       const finalizeOptions = {
         secret,
         protocolNames: await protocolNames(),
@@ -3065,6 +3071,35 @@ function configuredReviewer(options: RegisterToolsOptions): ResearchReviewer {
 
 /** A review that could not be asked for at all (it threw): counted as a failed call, so the check says it did not run. */
 const REVIEW_FAILED: ResearchReviewerCall = { reviewing: { status: "skipped", reason: "error" }, costUsd: 0, milliseconds: 0 };
+/** A light look-up's draft, which is not reviewed (owner answer 302): no call, no count and no note. */
+const LIGHT_LANE_NOT_REVIEWED: ResearchReviewerCall = { reviewing: { status: "skipped", reason: "light_lane" },
+  costUsd: 0, milliseconds: 0 };
+/** The longest the final check waits for the planner's lane; the plan is in memory, so it is there at once. */
+const LANE_WAIT_MS = 2_000;
+
+/**
+ * The lane AskRigor's own plan gave this account's same words, or its same research target when the words differ
+ * (owner answer 302), for a dev account's final check. A
+ * planner that has none, throws or takes longer than LANE_WAIT_MS gives no lane; one that rejects gives a rejection,
+ * which the caller reads as no lane. Either way the draft is reviewed as before. It adds as few steps as it can before
+ * the review starts, so the review still runs while the check's own lookups wait.
+ */
+function plannedLane(options: RegisterToolsOptions, asked: string | undefined, accountKey: string,
+  researchTarget: string): Promise<ResearchLane | undefined> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    const lane = Promise.race([configuredPlanner(options).lane(asked, accountKey, researchTarget),
+      new Promise<undefined>((resolve) => {
+        timer = setTimeout(() => resolve(undefined), LANE_WAIT_MS);
+        timer.unref();
+      })]);
+    lane.then(() => clearTimeout(timer), () => clearTimeout(timer));
+    return lane;
+  } catch {
+    clearTimeout(timer);
+    return Promise.resolve(undefined);
+  }
+}
 
 /** The work's result, or `late` once the deadline passes; the work itself carries on. */
 async function withinDeadline<T>(work: Promise<T>, milliseconds: number, late: T): Promise<T> {

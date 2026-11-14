@@ -925,7 +925,7 @@ the laptop's day is USD 2.59, and the server's about USD 0.9.
   still asked; SMILES "none", as in round 8). Example: "Find how many children had diarrhoea in each group
   (paracetamol, ibuprofen, both) by reading the adverse events table of Hay et al. 2008 in the BMJ in full".
 
-## Open with the owner (13 November 2026, evening)
+## Open with the owner (13 November 2026, evening; both answered on 14 November: see below)
 
 - **Question 302, stepping aside for plain look-ups.** The owner (Inbox, 21:20 UTC): "pitch lookup taking 9 minutes is
   kind of insane ... we should figure out when to simply abandon the entire askrigor process if it's too much and say
@@ -938,3 +938,113 @@ the laptop's day is USD 2.59, and the server's about USD 0.9.
 - **Question 303, learning from menu choices, and a learn mode.** The owner (chat, 21:46 UTC): "can we also learn from
   users menu choices (especially if they give reasons), and let users turn on learn mode for their own menu choices?"
   The call record keeps only `plan_research`'s decision today. Not built.
+
+## Three lanes: step aside, a light look-up, research (owner answer 302, a and b together, 14 November 2026)
+
+**What the owner decided.** Question 302 offered a (step aside for plain look-ups) or b (a light lane). The owner chose
+both, in the Inbox at 02:18 UTC ("could we do a combo of a and b, so if it's really for sure a light lookup askrigor
+wouldn't help with, go for a, otherwise if askrigor may help but it's still light, go with b?") and in chat at 02:19
+UTC ("yes 302a but also b?"). The cost the owner was shown: AskRigor checks nothing in a step-aside answer.
+
+**How it is built.** AskRigor's own planning call (dev accounts only) names a lane with its plan
+(`research-planner.ts`, rubric 2026-11-14.1, step 4):
+
+- **aside:** one fact that is common reference knowledge or that the named source's own summary states, which the
+  planner's search showed stated plainly; nothing about true, safe, better, how, why or what to do; no question for
+  the person; no harm from a wrong answer; and the person did not ask for it to be checked. `register_plain_answer`
+  then tells the AI to answer as it normally would, starting with "AskRigor says this question doesn't need AskRigor's
+  research. Here is the regular AI's answer:", and to make no research call and no final check.
+- **light:** every other look-up: the fact stands in a paper's tables or full text, or the search did not show it
+  plainly, or the person asked for it to be checked. The plan has one task (open the source and quote the line), and
+  `plan_research`'s go-ahead says: no method audit, no forum search, no second search, no findings card, one final
+  check. The answer starts with "AskRigor light look-up: the source was opened and the line quoted; nothing else was
+  checked. Say 'research it fully' for more." AskRigor's own review of the draft (owner answer 301a) is not run for
+  it. A guided account is still asked first.
+- **research:** everything else, as before.
+
+`researchPlanOf` only checks that the reply does not contradict itself (an aside or light plan with a question for
+the person, a light plan with more than two tasks or with a method audit, becomes research); which lane a question
+belongs in is the model's judgment. Asking for research ("research it fully") after either short lane registers the
+plain answer again with the person's request in `later_inputs.asked`, and the planner then plans research.
+
+**The same rubric also answers three reports** (AskRigor#456, #457, both of 13 and 14 November 2026):
+
+- It no longer asks the person to make a choice their own words already make or to choose how wide to look: "best",
+  "any", "ever" or a comparison with nothing named asks about the whole class; "could it become" asks about the
+  future; when one reading contains the other, the wider one is planned. A question about the person (their
+  condition, its severity, their age, what they have tried) is still asked, and an instruction that names where to
+  look and what to judge by is precise enough to go on.
+- A task whose result is part of what the person asked (how likely, when, how often, who says so) is never marked
+  as detail, so the menu's recommendation keeps it (#456: expert forecasts were dropped for "Could AI become
+  conscious?").
+- When the question asks whether something could happen or be made, one task looks at the routes already being tried
+  that differ in kind from the best-known one (#456: living-neuron computing was left out).
+
+**What the tests showed (plan workers, 14 November 2026, 02:31 to 03:03 UTC, 62 runs over four wordings; one run each unless said).**
+
+| Question | Lane | Question to the person |
+|---|---|---|
+| "How often did diarrhoea happen in the PITCH trial ... Hay et al. 2008 in the BMJ" | light, 2 of 2 | none |
+| "how many participants were randomised in the SMILES trial (Jacka 2017)?" | aside, 2 of 2 | none |
+| "what dose of vitamin D was used in the VITAL trial?" | aside, 2 of 2 | none |
+| "what does MADRS stand for?" | aside | none |
+| "In the STEP 1 trial of semaglutide (Wilding 2021, NEJM), how many people in the placebo group had gallbladder-related disorders?" | light, 2 of 2 | none |
+| "when was the SMILES trial published?" | aside | none |
+| "use askrigor to check: how many participants were randomised in the SMILES trial (Jacka 2017)?" | light, 2 of 2 | none |
+| "what was the primary outcome of the PITCH trial (Hay 2008)?" | aside, 2 of 2 | none |
+| "what is the maximum daily dose of paracetamol for a 2 year old?" | research, 2 of 2 | the country or product, then the child's weight |
+| "is it safe to give paracetamol and ibuprofen together to a feverish child?" | research | the child's age |
+| "what has pewdiepie achieved with ajax that china couldn't" | research, 2 of 2 | which claim is meant (2 of 2) |
+| the orange peel and Syrian rue oil test questions | research, 2 of 2 each | the soil problem; which oil (2 of 2 each) |
+| "does SMILES trial show that diet has a 4x greater impact ..." | research, 2 of 2 | asked once, none once (as before this change) |
+| "Could AI become conscious?" | research, 3 of 3 | none, 3 of 3; in the run read in full, expert forecasts were marked confidence and one task covered neuromorphic chips, organoids and embodied robots |
+| "If consciousness needs living neurons, could a future AI still become conscious?" | research | none; a task on living-neuron computers (Cortical Labs' CL1, FinalSpark) |
+| "Is ChatGPT conscious right now?" | research, 2 of 2 | none |
+| "Check psychedelic mushroom forums to see whether Psilocybe natalensis is best for low body load, bliss and manageable psychological effects." | research, 4 of 4 | none 3 of 4 (the second wording asked whether it would be their first; the third added the sentence on instructions: none, 2 of 2) |
+| "What are the best treatments for depression?" | research, 3 of 3 | none with the first wording; severity and what was tried with the second and third |
+
+The wider set (nap, kelp, saffron, sea buckthorn, snake bite, d-chiro-inositol) stayed in research, the snake bite with
+no question.
+
+**On the API (14 November 2026, 03:02 to 03:05 UTC; the code's own call, Opus 5.5 at low effort, 24 calls, USD 1.27).**
+The look-ups went as on plan workers: the PITCH question light (twice), the STEP 1 question light, "use askrigor to
+check ..." light, the SMILES count and MADRS aside, and the paracetamol dose research with a question about the
+child's weight. Each took 9 to 15 seconds and 3 to 8 US cents, with one search. "Could AI become conscious?" got no
+question in two runs and a task on neuromorphic chips, brain organoids and embodied robots; the mushroom request got
+no question in two runs; "What are the best treatments for depression?" was asked about severity and what was tried.
+Two flaws showed on the API and were fixed in the wording before the commit: the orange peel plan marked "which
+prize she won and how her invention works" as detail, though it is what the person asked (the definition of detail
+now says background they did not ask for); and the SMILES question was asked where the 4x came from, which the
+research finds (now: none, twice). The PewDiePie question was asked in three runs of three, the Syrian rue oil
+question in its one run, and the orange peel question in three runs of five (in every run seen before this change):
+when it is not asked, the plan covers both readings and the answer says first how it read the question.
+
+**The review of the draft on the API** (03:06 UTC, medium effort, 2 calls, USD 0.24): the written first-pass comparison got
+the new gap ("So what else are you going to check, and when will I get a firmer ranking?") and, from its own search,
+that most cultivated "natalensis" is another species (the subject of AskRigor#459); the PITCH look-up got no gap
+(23 seconds).
+
+**Not done.** The lane is not in the call record (it keeps `plan_research`'s decision only), so how often AskRigor
+steps aside is not counted yet: it comes with learn mode's table (owner answer 303a). No light quote check exists: the
+final check's six checks see the receipts, the declared read depth and the figures, not whether the quoted line stands
+in the source.
+
+## The review names a "preliminary" answer that does not say what is left (AskRigor#458, 14 November 2026)
+
+A report of 14 November 2026: a first-pass comparison called itself preliminary and ended on "more research is needed",
+and the person could not tell what was unexamined or what would happen next. The final check's own first-pass limit
+("some studies and communities were not reached yet") is as vague, and it is one of the required limits, so its
+wording was left alone here. The review's rubric (2026-11-14.1) gains a fifth point: a draft that calls itself
+preliminary, provisional or a first pass, or ends on more research being needed, without saying which sources or
+options were not yet looked at, what the next steps are in order, why they could change the conclusion, and whether
+that work is starting now or waits for the person's go-ahead. On plan workers: a written first-pass mushroom
+comparison got that gap ("Which forums and sources haven't you checked yet, could they change the ranking, and are you
+still working on it or waiting for me?"); the owner's SMILES answer got it too ("You call this a first pass. Could more
+research change the answer, and what's left to check?"); the PITCH look-up still got no gap; the PewDiePie answer's
+first gap was still the opening. Dev accounts only, as the review is.
+
+## Learn mode (owner answer 303a, chosen in the Inbox on 14 November 2026, 02:18 UTC)
+
+Not built. The owner chose a: learn mode on the owner's account, inside the week's trial, keeping that account's own
+menu choices and reasons for the planning call. It keeps something new about a person on the server, so its release
+waits for the owner's "303a" in chat. The lane a plan gave belongs in the same table.

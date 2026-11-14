@@ -32,12 +32,21 @@ import {
   type ResearchPlannerSource,
   type ResearchPlannerState,
 } from "../apps/research-mcp/src/research-planner.js";
+import { FINALIZE_REMINDER } from "../apps/research-mcp/src/research-finalization-gate.js";
+import type { ResearchReviewer } from "../apps/research-mcp/src/research-reviewer.js";
 import {
+  ANSWER_REVIEW_ASKED,
+  ASIDE_OPENING,
   ASKED_LIMIT,
   ASKED_REQUEST,
   DEFAULT_RESEARCH_STEERING,
+  LIGHT_LANE_PLANNED,
+  LIGHT_LOOKUP,
   PLAN_TASK_KINDS,
   READING_FIRST,
+  RESEARCH_LANES,
+  asideGuidance,
+  asideNextStep,
   framingGuidance,
   framingNextStep,
   plannedGuidance,
@@ -195,6 +204,8 @@ describe("AskRigor's own planning call (owner answer 298b): the call", () => {
     expect(call.planning).toEqual({ status: "planned", plan: {
       about: REPLY.about,
       steering_choice: REPLY.steering_choice,
+      // A reply without a lane is research (owner answer 302).
+      lane: "research",
       searches: 1,
       tasks: [
         { task: REPLY.tasks[0]!.task, kind: "study_search", could_change: "conclusion", sources: 2 },
@@ -385,6 +396,221 @@ describe("AskRigor's own planning call (owner answer 298b): the call", () => {
     expect((await made.planner.plan(SOURCE, "account-a")).cached).toBe(true);
     at = Date.parse("2026-11-14T00:00:05Z");
     expect((await made.planner.plan({ ...SOURCE, asked: "another question" }, "account-b")).planning.status).toBe("planned");
+  });
+});
+
+// The three lanes (owner answer 302, 14 November 2026) ----------------------------------------------------------------
+
+const NONE = { ...REPLY, steering_choice: "none" };
+const ONE_TASK = [REPLY.tasks[0]!];
+const TWO_TASKS = REPLY.tasks.slice(0, 2);
+const AUDIT = { task: "Audit how the study measured it", kind: "method_audit", could_change: "confidence", sources: 1 };
+const LIGHT_REPLY = { ...NONE, lane: "light", tasks: ONE_TASK };
+
+describe("AskRigor's own planning call: the three lanes (owner answer 302)", () => {
+  it("asks the model for a lane, which the output schema requires", () => {
+    expect(RESEARCH_PLANNER_OUTPUT_SCHEMA.required).toEqual(["about", "steering_choice", "lane", "tasks"]);
+    // The lane is written before the tasks, whose number it decides.
+    expect(Object.keys(RESEARCH_PLANNER_OUTPUT_SCHEMA.properties)).toEqual(["about", "steering_choice", "lane", "tasks"]);
+    expect(RESEARCH_PLANNER_OUTPUT_SCHEMA.properties.lane).toEqual({ type: "string", enum: ["research", "light", "aside"],
+      description: "research, light (one fact one named source states, to be opened and quoted) or aside (a plain " +
+        "look-up AskRigor adds nothing to)." });
+    expect(RESEARCH_PLANNER_OUTPUT_SCHEMA.properties.lane.enum).toEqual([...RESEARCH_LANES]);
+  });
+
+  it("keeps aside only with the word none, and an aside plan has no tasks, whatever the reply listed", () => {
+    // The reply listed three tasks: the plan has none.
+    expect(researchPlanOf({ ...NONE, lane: "aside" }, 1)).toEqual({ about: REPLY.about, steering_choice: "none",
+      tasks: [], lane: "aside", searches: 1 });
+    // With no tasks listed, and with the word as the model cased it.
+    expect(researchPlanOf({ ...REPLY, steering_choice: " None. ", lane: "aside", tasks: [] }, 0)).toEqual({
+      about: REPLY.about, steering_choice: "none", tasks: [], lane: "aside", searches: 0 });
+    // A reply that names a question is research, with the usual rules: at least one task, or it is not a plan.
+    const named = researchPlanOf({ ...REPLY, lane: "aside" }, 1)!;
+    expect(named).toMatchObject({ lane: "research", steering_choice: REPLY.steering_choice });
+    expect(named.tasks).toHaveLength(3);
+    expect(researchPlanOf({ ...REPLY, lane: "aside", tasks: [] }, 1)).toBeUndefined();
+    // A value that is neither the word nor a question is no plan, in any lane.
+    expect(researchPlanOf({ ...REPLY, steering_choice: "none needed", lane: "aside" }, 1)).toBeUndefined();
+  });
+
+  it("keeps light only with the word none and one or two tasks, none a method audit; otherwise it is research", () => {
+    const light = researchPlanOf(LIGHT_REPLY, 1)!;
+    expect(light).toEqual({ about: REPLY.about, steering_choice: "none", lane: "light", searches: 1,
+      tasks: [{ task: REPLY.tasks[0]!.task, kind: "study_search", could_change: "conclusion", sources: 2 }] });
+    expect(researchPlanOf({ ...LIGHT_REPLY, tasks: TWO_TASKS }, 1)).toMatchObject({ lane: "light" });
+    expect(researchPlanOf({ ...LIGHT_REPLY, tasks: TWO_TASKS }, 1)!.tasks).toHaveLength(2);
+    // The reply contradicts itself, and in doubt AskRigor researches: three tasks, a method audit, a named question.
+    for (const reply of [{ ...LIGHT_REPLY, tasks: REPLY.tasks }, { ...LIGHT_REPLY, tasks: [AUDIT] },
+      { ...LIGHT_REPLY, tasks: [REPLY.tasks[0], AUDIT] }, { ...LIGHT_REPLY, steering_choice: REPLY.steering_choice }]) {
+      const plan = researchPlanOf(reply, 1);
+      expect(plan, JSON.stringify(reply)).toBeDefined();
+      expect(plan!.lane, JSON.stringify(reply)).toBe("research");
+      expect(plan!.tasks, JSON.stringify(reply)).toHaveLength(reply.tasks.length);
+    }
+    // No tasks is no plan, in the light lane as in research.
+    expect(researchPlanOf({ ...LIGHT_REPLY, tasks: [] }, 1)).toBeUndefined();
+  });
+
+  it("reads a reply without a lane, or with research, as research", () => {
+    for (const reply of [REPLY, NONE, { ...REPLY, lane: "research" }, { ...NONE, tasks: ONE_TASK, lane: "research" }]) {
+      expect(researchPlanOf(reply, 1)?.lane, JSON.stringify(reply)).toBe("research");
+    }
+  });
+
+  it("gives the lane of the hour's plan for the same account and words, and nothing else", async () => {
+    let at = Date.parse("2026-11-13T10:00:00Z");
+    const files = memoryFiles();
+    const made = onFiles(files, { now: () => at, reply: () => message({}, LIGHT_REPLY) });
+    const accountKey = "account-a";
+    // Nothing cached yet: no lane, and nothing sent, counted or written.
+    expect(await made.planner.lane(SOURCE.asked, accountKey)).toBeUndefined();
+    expect(made.bodies).toHaveLength(0);
+    expect(files.writes).toHaveLength(0);
+    expect((await made.planner.plan(SOURCE, accountKey)).planning).toMatchObject({ status: "planned",
+      plan: { lane: "light" } });
+    const writes = files.writes.length;
+    const state = files.state();
+    expect(state.account_calls).toEqual({ [digest(accountKey)]: 1 });
+    // The same words, whatever research target the registration gave them (plan()'s own key).
+    expect(await made.planner.lane(SOURCE.asked, accountKey)).toBe("light");
+    expect((await made.planner.plan({ ...SOURCE, researchTarget: "Reworded" }, accountKey)).cached).toBe(true);
+    expect(await made.planner.lane(SOURCE.asked, accountKey)).toBe("light");
+    // Other words, another account, or no words: no lane.
+    expect(await made.planner.lane(`${SOURCE.asked} and by mouth?`, accountKey)).toBeUndefined();
+    expect(await made.planner.lane(SOURCE.asked, "account-b")).toBeUndefined();
+    expect(await made.planner.lane(undefined, accountKey)).toBeUndefined();
+    // Asking sent nothing, counted nothing and wrote nothing.
+    expect(made.bodies).toHaveLength(1);
+    expect(files.writes).toHaveLength(writes);
+    expect(files.state()).toEqual(state);
+    // A plan made without the person's words is keyed by the research target: no words find it.
+    const bare = { researchTarget: "T", quickAnswer: "Q.", claims: ["Q."] };
+    expect((await made.planner.plan(bare, accountKey)).planning.status).toBe("planned");
+    expect(await made.planner.lane("T", accountKey)).toBeUndefined();
+    expect(made.bodies).toHaveLength(2);
+    expect(files.state().account_calls).toEqual({ [digest(accountKey)]: 2 });
+    // After the hour, no lane, and still nothing sent or written by asking.
+    const later = files.writes.length;
+    at += 61 * 60 * 1_000;
+    expect(await made.planner.lane(SOURCE.asked, accountKey)).toBeUndefined();
+    expect(made.bodies).toHaveLength(2);
+    expect(files.writes).toHaveLength(later);
+  });
+
+  it("gives the lane by the research target when the words are no longer the plan's", async () => {
+    let at = Date.parse("2026-11-14T10:00:00Z");
+    const files = memoryFiles();
+    let reply: unknown = LIGHT_REPLY;
+    const made = onFiles(files, { now: () => at, reply: () => message({}, reply) });
+    const accountKey = "account-a";
+    // No plan yet: no lane by the target either.
+    expect(await made.planner.lane(undefined, accountKey, SOURCE.researchTarget)).toBeUndefined();
+    expect((await made.planner.plan(SOURCE, accountKey)).planning).toMatchObject({ status: "planned",
+      plan: { lane: "light" } });
+    const writes = files.writes.length;
+    // The final check's words carry a later message of the person's, so they are not the plan's; the research target
+    // is, compared as the final check compares it (case and spacing ignored).
+    const later = `${SOURCE.asked}\n\nyou decide`;
+    expect(await made.planner.lane(later, accountKey, SOURCE.researchTarget)).toBe("light");
+    expect(await made.planner.lane(undefined, accountKey, `  ${SOURCE.researchTarget!.toUpperCase()}  `)).toBe("light");
+    // Another target, another account, or no target: no lane.
+    expect(await made.planner.lane(later, accountKey, "Another question")).toBeUndefined();
+    expect(await made.planner.lane(later, "account-b", SOURCE.researchTarget)).toBeUndefined();
+    expect(await made.planner.lane(later, accountKey)).toBeUndefined();
+    // The same words registered again for a corrected target keep the plan, and its lane for that target too.
+    expect((await made.planner.plan({ ...SOURCE, researchTarget: "Corrected target" }, accountKey)).cached).toBe(true);
+    expect(await made.planner.lane(undefined, accountKey, "corrected  target")).toBe("light");
+    // Asking sent nothing, counted nothing and wrote nothing.
+    expect(made.bodies).toHaveLength(1);
+    expect(files.writes).toHaveLength(writes);
+    // The person asks for more: a new plan for the same target, made from their new words, replaces the lane.
+    reply = REPLY;
+    expect((await made.planner.plan({ ...SOURCE, asked: `${SOURCE.asked}\n\nresearch it fully` }, accountKey)).planning)
+      .toMatchObject({ status: "planned", plan: { lane: "research" } });
+    expect(await made.planner.lane(undefined, accountKey, SOURCE.researchTarget)).toBe("research");
+    // The first words still name their own plan while the hour lasts.
+    expect(await made.planner.lane(SOURCE.asked, accountKey, SOURCE.researchTarget)).toBe("light");
+    // A call that was not a plan leaves the target's lane as it was.
+    reply = "not a plan";
+    expect((await made.planner.plan({ ...SOURCE, asked: "other words" }, accountKey)).planning.status).toBe("skipped");
+    expect(await made.planner.lane(undefined, accountKey, SOURCE.researchTarget)).toBe("research");
+    // After the hour, no lane.
+    at += 61 * 60 * 1_000;
+    expect(await made.planner.lane(undefined, accountKey, SOURCE.researchTarget)).toBeUndefined();
+    expect(await made.planner.lane(SOURCE.asked, accountKey, SOURCE.researchTarget)).toBeUndefined();
+  });
+
+  it("keeps a target's lane no longer than its plan, and never lets an older registration replace a newer one's",
+    async () => {
+      // A plan registered again from the cache, late in its hour, keeps its own hour for the target too.
+      let at = Date.parse("2026-11-14T10:00:00Z");
+      const made = onFiles(memoryFiles(), { now: () => at, reply: () => message({}, LIGHT_REPLY) });
+      expect((await made.planner.plan(SOURCE, "account-a")).planning.status).toBe("planned");
+      at += 59 * 60 * 1_000;
+      expect((await made.planner.plan({ ...SOURCE, researchTarget: "Corrected target" }, "account-a")).cached).toBe(true);
+      expect(await made.planner.lane(undefined, "account-a", "Corrected target")).toBe("light");
+      at += 2 * 60 * 1_000;
+      expect(await made.planner.lane(undefined, "account-a", "Corrected target")).toBeUndefined();
+      expect(await made.planner.lane(undefined, "account-a", SOURCE.researchTarget)).toBeUndefined();
+
+      // A slow call that began first and ends last does not replace the lane of a registration that began after it.
+      let release: ((value: Anthropic.Beta.BetaMessage) => void) | undefined;
+      let calls = 0;
+      const slow = onFiles(memoryFiles(), { now: () => at, reply: () => {
+        calls += 1;
+        return calls === 1 ? new Promise<Anthropic.Beta.BetaMessage>((resolve) => { release = resolve; })
+          : message({}, REPLY);
+      } });
+      const first = slow.planner.plan(SOURCE, "account-a");
+      at += 10_000;
+      expect((await slow.planner.plan({ ...SOURCE, asked: `${SOURCE.asked}\n\nresearch it fully` }, "account-a"))
+        .planning).toMatchObject({ status: "planned", plan: { lane: "research" } });
+      expect(await slow.planner.lane(undefined, "account-a", SOURCE.researchTarget)).toBe("research");
+      at += 10_000;
+      release!(message({}, LIGHT_REPLY));
+      expect((await first).planning).toMatchObject({ status: "planned", plan: { lane: "light" } });
+      expect(await slow.planner.lane(undefined, "account-a", SOURCE.researchTarget)).toBe("research");
+    });
+
+  it("gives each lane as the plan has it, waits for a plan still being made, and none for a call that was not a plan",
+    async () => {
+      for (const [reply, lane] of [[REPLY, "research"], [{ ...NONE, lane: "aside" }, "aside"], [LIGHT_REPLY, "light"]] as const) {
+        const made = planner({ reply: () => message({}, reply) });
+        await made.planner.plan(SOURCE, "account-a");
+        expect(await made.planner.lane(SOURCE.asked, "account-a")).toBe(lane);
+      }
+      // A call still running is awaited.
+      const release: Array<(value: Anthropic.Beta.BetaMessage) => void> = [];
+      const slow = planner({ reply: () => new Promise<Anthropic.Beta.BetaMessage>((resolve) => { release.push(resolve); }) });
+      const planning = slow.planner.plan(SOURCE, "account-a");
+      let settled = false;
+      const lane = slow.planner.lane(SOURCE.asked, "account-a").then((value) => { settled = true; return value; });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(settled).toBe(false);
+      release[0]!(message({}, LIGHT_REPLY));
+      expect(await lane).toBe("light");
+      expect((await planning).planning.status).toBe("planned");
+      // A running call that ends without a plan gives none, and so does one that ended so before.
+      const refusing = planner({ reply: () => new Promise<Anthropic.Beta.BetaMessage>((resolve) => {
+        release.push(resolve); }) });
+      const refused = refusing.planner.plan(SOURCE, "account-a");
+      const during = refusing.planner.lane(SOURCE.asked, "account-a");
+      release.at(-1)!(message({ stop_reason: "refusal", content: [] }));
+      expect(await during).toBeUndefined();
+      expect((await refused).planning).toEqual({ status: "skipped", reason: "refusal" });
+      expect(await refusing.planner.lane(SOURCE.asked, "account-a")).toBeUndefined();
+      // A reply that is not a plan.
+      const unreadable = planner({ reply: () => message({}, "not json") });
+      await unreadable.planner.plan(SOURCE, "account-a");
+      expect(await unreadable.planner.lane(SOURCE.asked, "account-a")).toBeUndefined();
+    });
+
+  it("gives no lane while the planner is off, and never calls then", async () => {
+    const off = planner({ env: { ASKRIGOR_RESEARCH_PLANNER: undefined } });
+    expect(off.planner.enabled).toBe(false);
+    expect(await off.planner.lane(SOURCE.asked, "account-a")).toBeUndefined();
+    expect(off.bodies).toHaveLength(0);
   });
 });
 
@@ -788,7 +1014,8 @@ const PLAIN = {
 type Result = CallToolResult & { structuredContent?: Record<string, unknown> };
 const words = (result: Result): string => result.content.map((block) => block.type === "text" ? block.text : "").join("\n");
 
-async function tool(researchPlanner: ResearchPlanner | undefined, dev: readonly string[] = ["auth0|dev"]) {
+async function tool(researchPlanner: ResearchPlanner | undefined, dev: readonly string[] = ["auth0|dev"],
+  extra: Partial<RegisterToolsOptions> = {}) {
   vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", SECRET);
   const store = new InMemoryResearchContributorAccessStore();
   const service = new ResearchContributorAccessService({ store, identitySecret: IDENTITY_SECRET });
@@ -796,7 +1023,7 @@ async function tool(researchPlanner: ResearchPlanner | undefined, dev: readonly 
   vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", dev.map((subject) => service.accountKeyForSubject(subject)).join(","));
   let handler: ((input: unknown, extra?: unknown) => Promise<CallToolResult>) | undefined;
   const options: RegisterToolsOptions = { researchAccessRequired: true, mcpSurface: "/mcp",
-    researchContributorAccessService: service, ...(researchPlanner === undefined ? {} : { researchPlanner }) };
+    researchContributorAccessService: service, ...(researchPlanner === undefined ? {} : { researchPlanner }), ...extra };
   registerTools({
     registerTool: (registered: string, _config: unknown, execute: typeof handler) => {
       if (registered === "manage_research_access") handler = execute;
@@ -999,6 +1226,123 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
     expect(memory.seen).toHaveLength(0);
     // A refusal does not repeat what was sent.
     expect(words(long)).not.toContain("xxxxxxxxxx");
+  });
+
+  // Owner answer 302 (14 Nov 2026): the lane of AskRigor's own plan, at the registration.
+  const reviewing: ResearchReviewer = { enabled: true, dailyCapUsd: 3, accountDailyCalls: 10,
+    review: async () => ({ reviewing: { status: "skipped", reason: "off" }, costUsd: 0, milliseconds: 0 }) };
+
+  it("steps aside for an aside plan: its opening, the receipt kept, and no menu, reminder or request for research",
+    async () => {
+      for (const [asked, reviewer] of [[SOURCE.asked, reviewing], [SOURCE.asked, undefined]] as const) {
+        const memory = memoryPlanner(() => ({ status: "planned", plan: researchPlanOf({ ...NONE, lane: "aside" }, 2)! }));
+        const { call } = await tool(memory.planner, ["auth0|dev"], reviewer === undefined ? {} : {
+          researchReviewer: reviewer });
+        const registered = await call({ action: "register_plain_answer", plainAnswer: PLAIN,
+          ...(asked === undefined ? {} : { later_inputs: { asked } }) });
+        expect(registered.isError, words(registered)).not.toBe(true);
+        const structured = registered.structuredContent as Record<string, unknown> & { research_receipt: string };
+        expect(typeof structured.research_receipt).toBe("string");
+        // Two texts: the step aside, and the receipt, kept in case the person asks for the research after all; then
+        // only the structured content as text, which every result carries for apps that read only text.
+        expect(registered.content).toEqual([
+          { type: "text", text: asideGuidance({ about: REPLY.about, searches: 2 }) },
+          { type: "text", text: `research_receipt: ${structured.research_receipt} Keep it only in case the person ` +
+            "asks for the research after all." },
+          { type: "text", text: JSON.stringify(structured) },
+        ]);
+        expect(structured).toEqual({
+          ok: true,
+          plainAnswer: { requested: true, note: true, claims: 1 },
+          research_receipt: structured.research_receipt,
+          next_step: asideNextStep(),
+          research_plan: { source: "askrigor_planning_call", about: REPLY.about, steering_choice: "none", searches: 2,
+            from_asked: asked !== undefined, lane: "aside" },
+        });
+        // Nothing that asks for research or for the final check.
+        const text = words(registered);
+        for (const absent of [FINALIZE_REMINDER, ANSWER_REVIEW_ASKED, "Plain answer registered", "Screen first:",
+          "plan_research with", "steering_could_help", REPLY.tasks[0]!.task]) {
+          expect(text, absent.slice(0, 40)).not.toContain(absent);
+        }
+        expect(text).toContain(ASIDE_OPENING);
+        // The receipt is the plain answer's own: a menu sent with it later is checked against the registered target.
+        const later = await call({ action: "plan_research", later_inputs: { researchMenu: {
+          research_target: PLAIN.researchTarget, plain_answer_receipt: structured.research_receipt,
+          steering_choice: "none", tasks: [REPLY.tasks[0]] } } });
+        expect(later.structuredContent, words(later)).toMatchObject({ ok: true,
+          researchMenu: { target_matches_plain_answer: true } });
+      }
+    });
+
+  it("does not step aside without the person's own words: the plan is not used, and the AI plans as on any account",
+    async () => {
+      // The plan was made from the AI's research target alone, which cannot show what the person asked.
+      const memory = memoryPlanner(() => ({ status: "planned", plan: researchPlanOf({ ...NONE, lane: "aside" }, 2)! }));
+      const { call } = await tool(memory.planner, ["auth0|dev"], { researchReviewer: reviewing });
+      const registered = await call({ action: "register_plain_answer", plainAnswer: PLAIN });
+      expect(registered.isError, words(registered)).not.toBe(true);
+      const structured = registered.structuredContent as Record<string, unknown>;
+      expect(structured).toMatchObject({ ok: true, research_plan_not_used: "unreadable" });
+      expect(structured).not.toHaveProperty("research_plan");
+      expect(structured).not.toHaveProperty("planned_later_inputs");
+      expect(typeof structured.research_receipt).toBe("string");
+      expect(words(registered)).not.toContain(ASIDE_OPENING);
+      expect(words(registered)).toContain(FINALIZE_REMINDER);
+      expect(words(registered)).toContain("AskRigor's own planning call did not answer this time");
+    });
+
+  it("hands over a light plan's menu with its lane, and plan_research goes on with the light look-up", async () => {
+    const memory = memoryPlanner(() => ({ status: "planned", plan: researchPlanOf(LIGHT_REPLY, 1)! }));
+    const { call } = await tool(memory.planner, ["auth0|dev"], { researchReviewer: reviewing });
+    const framing = { likely_question: "What does the trial report?" };
+    const registered = await call({ action: "register_plain_answer", plainAnswer: PLAIN,
+      later_inputs: { framing, asked: SOURCE.asked } });
+    expect(registered.isError, words(registered)).not.toBe(true);
+    const structured = registered.structuredContent as { research_receipt: string; next_step: string;
+      planned_later_inputs: PlannedResearch["later_inputs"] };
+    expect(structured).toMatchObject({
+      research_plan: { source: "askrigor_planning_call", about: REPLY.about, steering_choice: "none", searches: 1,
+        from_asked: true, lane: "light" },
+      planned_later_inputs: { researchMenu: { research_target: PLAIN.researchTarget,
+        plain_answer_receipt: structured.research_receipt, steering_choice: "none", lane: "light",
+        tasks: researchPlanOf(LIGHT_REPLY, 1)!.tasks } },
+    });
+    const planned: PlannedResearch = { about: REPLY.about, searches: 1, asked: true, lane: "light",
+      later_inputs: structured.planned_later_inputs };
+    expect(registered.content[0]).toEqual({ type: "text", text: plannedGuidance(framing, planned) });
+    expect(structured.next_step).toBe(plannedNextStep(framing, planned));
+    expect(words(registered)).toContain(LIGHT_LANE_PLANNED);
+    expect(structured.next_step).toContain(LIGHT_LANE_PLANNED);
+    // The rest of the registration is a planned one's, the receipt and the reminder, but for the request for the
+    // words at the final check: a light look-up's draft is not reviewed, so no review is promised.
+    expect(words(registered)).toContain(FINALIZE_REMINDER);
+    expect(words(registered)).not.toContain(ANSWER_REVIEW_ASKED);
+    // Sent as it is, the balanced account's menu goes on with the light look-up.
+    const go = await call({ action: "plan_research", later_inputs: structured.planned_later_inputs });
+    expect(go.isError, words(go)).not.toBe(true);
+    expect(go.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on", lane: "light",
+      target_matches_plain_answer: true }, next_step: LIGHT_LOOKUP });
+    expect(go.structuredContent).not.toHaveProperty("researchMenu.say_reading_first");
+    expect(words(go)).toContain(` ${LIGHT_LOOKUP}`);
+  });
+
+  it("gives a research plan as before, with its lane in research_plan and none in the menu", async () => {
+    const { call } = await tool(memoryPlanner().planner);
+    const registered = await call({ action: "register_plain_answer", plainAnswer: PLAIN,
+      later_inputs: { asked: SOURCE.asked } });
+    const structured = registered.structuredContent as { planned_later_inputs: { researchMenu: Record<string, unknown> } };
+    expect(structured).toMatchObject({ research_plan: { lane: "research", steering_choice: REPLY.steering_choice } });
+    expect(structured.planned_later_inputs.researchMenu).not.toHaveProperty("lane");
+    expect(words(registered)).not.toContain(LIGHT_LANE_PLANNED);
+    const asked = await call({ action: "plan_research", later_inputs: structured.planned_later_inputs });
+    expect(asked.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask" } });
+    expect(asked.structuredContent).not.toHaveProperty("researchMenu.lane");
+    // A plan whose lane is not given, as a planner from before the lanes made it, is research too.
+    const { lane: _lane, ...older } = researchPlanOf(REPLY, 1)!;
+    const before = await tool(memoryPlanner(() => ({ status: "planned", plan: older as never })).planner);
+    const registeredBefore = await before.call({ action: "register_plain_answer", plainAnswer: PLAIN });
+    expect(registeredBefore.structuredContent).toMatchObject({ research_plan: { lane: "research" } });
   });
 
   it("shows the planner on the account page, for a dev account, with its limits", () => {

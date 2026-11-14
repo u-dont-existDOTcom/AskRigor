@@ -19,9 +19,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { RESEARCH_USE_SCOPE, createJwtOAuthResourceServer } from "../apps/research-mcp/src/oauth-resource-server.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 import {
+  ASIDE_OPENING,
   ASK_ABOVE_MINUTES,
   COULD_CHANGE,
   FORM_PEOPLE_USE,
+  LIGHT_LANE_PLANNED,
+  LIGHT_LOOKUP,
   MENU_PLACEHOLDERS,
   PEOPLE_FIRST_WHEN_USED,
   PEOPLE_TASK_MISSING,
@@ -42,15 +45,20 @@ import {
   adjustmentGuidance,
   allocationAnswered,
   allocationNotUsedStop,
+  asideGuidance,
+  asideNextStep,
   choicePlaceholderWords,
   correctedMenu,
   framingGuidance,
+  isLightLane,
   menuDigest,
   menuPreferenceLine,
   framingNextStep,
   planNextStep,
   planResearch,
   planResearchText,
+  plannedGuidance,
+  plannedNextStep,
   readResearchMenu,
   steeringChoiceLeftOut,
   steeringSentence,
@@ -763,8 +771,10 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     // 2026, below). steering_choice is asked for on a dev account alone: by its refusal (owner answer 296b, 13 Nov
     // 2026) and, since owner answer 297c, in the shape it is given at the screen (below). So the screen's words are
     // every other account's as they were.
+    // lane is set by AskRigor's own plan alone and is never taught to the AI (owner answer 302, 14 Nov 2026).
     const fields = [...Object.keys(researchMenuSchema.shape).filter((key) => key !== "allocation" && key !== "done" &&
-      key !== "person_answered" && key !== "steering_choice"), ...Object.keys(planTaskSchema.shape)];
+      key !== "person_answered" && key !== "steering_choice" && key !== "lane"), ...Object.keys(planTaskSchema.shape)];
+    expect(RESEARCH_MENU_SHAPE).not.toMatch(/\blane\b/u);
     for (const name of [...fields, ...PLAN_TASK_KINDS, ...COULD_CHANGE, ...RESEARCH_LOOPS]) {
       expect(RESEARCH_MENU_SHAPE, name).toMatch(new RegExp(`\\b${name}\\b`, "u"));
     }
@@ -2525,4 +2535,229 @@ describe("a dev account's refused menu marks the question's place, and an answer
         expect(text(named), subject).not.toContain(READING_FIRST);
       }
     });
+});
+
+describe("the light lane and the step aside of AskRigor's own plan (owner answer 302, 14 Nov 2026)", () => {
+  const LOOKUP_TARGET = "The figure one named trial reports for its main outcome";
+  const READ = { task: "Find the trial's main result: read its results table in full", kind: "full_text" as const,
+    could_change: "conclusion" as const };
+  const RECORD = { task: "Check the trial's registered outcome in its registry record", kind: "trial_registry" as const,
+    could_change: "confidence" as const };
+  const AUDIT = { task: "Audit how the trial measured its outcome", kind: "method_audit" as const,
+    could_change: "confidence" as const };
+  const light = (overrides: Partial<ResearchMenuInput> = {}): ResearchMenuInput =>
+    ({ research_target: LOOKUP_TARGET, steering_choice: "none", tasks: [READ], lane: "light", ...overrides });
+  const autonomous: ResearchSteering = { ...DEFAULT_RESEARCH_STEERING, style: "autonomous" };
+  const guided: ResearchSteering = { ...DEFAULT_RESEARCH_STEERING, style: "guided" };
+  // Sentences of the usual go-ahead that are not exported on their own.
+  const TASK_PROGRESS_WORDS = "Before each task, say in one line what you will read, how deep, and why.";
+  const NEW_FORK_WORDS = "A new fork that could change the conclusion comes back to the person through the menu";
+  const LEFT_OUT = [PEOPLE_TASK_MISSING, READING_FIRST, TASK_PROGRESS_WORDS, NEW_FORK_WORDS, WORDS_ARE_NOT_SIZES,
+    "Go on now:", "The person chose autonomous research", "If the person stops you or changes direction",
+    "Leads between people's reports and studies", adjustmentGuidance("flagged"), adjustmentGuidance("all")];
+
+  it("words the light look-up's go-ahead exactly as the owner's answer was given", () => {
+    expect(LIGHT_LOOKUP).toBe("This is a light look-up, as AskRigor's own plan found: one fact that one named source " +
+      "states. Do only what this menu lists: open the source, find the line or table row that states what the person " +
+      "asked, and quote it in the answer with where it stands (table, section or page). No method audit, no forum or " +
+      "community search, no second literature search and no findings card. If the source cannot be opened in full, or " +
+      "does not state it, say so in the answer and give what its abstract or record states, named as that. Then check " +
+      "the answer once with finalize_research (every research_receipt, the draft, and the research target word for word " +
+      "as registered) and give it in this turn: a passing check's notes are advice on the answer's wording, not a reason " +
+      "for more research or a second check. Start the answer with this line, in the person's language: \"AskRigor light " +
+      "look-up: the source was opened and the line quoted; nothing else was checked. Say 'research it fully' for more.\" " +
+      "If the person then asks for more, register the plain answer again with later_inputs.asked holding their question " +
+      "and that request: AskRigor then plans the full research.");
+  });
+
+  it("goes on with the light look-up in the text and in next_step, and nothing that asks for more", () => {
+    for (const [steering, tasks] of [[DEFAULT_RESEARCH_STEERING, [READ]], [DEFAULT_RESEARCH_STEERING, [READ, RECORD]],
+      [autonomous, [READ]], [autonomous, [READ, RECORD]]] as const) {
+      const label = `${steering.style} ${tasks.length}`;
+      const result = planResearch(light({ tasks: [...tasks] }), steering);
+      expect(result, label).toMatchObject({ next: "go_on", lane: "light" });
+      // The plan named no question, but a light look-up's answer starts with its own line instead of the reading.
+      expect(result, label).not.toHaveProperty("say_reading_first");
+      const words = planResearchText(result, new Set(), false, LOOKUP_TARGET);
+      // The menu lines as usual, then the light look-up, which ends the text.
+      expect(words, label).toContain(`1. ${READ.task}: could change the conclusion; about 1 to 3 min.`);
+      expect(words.endsWith(` ${LIGHT_LOOKUP}`), label).toBe(true);
+      for (const sentence of LEFT_OUT) expect(words, `${label}: ${sentence.slice(0, 40)}`).not.toContain(sentence);
+      expect(planNextStep(result), label).toBe(LIGHT_LOOKUP);
+    }
+    // The time since the plain answer stays, before it.
+    const registered = planResearch(light(), DEFAULT_RESEARCH_STEERING, { matches: true, minutesSince: 2 });
+    expect(planResearchText(registered, new Set(), false, LOOKUP_TARGET))
+      .toContain(`About 2 minutes have passed since the plain answer was registered. ${LIGHT_LOOKUP}`);
+    // An allocation not used is still said first, as a stop.
+    const notUsed = planResearch(light({ allocation: [{ task: 1, minutes: 2 }] }), DEFAULT_RESEARCH_STEERING);
+    expect(notUsed).toMatchObject({ next: "go_on", lane: "light", allocation_not_used: true });
+    expect(planNextStep(notUsed)).toBe(`${allocationNotUsedStop(notUsed)} ${LIGHT_LOOKUP}`);
+    expect(planResearchText(notUsed, new Set(), true, LOOKUP_TARGET).startsWith(allocationNotUsedStop(notUsed)!))
+      .toBe(true);
+  });
+
+  it("gives no light go-ahead when the person gave the light task no time", () => {
+    // The person answered the menu with nothing for its task: nothing is recommended, so nothing says to open and
+    // quote the source, and the result is the one any menu with nothing to do gets.
+    const declined = planResearch(light({ allocation: [{ task: 1, minutes: 0 }], person_answered: true }),
+      DEFAULT_RESEARCH_STEERING);
+    expect(declined).toMatchObject({ next: "go_on", recommended: [] });
+    expect(declined).not.toHaveProperty("lane");
+    expect(planNextStep(declined)).not.toContain(LIGHT_LOOKUP);
+    expect(planResearchText(declined, new Set(), true, LOOKUP_TARGET)).not.toContain(LIGHT_LOOKUP);
+    const plain = planResearch(light({ lane: undefined, allocation: [{ task: 1, minutes: 0 }], person_answered: true }),
+      DEFAULT_RESEARCH_STEERING);
+    expect(planNextStep(declined)).toBe(planNextStep(plain));
+    expect(planResearchText(declined, new Set(), true, LOOKUP_TARGET))
+      .toBe(planResearchText(plain, new Set(), true, LOOKUP_TARGET));
+    // With time for the task, the person's answer goes on as the light look-up.
+    const taken = planResearch(light({ allocation: [{ task: 1, minutes: 2 }], person_answered: true }),
+      DEFAULT_RESEARCH_STEERING);
+    expect(taken).toMatchObject({ next: "go_on", lane: "light", recommended: [{ task: 1, minutes: 2 }] });
+    expect(planNextStep(taken)).toBe(LIGHT_LOOKUP);
+  });
+
+  it("recommends a light look-up's task whatever it was said to change", () => {
+    // The look-up's task is the whole look-up: marked as detail, it would otherwise leave nothing to do.
+    const detail = planResearch(light({ tasks: [{ ...READ, could_change: "detail" }] }), DEFAULT_RESEARCH_STEERING);
+    expect(detail).toMatchObject({ next: "go_on", lane: "light", recommended: [{ task: 1, minutes: 2 }] });
+    expect(planResearchText(detail, new Set(), false, LOOKUP_TARGET)).not.toContain("Nothing more is recommended");
+    // The same task on a menu that is not light is still left out of the recommendation.
+    const research = planResearch(light({ lane: undefined, tasks: [{ ...READ, could_change: "detail" }] }),
+      DEFAULT_RESEARCH_STEERING);
+    expect(research.recommended).toEqual([]);
+  });
+
+  it("holds a light menu with another research target back as any menu, with the warning and no go-ahead", () => {
+    const held = planResearch(light(), DEFAULT_RESEARCH_STEERING, { matches: false, minutesSince: 2 });
+    expect(held).toMatchObject({ next: "go_on", lane: "light", target_matches_plain_answer: false });
+    const words = planResearchText(held, new Set(), false, LOOKUP_TARGET);
+    expect(words).toContain(TARGET_NOT_REGISTERED);
+    expect(words).not.toContain(LIGHT_LOOKUP);
+    expect(words).not.toContain(PEOPLE_TASK_MISSING);
+    expect(planNextStep(held)).toBe(`${TARGET_NOT_REGISTERED} Do none of this menu's tasks before that: the ` +
+      "go-ahead comes with that call's result.");
+  });
+
+  it("is not light with three tasks, a method audit, or no lane, and those menus get the usual words", () => {
+    for (const menu of [light({ tasks: [READ, RECORD, READ] }), light({ tasks: [AUDIT] }), light({ tasks: [READ, AUDIT] }),
+      light({ lane: undefined })]) {
+      expect(isLightLane(menu), JSON.stringify(menu.tasks)).toBe(false);
+      const result = planResearch(menu, DEFAULT_RESEARCH_STEERING);
+      expect(result, JSON.stringify(menu.tasks)).not.toHaveProperty("lane");
+      const words = planResearchText(result, new Set(), false, LOOKUP_TARGET);
+      expect(words).not.toContain(LIGHT_LOOKUP);
+      expect(planNextStep(result)).not.toContain(LIGHT_LOOKUP);
+      // The same menu without the field gets exactly the same words.
+      const { lane: _lane, ...plain } = menu;
+      expect(words).toBe(planResearchText(planResearch(plain, DEFAULT_RESEARCH_STEERING), new Set(), false,
+        LOOKUP_TARGET));
+      expect(planNextStep(result)).toBe(planNextStep(planResearch(plain, DEFAULT_RESEARCH_STEERING)));
+    }
+    expect(isLightLane(light())).toBe(true);
+    expect(isLightLane(light({ tasks: [READ, RECORD] }))).toBe(true);
+  });
+
+  it("still asks a guided account, with the ask as it is and no request for a people's-reports task", () => {
+    const result = planResearch(light(), guided);
+    expect(result).toMatchObject({ next: "ask", lane: "light" });
+    const { lane: _lane, ...plain } = light();
+    const usual = planResearchText(planResearch(plain, guided), new Set(), false, LOOKUP_TARGET);
+    expect(usual.startsWith(`${PEOPLE_TASK_MISSING}\n`)).toBe(true);
+    expect(planResearchText(result, new Set(), false, LOOKUP_TARGET)).toBe(usual.slice(PEOPLE_TASK_MISSING.length + 1));
+    expect(planNextStep(result)).toBe(planNextStep(planResearch(plain, guided)));
+    expect(planNextStep(result)).not.toContain(LIGHT_LOOKUP);
+    // A menu changed after the person saw it asks too.
+    expect(planResearch(light(), DEFAULT_RESEARCH_STEERING, undefined, { digest: "md1~x", changed: true }))
+      .toMatchObject({ next: "ask", lane: "light" });
+    // Once the person has answered, the light look-up goes on.
+    const answered = planResearch(light({ allocation: [{ task: 1, minutes: 2 }], person_answered: true }), guided);
+    expect(answered).toMatchObject({ next: "go_on", lane: "light" });
+    expect(planNextStep(answered)).toBe(LIGHT_LOOKUP);
+  });
+
+  it("carries the lane in every helper that reads, copies or corrects a menu, and not in its digest", () => {
+    expect(researchMenuSchema.parse(light()).lane).toBe("light");
+    for (const lane of ["research", "aside", "LIGHT", true]) {
+      expect(researchMenuSchema.safeParse({ ...light(), lane }).success, String(lane)).toBe(false);
+    }
+    // Read as the menu, in its own name or another case form, and from a flat call.
+    expect(readResearchMenu({ researchMenu: light() }).menu).toMatchObject({ lane: "light" });
+    const { lane: _given, ...unlabelled } = light();
+    expect(readResearchMenu({ research_menu: { ...unlabelled, Lane: "light" } }).menu).toMatchObject({ lane: "light" });
+    expect(readResearchMenu({ ...light() }).flat).toMatchObject({ lane: "light" });
+    // Corrected: kept when valid, left out when not.
+    expect(correctedMenu(light()).researchMenu.lane).toBe("light");
+    expect(correctedMenu({ ...light(), lane: "aside" }).researchMenu).not.toHaveProperty("lane");
+    expect(correctedMenu({ ...light(), tasks: [READ.task] }, true).researchMenu.lane).toBe("light");
+    // The "you decide" copy of a guided account's light menu stays light.
+    const asks = planResearch(light(), guided);
+    const youDecide = youDecideLaterInputs(light(), asks)!;
+    expect(youDecide.researchMenu.lane).toBe("light");
+    expect(youDecideLaterInputsSchema.safeParse(youDecide).success).toBe(true);
+    // The digest reads the tasks alone: a menu that keeps its tasks and drops or adds the lane is not a changed menu.
+    expect(menuDigest(light().tasks, SECRET)).toBe(menuDigest(light({ lane: undefined }).tasks, SECRET));
+  });
+
+  it("says the light lane in the registration's words for a light plan, after what the question is about", () => {
+    const later_inputs = { researchMenu: light({ plain_answer_receipt: "rr1~synthetic" }) };
+    const about = "The question is about the main figure of one named trial.";
+    expect(LIGHT_LANE_PLANNED).toBe("AskRigor's plan puts this in the light lane: after plan_research's go-ahead do " +
+      "only what its menu lists and one final check, as that result says.");
+    for (const asked of [true, false]) {
+      for (const framing of [undefined, { likely_question: "What did it find?", premise_doubts: ["A doubt"] }]) {
+        const planned = { about, searches: 1, asked, lane: "light" as const, later_inputs };
+        const usual = { ...planned, lane: "research" as const };
+        const kept = "(the plan is kept).";
+        expect(plannedGuidance(framing, planned)).toBe(plannedGuidance(framing, usual)
+          .replace(`${kept} `, `${kept} ${LIGHT_LANE_PLANNED} `));
+        const step = "with the same later_inputs.asked.";
+        expect(plannedNextStep(framing, planned)).toBe(plannedNextStep(framing, usual)
+          .replace(step, `${step} ${LIGHT_LANE_PLANNED}`));
+        expect(plannedGuidance(framing, usual)).not.toContain(LIGHT_LANE_PLANNED);
+        expect(plannedNextStep(framing, usual)).not.toContain(LIGHT_LANE_PLANNED);
+      }
+    }
+  });
+
+  it("steps aside with the owner's opening sentence, word for word, in the text and in next_step", () => {
+    expect(ASIDE_OPENING).toBe("AskRigor says this question doesn't need AskRigor's research. Here is the regular AI's " +
+      "answer:");
+    const about = "The question asks for the boiling point of water at sea level.";
+    expect(asideGuidance({ about, searches: 2 })).toBe("AskRigor's own planning call (2 web searches) found this to be " +
+      "a plain look-up that AskRigor's research would add nothing to. What the question is about, as that call found " +
+      `it: ${JSON.stringify(about)}. So AskRigor steps aside: make no AskRigor research call for it, and do not call ` +
+      "plan_research or finalize_research. Answer the person now as you would without AskRigor, checking it the way " +
+      "you normally would (your own search or browsing, if you have it) and naming your source. Start the answer with " +
+      "this sentence, in the person's language: \"AskRigor says this question doesn't need AskRigor's research. Here " +
+      "is the regular AI's answer:\" Nothing in this answer is checked by AskRigor, so do not say or imply that it " +
+      "was. If the person then asks for it to be researched or checked, or asks whether it is true, safe or better " +
+      "than something else, register the plain answer again with later_inputs.asked holding their question and that " +
+      "request: AskRigor then plans the research.");
+    expect(asideGuidance({ about, searches: 1 })).toContain("AskRigor's own planning call (1 web search) found");
+    expect(asideGuidance({ about, searches: 0 })).toContain("AskRigor's own planning call (no web search) found");
+    expect(asideNextStep()).toBe("AskRigor steps aside for this plain look-up: make no research call, and do not call " +
+      "plan_research or finalize_research. Answer as you would without AskRigor, naming your source, and start with " +
+      "this sentence, in the person's language: \"AskRigor says this question doesn't need AskRigor's research. Here " +
+      "is the regular AI's answer:\" Do not say AskRigor checked it. If the person then asks for research, register " +
+      "the plain answer again with their question and that request in later_inputs.asked.");
+    for (const words of [asideGuidance({ about, searches: 2 }), asideNextStep()]) {
+      expect(words).toContain(`"${ASIDE_OPENING}"`);
+    }
+  });
+
+  it("plans a light menu through the connector, on ChatGPT's surface and Claude's", async () => {
+    for (const [subject, surface] of [["auth0|light", "/mcp"], ["auth0|light-claude", "/mcp/claude"]] as const) {
+      const { service, connect } = await start();
+      await service.acceptFreeContributor(subject, agreement);
+      const manage = await connect(surface, subject);
+      const planned = await manage({ action: "plan_research", later_inputs: { researchMenu: light() } });
+      expect(planned.isError, text(planned)).not.toBe(true);
+      expect(planned.structuredContent, surface).toMatchObject({ ok: true, researchMenu: { next: "go_on",
+        lane: "light" }, next_step: LIGHT_LOOKUP });
+      expect(planned.structuredContent, surface).not.toHaveProperty("researchMenu.say_reading_first");
+      expect(planned.content[0]!.text.endsWith(` ${LIGHT_LOOKUP}`), surface).toBe(true);
+    }
+  });
 });
