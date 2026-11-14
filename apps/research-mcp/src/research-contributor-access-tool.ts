@@ -56,7 +56,12 @@ import {
   sentencesOf,
 } from "./research-finalization-gate.js";
 import { researchMapSavedLine } from "./findings/card.js";
+import {
+  askrigorHoldsSchema, heldFor, heldText, heldVariants, HELD_NEXT_STEP, holdsSomethingNow, OWNER_POINTER_HOW,
+  ownerPointerText, shownOwnerPointer, shownOwnerPointerSchema, type AskRigorHolds, type AskRigorHoldsOptions,
+} from "./askrigor-holds.js";
 import { askedText, callsPageSchema, laterInputShape, latestMessage } from "./later-inputs.js";
+import { ownerPointerById } from "./owner-pointers.js";
 import { MCP_RESULT_MAX_BYTES } from "./config.js";
 import { clientResultBytes } from "./tool-result.js";
 import {
@@ -176,6 +181,8 @@ export const manageResearchAccessInputSchema = z.object({
     "set_research_steering",
     "plan_research",
     "list_calls",
+    // The owner, 14 Nov 2026 (runtime only): one of the owner's pointers, by the id a registration's result lists.
+    "owner_pointer",
   ]),
   agreement: freeContributorAgreementSchema.extend({ noticeVersion: noticeVersionSchema }).strict().optional(),
   plainAnswer: plainAnswerInputSchema.optional()
@@ -379,6 +386,14 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
       "planned_later_inputs."),
   planned_later_inputs: z.object({ researchMenu: researchMenuSchema }).strict().optional()
     .describe("With research_plan: the later_inputs to send to plan_research next, exactly as given."),
+  // The owner, 14 Nov 2026 (runtime only): what AskRigor already holds for the registered question, for every
+  // account and in every lane, and one of the owner's pointers by its id.
+  askrigor_holds: askrigorHoldsSchema.optional()
+    .describe("With register_plain_answer: the Atlas's findings that share words with the question, to be read " +
+      "before answering in any lane and given where they bear on it; the owner's pointers for this kind of " +
+      "question, to be given as the owner's own; and the questions the owner keeps other pointers for."),
+  owner_pointer: shownOwnerPointerSchema.optional()
+    .describe("With owner_pointer: the owner's pointer with that id, to be given to the person as the owner's own."),
   research_plan_not_used: z.enum(PLANNER_NOT_USED_REASONS).optional()
     .describe("With register_plain_answer on a dev account: why AskRigor's own planning call was not used."),
 }).strict();
@@ -532,6 +547,11 @@ export interface ResearchContributorToolOptions {
   researchReviewer?: () => ResearchReviewer | undefined;
   /** A failure's class only, never its message (owner answer 303a: menu_choice_not_recorded); console.error by default. */
   log?: (failureClass: string) => void;
+  /**
+   * What AskRigor already holds for a registered question (the owner, 14 Nov 2026): the Atlas's findings near it and
+   * the owner's pointers. Undefined: a registration says nothing of either, and owner_pointer finds none.
+   */
+  askrigorHolds?: AskRigorHoldsOptions;
 }
 
 export interface ResearchMapOptions {
@@ -861,6 +881,13 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
   ): Promise<CallToolResult> => {
     const auth = authorizedSubject(extra, options.resourceMetadataUrl, options.signIn);
     if ("error" in auth) return auth.error;
+    // The owner, 14 Nov 2026: later_inputs.ownerPointer goes with owner_pointer alone. Checked here, before any action
+    // runs: Codex's review found a call that deleted a shared answer, and one that listed the calls, carrying it
+    // unnoticed, since those actions answer before the other inputs are checked.
+    if ((input.action === "owner_pointer") !== (input.ownerPointer !== undefined)) {
+      return accessError("invalid_request",
+        "later_inputs.ownerPointer goes only with action owner_pointer, which needs it.");
+    }
     if (input.action === "list_calls") {
       if (options.callRecord === undefined || options.service === undefined) {
         const message = "This AskRigor server keeps no call record, so there is nothing to show.";
@@ -1010,6 +1037,11 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           "later_inputs.researchSteering goes only with action set_research_steering, which needs it.",
         );
       }
+      // The owner, 14 Nov 2026: one of the owner's pointers, by its id. It stands after the checks above, so a call
+      // that also carries another action's input is refused, and it reads nothing of the account.
+      if (parsed.action === "owner_pointer") {
+        return ownerPointerResult(options.askrigorHolds, parsed.ownerPointer!);
+      }
       if (parsed.action === "register_plain_answer") {
         // Owner answer 298b: on a dev account, AskRigor's own planning call makes the plan. Any other account's
         // later_inputs.asked is not used, and not kept.
@@ -1031,7 +1063,8 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         const latest = parsed.asked === undefined ? undefined : latestMessage(parsed.asked);
         return await registerPlainAnswer(options.service, auth.subject, parsed.plainAnswer!, options.plainAnswer,
           parsed.framing, planner?.enabled === true
-            ? { planner, asked, reviewed, latest, markSecret: options.menuDigestSecret?.() } : undefined);
+            ? { planner, asked, reviewed, latest, markSecret: options.menuDigestSecret?.() } : undefined,
+          options.askrigorHolds);
       }
       if (parsed.action === "set_research_steering") {
         // Owner answer 303a: learn mode only for a dev account, while AskRigor's own planning call is on.
@@ -1309,6 +1342,8 @@ async function registerPlainAnswer(
   // markSecret signs the mark a menu carries when the planning call read that message as telling the AI to go on.
   planning?: { planner: ResearchPlanner; asked: string | undefined; reviewed?: boolean; latest?: string | undefined;
     markSecret?: string | undefined },
+  // The owner, 14 Nov 2026: what AskRigor already holds for the question, read while the plan is made.
+  holds?: AskRigorHoldsOptions,
 ): Promise<CallToolResult> {
   const account = await plainAnswerAccount(service, subject, plain);
   if (account === undefined) return accessError("plain_answer_not_requested", plain === undefined ? PLAIN_ANSWER_SURFACE_UNAVAILABLE : PLAIN_ANSWER_NOT_REQUESTED);
@@ -1357,14 +1392,21 @@ async function registerPlainAnswer(
   // read is none.
   const menuHistory = planning === undefined || !account.steering.learnMenuChoices ? []
     : menuHistoryOf(await service.menuChoices(account.accountKey).catch(() => []), Date.now());
+  // What AskRigor already holds is read while the plan is made, so it adds no wait; it never fails a registration.
+  const holding = heldFor(holds, plainAnswer.researchTarget).catch(() => undefined);
   const planned = planning === undefined ? undefined
     : await plannedResearch(planning, plainAnswer, framing, receipt, account.accountKey, menuHistory);
+  const heldAll = await holding;
   const plan = planned !== undefined && "later_inputs" in planned ? planned : undefined;
   const notPlanned = planned !== undefined && "reason" in planned ? planned : undefined;
   const notUsed = notPlanned === undefined ? undefined
     : plannerNotUsedSentence(notPlanned.reason, planning!.planner.accountDailyCalls);
   // A day's limit is the person's to know, so it goes to an app that hands its model only next_step too.
   const limitReached = notPlanned?.reason === "account_limit" || notPlanned?.reason === "daily_budget";
+  // The result with what AskRigor holds for the question, or with less of it, or with none (heldVariants).
+  const resultWith = (held: AskRigorHolds | undefined): CallToolResult => {
+  const heldTexts = held === undefined ? [] : [{ type: "text" as const, text: heldText(held) }];
+  const heldStep = holdsSomethingNow(held) ? ` ${HELD_NEXT_STEP}` : "";
   // Owner answer 302: AskRigor steps aside for a plain look-up. The plain answer is still signed and its receipt given,
   // in case the person asks for the research after all; nothing else is said, since every other text of this result
   // asks for research or for the final check.
@@ -1372,6 +1414,8 @@ async function registerPlainAnswer(
     return {
       content: [
         { type: "text", text: asideGuidance(planned) },
+        // What AskRigor holds comes with a look-up it steps aside for too: there the AI would not have searched.
+        ...heldTexts,
         { type: "text", text: `research_receipt: ${receipt} Keep it only in case the person asks for the research ` +
           "after all." },
       ],
@@ -1379,9 +1423,10 @@ async function registerPlainAnswer(
         ok: true,
         plainAnswer: { requested: true, note: account.note, claims: count },
         research_receipt: receipt,
-        next_step: asideNextStep(),
+        next_step: `${asideNextStep()}${heldStep}`,
         research_plan: { source: "askrigor_planning_call", about: planned.about, steering_choice: "none",
           searches: planned.searches, from_asked: planned.asked, lane: "aside" },
+        ...(held === undefined ? {} : { askrigor_holds: held }),
       }),
     };
   }
@@ -1395,6 +1440,8 @@ async function registerPlainAnswer(
       ...(notUsed === undefined ? [] : [{ type: "text" as const, text: notUsed }]),
       { type: "text", text: summary },
       { type: "text", text: `research_receipt: ${receipt}` },
+      // What AskRigor already holds, for the answer: after the receipt, so the first texts stay what to do next.
+      ...heldTexts,
       { type: "text", text: FINALIZE_REMINDER },
       // Owner answer 301a: what the final check's review of the draft reads, said where the planner's texts are. Not
       // for a light plan (owner answer 302), whose draft is not reviewed: the request would promise a review that is
@@ -1406,8 +1453,8 @@ async function registerPlainAnswer(
       ok: true,
       plainAnswer: { requested: true, note: account.note, claims: count },
       research_receipt: receipt,
-      next_step: plan !== undefined ? plannedNextStep(framing, plan)
-        : `${framingNextStep(account.steering, framing)}${limitReached ? ` ${notUsed}` : ""}`,
+      next_step: `${plan !== undefined ? plannedNextStep(framing, plan)
+        : `${framingNextStep(account.steering, framing)}${limitReached ? ` ${notUsed}` : ""}`}${heldStep}`,
       ...(plan === undefined ? {} : {
         research_plan: { source: "askrigor_planning_call", about: plan.about,
           steering_choice: plan.later_inputs.researchMenu.steering_choice ?? "none", searches: plan.searches,
@@ -1416,7 +1463,31 @@ async function registerPlainAnswer(
         planned_later_inputs: plan.later_inputs,
       }),
       ...(notPlanned === undefined ? {} : { research_plan_not_used: notPlanned.reason }),
+      ...(held === undefined ? {} : { askrigor_holds: held }),
     }),
+  };
+  };
+  // Codex's review of 14 Nov 2026: a research target of 5,000 characters, three long findings and two pointers came
+  // to more than a client accepts. So the first of these that fits is the result; the last has nothing held, which
+  // is the result of before.
+  const results = heldVariants(heldAll).map(resultWith);
+  return results.find((result) => clientResultBytes(result) <= MCP_RESULT_MAX_BYTES) ?? results[results.length - 1]!;
+}
+
+/** One of the owner's pointers by its id (the owner, 14 Nov 2026), or the ids there are. */
+function ownerPointerResult(holds: AskRigorHoldsOptions | undefined, id: string): CallToolResult {
+  const pointers = holds?.pointers?.() ?? [];
+  const pointer = ownerPointerById(id, pointers);
+  if (pointer === undefined) {
+    return accessError("invalid_request", pointers.length === 0
+      ? "later_inputs.ownerPointer: this AskRigor server keeps no owner's pointers."
+      : `later_inputs.ownerPointer: no pointer has this id; the ids are ${pointers.map(({ id: known }) => known).join(", ")}.`);
+  }
+  const shown = shownOwnerPointer(pointer);
+  return {
+    content: [{ type: "text", text: `${ownerPointerText(shown)} ${OWNER_POINTER_HOW}` }],
+    structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: true, owner_pointer: shown,
+      next_step: OWNER_POINTER_HOW }),
   };
 }
 

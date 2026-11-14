@@ -65,7 +65,8 @@ export function configuredAtlasLookupSource(env: NodeJS.ProcessEnv = process.env
 }
 let lastReceiptOrder = 0;
 const nextReceiptOrder = (now: Date): number => (lastReceiptOrder = Math.max(now.getTime(), lastReceiptOrder + 1));
-const originOf = (raw: string | undefined): string => {
+/** The public Atlas's origin a setting names, or askrigor.com: https only, and no sign-in in it. */
+export const atlasOrigin = (raw: string | undefined): string => {
   try {
     const url = new URL(raw ?? "https://askrigor.com");
     if (url.protocol === "https:" && url.username === "" && url.password === "") return url.origin;
@@ -83,7 +84,7 @@ function publicFinding(finding: ShownFinding, origin: string): z.output<typeof f
 export async function lookupAtlas(raw: unknown, dependencies: AtlasLookupDependencies = {}): Promise<z.output<typeof atlasLookupOutputSchema>> {
   const input = atlasLookupInputSchema.parse(raw);
   const now = dependencies.now ?? (() => new Date());
-  const origin = originOf(dependencies.origin ?? process.env.ASKRIGOR_ATLAS_PUBLIC_ORIGIN);
+  const origin = atlasOrigin(dependencies.origin ?? process.env.ASKRIGOR_ATLAS_PUBLIC_ORIGIN);
   const query = input.query === undefined ? undefined : atlasSearchQuery(input.query).query!;
   const output: z.output<typeof atlasLookupOutputSchema> = {
     record_type: "atlas_lookup", retrieved_at: now().toISOString(), status: "complete", query_words: query?.words ?? [],

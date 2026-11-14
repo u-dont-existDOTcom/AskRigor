@@ -40,7 +40,10 @@ Each channel is labelled with the kinds of value it has, and none means its clai
   how long, how it was measured, and how they are now. It is one person's account, and recoveries are what gets filmed,
   so it is a lead and an outcome report, never a rate; it is kept apart from independent commenters (HRP
   `YouTubeCreatorCommentCorpusHandling`). The first, from the owner: SHAPEFIXER's "GROWING MY HIP BACK"
-  (`XpZHKGGCK-o`), below.
+  (`XpZHKGGCK-o`), below. The second, from the owner on 14 Nov 2026: Melanie Murphy's account of more than 50 symptoms
+  (`z6GI7S6WYz0`), which AskRigor is also to hand to people who ask about fibromyalgia, a central sensitization syndrome
+  or many unexplained symptoms, as the owner's pointer (`apps/research-mcp/src/owner-pointers.ts`; built 14 Nov 2026,
+  not yet released).
 - **Leads:** ideas worth testing, on weaker or contested evidence; a lead starts a study search and never settles a
   question.
 - **Critique:** examines studies' methods and their limits.
@@ -185,6 +188,7 @@ Dr. Jon Saunders, above.
 |---|---|---|---|
 | Jill Carnahan, MD (`@drjillcarnahan`) | leads: mould illness, mast cells | contested diagnoses | Gemini |
 | Yoga With Adriene (`@yogawithadriene`) | methods: gentle yoga for chronic pain, which a US Veterans Affairs pain programme lists (`BFaXfQpxnps`) | sells a membership; too much at once can flare pain | discovery |
+| Melanie Murphy (`@melaniemurphyofficial`) | recovery story: her own account of more than 50 long-lasting symptoms easing once she treated them as coming from a sensitised nervous system (`z6GI7S6WYz0`); she names the books Unlearn Your Pain (Howard Schubiner) and The Way Out (Alan Gordon); leads: pain reprocessing therapy, emotional awareness and expression therapy | one person's account; not a clinician, and she says to rule out serious disease first; presents graded exercise as the way out of post-exertional malaise, which the UK's NICE guideline on ME/CFS says not to offer; by her own account her usual videos are essays, not health; links her Patreon | owner |
 
 ### Medicine, evidence and research in general
 
@@ -203,7 +207,7 @@ needs them.
 
 - Check each channel: AskRigor audits a few of its videos against the studies, samples its comments (the share with an
   outcome, and the improvement-to-worsening ratio, with counts), and confirms or changes its labels.
-- Every category has candidates now (74 channels: the owner's eight, Gemini's 41 and the discovery's 25). More come from the channels that
+- Every category has candidates now (75 channels: the owner's nine, Gemini's 41 and the discovery's 25). More come from the channels that
   surface in research, and from the owner.
 - 31 Oct, on the owner's Codex: the comment ratio of the owner's three videos, through AskRigor's own audit (its sample
   is drawn by hash, without regard to outcome; Codex judges each comment, and code counts); and a discovery of

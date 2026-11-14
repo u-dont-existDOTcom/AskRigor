@@ -1961,6 +1961,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "overstated",
   "own_offering",
   "owner_library",
+  "owner_pointer",
   "owner_unpublished",
   "page_text",
   "paid_private_does_not_contribute",
