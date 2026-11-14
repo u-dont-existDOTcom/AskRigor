@@ -615,7 +615,7 @@ tasks without asking. The planning call judges whether your message says that. A
 - **What is new in what is sent or kept.** Nothing is kept. The person's newest message goes to the planning call a
   second time, by itself, beside the words it was already part of.
 
-#### What AskRigor already holds for a question (owner answer 306a, 14 November 2026; released the same day)
+#### What AskRigor already holds for a question (owner answer 306a, 14 November 2026; released the same day, and its wording fixed the same evening)
 
 The owner, 14 November 2026: "make sure if someone asks about peeling sweet potatoes it explains they should cut out
 any parts that turn dark after some seconds of air contact", "make sure someone asking for central sensitization type
@@ -666,7 +666,11 @@ it had been handed, and said why when asked: "Neither finding changes the peelin
 irrelevant to the specific question." The owner had asked for the opposite, so the wording above replaced it (#466):
 what counts is the question's subject, and a step aside with something held says itself where that goes
 (`asideGuidance` and `asideNextStep` with `held`). Three runs of a GPT model given the new result word for word
-(through Codex, no tools) each gave both findings after the peeling steps, as leads not reviewed by a person.
+(through Codex, no tools) each gave both findings after the peeling steps, as leads not reviewed by a person. Released
+at 22:36 UTC the same day; the owner's ChatGPT, asked the same question two minutes later, gave its peeling steps
+and then both findings under "AskRigor's Atlas also holds this", as AI-generated and not yet reviewed, each with the
+roots it applies to, its certainty and a link to its page. It did not turn them into the owner's own advice ("cut out
+any parts that turn dark"): a finding is given as what it found, and advice of the owner's is a pointer's to give.
 
 What is handed over shrinks to fit the size a client accepts (`MCP_RESULT_MAX_BYTES`): the last finding is dropped,
 one at a time, then the matched pointers are listed by id and subject only, then nothing is held; a research
