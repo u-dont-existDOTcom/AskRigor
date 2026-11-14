@@ -139,14 +139,43 @@ describe("what registration hands over from AskRigor", () => {
       later_inputs: { asked: PLAIN.researchTarget } });
     expect(result.isError).not.toBe(true);
     expect(texts(result)).toEqual([
-      asideGuidance({ about, searches: 1 }),
+      // With something held, the step aside itself says where it goes, in place of "Nothing in this answer is checked".
+      asideGuidance({ about, searches: 1 }, true),
       heldText(held),
       `research_receipt: ${data(result).research_receipt} Keep it only in case the person asks for the research after all.`,
     ]);
     expect(data(result)).toMatchObject({ ok: true, askrigor_holds: held,
       research_plan: { lane: "aside", source: "askrigor_planning_call" },
-      next_step: `${asideNextStep()} ${HELD_NEXT_STEP}` });
+      next_step: asideNextStep(true) });
     expect(planner.plan).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the step aside of before when only other pointers are listed, and says where a matched pointer goes", async () => {
+    const about = "An invented simple lookup.";
+    const planner: ResearchPlanner = {
+      enabled: true,
+      plan: vi.fn(async () => ({ planning: { status: "planned" as const,
+        plan: { about, steering_choice: "none", tasks: [], lane: "aside" as const, searches: 1, goOn: false } },
+        cached: false, costUsd: 0, milliseconds: 0 })),
+      lane: async () => "aside",
+    };
+    // Nothing near in the Atlas and no pointer matched: the list of other pointers alone is no reason to change it.
+    const listed = await fixture({ atlas: async () => [], pointers: () => OWNER_POINTERS }, planner);
+    const egg = "How long do I boil an egg?";
+    const plain = await listed.call({ action: "register_plain_answer",
+      plainAnswer: { ...PLAIN, researchTarget: egg }, later_inputs: { asked: egg } });
+    expect(data(plain).askrigor_holds?.owner_pointers).toBeUndefined();
+    expect(data(plain).askrigor_holds?.other_owner_pointers).toHaveLength(OWNER_POINTERS.length);
+    expect(data(plain).next_step).toBe(asideNextStep());
+    expect(texts(plain)[0]).toBe(asideGuidance({ about, searches: 1 }));
+    // A matched pointer and no finding: the step aside says where it goes.
+    const target = "What is fibromyalgia?";
+    const matched = await fixture({ atlas: async () => [], pointers: () => OWNER_POINTERS }, planner);
+    const pointed = await matched.call({ action: "register_plain_answer",
+      plainAnswer: { ...PLAIN, researchTarget: target }, later_inputs: { asked: target } });
+    expect(data(pointed).askrigor_holds?.owner_pointers).toHaveLength(OWNER_POINTERS.length);
+    expect(data(pointed).next_step).toBe(asideNextStep(true));
+    expect(texts(pointed)[0]).toBe(asideGuidance({ about, searches: 1 }, true));
   });
 
   it("reads the research target once, never the answer, claims or person's other words", async () => {

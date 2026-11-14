@@ -17,8 +17,9 @@ import { atlasSearchWords } from "./search.js";
  * exercise. Subjects and topic labels name things, so two shared words there, in the same one, seldom meet by
  * chance: every sweet potato question got both of its findings, twelve questions got findings on their own topic,
  * three got one that does not bear on them (a question about green potatoes got the sweet potato findings), and the
- * other forty got none. How common a word is comes from the findings themselves, never from a word list. Whether a
- * near finding bears on the question stays the AI's judgment; this only makes sure it sees the finding.
+ * other forty got none. How common a word is comes from the findings themselves, never from a word list. This
+ * only makes sure the AI sees a near finding; what it is told to do with it is in askrigor-holds.ts (give it after
+ * the answer unless it is plainly about another thing).
  */
 export const ATLAS_NEAR = {
   /** At most this many findings are handed over. */

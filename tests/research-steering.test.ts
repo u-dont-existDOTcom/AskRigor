@@ -2851,6 +2851,41 @@ describe("the light lane and the step aside of AskRigor's own plan (owner answer
     }
   });
 
+  // 14 Nov 2026, the owner's ChatGPT after the release of #465: for "How do I peel sweet potatoes?" the step aside
+  // said "Nothing in this answer is checked by AskRigor" and, after it, to read askrigor_holds; the answer left out
+  // both sweet potato findings. With something held, the step aside itself says where it goes.
+  it("says where what AskRigor holds goes when it steps aside with something held, in the text and in next_step", () => {
+    const about = "The question asks how to peel a root vegetable.";
+    const guidance = asideGuidance({ about, searches: 1 }, true);
+    expect(guidance).toBe("AskRigor's own planning call (1 web search) found this to be " +
+      "a plain look-up that AskRigor's research would add nothing to. What the question is about, as that call found " +
+      `it: ${JSON.stringify(about)}. So AskRigor steps aside: make no AskRigor research call for it, and do not call ` +
+      "plan_research or finalize_research. Answer the person now as you would without AskRigor, checking it the way " +
+      "you normally would (your own search or browsing, if you have it) and naming your source. Start the answer with " +
+      "this sentence, in the person's language: \"AskRigor says this question doesn't need AskRigor's research. Here " +
+      "is the regular AI's answer:\" After your answer, give the person what AskRigor already holds for this " +
+      "question (askrigor_holds in this result, as its how_to_use says). That part alone comes from AskRigor: do not " +
+      "say or imply that AskRigor checked the rest. If the person then asks for it to be researched or checked, or " +
+      "asks whether it is true, safe or better than something else, register the plain answer again with " +
+      "later_inputs.asked holding their question and that request: AskRigor then plans the research.");
+    expect(asideNextStep(true)).toBe("AskRigor steps aside for this plain look-up: make no research call, and do not " +
+      "call plan_research or finalize_research. Answer as you would without AskRigor, naming your source, and start " +
+      "with this sentence, in the person's language: \"AskRigor says this question doesn't need AskRigor's research. " +
+      "Here is the regular AI's answer:\" Then, after your answer, give the person what askrigor_holds in this result " +
+      "holds for the question, as its how_to_use says. That part alone comes from AskRigor: do not say AskRigor " +
+      "checked the rest. If the person then asks for research, register the plain answer again with their question " +
+      "and that request in later_inputs.asked.");
+    for (const words of [guidance, asideNextStep(true)]) {
+      expect(words).toContain(`"${ASIDE_OPENING}"`);
+      expect(words).toContain("askrigor_holds");
+      expect(words).not.toContain("Nothing in this answer is checked by AskRigor");
+      expect(words).not.toContain("Do not say AskRigor checked it.");
+    }
+    // Nothing held, said or left unsaid, is the step aside of before.
+    expect(asideGuidance({ about, searches: 1 }, false)).toBe(asideGuidance({ about, searches: 1 }));
+    expect(asideNextStep(false)).toBe(asideNextStep());
+  });
+
   it("plans a light menu through the connector, on ChatGPT's surface and Claude's", async () => {
     for (const [subject, surface] of [["auth0|light", "/mcp"], ["auth0|light-claude", "/mcp/claude"]] as const) {
       const { service, connect } = await start();

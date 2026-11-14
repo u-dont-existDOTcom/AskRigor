@@ -615,7 +615,7 @@ tasks without asking. The planning call judges whether your message says that. A
 - **What is new in what is sent or kept.** Nothing is kept. The person's newest message goes to the planning call a
   second time, by itself, beside the words it was already part of.
 
-#### What AskRigor already holds for a question (the owner, 14 November 2026; built, not yet released)
+#### What AskRigor already holds for a question (owner answer 306a, 14 November 2026; released the same day)
 
 The owner, 14 November 2026: "make sure if someone asks about peeling sweet potatoes it explains they should cut out
 any parts that turn dark after some seconds of air contact", "make sure someone asking for central sensitization type
@@ -651,11 +651,22 @@ The result carries them as `askrigor_holds` (`how_to_use`, `atlas_findings`, `ow
 `other_owner_pointers`): their texts are there once, with how to use them beside them, since an app may give its
 model only the structured result. A text after the receipt's (for a plan that steps aside, after the step-aside
 text) names what is held and repeats how to use it, and `next_step` ends with one sentence about it when there is a
-finding or a matched pointer. The AI is told to read the findings before it answers, to give the person those that
-bear on the question with whom they hold for and how sure they are, to treat one not checked by supervisors as a
-lead and to give a lead or a contested finding as that; and to give a pointer after its answer as the owner's own,
-never as a finding of AskRigor's, and to leave it out when the question is about something else. A research run
-still calls `search_research_frontiers` for the receipt the final check needs.
+finding or a matched pointer. The AI is told to give each finding to the person after its answer, in a sentence or
+two: what it found, what that means for what the person is doing or asking about, for whom it holds, how sure it
+is, and its page; also when the finding does not answer the question itself, and leaving it out only when it is
+plainly about another thing; to say when one is not checked by supervisors and give it as a lead, and to give a
+lead or a contested finding as that; and to give a pointer after its answer as the owner's own, never as a finding
+of AskRigor's, and to leave it out when the question is about something else. A research run still calls
+`search_research_frontiers` for the receipt the final check needs.
+
+The first wording (released in #465 at 22:04 UTC on 14 November) told the AI to give a finding "where one bears on
+the question", and a step aside ended "Do not say AskRigor checked it" before the sentence about `askrigor_holds`.
+The owner's own ChatGPT, asked "How do I peel sweet potatoes?" six minutes later, answered without the two findings
+it had been handed, and said why when asked: "Neither finding changes the peeling instructions, so I judged them
+irrelevant to the specific question." The owner had asked for the opposite, so the wording above replaced it (#466):
+what counts is the question's subject, and a step aside with something held says itself where that goes
+(`asideGuidance` and `asideNextStep` with `held`). Three runs of a GPT model given the new result word for word
+(through Codex, no tools) each gave both findings after the peeling steps, as leads not reviewed by a person.
 
 What is handed over shrinks to fit the size a client accepts (`MCP_RESULT_MAX_BYTES`): the last finding is dropped,
 one at a time, then the matched pointers are listed by id and subject only, then nothing is held; a research
