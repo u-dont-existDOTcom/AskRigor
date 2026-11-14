@@ -52,6 +52,16 @@ export function askedText(asked: string | readonly string[]): string {
 }
 
 /**
+ * The newest of the person's messages, when the AI passed on a list of more than one (owner answer 304a, 14 Nov 2026):
+ * what AskRigor's own planning call reads to say whether the person told the AI to go on. A single text, or a list of
+ * one, has no message that follows the question, so it has none: where one message ends is the list's to say, never a
+ * blank line's.
+ */
+export function latestMessage(asked: string | readonly string[]): string | undefined {
+  return typeof asked === "string" || asked.length < 2 ? undefined : asked[asked.length - 1];
+}
+
+/**
  * finalize_research's later_inputs.asked (owner answer 301a): read from the raw call on its own, as findings_save is,
  * in later_inputs or else at the top level, and parsed as register_plain_answer parses its own (askedInputSchema, then
  * askedText, at most ASKED_LIMIT characters in all). Undefined when absent or unusable, which is never a problem or a
