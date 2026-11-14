@@ -49,6 +49,7 @@ import {
   researchMenuSchema,
   PLAN_TASK_MINUTES,
   WORDS_ARE_NOT_SIZES,
+  WENT_ON_AS_ASKED,
   adjustmentGuidance,
   allocationAnswered,
   allocationNotUsedStop,
@@ -63,6 +64,7 @@ import {
   learnModeLine,
   menuChoiceOf,
   menuDigest,
+  goOnMark,
   menuPreferenceLine,
   framingNextStep,
   planNextStep,
@@ -370,6 +372,87 @@ const TASKS: ResearchMenuInput["tasks"] = [
 ];
 const menu = (overrides: Partial<ResearchMenuInput> = {}): ResearchMenuInput =>
   ({ research_target: TARGET, tasks: TASKS, ...overrides });
+
+describe("balanced research goes on as asked (owner answer 304a)", () => {
+  it("signs every task field and the receipt under a key distinct from the menu digest", () => {
+    const tasks = menu().tasks;
+    const receipt = "rr1~synthetic-plain-answer-receipt";
+    const mark = goOnMark(tasks, receipt, SECRET);
+    expect(mark).toMatch(/^go1~/u);
+    expect(goOnMark(tasks.map((task) => ({ ...task })), receipt, SECRET)).toBe(mark);
+    // Unlike the menu digest, the mark covers wording, sources and time as handed over.
+    for (const change of [{ task: "Read the cohort's reported results" }, { sources: 3 }, { minutes: [4, 9] as [number, number] }]) {
+      expect(goOnMark([{ ...tasks[0]!, ...change }, ...tasks.slice(1)], receipt, SECRET)).not.toBe(mark);
+    }
+    for (const change of [{ kind: "method_audit" }, { could_change: "confidence" }, { loop: "studies_to_people" }] as const) {
+      expect(goOnMark([{ ...tasks[0]!, ...change }, ...tasks.slice(1)], receipt, SECRET)).not.toBe(mark);
+    }
+    expect(goOnMark([...tasks].reverse(), receipt, SECRET)).not.toBe(mark);
+    expect(goOnMark(tasks.slice(1), receipt, SECRET)).not.toBe(mark);
+    expect(goOnMark(tasks, `${receipt}-other`, SECRET)).not.toBe(mark);
+    expect(goOnMark(tasks, receipt, `${SECRET}-other`)).not.toBe(mark);
+    expect(mark).not.toBe(menuDigest(tasks, SECRET));
+  });
+
+  it("goes on with a long balanced menu only with the mark, and says why", () => {
+    const plan = menu({ steering_choice: "none" });
+    const digest = menuDigest(plan.tasks, SECRET);
+    const going = planResearch(plan, DEFAULT_RESEARCH_STEERING, undefined, { digest, changed: false, goOnAsked: true });
+    expect(going.recommended_minutes[1]).toBeGreaterThan(ASK_ABOVE_MINUTES);
+    expect(going).toMatchObject({ next: "go_on", went_on_as_asked: true });
+    const words = planResearchText(going, new Set());
+    expect(words).toContain(WENT_ON_AS_ASKED);
+    expect(words.indexOf(WENT_ON_AS_ASKED)).toBeGreaterThan(words.indexOf("Go on now:"));
+    const asking = planResearch(plan, DEFAULT_RESEARCH_STEERING, undefined, { digest, changed: false });
+    expect(asking.next).toBe("ask");
+    expect(asking).not.toHaveProperty("went_on_as_asked");
+    expect(planResearchText(asking, new Set())).not.toContain(WENT_ON_AS_ASKED);
+  });
+
+  it("also goes on when steering_could_help is false and no question was named", () => {
+    const plan = menu({ steering_could_help: false });
+    expect(planResearch(plan, DEFAULT_RESEARCH_STEERING, undefined,
+      { digest: menuDigest(plan.tasks, SECRET), changed: false, goOnAsked: true }))
+      .toMatchObject({ next: "go_on", went_on_as_asked: true });
+  });
+
+  it("still asks with the mark when another reason to ask remains", () => {
+    const cases: Array<[string, Partial<ResearchMenuInput>, ResearchSteering["style"], boolean, boolean]> = [
+      ["guided research", {}, "guided", false, true],
+      ["a named question", { steering_choice: "Which salt substitute do you use?" }, "balanced", false, true],
+      ["no steering judgment", { steering_choice: undefined }, "balanced", false, true],
+      ["steering could help", { steering_choice: undefined, steering_could_help: true }, "balanced", false, true],
+      ["a re-plan", { done: [3] }, "balanced", false, true],
+      ["a changed menu", {}, "balanced", true, true],
+      ["another plain-answer target", {}, "balanced", false, false],
+    ];
+    for (const [what, overrides, style, changed, matches] of cases) {
+      const plan = menu({ steering_choice: "none", ...overrides });
+      const result = planResearch(plan, { ...DEFAULT_RESEARCH_STEERING, style }, { matches, minutesSince: 1 },
+        { digest: menuDigest(plan.tasks, SECRET), changed, goOnAsked: true });
+      expect(result.recommended.length, what).toBeGreaterThan(0);
+      expect(result.next, what).toBe("ask");
+      expect(result, what).not.toHaveProperty("went_on_as_asked");
+      expect(planResearchText(result, new Set(plan.done)), what).not.toContain(WENT_ON_AS_ASKED);
+    }
+  });
+
+  it("does not claim it went on as asked when the menu would go on anyway", () => {
+    const cases: Array<[string, Partial<ResearchMenuInput>, ResearchSteering["style"]]> = [
+      ["a short menu", { tasks: [TASKS[0]!] }, "balanced"],
+      ["autonomous research", {}, "autonomous"],
+      ["the person's allocation", { allocation: [{ task: 1, minutes: 12 }], person_answered: true }, "balanced"],
+    ];
+    for (const [what, overrides, style] of cases) {
+      const plan = menu({ steering_choice: "none", ...overrides });
+      const result = planResearch(plan, { ...DEFAULT_RESEARCH_STEERING, style }, undefined,
+        { digest: menuDigest(plan.tasks, SECRET), changed: false, goOnAsked: true });
+      expect(result.next, what).toBe("go_on");
+      expect(result, what).not.toHaveProperty("went_on_as_asked");
+      expect(planResearchText(result, new Set()), what).not.toContain(WENT_ON_AS_ASKED);
+    }
+  });
+});
 
 describe("the menu of next tasks after a quick screen (owner answer 279a)", () => {
   it("estimates each task from its kind and sources, or the model's own range", () => {
@@ -788,11 +871,14 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     // lane is set by AskRigor's own plan alone and is never taught to the AI (owner answer 302, 14 Nov 2026).
     // person_reason is asked for only on a dev account while the planning call is on, beside its ask's rule (owner
     // answer 303a, 14 Nov 2026), so every account's screen is as it was.
+    // go_on_asked is signed by AskRigor's own plan, never taught to the AI (owner answer 304a).
     const fields = [...Object.keys(researchMenuSchema.shape).filter((key) => key !== "allocation" && key !== "done" &&
-      key !== "person_answered" && key !== "steering_choice" && key !== "lane" && key !== "person_reason"),
+      key !== "person_answered" && key !== "steering_choice" && key !== "lane" && key !== "person_reason" &&
+      key !== "go_on_asked"),
     ...Object.keys(planTaskSchema.shape)];
     expect(RESEARCH_MENU_SHAPE).not.toMatch(/\blane\b/u);
     expect(RESEARCH_MENU_SHAPE).not.toContain("person_reason");
+    expect(RESEARCH_MENU_SHAPE).not.toContain("go_on_asked");
     for (const name of [...fields, ...PLAN_TASK_KINDS, ...COULD_CHANGE, ...RESEARCH_LOOPS]) {
       expect(RESEARCH_MENU_SHAPE, name).toMatch(new RegExp(`\\b${name}\\b`, "u"));
     }
