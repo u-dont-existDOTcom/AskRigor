@@ -192,6 +192,25 @@ describe("list_calls", () => {
     expect(JSON.stringify(listed)).not.toContain("Synthetic target");
   });
 
+  // Its twin (owner answer 303a's build): the lane AskRigor's own plan gave a register_plain_answer call, beside its action.
+  it("shows register_plain_answer's lane beside its action, as it shows plan_research's decision", async () => {
+    const store = new InMemoryResearchCallRecordStore();
+    const at = new Date();
+    const row: ResearchCallRecordEntry = { accountKey: ownKey, receivedAt: at, tool: "manage_research_access",
+      action: "register_plain_answer", route: "/mcp", chatgpt: true, outcome: "answered", code: null, durationMs: 900,
+      planLane: "light" };
+    await store.record(row);
+    await store.record({ ...row, receivedAt: new Date(at.getTime() - 1_000), planLane: undefined });
+    const result = await createManageResearchAccessHandler({ service, callRecord: store })({ action: "list_calls" }, auth);
+    const calls = (result.structuredContent as { calls: Array<Record<string, unknown>> }).calls;
+    expect(calls.map(({ action, plan_lane }) => [action, plan_lane])).toEqual([["register_plain_answer", "light"],
+      ["register_plain_answer", undefined]]);
+    expect(calls[1]).not.toHaveProperty("plan_lane");
+    const lines = (result.content[0] as { text: string }).text.split("\n").slice(1);
+    expect(lines[0]).toContain(" UTC · manage_research_access (register_plain_answer: light) · answered · 0.9 s · ");
+    expect(lines[1]).toContain(" UTC · manage_research_access (register_plain_answer) · answered · ");
+  });
+
   // The review of 12 Nov 2026: 500 calls came to about 85 KB, more than Claude's clients take in; and Greptile's of the
   // same day: paging by position repeated a call, since each listing is itself recorded.
   it("shows the newest calls that fit one result, says where the next start, and pages through every call by time", async () => {

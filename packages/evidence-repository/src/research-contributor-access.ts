@@ -181,21 +181,62 @@ export type ResearchStyle = typeof RESEARCH_STYLES[number];
 export const ADJUSTMENT_DETAILS = ["flagged", "all"] as const;
 export type AdjustmentDetail = typeof ADJUSTMENT_DETAILS[number];
 export const CHECK_BACK_MINUTES = Object.freeze({ min: 1, max: 120 });
+/**
+ * learnMenuChoices is learn mode (owner answer 303a, 14 November 2026): off unless the person turns it on, and the
+ * connector lets only a dev account turn it on or off while AskRigor's own planning call is on. While it is on, the
+ * store keeps the account's own menu choices (recordMenuChoice); turning it off deletes them in the same write.
+ */
 export interface ResearchSteering {
   style: ResearchStyle;
   checkBackMinutes: number;
   adjustmentDetail: AdjustmentDetail;
+  learnMenuChoices: boolean;
 }
 export const DEFAULT_RESEARCH_STEERING: Readonly<ResearchSteering> = Object.freeze({
   style: "balanced",
   checkBackMinutes: 10,
   adjustmentDetail: "flagged",
+  learnMenuChoices: false,
 });
 export const researchSteeringSchema = z.object({
   style: z.enum(RESEARCH_STYLES),
   checkBackMinutes: z.number().int().min(CHECK_BACK_MINUTES.min).max(CHECK_BACK_MINUTES.max),
   adjustmentDetail: z.enum(ADJUSTMENT_DETAILS),
+  learnMenuChoices: z.boolean(),
 }).strict();
+
+/**
+ * Learn mode's record of one menu a person answered (owner answer 303a; migration 0035, research_menu_choices): its
+ * lane, whether the person left the allocation to the AI, and for each task of the menu, in order, its kind, what it
+ * could change, whether AskRigor recommended it and the minutes the person gave it (0 when none); and the person's
+ * reason in their own words, or null. Never a research target, a task's wording or an answer. The newest 20 of an
+ * account are kept, and only while its learn mode is on.
+ */
+export const MENU_CHOICES_KEPT = 20;
+// minutes: a task's minutes as the person gave them, summed when their allocation names it more than once: at most
+// the menu's 12 entries of 240 minutes each, so nothing the menu accepts is cut here.
+export const MENU_CHOICE_LIMITS = Object.freeze({ reason: 300, tasks: 12, minutes: 2_880 });
+export const MENU_CHOICE_LANES = ["research", "light"] as const;
+const menuChoiceTaskSchema = z.object({
+  // A task kind as the menu names it (apps/research-mcp's PLAN_TASK_KINDS); its words are never kept.
+  kind: z.string().regex(/^[a-z][a-z_]{0,39}$/u),
+  could_change: z.enum(["conclusion", "confidence", "detail"]),
+  recommended: z.boolean(),
+  minutes: z.number().min(0).max(MENU_CHOICE_LIMITS.minutes),
+}).strict();
+export const researchMenuChoiceInputSchema = z.object({
+  lane: z.enum(MENU_CHOICE_LANES).nullable(),
+  youDecide: z.boolean(),
+  tasks: z.array(menuChoiceTaskSchema).min(1).max(MENU_CHOICE_LIMITS.tasks),
+  reason: z.string().min(1).max(MENU_CHOICE_LIMITS.reason).nullable(),
+}).strict();
+export type ResearchMenuChoiceInput = z.output<typeof researchMenuChoiceInputSchema>;
+export type ResearchMenuChoiceTask = ResearchMenuChoiceInput["tasks"][number];
+/** A kept menu choice: what was chosen, and when AskRigor received it. */
+export interface ResearchMenuChoice extends ResearchMenuChoiceInput {
+  chosenAt: string;
+}
+const researchMenuChoiceSchema = researchMenuChoiceInputSchema.extend({ chosenAt: z.iso.datetime() }).strict();
 
 /** An account's research style, with the defaults for what it never set. */
 export function researchSteeringOf(account: Pick<ResearchUseAccountRecord, "researchSteering"> | null | undefined): ResearchSteering {
@@ -352,6 +393,15 @@ export interface ResearchContributorAccessStore {
    * part read the whole style, and the later write put back the part the other had changed).
    */
   setResearchSteering(accountKey: string, change: Partial<ResearchSteering>): Promise<ResearchSteering | undefined>;
+  /**
+   * Learn mode (owner answer 303a): keeps one menu choice and then deletes the account's choices beyond the newest
+   * MENU_CHOICES_KEPT, only while the account's learnMenuChoices is on, which the store reads in the same transaction
+   * and never takes from the caller. True when it was kept; false, and nothing written, when learn mode is off or the
+   * account has no row.
+   */
+  recordMenuChoice(accountKey: string, choice: ResearchMenuChoice): Promise<boolean>;
+  /** The account's newest MENU_CHOICES_KEPT menu choices, newest first; none while its learn mode is off. */
+  menuChoices(accountKey: string): Promise<ResearchMenuChoice[]>;
 }
 
 export interface ResearchContributorAccessServiceOptions {
@@ -693,8 +743,19 @@ export class ResearchContributorAccessService {
 
   /**
    * Changes an active account's research style (owner answer 279a): the parts given replace the stored ones, the others
-   * stay. Only the choice is stored. Returns the style as stored.
+   * stay. Only the choice is stored. Returns the style as stored. learnMenuChoices false also deletes the account's
+   * kept menu choices, in the same write (owner answer 303a); the connector decides who may change it.
    */
+  /**
+   * Turns learn mode off and deletes the account's kept menu choices (owner answer 303a), whatever the account's
+   * state: revoked access or an expired entitlement must not leave a person's choices and reasons on the server with
+   * no way to delete them (the review of 14 Nov 2026). Returns the research style as stored, or undefined for an
+   * account that has no row, where there was nothing to delete.
+   */
+  async forgetMenuChoices(subject: string): Promise<ResearchSteering | undefined> {
+    return this.store.setResearchSteering(this.accountKeyForSubject(subject), { learnMenuChoices: false });
+  }
+
   async setResearchSteering(subject: string, change: Partial<ResearchSteering>): Promise<ResearchSteering> {
     await this.requireActive(subject);
     // Only the parts given, each checked, go to the store, which changes them alone in one write: no read of the whole
@@ -709,6 +770,21 @@ export class ResearchContributorAccessService {
       );
     }
     return steering;
+  }
+
+  /**
+   * Learn mode (owner answer 303a): keeps one menu choice of an account the caller derived from a verified subject,
+   * with the time it was received; the store keeps it only while the account's learn mode is on, and keeps the newest
+   * MENU_CHOICES_KEPT. True when it was kept. The connector decides which accounts may get here at all (dev accounts).
+   */
+  async recordMenuChoice(accountKey: string, choice: ResearchMenuChoiceInput): Promise<boolean> {
+    const parsed = researchMenuChoiceInputSchema.parse(choice);
+    return await this.store.recordMenuChoice(accountKeyChecked(accountKey), { ...parsed, chosenAt: this.now() });
+  }
+
+  /** The account's kept menu choices, newest first, at most MENU_CHOICES_KEPT; none while its learn mode is off. */
+  async menuChoices(accountKey: string): Promise<ResearchMenuChoice[]> {
+    return await this.store.menuChoices(accountKeyChecked(accountKey));
   }
 
   /**
@@ -866,6 +942,8 @@ implements ResearchContributorAccessStore {
     string,
     ResearchContributionProposalRecord
   >();
+  /** Learn mode's kept menu choices by account, newest first (owner answer 303a). */
+  private readonly choices = new Map<string, ResearchMenuChoice[]>();
 
   async getAccount(accountKey: string): Promise<ResearchUseAccountRecord | null> {
     const record = this.accounts.get(accountKey);
@@ -905,14 +983,37 @@ implements ResearchContributorAccessStore {
     return true;
   }
 
-  // Read and written with no await between them, so no other change runs in between.
+  // Read and written with no await between them, so no other change runs in between. Learn mode turned off deletes the
+  // account's kept menu choices in the same step (owner answer 303a).
   async setResearchSteering(accountKey: string, change: Partial<ResearchSteering>): Promise<ResearchSteering | undefined> {
     const account = this.accounts.get(accountKey);
     if (account === undefined) return undefined;
     const steering = { ...researchSteeringOf(account),
       ...Object.fromEntries(Object.entries(change).filter(([, value]) => value !== undefined)) } as ResearchSteering;
     this.accounts.set(accountKey, { ...account, researchSteering: steering });
+    if (change.learnMenuChoices === false) this.choices.delete(accountKey);
     return { ...steering };
+  }
+
+  // As the Postgres store: learn mode is read here, never taken from the caller, and the newest 20 are kept.
+  async recordMenuChoice(accountKey: string, choice: ResearchMenuChoice): Promise<boolean> {
+    if (this.accounts.get(accountKey)?.researchSteering?.learnMenuChoices !== true) return false;
+    // The new choice first, so a sort that keeps ties in place puts it before an older one received at the same time.
+    const kept = [structuredClone(choice), ...this.choices.get(accountKey) ?? []]
+      .sort((left, right) => Date.parse(right.chosenAt) - Date.parse(left.chosenAt)).slice(0, MENU_CHOICES_KEPT);
+    this.choices.set(accountKey, kept);
+    return true;
+  }
+
+  async menuChoices(accountKey: string): Promise<ResearchMenuChoice[]> {
+    if (this.accounts.get(accountKey)?.researchSteering?.learnMenuChoices !== true) return [];
+    return structuredClone(this.choices.get(accountKey) ?? []);
+  }
+
+  /** Every account's kept menu choices, for tests: what the store holds whatever learn mode says. */
+  allMenuChoices(): Array<ResearchMenuChoice & { accountKey: string }> {
+    return [...this.choices].flatMap(([accountKey, choices]) =>
+      choices.map((choice) => ({ accountKey, ...structuredClone(choice) })));
   }
 
   /**
@@ -1076,7 +1177,7 @@ implements ResearchContributorAccessStore {
       `SELECT account_key, status, mode, notice_version, agreement_json,
               activated_at, revoked_at, created_at, updated_at,
               plain_answer_note, detailed_lesson_reports, findings_save, notice_accepted_by,
-              research_style, check_back_minutes, adjustment_detail
+              research_style, check_back_minutes, adjustment_detail, learn_menu_choices
          FROM ${this.schema}.research_use_accounts
         WHERE account_key = $1`,
       [accountKey],
@@ -1117,22 +1218,105 @@ implements ResearchContributorAccessStore {
     return result.rowCount !== 0;
   }
 
-  // saveAccount and revokeAccount leave the research style as it is: a new row takes the columns' defaults (0033). One
-  // statement changes the parts named and keeps the others as stored at that moment, so concurrent changes to different
-  // parts both stay.
+  // saveAccount and revokeAccount leave the research style as it is: a new row takes the columns' defaults (0033, 0035).
+  // One statement changes the parts named and keeps the others as stored at that moment, so concurrent changes to
+  // different parts both stay. Learn mode turned off also deletes the account's kept menu choices, in the same
+  // transaction (owner answer 303a): the update takes the account row's lock, which recordMenuChoice's check shares, so
+  // a choice is never kept after the switch went off.
   async setResearchSteering(accountKey: string, change: Partial<ResearchSteering>): Promise<ResearchSteering | undefined> {
-    const result = await this.pool.query<{ research_style: string; check_back_minutes: number; adjustment_detail: string }>(
-      `UPDATE ${this.schema}.research_use_accounts
+    const update = `UPDATE ${this.schema}.research_use_accounts
           SET research_style = COALESCE($2::text, research_style),
               check_back_minutes = COALESCE($3::integer, check_back_minutes),
-              adjustment_detail = COALESCE($4::text, adjustment_detail)
+              adjustment_detail = COALESCE($4::text, adjustment_detail),
+              learn_menu_choices = COALESCE($5::boolean, learn_menu_choices)
         WHERE account_key = $1
-        RETURNING research_style, check_back_minutes, adjustment_detail`,
-      [accountKey, change.style ?? null, change.checkBackMinutes ?? null, change.adjustmentDetail ?? null],
+        RETURNING research_style, check_back_minutes, adjustment_detail, learn_menu_choices`;
+    const values = [accountKey, change.style ?? null, change.checkBackMinutes ?? null, change.adjustmentDetail ?? null,
+      change.learnMenuChoices ?? null];
+    type Row = { research_style: string; check_back_minutes: number; adjustment_detail: string;
+      learn_menu_choices: boolean };
+    const steeringOf = (row: Row | undefined) => row === undefined ? undefined : researchSteeringSchema.parse({
+      style: row.research_style, checkBackMinutes: row.check_back_minutes, adjustmentDetail: row.adjustment_detail,
+      learnMenuChoices: row.learn_menu_choices });
+    if (change.learnMenuChoices !== false) return steeringOf((await this.pool.query<Row>(update, values)).rows[0]);
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const row = (await client.query<Row>(update, values)).rows[0];
+      if (row !== undefined) {
+        await client.query(`DELETE FROM ${this.schema}.research_menu_choices WHERE account_key = $1`, [accountKey]);
+      }
+      await client.query("COMMIT");
+      return steeringOf(row);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // The account row is locked for update in the same transaction, so learn mode is the stored one, never the
+  // caller's; a concurrent switch to off waits for this transaction and then deletes what it kept (above); and two
+  // answers kept at the same moment go one after the other, so the second sees the first's row when it prunes (a
+  // shared lock let both insert and neither prune: 21 rows; the review of 14 Nov 2026).
+  async recordMenuChoice(accountKey: string, choice: ResearchMenuChoice): Promise<boolean> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const on = await client.query(
+        `SELECT 1 FROM ${this.schema}.research_use_accounts
+          WHERE account_key = $1 AND learn_menu_choices
+          FOR UPDATE`,
+        [accountKey],
+      );
+      if (on.rowCount === 0) {
+        await client.query("COMMIT");
+        return false;
+      }
+      await client.query(
+        `INSERT INTO ${this.schema}.research_menu_choices (account_key, chosen_at, lane, you_decide, tasks, reason)
+         VALUES ($1, $2, $3, $4, $5::jsonb, $6)`,
+        [accountKey, choice.chosenAt, choice.lane, choice.youDecide, JSON.stringify(choice.tasks), choice.reason],
+      );
+      // The table has no key of its own, so a row beyond the newest MENU_CHOICES_KEPT is named by its physical place;
+      // of two received at the same instant the one written later counts as newer, as in the memory store.
+      await client.query(
+        `DELETE FROM ${this.schema}.research_menu_choices
+          WHERE account_key = $1
+            AND ctid IN (SELECT ctid FROM ${this.schema}.research_menu_choices
+                          WHERE account_key = $1
+                          ORDER BY chosen_at DESC, ctid DESC
+                         OFFSET $2)`,
+        [accountKey, MENU_CHOICES_KEPT],
+      );
+      await client.query("COMMIT");
+      return true;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async menuChoices(accountKey: string): Promise<ResearchMenuChoice[]> {
+    const result = await this.pool.query<{ chosen_at: Date | string; lane: string | null; you_decide: boolean;
+      tasks: unknown; reason: string | null }>(
+      `SELECT choice.chosen_at, choice.lane, choice.you_decide, choice.tasks, choice.reason
+         FROM ${this.schema}.research_menu_choices AS choice
+         JOIN ${this.schema}.research_use_accounts AS account ON account.account_key = choice.account_key
+        WHERE choice.account_key = $1 AND account.learn_menu_choices
+        ORDER BY choice.chosen_at DESC, choice.ctid DESC
+        LIMIT $2`,
+      [accountKey, MENU_CHOICES_KEPT],
     );
-    const row = result.rows[0];
-    return row === undefined ? undefined : researchSteeringSchema.parse({ style: row.research_style,
-      checkBackMinutes: row.check_back_minutes, adjustmentDetail: row.adjustment_detail });
+    // A row that does not read as recordMenuChoice writes it is left out, never guessed at.
+    return result.rows.flatMap((row) => {
+      const parsed = researchMenuChoiceSchema.safeParse({ chosenAt: timestamp(row.chosen_at), lane: row.lane,
+        youDecide: row.you_decide, tasks: row.tasks, reason: row.reason });
+      return parsed.success ? [parsed.data] : [];
+    });
   }
 
   // How the notice was accepted goes with the acceptance time, activated_at: migration 0031's trigger clears the pair
@@ -1362,6 +1546,7 @@ interface ResearchUseAccountRow {
   research_style: string;
   check_back_minutes: number;
   adjustment_detail: string;
+  learn_menu_choices: boolean;
 }
 
 const PROPOSAL_COLUMNS = `proposal_id, account_key, proposal_kind, payload_sha256,
@@ -1419,6 +1604,8 @@ function accountFromRow(row: ResearchUseAccountRow): ResearchUseAccountRecord {
       style: row.research_style,
       checkBackMinutes: row.check_back_minutes,
       adjustmentDetail: row.adjustment_detail,
+      // Only an explicit true turns learn mode on.
+      learnMenuChoices: row.learn_menu_choices === true,
     }),
   };
 }

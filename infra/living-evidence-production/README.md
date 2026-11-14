@@ -340,6 +340,19 @@ privacy page's call-record paragraph changes with it. Release: run the one-shot 
 writes the column serves; the access role's table grant already covers a new column, so no role is re-provisioned.
 An earlier image writes no decision (the column stays empty), so a rollback needs no step. Undo no migration.
 
+Owner answer 303a (14 November 2026; built, not yet released; its release waits for the owner's "303a" typed in chat):
+migration `0035_research_menu_learning` adds learn mode for dev accounts: the switch
+`research_use_accounts.learn_menu_choices` (false by default), the table `research_menu_choices` (a dev account's own
+menu choices and reasons, the newest 20, deleted when learn mode is turned off; revoked from PUBLIC and the canonical
+reader, as the call record is), and `research_call_record.plan_lane`, the lane AskRigor's own plan gave a
+`register_plain_answer` call, with a check that admits a value only on such a row. Release: run the one-shot admin
+`migrate`, then re-run `/usr/local/bin/provision-research-access-role` (the grant now names `learn_menu_choices` and
+the new table), before the image that uses them serves. An earlier image neither reads the table nor can turn learn
+mode off, so a rollback below this image empties the table and turns the switch off
+(`DELETE FROM living_evidence.research_menu_choices; UPDATE living_evidence.research_use_accounts SET
+learn_menu_choices = false WHERE learn_menu_choices;`) to keep the promise that what was kept can be deleted. Undo no
+migration.
+
 Owner answers 254a and 255a (2026-11-05; built, not yet released; plan
 `../../docs/superpowers/plans/2026-11-05-atlas-research-behind.md`): migration
 `0029_atlas_research_behind` admits `forum_read` among the verified bases of

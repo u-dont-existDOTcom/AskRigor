@@ -9,8 +9,11 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import {
   DEFAULT_RESEARCH_STEERING,
   InMemoryResearchContributorAccessStore,
+  MENU_CHOICES_KEPT,
+  PostgresResearchContributorAccessStore,
   RESEARCH_USE_NOTICE_VERSION,
   ResearchContributorAccessService,
+  type ResearchMenuChoiceInput,
   type ResearchSteering,
 } from "@askrigor/evidence-repository";
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type JWK } from "jose";
@@ -23,6 +26,10 @@ import {
   ASK_ABOVE_MINUTES,
   COULD_CHANGE,
   FORM_PEOPLE_USE,
+  LEARN_MODE_OFF,
+  LEARN_MODE_ON,
+  LEARN_MODE_REPLY,
+  LEARN_MODE_UNAVAILABLE,
   LIGHT_LANE_PLANNED,
   LIGHT_LOOKUP,
   MENU_PLACEHOLDERS,
@@ -48,9 +55,13 @@ import {
   asideGuidance,
   asideNextStep,
   choicePlaceholderWords,
+  cleanedReason,
   correctedMenu,
   framingGuidance,
   isLightLane,
+  learnModeInspectSentence,
+  learnModeLine,
+  menuChoiceOf,
   menuDigest,
   menuPreferenceLine,
   framingNextStep,
@@ -146,15 +157,17 @@ describe("the research style each account sets once (owner answer 279a)", () => 
     const service = new ResearchContributorAccessService({ store, identitySecret: Buffer.alloc(32, 3) });
     await service.acceptFreeContributor("auth0|a", agreement);
     expect((await service.activeAccount("auth0|a")).steering).toEqual(DEFAULT_RESEARCH_STEERING);
-    expect(DEFAULT_RESEARCH_STEERING).toEqual({ style: "balanced", checkBackMinutes: 10, adjustmentDetail: "flagged" });
+    // Learn mode (owner answer 303a) is part of the style, off by default.
+    expect(DEFAULT_RESEARCH_STEERING).toEqual({ style: "balanced", checkBackMinutes: 10, adjustmentDetail: "flagged",
+      learnMenuChoices: false });
     await expect(service.setResearchSteering("auth0|a", { style: "guided" })).resolves.toEqual(
-      { style: "guided", checkBackMinutes: 10, adjustmentDetail: "flagged" });
+      { style: "guided", checkBackMinutes: 10, adjustmentDetail: "flagged", learnMenuChoices: false });
     await expect(service.setResearchSteering("auth0|a", { checkBackMinutes: 25, adjustmentDetail: "all" })).resolves
-      .toEqual({ style: "guided", checkBackMinutes: 25, adjustmentDetail: "all" });
+      .toEqual({ style: "guided", checkBackMinutes: 25, adjustmentDetail: "all", learnMenuChoices: false });
     // Saving the account anew (accepting again) and revoking it keep the style; only its setter changes it.
     await service.acceptFreeContributor("auth0|a", agreement);
     expect((await service.activeAccount("auth0|a")).steering).toEqual(
-      { style: "guided", checkBackMinutes: 25, adjustmentDetail: "all" });
+      { style: "guided", checkBackMinutes: 25, adjustmentDetail: "all", learnMenuChoices: false });
     await service.revoke("auth0|a");
     await expect(service.setResearchSteering("auth0|a", { style: "autonomous" })).rejects.toThrow();
     await expect(service.setResearchSteering("auth0|new", { style: "autonomous" })).rejects.toThrow();
@@ -181,7 +194,8 @@ describe("the research style each account sets once (owner answer 279a)", () => 
     expect(first.style).toBe("guided");
     expect(second.checkBackMinutes).toBe(25);
     const account = await service.activeAccount("auth0|two-chats");
-    expect(account.steering).toEqual({ style: "guided", checkBackMinutes: 25, adjustmentDetail: "all" });
+    expect(account.steering).toEqual({ style: "guided", checkBackMinutes: 25, adjustmentDetail: "all",
+      learnMenuChoices: false });
     expect(account).toMatchObject({ plainAnswerNote: false, detailedLessonReports: true, findingsSave: false });
   });
 
@@ -772,9 +786,13 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     // 2026) and, since owner answer 297c, in the shape it is given at the screen (below). So the screen's words are
     // every other account's as they were.
     // lane is set by AskRigor's own plan alone and is never taught to the AI (owner answer 302, 14 Nov 2026).
+    // person_reason is asked for only on a dev account while the planning call is on, beside its ask's rule (owner
+    // answer 303a, 14 Nov 2026), so every account's screen is as it was.
     const fields = [...Object.keys(researchMenuSchema.shape).filter((key) => key !== "allocation" && key !== "done" &&
-      key !== "person_answered" && key !== "steering_choice" && key !== "lane"), ...Object.keys(planTaskSchema.shape)];
+      key !== "person_answered" && key !== "steering_choice" && key !== "lane" && key !== "person_reason"),
+    ...Object.keys(planTaskSchema.shape)];
     expect(RESEARCH_MENU_SHAPE).not.toMatch(/\blane\b/u);
+    expect(RESEARCH_MENU_SHAPE).not.toContain("person_reason");
     for (const name of [...fields, ...PLAN_TASK_KINDS, ...COULD_CHANGE, ...RESEARCH_LOOPS]) {
       expect(RESEARCH_MENU_SHAPE, name).toMatch(new RegExp(`\\b${name}\\b`, "u"));
     }
@@ -2759,5 +2777,326 @@ describe("the light lane and the step aside of AskRigor's own plan (owner answer
       expect(planned.structuredContent, surface).not.toHaveProperty("researchMenu.say_reading_first");
       expect(planned.content[0]!.text.endsWith(` ${LIGHT_LOOKUP}`), surface).toBe(true);
     }
+  });
+});
+
+// Owner answer 303a (14 Nov 2026): learn mode, a dev account's own menu choices and reasons, the newest 20, while it is
+// on. The connector's side (dev accounts only, while the planning call is on) is in tests/research-planner.test.ts.
+const CHOICE: ResearchMenuChoiceInput = { lane: "research", youDecide: false, reason: "I only care about trials.",
+  tasks: [{ kind: "full_text", could_change: "conclusion", recommended: true, minutes: 4 },
+    { kind: "forum_thread", could_change: "detail", recommended: false, minutes: 0 }] };
+
+describe("learn mode in the store (owner answer 303a)", () => {
+  it("is off by default, set and read back, kept by saving and revoking, and keeps nothing while off", async () => {
+    let clock = Date.parse("2026-11-14T10:00:00.000Z");
+    const store = new InMemoryResearchContributorAccessStore();
+    const service = new ResearchContributorAccessService({ store, identitySecret: Buffer.alloc(32, 9),
+      now: () => new Date(clock).toISOString() });
+    await service.acceptFreeContributor("auth0|learner", agreement);
+    const key = service.accountKeyForSubject("auth0|learner");
+    expect((await service.activeAccount("auth0|learner")).steering.learnMenuChoices).toBe(false);
+    // Off: nothing is kept, and nothing is read back.
+    expect(await service.recordMenuChoice(key, CHOICE)).toBe(false);
+    expect(await service.menuChoices(key)).toEqual([]);
+    expect(store.allMenuChoices()).toEqual([]);
+    // On, with the other parts of the style as they were.
+    await expect(service.setResearchSteering("auth0|learner", { learnMenuChoices: true })).resolves.toEqual(
+      { ...DEFAULT_RESEARCH_STEERING, learnMenuChoices: true });
+    expect(await service.recordMenuChoice(key, CHOICE)).toBe(true);
+    expect(await service.menuChoices(key)).toEqual([{ ...CHOICE, chosenAt: "2026-11-14T10:00:00.000Z" }]);
+    // Saving the account anew and revoking it keep the switch, as they keep the style; only its setter changes it.
+    await service.acceptFreeContributor("auth0|learner", agreement);
+    expect((await service.activeAccount("auth0|learner")).steering.learnMenuChoices).toBe(true);
+    // Another account's choices are its own.
+    await service.acceptFreeContributor("auth0|other", agreement);
+    const other = service.accountKeyForSubject("auth0|other");
+    expect(await service.recordMenuChoice(other, CHOICE)).toBe(false);
+    expect(await service.menuChoices(other)).toEqual([]);
+    // The newest 20, newest first, whatever order they arrive in.
+    for (let index = 1; index <= MENU_CHOICES_KEPT + 4; index += 1) {
+      clock = Date.parse("2026-11-14T10:00:00.000Z") + index * 60_000;
+      expect(await service.recordMenuChoice(key, { ...CHOICE, reason: `reason ${index}` })).toBe(true);
+    }
+    clock = Date.parse("2026-11-14T09:00:00.000Z");
+    expect(await service.recordMenuChoice(key, { ...CHOICE, reason: "an older one" })).toBe(true);
+    const kept = await service.menuChoices(key);
+    expect(MENU_CHOICES_KEPT).toBe(20);
+    expect(kept).toHaveLength(20);
+    expect(kept.map(({ reason }) => reason)).toEqual(Array.from({ length: 20 }, (_, index) => `reason ${24 - index}`));
+    expect(store.allMenuChoices()).toHaveLength(20);
+    // A choice that is not one is refused before the store, and keeps nothing.
+    for (const bad of [{ ...CHOICE, reason: "x".repeat(301) }, { ...CHOICE, reason: "" }, { ...CHOICE, tasks: [] },
+      { ...CHOICE, lane: "aside" }, { ...CHOICE, tasks: [{ ...CHOICE.tasks[0]!, task: "words" }] }]) {
+      await expect(service.recordMenuChoice(key, bad as ResearchMenuChoiceInput)).rejects.toThrow();
+    }
+    expect(store.allMenuChoices()).toHaveLength(20);
+    // Off deletes every one of them, in the same step, and a style change alone deletes nothing.
+    await service.setResearchSteering("auth0|learner", { style: "guided" });
+    expect(await service.menuChoices(key)).toHaveLength(20);
+    await expect(service.setResearchSteering("auth0|learner", { learnMenuChoices: false })).resolves.toMatchObject(
+      { style: "guided", learnMenuChoices: false });
+    expect(store.allMenuChoices()).toEqual([]);
+    expect(await service.menuChoices(key)).toEqual([]);
+    expect(await service.recordMenuChoice(key, CHOICE)).toBe(false);
+    // Turned on again, it starts from nothing.
+    await service.setResearchSteering("auth0|learner", { learnMenuChoices: true });
+    expect(await service.menuChoices(key)).toEqual([]);
+    // Revoked, the switch stays as it was, as the style does, and an unknown account keeps nothing.
+    await service.revoke("auth0|learner");
+    expect((await store.getAccount(key))?.researchSteering?.learnMenuChoices).toBe(true);
+    expect(await service.recordMenuChoice(service.accountKeyForSubject("auth0|never"), CHOICE)).toBe(false);
+    await expect(service.recordMenuChoice("not-a-key", CHOICE)).rejects.toThrow();
+  });
+
+  // No test reaches a database: the Postgres store gets a pool that answers from memory and keeps each statement, so
+  // what is checked is the statements and their order. scripts/research-contributor-access-postgres-acceptance.mts runs
+  // the same methods on a real PostgreSQL.
+  function postgresStore(answer: (sql: string, values: readonly unknown[]) => unknown[] = () => []) {
+    const statements: Array<{ via: "pool" | "client"; sql: string; values: readonly unknown[] }> = [];
+    let released = 0;
+    const query = (via: "pool" | "client") => async (sql: string, values: readonly unknown[] = []) => {
+      const text = sql.replace(/\s+/gu, " ").trim();
+      statements.push({ via, sql: text, values });
+      if (text.includes("INSERT INTO living_evidence.research_menu_choices") && values[5] === "fail") {
+        throw new Error("synthetic insert failure");
+      }
+      const rows = answer(text, values);
+      return { rows, rowCount: rows.length };
+    };
+    const store = new PostgresResearchContributorAccessStore({
+      connectionString: "postgres://synthetic@127.0.0.1:9/synthetic", schema: "living_evidence" });
+    const real = (store as unknown as { pool: { end: () => Promise<void> } }).pool;
+    void real.end();
+    Object.assign(store as unknown as Record<string, unknown>, { pool: { query: query("pool"),
+      connect: async () => ({ query: query("client"), release: () => { released += 1; } }) } });
+    return { store, statements, released: () => released };
+  }
+  const KEY = "a".repeat(64);
+  const STEERING_ROW = { research_style: "guided", check_back_minutes: 10, adjustment_detail: "flagged" };
+
+  it("reads and sets the switch in the Postgres store, and deletes the choices in the same transaction as off", async () => {
+    const accountRow = { account_key: KEY, status: "ACTIVE", mode: "PAID_PRIVATE", notice_version: null,
+      agreement_json: {}, activated_at: "2026-11-14T10:00:00.000Z", revoked_at: null,
+      created_at: "2026-11-14T10:00:00.000Z", updated_at: "2026-11-14T10:00:00.000Z", plain_answer_note: true,
+      detailed_lesson_reports: false, findings_save: true, notice_accepted_by: null, research_style: "balanced",
+      check_back_minutes: 10, adjustment_detail: "flagged" };
+    for (const [stored, read] of [[true, true], [false, false], [null, false]] as const) {
+      const { store, statements } = postgresStore(() => [{ ...accountRow, learn_menu_choices: stored }]);
+      expect((await store.getAccount(KEY))?.researchSteering).toEqual({ style: "balanced", checkBackMinutes: 10,
+        adjustmentDetail: "flagged", learnMenuChoices: read });
+      expect(statements[0]!.sql).toContain("adjustment_detail, learn_menu_choices FROM living_evidence.research_use_accounts");
+    }
+    // A style change alone, and turning learn mode on: one statement, no transaction, nothing deleted.
+    for (const [change, value] of [[{ style: "guided" }, null], [{ learnMenuChoices: true }, true]] as const) {
+      const { store, statements, released } = postgresStore(() => [{ ...STEERING_ROW, learn_menu_choices: value === true }]);
+      await expect(store.setResearchSteering(KEY, change)).resolves.toEqual({ style: "guided", checkBackMinutes: 10,
+        adjustmentDetail: "flagged", learnMenuChoices: value === true });
+      expect(statements.map(({ via }) => via)).toEqual(["pool"]);
+      expect(statements[0]!.sql).toContain("learn_menu_choices = COALESCE($5::boolean, learn_menu_choices)");
+      expect(statements[0]!.values[4]).toBe(value);
+      expect(released()).toBe(0);
+    }
+    // Off: the switch and the deletion in one transaction, on one connection, released after.
+    const off = postgresStore((sql) => sql.startsWith("UPDATE") ? [{ ...STEERING_ROW, learn_menu_choices: false }] : []);
+    await expect(off.store.setResearchSteering(KEY, { learnMenuChoices: false, checkBackMinutes: 30 })).resolves
+      .toMatchObject({ learnMenuChoices: false });
+    expect(off.statements.map(({ via, sql }) => `${via}: ${sql.slice(0, 40)}`)).toEqual([
+      "client: BEGIN", "client: UPDATE living_evidence.research_use_acco",
+      "client: DELETE FROM living_evidence.research_men",
+      "client: COMMIT"]);
+    expect(off.statements[1]!.values).toEqual([KEY, null, 30, null, false]);
+    expect(off.statements[2]).toEqual({ via: "client",
+      sql: "DELETE FROM living_evidence.research_menu_choices WHERE account_key = $1", values: [KEY] });
+    expect(off.released()).toBe(1);
+    // No such account: nothing to delete, and no style.
+    const none = postgresStore();
+    await expect(none.store.setResearchSteering(KEY, { learnMenuChoices: false })).resolves.toBeUndefined();
+    expect(none.statements.map(({ sql }) => sql.slice(0, 6))).toEqual(["BEGIN", "UPDATE", "COMMIT"]);
+  });
+
+  it("keeps a choice in the Postgres store only when the stored switch is on, then the newest 20, and reads them back",
+    async () => {
+      const choice = { ...CHOICE, chosenAt: "2026-11-14T10:00:00.000Z" };
+      const on = postgresStore((sql) => sql.startsWith("SELECT 1") ? [{ "?column?": 1 }] : []);
+      expect(await on.store.recordMenuChoice(KEY, choice)).toBe(true);
+      expect(on.statements.map(({ via, sql }) => `${via}: ${sql.slice(0, 50)}`)).toEqual([
+        "client: BEGIN",
+        "client: SELECT 1 FROM living_evidence.research_use_account",
+        "client: INSERT INTO living_evidence.research_menu_choices ",
+        "client: DELETE FROM living_evidence.research_menu_choices ",
+        "client: COMMIT"]);
+      // The switch is read in the same transaction, with the row's shared lock, never taken from the caller.
+      expect(on.statements[1]!.sql).toBe("SELECT 1 FROM living_evidence.research_use_accounts WHERE account_key = $1 " +
+        "AND learn_menu_choices FOR UPDATE");
+      expect(on.statements[2]!.values).toEqual([KEY, choice.chosenAt, "research", false, JSON.stringify(CHOICE.tasks),
+        CHOICE.reason]);
+      expect(on.statements[3]!.sql).toContain("ORDER BY chosen_at DESC, ctid DESC OFFSET $2)");
+      expect(on.statements[3]!.values).toEqual([KEY, 20]);
+      expect(on.released()).toBe(1);
+      // Off, or no such account: nothing is written.
+      const off = postgresStore();
+      expect(await off.store.recordMenuChoice(KEY, choice)).toBe(false);
+      expect(off.statements.map(({ sql }) => sql.slice(0, 9))).toEqual(["BEGIN", "SELECT 1 ", "COMMIT"]);
+      // A failed write is rolled back and thrown to the caller, which logs its class only.
+      const failing = postgresStore((sql) => sql.startsWith("SELECT 1") ? [{ "?column?": 1 }] : []);
+      await expect(failing.store.recordMenuChoice(KEY, { ...choice, reason: "fail" })).rejects.toThrow();
+      expect(failing.statements.at(-1)!.sql).toBe("ROLLBACK");
+      expect(failing.released()).toBe(1);
+      // Read back: newest first, at most 20, only while the stored switch is on; a row that is not one is left out.
+      const read = postgresStore(() => [
+        { chosen_at: new Date("2026-11-14T11:00:00.000Z"), lane: "light", you_decide: true, reason: null,
+          tasks: [{ kind: "full_text", could_change: "conclusion", recommended: true, minutes: 3 }] },
+        { chosen_at: "2026-11-14T10:00:00.000Z", lane: "research", you_decide: false, reason: "x",
+          tasks: [{ kind: "full_text", could_change: "conclusion", recommended: true, minutes: 3, task: "words" }] },
+      ]);
+      expect(await read.store.menuChoices(KEY)).toEqual([{ chosenAt: "2026-11-14T11:00:00.000Z", lane: "light",
+        youDecide: true, reason: null, tasks: [{ kind: "full_text", could_change: "conclusion", recommended: true,
+          minutes: 3 }] }]);
+      expect(read.statements[0]!.sql).toContain("JOIN living_evidence.research_use_accounts AS account ON " +
+        "account.account_key = choice.account_key WHERE choice.account_key = $1 AND account.learn_menu_choices " +
+        "ORDER BY choice.chosen_at DESC, choice.ctid DESC LIMIT $2");
+      expect(read.statements[0]!.values).toEqual([KEY, 20]);
+    });
+});
+
+describe("learn mode's words and record (owner answer 303a)", () => {
+  it("words the menu's line, the rule and set_research_steering's texts exactly as the brief gives them", () => {
+    expect(learnModeLine(false)).toBe("Say \"learn mode on\" and I'll remember your choices on these menus, and your " +
+      "reasons, to plan better next time. It is off now.");
+    expect(learnModeLine(true)).toBe("Learn mode is on: I remember your choices on these menus, and your reasons. Say " +
+      "\"learn mode off\" to stop and delete them.");
+    expect(LEARN_MODE_REPLY).toBe("If the reply turns learn mode on or off, set it with action set_research_steering " +
+      "(later_inputs.researchSteering.learnMenuChoices true or false), then call plan_research again. When the person " +
+      "says why they chose as they did, give their reason, word for word and at most 300 characters, as person_reason " +
+      "in later_inputs.researchMenu with their allocation.");
+    expect(LEARN_MODE_ON).toBe("Learn mode is on: AskRigor now keeps this account's menu choices (which tasks, how " +
+      "many minutes, and the person's reason when they give one, in their own words, the last 20) and gives them to " +
+      "its own planning call. Say \"learn mode off\" to stop and delete them.");
+    expect(LEARN_MODE_OFF).toBe("Learn mode is off, and what was kept of this account's menu choices is deleted.");
+    expect(LEARN_MODE_UNAVAILABLE).toBe("Learn mode is being tried on AskRigor's own test accounts only; nothing was " +
+      "kept or changed.");
+    expect(learnModeInspectSentence(true, 3)).toContain("AskRigor keeps 3 of its menu choices (the newest 20 at most");
+    expect(learnModeInspectSentence(true, undefined)).toContain("AskRigor keeps its menu choices");
+    expect(learnModeInspectSentence(false, 0)).toContain("Learn mode is off for this account");
+  });
+
+  it("adds the line after the styles' line and the rule beside STYLE_REPLY only when asked to, and nothing else", () => {
+    const result = planResearch(menu(), DEFAULT_RESEARCH_STEERING);
+    expect(result.next).toBe("ask");
+    const before = planResearchText(result, new Set(), false, TARGET);
+    for (const on of [false, true]) {
+      const text = planResearchText(result, new Set(), false, TARGET, undefined, [], on);
+      // The line right after the styles' line, and the rule right after STYLE_REPLY; every other word as it was.
+      expect(text).toContain(`${menuPreferenceLine("balanced")}\n${learnModeLine(on)}\n`);
+      expect(text).toContain(`${STYLE_REPLY} ${LEARN_MODE_REPLY}`);
+      expect(text.replace(`\n${learnModeLine(on)}`, "").replace(` ${LEARN_MODE_REPLY}`, "")).toBe(before);
+      const step = planNextStep(result, on);
+      expect(step).toContain(`(theirs is balanced now), and after it this line, in their language: ${learnModeLine(on)} ` +
+        "Make no research call");
+      expect(step.endsWith(`${STYLE_REPLY} ${LEARN_MODE_REPLY}`)).toBe(true);
+      expect(step.replace(`, and after it this line, in their language: ${learnModeLine(on)}`, ".")
+        .replace(` ${LEARN_MODE_REPLY}`, "")).toBe(planNextStep(result));
+    }
+    // Without it, the words are every account's, byte for byte.
+    expect(before).not.toContain("learn mode");
+    expect(planNextStep(result)).not.toContain("learn mode");
+    // A menu that goes on has no ask, so it gets neither.
+    const goes = planResearch(menu({ allocation: [{ task: 1, minutes: 2 }], person_answered: true }),
+      DEFAULT_RESEARCH_STEERING);
+    expect(goes.next).toBe("go_on");
+    expect(planResearchText(goes, new Set(), true, TARGET, undefined, [], true))
+      .toBe(planResearchText(goes, new Set(), true, TARGET));
+    expect(planNextStep(goes, true)).toBe(planNextStep(goes));
+  });
+
+  it("records a menu only from a call that carries the person's answer, and tells \"you decide\" by the recommendation",
+    () => {
+      // menu(): AskRigor recommends 1 (2 min), 2 (3 min) and 4 (2 min); 3 adds detail only.
+      expect(planResearch(menu(), DEFAULT_RESEARCH_STEERING).recommended)
+        .toEqual([{ task: 1, minutes: 2 }, { task: 2, minutes: 3 }, { task: 4, minutes: 2 }]);
+      expect(menuChoiceOf(menu(), DEFAULT_RESEARCH_STEERING, null)).toBeUndefined();
+      // An allocation without person_answered true, or one naming no open task, is not an answer.
+      for (const unanswered of [{ allocation: [{ task: 1, minutes: 2 }] },
+        { allocation: [{ task: 1, minutes: 2 }], person_answered: false },
+        { allocation: [{ task: 9, minutes: 2 }], person_answered: true },
+        { allocation: [{ task: 1, minutes: 2 }], person_answered: true, done: [1] }]) {
+        expect(menuChoiceOf(menu(unanswered), DEFAULT_RESEARCH_STEERING, null), JSON.stringify(unanswered)).toBeUndefined();
+      }
+      // The "you decide" call: the recommendation itself, in any order.
+      const youDecide = youDecideLaterInputs(menu(), planResearch(menu(), DEFAULT_RESEARCH_STEERING))!.researchMenu;
+      const handedOver = menu({ allocation: youDecide.allocation, person_answered: true });
+      expect(menuChoiceOf(handedOver, DEFAULT_RESEARCH_STEERING, null)).toEqual({ lane: "research", youDecide: true,
+        reason: null, tasks: [
+          { kind: "full_text", could_change: "conclusion", recommended: true, minutes: 2 },
+          { kind: "study_search", could_change: "confidence", recommended: true, minutes: 3 },
+          { kind: "forum_thread", could_change: "detail", recommended: false, minutes: 0 },
+          { kind: "study_search", could_change: "confidence", recommended: true, minutes: 2 },
+        ] });
+      expect(menuChoiceOf(menu({ allocation: [...youDecide.allocation!].reverse(), person_answered: true }),
+        DEFAULT_RESEARCH_STEERING, null)?.youDecide).toBe(true);
+      // The person's own allocation: the minutes they gave, the detail task included, a done one and 0 minutes left at 0.
+      const own = menuChoiceOf(menu({ allocation: [{ task: 1, minutes: 1.5 }, { task: 3, minutes: 4 },
+        { task: 2, minutes: 0 }, { task: 4, minutes: 2 }], person_answered: true, done: [4] }),
+      DEFAULT_RESEARCH_STEERING, "Trials matter most to me.")!;
+      expect(own).toMatchObject({ youDecide: false, reason: "Trials matter most to me." });
+      expect(own.tasks.map(({ minutes }) => minutes)).toEqual([1.5, 0, 4, 0]);
+      expect(own.tasks.map(({ recommended }) => recommended)).toEqual([true, true, false, false]);
+      // A light menu keeps its lane; and nothing of a task's words is in the record.
+      const light = menuChoiceOf(menu({ tasks: [TASKS[0]!], lane: "light", allocation: [{ task: 1, minutes: 3 }],
+        person_answered: true }), DEFAULT_RESEARCH_STEERING, null)!;
+      expect(light).toMatchObject({ lane: "light", youDecide: false });
+      expect(JSON.stringify(own)).not.toMatch(/cohort|potassium|forum threads|cramps/u);
+    });
+
+  it("keeps summed minutes uncut, and tells \"you decide\" when a recommended task's estimate rounds to zero", () => {
+    // A task named twice in the allocation gets the sum the plan accepted, not a cut one (the review of 14 Nov 2026).
+    const twice = menuChoiceOf(menu({ allocation: [{ task: 1, minutes: 200 }, { task: 1, minutes: 200 }],
+      person_answered: true }), DEFAULT_RESEARCH_STEERING, null)!;
+    expect(twice.tasks[0]!.minutes).toBe(400);
+    // A recommended task whose own estimate is zero is handed over with 0 minutes, and the answered plan leaves it
+    // out: the call is still "you decide".
+    const zero = menu({ tasks: [{ ...TASKS[0]!, minutes: [0, 0] }, TASKS[1]!] });
+    const handed = youDecideLaterInputs(zero, planResearch(zero, DEFAULT_RESEARCH_STEERING))!.researchMenu;
+    expect(handed.allocation).toContainEqual({ task: 1, minutes: 0 });
+    const choice = menuChoiceOf(menu({ tasks: zero.tasks, allocation: handed.allocation, person_answered: true }),
+      DEFAULT_RESEARCH_STEERING, null)!;
+    expect(choice.youDecide).toBe(true);
+    expect(choice.tasks.map(({ recommended, minutes }) => [recommended, minutes])).toEqual([[true, 0], [true, 3]]);
+    // The same menu with other minutes for the timed task is the person's own choice.
+    expect(menuChoiceOf(menu({ tasks: zero.tasks, allocation: [{ task: 2, minutes: 9 }], person_answered: true }),
+      DEFAULT_RESEARCH_STEERING, null)!.youDecide).toBe(false);
+  });
+
+  it("carries person_reason through the helpers that read, copy or correct a menu, and not in its digest", () => {
+    const reason = "  I trust trials more than forums.  ";
+    // The menu takes any value there, as it took an unknown field before: a reason that is too long, empty or not a
+    // text never refuses a menu (the review of 14 Nov 2026). It is cleaned where it is used.
+    expect(researchMenuSchema.parse(menu({ person_reason: reason })).person_reason).toBe(reason);
+    for (const value of ["x".repeat(300), "x".repeat(301), "   ", 5, null, ["a"]]) {
+      expect(researchMenuSchema.safeParse(menu({ person_reason: value })).success, JSON.stringify(value)).toBe(true);
+    }
+    expect(cleanedReason(reason)).toBe(reason.trim());
+    expect(cleanedReason("a\u0000b\n c\u200b")).toBe("a b c");
+    expect(cleanedReason("x".repeat(301))).toBe(`${"x".repeat(299)}…`);
+    for (const value of ["   ", "", 5, null, undefined, ["a"], "my key is sk-ant-api03-abc"]) {
+      expect(cleanedReason(value), JSON.stringify(value)).toBeUndefined();
+    }
+    // Read in its own name from another case form, and kept by the refusal's example and the "you decide" copy.
+    const read = readResearchMenu({ researchMenu: { research_target: TARGET, tasks: TASKS, personReason: reason } });
+    expect((read.menu as Record<string, unknown>).person_reason).toBe(reason);
+    expect(read.ignored).toEqual([]);
+    // A refusal's example and the "you decide" copy carry it cleaned and cut, never as raw text; one that is no
+    // reason, or looks like a key, is left out.
+    expect(correctedMenu({ ...menu(), person_reason: reason }).researchMenu.person_reason).toBe(reason.trim());
+    expect(correctedMenu({ ...menu(), person_reason: "x".repeat(301) }).researchMenu.person_reason)
+      .toBe(`${"x".repeat(299)}…`);
+    for (const value of ["sk-ant-api03-example", 5, "  "]) {
+      expect(correctedMenu({ ...menu(), person_reason: value }).researchMenu).not.toHaveProperty("person_reason");
+    }
+    const parsed = researchMenuSchema.parse(menu({ person_reason: reason }));
+    const copy = youDecideLaterInputs(parsed, planResearch(parsed, DEFAULT_RESEARCH_STEERING))!;
+    expect(copy.researchMenu.person_reason).toBe(reason.trim());
+    expect(youDecideLaterInputsSchema.safeParse(copy).success).toBe(true);
+    expect(menuDigest(parsed.tasks, SECRET)).toBe(menuDigest(menu().tasks, SECRET));
   });
 });

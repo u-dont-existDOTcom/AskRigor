@@ -5,6 +5,9 @@ export const RESEARCH_CALL_RECORD_RETENTION_MS = RESEARCH_CALL_RECORD_RETENTION_
 
 export const RESEARCH_PLAN_DECISIONS = ["ask", "go_on"] as const;
 export type ResearchPlanDecision = (typeof RESEARCH_PLAN_DECISIONS)[number];
+/** The lanes AskRigor's own plan gives a question (owner answer 302), as register_plain_answer's result names them. */
+export const RESEARCH_PLAN_LANES = ["research", "light", "aside"] as const;
+export type ResearchPlanLane = (typeof RESEARCH_PLAN_LANES)[number];
 
 export interface ResearchCallRecordEntry {
   accountKey: string;
@@ -21,6 +24,12 @@ export interface ResearchCallRecordEntry {
    * AskRigor's own result made (researchMenu.next), never anything the person or the AI wrote; absent otherwise.
    */
   planNext?: ResearchPlanDecision;
+  /**
+   * planNext's twin (migration 0035): for an answered manage_research_access call with action register_plain_answer
+   * only, the lane AskRigor's own plan gave it (research_plan.lane), never anything the person or the AI wrote; absent
+   * otherwise, and absent when AskRigor's own plan was not made.
+   */
+  planLane?: ResearchPlanLane;
 }
 
 export interface ResearchCallRecordStore {
@@ -44,13 +53,21 @@ function planNextOf(entry: ResearchCallRecordEntry): ResearchPlanDecision | unde
     RESEARCH_PLAN_DECISIONS.includes(entry.planNext as ResearchPlanDecision) ? entry.planNext : undefined;
 }
 
+/** The lane kept only on a register_plain_answer row, and only as one of its three fixed values, as planNextOf. */
+function planLaneOf(entry: ResearchCallRecordEntry): ResearchPlanLane | undefined {
+  return entry.tool === "manage_research_access" && entry.action === "register_plain_answer" &&
+    RESEARCH_PLAN_LANES.includes(entry.planLane as ResearchPlanLane) ? entry.planLane : undefined;
+}
+
 /** Copy only the disclosed fields, including when a caller supplies an object with extra properties. */
 function copy(entry: ResearchCallRecordEntry): ResearchCallRecordEntry {
   const planNext = planNextOf(entry);
+  const planLane = planLaneOf(entry);
   return {
     accountKey: entry.accountKey, receivedAt: new Date(entry.receivedAt), tool: entry.tool,
     action: entry.action, route: entry.route, chatgpt: entry.chatgpt, outcome: entry.outcome,
     code: entry.code, durationMs: entry.durationMs, ...(planNext === undefined ? {} : { planNext }),
+    ...(planLane === undefined ? {} : { planLane }),
   };
 }
 
@@ -91,10 +108,10 @@ export class PostgresResearchCallRecordStore implements ResearchCallRecordStore 
     await this.pool.query(`DELETE FROM ${this.table} WHERE account_key = $1 AND received_at < $2`,
       [entry.accountKey, cutoff(entry.receivedAt)]);
     await this.pool.query(`INSERT INTO ${this.table}
-      (account_key, received_at, tool, action, route, chatgpt, outcome, code, duration_ms, plan_next)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      (account_key, received_at, tool, action, route, chatgpt, outcome, code, duration_ms, plan_next, plan_lane)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
     [entry.accountKey, entry.receivedAt, entry.tool, entry.action, entry.route, entry.chatgpt,
-      entry.outcome, entry.code, entry.durationMs, planNextOf(entry) ?? null]);
+      entry.outcome, entry.code, entry.durationMs, planNextOf(entry) ?? null, planLaneOf(entry) ?? null]);
   }
 
   async list(accountKey: string, now: Date, before?: Date): Promise<ResearchCallRecordEntry[]> {
@@ -102,13 +119,15 @@ export class PostgresResearchCallRecordStore implements ResearchCallRecordStore 
       account_key: string; received_at: Date; tool: string; action: string | null;
       route: ResearchCallRecordEntry["route"]; chatgpt: boolean; outcome: ResearchCallRecordEntry["outcome"];
       code: string | null; duration_ms: number; plan_next: ResearchPlanDecision | null;
-    }>(`SELECT account_key, received_at, tool, action, route, chatgpt, outcome, code, duration_ms, plan_next
+      plan_lane: ResearchPlanLane | null;
+    }>(`SELECT account_key, received_at, tool, action, route, chatgpt, outcome, code, duration_ms, plan_next, plan_lane
       FROM ${this.table} WHERE account_key = $1 AND received_at > $2 AND ($3::timestamptz IS NULL OR received_at < $3)
       ORDER BY received_at DESC LIMIT 500`,
     [accountKey, cutoff(now), before ?? null]);
     return result.rows.map((row) => ({ accountKey: row.account_key, receivedAt: row.received_at,
       tool: row.tool, action: row.action, route: row.route, chatgpt: row.chatgpt, outcome: row.outcome,
-      code: row.code, durationMs: row.duration_ms, ...(row.plan_next === null ? {} : { planNext: row.plan_next }) }));
+      code: row.code, durationMs: row.duration_ms, ...(row.plan_next === null ? {} : { planNext: row.plan_next }),
+      ...(row.plan_lane === null ? {} : { planLane: row.plan_lane }) }));
   }
 
   async sweep(now: Date): Promise<number> {
