@@ -246,6 +246,9 @@ const LATER_INPUT_SHAPES = Object.freeze({
       .describe("With list_calls: before, the UTC time a previous result's calls_page.next_before gave, for the calls " +
         "received before it, and limit, at most how many to show; a result shows as many as fit and says where the " +
         "next ones start."),
+    // The owner, 14 Nov 2026: one of the owner's pointers, by the id a registration's result lists.
+    ownerPointer: z.string().trim().regex(/^[A-Za-z0-9][A-Za-z0-9-]{0,63}$/u).optional()
+      .describe("With owner_pointer: the pointer's id, as register_plain_answer's askrigor_holds lists it."),
   },
   review_research_contribution: {
     sharedAnswerId: sharedAnswerIdSchema.optional()

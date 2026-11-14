@@ -575,7 +575,7 @@ release waits for the owner's "303a" typed in chat. It is for dev accounts only,
   first is decided as before, and only the plan the history informs can change. Other accounts. A time limit on
   what is kept: the newest 20 stay until learn mode is turned off.
 
-#### A follow-up that says to go on (owner answer 304a, 14 November 2026; built, not yet released)
+#### A follow-up that says to go on (owner answer 304a, 14 November 2026; released the same day)
 
 The owner's note of 14 November 2026, 00:54 UTC, on AskRigor#457: a follow-up told the AI to continue digging, the
 scope was already settled, AskRigor's own plan named no question and listed five tasks, and `plan_research` still
@@ -614,6 +614,68 @@ tasks without asking. The planning call judges whether your message says that. A
   find one.
 - **What is new in what is sent or kept.** Nothing is kept. The person's newest message goes to the planning call a
   second time, by itself, beside the words it was already part of.
+
+#### What AskRigor already holds for a question (the owner, 14 November 2026; built, not yet released)
+
+The owner, 14 November 2026: "make sure if someone asks about peeling sweet potatoes it explains they should cut out
+any parts that turn dark after some seconds of air contact", "make sure someone asking for central sensitization type
+syndrome, fibromyalgia, and anything related with so many crazy symptoms ... can see this video",
+"anyone asking how they can get into flow state also should know about Systema breathing". The Atlas held the sweet
+potato finding, kept for research. An AI got it only when it searched the Atlas with words every one of which the
+finding holds, and a look-up AskRigor steps aside for never searches. So `register_plain_answer` now reads the
+registered research target against two things and hands over what matches, for every account and in every lane:
+
+- **The Atlas's findings near the question** (`atlas/near-match.ts`), from the findings the pages show and those kept
+  for research, as the lookup reads them. A finding is near by what it is about: the question shares two words with
+  its subject, or two with its topic's label, each a word that few findings hold there (at most a tenth of them,
+  and always when at most three do); or its subject is one word and the question holds it. A word counts from four
+  characters, as it stands or, for an English plural, as its singular, also inside a longer word. The sentences of
+  a finding's wording, question and research are not matched: tried against the Atlas's 196 findings with 55
+  everyday questions, they handed over findings for words such as what, about and from. How common a word is comes
+  from the findings themselves, never from a word list. At most three findings, the nearest first; each keeps its
+  label (not checked by supervisors, checked, a lead, contested), and one a later finding replaced is not handed
+  over. In that trial every sweet potato question got both of its findings, twelve questions got findings on
+  their own topic, three got one that does not bear on them, and forty got none.
+- **A registration never fails for the Atlas and barely waits for it.** The findings are read once, and again when
+  a registration comes five minutes after the last reading: that registration is answered from the earlier
+  reading, and the new one serves those after it. Only while there is no reading yet does a registration wait, at
+  most a second and a half; when that is not enough it gets none, and so do the registrations of the next thirty
+  seconds, without waiting. A reading that fails is tried again thirty seconds later, never at every registration.
+- **The owner's pointers** (`owner-pointers.ts`): what AskRigor's owner asked to have shown to people with a certain
+  kind of question, each with its subject, what the owner asks them to see or know, a link when it has one, what
+  AskRigor checked about it with the date and how far the reading went, and what to weigh. A pointer matches by its
+  word groups. The others are listed by id and subject, and action `owner_pointer` with `later_inputs.ownerPointer`
+  gives one by its id, so the AI can fetch a pointer for a question put in other words or another language.
+
+The result carries them as `askrigor_holds` (`how_to_use`, `atlas_findings`, `owner_pointers`,
+`other_owner_pointers`): their texts are there once, with how to use them beside them, since an app may give its
+model only the structured result. A text after the receipt's (for a plan that steps aside, after the step-aside
+text) names what is held and repeats how to use it, and `next_step` ends with one sentence about it when there is a
+finding or a matched pointer. The AI is told to read the findings before it answers, to give the person those that
+bear on the question with whom they hold for and how sure they are, to treat one not checked by supervisors as a
+lead and to give a lead or a contested finding as that; and to give a pointer after its answer as the owner's own,
+never as a finding of AskRigor's, and to leave it out when the question is about something else. A research run
+still calls `search_research_frontiers` for the receipt the final check needs.
+
+What is handed over shrinks to fit the size a client accepts (`MCP_RESULT_MAX_BYTES`): the last finding is dropped,
+one at a time, then the matched pointers are listed by id and subject only, then nothing is held; a research
+target may be 5,000 characters and is itself repeated in the result. `later_inputs.ownerPointer` goes with
+`owner_pointer` alone and is refused with any other action before that action runs; `owner_pointer` is refused
+with any other action's input.
+
+Codex reviewed the change before its commit (14 November 2026). It found no defect in the matching rules as
+written, the schemas or the texts' attribution, and seven other things, all changed: a stalled reading held a
+registration for four seconds; a lead, a contested and a superseded finding all came as checked; `ownerPointer`
+rode unnoticed on a call that deleted a shared answer or listed the calls, and `owner_pointer` took other
+actions' inputs; a failed reading was tried again at every registration; a finding with a common subject and a
+rare topic was placed by its subject; a long research target with three long findings and two pointers came to
+51,802 bytes; and a test of the timer's cleanup passed without proving it. Its 40 everyday questions matched a
+pointer ten times by word groups read apart (central with sensitive, neuroplastic with symptoms), which are
+phrases now.
+
+A pointer never goes on the Atlas: its pages take no video link (owner answers 170 and 171), and a pointer's link is
+one the owner gave, not data from a video platform's API. Nothing new is kept or sent: the research target is read in
+memory, against public findings and the pointers' word groups.
 
 ### AskRigor's own review of a draft answer, on dev accounts (owner answer 301a, 13 November 2026)
 

@@ -1087,7 +1087,8 @@ substantive research tasks. Nevertheless, `plan_research` returned `researchMenu
 a: "when your latest message tells the AI to go on, continue or dig deeper, and the plan has no question for you, the
 research goes on with the recommended tasks without asking. The planning call judges whether your message says that.
 A first question still follows the 10-minute rule. The cost: a follow-up can then run longer than 10 minutes before
-you hear back." Its release waits for "304a" typed in chat: it changes the owner's 10-minute rule of 10 November
+you hear back." Its release waited for "304a" typed in chat, which the owner gave on 14 Nov at 20:36 UTC (released at 20:44 UTC,
+#462): it changes the owner's 10-minute rule of 10 November
 (owner answer 284) for that one case.
 
 **How it is built** (`docs/research-contributor-access.md`, "A follow-up that says to go on").

@@ -1,4 +1,6 @@
 // Owner answer 195: these checks advise the model; only the five named integrity checks block.
+import { heldFor } from "../apps/research-mcp/src/askrigor-holds.js";
+import { OWNER_POINTERS } from "../apps/research-mcp/src/owner-pointers.js";
 import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { createHash } from "node:crypto";
 
@@ -653,7 +655,10 @@ describe("manage_research_access and finalize_research through the connector (ow
     // 11 Nov 2026: with the next step as a runtime field (whether to ask the person and end the turn, or go on).
     expect(registered.structuredContent).toEqual({
       ok: true, plainAnswer: { requested: true, note: true, claims: 2 }, research_receipt: receipt,
-      next_step: expect.any(String)
+      next_step: expect.any(String),
+      // The owner, 14 Nov 2026: what AskRigor holds for the question. This one matches no pointer and the test server
+      // has no Atlas, so it is the list of the questions the owner keeps pointers for; nothing of the plain answer.
+      askrigor_holds: await heldFor({ pointers: () => OWNER_POINTERS }, TARGET),
     });
     const verified = verifyResearchReceipt(receipt, { secret: SECRET });
     expect(verified).toMatchObject({

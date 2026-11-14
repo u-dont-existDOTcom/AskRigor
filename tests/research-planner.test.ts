@@ -36,6 +36,8 @@ import {
   type ResearchPlannerState,
 } from "../apps/research-mcp/src/research-planner.js";
 import { FINALIZE_REMINDER } from "../apps/research-mcp/src/research-finalization-gate.js";
+import { heldFor, heldText } from "../apps/research-mcp/src/askrigor-holds.js";
+import { OWNER_POINTERS } from "../apps/research-mcp/src/owner-pointers.js";
 import { createManageResearchAccessHandler, manageResearchAccessInputSchema, menuHistoryOf, personReasonOf,
   waitForPendingMenuChoices }
   from "../apps/research-mcp/src/research-contributor-access-tool.js";
@@ -1574,8 +1576,12 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
         expect(typeof structured.research_receipt).toBe("string");
         // Two texts: the step aside, and the receipt, kept in case the person asks for the research after all; then
         // only the structured content as text, which every result carries for apps that read only text.
+        const held = (await heldFor({ pointers: () => OWNER_POINTERS }, PLAIN.researchTarget))!;
         expect(registered.content).toEqual([
           { type: "text", text: asideGuidance({ about: REPLY.about, searches: 2 }) },
+          // The owner, 14 Nov 2026: what AskRigor holds comes with a step aside too. This question matches no
+          // pointer and the test server has no Atlas, so it is the list of the questions the owner keeps pointers for.
+          { type: "text", text: heldText(held) },
           { type: "text", text: `research_receipt: ${structured.research_receipt} Keep it only in case the person ` +
             "asks for the research after all." },
           { type: "text", text: JSON.stringify(structured) },
@@ -1587,6 +1593,7 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
           next_step: asideNextStep(),
           research_plan: { source: "askrigor_planning_call", about: REPLY.about, steering_choice: "none", searches: 2,
             from_asked: asked !== undefined, lane: "aside" },
+          askrigor_holds: held,
         });
         // Nothing that asks for research or for the final check.
         const text = words(registered);

@@ -8,7 +8,9 @@ import {
 import { COMMUNITY_LEADS_GUIDANCE } from "./community-leads.js";
 import { finalCheckAsked, findingsSaveOff, withLaterInputs } from "./later-inputs.js";
 import { openToolOutputSchema } from "./connector-input-schema.js";
-import { atlasLookupInputSchema, atlasLookupOutputSchema, atlasLookupToolResult, configuredAtlasLookupSource } from "./atlas/lookup-tool.js";
+import { atlasLookupInputSchema, atlasLookupOutputSchema, atlasLookupToolResult, atlasOrigin, configuredAtlasLookupSource } from "./atlas/lookup-tool.js";
+import { atlasNearFinder, type AskRigorHoldsOptions } from "./askrigor-holds.js";
+import { OWNER_POINTERS } from "./owner-pointers.js";
 import type { AtlasPageSource } from "@askrigor/evidence-repository";
 import { currentProtocolElementNames } from "./protocol-rule-names.js";
 import { createHash } from "node:crypto";
@@ -337,6 +339,13 @@ const OPEN_FULL_TEXT_MCP_ROUTES = createOpenFullTextActionRoutes(
 );
 const RESEARCH_FRONTIER_READER = LIVING_EVIDENCE_READER;
 const ATLAS_LOOKUP_SOURCE = configuredAtlasLookupSource();
+// The owner, 14 Nov 2026: the Atlas's findings near a registered question (the lookup's own source, read at most once in
+// five minutes) and the owner's pointers.
+const ASKRIGOR_HOLDS: AskRigorHoldsOptions = {
+  ...(ATLAS_LOOKUP_SOURCE === undefined ? {}
+    : { atlas: atlasNearFinder(ATLAS_LOOKUP_SOURCE, { origin: atlasOrigin(process.env.ASKRIGOR_ATLAS_PUBLIC_ORIGIN) }) }),
+  pointers: () => OWNER_POINTERS,
+};
 
 const protocolSchema = z.enum(["hrp", "universal"]);
 const manifestSchema = z.object({
@@ -2074,6 +2083,8 @@ function defineResearchOperations(
       researchPlanner: () => configuredPlanner(options),
       // Owner answer 301a: AskRigor's own review of a draft at the final check, which a planned registration mentions.
       researchReviewer: () => configuredReviewer(options),
+      // The owner, 14 Nov 2026: what AskRigor already holds for a registered question, for every account.
+      askrigorHolds: ASKRIGOR_HOLDS,
       ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
       ...(sharing === undefined ? {} : { sharedAnswers: { ...sharing, versions: async () =>
