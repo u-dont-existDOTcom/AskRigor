@@ -285,7 +285,7 @@ describe("heldVariants", () => {
         ...(count === 0 ? {} : { atlas_findings: findings.slice(0, count) }),
         owner_pointers: held.owner_pointers, other_owner_pointers: held.other_owner_pointers });
       expect(variants[at]!.how_to_use.includes("atlas_findings:")).toBe(count > 0);
-      if (count > 0) expect(variants[at]!.how_to_use).toContain(count === 1 ? "a finding whose" : `${count} findings whose`);
+      if (count > 0) expect(variants[at]!.how_to_use).toContain(count === 1 ? "a finding on what" : `${count} findings on what`);
     }
     expect(variants[4]).toEqual({ how_to_use: expect.any(String), other_owner_pointers: [
       ...held.owner_pointers!.map(({ id, about }) => ({ id, about })), ...held.other_owner_pointers!,
@@ -317,8 +317,16 @@ describe("held text and public schemas", () => {
       wording: `Invented finding ${i}.`, page_url: `https://atlas.example/atlas/findings/P-${88001 + i}` }));
     const held = (await heldFor({ atlas: async () => findings }, "sweet potatoes"))!;
     const text = heldText(held);
-    expect(held.how_to_use).toMatch(count === 1 ? /^atlas_findings: AskRigor's Atlas already holds a finding whose /u
-      : /^atlas_findings: AskRigor's Atlas already holds 2 findings whose /u);
+    expect(held.how_to_use).toMatch(count === 1 ? /^atlas_findings: AskRigor's Atlas already holds a finding on what /u
+      : /^atlas_findings: AskRigor's Atlas already holds 2 findings on what /u);
+    // 14 Nov 2026, the owner's ChatGPT: told to give a finding "where one bears on the question", it left out both
+    // sweet potato findings for a question about peeling them. A finding on the question's subject is given after
+    // the answer unless it is plainly about another thing, also when it does not answer the question itself.
+    expect(held.how_to_use).toContain("After your answer, in any lane, give each to the person");
+    expect(held.how_to_use).toContain("Give it also when it does not answer the question itself");
+    expect(held.how_to_use).toContain("Leave a finding out only when it is plainly about another thing than the question is");
+    expect(held.how_to_use).not.toContain("bears on");
+    expect(held.how_to_use).not.toContain("yours to judge");
     expect(text).toBe(`What AskRigor already holds for this question is in askrigor_holds (${findings
       .map(({ publication_number }) => publication_number).join(", ")}). ${held.how_to_use}`);
     for (const finding of findings) {

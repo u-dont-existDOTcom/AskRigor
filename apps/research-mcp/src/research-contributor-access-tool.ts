@@ -1413,7 +1413,8 @@ async function registerPlainAnswer(
   if (planned !== undefined && "aside" in planned) {
     return {
       content: [
-        { type: "text", text: asideGuidance(planned) },
+        // With something held for the question, the step aside itself says where it goes (asideGuidance).
+        { type: "text", text: asideGuidance(planned, holdsSomethingNow(held)) },
         // What AskRigor holds comes with a look-up it steps aside for too: there the AI would not have searched.
         ...heldTexts,
         { type: "text", text: `research_receipt: ${receipt} Keep it only in case the person asks for the research ` +
@@ -1423,7 +1424,7 @@ async function registerPlainAnswer(
         ok: true,
         plainAnswer: { requested: true, note: account.note, claims: count },
         research_receipt: receipt,
-        next_step: `${asideNextStep()}${heldStep}`,
+        next_step: asideNextStep(holdsSomethingNow(held)),
         research_plan: { source: "askrigor_planning_call", about: planned.about, steering_choice: "none",
           searches: planned.searches, from_asked: planned.asked, lane: "aside" },
         ...(held === undefined ? {} : { askrigor_holds: held }),

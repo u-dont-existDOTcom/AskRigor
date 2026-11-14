@@ -164,13 +164,20 @@ export const OWNER_POINTER_HOW = "It is the owner's own pointer, not a finding o
 function howToUse(findings: number, pointers: number, others: number): string {
   const parts: string[] = [];
   if (findings > 0) {
+    // 14 Nov 2026, the owner's ChatGPT after the release: told to give a finding "where one bears on the question",
+    // it left out both sweet potato findings for "How do I peel sweet potatoes?", since neither "changes the peeling
+    // instructions". The owner asked for the opposite: a person asking about the subject is told. So a finding on
+    // the question's subject is given, after the answer, unless it is plainly about another thing.
     parts.push(`atlas_findings: AskRigor's Atlas already holds ${findings === 1 ? "a finding" : `${findings} findings`} ` +
-      "whose subject or topic shares words with this question; whether each bears on it is yours to judge. Read " +
-      "them before you answer, whatever lane this question takes. Where one bears on the question, tell the person " +
-      "what it says, for whom it holds and how sure it is, as something AskRigor's earlier research found, with its " +
-      `page_url. One whose state is ${JSON.stringify(NOT_CHECKED_LABEL)} was written by an AI and not reviewed by a ` +
-      "person: a lead, not an established finding. Give one labelled lead or contested as that. When you research, " +
-      "search_research_frontiers still gives the receipt the final check needs.");
+      "on what this question is about (shared_words gives the words each shares with it). After your answer, in " +
+      "any lane, give each to the person in a sentence or two, under words such as \"AskRigor's Atlas also holds " +
+      "this:\" in the person's language: what it found, what that means for what the person is doing or asking " +
+      "about, for whom it holds, how sure it is, and its page_url. Give it also when it does not answer the " +
+      "question itself: the person is dealing with its subject and may not know it. Leave a finding out only when " +
+      "it is plainly about another thing than the question is (another food, substance, condition or device). One " +
+      `whose state is ${JSON.stringify(NOT_CHECKED_LABEL)} was written by an AI and not reviewed by a person: say ` +
+      "so, and give it as a lead, not as established. Give one labelled lead or contested as that. When you " +
+      "research, search_research_frontiers still gives the receipt the final check needs.");
   }
   if (pointers > 0) {
     parts.push("owner_pointers: AskRigor's owner asked that people with this kind of question be shown " +
@@ -231,8 +238,8 @@ export function heldVariants(held: AskRigorHolds | undefined): Array<AskRigorHol
 export const holdsSomethingNow = (held: AskRigorHolds | undefined): held is AskRigorHolds =>
   held !== undefined && ((held.atlas_findings?.length ?? 0) > 0 || (held.owner_pointers?.length ?? 0) > 0);
 
-export const HELD_NEXT_STEP = "Before you answer, read askrigor_holds in this result and give the person what " +
-  "applies, as its how_to_use says.";
+export const HELD_NEXT_STEP = "With your answer, give the person what askrigor_holds in this result holds for the " +
+  "question, as its how_to_use says.";
 
 export function ownerPointerText(pointer: ShownOwnerPointer): string {
   return `Owner's pointer ${pointer.id} (for: ${pointer.about}). ${pointer.says}` +

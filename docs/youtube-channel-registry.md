@@ -41,9 +41,9 @@ Each channel is labelled with the kinds of value it has, and none means its clai
   so it is a lead and an outcome report, never a rate; it is kept apart from independent commenters (HRP
   `YouTubeCreatorCommentCorpusHandling`). The first, from the owner: SHAPEFIXER's "GROWING MY HIP BACK"
   (`XpZHKGGCK-o`), below. The second, from the owner on 14 Nov 2026: Melanie Murphy's account of more than 50 symptoms
-  (`z6GI7S6WYz0`), which AskRigor is also to hand to people who ask about fibromyalgia, a central sensitization syndrome
-  or many unexplained symptoms, as the owner's pointer (`apps/research-mcp/src/owner-pointers.ts`; built 14 Nov 2026,
-  not yet released).
+  (`z6GI7S6WYz0`), which AskRigor also hands to people who ask about fibromyalgia, a central sensitization syndrome or
+  many unexplained symptoms, as the owner's pointer (`apps/research-mcp/src/owner-pointers.ts`; live since 14 Nov
+  2026).
 - **Leads:** ideas worth testing, on weaker or contested evidence; a lead starts a study search and never settles a
   question.
 - **Critique:** examines studies' methods and their limits.

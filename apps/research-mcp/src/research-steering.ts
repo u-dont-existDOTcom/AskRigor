@@ -918,24 +918,41 @@ export function plannedNextStep(framing: Framing | undefined, planned: PlannedRe
 export const ASIDE_OPENING = "AskRigor says this question doesn't need AskRigor's research. Here is the regular AI's " +
   "answer:";
 
-/** register_plain_answer's first text for an aside plan: no research call, the fixed opening, and the way back. */
-export function asideGuidance(aside: { about: string; searches: number }): string {
+/**
+ * register_plain_answer's first text for an aside plan: no research call, the fixed opening, and the way back.
+ * held: AskRigor already holds something for the question (askrigor_holds: a finding of the Atlas on its subject, or
+ * one of the owner's pointers). The step aside then says where that goes, in the place of the sentence that says
+ * nothing in the answer is AskRigor's: on 14 Nov 2026 the owner's ChatGPT, told "Nothing in this answer is checked
+ * by AskRigor" and, after it, to read askrigor_holds, answered "How do I peel sweet potatoes?" without the two
+ * findings handed over.
+ */
+export function asideGuidance(aside: { about: string; searches: number }, held = false): string {
   return `AskRigor's own planning call (${searchedWords(aside.searches)}) found this to be a plain look-up that ` +
     "AskRigor's research would add nothing to. What the question is about, as that call found it: " +
     `${JSON.stringify(aside.about)}. So AskRigor steps aside: make no AskRigor research call for it, and do not call ` +
     "plan_research or finalize_research. Answer the person now as you would without AskRigor, checking it the way " +
     "you normally would (your own search or browsing, if you have it) and naming your source. Start the answer with " +
-    `this sentence, in the person's language: "${ASIDE_OPENING}" Nothing in this answer is checked by AskRigor, so do ` +
-    "not say or imply that it was. If the person then asks for it to be researched or checked, or asks whether it is " +
+    `this sentence, in the person's language: "${ASIDE_OPENING}" ` +
+    (held
+      ? "After your answer, give the person what AskRigor already holds for this question (askrigor_holds in this " +
+        "result, as its how_to_use says). That part alone comes from AskRigor: do not say or imply that AskRigor " +
+        "checked the rest. "
+      : "Nothing in this answer is checked by AskRigor, so do not say or imply that it was. ") +
+    "If the person then asks for it to be researched or checked, or asks whether it is " +
     "true, safe or better than something else, register the plain answer again with later_inputs.asked holding " +
     "their question and that request: AskRigor then plans the research.";
 }
 
-/** The same for an app that hands its model only the structured content. */
-export function asideNextStep(): string {
+/** The same for an app that hands its model only the structured content; held as for asideGuidance. */
+export function asideNextStep(held = false): string {
   return "AskRigor steps aside for this plain look-up: make no research call, and do not call plan_research or " +
     "finalize_research. Answer as you would without AskRigor, naming your source, and start with this sentence, in " +
-    `the person's language: "${ASIDE_OPENING}" Do not say AskRigor checked it. If the person then asks for research, ` +
+    `the person's language: "${ASIDE_OPENING}" ` +
+    (held
+      ? "Then, after your answer, give the person what askrigor_holds in this result holds for the question, as its " +
+        "how_to_use says. That part alone comes from AskRigor: do not say AskRigor checked the rest. "
+      : "Do not say AskRigor checked it. ") +
+    "If the person then asks for research, " +
     "register the plain answer again with their question and that request in later_inputs.asked.";
 }
 
