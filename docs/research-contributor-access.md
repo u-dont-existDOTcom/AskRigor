@@ -471,6 +471,57 @@ owner's ChatGPT runs had left that judgment to the person's AI, and it went wron
   notice to say that the question goes to Anthropic, so it is the owner's next decision, after the trial. The
   call's reading is not checked against anything: it is one model's judgment, shown to the person's AI as such.
 
+#### The three lanes (owner answer 302, 14 November 2026)
+
+A one-figure look-up took nine minutes. The owner asked when AskRigor should step aside, and chose both answers
+offered: step aside when AskRigor surely adds nothing, and a light lane when it may help but the question is still
+light. So the planning call also names a lane for each question. This is for dev accounts only, while the planning
+call is on.
+
+- **research.** The research as before: the menu, its tasks and the final check with AskRigor's review of the draft.
+- **light.** One fact that one named source states. The menu has one or two tasks and no method audit, and says
+  `lane: "light"`. When it goes on, `plan_research` says to do only what the menu lists: open the source, find the
+  line or table row, and quote it with where it stands. No method audit, no forum search, no second literature search and no
+  findings card. Then one final check, and the answer in the same turn. The final check makes no review of the draft.
+  The answer starts with this line, in the person's language: "AskRigor light look-up: the source was opened and the
+  line quoted; nothing else was checked. Say 'research it fully' for more."
+- **aside.** A plain look-up AskRigor's research would add nothing to. `register_plain_answer` still signs the plain
+  answer and gives its receipt, but hands over no menu. The AI makes no research call, calls neither `plan_research`
+  nor `finalize_research`, and answers as it would without AskRigor, naming its source. The answer starts with this
+  sentence, in the person's language: "AskRigor says this question doesn't need AskRigor's research. Here is the
+  regular AI's answer:" AskRigor checks nothing in that answer, and the AI may not say or imply that it did.
+
+The lane is the model's judgment. AskRigor only checks that the reply does not contradict itself: aside and light
+only with the word none for the question, and light only with one or two tasks and no method audit. Anything else is
+research, so in doubt AskRigor researches. A guided account is still asked first: the lane changes what the go-ahead
+says, not whether the menu asks. When the person asks for the research ("research it fully", or whether the answer
+is true or safe), the AI registers the plain answer again with their words and that request in `later_inputs.asked`.
+New words get a new plan, so the full research can come back: the planning call's rubric puts a look-up the person
+asked to have researched fully, or came back to asking more about, in the research lane. After a step-aside answer
+and after a light look-up, the result tells the AI to do this. `research_plan.lane` names the lane in the registration's result.
+
+#### What the plan asks the person, and what it leaves out (rubric 2026-11-14.1)
+
+Two reports of 13 and 14 November 2026 (AskRigor#456, AskRigor#457): the plan asked a person to choose between
+readings their own words had already chosen ("Could AI become conscious?": today's chatbots or any future AI?), and
+to say which species to compare when they had asked which is best. The rubric now says:
+
+- Never ask the person to make a choice their own words already make, or to choose how wide the research looks.
+  "Best", "any", "ever" or a comparison with nothing named asks about the whole class. "Could it become" asks about
+  the future. Of two readings where one contains the other, the wider one is planned.
+- A question about the person is still asked: their condition and how severe it is, their age, what they have tried.
+- An instruction that names where to look and what to judge by is precise enough to go on.
+- Where a figure the person quotes comes from is the research's to find, not a question for them.
+- A task whose result is part of what the person asked is never marked as detail, so the menu's recommendation
+  keeps it (the expert forecasts were dropped for "Could AI become conscious?").
+- A question whether something could happen or be made gets a task on the routes already being tried that differ in
+  kind from the best-known one (computing with living neurons was left out).
+
+These are the model's judgments, in the rubric's words; no word of a question is matched in code. On the API the
+needless questions were gone in every run (two runs each); the test questions that should be asked still were, the
+orange peel one in three runs of five (before, in each run seen). When the plan goes on without a question, the
+answer still says first how it read the question.
+
 ### AskRigor's own review of a draft answer, on dev accounts (owner answer 301a, 13 November 2026)
 
 On a dev account, with the call switched on, `finalize_research` given an answer draft also makes one Claude API call
@@ -499,6 +550,19 @@ status, next steps, receipts and findings card are the same with it as without i
   person's words (or the research target): while a call for it runs, and for an hour after it gave a review, the
   same question's next final check gets no review and no note, with no call and no count. A call that ended without a
   review frees it.
+- **A "preliminary" answer that does not say what is left** (rubric 2026-11-14.1, AskRigor#458). The review's fifth
+  point: a draft that calls itself preliminary, provisional or a first pass, or ends on more research being needed,
+  without saying which sources or options were not yet looked at, what the next steps are in order, why they could
+  change the conclusion, and whether that work is starting now or waits for the person's go-ahead.
+- **Not for a light look-up** (owner answer 302). When the planning call's plan for the same account's same words,
+  held for the hour in process memory, put the question in the light lane, the final check makes no review call and
+  adds no note, and none of the account's reviews for the day is used. The final check is asked for the person's
+  words with their later messages added, so the words may no longer be the plan's: the lane of the last plan made
+  within the hour for the account's same research target then decides, compared as the final check compares a
+  research target (case and spacing ignored). With other words and another research target there is no such plan,
+  and the draft is reviewed as before. A light plan's registration does not ask for the person's words at the final
+  check, since no review will read them. A light menu whose task the person gave no time is not a light look-up: it
+  gets what any menu with nothing to do gets.
 - **It never blocks.** Off, over its budget, over the account's calls for the day, timed out, refused, failed or
   unreadable, the check stands as it is, with a note that the review did not run and why in plain words.
 - **The cap and settings.** Off unless `ASKRIGOR_RESEARCH_REVIEWER=on`, with the key read from the file

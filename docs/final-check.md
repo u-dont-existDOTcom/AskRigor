@@ -651,7 +651,9 @@ no blocking rule. When a dev account's call carries an answer draft, whatever th
 three things this person would most likely have to ask next. The check adds them as one note, last among the notes,
 saying the check's result stands whatever the AI does with it and asking it to revise the draft before answering; its
 status, next steps, receipts, limits and findings card are the same as without it. A question is reviewed once (for
-an hour after its review, and while one runs, the next check gets no review and no note). A failure, timeout,
+an hour after its review, and while one runs, the next check gets no review and no note). A light look-up's final
+check is not reviewed (owner answer 302: AskRigor's own plan put the same words, or the same research target, in
+the light lane). A failure, timeout,
 refusal, unreadable reply or reached limit adds one note saying the review did not run. Settings, cap and what is
 kept: `docs/research-contributor-access.md`, "AskRigor's own review of a draft answer".
 

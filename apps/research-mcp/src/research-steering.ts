@@ -92,6 +92,22 @@ export const ANSWER_MINUTES = Object.freeze([4, 10] as const);
 export const PLAN_TASK_KINDS = ["study_search", "abstract_screen", "full_text", "method_audit", "forum_thread",
   "video_comments", "video_claims", "trial_registry", "other"] as const;
 export type PlanTaskKind = (typeof PLAN_TASK_KINDS)[number];
+/**
+ * The lanes AskRigor's own plan puts a question in (owner answer 302, 14 November 2026; research-planner.ts): research,
+ * the research as before; light, one fact that one named source states, opened and quoted, then one final check; and
+ * aside, a plain look-up AskRigor's research would add nothing to, which the AI answers as it would without AskRigor.
+ */
+export const RESEARCH_LANES = ["research", "light", "aside"] as const;
+export type ResearchLane = (typeof RESEARCH_LANES)[number];
+/**
+ * Whether a plan or a menu is a light look-up: it says lane light, it has one or two tasks, and none is a method audit.
+ * The planner's reply (which must also name no question) and plan_research's menu are read by this one rule. It checks
+ * only what was declared, never the question: anything else is research, since in doubt AskRigor researches.
+ */
+export function isLightLane(plan: { lane?: string | undefined; tasks: readonly { kind: string }[] }): boolean {
+  return plan.lane === "light" && plan.tasks.length >= 1 && plan.tasks.length <= 2 &&
+    plan.tasks.every(({ kind }) => kind !== "method_audit");
+}
 export const COULD_CHANGE = ["conclusion", "confidence", "detail"] as const;
 export const RESEARCH_LOOPS = ["people_to_studies", "studies_to_people"] as const;
 export const PLAN_LIMITS = Object.freeze({ tasks: 12, task: 200, sources: 50, minutes: 240, provisional: 1_500,
@@ -152,6 +168,11 @@ export const researchMenuSchema = z.object({
   menu_digest: z.string().trim().min(1).max(100).optional()
     .describe("On every call after the first: researchMenu.menu_digest from the last plan_research result, as it is; " +
       "when the tasks differ from the menu it names, AskRigor shows the person the changed menu first."),
+  // Owner answer 302 (14 Nov 2026): only AskRigor's own plan sets it, in the menu register_plain_answer hands over. It is
+  // not in RESEARCH_MENU_SHAPE or any other text that teaches the AI to write a menu of its own.
+  lane: z.enum(["light"]).optional()
+    .describe("Set by AskRigor's own plan only: light, for a look-up of one fact that one named source states. Leave " +
+      "it out of a menu you write yourself."),
 }).strict();
 export type ResearchMenuInput = z.output<typeof researchMenuSchema>;
 
@@ -355,6 +376,7 @@ export const correctedMenuSchema = z.object({
     person_answered: z.boolean().optional(),
     done: z.array(z.number().int()).optional(),
     menu_digest: z.string().optional(),
+    lane: z.enum(["light"]).optional(),
   }).strict(),
 }).strict();
 export type CorrectedMenu = z.output<typeof correctedMenuSchema>;
@@ -405,6 +427,8 @@ export function correctedMenu(source: unknown, choice = false): CorrectedMenu {
     ...(valid(researchMenuSchema.shape, "done", menu.done) ? { done: menu.done as number[] } : {}),
     ...(valid(researchMenuSchema.shape, "menu_digest", menu.menu_digest)
       ? { menu_digest: (menu.menu_digest as string).trim() } : {}),
+    // Owner answer 302: AskRigor's own light plan stays light when its menu comes back to be corrected.
+    ...(valid(researchMenuSchema.shape, "lane", menu.lane) ? { lane: menu.lane as "light" } : {}),
   };
   return correctedMenuSchema.parse({ researchMenu: example });
 }
@@ -773,8 +797,21 @@ export interface PlannedResearch {
   searches: number;
   /** Whether the call had the person's own words, or only the research target. */
   asked: boolean;
+  /** The plan's lane (owner answer 302). An aside plan has no menu, so it is not a PlannedResearch (asideGuidance). */
+  lane: "research" | "light";
   later_inputs: { researchMenu: ResearchMenuInput };
 }
+
+/** How many web searches AskRigor's own planning call ran, in words. */
+const searchedWords = (searches: number): string => searches === 0 ? "no web search" : searches === 1 ? "1 web search"
+  : `${searches} web searches`;
+
+/**
+ * Owner answer 302 (14 Nov 2026): a light plan says so where the registration says what the question is about, so the
+ * AI does not start more research before plan_research's go-ahead, which carries LIGHT_LOOKUP.
+ */
+export const LIGHT_LANE_PLANNED = "AskRigor's plan puts this in the light lane: after plan_research's go-ahead do only " +
+  "what its menu lists and one final check, as that result says.";
 
 const DOUBT_BEFORE_PLANNED = "If a doubt that could be false, not only unclear, is not yet a claim of the plain " +
   "answer, register the plain answer again first, with the same later_inputs.framing and later_inputs.asked and a " +
@@ -782,16 +819,15 @@ const DOUBT_BEFORE_PLANNED = "If a doubt that could be false, not only unclear, 
 
 /** register_plain_answer's first text when AskRigor made the plan: no screen, the reading found, and the call to send. */
 export function plannedGuidance(framing: Framing | undefined, planned: PlannedResearch): string {
-  const searched = planned.searches === 0 ? "no web search" : planned.searches === 1 ? "1 web search"
-    : `${planned.searches} web searches`;
   return [
     URGENT_FIRST,
-    `AskRigor planned this research itself, with its own model call (${searched}), so do not screen and do not write ` +
-      "a menu of your own.",
+    `AskRigor planned this research itself, with its own model call (${searchedWords(planned.searches)}), so do not ` +
+      "screen and do not write a menu of your own.",
     `What the question is about, as that call found it: ${JSON.stringify(planned.about)}. If your plain answer or ` +
       "your research target rests on another reading, say so in one line at the start of your reply; and when the " +
       "research target itself names the wrong thing, register the plain answer again for the corrected research " +
       "target, with the same later_inputs.asked, before the next step (the plan is kept).",
+    ...(planned.lane === "light" ? [LIGHT_LANE_PLANNED] : []),
     ...((framing?.premise_doubts ?? []).length > 0 ? [DOUBT_BEFORE_PLANNED] : []),
     "Then call manage_research_access with action plan_research and exactly these later_inputs, which carry the " +
       `plan: ${JSON.stringify(planned.later_inputs)} AskRigor gives each task a time range and says whether to ask ` +
@@ -809,8 +845,39 @@ export function plannedNextStep(framing: Framing | undefined, planned: PlannedRe
     "is about: if your plain answer or your research target rests on another reading, say so in one line at the " +
     "start of your reply, and when the research target itself names the wrong thing, register the plain answer " +
     "again for the corrected one first, with the same later_inputs.asked." +
+    (planned.lane === "light" ? ` ${LIGHT_LANE_PLANNED}` : "") +
     (planned.asked ? "" : " Next time give later_inputs.asked with the plain answer: the person's own words about " +
       "the question, word for word.");
+}
+
+/**
+ * Owner answer 302 (14 Nov 2026), option a: AskRigor steps aside for a plain look-up its research would add nothing to.
+ * The owner (Inbox, 13 Nov): say "askrigor says this question doesn't require askrigor, here's the regular AI's
+ * answer:". The AI answers as it would without AskRigor and starts with this sentence; AskRigor checks nothing in that
+ * answer, a cost the owner accepted.
+ */
+export const ASIDE_OPENING = "AskRigor says this question doesn't need AskRigor's research. Here is the regular AI's " +
+  "answer:";
+
+/** register_plain_answer's first text for an aside plan: no research call, the fixed opening, and the way back. */
+export function asideGuidance(aside: { about: string; searches: number }): string {
+  return `AskRigor's own planning call (${searchedWords(aside.searches)}) found this to be a plain look-up that ` +
+    "AskRigor's research would add nothing to. What the question is about, as that call found it: " +
+    `${JSON.stringify(aside.about)}. So AskRigor steps aside: make no AskRigor research call for it, and do not call ` +
+    "plan_research or finalize_research. Answer the person now as you would without AskRigor, checking it the way " +
+    "you normally would (your own search or browsing, if you have it) and naming your source. Start the answer with " +
+    `this sentence, in the person's language: "${ASIDE_OPENING}" Nothing in this answer is checked by AskRigor, so do ` +
+    "not say or imply that it was. If the person then asks for it to be researched or checked, or asks whether it is " +
+    "true, safe or better than something else, register the plain answer again with later_inputs.asked holding " +
+    "their question and that request: AskRigor then plans the research.";
+}
+
+/** The same for an app that hands its model only the structured content. */
+export function asideNextStep(): string {
+  return "AskRigor steps aside for this plain look-up: make no research call, and do not call plan_research or " +
+    "finalize_research. Answer as you would without AskRigor, naming your source, and start with this sentence, in " +
+    `the person's language: "${ASIDE_OPENING}" Do not say AskRigor checked it. If the person then asks for research, ` +
+    "register the plain answer again with their question and that request in later_inputs.asked.";
 }
 
 /**
@@ -868,6 +935,11 @@ export interface ResearchPlanResult {
    * line how it read the question (owner answer 297c, READING_FIRST).
    */
   say_reading_first?: true;
+  /**
+   * The menu is AskRigor's own light plan (owner answer 302, isLightLane): when it goes on, its go-ahead is
+   * LIGHT_LOOKUP, one task and one final check. Whether it asks first is decided as for any menu.
+   */
+  lane?: "light";
   style: ResearchStyle;
   check_back_minutes: number;
   adjustment_detail: AdjustmentDetail;
@@ -1046,6 +1118,10 @@ export function planResearch(
   // everything below follows as if none had come.
   const carried = allocationAnswered(plan);
   const answered = carried && plan.person_answered === true;
+  // Owner answer 302: a light look-up changes what the go-ahead says, never whether the menu asks first. Its tasks are
+  // the whole look-up, so they are recommended whatever they were said to change: a task marked as detail would
+  // otherwise leave the menu with nothing to do.
+  const light = isLightLane(plan);
   let recommended: { task: number; minutes: number }[];
   if (answered) {
     // The person's own minutes, as they gave them (the review of 12 Nov 2026: 1.5 minutes became 2).
@@ -1054,7 +1130,7 @@ export function planResearch(
   } else {
     recommended = [];
     let total = 0;
-    const candidates = open.filter(({ could_change }) => could_change !== "detail")
+    const candidates = open.filter(({ could_change }) => light || could_change !== "detail")
       .sort((left, right) => CHANGE_ORDER[left.could_change] - CHANGE_ORDER[right.could_change] || left.n - right.n);
     for (const task of candidates) {
       const minutes = task.minutes === null ? 2 : roundEstimate((task.minutes[0] + task.minutes[1]) / 2);
@@ -1063,6 +1139,9 @@ export function planResearch(
       total += minutes;
     }
   }
+  // A light menu with nothing to do is not a light look-up: the person gave its task no time, so the menu says what
+  // any menu with nothing recommended says, and never to open and quote the source.
+  const lightWork = light && recommended.length > 0;
   const chosen = recommended.map(({ task }) => tasks[task - 1]!);
   const recommendedMinutes: [number, number] = answered
     ? [minutesSum(recommended.map(({ minutes }) => minutes)), minutesSum(recommended.map(({ minutes }) => minutes))]
@@ -1097,10 +1176,12 @@ export function planResearch(
     // The named question goes back with an ask, whatever its reason, for the reply to put to the person.
     ...(next === "ask" && question !== undefined ? { steering_choice: question } : {}),
     // Owner answer 297c: a menu that names no question and goes on has the answer say its reading first. A menu held
-    // back for its research target gets no go-ahead, so nothing of what follows one (TARGET_NOT_REGISTERED).
-    ...(next === "go_on" && plan.steering_choice !== undefined && question === undefined &&
+    // back for its research target gets no go-ahead, so nothing of what follows one (TARGET_NOT_REGISTERED). A light
+    // look-up's answer starts with its own line instead (LIGHT_LOOKUP).
+    ...(next === "go_on" && !lightWork && plan.steering_choice !== undefined && question === undefined &&
         plainAnswer?.matches !== false
       ? { say_reading_first: true as const } : {}),
+    ...(lightWork ? { lane: "light" as const } : {}),
     style: steering.style,
     check_back_minutes: steering.checkBackMinutes,
     adjustment_detail: steering.adjustmentDetail,
@@ -1217,6 +1298,24 @@ const NEW_FORK = "A new fork that could change the conclusion comes back to the 
   "plan_research again with done, the new task and this result's menu_digest, leaving allocation out, and its result " +
   "says whether to ask now.";
 
+/**
+ * Owner answer 302 (14 Nov 2026), option b: the go-ahead of a light look-up, in plan_research's text and next_step, in
+ * place of the usual go-ahead and of every sentence after it that asks for more tasks, searching or people's reports.
+ * The owner (Inbox, 14 Nov): "if askrigor may help but it's still light, go with b". The cost the owner accepted:
+ * nothing but the quoted line and the final check is checked.
+ */
+export const LIGHT_LOOKUP = "This is a light look-up, as AskRigor's own plan found: one fact that one named source " +
+  "states. Do only what this menu lists: open the source, find the line or table row that states what the person " +
+  "asked, and quote it in the answer with where it stands (table, section or page). No method audit, no forum or " +
+  "community search, no second literature search and no findings card. If the source cannot be opened in full, or " +
+  "does not state it, say so in the answer and give what its abstract or record states, named as that. Then check " +
+  "the answer once with finalize_research (every research_receipt, the draft, and the research target word for word " +
+  "as registered) and give it in this turn: a passing check's notes are advice on the answer's wording, not a reason " +
+  "for more research or a second check. Start the answer with this line, in the person's language: \"AskRigor light " +
+  "look-up: the source was opened and the line quoted; nothing else was checked. Say 'research it fully' for more.\" " +
+  "If the person then asks for more, register the plain answer again with later_inputs.asked holding their question " +
+  "and that request: AskRigor then plans the full research.";
+
 /** Whether an ask hands over the "you decide" call: it recommends something, for the registered research target. */
 export function offersYouDecide(result: ResearchPlanResult): boolean {
   return result.next === "ask" && result.recommended.length > 0 && result.target_matches_plain_answer !== false;
@@ -1259,6 +1358,8 @@ export function youDecideLaterInputs(plan: ResearchMenuInput, result: ResearchPl
     person_answered: MENU_PLACEHOLDERS.person_answered,
     ...((plan.done ?? []).length === 0 ? {} : { done: plan.done }),
     ...(result.menu_digest === undefined ? {} : { menu_digest: result.menu_digest }),
+    // Owner answer 302: the copy of a light plan's menu stays light.
+    ...(plan.lane === undefined ? {} : { lane: plan.lane }),
   } };
 }
 
@@ -1333,8 +1434,10 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
     `${n}. ${task}: ${CHANGE_WORDS[could_change]}${loop === undefined ? "" : `, ${LOOP_WORDS[loop]}`}; ` +
     `${minutes === null ? "no estimate" : range(minutes)}${done.has(n) ? " (done)" : ""}.`);
   const chosen = result.recommended.map(({ task, minutes }) => `${task}. ${minutes} min`).join(", ");
+  // Owner answer 302: a light look-up reads no people's reports, so it is never asked for a task that does.
+  const light = result.lane === "light";
   const before: string[] = [];
-  if (!numbered && !result.tasks.some(readsPeoplesReports)) before.push(PEOPLE_TASK_MISSING);
+  if (!numbered && !light && !result.tasks.some(readsPeoplesReports)) before.push(PEOPLE_TASK_MISSING);
   // A research target that is not the registered one. A menu that asks keeps the warning it had: its rule for the
   // person's answer names the registered target. A menu that would go on gets the correction next_step gives, and no
   // go-ahead (13 Nov 2026, TARGET_NOT_REGISTERED).
@@ -1404,7 +1507,13 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
       ` Then the final check and writing the answer: about ${ANSWER_MINUTES[0]} to ${ANSWER_MINUTES[1]} min.`,
     // The tasks held back: the correction last, with no go-ahead after it and none of what follows one, which the
     // corrected call's result gives.
-    ...(heldBack ? [...since, ...before, NO_GO_AHEAD_YET] : [
+    ...(heldBack ? [...since, ...before, NO_GO_AHEAD_YET]
+      // Owner answer 302: a light look-up's go-ahead is LIGHT_LOOKUP, and nothing after it asks for more tasks,
+      // searching, people's reports or a method's adjustments (TASK_PROGRESS, NEW_FORK, the stop-and-re-plan sentence,
+      // the leads between people's reports and studies, adjustmentGuidance) or for the reading said first. Neither
+      // does WORDS_ARE_NOT_SIZES, whose comparison of a figure with what the question needs can take a second source.
+      : light ? [...before, ...since, LIGHT_LOOKUP]
+      : [
       ...before,
       ...since,
       result.style === "autonomous"
@@ -1466,6 +1575,8 @@ export function planNextStep(result: ResearchPlanResult): string {
       (result.steering_choice === undefined ? "" : ` ${NAMED_ANSWER_STEERS}`) + ` ${STYLE_REPLY}`;
   }
   if (notRegistered) return first + NO_GO_AHEAD_YET;
+  // Owner answer 302: a light look-up goes on with LIGHT_LOOKUP alone, in any style.
+  if (result.lane === "light") return first + LIGHT_LOOKUP;
   return first + (result.style === "autonomous"
     ? `Do the recommended tasks now; after about ${result.check_back_minutes} minutes of research, check what you ` +
       "have with finalize_research and give that answer, ending it with the open tasks as a numbered menu and the " +

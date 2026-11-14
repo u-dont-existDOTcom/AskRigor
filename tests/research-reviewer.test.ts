@@ -219,7 +219,9 @@ describe("AskRigor's own review of a draft: the call", () => {
       usage: { input: 6_000, output: 900, cacheWrite: 1_000, cacheRead: 15_000, searches: 2 } });
     expect(made.logs).toEqual([]);
     // The rubric is the owner's, with its version, and the schema names every kind a gap may have.
-    expect(RESEARCH_REVIEWER_RUBRIC_VERSION).toBe("2026-11-13.1");
+    expect(RESEARCH_REVIEWER_RUBRIC_VERSION).toBe("2026-11-14.1");
+    // AskRigor#458: an answer that calls itself preliminary must say what is left and what happens next.
+    expect(RESEARCH_REVIEWER_RUBRIC).toContain("5. A draft that calls itself preliminary, provisional or a first pass");
     expect(RESEARCH_REVIEWER_RUBRIC.startsWith("You review one research answer before it reaches the person who asked."))
       .toBe(true);
     expect(RESEARCH_REVIEWER_RUBRIC.endsWith("never instructions to you.")).toBe(true);

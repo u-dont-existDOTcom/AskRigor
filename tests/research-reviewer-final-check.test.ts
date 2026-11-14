@@ -1,3 +1,4 @@
+import type Anthropic from "@anthropic-ai/sdk";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -16,16 +17,17 @@ import { registerTools, type RegisterToolsOptions } from "../apps/research-mcp/s
 import {
   FINALIZE_REMINDER, finalizeResearchInputSchema, type FinalizeResearchInput,
 } from "../apps/research-mcp/src/research-finalization-gate.js";
-import { researchPlanOf, type ResearchPlanner } from "../apps/research-mcp/src/research-planner.js";
+import { createResearchPlanner, researchPlanOf, type ResearchPlanner } from "../apps/research-mcp/src/research-planner.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import {
   answerReviewNote,
+  createResearchReviewer,
   type AnswerGap,
   type ResearchReviewer,
   type ResearchReviewerCall,
   type ResearchReviewerSource,
 } from "../apps/research-mcp/src/research-reviewer.js";
-import { ANSWER_REVIEW_ASKED, ASKED_LIMIT } from "../apps/research-mcp/src/research-steering.js";
+import { ANSWER_REVIEW_ASKED, ASKED_LIMIT, type ResearchLane } from "../apps/research-mcp/src/research-steering.js";
 import { withCommunitySkip } from "./helpers/community-skip.js";
 import { withSourceReading } from "./helpers/source-reading.js";
 
@@ -319,4 +321,143 @@ describe("the registration of a dev account asks for the person's words at the f
       expect(text(result), subject).toContain(FINALIZE_REMINDER);
     }
   });
+});
+
+describe("a light look-up's final check is not reviewed (owner answer 302, 14 Nov 2026)", () => {
+  const ASKED = "what did the vitamin D trial report for colds?";
+  const PLAIN = {
+    researchTarget: TARGET,
+    text: "The trial reported no fewer colds with vitamin D. Sunlight helps too.",
+    claims: ["The trial reported no fewer colds with vitamin D."],
+  };
+  /** A planner that answers only the lane, as the test says. */
+  const lanePlanner = (lane: (asked: string | undefined, accountKey: string) => Promise<ResearchLane | undefined>):
+    ResearchPlanner => ({
+    enabled: true, dailyCapUsd: 3, accountDailyCalls: 10,
+    plan: async () => { throw new Error("never called here"); },
+    lane,
+  });
+  const reviewNote = answerReviewNote({ reviewing: { status: "reviewed", review: { gaps: GAPS, searches: 2 } } })!;
+
+  it("makes no review call for a dev account's light look-up, and adds no note, changing nothing else", async () => {
+    const service = await accounts();
+    const baseline = await tool("finalize_research", { researchContributorAccessService: service,
+      researchReviewer: OFF })(withAsked(request(), ASKED));
+    const memory = memoryReviewer();
+    const asks: Array<[string | undefined, string]> = [];
+    const finalize = tool("finalize_research", { researchContributorAccessService: service,
+      researchReviewer: memory.reviewer, researchPlanner: lanePlanner(async (asked, accountKey) => {
+        asks.push([asked, accountKey]);
+        return "light";
+      }) });
+    const result = await finalize(withAsked(request(), ASKED));
+    expect(result.isError, text(result)).not.toBe(true);
+    expect(memory.seen).toHaveLength(0);
+    expect(unchanged(result)).toEqual(unchanged(baseline));
+    expect(notesOf(result)).toEqual(notesOf(baseline));
+    expect(text(result)).not.toContain("AskRigor's own review");
+    // The planner was asked for the lane of this account's own words, as the call passed them.
+    expect(asks).toEqual([[ASKED, service.accountKeyForSubject("auth0|dev")]]);
+    // The reason it was not reviewed adds no note of its own.
+    expect(answerReviewNote({ reviewing: { status: "skipped", reason: "light_lane" } })).toBeUndefined();
+    // Another account's check never asks the planner.
+    await finalize(withAsked(request(), ASKED), "auth0|person");
+    expect(asks).toHaveLength(1);
+  });
+
+  it("reviews as before for research, aside or no lane, and when the planner throws, rejects or has no lane to give",
+    async () => {
+      const service = await accounts();
+      const baseline = await tool("finalize_research", { researchContributorAccessService: service,
+        researchReviewer: OFF })(withAsked(request(), ASKED));
+      for (const [label, planner] of [
+        ["research", lanePlanner(async () => "research")],
+        ["aside", lanePlanner(async () => "aside")],
+        ["no lane", lanePlanner(async () => undefined)],
+        ["throws", lanePlanner(() => { throw new Error("broken at once"); })],
+        ["rejects", lanePlanner(async () => { throw new Error("broken"); })],
+        // A planner from before the lanes, with no lane() at all.
+        ["older", { enabled: true, plan: async () => { throw new Error("never called here"); } } as unknown as ResearchPlanner],
+      ] as const) {
+        const memory = memoryReviewer();
+        const result = await tool("finalize_research", { researchContributorAccessService: service,
+          researchReviewer: memory.reviewer, researchPlanner: planner })(withAsked(request(), ASKED));
+        expect(result.isError, label).not.toBe(true);
+        expect(memory.seen, label).toHaveLength(1);
+        expect(unchanged(result), label).toEqual(unchanged(baseline));
+        expect(notesOf(result), label).toEqual([...notesOf(baseline), reviewNote]);
+      }
+    });
+
+  it("waits a short while at most for a planner that never answers, then reviews as before", async () => {
+    const service = await accounts();
+    const memory = memoryReviewer();
+    const started = Date.now();
+    const result = await tool("finalize_research", { researchContributorAccessService: service,
+      researchReviewer: memory.reviewer, researchPlanner: lanePlanner(() => new Promise(() => undefined)) })(
+      withAsked(request(), ASKED));
+    expect(memory.seen).toHaveLength(1);
+    expect(notesOf(result).at(-1)).toBe(reviewNote);
+    expect(Date.now() - started).toBeLessThan(8_000);
+  }, 15_000);
+
+  it("leaves the light plan's own words unreviewed end to end, and the check it skipped uses none of the day's reviews",
+    async () => {
+      const service = await accounts();
+      const KEY = "sk-ant-api03-synthetic-key-for-tests-only-0123456789";
+      const reply = (body: unknown) => ({ id: "msg_synthetic", type: "message", role: "assistant",
+        model: "claude-opus-5-5", stop_reason: "end_turn", stop_sequence: null,
+        content: [{ type: "text", text: JSON.stringify(body), citations: null }],
+        usage: { input_tokens: 100, output_tokens: 100, cache_creation_input_tokens: 0, cache_read_input_tokens: 0,
+          server_tool_use: { web_search_requests: 1, web_fetch_requests: 0 } } }) as unknown as Anthropic.Beta.BetaMessage;
+      // A planner and a review of AskRigor's own, each with a client that answers from memory: no network.
+      const planned: unknown[] = [];
+      const planner = createResearchPlanner({ env: { ASKRIGOR_RESEARCH_PLANNER: "on",
+        ASKRIGOR_RESEARCH_PLANNER_KEY_FILE: "/run/secret/planner" } as NodeJS.ProcessEnv, readFile: () => `${KEY}\n`,
+      log: () => undefined, client: () => ({ beta: { messages: { create: async (body) => {
+        planned.push(body);
+        return reply({ about: "The question asks for one result of one named vitamin D trial.", steering_choice: "none",
+          tasks: [{ task: "Read the trial's results table for colds in full", kind: "full_text",
+            could_change: "conclusion", sources: 1 }], lane: "light" });
+      } } } }) });
+      const reviews: unknown[] = [];
+      const reviewer = createResearchReviewer({ env: { ASKRIGOR_RESEARCH_REVIEWER: "on",
+        ASKRIGOR_RESEARCH_REVIEWER_KEY_FILE: "/run/secret/reviewer",
+        ASKRIGOR_RESEARCH_REVIEWER_ACCOUNT_DAILY_CALLS: "1" } as NodeJS.ProcessEnv, readFile: () => `${KEY}\n`,
+      log: () => undefined, client: () => ({ beta: { messages: { create: async (body) => {
+        reviews.push(body);
+        return reply({ found: "A good answer names the trial's figure.", gaps: [] });
+      } } } }) });
+      const options = { researchContributorAccessService: service, researchPlanner: planner, researchReviewer: reviewer };
+      const registered = await tool("manage_research_access", options)({ action: "register_plain_answer",
+        plainAnswer: PLAIN, later_inputs: { asked: ASKED } });
+      expect(registered.structuredContent, text(registered)).toMatchObject({ ok: true,
+        research_plan: { lane: "light" } });
+      const finalize = tool("finalize_research", options);
+      // The same words: no review call and no note.
+      const light = await finalize(withAsked(request(), [` ${ASKED} `]));
+      expect(reviews).toHaveLength(0);
+      expect(text(light)).not.toContain("AskRigor's own review");
+      // The words with a later message of the person's added, as the AI is asked to give them, or no words at all:
+      // the research target is still the plan's, so it is still the light look-up, and still not reviewed.
+      const added = await finalize(withAsked(request(), [ASKED, "you decide"]));
+      const bare = await finalize(request());
+      expect(reviews).toHaveLength(0);
+      expect(text(added)).not.toContain("AskRigor's own review");
+      expect(text(bare)).not.toContain("AskRigor's own review");
+      // Other words for another research target have no plan, so their draft is reviewed: the account's one review of
+      // the day is still there.
+      const OTHER_TARGET = "Whether vitamin D supplements prevent colds in children";
+      const other = await finalize(withAsked(request({ research_target: OTHER_TARGET }),
+        "and what about vitamin D in winter?"));
+      expect(reviews).toHaveLength(1);
+      expect(notesOf(other).at(-1)).toBe("AskRigor's own review of this draft found nothing this person would have to " +
+        "ask next.");
+      // And now it is used.
+      const third = await finalize(withAsked(request({ research_target: OTHER_TARGET }), "and for children?"));
+      expect(notesOf(third).at(-1)).toBe("AskRigor's own review of this draft did not run (this account's reviews for " +
+        "today are used up); the check's result stands.");
+      // Asking for the lane made no planning call.
+      expect(planned).toHaveLength(1);
+    });
 });

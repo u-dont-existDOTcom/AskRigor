@@ -59,7 +59,11 @@ import {
  */
 export const OWNER_DAILY_CEILING_WITH_REVIEW_USD = 7;
 
-export const RESEARCH_REVIEWER_RUBRIC_VERSION = "2026-11-13.1";
+// Rubric 2026-11-14.1 adds the fifth point (AskRigor#458, 14 November 2026: a first-pass comparison called itself
+// preliminary and ended on "more research is needed", and the person could not tell what was unexamined or what
+// would happen next): a draft that calls itself preliminary without saying what is left, what comes next, why it could
+// change the conclusion and whether that work is starting or waits for them.
+export const RESEARCH_REVIEWER_RUBRIC_VERSION = "2026-11-14.1";
 
 // The rubric as tried on plan workers on 13 November 2026 (docs/superpowers/plans/2026-11-09-research-steering.md).
 // Stable instructions first, so
@@ -77,6 +81,7 @@ Second, check the draft for these, in this order:
 2. Evidence nearest the question that is missing or only alluded to: other studies in people that tested the same thing (name them, with what each compared), the numbers behind a claim the person quoted, results for every dose or group when one study reports several.
 3. A reading of the question the person probably did not mean, or an answer that verifies where the person asked what was said or done.
 4. A source cited without what it can and cannot show for this question.
+5. A draft that calls itself preliminary, provisional or a first pass, or that ends on more research being needed, without saying what that means for this person: which sources or options were not yet looked at, what the next steps are, in order, why they could change the conclusion or the ranking, and whether that work is starting now or waits for their go-ahead.
 
 A gap is only something that changes what this person takes away: an answer to what they asked that is missing, a statement that is wrong or stronger than its support, or evidence that would move the conclusion. Background, context and thoroughness beyond what they asked are not gaps: when the person asked for one figure from one named study and the draft gives it correctly with its source, the usual right reply is no gaps.
 
@@ -167,8 +172,10 @@ export interface AnswerReview {
   searches: number;
 }
 
+// light_lane (owner answer 302, 14 November 2026): finalize_research makes no review of a light look-up's draft, whose
+// plan gave it one task and one final check; the review is never called, so it counts nothing.
 export type ResearchReviewerSkipReason = "off" | "daily_budget" | "account_limit" | "timeout" | "refusal" | "error" |
-  "unreadable" | "given_before";
+  "unreadable" | "given_before" | "light_lane";
 export type ResearchReviewing =
   | { status: "reviewed"; review: AnswerReview }
   | { status: "skipped"; reason: ResearchReviewerSkipReason };
@@ -251,7 +258,8 @@ export function answerReviewOf(reply: unknown, searches: number, key = "\u0000")
 }
 
 /** Why a review did not run, in plain words, for the note the final check adds. */
-const NOT_RUN_WORDS: Readonly<Record<Exclude<ResearchReviewerSkipReason, "off" | "given_before">, string>> = {
+const NOT_RUN_WORDS: Readonly<Record<Exclude<ResearchReviewerSkipReason, "off" | "given_before" | "light_lane">,
+  string>> = {
   daily_budget: "its budget for today is used up",
   account_limit: "this account's reviews for today are used up",
   timeout: "it took too long",
@@ -275,8 +283,8 @@ const NOTHING_FOUND = "AskRigor's own review of this draft found nothing this pe
 
 /**
  * The one note finalize_research adds for a review, or undefined for none: the gaps with what to do about them, that
- * the review found nothing, or that it did not run and why. A review that is off, or was given before for the same
- * question, adds nothing.
+ * the review found nothing, or that it did not run and why. A review that is off, was given before for the same
+ * question, or was not made for a light look-up (owner answer 302), adds nothing.
  */
 export function answerReviewNote(call: Pick<ResearchReviewerCall, "reviewing">): string | undefined {
   const { reviewing } = call;
@@ -286,7 +294,9 @@ export function answerReviewNote(call: Pick<ResearchReviewerCall, "reviewing">):
     return `${REVIEW_HEAD}${gaps.map((gap, index) =>
       ` ${index + 1}. "${gap.next_question}" ${gap.what} To fix: ${gap.add}`).join("")} ${REVIEW_TAIL}`;
   }
-  if (reviewing.reason === "off" || reviewing.reason === "given_before") return undefined;
+  if (reviewing.reason === "off" || reviewing.reason === "given_before" || reviewing.reason === "light_lane") {
+    return undefined;
+  }
   return `AskRigor's own review of this draft did not run (${NOT_RUN_WORDS[reviewing.reason]}); the check's result stands.`;
 }
 
