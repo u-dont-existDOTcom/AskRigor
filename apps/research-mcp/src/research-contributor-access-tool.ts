@@ -1407,7 +1407,10 @@ async function plannedResearch(
   }
   const { about, steering_choice, tasks, searches, lane } = call.planning.plan;
   const asked = planning.asked !== undefined;
-  if (lane === "aside") return { aside: true, about, searches, asked };
+  // AskRigor steps aside only from the person's own words. A plan made from the AI's research target alone cannot
+  // tell what the person asked, and nothing in a step-aside answer is checked: such a plan is not used, and the AI
+  // screens and plans as on every account (in doubt, AskRigor researches).
+  if (lane === "aside") return asked ? { aside: true, about, searches, asked } : { reason: "unreadable" };
   const light = lane === "light";
   const menu = researchMenuSchema.safeParse({ research_target: plainAnswer.researchTarget,
     plain_answer_receipt: receipt, steering_choice, tasks, ...(light ? { lane: "light" } : {}) });

@@ -490,6 +490,9 @@ call is on.
   nor `finalize_research`, and answers as it would without AskRigor, naming its source. The answer starts with this
   sentence, in the person's language: "AskRigor says this question doesn't need AskRigor's research. Here is the
   regular AI's answer:" AskRigor checks nothing in that answer, and the AI may not say or imply that it did.
+  AskRigor steps aside only when the planning call had the person's own words (`later_inputs.asked`): a plan made
+  from the AI's research target alone cannot tell what the person asked, so it is not used, and the AI screens and
+  plans as on every account.
 
 The lane is the model's judgment. AskRigor only checks that the reply does not contradict itself: aside and light
 only with the word none for the question, and light only with one or two tasks and no method audit. Anything else is

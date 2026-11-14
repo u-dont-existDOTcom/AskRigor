@@ -1234,7 +1234,7 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
 
   it("steps aside for an aside plan: its opening, the receipt kept, and no menu, reminder or request for research",
     async () => {
-      for (const [asked, reviewer] of [[SOURCE.asked, reviewing], [undefined, undefined]] as const) {
+      for (const [asked, reviewer] of [[SOURCE.asked, reviewing], [SOURCE.asked, undefined]] as const) {
         const memory = memoryPlanner(() => ({ status: "planned", plan: researchPlanOf({ ...NONE, lane: "aside" }, 2)! }));
         const { call } = await tool(memory.planner, ["auth0|dev"], reviewer === undefined ? {} : {
           researchReviewer: reviewer });
@@ -1273,6 +1273,23 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
         expect(later.structuredContent, words(later)).toMatchObject({ ok: true,
           researchMenu: { target_matches_plain_answer: true } });
       }
+    });
+
+  it("does not step aside without the person's own words: the plan is not used, and the AI plans as on any account",
+    async () => {
+      // The plan was made from the AI's research target alone, which cannot show what the person asked.
+      const memory = memoryPlanner(() => ({ status: "planned", plan: researchPlanOf({ ...NONE, lane: "aside" }, 2)! }));
+      const { call } = await tool(memory.planner, ["auth0|dev"], { researchReviewer: reviewing });
+      const registered = await call({ action: "register_plain_answer", plainAnswer: PLAIN });
+      expect(registered.isError, words(registered)).not.toBe(true);
+      const structured = registered.structuredContent as Record<string, unknown>;
+      expect(structured).toMatchObject({ ok: true, research_plan_not_used: "unreadable" });
+      expect(structured).not.toHaveProperty("research_plan");
+      expect(structured).not.toHaveProperty("planned_later_inputs");
+      expect(typeof structured.research_receipt).toBe("string");
+      expect(words(registered)).not.toContain(ASIDE_OPENING);
+      expect(words(registered)).toContain(FINALIZE_REMINDER);
+      expect(words(registered)).toContain("AskRigor's own planning call did not answer this time");
     });
 
   it("hands over a light plan's menu with its lane, and plan_research goes on with the light look-up", async () => {
