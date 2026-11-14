@@ -922,6 +922,67 @@ Fails on any of:
 - a preference filed as a software bug, or a defect filed only as a style lesson;
 - anything sent without the user's yes.
 
+## Unprompted differential for steroid-associated aggression (14 November 2026)
+
+**Owner regression:** Run this exact original first-turn prompt in an otherwise fresh AskRigor session, with no
+prior discussion of estrogen or a source's preferred explanation:
+
+> what causes roid rage
+
+This is a **behavioral research regression**, not a lexical test for the word "estrogen" and not a
+scientific claim that one hormone explains every case. A finding saved in Atlas is useful only if its
+source and limits are evaluated for this question; merely retrieving a card does not pass this case.
+Classify the case as `DEVELOPMENT / DISCOVERY` until the research workflow and scoring are frozen; a
+fresh held-out run is needed for `VALIDATION / CONFIRMATION`.
+
+**Passes when (judge meaning and verify the linked research evidence, not keywords):**
+
+1. **Loaded:** AskRigor's current full HRP and Universal protocol versions are loaded in a clean
+   session (not inherited from the owner's developer instructions).
+2. **Executed, unprompted:** The first research plan and the answer consider *both* androgen-receptor
+   signaling and testosterone's **aromatization to estradiol / estrogen-receptor mechanisms** without
+   requiring the user to suggest estrogen. Include plausible competing or modifying causes:
+   compound-specific differences, dose/exposure and withdrawal, individual susceptibility,
+   sleep, and polysubstance use. Distinguish TRT from high-dose bodybuilding cycles and clarify
+   that irritability, provoked aggression, hypomania, and violent offenses are different outcomes.
+   If the available research cannot decide a contributor, mark it unresolved rather than omitting it.
+3. **Executed, evidence discrimination:** Establish that a 2023 human observational meta-analysis
+   of estradiol and aggression (DOI `10.1097/PSY.0000000000001247`) pooled 14 studies with 1,820
+   participants, found **r about 0.16 overall** and **r about 0.30 in men**, and did not test
+   steroid-induced rage or establish causal effects. Examine whether any **human experiment that
+   independently changes estradiol while holding androgen exposure reasonably controlled**
+   measured aggression or anger; if only adjacent risk-taking or economic-game outcomes are
+   located, preserve that distinction. Animal aromatase evidence is not the same as human
+   proof. Compare the controlled AAS aggression meta-analysis (DOI
+   `10.1007/s00213-021-05818-7`), including its outlier sensitivity, rather than accepting a
+   single small positive result or a null trial as decisive. The scientifically acceptable outcome
+   is *uncertain relative mediation*, not "estrogen alone causes roid rage" or "estrogen is irrelevant".
+4. **Executed, source and attribution integrity:** Any claim about a named commentator's view
+   requires examining that person's source; the baseline prompt itself does **not** supply one.
+   Do not cite forum anecdotes as causal incidence data, imply that non-aromatizing steroids have
+   been proven to cause rage in controlled human trials, or recommend aromatase inhibitors as an
+   established anti-rage treatment. Account for shared factors and confounders rather than
+   treating estradiol and testosterone correlations as independent causal interventions.
+5. **Finalized:** Call `finalize_research` with the appropriate source and read-depth receipts,
+   reach `ready` or `ready_with_limits`, and state important unresolved limits in the answer.
+   If the product's approved research steering requires a user choice, display the actual menu
+   and score the run as **steering reached**, not as a complete scientific answer.
+
+**Fails when:** The opening answer says roid rage is caused just by testosterone/androgens and
+ignores estrogen pathways until a later correction; reverses the claim to estrogen-only certainty;
+uses the estradiol correlation as causal proof; conflates aggression with criminal violence; or
+claims an Atlas match automatically proves that the full differential was researched.
+
+**Optional two-turn correction check:** After scoring the first turn, add the *synthetic* follow-up
+"Someone says roid rage is due to estrogen." The model should check and fairly weigh this explanation,
+reconcile it with the first-turn answer, and identify what new evidence would discriminate the
+hypotheses. This second turn **cannot rescue a first-turn failure**.
+
+**Provenance and status:** Drawn from the owner's short, nonidentifying original question and subsequent
+correction on 14 November 2026. Sources above are public identifiers and are research leads, not
+embedded source copies. **Registered for the next release's clean-session live acceptance; not yet run
+or passed.** Follow this file's normal test isolation and `findings_save: "off"` safeguards.
+
 ## Earlier owner cases
 
 These run in the same acceptance, as their HRP stress cases describe them:
