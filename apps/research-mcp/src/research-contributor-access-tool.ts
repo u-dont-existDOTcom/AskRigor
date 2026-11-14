@@ -56,7 +56,7 @@ import {
   sentencesOf,
 } from "./research-finalization-gate.js";
 import { researchMapSavedLine } from "./findings/card.js";
-import { askedText, callsPageSchema, laterInputShape } from "./later-inputs.js";
+import { askedText, callsPageSchema, laterInputShape, latestMessage } from "./later-inputs.js";
 import { MCP_RESULT_MAX_BYTES } from "./config.js";
 import { clientResultBytes } from "./tool-result.js";
 import {
@@ -85,6 +85,7 @@ import {
   cleanedReason,
   menuChoiceOf,
   menuProblems,
+  goOnMark,
   menuDigest,
   menuReadingSentence,
   choicePlaceholderWords,
@@ -344,6 +345,9 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     // Round 3 of the owner's ChatGPT runs (12 Nov 2026; every account since 13 Nov 2026): the call's allocation was
     // not used, as it came without person_answered true.
     allocation_not_used: z.literal(true).optional(),
+    // Owner answer 304a (14 Nov 2026; runtime only): a balanced menu that could take more than about 10 minutes goes
+    // on, since AskRigor's own plan read the person's newest message as telling the AI to go on.
+    went_on_as_asked: z.literal(true).optional(),
   }).strict().optional(),
   // 12 Nov 2026 (runtime only): an ask's "you decide" call, ready to copy, and a refused menu's example, built from the
   // call's own. The call carries person_answered's placeholder, to be replaced (every account since 13 Nov 2026).
@@ -364,6 +368,9 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     searches: z.number().int().min(0),
     from_asked: z.boolean(),
     lane: z.enum(RESEARCH_LANES),
+    // Owner answer 304a (14 Nov 2026; runtime only): the planning call read the person's newest message as telling
+    // the AI to go on, and the menu handed over carries AskRigor's mark for it.
+    person_said_go_on: z.literal(true).optional(),
   }).strict().optional()
     .describe("With register_plain_answer on a dev account: what AskRigor's own planning call found the question to " +
       "be about, the one question it would put to the person or the word none, how many web searches it ran, " +
@@ -1019,8 +1026,12 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         // Owner answer 301a: with the planner's texts, a dev account whose drafts AskRigor reviews is asked to give the
         // person's words again at the final check.
         const reviewed = planner?.enabled === true && options.researchReviewer?.()?.enabled === true;
+        // Owner answer 304a: the newest of the person's messages, when the AI passed on more than one, for the
+        // planning call to say whether it tells the AI to go on; and the secret that signs the menu's mark for it.
+        const latest = parsed.asked === undefined ? undefined : latestMessage(parsed.asked);
         return await registerPlainAnswer(options.service, auth.subject, parsed.plainAnswer!, options.plainAnswer,
-          parsed.framing, planner?.enabled === true ? { planner, asked, reviewed } : undefined);
+          parsed.framing, planner?.enabled === true
+            ? { planner, asked, reviewed, latest, markSecret: options.menuDigestSecret?.() } : undefined);
       }
       if (parsed.action === "set_research_steering") {
         // Owner answer 303a: learn mode only for a dev account, while AskRigor's own planning call is on.
@@ -1294,7 +1305,10 @@ async function registerPlainAnswer(
   framing?: Framing,
   // Owner answer 298b: a dev account's planner, with the person's own words when the call gave them; and whether
   // AskRigor's own review reads its drafts at the final check (owner answer 301a).
-  planning?: { planner: ResearchPlanner; asked: string | undefined; reviewed?: boolean },
+  // Owner answer 304a: latest is the newest of the person's messages when the call passed on more than one, and
+  // markSecret signs the mark a menu carries when the planning call read that message as telling the AI to go on.
+  planning?: { planner: ResearchPlanner; asked: string | undefined; reviewed?: boolean; latest?: string | undefined;
+    markSecret?: string | undefined },
 ): Promise<CallToolResult> {
   const account = await plainAnswerAccount(service, subject, plain);
   if (account === undefined) return accessError("plain_answer_not_requested", plain === undefined ? PLAIN_ANSWER_SURFACE_UNAVAILABLE : PLAIN_ANSWER_NOT_REQUESTED);
@@ -1397,7 +1411,8 @@ async function registerPlainAnswer(
       ...(plan === undefined ? {} : {
         research_plan: { source: "askrigor_planning_call", about: plan.about,
           steering_choice: plan.later_inputs.researchMenu.steering_choice ?? "none", searches: plan.searches,
-          from_asked: plan.asked, lane: plan.lane },
+          from_asked: plan.asked, lane: plan.lane,
+          ...(plan.later_inputs.researchMenu.go_on_asked === undefined ? {} : { person_said_go_on: true as const }) },
         planned_later_inputs: plan.later_inputs,
       }),
       ...(notPlanned === undefined ? {} : { research_plan_not_used: notPlanned.reason }),
@@ -1424,7 +1439,8 @@ const PLANNER_WAIT_MS = 125_000;
  * a light plan's menu says lane light, and an aside plan gives no menu at all, only what the question is about.
  */
 async function plannedResearch(
-  planning: { planner: ResearchPlanner; asked: string | undefined },
+  planning: { planner: ResearchPlanner; asked: string | undefined; latest?: string | undefined;
+    markSecret?: string | undefined },
   plainAnswer: z.infer<typeof plainAnswerInputSchema>,
   framing: Framing | undefined,
   receipt: string,
@@ -1437,7 +1453,8 @@ async function plannedResearch(
   const call = await Promise.race([
     Promise.resolve().then(() => planning.planner.plan({ asked: planning.asked,
       researchTarget: plainAnswer.researchTarget, quickAnswer: plainAnswer.text, claims: plainAnswer.claims, framing,
-      ...(menuHistory.length === 0 ? {} : { menuHistory }) },
+      ...(menuHistory.length === 0 ? {} : { menuHistory }),
+      ...(planning.latest === undefined ? {} : { latestMessage: planning.latest }) },
     accountKey)),
     new Promise<undefined>((resolve) => { waited = setTimeout(() => resolve(undefined), PLANNER_WAIT_MS); }),
   ]).catch(() => undefined).finally(() => clearTimeout(waited));
@@ -1445,7 +1462,7 @@ async function plannedResearch(
   if (call.planning.status === "skipped") {
     return call.planning.reason === "off" ? undefined : { reason: call.planning.reason };
   }
-  const { about, steering_choice, tasks, searches, lane } = call.planning.plan;
+  const { about, steering_choice, tasks, searches, lane, goOn } = call.planning.plan;
   const asked = planning.asked !== undefined;
   // AskRigor steps aside only from the person's own words. A plan made from the AI's research target alone cannot
   // tell what the person asked, and nothing in a step-aside answer is checked: such a plan is not used, and the AI
@@ -1460,7 +1477,14 @@ async function plannedResearch(
   const menu = researchMenuSchema.safeParse({ research_target: plainAnswer.researchTarget,
     plain_answer_receipt: receipt, steering_choice, tasks, ...(light ? { lane: "light" } : {}) });
   if (!menu.success) return { reason: "unreadable" };
-  return { about, searches, asked, lane: light ? "light" : "research", later_inputs: { researchMenu: menu.data } };
+  // Owner answer 304a: the plan says the person's newest message told the AI to go on, and this call carried such a
+  // message (a plan kept from the hour's cache may have been made for a call that did): the menu gets AskRigor's
+  // mark, signed for these tasks and this receipt. Without the signing secret there is no mark, and the menu asks
+  // as it always did.
+  const mark = goOn && planning.latest !== undefined && planning.markSecret !== undefined && planning.markSecret !== ""
+    ? goOnMark(menu.data.tasks, receipt, planning.markSecret) : undefined;
+  return { about, searches, asked, lane: light ? "light" : "research",
+    later_inputs: { researchMenu: mark === undefined ? menu.data : { ...menu.data, go_on_asked: mark } } };
 }
 
 /**
@@ -1665,8 +1689,17 @@ async function planResearchAction(
   }
   // The review of 12 Nov 2026: the menu's digest, and whether its tasks differ from the menu the call's digest names.
   const digest = digestSecret === undefined || digestSecret === "" ? undefined : menuDigest(plan.tasks, digestSecret);
+  // Owner answer 304a: the menu carries AskRigor's own mark that the person's newest message told the AI to go on,
+  // and the mark is this menu's: signed for its tasks and for the plain-answer receipt it carries, which is a
+  // current receipt of this account. Any other value in its place is not a mark, and changes nothing. It counts only
+  // for a dev account while AskRigor's own planning call is on (learning is given only then), as the mark is made
+  // only then: an account taken off the list keeps no go-ahead from a menu it was handed before (the review of 14
+  // Nov 2026).
+  const goOnAsked = learning !== undefined && digest !== undefined && read !== undefined &&
+    plan.go_on_asked !== undefined &&
+    plan.go_on_asked === goOnMark(plan.tasks, plan.plain_answer_receipt!, digestSecret!);
   const menu = digest === undefined ? undefined
-    : { digest, changed: plan.menu_digest !== undefined && plan.menu_digest !== digest };
+    : { digest, changed: plan.menu_digest !== undefined && plan.menu_digest !== digest, goOnAsked };
   // Owner answers 294c (12 Nov 2026) and 296b (13 Nov 2026): on a dev account, a menu whose decision rests on the
   // judgment plans nothing until it names the question the AI would ask this person, or none; the yes or no alone
   // no longer answers there. So the AI decides a short menu, not the default, and decides it by trying to name a

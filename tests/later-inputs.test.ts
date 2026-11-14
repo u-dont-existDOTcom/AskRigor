@@ -181,6 +181,15 @@ describe("finalize_research keeps the usable later inputs beside a bad one", () 
 
 describe("later_inputs (owner answer 189a)", () => {
   afterEach(() => vi.restoreAllMocks());
+
+  it("takes the latest message only from a list of two or more messages", () => {
+    expect(laterInputs.latestMessage("Would the oil work?\n\nKeep digging.")).toBeUndefined();
+    expect(laterInputs.latestMessage(["Would the oil work?"])).toBeUndefined();
+    expect(laterInputs.latestMessage(["Would the oil work?", "Keep digging."])).toBe("Keep digging.");
+    expect(laterInputs.latestMessage(["Would the oil work?", "By mouth.", "Research it fully."]))
+      .toBe("Research it fully.");
+  });
+
   it("declares channel filtering as a later input and rejects unknown keys with the exact allowed names", async () => {
     for (const operation of RESEARCH_OPERATIONS) {
       const expected = operation.name === "search_youtube" ? ["channel_id"]

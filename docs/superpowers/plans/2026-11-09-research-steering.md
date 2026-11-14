@@ -1046,7 +1046,7 @@ first gap was still the opening. Dev accounts only, as the review is.
 ## Learn mode (owner answer 303a, chosen in the Inbox on 14 November 2026, 02:18 UTC)
 
 **What the owner chose.** Question 303, option a: "learn mode on your account now, inside the week's trial. It keeps
-your own choices and reasons and nothing of anyone else's." Its release waits for "303a" typed in chat.
+your own choices and reasons and nothing of anyone else's." The owner typed "303a" in chat on 14 November at 10:07 UTC, and it was released at 10:15 UTC (#461).
 
 **How it is built** (`docs/research-contributor-access.md`, "Learn mode"; migration `0035_research_menu_learning`).
 
@@ -1077,3 +1077,98 @@ your own choices and reasons and nothing of anyone else's." Its release waits fo
 
 **Not done.** The menu's own rule for when to ask does not read the history. A time limit on what is kept. Other
 accounts.
+
+## A follow-up that says to go on is not asked again (owner answer 304a, chosen in the Inbox on 14 November 2026, 10:05 UTC)
+
+**What the owner chose.** The owner's note of 14 November, 00:54 UTC, on AskRigor#457: "A follow-up explicitly
+instructed the assistant to continue digging, with earlier comparator scope already fixed as *all psilocybin
+mushrooms*. The `register_plain_answer` planner returned `research_plan.steering_choice: "none"`, with five
+substantive research tasks. Nevertheless, `plan_research` returned `researchMenu.next: "ask"`". Question 304, option
+a: "when your latest message tells the AI to go on, continue or dig deeper, and the plan has no question for you, the
+research goes on with the recommended tasks without asking. The planning call judges whether your message says that.
+A first question still follows the 10-minute rule. The cost: a follow-up can then run longer than 10 minutes before
+you hear back." Its release waits for "304a" typed in chat: it changes the owner's 10-minute rule of 10 November
+(owner answer 284) for that one case.
+
+**How it is built** (`docs/research-contributor-access.md`, "A follow-up that says to go on").
+
+- `later-inputs.ts`: `latestMessage`, the newest of the person's messages when `later_inputs.asked` is a list of
+  more than one; a single text has none, since where one message ends is the list's to say. `ASKED_REQUEST` now asks
+  for every later message of the person's about the question (an answer, a correction, a request to go on), and for
+  the list when there is more than one.
+- `research-planner.ts` (rubric 2026-11-14.3): the bundle's `latest_message`; step 5 and the reply's
+  `person_said_go_on`; `ResearchPlan.goOn`, kept by `researchPlanOf` only for a research plan with no question whose
+  call carried such a message.
+- `research-steering.ts`: the menu's `go_on_asked`, a mark keyed with the signing secret over the menu's tasks as
+  handed over (each one's words, kind, what it could change, loop, sources and minutes) and its plain-answer receipt
+  (`goOnMark`), never taught to the AI; `planResearch` with a checked mark: balanced
+  research with no question, no re-plan and the registered target does not ask for the tasks' length alone, the
+  result says `went_on_as_asked`, and the go-ahead (text and `next_step`) says why it did not ask.
+- `research-contributor-access-tool.ts`: the registration puts the mark in when the plan says so and this call
+  carried such a message; `plan_research` counts it only when it is this menu's, for a current receipt of this
+  account, on a dev account while the planning call is on; `research_plan.person_said_go_on` beside it.
+
+Nothing is kept on the server and no tool definition changes. AskRigor cannot check that the words it is given are
+the person's: as with `person_answered`, it relies on the AI's account of what the person wrote.
+
+**What the tests showed (plan workers, 14 November 2026, 10:32 to 10:50 UTC; 84 runs over three of the five wordings tried).**
+The person's newest message, after a first question:
+
+| Newest message | Go on? |
+|---|---|
+| "keep digging" (after "compare it with all psilocybin mushrooms") | yes, 4 of 4 |
+| "continue" | yes, 4 of 4 |
+| "dig deeper into the forum reports, especially Shroomery" | yes, 4 of 4 |
+| "sigue investigando" | yes, 3 of 4 (in the fourth the plan named a question) |
+| "why did you stop? keep going until you've checked everything" | yes, 3 of 3 |
+| "keep digging but only what neuroscientists say, not philosophers" | yes, 3 of 3 |
+| a long message that ends "anyway, keep researching this for me" | yes, 3 of 3 |
+| "continue" (to a question in French) | yes, 3 of 3 |
+| "yes, go ahead" | yes once, no twice |
+| "ok do it" | no, 3 of 3 |
+| "research it fully" (after the PITCH look-up) | yes 2 of 2 with the first wording, which named it as an example; no 2 of 2 since; lane research each time |
+| "moderate, and I've already tried sertraline" (an answer) | no, 4 of 4 |
+| "and what about nori?" | no, 4 of 4 |
+| "can you also check whether animals like octopuses are conscious?" | no, 3 of 3 |
+| "no, I meant the capsules, not the tea" | no, 3 of 3 |
+| "go deeper on the dosing question" (the plan named a question about the person) | no, 3 of 3 |
+| "thanks, that's helpful" | no, 4 of 4 |
+| "ok" | no, 4 of 4 |
+| "hmm" | no, 3 of 3 |
+| "keep going" (the plan named a question: what the saffron is for) | no, 4 of 4 |
+| one text that ends "keep digging" (no list) | no, 4 of 4 |
+| a list of one message | no, 4 of 4 |
+
+The PITCH look-up stayed light and "what does MADRS stand for?" stayed aside in each of their three runs. When the
+judgment was unsure ("yes, go ahead", "ok do it"), it fell to no, and such a menu asks as before.
+
+**On the API (14 November 2026, 10:39 to 10:43 UTC; the code's own call, Opus 5.5 at low effort, 26 calls, USD 2.15).**
+The judgment went as on plan workers: "keep digging" yes in six runs of six, "continue", "sigue investigando", the
+message with a direction, "why did you stop? keep going ..." and the long message yes; the answer, the new question,
+the single text and the list of one no. Three things showed only there:
+
+- **A plan made with no web search.** With the first wording, one of three plans whose newest message said to go on
+  ran no search ("keep digging"). The line on `latest_message` now ends "Whatever it says, step 1 stays as it is: you
+  search the web first"; after it, every such plan searched (eight of eight).
+- **A wording that undid a lane.** That line first read "It speaks to the assistant, never to you", and step 5
+  named "a look-up they now want researched" among the cases that are not a request to go on. With either, "research
+  it fully" after the PITCH look-up came back as lane light (three runs of four). Both are gone, and step 4 now says
+  first that a question whose later message asks for it to be researched fully is research, whatever its first
+  message asked: research in three runs of four.
+- **Not solved.** The fourth run was light again. How often the live rubric (2026-11-14.2) does this was not
+  measured. It is not part of this change, and it wants a signal that does not rest on the wording: the next build
+  can tell the planning call that this research target's last plan was light or aside.
+
+**Review.** Codex, read-only, on the uncommitted change (the kit's `codex-review-462.md`). No defect in the
+rule itself (the one changed case is balanced, not answered, not changed, no re-plan, no question, long, with the
+mark), in where the mark is put in, in the schemas or in the tests. Fixed before the commit: the mark covered only
+what the menu's digest compares, so a task swapped for another of its kind or given hours kept it (it now covers
+each task's words, sources and minutes too); a list's cache key could equal the key of a registration without words;
+the final check could read the lane of the older of two plans for one research target; an account taken off the dev
+list still had its mark honoured; and a menu refused for another field came back without its mark. Codex's first
+pass, writing the tests, had found that the same words sent first as one text and then as a list reused the first
+plan: the cache key now holds the newest message.
+
+**Not done.** Every account. Guided research (it asks before every long task). A longer check-back allowance for
+such a follow-up. An allocation the person gave earlier in the conversation carried over. A test in the owner's own
+ChatGPT: whether the AI passes the follow-up as the last message of a list is known only from the request's words.

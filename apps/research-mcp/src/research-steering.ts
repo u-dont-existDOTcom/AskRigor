@@ -189,6 +189,13 @@ export const researchMenuSchema = z.object({
   person_reason: z.unknown().optional()
     .describe("With person_answered true, when the person said why they chose as they did: their reason in their " +
       "own words, at most 300 characters; leave it out when they gave none. Never a reason of yours."),
+  // Owner answer 304a (14 Nov 2026): only AskRigor's own plan sets it, in the menu register_plain_answer hands over,
+  // when its planning call read the person's newest message as telling the AI to go on. It is a mark signed for this
+  // menu's tasks and its plain-answer receipt (goOnMark), so one copied to another menu, or written by the AI, counts
+  // for nothing. Like lane, it is in no text that teaches the AI to write a menu of its own. Any value is accepted,
+  // as for person_reason: one that is not the menu's own mark is simply not one, and never refuses a menu.
+  go_on_asked: z.unknown().optional()
+    .describe("Set by AskRigor's own plan only, and passed back as given: leave it out of a menu you write yourself."),
 }).strict();
 export type ResearchMenuInput = z.output<typeof researchMenuSchema>;
 
@@ -208,6 +215,27 @@ export function menuDigest(tasks: readonly PlanTask[], secret: string): string {
   const canonical = JSON.stringify(tasks.map(({ kind, could_change, loop }) => [kind, could_change, loop ?? null]));
   const key = createHmac("sha256", secret).update("askrigor research menu digest v1").digest();
   return `md1~${createHmac("sha256", key).update(canonical).digest().subarray(0, 16).toString("base64url")}`;
+}
+
+/**
+ * Owner answer 304a (14 Nov 2026): the mark AskRigor's own plan puts in the menu it hands over when its planning call
+ * read the person's newest message as telling the AI to go on (researchMenu.go_on_asked). It is keyed with the
+ * server's signing secret, under a name of its own, over the menu's tasks as they were handed over (in order, each
+ * one's words, kind, what it could change, loop, sources and minutes) and the plain-answer receipt the menu carries,
+ * which is signed for one account, one research target and one time. So plan_research can tell, with nothing kept on
+ * the server, that this menu for this registration is the one the planning call judged: a mark copied to another
+ * menu or another registration, or one the AI wrote, is not it, and such a menu asks as it always did. It covers
+ * more than the menu's digest does (the review of 14 Nov 2026): a digest that ignores a task's words and time lets a
+ * retyped menu pass, which is right for a menu the person has just answered; here it would let the AI swap in a task
+ * of the same kind, or give one hours, and still go on in the person's name. A menu handed over is sent back as
+ * given, so the stricter mark costs nothing; one retyped in other words asks, as every menu did before. Exact, never
+ * meaning: whether the person said to go on is the planning call's judgment, made before this mark exists.
+ */
+export function goOnMark(tasks: readonly PlanTask[], receipt: string, secret: string): string {
+  const canonical = JSON.stringify([tasks.map(({ task, kind, could_change, loop, sources, minutes }) =>
+    [task, kind, could_change, loop ?? null, sources ?? null, minutes ?? null]), receipt]);
+  const key = createHmac("sha256", secret).update("askrigor research menu go-on v1").digest();
+  return `go1~${createHmac("sha256", key).update(canonical).digest().subarray(0, 16).toString("base64url")}`;
 }
 
 /**
@@ -394,6 +422,7 @@ export const correctedMenuSchema = z.object({
     menu_digest: z.string().optional(),
     lane: z.enum(["light"]).optional(),
     person_reason: z.string().optional(),
+    go_on_asked: z.string().optional(),
   }).strict(),
 }).strict();
 export type CorrectedMenu = z.output<typeof correctedMenuSchema>;
@@ -449,6 +478,10 @@ export function correctedMenu(source: unknown, choice = false): CorrectedMenu {
     // Owner answer 303a: the person's reason goes back with the menu, cleaned and cut as it would be kept, never as
     // raw text in a refusal (the review of 14 Nov 2026).
     ...(cleanedReason(menu.person_reason) === undefined ? {} : { person_reason: cleanedReason(menu.person_reason)! }),
+    // Owner answer 304a: AskRigor's own mark goes back with the menu as it came (the review of 14 Nov 2026: a menu
+    // refused for another field came back without it, and the corrected call asked again). It is checked where it is
+    // used; a value that is not a short text is not a mark and is left out.
+    ...(typeof menu.go_on_asked === "string" && menu.go_on_asked.length <= 200 ? { go_on_asked: menu.go_on_asked } : {}),
   };
   return correctedMenuSchema.parse({ researchMenu: example });
 }
@@ -791,13 +824,19 @@ export function framingNextStep(steering: ResearchSteering, framing: Framing | u
  * in an earlier conversation, which ChatGPT remembered, labelled "Earlier clarification from this user", and the
  * plan was made from it. The call is worth having because it knows nothing of earlier conversations, so the
  * request now says: this conversation only, nothing from memory, no note of the AI's.
+ *
+ * Owner answer 304a (14 Nov 2026): the call also says whether the person's newest message tells the AI to go on, and
+ * it can only when it is given that message by itself. So the request names every later message of the person's
+ * about the question, a request to go on among them, and asks for the list when there is more than one: where one
+ * message ends is the list's to say (latestMessage).
  */
 export const ASKED_LIMIT = 6_000;
 export const ASKED_REQUEST = "On this account AskRigor plans the research itself, with its own model call, when the " +
   "plain answer is registered. With the plain answer, also give later_inputs.asked: the person's own words about " +
-  "this question, word for word and in order (their question, and after it any answer they gave to a question of " +
-  `yours about it), as one text or a list with one message each, at most ${ASKED_LIMIT.toLocaleString("en-US")} ` +
-  "characters in all. Give only what they wrote in this conversation: nothing from memory or from earlier " +
+  "this question, word for word and in order (their question, and after it every later message of theirs about it: " +
+  "an answer to a question of yours, a correction, a request to go on), as one text or a list with one message " +
+  `each, at most ${ASKED_LIMIT.toLocaleString("en-US")} characters in all; with more than one message, give the ` +
+  "list. Give only what they wrote in this conversation: nothing from memory or from earlier " +
   "conversations, and no note or explanation of yours. AskRigor passes them to that call and keeps none of them.";
 /**
  * Owner answer 301a (13 Nov 2026): on a dev account whose drafts AskRigor's own review reads at the final check, the
@@ -929,6 +968,22 @@ export function plannerNotUsedSentence(reason: PlannerNotUsedReason, accountDail
  */
 export const ASK_ABOVE_MINUTES = 10;
 
+/**
+ * Owner answer 304a (14 November 2026). The owner's note of 14 Nov, 00:54 UTC, on AskRigor#457: "A follow-up
+ * explicitly instructed the assistant to continue digging, with earlier comparator scope already fixed ... the
+ * planner returned steering_choice none, with five substantive research tasks. Nevertheless, plan_research returned
+ * next: ask", and the person, who had just said to go on, was asked how to spend the time. The owner chose: "when
+ * your latest message tells the AI to go on, continue or dig deeper, and the plan has no question for you, the
+ * research goes on with the recommended tasks without asking. The planning call judges whether your message says
+ * that. A first question still follows the 10-minute rule. The cost: a follow-up can then run longer than 10 minutes
+ * before you hear back." So for balanced research, a menu that carries AskRigor's own mark for it (goOnMark), names
+ * no question and is not a re-plan is not asked about for its length alone. Guided research still asks, as it asks
+ * before every long task; a named question, a changed menu and a re-plan ask as before. The go-ahead says why it did
+ * not ask, since the AI has been told that plans this long ask first.
+ */
+export const WENT_ON_AS_ASKED = "AskRigor did not ask first, though these tasks could take more than about " +
+  `${ASK_ABOVE_MINUTES} minutes: its own plan read the person's latest message as telling you to go on.`;
+
 export interface PlannedTask {
   n: number;
   task: string;
@@ -974,6 +1029,11 @@ export interface ResearchPlanResult {
    * without person_answered true (PERSON_ANSWER_DECLARED).
    */
   allocation_not_used?: true;
+  /**
+   * Owner answer 304a: the recommended tasks could take more than about 10 minutes and the menu goes on all the same,
+   * since AskRigor's own plan read the person's newest message as telling the AI to go on (WENT_ON_AS_ASKED).
+   */
+  went_on_as_asked?: true;
 }
 
 // AskRigor's own estimates are rounded for the menu; the person's minutes never are (below).
@@ -1114,7 +1174,9 @@ export function planResearch(
   plan: ResearchMenuInput,
   steering: ResearchSteering,
   plainAnswer?: { matches: boolean; minutesSince: number },
-  menu?: { digest: string; changed: boolean },
+  // goOnAsked: the menu carries AskRigor's own mark that the person said to go on (owner answer 304a), which the
+  // caller checked against this menu's tasks and receipt (goOnMark).
+  menu?: { digest: string; changed: boolean; goOnAsked?: boolean },
 ): ResearchPlanResult {
   const done = new Set(plan.done ?? []);
   // A menu that changed after the person saw it is theirs to see first: an allocation given for the one they saw is
@@ -1180,10 +1242,16 @@ export function planResearch(
   const question = plan.steering_choice === undefined || isNoChoice(plan.steering_choice) ? undefined
     : plan.steering_choice.trim();
   const steerable = plan.steering_choice === undefined ? plan.steering_could_help : question !== undefined;
+  const long = recommendedMinutes[1] > ASK_ABOVE_MINUTES;
+  // Owner answer 304a: the person's newest message said to go on, as AskRigor's own planning call read it, so the
+  // menu's length alone is no reason to ask them again. Everything else that asks still does: guided research, a
+  // named question (or a judgment left out), a menu changed after they saw it, a re-plan, and a research target that
+  // is not the registered one, which gets no go-ahead at all.
+  const asked = menu?.goOnAsked === true && steerable === false && !replanned && plainAnswer?.matches !== false;
   const next = steering.style === "autonomous" ? "go_on"
     : answered ? "go_on"
     : changed ? "ask"
-    : steering.style === "guided" || recommendedMinutes[1] > ASK_ABOVE_MINUTES || steerable !== false ||
+    : steering.style === "guided" || (long && !asked) || steerable !== false ||
         (replanned && recommended.length > 0)
       ? "ask"
       : "go_on";
@@ -1212,6 +1280,9 @@ export function planResearch(
     ...(menu === undefined ? {} : { menu_digest: menu.digest }),
     ...(changed ? { menu_changed: true as const } : {}),
     ...(carried && !answered ? { allocation_not_used: true as const } : {}),
+    // Only where the mark made the difference: a balanced menu that would have asked for its length alone.
+    ...(next === "go_on" && long && asked && steering.style === "balanced" && !answered
+      ? { went_on_as_asked: true as const } : {}),
   };
 }
 
@@ -1645,6 +1716,8 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
           "the open tasks as a numbered menu and the question whether to spend more time on them."
         : "Go on now: do these tasks in this order, each within its minutes, showing the menu as what you are " +
           "doing; then check the answer with finalize_research and give it in this turn.",
+      // Owner answer 304a: why a plan this long did not ask.
+      ...(result.went_on_as_asked === true ? [WENT_ON_AS_ASKED] : []),
       // Owner answer 297c: with no question named, the answer says its reading first.
       ...(result.say_reading_first === true ? [READING_FIRST] : []),
       result.style === "autonomous" ? TASK_PROGRESS : `${TASK_PROGRESS} ${NEW_FORK}`,
@@ -1708,5 +1781,8 @@ export function planNextStep(result: ResearchPlanResult, learnMode?: boolean): s
       "have with finalize_research and give that answer, ending it with the open tasks as a numbered menu and the " +
       "question whether to spend more time on them."
     : "Do the recommended tasks now, in order, each within its minutes; then check the answer with finalize_research " +
-      "and give it in this turn.") + (result.say_reading_first === true ? ` ${READING_FIRST}` : "");
+      "and give it in this turn.") +
+    // Owner answer 304a: an app that hands its model only next_step is told too why a plan this long did not ask.
+    (result.went_on_as_asked === true ? ` ${WENT_ON_AS_ASKED}` : "") +
+    (result.say_reading_first === true ? ` ${READING_FIRST}` : "");
 }

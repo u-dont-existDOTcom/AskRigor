@@ -232,7 +232,9 @@ was released on 12 November:
   change how sure it is, within the check-back allowance; detail alone is never recommended. Guided always asks;
   balanced asks when the recommended tasks could take more than about 10 minutes (the high end of their range) or the
   person's choices could steer the research, as they usually can unless the question is precise (owner answer 284, 10
-  November 2026); autonomous goes on, and after the allowance checks what it has and gives that answer, ending with the
+  November 2026), except that length alone is no reason to ask when the menu carries AskRigor's own mark that the
+  person's newest message told the AI to go on (owner answer 304a, 14 November 2026; "A follow-up that says to go
+  on", below); autonomous goes on, and after the allowance checks what it has and gives that answer, ending with the
   open tasks as a numbered menu and the question whether to spend more time on them; a person's allocation is followed,
   in their own minutes as given (only AskRigor's own estimates are rounded for the menu; 12 November 2026).
   An allocation that names no task on the menu still open counts as none, so the menu recommends and decides as if
@@ -525,7 +527,7 @@ needless questions were gone in every run (two runs each); the test questions th
 orange peel one in three runs of five (before, in each run seen). When the plan goes on without a question, the
 answer still says first how it read the question.
 
-#### Learn mode (owner answer 303a, 14 November 2026; built, not yet released)
+#### Learn mode (owner answer 303a, 14 November 2026; released the same day, 10:15 UTC)
 
 The owner, in chat on 13 November: "can we also learn from users menu choices (especially if they give reasons), and
 let users turn on learn mode for their own menu choices?" The option chosen in the Inbox on 14 November: "learn mode on
@@ -572,6 +574,46 @@ release waits for the owner's "303a" typed in chat. It is for dev accounts only,
 - **Not done.** The menu's own rule for when to ask (`planResearch`) does not read the history: whether a menu asks
   first is decided as before, and only the plan the history informs can change. Other accounts. A time limit on
   what is kept: the newest 20 stay until learn mode is turned off.
+
+#### A follow-up that says to go on (owner answer 304a, 14 November 2026; built, not yet released)
+
+The owner's note of 14 November 2026, 00:54 UTC, on AskRigor#457: a follow-up told the AI to continue digging, the
+scope was already settled, AskRigor's own plan named no question and listed five tasks, and `plan_research` still
+answered `ask`, since balanced research asks first whenever the recommended tasks could take more than about 10
+minutes. The option the owner chose in the Inbox on 14 November at 10:05 UTC: "when your latest message tells the AI
+to go on, continue or dig deeper, and the plan has no question for you, the research goes on with the recommended
+tasks without asking. The planning call judges whether your message says that. A first question still follows the
+10-minute rule. The cost: a follow-up can then run longer than 10 minutes before you hear back."
+
+- **The judgment is the planning call's.** When the AI passes on the person's words as a list of more than one
+  message (`later_inputs.asked`), the planning call's bundle also carries the newest one as `latest_message`
+  (`latestMessage` in `later-inputs.ts`; a single text has none, since where one message ends is the list's to say).
+  The call's reply says in `person_said_go_on` whether that message is an instruction to carry on with research
+  already under way on the question (rubric 2026-11-14.3, step 5). AskRigor checks shape only (`researchPlanOf`): the
+  judgment is kept for a research plan that names no question, made by a call that carried such a message.
+- **The menu carries a mark.** `register_plain_answer` then puts `go_on_asked` into the menu it hands over: a mark
+  keyed with the server's signing secret over the menu's tasks as handed over (in order, each one's words, kind, what
+  it could change, loop, sources and minutes) and the menu's plain-answer receipt, which is signed for one account,
+  one research target and one time (`goOnMark`). `research_plan.person_said_go_on` is true beside it. Nothing is
+  stored. The mark covers more than the menu's digest does: a task swapped for another of its kind, or given other
+  minutes, is no longer the menu the planning call judged.
+- **What `plan_research` does with it.** The mark counts only when it is this menu's (the same tasks and a current
+  receipt of this account), on a dev account while the planning call is on. Then, for balanced research, a menu that names no question, is not a re-plan and names
+  the registered research target is not asked about for its length alone: it goes on with the recommended tasks, the
+  result says `went_on_as_asked`, and the go-ahead adds "AskRigor did not ask first, though these tasks could take
+  more than about 10 minutes: its own plan read the person's latest message as telling you to go on." The
+  recommended tasks are those of any menu, within the account's check-back allowance.
+- **What still asks.** Guided research, as it asks before every long task; a plan that names a question; a menu
+  changed after the person saw it; a re-plan; and any menu without the mark, which is every menu the AI writes
+  itself and every menu of an account whose research AskRigor does not plan. A mark written by the AI, altered, or
+  copied to another menu or another registration is not one, and is never an error: the menu is planned as if it
+  carried none. A menu refused for another field goes back for correction with its mark.
+- **The plan cache.** Words that came as a list of more than one message are kept under a key that holds the newest
+  message too, so the same words sent first as one text, which was never judged for it, are planned again when they
+  come as a follow-up. The final check reads the lane of the newer plan when the words and the research target each
+  find one.
+- **What is new in what is sent or kept.** Nothing is kept. The person's newest message goes to the planning call a
+  second time, by itself, beside the words it was already part of.
 
 ### AskRigor's own review of a draft answer, on dev accounts (owner answer 301a, 13 November 2026)
 
@@ -665,7 +707,7 @@ a value only on a `manage_research_access` row with action `plan_research`; `lis
 of 9 runs and never calling `plan_research`; with the decision kept, a record also tells an ask that was ignored from a
 menu that said to go on.
 
-Its twin (owner answer 303a's build, 14 November 2026; built, not yet released): for an answered
+Its twin (owner answer 303a's build, 14 November 2026; released the same day): for an answered
 `register_plain_answer` call for which AskRigor's own planning call made a plan (dev accounts only, while it is on),
 the record also keeps the plan's lane, `research`, `light` or `aside` (`research_plan.lane`), never anything the person
 or the AI wrote. Migration `0035_research_menu_learning` adds the nullable `plan_lane` column, whose check admits a

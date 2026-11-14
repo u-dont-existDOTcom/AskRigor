@@ -340,7 +340,7 @@ privacy page's call-record paragraph changes with it. Release: run the one-shot 
 writes the column serves; the access role's table grant already covers a new column, so no role is re-provisioned.
 An earlier image writes no decision (the column stays empty), so a rollback needs no step. Undo no migration.
 
-Owner answer 303a (14 November 2026; built, not yet released; its release waits for the owner's "303a" typed in chat):
+Owner answer 303a (14 November 2026; released the same day at 10:15 UTC, after the owner typed "303a" in chat):
 migration `0035_research_menu_learning` adds learn mode for dev accounts: the switch
 `research_use_accounts.learn_menu_choices` (false by default), the table `research_menu_choices` (a dev account's own
 menu choices and reasons, the newest 20, deleted when learn mode is turned off; revoked from PUBLIC and the canonical
