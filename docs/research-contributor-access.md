@@ -575,7 +575,7 @@ release waits for the owner's "303a" typed in chat. It is for dev accounts only,
   first is decided as before, and only the plan the history informs can change. Other accounts. A time limit on
   what is kept: the newest 20 stay until learn mode is turned off.
 
-#### A follow-up that says to go on (owner answer 304a, 14 November 2026; built, not yet released)
+#### A follow-up that says to go on (owner answer 304a, 14 November 2026; released the same day)
 
 The owner's note of 14 November 2026, 00:54 UTC, on AskRigor#457: a follow-up told the AI to continue digging, the
 scope was already settled, AskRigor's own plan named no question and listed five tasks, and `plan_research` still
