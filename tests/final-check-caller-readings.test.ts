@@ -17,6 +17,7 @@ import {
   CALLER_READINGS_CHECK_LINE,
   CALLER_READINGS_SAVE_CARDS,
   SECOND_READING_LEFT_TO_CALLER,
+  finalizeResearch,
   finalizeResearchInputSchema,
   type FinalizeResearchInput,
 } from "../apps/research-mcp/src/research-finalization-gate.js";
@@ -178,6 +179,17 @@ describe("a final check whose AI readings its caller makes (owner answer 310a)",
     expect(open.structuredContent).not.toHaveProperty("check_line");
     expect(open.structuredContent).not.toHaveProperty("second_reading");
     expect(notesOf(open)).toContain(CALLER_READINGS_NOTE);
+    // So is a call the check could not read at all: it says who makes the readings, and counts nothing.
+    const { answer_draft: _draft, ...unreadable } = request();
+    const refused = await finalize(marked(unreadable));
+    expect(refused.structuredContent).toMatchObject({ status: "not_ready", next_step_kinds: ["input_invalid"] });
+    expect(refused.structuredContent!.ai_readings).toEqual({ by: "caller" });
+    expect(notesOf(refused)).toContain(CALLER_READINGS_NOTE);
+    // And one on a server that cannot verify receipts.
+    const unsigned = finalizeResearch(marked(), { secret: undefined, aiReadings: "caller" });
+    expect(unsigned).toMatchObject({ status: "receipts_unavailable", ai_readings: { by: "caller",
+      declared: { safety_question: false, safety_claims: 0 } } });
+    expect(finalizeResearch(request(), { secret: undefined })).not.toHaveProperty("ai_readings");
   });
 
   it("counts what the call declared, since a pass tests only that", async () => {

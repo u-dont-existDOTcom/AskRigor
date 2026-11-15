@@ -554,9 +554,10 @@ checking them (`apps/research-mcp/src/absence-searches.ts`):
 - A call marked `later_inputs.ai_readings` `"caller"` (owner answer 310a, 15 November 2026) leaves the check's AI
   readings to the app that sends it: the review of the draft and the meaning judge, which the server makes on a dev
   account, and the second reading, which it makes for every account. The server makes none of them for that call, on
-  any account, and counts nothing for them; the rule checks are the same. The result says so: `ai_readings` (`by`
-  `caller`, and `declared`, the count of what the call declared for the rule checks, since a pass tests the answer's
-  safety statements, harms and figures only as far as they are declared), `second_reading` `skipped` with reason
+  any account, and counts nothing for them; the rule checks are the same. Every result of such a call says so:
+  `ai_readings` (`by` `caller`, and `declared`, the count of what the call declared for the rule checks, since a pass
+  tests the answer's safety statements, harms and figures only as far as they are declared; `declared` is left out
+  when the call could not be read), `second_reading` `skipped` with reason
   `left_to_caller` on a pass, one note, and a check line that ends "Its rule checks ran on AskRigor's server; the app
   that ran this research made the check's AI readings." The finalization receipt signs the mark (`ar` `caller`). While
   `CALLER_READINGS_SAVE_CARDS` is false (the owner's question 311), such a call also saves nothing, exactly as a call
