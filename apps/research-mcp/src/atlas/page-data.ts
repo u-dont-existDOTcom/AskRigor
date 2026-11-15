@@ -668,8 +668,11 @@ function fromCanonical(
     // Owner answers 252a and 255a: an accepted or edited finding shows the research behind it from its own version, or
     // from its publication's fields; both are erased with its F number's wording.
     ...canonicalResearch(content, publication, sources, finding.sources),
-    // Owner answer 311a: from its own version's research, or from its publication's fields, as the research is.
-    aiReadings: content.research?.ai_readings ?? publication.published?.ai_readings ?? null,
+    // Owner answer 311a: from the research the page shows: its own version's when it has one, else its publication's
+    // fields, as canonicalResearch chooses (the review of #473: a version accepted from a save AskRigor's server read
+    // shows that research, so not the mark of the card it came from).
+    aiReadings: content.research !== undefined ? content.research.ai_readings ?? null
+      : publication.published?.ai_readings ?? null,
   };
 }
 

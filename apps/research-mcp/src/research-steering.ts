@@ -726,16 +726,33 @@ export function personGoAheadOf(plan: Pick<ResearchMenuInput, "person_go_ahead" 
   return word === undefined || cleanedReason(plan.person_reason) === undefined ? undefined : word;
 }
 
-/** Why a menu's go-ahead was not used, for the result's problems; undefined when it was used, or none was given. */
-export function personGoAheadProblem(plan: Pick<ResearchMenuInput, "person_go_ahead" | "person_reason">):
-  string | undefined {
-  if (plan.person_go_ahead === undefined || plan.person_go_ahead === null || personGoAheadOf(plan) !== undefined) {
-    return undefined;
+/**
+ * Why a menu's go-ahead was not used, for the result's problems; undefined when it was used, when none was given, and
+ * when the person's own allocation decided instead. A go-ahead answers the research's first menu alone (the review of
+ * #473, finding 1): with an allocation the call did not declare the person's, the menu waits for them, as for any
+ * allocation not used; and a re-plan, or a menu changed after it was shown, comes back to them (owner answer 279a).
+ */
+export function personGoAheadProblem(plan: Pick<ResearchMenuInput, "person_go_ahead" | "person_reason" | "allocation" |
+  "person_answered" | "done" | "tasks">, changed = false): string | undefined {
+  if (plan.person_go_ahead === undefined || plan.person_go_ahead === null) return undefined;
+  const field = "later_inputs.researchMenu.person_go_ahead: not used; ";
+  if (goAheadWord(plan.person_go_ahead) === undefined) return `${field}it is all or recommended.`;
+  if (personGoAheadOf(plan) === undefined) {
+    return `${field}it goes with the person's own words that told you to go ahead, word for word, in person_reason, ` +
+      "which the call did not give.";
   }
-  return goAheadWord(plan.person_go_ahead) === undefined
-    ? "later_inputs.researchMenu.person_go_ahead: not used; it is all or recommended."
-    : "later_inputs.researchMenu.person_go_ahead: not used; it goes with the person's own words that told you to go " +
-      "ahead, word for word, in person_reason, which the call did not give.";
+  if (allocationAnswered(plan)) {
+    return plan.person_answered === true ? undefined
+      : `${field}the call also carried an allocation without person_answered true, so this menu waits for the person.`;
+  }
+  if ((plan.done ?? []).some((task) => task <= plan.tasks.length)) {
+    return `${field}a go-ahead answers the research's first menu only, and a re-plan comes back to the person.`;
+  }
+  if (changed) {
+    return `${field}a go-ahead answers the research's first menu only, and a menu changed after it was shown comes ` +
+      "back to the person.";
+  }
+  return undefined;
 }
 
 /** Why a menu that went ahead on the person's word did not ask (AskRigor#467). */
@@ -750,16 +767,17 @@ export const WENT_AHEAD_ALL = "They said to do everything on it, so every open t
 export const ASSUMED_ANSWER_FIRST = "The question you named was not put to them, so before the answer itself say in " +
   "one line, in their language, which answer to it you assumed, so they can correct you.";
 /** The rule that teaches the go-ahead, where the AI sends a menu it has not shown yet (AskRigor#467). */
-export const PERSON_GO_AHEAD_RULE = "When the person's own words, in a message of theirs about this research, " +
-  "already told you to go ahead without waiting for a menu (to accept or do everything on it, to choose for them, or " +
-  "just to answer), add person_go_ahead to researchMenu, all or recommended, with those words, word for word, as " +
-  "person_reason: AskRigor then goes on without asking. Never for words of your own or a guess of what they would want.";
+export const PERSON_GO_AHEAD_RULE = "When the person's own words, in a message of theirs before this research's " +
+  "first menu, already told you to go ahead without waiting for a menu (to accept or do everything on it, to choose " +
+  "for them, or just to answer), add person_go_ahead to researchMenu, all or recommended, with those words, word for " +
+  "word, as person_reason: AskRigor then goes on without asking. Never for words of your own or a guess of what they " +
+  "would want.";
 /** And where an ask answers a menu sent without it. */
-export const GO_AHEAD_BEFORE_ASK = "Before you ask: if the person's own words, in a message before this menu, already " +
-  "told you to go ahead without waiting for it (to accept or do everything on it, to choose for them, or just to " +
-  "answer), do not show it. Call plan_research again now, in this turn, with the same menu, this result's " +
-  "menu_digest, person_go_ahead all or recommended, and those words, word for word, as person_reason. Never for " +
-  "words of your own or a guess of what they would want.";
+export const GO_AHEAD_BEFORE_ASK = "Before you ask: if the person's own words, in a message of theirs before this " +
+  "research's first menu, already told you to go ahead without waiting for a menu (to accept or do everything on " +
+  "it, to choose for them, or just to answer), do not show it. Call plan_research again now, in this turn, with the " +
+  "same menu, this result's menu_digest, person_go_ahead all or recommended, and those words, word for word, as " +
+  "person_reason. Never for a reply to an earlier menu, words of your own or a guess of what they would want.";
 
 /**
  * The menu's exact shape, field by field. The timing runs of 9 Nov 2026 (Codex's AskRigor app on the live build): every
@@ -970,10 +988,10 @@ export function plannedGuidance(framing: Framing | undefined, planned: PlannedRe
       "target, with the same later_inputs.asked, before the next step (the plan is kept).",
     ...(planned.lane === "light" ? [LIGHT_LANE_PLANNED] : []),
     ...((framing?.premise_doubts ?? []).length > 0 ? [DOUBT_BEFORE_PLANNED] : []),
-    "Then call manage_research_access with action plan_research and exactly these later_inputs, which carry the " +
-      `plan: ${JSON.stringify(planned.later_inputs)} ${PERSON_GO_AHEAD_RULE} Otherwise AskRigor gives each task a ` +
-      "time range and says whether to ask the person first; when it says to ask, your reply is the message it gives, " +
-      "and the turn ends there.",
+    "Then call manage_research_access with action plan_research and these later_inputs, which carry the plan, " +
+      `changing nothing but what the next sentence adds: ${JSON.stringify(planned.later_inputs)} ` +
+      `${PERSON_GO_AHEAD_RULE} Otherwise AskRigor gives each task a time range and says whether to ask the person ` +
+      "first; when it says to ask, your reply is the message it gives, and the turn ends there.",
     ...(planned.asked ? [] : ["This plan was made from your research target alone. Next time give later_inputs.asked " +
       "with the plain answer: the person's own words about the question, word for word."]),
   ].join(" ");
@@ -983,7 +1001,8 @@ export function plannedGuidance(framing: Framing | undefined, planned: PlannedRe
 export function plannedNextStep(framing: Framing | undefined, planned: PlannedResearch): string {
   return ((framing?.premise_doubts ?? []).length > 0 ? `${DOUBT_BEFORE_PLANNED} ` : "") +
     "AskRigor planned this research itself: do not screen. Call action plan_research now with planned_later_inputs, " +
-    `exactly as given; its result says whether to ask the person first. ${PERSON_GO_AHEAD_RULE} ` +
+    `as given, adding only a go-ahead as the next sentence says; its result says whether to ask the person first. ` +
+    `${PERSON_GO_AHEAD_RULE} ` +
     "research_plan.about says what the question " +
     "is about: if your plain answer or your research target rests on another reading, say so in one line at the " +
     "start of your reply, and when the research target itself names the wrong thing, register the plain answer " +
@@ -1142,6 +1161,12 @@ export interface ResearchPlanResult {
   went_ahead?: PersonGoAhead;
   /** With went_ahead, the question the menu named, which was not put to the person (ASSUMED_ANSWER_FIRST). */
   assumed_answer_to?: string;
+  /**
+   * AskRigor#467: this ask is the research's first menu, so a go-ahead the person gave before it may still answer it
+   * (GO_AHEAD_BEFORE_ASK). Never after an allocation not used, on a re-plan, on a menu changed after it was shown, or
+   * for a research target that is not the registered one (the review of #473, finding 1).
+   */
+  go_ahead_may_answer?: true;
 }
 
 // AskRigor's own estimates are rounded for the menu; the person's minutes never are (below).
@@ -1308,9 +1333,12 @@ export function planResearch(
   // everything below follows as if none had come.
   const carried = allocationAnswered(plan);
   const answered = carried && plan.person_answered === true;
-  // AskRigor#467: the person's own go-ahead, given before the menu was shown (personGoAheadOf). An allocation they
-  // gave decides over it.
-  const goAhead = answered ? undefined : personGoAheadOf(plan);
+  // AskRigor#467: the person's own go-ahead, given before the research's first menu (personGoAheadOf). It answers
+  // that first menu alone (the review of #473, finding 1): an allocation the call carried decides instead (the
+  // person's, or, without person_answered true, none, and the menu waits as for any allocation not used), and a
+  // re-plan or a menu changed after it was shown comes back to the person (owner answer 279a).
+  const firstMenu = !carried && !tasks.some(({ n }) => done.has(n)) && !changed;
+  const goAhead = firstMenu ? personGoAheadOf(plan) : undefined;
   // Owner answer 302: a light look-up changes what the go-ahead says, never whether the menu asks first. Its tasks are
   // the whole look-up, so they are recommended whatever they were said to change: a task marked as detail would
   // otherwise leave the menu with nothing to do.
@@ -1354,6 +1382,9 @@ export function planResearch(
   const question = plan.steering_choice === undefined || isNoChoice(plan.steering_choice) ? undefined
     : plan.steering_choice.trim();
   const steerable = plan.steering_choice === undefined ? plan.steering_could_help : question !== undefined;
+  // AskRigor#467: with a go-ahead, the question the answer says it assumed an answer to: never a value that is
+  // neither the word none nor a question (the review of #473, finding 3); with none named, the reading comes first.
+  const namedQuestion = question !== undefined && !steeringChoiceUnclear(question) ? question : undefined;
   const long = recommendedMinutes[1] > ASK_ABOVE_MINUTES;
   // Owner answer 304a: the person's newest message said to go on, as AskRigor's own planning call read it, so the
   // menu's length alone is no reason to ask them again. Everything else that asks still does: guided research, a
@@ -1380,8 +1411,11 @@ export function planResearch(
     // Owner answer 297c: a menu that names no question and goes on has the answer say its reading first. A menu held
     // back for its research target gets no go-ahead, so nothing of what follows one (TARGET_NOT_REGISTERED). A light
     // look-up's answer starts with its own line instead (LIGHT_LOOKUP).
-    ...(next === "go_on" && !lightWork && plan.steering_choice !== undefined && question === undefined &&
-        plainAnswer?.matches !== false
+    // AskRigor#467: so does a menu the person's go-ahead sends on with no question named (the review of #473,
+    // finding 6), when it gave no judgment or one that is neither none nor a question.
+    ...(next === "go_on" && !lightWork && plainAnswer?.matches !== false &&
+        ((plan.steering_choice !== undefined && question === undefined) ||
+          (goAhead !== undefined && namedQuestion === undefined))
       ? { say_reading_first: true as const } : {}),
     ...(lightWork ? { lane: "light" as const } : {}),
     style: steering.style,
@@ -1399,10 +1433,12 @@ export function planResearch(
       ? { went_on_as_asked: true as const } : {}),
     // AskRigor#467: and a question the menu named, which the answer then says what it assumed for. A light look-up
     // says nothing more than its own line, and a menu held back for its research target gets no go-ahead.
-    ...(goAhead === undefined ? {} : {
+    ...(goAhead === undefined || plainAnswer?.matches === false ? {} : {
       went_ahead: goAhead,
-      ...(question !== undefined && !lightWork && plainAnswer?.matches !== false ? { assumed_answer_to: question } : {}),
+      ...(namedQuestion !== undefined && !lightWork ? { assumed_answer_to: namedQuestion } : {}),
     }),
+    // AskRigor#467: the research's first menu asks, so the person's go-ahead given before it may still answer it.
+    ...(next === "ask" && firstMenu && plainAnswer?.matches !== false ? { go_ahead_may_answer: true as const } : {}),
   };
 }
 
@@ -1567,7 +1603,8 @@ export function menuChoiceOf(plan: ResearchMenuInput, steering: ResearchSteering
     return minutes;
   };
   const given = byTask(planResearch(plan, steering).recommended);
-  const offered = byTask(planResearch({ ...plan, allocation: undefined, person_answered: undefined }, steering)
+  const offered = byTask(planResearch({ ...plan, allocation: undefined, person_answered: undefined,
+    person_go_ahead: undefined }, steering)
     .recommended);
   // Compared without the tasks either side gives no minutes: a recommended task whose estimate rounds to zero is
   // handed over with 0 minutes and then left out of the answered plan, and must not make "you decide" look like a
@@ -1806,8 +1843,8 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
     return [
       ...first,
       ...(before.length === 0 ? [] : [before.join(" ")]),
-      // AskRigor#467: a person who already said to go ahead is not asked.
-      GO_AHEAD_BEFORE_ASK,
+      // AskRigor#467: a person who already said to go ahead is not asked, on the research's first menu.
+      ...(result.go_ahead_may_answer === true ? [GO_AHEAD_BEFORE_ASK] : []),
       [askReason(result, done) + ASK_NOW, ...since].join(" "),
       reply.join("\n"),
       rule,
@@ -1831,7 +1868,8 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
       : [
       ...before,
       ...since,
-      result.style === "autonomous"
+      // AskRigor#467: with the person's go-ahead for everything, every task, not the check-back time.
+      result.style === "autonomous" && result.went_ahead !== "all"
         ? "The person chose autonomous research: show the menu as what you are doing and go on with the recommended " +
           `tasks now. After about ${result.check_back_minutes} minutes of research, or sooner if a new finding could ` +
           "change the conclusion, check what you have with finalize_research and give that answer, ending it with " +
@@ -1877,8 +1915,8 @@ export function planNextStep(result: ResearchPlanResult, learnMode?: boolean): s
   if (result.next === "ask") {
     // A menu with nothing recommended (detail only) gives "you decide" the text's own exit: an empty recommended
     // allocation counts as no answer, so the same menu would ask again (the review of 12 Nov 2026).
-    return first + `${GO_AHEAD_BEFORE_ASK} Otherwise, ` +
-      "ask the person now and end your turn: " + (result.steering_choice === undefined ? ""
+    return first + (result.go_ahead_may_answer === true ? `${GO_AHEAD_BEFORE_ASK} Otherwise, ask` : "Ask") +
+      " the person now and end your turn: " + (result.steering_choice === undefined ? ""
         : "put the question you named to them, in their language (researchMenu.steering_choice), and ") +
       "show researchMenu.tasks as a numbered list with their times, the recommendation and how to answer (task " +
       "numbers and minutes, or \"you decide\"), and end with one line saying they can change how often AskRigor " +
@@ -1900,7 +1938,7 @@ export function planNextStep(result: ResearchPlanResult, learnMode?: boolean): s
   if (notRegistered) return first + NO_GO_AHEAD_YET;
   // Owner answer 302: a light look-up goes on with LIGHT_LOOKUP alone, in any style.
   if (result.lane === "light") return first + LIGHT_LOOKUP;
-  return first + (result.style === "autonomous"
+  return first + (result.style === "autonomous" && result.went_ahead !== "all"
     ? `Do the recommended tasks now; after about ${result.check_back_minutes} minutes of research, check what you ` +
       "have with finalize_research and give that answer, ending it with the open tasks as a numbered menu and the " +
       "question whether to spend more time on them."

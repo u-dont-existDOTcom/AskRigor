@@ -1435,7 +1435,8 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
     const text = words(registered);
     expect(text).toContain("so do not screen and do not write a menu of your own");
     expect(text).toContain(`What the question is about, as that call found it: ${JSON.stringify(REPLY.about)}.`);
-    expect(text).toContain(`exactly these later_inputs, which carry the plan: ${JSON.stringify(structured.planned_later_inputs)}`);
+    expect(text).toContain("these later_inputs, which carry the plan, changing nothing but what the next sentence adds: " +
+      JSON.stringify(structured.planned_later_inputs));
     expect(text).not.toContain("Screen first:");
     expect(text).not.toContain("steering_could_help");
     // The registration itself is as on every account.

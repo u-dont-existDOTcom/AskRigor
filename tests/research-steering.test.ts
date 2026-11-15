@@ -613,8 +613,8 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     expect(fixes.split("\n")[0]).toBe(`${PEOPLE_TASK_MISSING} This research_target is not the one registered with ` +
       "the plain answer: give plan_research and finalize_research the research target word for word as " +
       "register_plain_answer's result quoted it, or the answer ends without the comparison with the quick answer.");
-    expect(fixes.split("\n")[1]).toBe(GO_AHEAD_BEFORE_ASK);
-    expect(fixes.split("\n")[2]).toMatch(/^This person's research style asks first when /u);
+    // AskRigor#467: no go-ahead line for a research target that is not the registered one (the review of #473).
+    expect(fixes.split("\n")[1]).toMatch(/^This person's research style asks first when /u);
     // The review of 11 Nov 2026: and the rule for the answer names the registered target, not this one, word for word.
     const lastLine = fixes.split("\n").at(-1)!;
     expect(lastLine).toContain("research_target word for word as register_plain_answer's result quoted it, and their " +
@@ -678,8 +678,9 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     expect(again).toMatchObject({ next: "ask", recommended_minutes: [3, 9] });
     expect(again.recommended.map(({ task }) => task)).toEqual([3, 4, 2]);
     const asked = planResearchText(again, new Set([1]), true, TARGET);
-    expect(asked.split("\n")[0]).toBe(GO_AHEAD_BEFORE_ASK);
-    expect(asked.split("\n")[1]).toMatch(new RegExp("^This person's research style asks first when the plan changes " +
+    // AskRigor#467: a re-plan comes back to the person, with no go-ahead line (the review of #473, finding 1).
+    expect(asked).not.toContain(GO_AHEAD_BEFORE_ASK);
+    expect(asked.split("\n")[0]).toMatch(new RegExp("^This person's research style asks first when the plan changes " +
       "once the research has begun, as it has here\\. Ask now, before any of these tasks:", "u"));
     // Autonomous research goes on; a re-plan with nothing left to recommend checks and answers; the person's own new
     // allocation is followed.
@@ -696,7 +697,9 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     const result = await manage({ action: "plan_research", later_inputs: { researchMenu: replan } });
     expect(result.isError).not.toBe(true);
     expect(result.structuredContent).toMatchObject({ researchMenu: { next: "ask", recommended_minutes: [3, 9] } });
-    expect((result.structuredContent as { next_step: string }).next_step).toSatisfy((step: string) => step.startsWith(ASK_FIRST));
+    // AskRigor#467: a re-plan's ask has no go-ahead line (the review of #473, finding 1).
+    expect((result.structuredContent as { next_step: string }).next_step)
+      .toSatisfy((step: string) => step.startsWith("Ask the person now and end your turn"));
     expect(text(result)).toContain("This person's research style asks first when the plan changes once the research " +
       "has begun, as it has here. Ask now, before any of these tasks:");
     expect(text(result)).toContain("1. Audit the 2018 cohort's methods: could change the conclusion; about 2 to 4 min " +
@@ -1851,6 +1854,9 @@ describe("an allocation needs the person's answer declared, on every account (ro
     "allocation sent with false, or without person_answered, is not used; ";
   const INSIDE = "the recommended allocation is inside researchMenu, where every allocation goes, never beside it: ";
   const ASK_NOW = `${ASK_FIRST}: `;
+  // AskRigor#467: an ask that is not the research's first menu (after the stop, for another research target) has no
+  // go-ahead line (the review of #473, finding 1).
+  const ASK_PLAIN = "Ask the person now and end your turn: ";
   const NAMED = "put the question you named to them, in their language (researchMenu.steering_choice), and ";
   const ASK_STEP = "show researchMenu.tasks as a numbered list with their times, the recommendation and how to " +
     "answer (task numbers and minutes, or \"you decide\"), and end with one line saying they can change how often " +
@@ -1893,10 +1899,11 @@ describe("an allocation needs the person's answer declared, on every account (ro
       const words = planResearchText(result, new Set(), true, OPEN_TARGET,
         youDecideLaterInputs(open(overrides), result)).split("\n");
       expect(words[0]).toBe(STOP);
-      expect(words[1]).toBe(GO_AHEAD_BEFORE_ASK);
-      expect(words[2]).toMatch(new RegExp("^This person's research style asks first when their choices could steer " +
+      // AskRigor#467: never the go-ahead line after the stop (the review of #473, finding 1).
+      expect(words).not.toContain(GO_AHEAD_BEFORE_ASK);
+      expect(words[1]).toMatch(new RegExp("^This person's research style asks first when their choices could steer " +
         "the research, as they could here\\. Ask now, before any of these tasks:", "u"));
-      expect(planNextStep(result)).toBe(`${STOP} ${STEP_DECLARED}`);
+      expect(planNextStep(result)).toBe(`${STOP} ${STEP_DECLARED.replace(ASK_NOW, ASK_PLAIN)}`);
     }
     // Declared the person's, it is their answer: their minutes as given, and no stop.
     const theirs = planned(open({ allocation: THEIRS, person_answered: true }));
@@ -2068,7 +2075,7 @@ describe("an allocation needs the person's answer declared, on every account (ro
       `as a list of {task, minutes}${DECLARED}; for "you decide", or a reply that leaves the choice to you such as ` +
       "\"continue\", the recommended allocation, with person_answered true too.");
     // There the correction for the research target comes first (13 Nov 2026, below), then the ask.
-    expect(planNextStep(other)).toBe(`${TARGET_NOT_REGISTERED} ${ASK_NOW}${ASK_STEP}(for "you decide", the ` +
+    expect(planNextStep(other)).toBe(`${TARGET_NOT_REGISTERED} ${ASK_PLAIN}${ASK_STEP}(for "you decide", the ` +
       `recommended one).${SEND_ONLY_ONCE} ${STYLE_REPLY}`);
   });
 
@@ -2178,11 +2185,11 @@ describe("an allocation needs the person's answer declared, on every account (ro
           expect(structured, name).not.toHaveProperty("corrected_later_inputs");
           const said = again.content[0]!.text.split("\n");
           expect(said[0], `${subject} ${name}`).toBe(STOP);
-          expect(said[1], name).toBe(GO_AHEAD_BEFORE_ASK);
-          expect(said[2], name).toMatch(new RegExp("^This person's research style asks first when their choices " +
+          expect(said, name).not.toContain(GO_AHEAD_BEFORE_ASK);
+          expect(said[1], name).toMatch(new RegExp("^This person's research style asks first when their choices " +
             "could steer the research, as they could here\\. Ask now, before any of these tasks:", "u"));
           expect(said.at(-1), name).toBe(ONLY_ONCE + REPLACING + INSIDE + JSON.stringify(youDecide));
-          expect(structured.next_step, `${subject} ${name}`).toBe(`${STOP} ${step}`);
+          expect(structured.next_step, `${subject} ${name}`).toBe(`${STOP} ${step.replace(ASK_NOW, ASK_PLAIN)}`);
           expect(structured.you_decide_later_inputs, name).toEqual(youDecide);
         }
         // A problem of the call's own comes after the stop, and before the ask.
@@ -2191,8 +2198,7 @@ describe("an allocation needs the person's answer declared, on every account (ro
           "Task numbers 9 are past the 3 tasks given; they were left out."]);
         expect(past.content[0]!.text.split("\n").slice(0, 2)).toEqual([STOP,
           "Task numbers 9 are past the 3 tasks given; they were left out."]);
-        expect(past.content[0]!.text.split("\n")[2]).toBe(GO_AHEAD_BEFORE_ASK);
-        expect(past.content[0]!.text.split("\n")[3]).toMatch(/^This person's research style asks first when /u);
+        expect(past.content[0]!.text.split("\n")[2]).toMatch(/^This person's research style asks first when /u);
         // Sent with true once the person has replied "you decide", it goes on with that allocation; the word is
         // read as the value, as the placeholder invites.
         for (const answered of [true, "true"]) {
@@ -2287,7 +2293,7 @@ describe("an allocation needs the person's answer declared, on every account (ro
       expect(steerable.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask",
         allocation_not_used: true, recommended: OWN, steering_choice: QUESTION } });
       expect(steerable.content[0]!.text.split("\n")[0]).toBe(STOP);
-      expect((steerable.structuredContent as Planned).next_step).toBe(`${STOP} ${STEP_NAMED}`);
+      expect((steerable.structuredContent as Planned).next_step).toBe(`${STOP} ${STEP_NAMED.replace(ASK_NOW, ASK_PLAIN)}`);
       const precise = await plan({ ...unjudged, steering_choice: "none", allocation: THEIRS });
       expect(precise.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
         allocation_not_used: true, recommended: OWN } });
@@ -2372,7 +2378,7 @@ describe("a research target that is not the registered one stops the go-ahead in
     // A menu that asks: the correction first, then the ask, which hands over no "you decide" call for this target.
     const asked = planned({}, false);
     expect(asked).toMatchObject({ next: "ask", target_matches_plain_answer: false });
-    expect(planNextStep(asked).startsWith(`${NOT_REGISTERED} ${ASK_FIRST}: show ` +
+    expect(planNextStep(asked).startsWith(`${NOT_REGISTERED} Ask the person now and end your turn: show ` +
       "researchMenu.tasks as a numbered list")).toBe(true);
     expect(planNextStep(asked)).toContain("(for \"you decide\", the recommended one).");
     expect(planNextStep(asked)).not.toContain("Do none of this menu's tasks");
@@ -2381,8 +2387,8 @@ describe("a research target that is not the registered one stops the go-ahead in
     // or, for a menu that never waits, the tasks held back.
     const copied = planned({ allocation: [{ task: 1, minutes: 5 }] }, false);
     expect(copied).toMatchObject({ next: "ask", allocation_not_used: true, target_matches_plain_answer: false });
-    expect(planNextStep(copied).startsWith(`${allocationNotUsedStop(copied)} ${NOT_REGISTERED} ${ASK_FIRST}: `))
-      .toBe(true);
+    expect(planNextStep(copied).startsWith(`${allocationNotUsedStop(copied)} ${NOT_REGISTERED} Ask the person now and ` +
+      "end your turn: ")).toBe(true);
     const unasked = planned({ allocation: [{ task: 1, minutes: 5 }] }, false, autonomous);
     expect(unasked).toMatchObject({ next: "go_on", allocation_not_used: true });
     expect(planNextStep(unasked)).toBe(`${allocationNotUsedStop(unasked)} ${NOT_REGISTERED} ${NO_GO_AHEAD}`);
@@ -2455,7 +2461,7 @@ describe("a research target that is not the registered one stops the go-ahead in
         const asking = asked.structuredContent as Planned;
         expect(asking, subject).toMatchObject({ ok: true, researchMenu: { next: "ask",
           target_matches_plain_answer: false } });
-        expect(asking.next_step.startsWith(`${NOT_REGISTERED} ${ASK_FIRST}: `), subject)
+        expect(asking.next_step.startsWith(`${NOT_REGISTERED} Ask the person now and end your turn: `), subject)
           .toBe(true);
         expect(asking, subject).not.toHaveProperty("you_decide_later_inputs");
         expect(asked.content[0]!.text.split("\n")[0], subject).toBe(WARNING);
@@ -3280,14 +3286,25 @@ describe("the person's go-ahead before the menu (AskRigor#467)", () => {
     const recommended = planResearch(goAhead("recommended"), DEFAULT_RESEARCH_STEERING);
     expect(recommended).toMatchObject({ next: "go_on", went_ahead: "recommended", recommended: asking.recommended,
       recommended_minutes: asking.recommended_minutes });
-    // Guided research, a named question, a long menu, a changed menu and a re-plan all go on.
+    // Guided research, a named question and a long first menu go on.
     const guided = { ...DEFAULT_RESEARCH_STEERING, style: "guided" as const };
     expect(planResearch(goAhead("recommended"), guided).next).toBe("go_on");
+    // The review of #473, finding 1: a go-ahead answers the research's first menu alone. A menu changed after it was
+    // shown and a re-plan come back to the person (owner answer 279a), and the result says why the go-ahead was not
+    // used.
     const changed = { digest: "d1~x", changed: true };
-    expect(planResearch(goAhead("all"), DEFAULT_RESEARCH_STEERING, undefined, changed).next).toBe("go_on");
+    const changedMenu = planResearch(goAhead("all"), DEFAULT_RESEARCH_STEERING, undefined, changed);
+    expect(changedMenu.next).toBe("ask");
+    expect(changedMenu).not.toHaveProperty("went_ahead");
+    expect(changedMenu).not.toHaveProperty("go_ahead_may_answer");
+    expect(personGoAheadProblem(goAhead("all"), true)).toBe("later_inputs.researchMenu.person_go_ahead: not used; a " +
+      "go-ahead answers the research's first menu only, and a menu changed after it was shown comes back to the person.");
     const replan = planResearch(goAhead("all", { done: [1] }), DEFAULT_RESEARCH_STEERING);
-    expect(replan).toMatchObject({ next: "go_on", went_ahead: "all" });
-    expect(replan.recommended.map(({ task }) => task)).not.toContain(1);
+    expect(replan.next).toBe("ask");
+    expect(replan).not.toHaveProperty("went_ahead");
+    expect(planNextStep(replan)).not.toContain(GO_AHEAD_BEFORE_ASK);
+    expect(personGoAheadProblem(goAhead("all", { done: [1] }))).toBe("later_inputs.researchMenu.person_go_ahead: not " +
+      "used; a go-ahead answers the research's first menu only, and a re-plan comes back to the person.");
     // Without the person's words it is not a go-ahead, and the menu asks as before.
     expect(planResearch(menu({ person_go_ahead: "all" }), DEFAULT_RESEARCH_STEERING)).toEqual(asking);
   });
@@ -3320,8 +3337,65 @@ describe("the person's go-ahead before the menu (AskRigor#467)", () => {
     // A research target that is not the registered one still gets no go-ahead.
     const held = planResearch(goAhead("all"), DEFAULT_RESEARCH_STEERING, { matches: false, minutesSince: 1 });
     expect(held.next).toBe("go_on");
+    // The review of #473, finding 2: and the result does not say it went ahead.
+    expect(held).not.toHaveProperty("went_ahead");
     expect(planNextStep(held)).toBe(`${TARGET_NOT_REGISTERED} Do none of this menu's tasks before that: the ` +
       "go-ahead comes with that call's result.");
+  });
+
+  // The independent review of #473 (15 Nov 2026): what a go-ahead must never do, and what it says.
+  it("never answers a menu after an allocation not used, and says so", () => {
+    const plan = goAhead("all", { allocation: [{ task: 1, minutes: 3 }] });
+    const result = planResearch(plan, DEFAULT_RESEARCH_STEERING);
+    expect(result).toMatchObject({ next: "ask", allocation_not_used: true });
+    expect(result).not.toHaveProperty("went_ahead");
+    expect(result).not.toHaveProperty("go_ahead_may_answer");
+    expect(planNextStep(result)).not.toContain(GO_AHEAD_BEFORE_ASK);
+    expect(planResearchText(result, new Set())).not.toContain(GO_AHEAD_BEFORE_ASK);
+    expect(personGoAheadProblem(plan)).toBe("later_inputs.researchMenu.person_go_ahead: not used; the call also " +
+      "carried an allocation without person_answered true, so this menu waits for the person.");
+    // The person's own allocation is no problem: it decides.
+    expect(personGoAheadProblem(goAhead("all", { allocation: [{ task: 1, minutes: 3 }], person_answered: true })))
+      .toBeUndefined();
+  });
+
+  it("offers the go-ahead line only on the research's first menu", () => {
+    expect(planResearch(menu(), DEFAULT_RESEARCH_STEERING)).toMatchObject({ next: "ask", go_ahead_may_answer: true });
+    for (const [what, result] of [
+      ["a re-plan", planResearch(menu({ done: [1] }), DEFAULT_RESEARCH_STEERING)],
+      ["a changed menu", planResearch(menu(), DEFAULT_RESEARCH_STEERING, undefined, { digest: "d1~x", changed: true })],
+      ["an allocation not used", planResearch(menu({ allocation: [{ task: 1, minutes: 3 }] }), DEFAULT_RESEARCH_STEERING)],
+      ["another research target", planResearch(menu(), DEFAULT_RESEARCH_STEERING, { matches: false, minutesSince: 1 })],
+    ] as const) {
+      expect(result.next, what).toBe("ask");
+      expect(result, what).not.toHaveProperty("go_ahead_may_answer");
+      expect(planNextStep(result), what).not.toContain(GO_AHEAD_BEFORE_ASK);
+    }
+  });
+
+  it("says the reading first when no question was named, never an answer assumed to a value that is no question", () => {
+    for (const choice of [undefined, "none_needed", "n/a"]) {
+      const result = planResearch(goAhead("recommended", { steering_choice: choice }), DEFAULT_RESEARCH_STEERING);
+      expect(result, String(choice)).toMatchObject({ next: "go_on", went_ahead: "recommended", say_reading_first: true });
+      expect(result, String(choice)).not.toHaveProperty("assumed_answer_to");
+      expect(planNextStep(result), String(choice)).toContain(READING_FIRST);
+    }
+  });
+
+  it("goes through every task in autonomous research with all, and learn mode records AskRigor's own recommendation", () => {
+    const autonomous = { ...DEFAULT_RESEARCH_STEERING, style: "autonomous" as const, checkBackMinutes: 5 };
+    const result = planResearch(goAhead("all"), autonomous);
+    expect(result.recommended.map(({ task }) => task).sort()).toEqual([1, 2, 3, 4]);
+    expect(planNextStep(result).startsWith("Do the recommended tasks now, in order, each within its minutes")).toBe(true);
+    expect(planNextStep(result)).not.toContain("numbered menu");
+    expect(planResearchText(result, new Set())).not.toContain("The person chose autonomous research");
+    // recommended keeps autonomous research's own words.
+    expect(planNextStep(planResearch(goAhead("recommended"), autonomous))).toMatch(/^Do the recommended tasks now; after about 5 /u);
+    // Learn mode: what AskRigor recommended is what it recommends without the go-ahead.
+    const allocation = [{ task: 1, minutes: 3 }, { task: 3, minutes: 2 }];
+    const withGoAhead = menuChoiceOf(goAhead("all", { allocation, person_answered: true }), DEFAULT_RESEARCH_STEERING, null);
+    const without = menuChoiceOf(menu({ allocation, person_answered: true }), DEFAULT_RESEARCH_STEERING, null);
+    expect(withGoAhead).toEqual(without);
   });
 
   it("is taught in every ask and in AskRigor's own plan, never at the screen, and keeps it in a corrected menu", () => {
