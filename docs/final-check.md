@@ -559,11 +559,13 @@ checking them (`apps/research-mcp/src/absence-searches.ts`):
   tests the answer's safety statements, harms and figures only as far as they are declared; `declared` is left out
   when the call could not be read), `second_reading` `skipped` with reason
   `left_to_caller` on a pass, one note, and a check line that ends "Its rule checks ran on AskRigor's server; the app
-  that ran this research made the check's AI readings." The finalization receipt signs the mark (`ar` `caller`). While
-  `CALLER_READINGS_SAVE_CARDS` is false (the owner's question 311), such a call also saves nothing, exactly as a call
-  marked `findings_save` `"off"` below: its receipt signs `fs` `off` too. One difference from a test run's mark: such
-  a call is not asked for a findings card, since none would be saved (a card that is given is still checked, and a
-  paid account's result says it is neither offered nor saved). Only the word `caller`, in any case, reads as the mark,
+  that ran this research made the check's AI readings." The finalization receipt signs the mark (`ar` `caller`). Its
+  findings card is asked for, checked, saved, kept for review when it doesn't read, and offered to a paid account as
+  any call's is (owner answer 311a, 15 November 2026). The save reads the receipt's signed `ar` into the saved card's
+  stamp (`stamp.research.ai_readings` `caller`), never from the card, so an app cannot leave it out; each of the
+  card's findings then carries it in its Atlas publication (`ai_readings`, in any version) and in the research an
+  accepted version keeps, and its page says "AskRigor's server checked the sources. The app that ran the research
+  made the AI readings." Only the word `caller`, in any case, reads as the mark,
   in the three places `findings_save` is read: in `later_inputs`, at the top level, or in `later_inputs` given as a
   JSON string (then with a note, since a later input given as text is otherwise dropped). Every place that gives a
   value must say `caller`; any other value leaves the readings to AskRigor, with a note. The owner's runner uses it: it makes the same three readings on the owner's Claude plan with AskRigor's

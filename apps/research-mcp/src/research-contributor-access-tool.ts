@@ -74,6 +74,8 @@ import {
   LEARN_MODE_UNAVAILABLE,
   MENU_PLACEHOLDERS,
   PERSON_ANSWER_DECLARED,
+  PERSON_GO_AHEADS,
+  personGoAheadProblem,
   PLANNER_NOT_USED_REASONS,
   PLAN_TASK_KINDS,
   RESEARCH_LANES,
@@ -355,6 +357,11 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     // Owner answer 304a (14 Nov 2026; runtime only): a balanced menu that could take more than about 10 minutes goes
     // on, since AskRigor's own plan read the person's newest message as telling the AI to go on.
     went_on_as_asked: z.literal(true).optional(),
+    // AskRigor#467 (15 Nov 2026; runtime only): the menu went on on the person's own go-ahead, given before it was
+    // shown, and the question it named, which the answer says what it assumed for.
+    went_ahead: z.enum(PERSON_GO_AHEADS).optional(),
+    assumed_answer_to: z.string().optional(),
+    go_ahead_may_answer: z.literal(true).optional(),
   }).strict().optional(),
   // 12 Nov 2026 (runtime only): an ask's "you decide" call, ready to copy, and a refused menu's example, built from the
   // call's own. The call carries person_answered's placeholder, to be replaced (every account since 13 Nov 2026).
@@ -1772,6 +1779,10 @@ async function planResearchAction(
     plan.go_on_asked === goOnMark(plan.tasks, plan.plain_answer_receipt!, digestSecret!);
   const menu = digest === undefined ? undefined
     : { digest, changed: plan.menu_digest !== undefined && plan.menu_digest !== digest, goOnAsked };
+  // AskRigor#467: a go-ahead not used: not one of its two words, without the person's words, beside an allocation not
+  // declared the person's, or for a re-plan or a menu changed after it was shown (the review of #473, finding 1).
+  const goAheadProblem = personGoAheadProblem(plan, menu?.changed === true);
+  if (goAheadProblem !== undefined) problems.push(goAheadProblem);
   // Owner answers 294c (12 Nov 2026) and 296b (13 Nov 2026): on a dev account, a menu whose decision rests on the
   // judgment plans nothing until it names the question the AI would ask this person, or none; the yes or no alone
   // no longer answers there. So the AI decides a short menu, not the default, and decides it by trying to name a

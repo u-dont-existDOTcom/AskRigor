@@ -163,6 +163,8 @@ const storedRecordSchema = z.object({
       validated_sources: z.number().int().nonnegative().optional(),
       lead_sources: z.number().int().nonnegative().optional(),
       material_videos: z.number().int().nonnegative().optional(),
+      // Owner answer 311a: the app that sent the checking call made the final check's AI readings.
+      ai_readings: z.literal("caller").optional(),
     }).strict(),
   }).strict(),
 }).strict();

@@ -1,3 +1,5 @@
+import { ATLAS_CALLER_READINGS_SENTENCE } from "@askrigor/evidence-repository";
+
 import {
   GITHUB_API_ROOT,
   GitHubApiError,
@@ -681,6 +683,8 @@ function readableStamp(record: FindingsRecord): string {
       `${stamp.reported_model_unverified === undefined ? "not given" : escapeMarkdown(stamp.reported_model_unverified)}`,
     `- Research: ${escapeMarkdown([research.depth ?? "depth unknown", research.status ?? "status unknown"].join(", "))}` +
       `${counts.length === 0 ? "" : `; ${counts.join(", ")}`}; finalized at ${research.finalized_at}`,
+    // Owner answer 311a: who made the final check's AI readings, when it was not AskRigor's server.
+    ...(research.ai_readings === "caller" ? [`- Final check: ${escapeMarkdown(ATLAS_CALLER_READINGS_SENTENCE)}`] : []),
   ].join("\n"));
 }
 

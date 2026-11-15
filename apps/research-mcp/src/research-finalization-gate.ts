@@ -1344,12 +1344,6 @@ const CHECK_LINE = "Checked with AskRigor's final check.";
  */
 export const CALLER_READINGS_CHECK_LINE = " Its rule checks ran on AskRigor's server; the app that ran this " +
   "research made the check's AI readings.";
-/**
- * Owner answer 310a: whether a check whose AI readings its caller made may save its findings card. False until the
- * owner decides (question 311): the owner's question 310 set "nothing from such a check can be saved to the Atlas", and
- * the owner's reply asked why the server would be needed to add to the Atlas.
- */
-export const CALLER_READINGS_SAVE_CARDS = false;
 /** The second reading's reason on a call that leaves the AI readings to its caller. */
 export const SECOND_READING_LEFT_TO_CALLER = "left_to_caller";
 // Owner answer 205a: the answer states only the limits that matter for the person, so the line points to none.
@@ -1830,8 +1824,9 @@ export interface FinalizeResearchOptions {
   /**
    * Owner answer 310a (15 Nov 2026): the call's caller makes the check's AI readings (the review of the draft, the
    * second reading and the meaning judge), so the server makes none for it. The rule checks are the same. The check
-   * line, the finalization receipt (`ar`) and the result (`ai_readings`) say so; and while CALLER_READINGS_SAVE_CARDS
-   * is false, such a call saves nothing, as a call marked findings_save "off".
+   * line, the finalization receipt (`ar`) and the result (`ai_readings`) say so. Its findings card is saved as any
+   * call's is (owner answer 311a, 15 Nov 2026): the save reads the receipt's signed `ar` into the card's stamp, and
+   * each of its findings' Atlas pages says the app made the AI readings.
    */
   aiReadings?: "caller";
   /**
@@ -1925,7 +1920,7 @@ export function finalizeResearch(
   // map, and its finalization receipt signs the mark, so save_research_findings refuses its card too (the review of 5
   // Nov 2026). The card is still checked.
   const callerReads = options.aiReadings === "caller";
-  const savingOff = findingsSaveOff(rawInput) || (callerReads && !CALLER_READINGS_SAVE_CARDS);
+  const savingOff = findingsSaveOff(rawInput);
   if (options.secret === undefined) {
     const nextSteps: RuleInput[] = [];
     const secondReading = checkSecondReading(input, options.secondReading, nextSteps);
@@ -4218,13 +4213,7 @@ export function finalizeResearch(
     // and is not asked for one (the 2026-10-15 owner regressions).
     const citable = validatedIds.size > 0 || leadSources.length > 0 || auditedAtAll.size > 0 ||
       materialVideos.length > 0;
-    // Owner answer 310a, from the review of 15 Nov 2026: a call whose AI readings its caller makes saves no card
-    // while CALLER_READINGS_SAVE_CARDS is false, so it is not asked for one: this note's reason, that the account's
-    // research is saved, would be false for it. A card that is given is still checked. A test run's call
-    // (findings_save "off") is asked as before: it exists to exercise the whole check.
-    const cardNotWanted = callerReads && !CALLER_READINGS_SAVE_CARDS;
-    if (findingsOpen(options) && input.findings_card === undefined && !parsed.droppedFindingsCard && citable &&
-      !cardNotWanted) {
+    if (findingsOpen(options) && input.findings_card === undefined && !parsed.droppedFindingsCard && citable) {
       requireDeclaration(
         joinRules(joinRules(joinRules(joinRules(joinRules((options.findings === "save" ? joinRules("Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for ", "the owner's review.") : joinRules("Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings ", "library, and they are saved only if the user says yes.")), " Put in the answer's best findings, none the user corrected, and no personal details, and say in "), "public_value whether they would help anyone beyond this person."), " A public card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers "), "(for an effect, harm or overlooked_option) and searches (for nothing_found), as the findings description "), "says. With no finding that a plain web search of the problem wouldn't already give, send no card.",
           // Owner answer 219b: once comments were read, each finding says whether it draws on them.

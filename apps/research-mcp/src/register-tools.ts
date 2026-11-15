@@ -284,7 +284,6 @@ import {
 import type { ReportedFiguresCheck } from "./actions/study-method-audit.js";
 import { CHECK_ROUND_LIMIT, STOPPED_CHECK_REPORT_OFFER, STUCK_AFTER_ROUNDS } from "./check-rounds.js";
 import {
-  CALLER_READINGS_SAVE_CARDS,
   COMMUNITY_SKIP_CAVEAT_START,
   HARM_NOT_CHECKED_CAVEAT_START,
   LEAD_RECEIPT_SEARCH,
@@ -2749,9 +2748,9 @@ function defineResearchOperations(
       // only turn saving off. The harness reaches AskRigor through the ChatGPT app inside Codex, whose connection
       // OpenAI's platform makes, so the marker rides in the call, not in a header (docs/owner-regressions.md).
       // Read from the raw call on its own, so no other input's problem can lose it (the review of 5 Nov 2026).
-      // Owner answer 310a: until the owner decides otherwise (CALLER_READINGS_SAVE_CARDS), a call whose AI readings
-      // its caller made saves nothing either, and its finalization receipt signs that as a marked call's does.
-      const callSavingOff = findingsSaveOff(input) || (callerReads && !CALLER_READINGS_SAVE_CARDS);
+      // Owner answer 311a (15 Nov 2026): a call whose AI readings its caller made saves its card as any call does;
+      // the receipt signs who made the readings, and the saved card's stamp and its findings' pages say so.
+      const callSavingOff = findingsSaveOff(input);
       if (account?.mode === "FREE_CONTRIBUTOR" && callSavingOff && result.findings_card.status === "checked") {
         result.findings_card.saved = { status: "not_saved", reason: "call_saving_off" };
       } else if (
@@ -2951,8 +2950,8 @@ function defineResearchOperations(
                 : card.problems.length > 0
                   ? `: ${card.problems.join(" ")}`
                   // The review of 15 Nov 2026: a paid account's card from a call that turned card saving off (a test
-                  // run's mark, or owner answer 310a's) is not offered, and its save is refused: the text says so,
-                  // not that the save follows the user's yes.
+                  // run's mark) is not offered, and its save is refused: the text says so, not that the save follows
+                  // the user's yes.
                   : finalizeOptions.findings === "offer" && callSavingOff
                     ? "; not offered and not saved: this call turned card saving off, and save_research_findings " +
                       "refuses its card."
