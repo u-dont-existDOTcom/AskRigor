@@ -44,7 +44,18 @@ python3 pilot.py score --out /tmp/jev-askrigor-scoring.json
 The initial report must show **zero Jev and zero stronger-model comparisons**.
 It would be incorrect to fill those fields with passing local unit-test counts.
 
-## Subsequent model comparison (requires distinct current authority)
+## Subsequent model comparison (capped provider authority)
+
+The owner authorized **USD 1.00 total incremental Jev evaluation spending**
+on 15 November 2026, across Mission Control and AskRigor (not $1 per model,
+session or day). Use the **same private, persistent** budget ledger and the
+`scripts/jev-budgeted-evaluator.py` runner in UDA's Mission Control source.
+That runner checks the official Decisions model catalog automatically and
+chooses the latest price-eligible pinned Jev (currently 1.14) before 1.13;
+it fails closed on repeated calls, ambiguous usage, budget exhaustion,
+account/key failures or unexpected higher model prices. The user's account
+reported existing prepaid credit, but **no working key is currently available
+to this isolated runner**, so no actual inference was performed.
 
 1. Use the deidentified blind packets. Each Jev request uses OpenRouter's
    existing Decisions/Noul input contract and a fixed 0.5 classification
@@ -74,11 +85,32 @@ python3 pilot.py ingest-jev --input /private/path/jev-responses.jsonl --out /pri
 python3 pilot.py score --predictions /private/path/all-observations.jsonl --out /private/path/report.json
 ```
 
-The score counts each case once per model, deduplicates provider responses by
-response_id/fallback identity, reports missing results as UNKNOWN, and
-distinguishes detection gains, wrong new flags, benign controls, provider errors,
-latency, and cost. All figures must be reported both on this diagnostic
-development cohort and on any later genuinely held-out cases, **separately**.
+With the owner-authorized USD 1.00 shared runner, first create the frozen
+AskRigor blind packets using the command above in an owner-private directory,
+then invoke the single budgeted evaluator on the **same** packets and ledger
+(the script selects 1.14 before 1.13 without an owner version-selection prompt).
+The runner will refuse paid inference if the exact authorized OpenRouter key
+is unavailable and record zero spent; do not copy keys from a protected service.
+After any successful run, export its saved typed decisions without any new
+provider request:
+
+```sh
+python3 scripts/jev-budgeted-evaluator.py export-askrigor \
+  --out /private/jev-versioned-results.jsonl
+cd /path/to/AskRigor/evaluation/jev-quality
+python3 pilot.py score --predictions /private/jev-versioned-results.jsonl \
+  --jev-version typesafe/jev-1.14 --out /private/jev-1.14-score.json
+python3 pilot.py score --predictions /private/jev-versioned-results.jsonl \
+  --jev-version typesafe/jev-1.13 --out /private/jev-1.13-score.json
+```
+
+The score counts each case once **per pinned model version**; if two Jev
+versions appear without `--jev-version`, it refuses rather than silently
+pooling them. Provider responses are deduplicated by response_id/fallback
+identity; missing results remain UNKNOWN. Detection gains, newly introduced
+errors, benign controls, latency and cost must be compared on matched cases.
+Results from the diagnostic DEVELOPMENT cohort and later genuinely held-out
+cases must be reported **separately**.
 
 ## Interpretation and stopping
 

@@ -150,7 +150,18 @@ def quantile(values: list[float], percentile: float) -> float | None:
     return ordered[min(len(ordered) - 1, int((len(ordered) - 1) * percentile))]
 
 
-def score(cases: list[dict], gold: dict[str, list[str]], predictions: list[dict]) -> dict:
+def score(cases: list[dict], gold: dict[str, list[str]], predictions: list[dict],
+          jev_version: str | None = None) -> dict:
+    # Never silently pool different pinned Jev models into one apparent score.
+    versions = {row.get("model_version") for row in predictions
+                if row.get("model") == "jev" and row.get("status") == "OK"}
+    if None in versions and (jev_version is not None or len(versions) > 1):
+        raise ValueError("Historical Jev output lacks a pinned version; cannot mix with versioned results.")
+    if len(versions) > 1 and jev_version is None:
+        raise ValueError("Multiple Jev versions: choose --jev-version to score separately.")
+    if jev_version is not None:
+        predictions = [row for row in predictions if
+                       row.get("model") != "jev" or row.get("model_version") == jev_version]
     known = {case["id"] for case in cases}
     deduped = []
     seen_provider = set()
@@ -248,6 +259,8 @@ def score(cases: list[dict], gold: dict[str, list[str]], predictions: list[dict]
         }
     return {
         "schema": "jev-research-quality-report-v1",
+        "jev_model_version": jev_version if jev_version is not None else
+                             next(iter(versions)) if len(versions) == 1 else None,
         "fixture_kind": "deidentified development reconstructions; not actual original model outputs",
         "distinct_case_count": len(cases),
         "development_cases": sum(x["cohort"] == "DEVELOPMENT" for x in cases),
@@ -269,6 +282,7 @@ def main() -> None:
     parser.add_argument("--gold", type=Path, default=Path(__file__).with_name("gold.json"))
     parser.add_argument("--predictions", type=Path, default=Path(__file__).with_name("predictions.jsonl"))
     parser.add_argument("--input", type=Path, help="Existing Jev Decisions response JSONL, for offline ingestion only")
+    parser.add_argument("--jev-version", type=str, help="Score only this pinned Jev model; never pool versions.")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     cases, gold = load_inputs(args.cases, args.gold)
@@ -282,7 +296,7 @@ def main() -> None:
         normalize_jev_responses(args.input, args.out)
         print("Existing Jev responses normalized offline; no provider called.")
         return
-    report = score(cases, gold, load_predictions(args.predictions))
+    report = score(cases, gold, load_predictions(args.predictions), jev_version=args.jev_version)
     args.out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({
         "cases": report["distinct_case_count"],

@@ -103,6 +103,24 @@ class JevQualityPilotTest(unittest.TestCase):
                 load_inputs(cases, gold)
 
 
+    def test_separate_model_versions_never_count_as_one_jev_verdict(self):
+        observations = [
+            {"case_id":"dmso-human-comparators","model":"jev","status":"OK",
+             "model_version":"typesafe/jev-1.13","flags":[],
+             "response_id":"older"},
+            {"case_id":"dmso-human-comparators","model":"jev","status":"OK",
+             "model_version":"typesafe/jev-1.14",
+             "flags":["human_comparator_omission"],"response_id":"newer"},
+        ]
+        with self.assertRaisesRegex(ValueError, "Multiple Jev versions"):
+            score(self.cases,self.gold,observations)
+        old=score(self.cases,self.gold,observations,jev_version="typesafe/jev-1.13")
+        new=score(self.cases,self.gold,observations,jev_version="typesafe/jev-1.14")
+        self.assertEqual(old["by_model"]["jev"]["false_negative"],1)
+        self.assertEqual(new["by_model"]["jev"]["true_positive"],1)
+        self.assertEqual(old["jev_model_version"],"typesafe/jev-1.13")
+        self.assertEqual(new["jev_model_version"],"typesafe/jev-1.14")
+
     def test_import_preexisting_decisions_nouls_without_a_new_api_call(self):
         response = {
             "case_id": "dmso-human-comparators",
