@@ -270,6 +270,30 @@ added.
 - A link from a frontier trail to a finding.
 - The free-use notice and the privacy page say what is published. Both must say this first.
 
+### The notice and privacy wording (owner answer 312a), drafted 15 Nov for the owner's yes
+
+The owner chose 312a in the Inbox at 15:18 UTC and typed "312 a sorry typo" in chat at 22:44 UTC: I write the notice
+and privacy wording for the owner's yes before anything is public. This is the draft; the yes comes with the
+release of this stage, on the words as built. It is a material notice change (it publishes more), so every free
+account accepts it again. The video-links build (307b) carries its own notice; they go out as two notices, one after
+the other, since the owner did not say "one notice".
+
+- **The notice's second sentence, replacing version 5's:** "That includes deidentified structured research progress
+  and, for each finished research answer whose findings would help other people, a findings card: the question in
+  general terms, the main findings and how certain they are, the public studies behind them, how far the research
+  went (how many sources were read in full, only as an abstract or only in a search result, how many forum threads
+  were read, and whether a study's method was checked), the research it still needs and the searches that found
+  nothing, and what public online communities reported, summarized without their posts or names: the communities,
+  counts of what people reported, and links to the forum threads AskRigor read, never YouTube comments or video IDs."
+- **A new sentence after "Your findings cards are published ...":** "Other people can research what a card still
+  needs with their own AI; their research is checked like any other and joins the card as a later version."
+- **The privacy page, section "Research access and shared learning", one sentence added:** "A published findings
+  card also shows how far its research went, the research it still needs and the searches that found nothing,
+  written in general terms like the rest of the card, never naming or describing the person whose research it was."
+- **The changes list (`research-use-notice-changes.ts`):** material; "A card also shows how far its research went,
+  the research it still needs and the searches that found nothing, and other people's research on it joins as a
+  later version (owner answer 312a)."
+
 ## Stages
 
 Each stage names what is built, where, and how it is judged. Criteria are written before any run. All runs here are
@@ -314,6 +338,9 @@ Asked on the owner questions page on 15 Nov:
 - **312.** May the Atlas show, for each finding, how far its research went, its open tasks and its dead ends, with the
   notice and privacy page saying so first?
 - **313.** Ask Anthropic and OpenAI in writing before the app goes to anyone else?
+
+Answered: 311a (15:17 UTC, typed 15:47 UTC; released in #473 on 15 Nov), 312a (15:18 UTC; "312 a sorry typo" in chat
+at 22:44 UTC: the 312b typed at 15:47 UTC was a typo), 313b (15:19 UTC: nothing is sent to either company).
 
 Also the owner's: a share of the plan for real test runs. Not asked as a question: the app's first form is a page in
 the browser served on the person's own computer (the session's choice; the owner was told and can say otherwise).
