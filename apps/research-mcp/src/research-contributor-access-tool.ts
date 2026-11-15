@@ -74,6 +74,8 @@ import {
   LEARN_MODE_UNAVAILABLE,
   MENU_PLACEHOLDERS,
   PERSON_ANSWER_DECLARED,
+  PERSON_GO_AHEADS,
+  personGoAheadProblem,
   PLANNER_NOT_USED_REASONS,
   PLAN_TASK_KINDS,
   RESEARCH_LANES,
@@ -355,6 +357,10 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     // Owner answer 304a (14 Nov 2026; runtime only): a balanced menu that could take more than about 10 minutes goes
     // on, since AskRigor's own plan read the person's newest message as telling the AI to go on.
     went_on_as_asked: z.literal(true).optional(),
+    // AskRigor#467 (15 Nov 2026; runtime only): the menu went on on the person's own go-ahead, given before it was
+    // shown, and the question it named, which the answer says what it assumed for.
+    went_ahead: z.enum(PERSON_GO_AHEADS).optional(),
+    assumed_answer_to: z.string().optional(),
   }).strict().optional(),
   // 12 Nov 2026 (runtime only): an ask's "you decide" call, ready to copy, and a refused menu's example, built from the
   // call's own. The call carries person_answered's placeholder, to be replaced (every account since 13 Nov 2026).
@@ -1755,6 +1761,9 @@ async function planResearchAction(
   }
   const outOfRange = [...(plan.allocation ?? []).map(({ task }) => task), ...(plan.done ?? [])]
     .filter((task) => task > plan.tasks.length);
+  // AskRigor#467: a go-ahead given without the person's words, or not as one of its two words, is not used.
+  const goAheadProblem = personGoAheadProblem(plan);
+  if (goAheadProblem !== undefined) problems.push(goAheadProblem);
   if (outOfRange.length > 0) {
     problems.push(`Task numbers ${[...new Set(outOfRange)].join(", ")} are past the ${plan.tasks.length} tasks given; ` +
       "they were left out.");

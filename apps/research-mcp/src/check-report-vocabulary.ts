@@ -2140,6 +2140,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "received",
   "recheck",
   "rechecked",
+  "recommended",
   "record_invalid",
   "records_available",
   "reddit",

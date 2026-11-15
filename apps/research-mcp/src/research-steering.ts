@@ -188,7 +188,17 @@ export const researchMenuSchema = z.object({
   // must never refuse a menu, least of all on an account that keeps none (cleanedReason reads it where it is used).
   person_reason: z.unknown().optional()
     .describe("With person_answered true, when the person said why they chose as they did: their reason in their " +
-      "own words, at most 300 characters; leave it out when they gave none. Never a reason of yours."),
+      "own words, at most 300 characters; leave it out when they gave none. With person_go_ahead, the words that " +
+      "told you to go ahead, word for word. Never a reason of yours."),
+  // AskRigor#467 (the owner, 15 Nov 2026: "People should be able to bypass the menu"): the person's own words already
+  // told the AI to go ahead without waiting for a menu. Whether they did is the AI's judgment, in any language;
+  // AskRigor checks only that the value is one of the two words and comes with the person's words in person_reason
+  // (personGoAheadOf). Any value is accepted, as for person_reason: one that is not a go-ahead never refuses a menu.
+  person_go_ahead: z.unknown().optional()
+    .describe("Only when the person's own words, in a message of theirs about this research, already told you to go " +
+      "ahead without waiting for a menu: all when they said to accept or do everything on it, recommended when they " +
+      "left the choice to you or said just to answer. Give those words, word for word, as person_reason; without " +
+      "them it is not used. Never your own guess of what they would want."),
   // Owner answer 304a (14 Nov 2026): only AskRigor's own plan sets it, in the menu register_plain_answer hands over,
   // when its planning call read the person's newest message as telling the AI to go on. It is a mark signed for this
   // menu's tasks and its plain-answer receipt (goOnMark), so one copied to another menu, or written by the AI, counts
@@ -423,6 +433,7 @@ export const correctedMenuSchema = z.object({
     lane: z.enum(["light"]).optional(),
     person_reason: z.string().optional(),
     go_on_asked: z.string().optional(),
+    person_go_ahead: z.enum(["all", "recommended"]).optional(),
   }).strict(),
 }).strict();
 export type CorrectedMenu = z.output<typeof correctedMenuSchema>;
@@ -482,6 +493,8 @@ export function correctedMenu(source: unknown, choice = false): CorrectedMenu {
     // refused for another field came back without it, and the corrected call asked again). It is checked where it is
     // used; a value that is not a short text is not a mark and is left out.
     ...(typeof menu.go_on_asked === "string" && menu.go_on_asked.length <= 200 ? { go_on_asked: menu.go_on_asked } : {}),
+    // AskRigor#467: the person's go-ahead goes back with the menu when it is one of its two words.
+    ...(goAheadWord(menu.person_go_ahead) === undefined ? {} : { person_go_ahead: goAheadWord(menu.person_go_ahead)! }),
   };
   return correctedMenuSchema.parse({ researchMenu: example });
 }
@@ -678,6 +691,75 @@ export const FORM_PEOPLE_USE = "When the answer turns on a form or preparation, 
   "dose form, the likely question is about the form people can actually buy or make: check what is sold or commonly " +
   "made, and when the forms differ much in strength, ask which form the person has as a redirecting question and, " +
   "until they say, answer for each form (HRP WholeInterventionIdentityTrace and UserReportedUseFidelity).";
+
+/**
+ * AskRigor#467 (15 Nov 2026). In the owner's ChatGPT research that morning, the person's first message ended "accept all
+ * on menu"; register_plain_answer handed over a five-task menu, plan_research answered ask, and the AI showed the menu
+ * and ended its turn, as the ask told it to, so the person had to say "accept all and continue". The owner, in the
+ * Inbox (15 Nov, 15:46 UTC): "Yes it is a defect because i told it to accept all on menu. People should be able to
+ * bypass the menu let's say they don't have time to wait for the menu to come up they just want to come back with an
+ * answer". So a menu may carry the person's go-ahead, given before it was shown: person_go_ahead all, every open task
+ * at AskRigor's estimate, or recommended, the tasks AskRigor recommends, with the person's words that said so in
+ * person_reason. The menu then goes on without asking, whatever the account's style, a question the menu named (the
+ * answer then says first which answer to it the AI assumed), the menu's length, a change or a re-plan. Whether the
+ * person's words said so is the AI's judgment, in any language, as whether the person answered a menu is
+ * (PERSON_ANSWER_DECLARED): AskRigor checks exactly that the value is one of the two words and that words were given,
+ * and receives no other word of the person's. Its limit is person_answered's: AskRigor cannot tell the person's words
+ * from words the AI wrote. A go-ahead answers the menu alone, never the free-use notice or anything else the person must
+ * agree to; and an allocation the person gave, with person_answered true, decides over it, so "everything but the
+ * forums" is their allocation.
+ */
+export const PERSON_GO_AHEADS = ["all", "recommended"] as const;
+export type PersonGoAhead = (typeof PERSON_GO_AHEADS)[number];
+
+/** One of the go-ahead's two words, in any letter case and without the spaces around it; undefined for anything else. */
+function goAheadWord(value: unknown): PersonGoAhead | undefined {
+  if (typeof value !== "string") return undefined;
+  const word = value.trim().toLowerCase();
+  return (PERSON_GO_AHEADS as readonly string[]).includes(word) ? word as PersonGoAhead : undefined;
+}
+
+/** The person's go-ahead a menu declares, used only with the person's words in person_reason (AskRigor#467). */
+export function personGoAheadOf(plan: Pick<ResearchMenuInput, "person_go_ahead" | "person_reason">):
+  PersonGoAhead | undefined {
+  const word = goAheadWord(plan.person_go_ahead);
+  return word === undefined || cleanedReason(plan.person_reason) === undefined ? undefined : word;
+}
+
+/** Why a menu's go-ahead was not used, for the result's problems; undefined when it was used, or none was given. */
+export function personGoAheadProblem(plan: Pick<ResearchMenuInput, "person_go_ahead" | "person_reason">):
+  string | undefined {
+  if (plan.person_go_ahead === undefined || plan.person_go_ahead === null || personGoAheadOf(plan) !== undefined) {
+    return undefined;
+  }
+  return goAheadWord(plan.person_go_ahead) === undefined
+    ? "later_inputs.researchMenu.person_go_ahead: not used; it is all or recommended."
+    : "later_inputs.researchMenu.person_go_ahead: not used; it goes with the person's own words that told you to go " +
+      "ahead, word for word, in person_reason, which the call did not give.";
+}
+
+/** Why a menu that went ahead on the person's word did not ask (AskRigor#467). */
+export const WENT_AHEAD_AS_TOLD = "AskRigor did not ask first: the person's own words (person_reason) told you to go " +
+  "ahead without waiting for a menu.";
+/** With person_go_ahead all. */
+export const WENT_AHEAD_ALL = "They said to do everything on it, so every open task is in the go-ahead.";
+/**
+ * A go-ahead for a menu that named a question: the question was not put to the person, so the answer says first which
+ * answer to it the AI assumed, as a menu that names none says its reading first (READING_FIRST, owner answer 297c).
+ */
+export const ASSUMED_ANSWER_FIRST = "The question you named was not put to them, so before the answer itself say in " +
+  "one line, in their language, which answer to it you assumed, so they can correct you.";
+/** The rule that teaches the go-ahead, where the AI sends a menu it has not shown yet (AskRigor#467). */
+export const PERSON_GO_AHEAD_RULE = "When the person's own words, in a message of theirs about this research, " +
+  "already told you to go ahead without waiting for a menu (to accept or do everything on it, to choose for them, or " +
+  "just to answer), add person_go_ahead to researchMenu, all or recommended, with those words, word for word, as " +
+  "person_reason: AskRigor then goes on without asking. Never for words of your own or a guess of what they would want.";
+/** And where an ask answers a menu sent without it. */
+export const GO_AHEAD_BEFORE_ASK = "Before you ask: if the person's own words, in a message before this menu, already " +
+  "told you to go ahead without waiting for it (to accept or do everything on it, to choose for them, or just to " +
+  "answer), do not show it. Call plan_research again now, in this turn, with the same menu, this result's " +
+  "menu_digest, person_go_ahead all or recommended, and those words, word for word, as person_reason. Never for " +
+  "words of your own or a guess of what they would want.";
 
 /**
  * The menu's exact shape, field by field. The timing runs of 9 Nov 2026 (Codex's AskRigor app on the live build): every
@@ -889,8 +971,9 @@ export function plannedGuidance(framing: Framing | undefined, planned: PlannedRe
     ...(planned.lane === "light" ? [LIGHT_LANE_PLANNED] : []),
     ...((framing?.premise_doubts ?? []).length > 0 ? [DOUBT_BEFORE_PLANNED] : []),
     "Then call manage_research_access with action plan_research and exactly these later_inputs, which carry the " +
-      `plan: ${JSON.stringify(planned.later_inputs)} AskRigor gives each task a time range and says whether to ask ` +
-      "the person first; when it says to ask, your reply is the message it gives, and the turn ends there.",
+      `plan: ${JSON.stringify(planned.later_inputs)} ${PERSON_GO_AHEAD_RULE} Otherwise AskRigor gives each task a ` +
+      "time range and says whether to ask the person first; when it says to ask, your reply is the message it gives, " +
+      "and the turn ends there.",
     ...(planned.asked ? [] : ["This plan was made from your research target alone. Next time give later_inputs.asked " +
       "with the plain answer: the person's own words about the question, word for word."]),
   ].join(" ");
@@ -900,7 +983,8 @@ export function plannedGuidance(framing: Framing | undefined, planned: PlannedRe
 export function plannedNextStep(framing: Framing | undefined, planned: PlannedResearch): string {
   return ((framing?.premise_doubts ?? []).length > 0 ? `${DOUBT_BEFORE_PLANNED} ` : "") +
     "AskRigor planned this research itself: do not screen. Call action plan_research now with planned_later_inputs, " +
-    "exactly as given; its result says whether to ask the person first. research_plan.about says what the question " +
+    `exactly as given; its result says whether to ask the person first. ${PERSON_GO_AHEAD_RULE} ` +
+    "research_plan.about says what the question " +
     "is about: if your plain answer or your research target rests on another reading, say so in one line at the " +
     "start of your reply, and when the research target itself names the wrong thing, register the plain answer " +
     "again for the corrected one first, with the same later_inputs.asked." +
@@ -1051,6 +1135,13 @@ export interface ResearchPlanResult {
    * since AskRigor's own plan read the person's newest message as telling the AI to go on (WENT_ON_AS_ASKED).
    */
   went_on_as_asked?: true;
+  /**
+   * AskRigor#467: the menu went on on the person's own go-ahead, given before it was shown (personGoAheadOf): all, every
+   * open task, or recommended, AskRigor's recommendation.
+   */
+  went_ahead?: PersonGoAhead;
+  /** With went_ahead, the question the menu named, which was not put to the person (ASSUMED_ANSWER_FIRST). */
+  assumed_answer_to?: string;
 }
 
 // AskRigor's own estimates are rounded for the menu; the person's minutes never are (below).
@@ -1217,6 +1308,9 @@ export function planResearch(
   // everything below follows as if none had come.
   const carried = allocationAnswered(plan);
   const answered = carried && plan.person_answered === true;
+  // AskRigor#467: the person's own go-ahead, given before the menu was shown (personGoAheadOf). An allocation they
+  // gave decides over it.
+  const goAhead = answered ? undefined : personGoAheadOf(plan);
   // Owner answer 302: a light look-up changes what the go-ahead says, never whether the menu asks first. Its tasks are
   // the whole look-up, so they are recommended whatever they were said to change: a task marked as detail would
   // otherwise leave the menu with nothing to do.
@@ -1229,11 +1323,12 @@ export function planResearch(
   } else {
     recommended = [];
     let total = 0;
-    const candidates = open.filter(({ could_change }) => light || could_change !== "detail")
+    // With the person's go-ahead for everything, every open task, whatever it could change and however long.
+    const candidates = open.filter(({ could_change }) => light || goAhead === "all" || could_change !== "detail")
       .sort((left, right) => CHANGE_ORDER[left.could_change] - CHANGE_ORDER[right.could_change] || left.n - right.n);
     for (const task of candidates) {
       const minutes = task.minutes === null ? 2 : roundEstimate((task.minutes[0] + task.minutes[1]) / 2);
-      if (recommended.length > 0 && total + minutes > steering.checkBackMinutes) continue;
+      if (goAhead !== "all" && recommended.length > 0 && total + minutes > steering.checkBackMinutes) continue;
       recommended.push({ task: task.n, minutes });
       total += minutes;
     }
@@ -1267,6 +1362,8 @@ export function planResearch(
   const asked = menu?.goOnAsked === true && steerable === false && !replanned && plainAnswer?.matches !== false;
   const next = steering.style === "autonomous" ? "go_on"
     : answered ? "go_on"
+    // AskRigor#467: the person said to go ahead without waiting for a menu, so nothing here asks them.
+    : goAhead !== undefined ? "go_on"
     : changed ? "ask"
     : steering.style === "guided" || (long && !asked) || steerable !== false ||
         (replanned && recommended.length > 0)
@@ -1298,8 +1395,14 @@ export function planResearch(
     ...(changed ? { menu_changed: true as const } : {}),
     ...(carried && !answered ? { allocation_not_used: true as const } : {}),
     // Only where the mark made the difference: a balanced menu that would have asked for its length alone.
-    ...(next === "go_on" && long && asked && steering.style === "balanced" && !answered
+    ...(next === "go_on" && long && asked && steering.style === "balanced" && !answered && goAhead === undefined
       ? { went_on_as_asked: true as const } : {}),
+    // AskRigor#467: and a question the menu named, which the answer then says what it assumed for. A light look-up
+    // says nothing more than its own line, and a menu held back for its research target gets no go-ahead.
+    ...(goAhead === undefined ? {} : {
+      went_ahead: goAhead,
+      ...(question !== undefined && !lightWork && plainAnswer?.matches !== false ? { assumed_answer_to: question } : {}),
+    }),
   };
 }
 
@@ -1703,6 +1806,8 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
     return [
       ...first,
       ...(before.length === 0 ? [] : [before.join(" ")]),
+      // AskRigor#467: a person who already said to go ahead is not asked.
+      GO_AHEAD_BEFORE_ASK,
       [askReason(result, done) + ASK_NOW, ...since].join(" "),
       reply.join("\n"),
       rule,
@@ -1735,6 +1840,8 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
           "doing; then check the answer with finalize_research and give it in this turn.",
       // Owner answer 304a: why a plan this long did not ask.
       ...(result.went_on_as_asked === true ? [WENT_ON_AS_ASKED] : []),
+      // AskRigor#467: why it did not ask, and what the answer says first for a question the menu named.
+      ...(result.went_ahead === undefined ? [] : [goAheadSentence(result)]),
       // Owner answer 297c: with no question named, the answer says its reading first.
       ...(result.say_reading_first === true ? [READING_FIRST] : []),
       result.style === "autonomous" ? TASK_PROGRESS : `${TASK_PROGRESS} ${NEW_FORK}`,
@@ -1770,8 +1877,8 @@ export function planNextStep(result: ResearchPlanResult, learnMode?: boolean): s
   if (result.next === "ask") {
     // A menu with nothing recommended (detail only) gives "you decide" the text's own exit: an empty recommended
     // allocation counts as no answer, so the same menu would ask again (the review of 12 Nov 2026).
-    return first +
-      "Ask the person now and end your turn: " + (result.steering_choice === undefined ? ""
+    return first + `${GO_AHEAD_BEFORE_ASK} Otherwise, ` +
+      "ask the person now and end your turn: " + (result.steering_choice === undefined ? ""
         : "put the question you named to them, in their language (researchMenu.steering_choice), and ") +
       "show researchMenu.tasks as a numbered list with their times, the recommendation and how to answer (task " +
       "numbers and minutes, or \"you decide\"), and end with one line saying they can change how often AskRigor " +
@@ -1801,5 +1908,14 @@ export function planNextStep(result: ResearchPlanResult, learnMode?: boolean): s
       "and give it in this turn.") +
     // Owner answer 304a: an app that hands its model only next_step is told too why a plan this long did not ask.
     (result.went_on_as_asked === true ? ` ${WENT_ON_AS_ASKED}` : "") +
+    // AskRigor#467: the same, when the person's own words said to go ahead.
+    (result.went_ahead === undefined ? "" : ` ${goAheadSentence(result)}`) +
     (result.say_reading_first === true ? ` ${READING_FIRST}` : "");
+}
+
+/** What a go-ahead's result says (AskRigor#467): why it did not ask, all of it, and a named question's assumed answer. */
+function goAheadSentence(result: ResearchPlanResult): string {
+  return [WENT_AHEAD_AS_TOLD, ...(result.went_ahead === "all" ? [WENT_AHEAD_ALL] : []),
+    ...(result.assumed_answer_to === undefined ? []
+      : [`${ASSUMED_ANSWER_FIRST} The question: ${JSON.stringify(result.assumed_answer_to)}`])].join(" ");
 }

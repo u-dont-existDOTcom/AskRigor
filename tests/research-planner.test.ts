@@ -45,6 +45,7 @@ import { issueResearchReceipt, plainAnswerAccountBinding, verifyResearchReceipt 
   from "../apps/research-mcp/src/research-receipts.js";
 import type { ResearchReviewer } from "../apps/research-mcp/src/research-reviewer.js";
 import {
+  GO_AHEAD_BEFORE_ASK,
   ANSWER_REVIEW_ASKED,
   ASIDE_OPENING,
   ASKED_LIMIT,
@@ -1908,7 +1909,8 @@ describe("learn mode on a dev account (owner answer 303a)", () => {
       const off = await tool(disabled);
       const offDev = await off.call({ action: "plan_research", later_inputs: menu });
       for (const other of [person, offDev]) {
-        expect(words(other)).not.toMatch(/learn mode|person_reason/iu);
+        // AskRigor#467 (15 Nov 2026): every account's ask names person_reason in its go-ahead line alone.
+        expect(words(other).replaceAll(GO_AHEAD_BEFORE_ASK, "")).not.toMatch(/learn mode|person_reason/iu);
         expect(first(other)).toBe(first(dev).replace(`\n${learnModeLine(true)}`, "").replace(` ${LEARN_MODE_REPLY}`, ""));
         expect((other.structuredContent as { next_step: string }).next_step).toBe(
           (dev.structuredContent as { next_step: string }).next_step
