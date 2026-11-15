@@ -252,7 +252,11 @@ def score(cases: list[dict], gold: dict[str, list[str]], predictions: list[dict]
         "distinct_case_count": len(cases),
         "development_cases": sum(x["cohort"] == "DEVELOPMENT" for x in cases),
         "confirmation_cases": sum(x["cohort"] == "CONFIRMATION" for x in cases),
-        "deduplicated_provider_observations": len(deduped),
+        "deduplicated_model_observation_rows": len(deduped),
+        "unique_jev_provider_observations": sum(
+            row["model"] == "jev" and row["status"] != "NOT_RUN"
+            for row in deduped
+        ),
         "by_model": by_model, "comparison": compared,
         "independent_value_demonstrated": False if by_model["jev"]["cases_scored"] == 0 else None,
     }
