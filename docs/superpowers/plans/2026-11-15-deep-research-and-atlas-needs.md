@@ -4,9 +4,11 @@ From the owner's message of 15 Nov 2026, 12:36 UTC, and the owner's Inbox reply 
 This plan covers four things that turn out to be one design: a deep research mode with a budget, a local app that runs
 it, a final check that works for it at no API cost, and an Atlas that shows what each finding still needs.
 
-Status (15 Nov, 13:05 UTC): the server's part for the final check is built on this branch (owner answer 310a, below)
-and its checks pass; it is not released yet. Nothing else here is built. Each stage is released only with the owner's
-yes where the release rule asks for it. Nothing here changes the tool list (owner answer 189a).
+Status (15 Nov, 14:20 UTC): the server's part for the final check is released (owner answer 310a, below): live since
+14:14 UTC on 15 Nov (`docs/audits/2026-11-15-caller-readings-production-release.md`). Of stage 1, the budget
+arithmetic is written and tested in a working copy of the runner on the owner's laptop (branch `deep-research`), not
+in this repository. Nothing else here is built. Each stage is released only with the owner's yes where the release
+rule asks for it. Nothing here changes the tool list (owner answer 189a).
 
 ## The owner's words
 
@@ -58,10 +60,10 @@ accounts only, paid from the owner's Claude API credits) and the second reading 
 budget). Judging meaning is not something the server does better than a good model on the person's own plan. How well
 it is done depends on the model and how hard it thinks, which the app can show and the Atlas can say.
 
-**Owner answer 310a, built on this branch:** a call marked `later_inputs.ai_readings` `"caller"` gets the rule checks
-and no AI reading from the server, on any account. The result, the receipt and the check line say who made the
-readings, and the result counts what the call declared, since a pass tests safety statements, harms and figures only
-as far as they are declared. Until the owner answers question 311, such a check saves no card.
+**Owner answer 310a, released on 15 Nov 2026 (#469):** a call marked `later_inputs.ai_readings` `"caller"` gets the
+rule checks and no AI reading from the server, on any account. The result, the receipt and the check line say who made
+the readings, and the result counts what the call declared, since a pass tests safety statements, harms and figures
+only as far as they are declared. Until the owner answers question 311, such a check saves no card.
 
 **What Claude Code tells a program about the plan** (checked in Anthropic's documentation on 15 Nov, and in the
 runner's own code): each run's final message gives tokens used and a cost estimate at API prices; the stream carries
@@ -69,6 +71,27 @@ rate-limit events, from which the runner already reads how much of each window i
 ceiling and then ends by itself; an interrupt ends a turn cleanly; a session can be resumed. Not documented: what a
 run returns when the plan's limit is hit in the middle, and any limit on runs side by side. All runs draw on the same
 plan.
+
+**Measured from the runner's five recorded runs** (14 Nov, read from each step's own event stream on 15 Nov; one
+evening, one account, five questions once each: figures to design with, not rates to promise).
+
+- **A researched question** (four of the five): USD 2.59 to 3.35 at API list prices, 414 to 753 seconds of step time
+  (the steps of one run overlap, so the clock time was shorter), 63 to 85 tool calls. The light look-up: USD 0.35,
+  38 seconds, 4 tool calls.
+- **Where it goes:** the five workers take 75 to 80 percent (USD 0.23 to 0.74 a task, 49 to 123 seconds, 8 to 20 tool
+  calls each: about USD 0.03 and 6 to 7 seconds a tool call). Planning: USD 0.08 to 0.26.
+- **The ending** (write, review, revise): USD 0.51 to 0.62 and 74 to 119 seconds, nearly the same in every run. So the
+  share to set aside is a floor that grows with the amount of material to write from, not a percentage of the run.
+- **What the plan reports:** only the weekly window, in whole points (0.29, 0.30, 0.31, 0.32). The five runs moved it
+  three points, with every other session on the account included: roughly USD 4 at list prices a point. No five-hour
+  window appeared in these runs' events.
+- **What this means for the budget:** the plan's own meter is too coarse to steer a run by. The program steers by
+  the cost count each step reports (exact for the run, a list-price estimate), converts the person's share into that
+  count with the measured rate, and treats the plan's meter as the limit that wins: research stops when the reported
+  use reaches the person's cap, whatever the count says.
+- **Thousands of searches:** at about USD 0.03 a tool call, a thousand single calls is about USD 30 to 40 at list
+  prices, eight to ten points of the weekly limit. That is why the list-of-searches call on the server comes before
+  any run of that size.
 
 **What Codex tells a program** (checked in OpenAI's documentation and the `openai/codex` source on 15 Nov; OpenAI's
 Service Terms could not be read). A `codex exec --json` run reports tokens only, as the thread's running total, and
@@ -253,8 +276,9 @@ Each stage names what is built, where, and how it is judged. Criteria are writte
 DEVELOPMENT / DISCOVERY: they tune the program, and cannot confirm it for other questions, accounts or models. A
 later set of questions that nothing was tuned on confirms it.
 
-**Stage 0. The check works for the runner (this branch).** Owner answer 310a. Judged by its tests and by one real
-check from the runner: every receipt verified, a pass, no review, second reading or judge call on the server.
+**Stage 0. The check works for the runner (released on 15 Nov 2026, #469).** Owner answer 310a. Judged by its tests
+and by one real check from the runner: every receipt verified, a pass, no review, second reading or judge call on the
+server.
 
 **Stage 1. The runner gets a budget and rounds** (the laptop, the owner's use). Built: the two budget settings and the
 reserve, the ledger, rounds with the course check, the dead-end rule, a current answer after each round, pick-up, and
@@ -284,11 +308,15 @@ contributions shown on findings.
 
 ## Decisions that are the owner's
 
+Asked on the owner questions page on 15 Nov:
+
 - **311.** May a check whose AI readings the app made save its card to the Atlas, marked as such?
-- **312.** May the Atlas publish, for each finding, how far its research went and its open tasks, with the notice and
-  privacy page saying so?
+- **312.** May the Atlas show, for each finding, how far its research went, its open tasks and its dead ends, with the
+  notice and privacy page saying so first?
 - **313.** Ask Anthropic and OpenAI in writing before the app goes to anyone else?
-- **314.** The app as a local page in the browser first?
+
+Also the owner's: a share of the plan for real test runs. Not asked as a question: the app's first form is a page in
+the browser served on the person's own computer (the session's choice; the owner was told and can say otherwise).
 
 ## Not done, and risks
 
