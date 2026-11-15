@@ -96,7 +96,9 @@ function finalizeTool(options: RegisterToolsOptions) {
     },
   } as unknown as McpServer, { researchAccessRequired: true, mcpSurface: "/mcp/claude", findingsLibrary: false, ...options });
   return async (input: Record<string, unknown>, subject = "auth0|dev"): Promise<Result> => await handler!(
-    finalizeResearchInputSchema.extend({ later_inputs: z.record(z.string(), z.unknown()).optional() }).parse(input), {
+    // The runtime input takes a later input at the top level too (later-inputs.ts), as an older app may send it.
+    finalizeResearchInputSchema.extend({ later_inputs: z.record(z.string(), z.unknown()).optional(),
+      ai_readings: z.unknown().optional() }).parse(input), {
       authInfo: { token: "synthetic-token", clientId: "synthetic-client", scopes: ["research:use"],
         expiresAt: Math.floor(Date.now() / 1_000) + 60, extra: { subject } },
     }) as Result;
@@ -178,6 +180,13 @@ describe("a final check whose AI readings its caller makes (owner answer 310a)",
     expect(open.structuredContent).toMatchObject({ status: "not_ready", ai_readings: { by: "caller" } });
     expect(open.structuredContent).not.toHaveProperty("check_line");
     expect(open.structuredContent).not.toHaveProperty("second_reading");
+    expect(open.structuredContent).not.toHaveProperty("finalization_receipt");
+    const openPlain = (await finalizeTool({ researchContributorAccessService: service, researchReviewer, secondReader })(
+      request({ receipts: [] }))).structuredContent!;
+    expect(openPlain.status).toBe("not_ready");
+    for (const part of ["next_steps", "next_step_kinds", "receipts_verified", "limits", "caveats", "unchecked_line"]) {
+      expect(open.structuredContent![part], part).toEqual(openPlain[part]);
+    }
     expect(notesOf(open)).toContain(CALLER_READINGS_NOTE);
     // So is a call the check could not read at all: it says who makes the readings, and counts nothing.
     const { answer_draft: _draft, ...unreadable } = request();
@@ -215,10 +224,22 @@ describe("a final check whose AI readings its caller makes (owner answer 310a)",
   it("reads only the word caller as the mark, and says so for any other value", async () => {
     expect(aiReadingsMarker({ later_inputs: { ai_readings: "caller" } })).toEqual({ caller: true });
     expect(aiReadingsMarker({ later_inputs: { ai_readings: " Caller " } })).toEqual({ caller: true });
-    expect(aiReadingsMarker({ later_inputs: "{\"ai_readings\":\"caller\"}" })).toEqual({ caller: true });
+    // The three places findings_save is read in: later_inputs, the top level, and later_inputs given as text, which
+    // gets a note, since a later input given as text is otherwise dropped.
+    expect(aiReadingsMarker({ ai_readings: "caller" })).toEqual({ caller: true });
+    expect(aiReadingsMarker({ ai_readings: "CALLER", later_inputs: { ai_readings: "caller" } })).toEqual({ caller: true });
+    expect(aiReadingsMarker({ later_inputs: "{\"ai_readings\":\"caller\"}" })).toEqual({ caller: true,
+      note: "ai_readings: read as \"caller\" from later_inputs given as text; give later_inputs as an object, with " +
+        "ai_readings \"caller\"." });
     for (const raw of [undefined, null, 7, {}, { later_inputs: {} }, { later_inputs: { ai_readings: null } },
-      { ai_readings: "caller" }, { later_inputs: "not json" }]) {
+      { ai_readings: null }, { later_inputs: "not json" }, { later_inputs: "{\"asked\":\"caller\"}" }]) {
       expect(aiReadingsMarker(raw), JSON.stringify(raw)).toEqual({ caller: false });
+    }
+    // Two places that disagree are not the mark.
+    for (const raw of [{ ai_readings: "caller", later_inputs: { ai_readings: "server" } },
+      { ai_readings: "server", later_inputs: { ai_readings: "caller" } }, { ai_readings: true }]) {
+      expect(aiReadingsMarker(raw).caller, JSON.stringify(raw)).toBe(false);
+      expect(aiReadingsMarker(raw).note, JSON.stringify(raw)).toContain("not read as caller");
     }
     for (const value of [true, "server", "yes", ["caller"], { by: "caller" }, ""]) {
       const read = aiReadingsMarker({ later_inputs: { ai_readings: value } });
@@ -234,6 +255,10 @@ describe("a final check whose AI readings its caller makes (owner answer 310a)",
     const result = await finalize(withLater(request(), { ai_readings: "server" }));
     expect(calls).toEqual({ review: 1, second: 1 });
     expect(result.structuredContent).not.toHaveProperty("ai_readings");
+    // A mark at the top level is the mark: a dev account is not charged for a review it left out.
+    const top = await finalize({ ...request(), ai_readings: "caller" });
+    expect(top.structuredContent).toMatchObject({ status: "ready_with_limits", ai_readings: { by: "caller" } });
+    expect(calls).toEqual({ review: 1, second: 1 });
     expect(notesOf(result).some((note) => note.startsWith("ai_readings: not read as caller."))).toBe(true);
     expect(result.structuredContent!.check_line).toBe("Checked with AskRigor's final check, with the limits it found.");
   });

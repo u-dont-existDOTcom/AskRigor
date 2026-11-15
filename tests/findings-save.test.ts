@@ -1425,6 +1425,50 @@ describe("finalize_research, save_research_findings and the findings library", (
     expect(calls).toHaveLength(1);
   });
 
+  // The review of 15 Nov 2026, before 310a's release: a marked call is not asked for a card that would never be
+  // saved; a card it gives that doesn't read is not kept either; and a paid account's result does not say a save
+  // follows the user's yes.
+  it("asks a marked call for no card, keeps no copy of one that doesn't read, and promises a paid account no save", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    const { calls, findingsSave } = recorder();
+    const { kept, findingsKeep } = keeper();
+    const finalize = connectorTool("finalize_research", { researchContributorAccessService: service,
+      findingsLibrary: true, findingsSave, findingsKeep });
+    const { findings_card: _card, ...withoutCard } = request();
+    // Without the mark, research that cites a study is asked for its card, in a note that says its research is saved.
+    const askedFor = (note: string) => note.startsWith("Give findings_card with answer_draft: ");
+    const asked = (await finalize(withoutCard, "auth0|free")).structuredContent as FinalizeResearchOutput;
+    expect(asked.status).toBe("ready_with_limits");
+    expect((asked.notes ?? []).filter(askedFor)).toEqual([
+      expect.stringMatching(/^Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library/u)]);
+    // With it, no card is asked for: the note's reason would be false for this call.
+    const unasked = await finalize({ ...withoutCard, later_inputs: { ai_readings: "caller" } }, "auth0|free");
+    expect(unasked.structuredContent).toMatchObject({ status: "ready_with_limits", ai_readings: { by: "caller" },
+      findings_card: { status: "absent" } });
+    expect(((unasked.structuredContent as FinalizeResearchOutput).notes ?? []).filter(askedFor)).toEqual([]);
+    expect(resultText(unasked)).not.toContain("this account's research is saved");
+    expect(resultText(unasked)).toContain("so none is asked for; a card that is given is still checked.");
+    // A card that doesn't read is kept for review from an ordinary call, and not from a marked one.
+    const tooLong = { ...CHECKED_CARD, findings: [{ ...CHECKED_CARD.findings[0], claim: "An invented claim. ".repeat(60) }] };
+    const marked = await finalize({ ...withoutCard, later_inputs: { findings_card: tooLong, ai_readings: "caller" } }, "auth0|free");
+    expect(marked.structuredContent).toMatchObject({ findings_card: { status: "rejected" }, ai_readings: { by: "caller" } });
+    expect(marked.structuredContent).not.toHaveProperty("saved_line");
+    expect(kept).toEqual([]);
+    await finalize({ ...withoutCard, later_inputs: { findings_card: tooLong } }, "auth0|free");
+    expect(kept).toHaveLength(1);
+    expect(calls).toEqual([]);
+    // A paid account: no offer, and the text says the card is neither offered nor saved.
+    const paid = await finalize({ ...request(), later_inputs: { ai_readings: "caller" } }, "auth0|paid");
+    expect(paid.structuredContent).toMatchObject({ status: "ready_with_limits", ai_readings: { by: "caller" },
+      findings_card: { status: "checked" } });
+    expect(resultText(paid)).toContain("Findings card: checked; not offered and not saved: this call turned card " +
+      "saving off, and save_research_findings refuses its card.");
+    expect(resultText(paid)).not.toContain("saves it after their yes");
+    expect((paid.structuredContent as FinalizeResearchOutput).caveats.join(" ")).not.toContain("save");
+    expect(calls).toEqual([]);
+  });
+
   // The recheck of 5 Nov 2026: ["off"], and later_inputs sent as a JSON string holding the marker, let a card save. Its
   // third check: true, "on" and stray text read as off would cost the owner's own research a card, when a model meant
   // true as "save", as set_findings_save's true does. Only an explicit off is off; any other value leaves the account's

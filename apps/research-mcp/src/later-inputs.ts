@@ -384,24 +384,38 @@ export function findingsSaveMarker(raw: unknown): { off: boolean; note?: string 
  * sends it, and the note it needs. The owner's runner makes the same three readings on the owner's Claude plan with
  * AskRigor's rubrics, and a dev account's check otherwise pays for the review on every call that carries the answer.
  * The owner, the same day: "this should be for all accounts"; the second reading is the one the server makes for every
- * account. Read from the raw call on its own, as findings_save is, in later_inputs given as an object or as JSON text.
- * Only the word caller, in any case, reads so: any other value leaves the readings to AskRigor, with a note, so a
- * mistyped value never drops a reading without the caller knowing.
+ * account. Read from the raw call on its own, as findings_save is, in the same three places: in later_inputs, at the
+ * top level, where the runtime input takes a later input too (the review of 15 Nov 2026: a mark there was accepted
+ * and not read, so a dev account paid for the review it meant to leave out, untold), or in later_inputs sent as a
+ * JSON string. Only the word caller, in any case, reads so, and every place that gives a value must say it: any other
+ * value leaves the readings to AskRigor, with a note, so a mistyped value never drops a reading without the caller
+ * knowing.
  */
 export function aiReadingsMarker(raw: unknown): { caller: boolean; note?: string } {
   const object = (value: unknown): value is Record<string, unknown> =>
     value !== null && typeof value === "object" && !Array.isArray(value);
   if (!object(raw)) return { caller: false };
+  const values: unknown[] = [];
+  let asText = false;
+  if (Object.hasOwn(raw, "ai_readings")) values.push(raw.ai_readings);
   let later = raw.later_inputs;
   if (typeof later === "string") {
-    try { later = JSON.parse(later); } catch { later = undefined; }
+    try { later = JSON.parse(later); asText = true; } catch { later = undefined; }
   }
-  if (!object(later) || !Object.hasOwn(later, "ai_readings")) return { caller: false };
-  const value = later.ai_readings;
-  if (value === undefined || value === null) return { caller: false };
-  if (typeof value === "string" && value.trim().toLowerCase() === "caller") return { caller: true };
-  return { caller: false, note: "ai_readings: not read as caller. Only \"caller\" leaves the check's AI readings to " +
-    "the app that sends the call; with any other value AskRigor makes its own." };
+  if (object(later) && Object.hasOwn(later, "ai_readings")) values.push(later.ai_readings);
+  else asText = false;
+  const given = values.filter((value) => value !== undefined && value !== null);
+  if (given.length === 0) return { caller: false };
+  const callerWord = (value: unknown): boolean => typeof value === "string" && value.trim().toLowerCase() === "caller";
+  if (!given.every(callerWord)) {
+    return { caller: false, note: "ai_readings: not read as caller. Only \"caller\" leaves the check's AI readings to " +
+      "the app that sends the call; with any other value AskRigor makes its own." };
+  }
+  return {
+    caller: true,
+    ...(asText ? { note: "ai_readings: read as \"caller\" from later_inputs given as text; give later_inputs as an " +
+        "object, with ai_readings \"caller\"." } : {})
+  };
 }
 
 /** Whether a call is marked findings_save, as findingsSaveMarker reads it. */

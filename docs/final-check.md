@@ -561,9 +561,12 @@ checking them (`apps/research-mcp/src/absence-searches.ts`):
   `left_to_caller` on a pass, one note, and a check line that ends "Its rule checks ran on AskRigor's server; the app
   that ran this research made the check's AI readings." The finalization receipt signs the mark (`ar` `caller`). While
   `CALLER_READINGS_SAVE_CARDS` is false (the owner's question 311), such a call also saves nothing, exactly as a call
-  marked `findings_save` `"off"` below: its receipt signs `fs` `off` too. Only the word `caller`, in any case, reads as
-  the mark, in `later_inputs` given as an object or as a JSON string; any other value leaves the readings to AskRigor,
-  with a note. The owner's runner uses it: it makes the same three readings on the owner's Claude plan with AskRigor's
+  marked `findings_save` `"off"` below: its receipt signs `fs` `off` too. One difference from a test run's mark: such
+  a call is not asked for a findings card, since none would be saved (a card that is given is still checked, and a
+  paid account's result says it is neither offered nor saved). Only the word `caller`, in any case, reads as the mark,
+  in the three places `findings_save` is read: in `later_inputs`, at the top level, or in `later_inputs` given as a
+  JSON string (then with a note, since a later input given as text is otherwise dropped). Every place that gives a
+  value must say `caller`; any other value leaves the readings to AskRigor, with a note. The owner's runner uses it: it makes the same three readings on the owner's Claude plan with AskRigor's
   rubrics, where a dev account's check otherwise pays for the review on every call that carries the answer.
 - A call marked `findings_save` `"off"` (in `later_inputs`, or at the top level for an older app) saves nothing, for
   every account kind, whatever the account's switch says: no findings card (reason `call_saving_off`), no private copy,

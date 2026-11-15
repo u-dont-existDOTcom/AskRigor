@@ -2851,7 +2851,7 @@ function defineResearchOperations(
       // Owner answer 310a: what a call that leaves the AI readings to its caller did not get from the server, and a
       // value that was not read as that.
       if (callerReads) result.notes = [...(result.notes ?? []), CALLER_READINGS_NOTE];
-      else if (aiReadings.note !== undefined) result.notes = [...(result.notes ?? []), aiReadings.note];
+      if (aiReadings.note !== undefined) result.notes = [...(result.notes ?? []), aiReadings.note];
       const card = result.findings_card;
       const analyses = result.analyses_saved;
       const passing = result.status === "ready" || result.status === "ready_with_limits";
@@ -2950,6 +2950,12 @@ function defineResearchOperations(
                 }.`
                 : card.problems.length > 0
                   ? `: ${card.problems.join(" ")}`
+                  // The review of 15 Nov 2026: a paid account's card from a call that turned card saving off (a test
+                  // run's mark, or owner answer 310a's) is not offered, and its save is refused: the text says so,
+                  // not that the save follows the user's yes.
+                  : finalizeOptions.findings === "offer" && callSavingOff
+                    ? "; not offered and not saved: this call turned card saving off, and save_research_findings " +
+                      "refuses its card."
                   // Owner answer 156a: a paid private card declared personal only is not offered, and its save is
                   // refused even when the user asks.
                   : finalizeOptions.findings === "offer" && card.public_value === "personal_only"

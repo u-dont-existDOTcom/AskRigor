@@ -130,7 +130,7 @@ export const CALLER_READINGS_NOTE = "This call left the final check's AI reading
   "(later_inputs.ai_readings caller): the review of the draft, the second reading and the meaning judge. AskRigor's " +
   "server made none of them, and its rule checks ran as always. A pass tests the answer's safety statements, harms " +
   "and figures only as far as the call declared them (ai_readings.declared counts what it gave). No findings card " +
-  "is saved from this call.";
+  "is saved from this call, so none is asked for; a card that is given is still checked.";
 // Owner answer 205a (30 October 2026): beside the limits of a passing check, which the panel lists in full.
 export const PASSING_LIMITS_GUIDANCE = "The panel lists every limit below beneath the checked answer, so the answer " +
   "need not repeat them. The answer " +
