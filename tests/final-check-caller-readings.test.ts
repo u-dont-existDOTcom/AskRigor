@@ -15,7 +15,6 @@ import { aiReadingsMarker, laterInputNames } from "../apps/research-mcp/src/late
 import { registerTools, type RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
 import {
   CALLER_READINGS_CHECK_LINE,
-  CALLER_READINGS_SAVE_CARDS,
   SECOND_READING_LEFT_TO_CALLER,
   finalizeResearch,
   finalizeResearchInputSchema,
@@ -168,12 +167,11 @@ describe("a final check whose AI readings its caller makes (owner answer 310a)",
     expect(caller.check_line).toBe("Checked with AskRigor's final check, with the limits it found. Its rule checks " +
       "ran on AskRigor's server; the app that ran this research made the check's AI readings.");
     expect(caller.check_line).toBe(`${plain.check_line as string}${CALLER_READINGS_CHECK_LINE}`);
-    // The receipt signs the mark; and while such a check's card is not saved, it signs that too.
+    // The receipt signs the mark, and no saving-off mark: such a check's card is saved (owner answer 311a).
     const claims = (receipt: unknown) => verifyResearchReceipt(receipt as string, { secret: SECRET }).claims!;
     expect(claims(caller.finalization_receipt)).toMatchObject({ ar: "caller" });
     expect(claims(plain.finalization_receipt)).not.toHaveProperty("ar");
-    expect(CALLER_READINGS_SAVE_CARDS).toBe(false);
-    expect(claims(caller.finalization_receipt)).toMatchObject({ fs: "off" });
+    expect(claims(caller.finalization_receipt)).not.toHaveProperty("fs");
     expect(claims(plain.finalization_receipt)).not.toHaveProperty("fs");
     // A check that has not passed is marked the same way, with no check line and no receipt.
     const open = await finalize(marked(request({ receipts: [] })));

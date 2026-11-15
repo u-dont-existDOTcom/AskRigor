@@ -10,7 +10,7 @@ export function shownFinding(claim: string, extra: Partial<ShownFinding> = {}): 
     direction: null, numbers: [], searches: [], sources: [], whyNotUsual: null, whatWouldChangeIt: null,
     verifiedBases: [], savedOn: "2026-11-14", researchCheckedOn: null, askrigorVersion: null,
     contested: [], replacedBy: [], publishedAt: "2026-11-14T12:00:00.000Z", stateChangedAt: "2026-11-14T12:00:00.000Z",
-    kept: false, research: [], forumSignal: null, challenge: null, ...extra,
+    kept: false, research: [], forumSignal: null, aiReadings: null, challenge: null, ...extra,
   };
 }
 

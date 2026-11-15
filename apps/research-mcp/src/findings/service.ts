@@ -118,6 +118,11 @@ export interface FindingsStamp {
     validated_sources?: number;
     lead_sources?: number;
     material_videos?: number;
+    /**
+     * Owner answer 311a (15 Nov 2026): the receipt's signed `ar`, when the call that checked the card left the final
+     * check's AI readings to the app that sent it. Each of the card's findings says so on its Atlas page.
+     */
+    ai_readings?: "caller";
   };
 }
 
@@ -517,6 +522,7 @@ function researchStamp(issuedAt: string, claims: Readonly<Record<string, string 
   return {
     finalized_at: issuedAt,
     ...Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)),
+    ...(claims.ar === "caller" ? { ai_readings: "caller" as const } : {}),
   };
 }
 

@@ -83,7 +83,7 @@ import {
   type AtlasPublicationAction,
   type AtlasPublications,
 } from "../atlas/publication-review.js";
-import { canonicalResearchOf, reconcileCardPublications, researchKeeping } from "../atlas/publication.js";
+import { callerMadeAiReadings, canonicalResearchOf, reconcileCardPublications, researchKeeping } from "../atlas/publication.js";
 import {
   ATLAS_PARTICIPATION_ACTIONS,
   ATLAS_PARTICIPATION_ERROR_CODES,
@@ -1685,6 +1685,11 @@ export class AtlasReview {
               dateRange }) => `${database} "${query}"${dateRange === undefined ? ""
               : ` (${dateRange.start} to ${dateRange.end})`}`).join(", ")}`}.`) +
         `\n${sourcesSentence(plan)}` +
+        // Owner answer 311a: who made the final check's AI readings, before the owner decides.
+        (focus.finding !== null && callerMadeAiReadings(focus.record)
+          ? "\nAI readings: the app that ran this research made the final check's AI readings; AskRigor's server " +
+            "checked the sources. The finding's page will say so."
+          : "") +
         (privacy.length === 0 ? "" : `\nPrivacy: ${privacy.map(({ field, reasonCode }) => `${field} (${reasonCode})`).join(", ")}.`) +
         (problems.length === 0 ? "" : `\n${problems.map(({ message }) => message).join("\n")}`) +
         (flagged.length === 0 ? "" : `\nNeeds the owner's confirmation: ${flagged.join("; ")}.`) +
@@ -3185,7 +3190,9 @@ function contentOf(
     ...(open ? {} : definedFields(fields)),
     // Owner answer 255a: the research behind it, kept with the version, so an accepted finding from any card shows it;
     // only the sources the owner accepts, so a source dropped never shows (the review of 5 November, finding 4).
-    ...(open || item.finding === null ? {} : researchField(canonicalResearchOf(item.finding, numbers, kept))),
+    // Owner answer 311a: and who made the final check's AI readings, from the card's stamp, when it was the app.
+    ...(open || item.finding === null ? {}
+      : researchField(canonicalResearchOf(item.finding, numbers, kept, callerMadeAiReadings(item.record)))),
   };
 }
 

@@ -22,10 +22,12 @@ import { atlasSearchQuery } from "../apps/research-mcp/src/atlas/search.js";
 import { atlasPageProblems, escapeHtml, renderAtlasFinding } from "../apps/research-mcp/src/atlas/pages.js";
 
 import {
+  callerMadeAiReadings,
   canonicalResearchOf,
   decidedPublicationDraft,
   planCardPublication,
   publicationHoldReasons,
+  publishedFindingOf,
   researchBehindOf,
   researchKeeping,
 } from "../apps/research-mcp/src/atlas/publication.js";
@@ -1374,5 +1376,125 @@ describe("the review of 5 November", () => {
     const page = await (await publishedPages([idn]))("P-1001");
     expect(page).toContain("in r/kneepain, пример.рф.");
     expect(page).not.toContain("xn--e1afmkfd");
+  });
+});
+
+// Owner answer 311a (15 Nov 2026): a card from a check whose AI readings the calling app made is saved and published
+// like any card, and each of its findings says who did what: in its publication, whatever its version; in the research
+// an accepted version keeps; and on its page. The word comes from the saved card's stamp, which the save takes from the
+// finalization receipt's signed claim, never from the card.
+describe("who made the final check's AI readings (owner answer 311a)", () => {
+  const SHOWN = "<dt>Who checked it</dt><dd>AskRigor’s server checked the sources. The app that ran the research made " +
+    "the AI readings.</dd>";
+  const CARD_FIGURE = { outcome: "pain halved", better: "more" as const, option: "exercise", option_events: 30,
+    option_total: 100, comparator: "usual care", comparator_events: 20, comparator_total: 100, follow_up: "6 months" };
+  const callerRecord = (findings: FindingsRecord["card"]["findings"]): FindingsRecord => {
+    const plain = record(findings);
+    return { ...plain, stamp: { ...plain.stamp, research: { ...plain.stamp.research, ai_readings: "caller" } } };
+  };
+  // A finding with none of the research behind it: its publication stays version 2.
+  const { backing: _b, source_reading: _r, numbers: _n, ...withoutResearch } = STORED_QUOTED as never as Record<string, unknown>;
+  const OLDER = { ...withoutResearch, numbers: [] } as never as FindingsRecord["card"]["findings"][number];
+  const pageOf = async (publication: AtlasPagePublication, finding?: AtlasPageFinding) => renderAtlasFinding(
+    (await loadAtlasFinding({
+      read: async (work) => await work({
+        listPublications: async () => [publication],
+        readFindings: async () => finding === undefined ? [] : [finding],
+        listCardSiblings: async () => [],
+      } as unknown as AtlasPageReads),
+    } as AtlasPageSource, publication.publicationNumber))!);
+  const canonical = (content: Record<string, unknown>) => ({
+    atlasNumber: "F-1001", question: "Does exercise help adults with knee pain?", links: [], entryKind: "finding",
+    label: "checked", topic: { key: "knee-pain", label: "Knee pain" }, versionNumber: 1,
+    content: { wording: "The owner's wording of the finding.", appliesTo: "Adults with knee pain", certainty: "moderate",
+      usualAnswer: null, whyNotUsual: null, whatWouldChangeIt: null, whoElse: null, whatItChanges: null, tags: [],
+      verifiedBases: ["full_text_audit"], numbers: [], ...content },
+    erased: false, acceptedOn: "2026-11-06", researchCheckedOn: "2026-11-05", askrigorVersion: "0.1.0",
+    sources: [{ identifiers: [{ scheme: "doi", value: STUDY }], title: "The canonical record's title", year: 2021 }],
+    contradicts: [], replacedBy: [],
+  }) as unknown as AtlasPageFinding;
+  const published = (findings: FindingsRecord["card"]["findings"], marked: boolean) => planCardPublication({
+    record: marked ? callerRecord(findings) : record(findings), setAside: false, route: ROUTE, sourceTitles: TITLES,
+  }).drafts.map((draft) => draft.published);
+
+  it("reads the mark from the card's stamp alone", () => {
+    expect(callerMadeAiReadings(callerRecord([STORED_QUOTED]))).toBe(true);
+    expect(callerMadeAiReadings(record([STORED_QUOTED]))).toBe(false);
+  });
+
+  it("publishes the mark with every finding of such a card, in any version, and with no other card's", () => {
+    expect(published([STORED_QUOTED, STORED_FORUM], true).map((finding) => [finding.schema, finding.ai_readings]))
+      .toEqual([[ATLAS_PUBLICATION_SCHEMA_V3, "caller"], [ATLAS_PUBLICATION_SCHEMA_V3, "caller"]]);
+    expect(published([OLDER], true).map((finding) => [finding.schema, finding.ai_readings]))
+      .toEqual([[ATLAS_PUBLICATION_SCHEMA_V2, "caller"]]);
+    // A finding whose context makes no publication keeps version 1's fields, and still says so.
+    expect(publishedFindingOf(callerRecord([OLDER]), 1)).toMatchObject({ schema: "askrigor.atlas-publication.v1",
+      ai_readings: "caller" });
+    for (const finding of [...published([STORED_QUOTED, STORED_FORUM], false), ...published([OLDER], false),
+      publishedFindingOf(record([OLDER]), 1)!]) {
+      expect(finding).not.toHaveProperty("ai_readings");
+    }
+    // Only the word caller is the mark.
+    const [plain] = published([STORED_QUOTED], false);
+    expect(atlasPublishedFindingSchema.safeParse({ ...plain, ai_readings: "caller" }).success).toBe(true);
+    for (const value of ["server", "Caller", true, null, ""]) {
+      expect(atlasPublishedFindingSchema.safeParse({ ...plain, ai_readings: value }).success, String(value)).toBe(false);
+    }
+  });
+
+  it("keeps the mark in an accepted version's research, alone when nothing else is kept, and through a revision", () => {
+    const research = canonicalResearchOf(STORED_QUOTED, [CARD_FIGURE], undefined, true);
+    expect(research).toEqual({ ...canonicalResearchOf(STORED_QUOTED, [CARD_FIGURE]), ai_readings: "caller" });
+    expect(research).toMatchObject({ backing: [{ source: STUDY }], figure_sources: [STUDY] });
+    expect(canonicalResearchOf(STORED_QUOTED, [CARD_FIGURE])).not.toHaveProperty("ai_readings");
+    // A finding with no research behind it still says who made the readings.
+    expect(canonicalResearchOf(OLDER, [])).toBeUndefined();
+    expect(canonicalResearchOf(OLDER, [], undefined, true)).toEqual({ ai_readings: "caller" });
+    // So does one whose research the canonical Atlas does not keep: the mark is never lost with it.
+    const refused = { ...STORED_QUOTED, numbers: [], source_reading: [{ source: STUDY, read: "not_a_reading" }] } as never;
+    expect(canonicalResearchOf(refused, [])).toBeUndefined();
+    expect(canonicalResearchOf(refused, [], undefined, true)).toEqual({ ai_readings: "caller" });
+    // A revision that drops every source keeps it; one that keeps them keeps everything.
+    expect(researchKeeping(research!, () => false)).toEqual({ ai_readings: "caller" });
+    expect(researchKeeping(research!, (source) => source === STUDY)).toEqual(research);
+    expect(researchKeeping({ backing: research!.backing! }, () => false)).toBeUndefined();
+    // It is part of a version's research: only the word caller, and an erasure removes it with the rest.
+    const content = { wording: "Exercise eased knee pain a little.", appliesTo: "Adults with knee pain", certainty: "moderate",
+      usualAnswer: null, whyNotUsual: "Quick answers lead with painkillers.", whatWouldChangeIt: "A larger trial.",
+      whoElse: null, whatItChanges: null, tags: [], verifiedBases: ["full_text_audit"], numbers: [] };
+    const parsed = atlasVersionContentSchema.parse({ ...content, research: { ai_readings: "caller" } });
+    expect(parsed.research).toEqual({ ai_readings: "caller" });
+    expect(atlasVersionContentSchema.safeParse({ ...content, research: { ai_readings: "server" } }).success).toBe(false);
+    expect(atlasVersionContentSchema.safeParse({ ...content, research: {} }).success).toBe(false);
+    expect(atlasErasedContent(parsed)).not.toHaveProperty("research");
+  });
+
+  it("says who did what on the finding's page, unreviewed or accepted, and nothing on any other finding's", async () => {
+    const unreviewed = (finding: AtlasPublishedFinding): AtlasPagePublication => ({ publicationNumber: "P-1001",
+      state: "unreviewed", atlasNumber: null, published: finding, publishedAt: "2026-11-05T12:00:00.000Z",
+      stateChangedAt: "2026-11-05T12:00:00.000Z", kept: false });
+    for (const findings of [[STORED_QUOTED], [STORED_FORUM], [OLDER]]) {
+      const marked = await pageOf(unreviewed(published(findings, true)[0]!));
+      expect(atlasPageProblems(marked)).toEqual([]);
+      expect(marked).toContain(SHOWN);
+      expect(await pageOf(unreviewed(published(findings, false)[0]!))).not.toContain("Who checked it");
+    }
+    // Accepted: from its own version's research, whatever its publication holds (a paid private card's keeps version 1's
+    // fields, and an erased one none).
+    const accepted = (finding: AtlasPublishedFinding | null): AtlasPagePublication => ({ publicationNumber: "P-1001",
+      state: "accepted", atlasNumber: "F-1001", published: finding, publishedAt: "2026-11-05T12:00:00.000Z",
+      stateChangedAt: "2026-11-06T09:00:00.000Z", kept: false });
+    const own = canonical({ research: canonicalResearchOf(STORED_QUOTED, [], undefined, true) });
+    for (const publication of [accepted(published([STORED_QUOTED], false)[0]!), accepted(null)]) {
+      const page = await pageOf(publication, own);
+      expect(atlasPageProblems(page)).toEqual([]);
+      expect(page).toContain(SHOWN);
+    }
+    // Accepted with no research of its own: from its publication's fields, as the research behind it is.
+    expect(await pageOf(accepted(published([STORED_QUOTED], true)[0]!), canonical({}))).toContain(SHOWN);
+    // And a finding AskRigor's server read says nothing.
+    expect(await pageOf(accepted(published([STORED_QUOTED], false)[0]!),
+      canonical({ research: canonicalResearchOf(STORED_QUOTED, []) }))).not.toContain("Who checked it");
+    expect(await pageOf(accepted(published([STORED_QUOTED], false)[0]!), canonical({}))).not.toContain("Who checked it");
   });
 });

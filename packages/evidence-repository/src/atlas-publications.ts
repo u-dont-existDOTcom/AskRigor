@@ -15,7 +15,7 @@ import {
   atlasPool,
   type PostgresAtlasStoreOptions,
 } from "./atlas-findings.js";
-import { ATLAS_PUBLISHED_BACKING_PER_FINDING, atlasResearchSchemas } from "./atlas-research.js";
+import { ATLAS_AI_READINGS_CALLER, ATLAS_PUBLISHED_BACKING_PER_FINDING, atlasResearchSchemas } from "./atlas-research.js";
 import { assertNoProhibitedPersistentKeys } from "./contracts.js";
 
 // Decision 171, section 4B (owner answers 168a and "171 approved", 24 Oct 2026; plan
@@ -192,6 +192,9 @@ export const atlasPublishedFindingSchema = z.object({
   backing: z.array(atlasPublishedBackingSchema).min(1).max(ATLAS_PUBLISHED_BACKING_PER_FINDING).optional(),
   source_reading: z.array(publishedResearch.reading).min(1).max(10).optional(),
   forum_signal: atlasPublishedForumSignalSchema.optional(),
+  // Owner answer 311a: the app that sent the checking call made the final check's AI readings, from the saved card's
+  // stamp. It goes with any version, so a finding that makes only a version 1 or 2 publication still says so.
+  ai_readings: z.literal(ATLAS_AI_READINGS_CALLER).optional(),
 }).strict().superRefine((published, context) => {
   // Versions 2 and 3 always have the card's question and usual answer; version 1 has none of version 2's fields, and
   // versions 1 and 2 none of version 3's.

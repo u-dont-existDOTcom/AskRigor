@@ -1,10 +1,11 @@
-import type {
-  AtlasForumSignalStudies,
-  AtlasLabel,
-  AtlasPublishedRetraction,
-  AtlasQuoteText,
-  AtlasSourceFigures,
-  AtlasSourceReading,
+import {
+  ATLAS_CALLER_READINGS_SENTENCE,
+  type AtlasForumSignalStudies,
+  type AtlasLabel,
+  type AtlasPublishedRetraction,
+  type AtlasQuoteText,
+  type AtlasSourceFigures,
+  type AtlasSourceReading,
 } from "@askrigor/evidence-repository";
 
 import { binaryContrast, binaryGroups, differenceRange, withoutEndPunctuation } from "../binary-results.js";
@@ -1262,6 +1263,8 @@ export function renderAtlasFinding(model: AtlasFindingModel, participationView?:
   if (finding.verifiedBases.length > 0) {
     facts.push(html`<dt>What the research verified</dt><dd>${joined(finding.verifiedBases.map((basis) => html`${BASIS_WORDS[basis]}`), "; ")}</dd>`);
   }
+  // Owner answer 311a: who did what, when the app that ran the research made the final check's AI readings.
+  if (finding.aiReadings === "caller") facts.push(html`<dt>Who checked it</dt><dd>${ATLAS_CALLER_READINGS_SENTENCE}</dd>`);
   const dates: SafeHtml[] = [html`${finding.publicationNumber}`];
   if (status.kind !== "unreviewed") dates.push(html`Atlas number ${status.atlasNumber}`);
   if (finding.savedOn !== null) dates.push(html`Saved ${day(finding.savedOn)}`);

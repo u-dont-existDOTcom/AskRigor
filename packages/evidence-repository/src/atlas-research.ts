@@ -25,6 +25,15 @@ export type AtlasQuoteText = typeof ATLAS_QUOTE_TEXTS[number];
 /** HRP FormalAbsenceCannotEraseCommunitySignal's four formal relationships. */
 export const ATLAS_FORUM_SIGNAL_STUDIES = ["corroborated", "contradicted", "support_not_located", "outcome_mismatch"] as const;
 export type AtlasForumSignalStudies = typeof ATLAS_FORUM_SIGNAL_STUDIES[number];
+/**
+ * Who made the final check's AI readings, when it was not AskRigor's server (owner answers 310a and 311a, 15 November
+ * 2026): the app that sent the checking call. The finalization receipt signs it, the saved card's stamp keeps it, and a
+ * publication and an accepted version's research carry this value, so the finding's page can say so.
+ */
+export const ATLAS_AI_READINGS_CALLER = "caller";
+/** What the finding's page says for it, in the owner's words (answer 311a). */
+export const ATLAS_CALLER_READINGS_SENTENCE = "AskRigor’s server checked the sources. The app that ran the research " +
+  "made the AI readings.";
 export const ATLAS_PUBLISHED_QUOTE_MAX_CHARACTERS = 300;
 export const ATLAS_PUBLISHED_BACKING_PER_FINDING = 3;
 export const ATLAS_PUBLISHED_THREADS_PER_FINDING = 20;

@@ -183,6 +183,12 @@ export interface ShownFinding {
   /** Owner answer 252a: what people report, from its publication's version 3 fields; null when it gives none. */
   forumSignal: ShownForumSignal | null;
   /**
+   * Owner answer 311a: "caller" when the app that sent the checking call made the final check's AI readings, as the
+   * finalization receipt signed it and the card's stamp kept it: the page then says who did what. Null when AskRigor's
+   * server made them, and for a finding whose research was erased.
+   */
+  aiReadings: "caller" | null;
+  /**
    * The owner, 6 Nov 2026: the usual view it challenges, with its source and the quick-answer test's verdict, from its
    * publication's challenge mark; null for none, or for a mark whose texts a page would refuse.
    */
@@ -488,6 +494,7 @@ function fromPublished(publication: AtlasPagePublication, published: AtlasPublis
     kept: publication.kept,
     challenge: shownChallenge(publication),
     ...researchBehind(published, shownSource),
+    aiReadings: published.ai_readings ?? null,
   };
 }
 
@@ -661,6 +668,8 @@ function fromCanonical(
     // Owner answers 252a and 255a: an accepted or edited finding shows the research behind it from its own version, or
     // from its publication's fields; both are erased with its F number's wording.
     ...canonicalResearch(content, publication, sources, finding.sources),
+    // Owner answer 311a: from its own version's research, or from its publication's fields, as the research is.
+    aiReadings: content.research?.ai_readings ?? publication.published?.ai_readings ?? null,
   };
 }
 
