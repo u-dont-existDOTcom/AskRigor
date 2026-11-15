@@ -76,10 +76,11 @@ export function findingsSaveToolResult(raw: FindingsSaveResult): CallToolResult 
         true,
       );
     // The free Claude test of 5 Nov 2026: a test run's check is marked findings_save "off", and its card stays unsaved.
+    // Owner answer 310a (15 Nov 2026): so does the card of a check whose AI readings its caller made.
     case "call_saving_off":
       return receipt(
-        "Not saved: the finalize_research call that checked this card was marked findings_save \"off\", as a test run " +
-          "is, so its card is never saved.",
+        "Not saved: the finalize_research call that checked this card turned card saving off (it was marked " +
+          "findings_save \"off\", as a test run is, or ai_readings \"caller\"), so its card is never saved.",
         result,
         true,
       );

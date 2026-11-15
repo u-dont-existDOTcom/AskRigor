@@ -207,7 +207,9 @@ describe("later_inputs (owner answer 189a)", () => {
           // AskRigor#431: each listed video claim's status, a note only.
           "claim_coverage", "findings_save",
           // Owner answer 301a: the person's words, for AskRigor's own review of a dev account's draft.
-          "asked"]
+          "asked",
+          // Owner answer 310a: the app that sends the call makes the check's AI readings itself.
+          "ai_readings"]
           : operation.name === "save_research_findings" ? ["findings_card"]
           // The recheck of 5 Nov 2026: a test run's audits are marked, so nothing of them is held for the review inbox.
           : operation.name === "validate_study_method_audit" ? ["audit", "findings_save"]

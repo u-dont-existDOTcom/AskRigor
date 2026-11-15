@@ -171,6 +171,14 @@ const LATER_INPUT_SHAPES = Object.freeze({
       .describe("When a registration result asks for it: the person's own words about this question, word for word " +
         "and in order, as one text or a list with one message each, as given to register_plain_answer, with any later " +
         "message of theirs about this question added. Used only by AskRigor's review of the draft; never kept."),
+    // Owner answer 310a (15 Nov 2026): an app that makes the check's AI readings itself, so the server makes none for
+    // the call. Read from the raw call (aiReadingsMarker), so any value parses here, and one that isn't caller gets a
+    // note.
+    ai_readings: z.unknown().optional()
+      .describe("caller: the app that sends this call makes the final check's AI readings itself, with AskRigor's " +
+        "rubrics (the review of the draft, the second reading and the meaning judge), so AskRigor's server makes " +
+        "none for this call. The rule checks run as always. The result, its receipt and the check line say so, and " +
+        "no findings card is saved from the call. Any other value leaves the readings to AskRigor."),
   },
   // Owner answer 219b: the card exactly as finalize_research checked it, its findings' declarations included.
   save_research_findings: {
@@ -368,6 +376,45 @@ export function findingsSaveMarker(raw: unknown): { off: boolean; note?: string 
     ...(asText ? { note: "findings_save: read as \"off\" from later_inputs given as text; give later_inputs as an " +
         "object, with findings_save \"off\"." }
       : exact ? {} : { note: "findings_save: read as \"off\"; give \"off\", its value." })
+  };
+}
+
+/**
+ * Owner answer 310a (15 Nov 2026): whether a finalize_research call leaves the check's AI readings to the app that
+ * sends it, and the note it needs. The owner's runner makes the same three readings on the owner's Claude plan with
+ * AskRigor's rubrics, and a dev account's check otherwise pays for the review on every call that carries the answer.
+ * The owner, the same day: "this should be for all accounts"; the second reading is the one the server makes for every
+ * account. Read from the raw call on its own, as findings_save is, in the same three places: in later_inputs, at the
+ * top level, where the runtime input takes a later input too (the review of 15 Nov 2026: a mark there was accepted
+ * and not read, so a dev account paid for the review it meant to leave out, untold), or in later_inputs sent as a
+ * JSON string. Only the word caller, in any case, reads so, and every place that gives a value must say it: any other
+ * value leaves the readings to AskRigor, with a note, so a mistyped value never drops a reading without the caller
+ * knowing.
+ */
+export function aiReadingsMarker(raw: unknown): { caller: boolean; note?: string } {
+  const object = (value: unknown): value is Record<string, unknown> =>
+    value !== null && typeof value === "object" && !Array.isArray(value);
+  if (!object(raw)) return { caller: false };
+  const values: unknown[] = [];
+  let asText = false;
+  if (Object.hasOwn(raw, "ai_readings")) values.push(raw.ai_readings);
+  let later = raw.later_inputs;
+  if (typeof later === "string") {
+    try { later = JSON.parse(later); asText = true; } catch { later = undefined; }
+  }
+  if (object(later) && Object.hasOwn(later, "ai_readings")) values.push(later.ai_readings);
+  else asText = false;
+  const given = values.filter((value) => value !== undefined && value !== null);
+  if (given.length === 0) return { caller: false };
+  const callerWord = (value: unknown): boolean => typeof value === "string" && value.trim().toLowerCase() === "caller";
+  if (!given.every(callerWord)) {
+    return { caller: false, note: "ai_readings: not read as caller. Only \"caller\" leaves the check's AI readings to " +
+      "the app that sends the call; with any other value AskRigor makes its own." };
+  }
+  return {
+    caller: true,
+    ...(asText ? { note: "ai_readings: read as \"caller\" from later_inputs given as text; give later_inputs as an " +
+        "object, with ai_readings \"caller\"." } : {})
   };
 }
 

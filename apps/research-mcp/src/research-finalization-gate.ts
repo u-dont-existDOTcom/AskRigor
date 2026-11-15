@@ -1282,8 +1282,24 @@ function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResear
     sources: { validated: [], lead_only: [] },
     community: { decision: "not_declared", surveys: 0, discovery_rounds: 0, saturated: false, depth: "first_pass",
       first_pass_complete: false, open_leads: [], audited_videos: [], material_videos: [], principal_communities: [], communities_searched: [] },
-    findings_card: options.findings === "private" ? privateFindings() : options.findings === "closed" ? closedFindingsLibrary() : noFindingsCard()
+    findings_card: options.findings === "private" ? privateFindings() : options.findings === "closed" ? closedFindingsLibrary() : noFindingsCard(),
+    // Owner answer 310a: every result of a marked call says so, also one whose input could not be read.
+    ...(options.aiReadings === "caller" ? { ai_readings: { by: "caller" as const } } : {})
   };
+}
+
+/** Owner answer 310a: what a marked call's result says: who made the AI readings, and what the call declared. */
+function callerReadings(input: FinalizeResearchInput): NonNullable<FinalizeResearchOutput["ai_readings"]> {
+  return { by: "caller", declared: {
+    ...(input.safety_question === undefined ? {} : { safety_question: input.safety_question }),
+    safety_claims: (input.safety_claims ?? []).length,
+    harm_screen: (input.harm_screen ?? []).length,
+    scale_results: (input.scale_results ?? []).length,
+    binary_results: (input.binary_results ?? []).length,
+    absence_claims: (input.absence_claims ?? []).length,
+    key_terms: (input.key_terms ?? []).length,
+    recommendations: (input.recommendations ?? []).length,
+  } };
 }
 
 function retractedStatementShown(draft: string, statement: string, changes: readonly string[]): boolean {
@@ -1322,6 +1338,20 @@ function stepSink(addStep: (kind: NextStepKind, ...steps: RuleInput[]) => void, 
 // kinds of step still open.
 export const UNCHECKED_LINE_START = "AskRigor's final check has not passed";
 const CHECK_LINE = "Checked with AskRigor's final check.";
+/**
+ * Owner answer 310a: what a passing check line adds when the caller made the AI readings, so the person reading the
+ * answer knows which part ran where.
+ */
+export const CALLER_READINGS_CHECK_LINE = " Its rule checks ran on AskRigor's server; the app that ran this " +
+  "research made the check's AI readings.";
+/**
+ * Owner answer 310a: whether a check whose AI readings its caller made may save its findings card. False until the
+ * owner decides (question 311): the owner's question 310 set "nothing from such a check can be saved to the Atlas", and
+ * the owner's reply asked why the server would be needed to add to the Atlas.
+ */
+export const CALLER_READINGS_SAVE_CARDS = false;
+/** The second reading's reason on a call that leaves the AI readings to its caller. */
+export const SECOND_READING_LEFT_TO_CALLER = "left_to_caller";
 // Owner answer 205a: the answer states only the limits that matter for the person, so the line points to none.
 const LIMITED_CHECK_LINE = "Checked with AskRigor's final check, with the limits it found.";
 const UNCHECKED_ANSWER_KINDS: ReadonlySet<NextStepKind> =
@@ -1763,6 +1793,25 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
   share_offer: z.object({ line: z.string(), on_yes: z.string() }).strict().optional()
     .describe("When this server keeps shared answers and the caller has a research account: line ends the answer, " +
       "after check_line or unchecked_line; on_yes says how to share, only after the person confirms the copy."),
+  // Owner answer 310a (15 Nov 2026), runtime only (owner answer 189a): a call whose AI readings its caller makes.
+  ai_readings: z.object({
+    by: z.literal("caller"),
+    declared: z.object({
+      safety_question: z.boolean().optional(),
+      safety_claims: z.number().int().nonnegative(),
+      harm_screen: z.number().int().nonnegative(),
+      scale_results: z.number().int().nonnegative(),
+      binary_results: z.number().int().nonnegative(),
+      absence_claims: z.number().int().nonnegative(),
+      key_terms: z.number().int().nonnegative(),
+      recommendations: z.number().int().nonnegative(),
+    }).strict().optional(),
+  }).strict().optional()
+    .describe("For a call marked later_inputs.ai_readings caller, in every result: the app that sent it makes the " +
+      "check's AI readings (the review of the draft, the second reading and the meaning judge), and AskRigor's " +
+      "server made none. declared counts what the call declared for the rule checks (safety_question as given, left " +
+      "out when the call gave none; declared itself is left out when the call could not be read): a pass tests the " +
+      "answer's safety statements, harms and figures only as far as they are declared."),
   // 11 Nov 2026, runtime only (owner answer 189a): a pass after a pass in the same turn, so an app that reads only the
   // structured content (Claude Code) also learns the turn's checking is over.
   turn_already_passed: z.literal(true).optional()
@@ -1778,6 +1827,13 @@ export type FinalizeResearchOutput = z.output<typeof finalizeResearchOutputSchem
 export interface FinalizeResearchOptions {
   secret: string | undefined;
   secondReading?: { status: "ran"; findings: SecondReaderFinding[] } | { status: "skipped"; reason: string };
+  /**
+   * Owner answer 310a (15 Nov 2026): the call's caller makes the check's AI readings (the review of the draft, the
+   * second reading and the meaning judge), so the server makes none for it. The rule checks are the same. The check
+   * line, the finalization receipt (`ar`) and the result (`ai_readings`) say so; and while CALLER_READINGS_SAVE_CARDS
+   * is false, such a call saves nothing, as a call marked findings_save "off".
+   */
+  aiReadings?: "caller";
   /**
    * The meaning judge's reading of this check's earlier pass (owner answer 221, dev accounts only): notes for the AI,
    * and the findings it reads as resting on YouTube comments, which are held. It never blocks.
@@ -1868,7 +1924,8 @@ export function finalizeResearch(
   // A test run's call, marked findings_save "off", read from the raw call on its own: it offers no save and files no
   // map, and its finalization receipt signs the mark, so save_research_findings refuses its card too (the review of 5
   // Nov 2026). The card is still checked.
-  const savingOff = findingsSaveOff(rawInput);
+  const callerReads = options.aiReadings === "caller";
+  const savingOff = findingsSaveOff(rawInput) || (callerReads && !CALLER_READINGS_SAVE_CARDS);
   if (options.secret === undefined) {
     const nextSteps: RuleInput[] = [];
     const secondReading = checkSecondReading(input, options.secondReading, nextSteps);
@@ -1879,6 +1936,7 @@ export function finalizeResearch(
       next_steps: nextSteps.map(ruleText),
       next_step_kinds: nextSteps.map(() => "second_reading" as const),
       ...(secondReading === undefined ? {} : { second_reading: secondReading }),
+      ...(callerReads ? { ai_readings: callerReadings(input) } : {}),
       limits: [
         "This AskRigor server cannot verify research receipts. The research steps still apply, and the answer says that research completion was not server-verified."
       ],
@@ -4160,7 +4218,13 @@ export function finalizeResearch(
     // and is not asked for one (the 2026-10-15 owner regressions).
     const citable = validatedIds.size > 0 || leadSources.length > 0 || auditedAtAll.size > 0 ||
       materialVideos.length > 0;
-    if (findingsOpen(options) && input.findings_card === undefined && !parsed.droppedFindingsCard && citable) {
+    // Owner answer 310a, from the review of 15 Nov 2026: a call whose AI readings its caller makes saves no card
+    // while CALLER_READINGS_SAVE_CARDS is false, so it is not asked for one: this note's reason, that the account's
+    // research is saved, would be false for it. A card that is given is still checked. A test run's call
+    // (findings_save "off") is asked as before: it exists to exercise the whole check.
+    const cardNotWanted = callerReads && !CALLER_READINGS_SAVE_CARDS;
+    if (findingsOpen(options) && input.findings_card === undefined && !parsed.droppedFindingsCard && citable &&
+      !cardNotWanted) {
       requireDeclaration(
         joinRules(joinRules(joinRules(joinRules(joinRules((options.findings === "save" ? joinRules("Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for ", "the owner's review.") : joinRules("Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings ", "library, and they are saved only if the user says yes.")), " Put in the answer's best findings, none the user corrected, and no personal details, and say in "), "public_value whether they would help anyone beyond this person."), " A public card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers "), "(for an effect, harm or overlooked_option) and searches (for nothing_found), as the findings description "), "says. With no finding that a plain web search of the problem wouldn't already give, send no card.",
           // Owner answer 219b: once comments were read, each finding says whether it draws on them.
@@ -4697,6 +4761,8 @@ export function finalizeResearch(
     ...(passed && input.answer_draft !== undefined ? { checked_answer: input.answer_draft } : {}),
     ...(secondReading === undefined ? {} : { second_reading: secondReading }),
     findings_card: findingsCard,
+    // Owner answer 310a: the caller made the AI readings, and what the call declared for the rule checks.
+    ...(callerReads ? { ai_readings: callerReadings(input) } : {}),
     ...(judgment === undefined || !passed ? {} : { meaning_judge: {
       status: judgment.status,
       ...(judgment.status === "skipped" ? { reason: judgment.reason } : {}),
@@ -4705,9 +4771,9 @@ export function finalizeResearch(
     } })
   };
   output.round = { number: checkRound.round, limit: CHECK_ROUND_LIMIT };
-  if (status === "ready") output.check_line = CHECK_LINE;
+  if (status === "ready") output.check_line = CHECK_LINE + (callerReads ? CALLER_READINGS_CHECK_LINE : "");
   else if (status === "ready_with_limits") {
-    output.check_line = LIMITED_CHECK_LINE;
+    output.check_line = LIMITED_CHECK_LINE + (callerReads ? CALLER_READINGS_CHECK_LINE : "");
   } else if (checkRound === undefined) output.unchecked_line = uncheckedLine(stepKinds);
   else {
     // A stopped check's research the next turn can do is unfinished; the research it could not do kept failing.
@@ -4848,7 +4914,9 @@ export function finalizeResearch(
       // this receipt and the user's yes to it (owner answer 143a).
       ...(mapOffered && mapAccount !== undefined ? { map: "offered", acct: mapAccount } : {}),
       // A call marked findings_save "off": save_research_findings refuses this receipt's card.
-      ...(savingOff ? { fs: "off" } : {})
+      ...(savingOff ? { fs: "off" } : {}),
+      // Owner answer 310a: the check's AI readings were made by the call's caller, not by the server.
+      ...(callerReads ? { ar: "caller" } : {})
     }, {
       secret: options.secret,
       ...(options.now === undefined ? {} : { now: options.now })
