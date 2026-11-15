@@ -1139,6 +1139,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "call_record_unavailable",
   "call_saving_off",
   "callback",
+  "caller",
   "can_support",
   "cancelled",
   "candidate",

@@ -2,11 +2,12 @@ import { registerForumTools } from "./forum-tools.js";
 import type { RedditReaderClient } from "./reddit-reader-client.js";
 import type { readForumPage } from "@askrigor/sources";
 import {
-  CLOSING_QUESTIONS_GUIDANCE, FINAL_CHECK_RUNTIME_DESCRIPTION, FIRST_PASS_GUIDANCE, PASSING_LIMITS_GUIDANCE,
-  PASSING_NOTES_HEADING, REPEAT_PASS_GUIDANCE, REPEAT_PASS_LIMITS_GUIDANCE, REPEAT_PASS_NOTES_HEADING
+  CALLER_READINGS_NOTE, CLOSING_QUESTIONS_GUIDANCE, FINAL_CHECK_RUNTIME_DESCRIPTION, FIRST_PASS_GUIDANCE,
+  PASSING_LIMITS_GUIDANCE, PASSING_NOTES_HEADING, REPEAT_PASS_GUIDANCE, REPEAT_PASS_LIMITS_GUIDANCE,
+  REPEAT_PASS_NOTES_HEADING
 } from "./final-check-messages.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "./community-leads.js";
-import { finalCheckAsked, findingsSaveOff, withLaterInputs } from "./later-inputs.js";
+import { aiReadingsMarker, finalCheckAsked, findingsSaveOff, withLaterInputs } from "./later-inputs.js";
 import { openToolOutputSchema } from "./connector-input-schema.js";
 import { atlasLookupInputSchema, atlasLookupOutputSchema, atlasLookupToolResult, atlasOrigin, configuredAtlasLookupSource } from "./atlas/lookup-tool.js";
 import { atlasNearFinder, type AskRigorHoldsOptions } from "./askrigor-holds.js";
@@ -283,10 +284,12 @@ import {
 import type { ReportedFiguresCheck } from "./actions/study-method-audit.js";
 import { CHECK_ROUND_LIMIT, STOPPED_CHECK_REPORT_OFFER, STUCK_AFTER_ROUNDS } from "./check-rounds.js";
 import {
+  CALLER_READINGS_SAVE_CARDS,
   COMMUNITY_SKIP_CAVEAT_START,
   HARM_NOT_CHECKED_CAVEAT_START,
   LEAD_RECEIPT_SEARCH,
   FINALIZE_REMINDER,
+  SECOND_READING_LEFT_TO_CALLER,
   FINALIZE_RESEARCH_CONTRACT,
   FINALIZE_RESEARCH_SHAPES_DESCRIPTION,
   finalizeResearch,
@@ -2595,7 +2598,13 @@ function defineResearchOperations(
       // check's status. It starts as soon as its inputs are known, so it runs while the check's other lookups wait, and
       // is awaited before the result is returned. Advice only: it adds one note and changes nothing else of the result.
       const draft = checkedInput?.answer_draft;
-      const reviewer = researcher !== undefined && checkedInput !== undefined && draft !== undefined &&
+      // Owner answer 310a (15 Nov 2026): a call marked later_inputs.ai_readings "caller" leaves the check's three AI
+      // readings to the app that sends it (the review here, the second reading and the meaning judge below), on any
+      // account: the server makes none for the call, and the rule checks run as always. Read from the raw call on its
+      // own, as findings_save is.
+      const aiReadings = aiReadingsMarker(input);
+      const callerReads = aiReadings.caller;
+      const reviewer = !callerReads && researcher !== undefined && checkedInput !== undefined && draft !== undefined &&
         draft.trim() !== "" && isDevAccount(researcher.accountKey, devAccountKeysFromEnv())
         ? configuredReviewer(options) : undefined;
       // The person's words, read from the raw call as register_plain_answer reads its own; absent or unusable, the
@@ -2619,6 +2628,7 @@ function defineResearchOperations(
         findings: !library
           ? "closed" as const
           : account === undefined ? "private" as const : account.mode === "FREE_CONTRIBUTOR" ? "save" as const : "offer" as const,
+        ...(callerReads ? { aiReadings: "caller" as const } : {}),
         ...(readsOnMobile(extra._meta) ? { mobileClient: true } : {}),
         ...(options.toolListVersion === undefined ? {} : { toolListVersion: options.toolListVersion }),
         ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) }),
@@ -2702,7 +2712,12 @@ function defineResearchOperations(
         }
       }
       const reader = options.secondReader ?? { enabled: secondReaderEnabled, readAnswer };
-      if (reader.enabled && checkedInput?.answer_draft !== undefined &&
+      if (callerReads && checkedInput?.answer_draft !== undefined &&
+        (result.status === "ready" || result.status === "ready_with_limits")) {
+        // Owner answer 310a: the caller makes the second reading; the result says the server left it to it.
+        gateOptions = { ...gateOptions, secondReading: { status: "skipped", reason: SECOND_READING_LEFT_TO_CALLER } };
+        result = finalizeResearch(input, gateOptions);
+      } else if (reader.enabled && checkedInput?.answer_draft !== undefined &&
         (result.status === "ready" || result.status === "ready_with_limits")) {
         const secondReading = await reader.readAnswer(checkedInput.answer_draft, {
           safety_claims: checkedInput.safety_claims ?? [],
@@ -2717,7 +2732,8 @@ function defineResearchOperations(
       // resting on YouTube comments are held, before any save below. It never blocks: whatever happens to the call,
       // the check stays as it is, with a note when the judge did not run.
       const judge = options.meaningJudge ?? meaningJudgeFromEnv();
-      if (judge.enabled && researcher !== undefined && isDevAccount(researcher.accountKey, devAccountKeysFromEnv()) &&
+      if (!callerReads && judge.enabled && researcher !== undefined &&
+        isDevAccount(researcher.accountKey, devAccountKeysFromEnv()) &&
         (result.status === "ready" || result.status === "ready_with_limits")) {
         const source = meaningJudgeSourceOf(result);
         const bundle = source === undefined ? undefined : meaningJudgeBundle(source);
@@ -2733,7 +2749,9 @@ function defineResearchOperations(
       // only turn saving off. The harness reaches AskRigor through the ChatGPT app inside Codex, whose connection
       // OpenAI's platform makes, so the marker rides in the call, not in a header (docs/owner-regressions.md).
       // Read from the raw call on its own, so no other input's problem can lose it (the review of 5 Nov 2026).
-      const callSavingOff = findingsSaveOff(input);
+      // Owner answer 310a: until the owner decides otherwise (CALLER_READINGS_SAVE_CARDS), a call whose AI readings
+      // its caller made saves nothing either, and its finalization receipt signs that as a marked call's does.
+      const callSavingOff = findingsSaveOff(input) || (callerReads && !CALLER_READINGS_SAVE_CARDS);
       if (account?.mode === "FREE_CONTRIBUTOR" && callSavingOff && result.findings_card.status === "checked") {
         result.findings_card.saved = { status: "not_saved", reason: "call_saving_off" };
       } else if (
@@ -2830,6 +2848,10 @@ function defineResearchOperations(
         const reviewNote = answerReviewNote(await reviewing);
         if (reviewNote !== undefined) result.notes = [...(result.notes ?? []), reviewNote];
       }
+      // Owner answer 310a: what a call that leaves the AI readings to its caller did not get from the server, and a
+      // value that was not read as that.
+      if (callerReads) result.notes = [...(result.notes ?? []), CALLER_READINGS_NOTE];
+      else if (aiReadings.note !== undefined) result.notes = [...(result.notes ?? []), aiReadings.note];
       const card = result.findings_card;
       const analyses = result.analyses_saved;
       const passing = result.status === "ready" || result.status === "ready_with_limits";

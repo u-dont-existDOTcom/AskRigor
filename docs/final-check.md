@@ -551,6 +551,19 @@ checking them (`apps/research-mcp/src/absence-searches.ts`):
   a site's, so subreddits keep their declared limits; a community the reader read in part keeps the limits for its pages
   left unread. Limit: communities that share one host by path (healthunlocked.com/<community>) share its digest, so the
   reader's stop at one of them backs another's boundary; forums hosted as subdomains of one service are each their own.
+- A call marked `later_inputs.ai_readings` `"caller"` (owner answer 310a, 15 November 2026) leaves the check's AI
+  readings to the app that sends it: the review of the draft and the meaning judge, which the server makes on a dev
+  account, and the second reading, which it makes for every account. The server makes none of them for that call, on
+  any account, and counts nothing for them; the rule checks are the same. The result says so: `ai_readings` (`by`
+  `caller`, and `declared`, the count of what the call declared for the rule checks, since a pass tests the answer's
+  safety statements, harms and figures only as far as they are declared), `second_reading` `skipped` with reason
+  `left_to_caller` on a pass, one note, and a check line that ends "Its rule checks ran on AskRigor's server; the app
+  that ran this research made the check's AI readings." The finalization receipt signs the mark (`ar` `caller`). While
+  `CALLER_READINGS_SAVE_CARDS` is false (the owner's question 311), such a call also saves nothing, exactly as a call
+  marked `findings_save` `"off"` below: its receipt signs `fs` `off` too. Only the word `caller`, in any case, reads as
+  the mark, in `later_inputs` given as an object or as a JSON string; any other value leaves the readings to AskRigor,
+  with a note. The owner's runner uses it: it makes the same three readings on the owner's Claude plan with AskRigor's
+  rubrics, where a dev account's check otherwise pays for the review on every call that carries the answer.
 - A call marked `findings_save` `"off"` (in `later_inputs`, or at the top level for an older app) saves nothing, for
   every account kind, whatever the account's switch says: no findings card (reason `call_saving_off`), no private copy,
   no save offer and no research-map reminder or offer, and at a free contributor's check no staged analysis goes to the
