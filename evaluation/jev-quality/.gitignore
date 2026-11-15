@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+predictions.jsonl
+*-predictions.jsonl
+*-responses.jsonl
+*-blind.jsonl
+*-report.json
+/private/
