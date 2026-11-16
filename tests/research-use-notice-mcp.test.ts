@@ -29,6 +29,7 @@ const V2 = "free-contributor-v2-2026-09-30";
 const V3 = "free-contributor-v3-2026-10-22";
 const V4 = "free-contributor-v4-2026-10-25";
 const V5 = "free-contributor-v5-2026-11-05";
+const V6 = "free-contributor-v6-2026-11-15";
 const clients: Client[] = [];
 const servers: HttpServer[] = [];
 
@@ -48,7 +49,7 @@ const agreement = (noticeVersion: string) => ({
 
 async function start() {
   const { publicKey, privateKey } = await generateKeyPair("RS256");
-  const jwk: JWK = { ...(await exportJWK(publicKey)), kid: "notice-v5-test-key" };
+  const jwk: JWK = { ...(await exportJWK(publicKey)), kid: "notice-v6-test-key" };
   const jwks = createLocalJWKSet({ keys: [jwk] });
   const store = new InMemoryResearchContributorAccessStore();
   const service = new ResearchContributorAccessService({ store, identitySecret: Buffer.alloc(32, 11) });
@@ -74,7 +75,7 @@ async function start() {
       scope: RESEARCH_USE_SCOPE,
       sub: subject,
     }).setProtectedHeader({ alg: "RS256", kid: jwk.kid }).sign(privateKey);
-    const client = new Client({ name: "notice-v5-test", version: "1.0.0" });
+    const client = new Client({ name: "notice-v6-test", version: "1.0.0" });
     clients.push(client);
     await client.connect(new StreamableHTTPClientTransport(new URL(surface, base), {
       requestInit: { headers: { authorization: `Bearer ${token}` } },
@@ -107,16 +108,18 @@ async function seedEarlierAccount(
 
 const research = { name: "load_protocol", arguments: { protocol: "universal", section: "index" } };
 
-// Owner answer 253a (2026-11-05): version 5, whose card summary of what communities reported holds the forum threads'
-// links; every earlier account, v4's included, accepts it before free research continues.
-describe("free contributor notice v5 on both connector surfaces", () => {
-  it("is the current notice, after v1, v2, v3 and v4", () => {
-    expect(RESEARCH_USE_NOTICE_VERSION).toBe(V5);
-    expect(EARLIER_RESEARCH_USE_NOTICE_VERSIONS).toEqual(["free-contributor-v1-2026-09-01", V2, V3, V4]);
+// Owner answer 307b (15 November 2026): version 6, under which a card may link a YouTube video that a person named (the
+// asker, someone reporting what worked for them, or AskRigor's owner); videos AskRigor itself finds through YouTube's
+// search stay out, and cards still hold no YouTube comments. It is material, so every earlier account, v5's included
+// (owner answer 253a: the forum threads' links), accepts it before free research continues.
+describe("free contributor notice v6 on both connector surfaces", () => {
+  it("is the current notice, after v1, v2, v3, v4 and v5", () => {
+    expect(RESEARCH_USE_NOTICE_VERSION).toBe(V6);
+    expect(EARLIER_RESEARCH_USE_NOTICE_VERSIONS).toEqual(["free-contributor-v1-2026-09-01", V2, V3, V4, V5]);
   });
 
   it.each(SURFACES.flatMap((surface) => EARLIER_RESEARCH_USE_NOTICE_VERSIONS.map((earlier) => [surface, earlier] as const)))(
-    "on %s, an account that accepted %s is shown v5 and accepts it before research continues", async (surface, earlier) => {
+    "on %s, an account that accepted %s is shown v6 and accepts it before research continues", async (surface, earlier) => {
       const { store, service, connect } = await start();
       const subject = `${earlier}-on-${surface}`;
       await seedEarlierAccount(store, service, subject, earlier);
@@ -126,9 +129,13 @@ describe("free contributor notice v5 on both connector surfaces", () => {
       expect(inspected.isError).not.toBe(true);
       expect(inspected.structuredContent).toMatchObject({
         ok: true,
-        access: { status: "UNENROLLED", mode: null, noticeVersion: V5, notice: RESEARCH_USE_NOTICE },
+        access: { status: "UNENROLLED", mode: null, noticeVersion: V6, notice: RESEARCH_USE_NOTICE },
       });
-      expect(RESEARCH_USE_NOTICE).toContain("links to the forum threads AskRigor read, never YouTube comments or video IDs.");
+      // The two places version 6 changed: the second sentence's end, and the sentence that follows it.
+      expect(RESEARCH_USE_NOTICE).toContain(
+        "links to the forum threads AskRigor read, never YouTube comments. A card may link a video that a person " +
+        "named. AskRigor never saves raw chat,");
+      expect(RESEARCH_USE_NOTICE).not.toContain("video IDs");
       expect(RESEARCH_USE_NOTICE).toContain(
         "Your findings cards are published in AskRigor's public Atlas as soon as they are saved, written without you and marked \"Not checked by supervisors yet\" until AskRigor's owner has reviewed them, and people who sign in can vote and comment on them.",
       );
@@ -145,20 +152,20 @@ describe("free contributor notice v5 on both connector surfaces", () => {
       });
       expect(stale.isError).toBe(true);
       expect(stale.structuredContent).toMatchObject({ ok: false, error: { code: "research_access_required" } });
-      expect((stale.content as Array<{ text: string }>)[0]!.text).toContain(`The current free-use notice is ${V5}, not ${earlier}.`);
+      expect((stale.content as Array<{ text: string }>)[0]!.text).toContain(`The current free-use notice is ${V6}, not ${earlier}.`);
       expect(store.allAccounts()).toEqual([expect.objectContaining({ noticeVersion: earlier })]);
 
       const accepted = await client.callTool({
         name: "manage_research_access",
-        arguments: { action: "accept_free_contributor", agreement: agreement(V5) },
+        arguments: { action: "accept_free_contributor", agreement: agreement(V6) },
       });
       expect(accepted.isError).not.toBe(true);
       expect(accepted.structuredContent).toMatchObject({
         ok: true,
-        access: { status: "ACTIVE", mode: "FREE_CONTRIBUTOR", noticeVersion: V5, contributionRequired: true },
+        access: { status: "ACTIVE", mode: "FREE_CONTRIBUTOR", noticeVersion: V6, contributionRequired: true },
       });
       expect(store.allAccounts()).toEqual([
-        expect.objectContaining({ status: "ACTIVE", mode: "FREE_CONTRIBUTOR", noticeVersion: V5, agreement: agreement(V5) }),
+        expect.objectContaining({ status: "ACTIVE", mode: "FREE_CONTRIBUTOR", noticeVersion: V6, agreement: agreement(V6) }),
       ]);
       const permitted = await client.callTool(research);
       expect(permitted.isError).not.toBe(true);
@@ -166,13 +173,13 @@ describe("free contributor notice v5 on both connector surfaces", () => {
   );
 
   // The review of 5 November (finding 5): switching card saving off publishes nothing, so a dev account still on an
-  // earlier notice (the owner's login, the regression harness) switches it off before it accepts v5; switching it on
-  // waits for v5, since a saved card may be published.
-  it.each(SURFACES)("on %s, a dev account still on v4 switches card saving off, and back on only after accepting v5",
+  // earlier notice (the regression harness) switches it off before it accepts the current one, now v6; switching it on
+  // waits for v6, since a saved card may be published.
+  it.each(SURFACES)("on %s, a dev account still on v5 switches card saving off, and back on only after accepting v6",
     async (surface) => {
       const { store, service, connect } = await start();
       const subject = `dev-on-${surface}`;
-      await seedEarlierAccount(store, service, subject, V4);
+      await seedEarlierAccount(store, service, subject, V5);
       vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", service.accountKeyForSubject(subject));
       const client = await connect(surface, subject);
       const setSaving = async (findingsSave: boolean) =>
@@ -181,19 +188,19 @@ describe("free contributor notice v5 on both connector surfaces", () => {
       const off = await setSaving(false);
       expect(off.isError).not.toBe(true);
       expect(off.structuredContent).toEqual({ ok: true, findingsSave: false });
-      expect(store.allAccounts()).toEqual([expect.objectContaining({ noticeVersion: V4, findingsSave: false })]);
+      expect(store.allAccounts()).toEqual([expect.objectContaining({ noticeVersion: V5, findingsSave: false })]);
 
       const on = await setSaving(true);
       expect(on.isError).toBe(true);
       expect(on.structuredContent).toMatchObject({ ok: false, error: { code: "research_access_required" } });
       expect(JSON.stringify(on.content)).toContain("AskRigor's free contributor notice has changed.");
-      expect(store.allAccounts()).toEqual([expect.objectContaining({ noticeVersion: V4, findingsSave: false })]);
+      expect(store.allAccounts()).toEqual([expect.objectContaining({ noticeVersion: V5, findingsSave: false })]);
 
       const accepted = await client.callTool({ name: "manage_research_access",
-        arguments: { action: "accept_free_contributor", agreement: agreement(V5) } });
+        arguments: { action: "accept_free_contributor", agreement: agreement(V6) } });
       expect(accepted.isError).not.toBe(true);
       // Accepting the notice leaves the setting as it was, so nothing is saved, or published, until it is switched on.
-      expect(store.allAccounts()).toEqual([expect.objectContaining({ noticeVersion: V5, findingsSave: false })]);
+      expect(store.allAccounts()).toEqual([expect.objectContaining({ noticeVersion: V6, findingsSave: false })]);
       expect((await setSaving(true)).structuredContent).toEqual({ ok: true, findingsSave: true });
     },
   );
@@ -204,7 +211,7 @@ describe("free contributor notice v5 on both connector surfaces", () => {
 describe("inspect's next step for an account whose research waits on the notice", () => {
   const NEXT_STEP = "Show the user this notice, word for word, and ask whether they accept it for free research (or use " +
     "paid private access if they have it). Only after their yes, call manage_research_access with action " +
-    `accept_free_contributor and agreement {noticeVersion: "${V5}", eligibleDeidentifiedResearchContributionRequired: ` +
+    `accept_free_contributor and agreement {noticeVersion: "${V6}", eligibleDeidentifiedResearchContributionRequired: ` +
     "true, prohibitedPrivateAndRawContentExcluded: true, proposalReviewAndNoAuthorityAcknowledged: true, " +
     "paidPrivateAlternativeAcknowledged: true}. Never accept for them.";
   const inspect = async (client: Client) =>
@@ -215,25 +222,25 @@ describe("inspect's next step for an account whose research waits on the notice"
     const { store, connect } = await start();
     const result = await inspect(await connect(surface, `new-on-${surface}`));
     expect(result.isError).not.toBe(true);
-    expect(result.structuredContent).toMatchObject({ ok: true, access: { status: "UNENROLLED", noticeVersion: V5,
+    expect(result.structuredContent).toMatchObject({ ok: true, access: { status: "UNENROLLED", noticeVersion: V6,
       notice: RESEARCH_USE_NOTICE }, next_step: NEXT_STEP });
     // The text the model reads holds the step and the notice itself, word for word.
     expect(textOf(result)).toContain(NEXT_STEP);
-    expect(textOf(result)).toContain(`The notice, ${V5}: ${RESEARCH_USE_NOTICE}`);
+    expect(textOf(result)).toContain(`The notice, ${V6}: ${RESEARCH_USE_NOTICE}`);
     // Inspecting accepts nothing.
     expect(store.allAccounts()).toEqual([]);
   });
 
-  it.each(SURFACES)("on %s, an account on the v4 notice gets the same step, and none once it accepts v5", async (surface) => {
+  it.each(SURFACES)("on %s, an account on the v5 notice gets the same step, and none once it accepts v6", async (surface) => {
     const { store, service, connect } = await start();
-    const subject = `v4-next-step-on-${surface}`;
-    await seedEarlierAccount(store, service, subject, V4);
+    const subject = `v5-next-step-on-${surface}`;
+    await seedEarlierAccount(store, service, subject, V5);
     const client = await connect(surface, subject);
     const before = await inspect(client);
     expect(before.structuredContent).toMatchObject({ access: { status: "UNENROLLED" }, next_step: NEXT_STEP });
-    expect(store.allAccounts()).toEqual([expect.objectContaining({ noticeVersion: V4 })]);
+    expect(store.allAccounts()).toEqual([expect.objectContaining({ noticeVersion: V5 })]);
     await client.callTool({ name: "manage_research_access",
-      arguments: { action: "accept_free_contributor", agreement: agreement(V5) } });
+      arguments: { action: "accept_free_contributor", agreement: agreement(V6) } });
     const after = await inspect(client);
     expect(after.structuredContent).toMatchObject({ access: { status: "ACTIVE", mode: "FREE_CONTRIBUTOR" } });
     expect(after.structuredContent).not.toHaveProperty("next_step");
@@ -244,7 +251,7 @@ describe("inspect's next step for an account whose research waits on the notice"
     const { connect } = await start();
     const client = await connect("/mcp", "revoked-next-step");
     await client.callTool({ name: "manage_research_access",
-      arguments: { action: "accept_free_contributor", agreement: agreement(V5) } });
+      arguments: { action: "accept_free_contributor", agreement: agreement(V6) } });
     const revoked = await client.callTool({ name: "manage_research_access", arguments: { action: "revoke" } });
     expect(revoked.structuredContent).toMatchObject({ access: { status: "REVOKED" } });
     expect(revoked.structuredContent).not.toHaveProperty("next_step");

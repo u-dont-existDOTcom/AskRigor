@@ -310,6 +310,67 @@ image). Undo no migration: 0028 stays and widens only the notice check.
 `npm run contributor-access:notice-v5-rollback-acceptance` checks the pair with
 real PostgreSQL in Docker, including v1 to v4 accounts.
 
+Owner answer 307b (15 November 2026; built, not yet released): the free
+contributor notice's sixth version, `free-contributor-v6-2026-11-15`, says a
+card may link a video that a person named. A saved findings card and its page
+in the public Atlas may link a YouTube video that a person named themselves (the
+asker, someone reporting what worked for them, or AskRigor's owner); videos that
+AskRigor itself finds through YouTube's search stay out, as before; cards still
+hold no YouTube comments. Migration `0036_research_use_notice_v6` admits v1 to
+v6 under the same `research_use_accounts_free_notice_check`, without new columns
+or grants, and is safe to run again. Run the one-shot admin `migrate` before an
+image offering v6 serves. The privacy page and terms say the same; the release
+sets their effective dates. Version 6 is material, so earlier accounts, v5's
+included, accept v6 before free research. The owner's own login needs no step:
+its first call accepts v6 by the owner's standing instruction and records it
+(the next paragraph). Any other dev account the regression harness uses first
+switches card saving off (`set_findings_save` with `findingsSave: false`, which
+works whatever notice the account accepted, since it publishes nothing), then
+accepts v6; switching saving back on needs v6.
+For an image rollback below v6, follow the v4 order above with
+`research-use-notice-v6-hold.sql` and `research-use-notice-v6-restore.sql`
+(`research_use_notice_v6_hold`; held accounts may accept v5 on the earlier
+image, the owner's own login too: the standing instruction never reactivates a
+revoked login). Undo no migration: 0036 stays and widens only the notice check.
+For a target below v5, also use the v5 pair; each hold moves only its own
+notice version. Neither script holds how the notice was accepted, so a restored
+account's way of acceptance reads as "not recorded".
+`npm run contributor-access:notice-v6-rollback-acceptance` checks the pair with
+real PostgreSQL in Docker, including v1 to v5 accounts, an account the standing
+instruction accepted, and what becomes of the acceptance record.
+
+Image rollback hazard of the same release, as for the release of 5 November
+below: an image from before it cannot parse a row that holds a named video's
+link (`named_videos`). Three kinds:
+
+- **Publications** whose `published_json` holds it: the earlier image's pages
+  leave such an unreviewed publication out, and its publication store refuses the
+  row, so its owner tools that list publications fail on it.
+- **Atlas intents and accepted versions** whose research holds it
+  (`content.research.named_videos`; `atlas_finding_versions.research`): the
+  earlier image parses the research strictly.
+- **Findings cards** stored with it, which the earlier image's review reads as
+  unreadable.
+
+A link is stored only when a research answer names a video and its card is
+saved, so check first, read-only, as the migrator:
+
+```sql
+SELECT count(*) FROM living_evidence.atlas_publications
+ WHERE published_json ? 'named_videos';
+SELECT count(*) FROM living_evidence.atlas_finding_intents
+ WHERE payload_json -> 'content' -> 'research' ? 'named_videos';
+SELECT count(*) FROM living_evidence.atlas_finding_versions
+ WHERE research ? 'named_videos';
+```
+
+and count the findings cards saved since the release in the owner's review.
+With none of any, the rollback needs no step beyond the notice's hold. With
+some, the earlier image needs a hotfix that reads them tolerantly, with the
+publications withdrawn first if they must not show meanwhile. At the release,
+make the first research that names a video the last acceptance step, after
+everything else is confirmed, so that a rollback for another reason meets none.
+
 The owner, 6 November 2026 (built, not yet released; plan
 `../../docs/superpowers/plans/2026-11-07-next-build.md`): a new notice version asks again only when it collects or
 publishes more, and the owner's own login (`ASKRIGOR_OAUTH_ALLOWED_SUBJECT`) accepts each new one by the owner's

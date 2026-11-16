@@ -39,12 +39,14 @@ export type FindingsSaveInput = z.output<typeof findingsSaveInputSchema>;
  * comments (owner answer 170); the findings' declarations of whether they draw on YouTube comments, which decided only
  * whether they were held (owner answer 219b); and, owner answer 252a, the backing lines' quotes not kept (not found word
  * for word in a text AskRigor fetched itself, or failing the privacy screen) and the forum threads' links as the card
- * gave them: a forum signal keeps the communities, how many threads were read and, under notice version 5 (owner
- * answer 253a), each link as the Atlas publishes it.
+ * gave them: a forum signal keeps the communities, how many threads were read and, since notice version 5 (owner
+ * answer 253a), each link as the Atlas publishes it. Owner answer 307b: the named videos' links as the card gave them,
+ * when a finding's stored links differ from them: each is stored as its watch page, and only when the final check
+ * signed it (Codex's review of 15 November: a card stored that way without this read as tampered with).
  */
 export const STORED_WITHOUT = [
   "youtube_video_ids_and_links", "youtube_comment_findings", "youtube_comment_declarations", "backing_quotes_not_kept",
-  "forum_thread_links",
+  "forum_thread_links", "named_video_links_as_given",
 ] as const;
 export type StoredWithout = typeof STORED_WITHOUT[number];
 

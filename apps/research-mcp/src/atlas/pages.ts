@@ -11,7 +11,7 @@ import {
 import { binaryContrast, binaryGroups, differenceRange, withoutEndPunctuation } from "../binary-results.js";
 import { shownCommunity } from "../forum-thread-links.js";
 import type { AtlasAccountFeatures } from "./account-features.js";
-import { escapeHtml } from "./page-guard.js";
+import { escapeHtml, namedVideoAnchor } from "./page-guard.js";
 import {
   ATLAS_FINDINGS_PER_PAGE,
   ATLAS_MAP_NEW_DAYS,
@@ -1119,6 +1119,28 @@ function sourceName(entry: ShownSource): SafeHtml {
 }
 
 /**
+ * Owner answer 307b: the YouTube videos that the person whose question the research answered named, each as a plain
+ * link to its watch page under fixed words (namedVideoAnchor, the one YouTube link the last check lets a page hold).
+ * The Atlas holds nothing else of a video: no title, channel, count or comment.
+ */
+function namedVideosSection(links: readonly string[]): SafeHtml | "" {
+  const anchors = links.flatMap((link) => {
+    const anchor = namedVideoAnchor(link);
+    return anchor === undefined ? [] : [new SafeHtml(anchor)];
+  });
+  if (anchors.length === 0) return "";
+  const one = anchors.length === 1;
+  return html`<section aria-labelledby="videos">
+<h2 id="videos">${one ? "The video this is about" : "The videos this is about"}</h2>
+<p>${one ? "It was" : "They were"} named by the person whose question this research answered. AskRigor links ${one ? "it" : "them"} as given and holds nothing else about ${one ? "it" : "them"}; the finding rests on the sources below, not on the video.</p>
+<ul class="video-list">
+${anchors.map((anchor, index) => html`<li>${one ? "" : `Video ${index + 1}: `}${anchor}</li>
+`)}</ul>
+</section>
+`;
+}
+
+/**
  * The research behind a finding (owner answer 252a), source by source: its title and links, a retraction or concern
  * notice, how AskRigor read it and whether its printed figures match its own data, the paper's own sentence and
  * conclusion found word for word, and the strongest thing against the finding, in AskRigor's words.
@@ -1379,7 +1401,7 @@ ${usual}${cardFindings(finding, model.siblings)}${finding.numbers.length === 0 ?
 <h2 id="numbers">The numbers</h2>
 <p>Each group is shown as how many out of 100 had the outcome. The 95% range of the difference is worked out from the two groups’ counts by Newcombe’s method; it treats the groups as independent, so it does not allow for a crossover or clustered design. A number needed to treat or harm, 1 divided by the difference rounded up, is shown only when that range leaves out no difference. AskRigor works all of them out from the counts.</p>
 ${finding.numbers.map(figure)}</section>
-`}${researchSection(finding.research)}${peopleSection(finding.forumSignal)}${finding.searches.length === 0 ? "" : html`<section aria-labelledby="searches">
+`}${namedVideosSection(finding.namedVideos)}${researchSection(finding.research)}${peopleSection(finding.forumSignal)}${finding.searches.length === 0 ? "" : html`<section aria-labelledby="searches">
 <h2 id="searches">What was searched, and found nothing</h2>
 <ul class="search-list">
 ${finding.searches.map(search)}</ul>

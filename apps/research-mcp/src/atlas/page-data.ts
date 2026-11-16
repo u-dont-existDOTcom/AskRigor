@@ -21,7 +21,9 @@ import type {
   AtlasPublishedFinding,
   AtlasSubjectType,
 } from "@askrigor/evidence-repository";
-import { ATLAS_OWN_COMMENTS_PER_PAGE, ATLAS_OWN_VOTES_PER_PAGE } from "@askrigor/evidence-repository";
+import {
+  ATLAS_NAMED_VIDEO_LINK,
+  ATLAS_NAMED_VIDEOS_PER_FINDING, ATLAS_OWN_COMMENTS_PER_PAGE, ATLAS_OWN_VOTES_PER_PAGE } from "@askrigor/evidence-repository";
 
 import { shownCommunity } from "../forum-thread-links.js";
 import { opensYouTube, passesPageGuard, rowPassesPageGuard } from "./page-guard.js";
@@ -185,6 +187,12 @@ export interface ShownFinding {
   research: ShownResearchSource[];
   /** Owner answer 252a: what people report, from its publication's version 3 fields; null when it gives none. */
   forumSignal: ShownForumSignal | null;
+  /**
+   * Owner answer 307b: the YouTube videos the person named that the finding is about, each as its watch page: an
+   * unreviewed finding's from its publication, an accepted one's from its version's research or else its
+   * publication. The Atlas holds nothing else of a video.
+   */
+  namedVideos: string[];
   /**
    * Owner answer 311a: "caller" when the app that sent the checking call made the final check's AI readings, as the
    * finalization receipt signed it and the card's stamp kept it: the page then says who did what. Null when AskRigor's
@@ -443,6 +451,12 @@ async function relatedFindings(reads: AtlasPageReads, atlasNumbers: readonly str
   return related;
 }
 
+/** A finding's named videos as its page links them (owner answer 307b): each watch page once, and nothing else. */
+function shownNamedVideos(links: readonly string[] | undefined): string[] {
+  return [...new Set((links ?? []).filter((link) => ATLAS_NAMED_VIDEO_LINK.test(link)))]
+    .slice(0, ATLAS_NAMED_VIDEOS_PER_FINDING);
+}
+
 function fromPublished(publication: AtlasPagePublication, published: AtlasPublishedFinding): ShownFinding {
   const details = new Map((published.source_details ?? []).map(({ source, title, year }) => [source, { title, year }]));
   const shownSource = (source: string): ShownSource | null => {
@@ -498,6 +512,7 @@ function fromPublished(publication: AtlasPagePublication, published: AtlasPublis
     stateChangedAt: publication.stateChangedAt,
     kept: publication.kept,
     challenge: shownChallenge(publication),
+    namedVideos: shownNamedVideos(published.named_videos),
     ...researchBehind(published, shownSource),
     aiReadings: published.ai_readings ?? null,
   };
@@ -670,6 +685,7 @@ function fromCanonical(
     stateChangedAt: publication.stateChangedAt,
     kept: publication.kept,
     challenge: shownChallenge(publication),
+    namedVideos: shownNamedVideos(content.research?.named_videos ?? publication.published?.named_videos),
     // Owner answers 252a and 255a: an accepted or edited finding shows the research behind it from its own version, or
     // from its publication's fields; both are erased with its F number's wording.
     ...canonicalResearch(content, publication, sources, finding.sources),
@@ -730,7 +746,9 @@ function shownFindingOf(
   const shown = publication.state === "unreviewed"
     ? publication.published === null ? undefined : fromPublished(publication, publication.published)
     : canonicalShows(finding) ? fromCanonical(publication, finding, related) : undefined;
-  return shown === undefined || !rowPassesPageGuard(shown) ? undefined : shown;
+  // Owner answer 307b: its named videos are watch links of one exact form (shownNamedVideos), which the page writes
+  // as the one link the last check sets aside; every text of the row is read as before.
+  return shown === undefined || !rowPassesPageGuard({ ...shown, namedVideos: [] }) ? undefined : shown;
 }
 
 async function shownFindings(reads: AtlasPageReads, publications: readonly AtlasPagePublication[]): Promise<ShownFinding[]> {

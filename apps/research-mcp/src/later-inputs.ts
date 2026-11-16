@@ -106,7 +106,8 @@ const LATER_INPUT_SHAPES = Object.freeze({
         "For the Atlas's research behind each finding (owner answer 252a), each finding may also give backing (the " +
         "paper's sentence and conclusion, copied exactly, and the strongest thing against it), each figure's source, " +
         "and forum_signal (what people report in the forum threads read here); one resting on its forum_signal alone " +
-        "may have no sources."),
+        "may have no sources. A finding about a YouTube video that the person named themselves may give its link in " +
+        "named_videos, as they gave it (owner answer 307b); AskRigor links no video found through its own tools."),
     // Owner answer 237a: the one optional field the source line adds.
     source_lines: z.array(sourceLineSchema).min(1).max(SOURCE_LINE_LIMITS.lines).optional()
       .describe("Optional: for each key claim, the key source's id, the claim, the paper's sentence and its own " +

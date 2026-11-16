@@ -1,4 +1,4 @@
-import type { AtlasPageSource } from "@askrigor/evidence-repository";
+import { ATLAS_NAMED_VIDEOS_PER_FINDING, type AtlasPageSource } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
 import { ATLAS_NEAR, nearAtlasMatches } from "./atlas/near-match.js";
@@ -36,6 +36,11 @@ export const heldAtlasFindingSchema = z.object({
   question: z.string().nullable(),
   page_url: z.url(),
   shared_words: z.array(z.string()),
+  /**
+   * Owner answer 307b (15 November 2026): the YouTube videos a person named that the finding is about, each as its
+   * watch page, as the finding's page links them; left out when it has none.
+   */
+  named_videos: z.array(z.url()).min(1).max(ATLAS_NAMED_VIDEOS_PER_FINDING).optional(),
 }).strict();
 export type HeldAtlasFinding = z.infer<typeof heldAtlasFindingSchema>;
 
@@ -81,6 +86,7 @@ function heldFinding(finding: ShownFinding, words: readonly string[], origin: st
     question: finding.question,
     page_url: atlasPageUrl(finding.publicationNumber, origin),
     shared_words: [...words],
+    ...(finding.namedVideos.length === 0 ? {} : { named_videos: [...finding.namedVideos] }),
   };
 }
 
@@ -161,7 +167,7 @@ export const OWNER_POINTER_HOW = "It is the owner's own pointer, not a finding o
   "what to weigh. Leave it out when the question is about something else than its subject.";
 
 /** How to use what is handed over, said once, beside it: an app may give its model only the structured result. */
-function howToUse(findings: number, pointers: number, others: number): string {
+function howToUse(findings: number, pointers: number, others: number, videos = false): string {
   const parts: string[] = [];
   if (findings > 0) {
     // 14 Nov 2026, the owner's ChatGPT after the release: told to give a finding "where one bears on the question",
@@ -177,7 +183,10 @@ function howToUse(findings: number, pointers: number, others: number): string {
       "it is plainly about another thing than the question is (another food, substance, condition or device). One " +
       `whose state is ${JSON.stringify(NOT_CHECKED_LABEL)} was written by an AI and not reviewed by a person: say ` +
       "so, and give it as a lead, not as established. Give one labelled lead or contested as that. When you " +
-      "research, search_research_frontiers still gives the receipt the final check needs.");
+      "research, search_research_frontiers still gives the receipt the final check needs." +
+      // Owner answer 307b: said only when a finding links a video, so the words every other registration gets stand.
+      (videos ? " A finding that gives named_videos is about those videos, which a person named: give their links " +
+        "with it, as the videos it is about, not as its evidence." : ""));
   }
   if (pointers > 0) {
     parts.push("owner_pointers: AskRigor's owner asked that people with this kind of question be shown " +
@@ -207,7 +216,8 @@ function holding(findings: readonly HeldAtlasFinding[], pointers: readonly Shown
   others: ReadonlyArray<{ id: string; about: string }>): AskRigorHolds | undefined {
   if (findings.length === 0 && pointers.length === 0 && others.length === 0) return undefined;
   return {
-    how_to_use: howToUse(findings.length, pointers.length, others.length),
+    how_to_use: howToUse(findings.length, pointers.length, others.length,
+      findings.some(({ named_videos: links }) => (links ?? []).length > 0)),
     ...(findings.length === 0 ? {} : { atlas_findings: [...findings] }),
     ...(pointers.length === 0 ? {} : { owner_pointers: [...pointers] }),
     ...(others.length === 0 ? {} : { other_owner_pointers: [...others] }),

@@ -3,6 +3,8 @@ import { createHash } from "node:crypto";
 import {
   ATLAS_FINDING_DIRECTIONS,
   ATLAS_FINDING_KINDS,
+  ATLAS_NAMED_VIDEO_LINK,
+  ATLAS_NAMED_VIDEOS_PER_FINDING,
   ATLAS_SEARCH_DATABASES,
   ATLAS_SEARCH_QUERY_MAX_CHARACTERS,
   ATLAS_SEARCHES_PER_FINDING,
@@ -219,6 +221,102 @@ export const DRAWS_ON_YOUTUBE_COMMENTS_DESCRIPTION = "Whether this finding draws
   "never publishes it; when this research read YouTube comments, a finding without this declaration is held too.";
 
 /**
+ * Owner answer 307b (15 November 2026): a saved card, and its page in the Atlas, may link a YouTube video that a person
+ * named themselves (the asker, someone reporting what worked for them, or AskRigor's owner). The link is the video's
+ * public address as the person gave it: nothing from YouTube's API is stored with it or shown beside it, and a video
+ * AskRigor found through its own YouTube tools stays out, as before (owner answers 170 and 173). A nested field of the
+ * card's later shape, so the published tool list stays as it is (owner answer 189a). The final check signs, in its
+ * receipt, which of a finding's links open a video it can tie to the person (signedNamedVideos), and the save stores
+ * those alone, each as its watch page (namedVideoLink). A video is never a source: the finding still rests on the
+ * studies or forum threads it cites.
+ */
+export const NAMED_VIDEOS_PER_FINDING = ATLAS_NAMED_VIDEOS_PER_FINDING;
+/** How many of the videos a person's words link a registration's receipt signs. */
+export const NAMED_VIDEOS_SIGNED = 10;
+export const NAMED_VIDEOS_DESCRIPTION = "Links to the YouTube videos this finding is about that the person named " +
+  `themselves in this conversation, each as they gave it (a youtube.com or youtu.be address), at most ${NAMED_VIDEOS_PER_FINDING}. ` +
+  "Never a video found through AskRigor's YouTube tools, and never one that would identify the person. A video is " +
+  "not a source: the finding still cites its studies or forum threads. AskRigor keeps a link only for a video the " +
+  "final check can tie to the person, and its page in the Atlas then shows it.";
+
+/**
+ * The ID of the video a link opens, when the link is a video's own page on YouTube (a watch, short or live page, or a
+ * youtu.be address); undefined for anything else. Read from the parsed address, so no look-alike host passes.
+ */
+export function namedVideoIdOf(link: string): string | undefined {
+  let url: URL;
+  try {
+    url = new URL(link.trim());
+  } catch {
+    return undefined;
+  }
+  // No sign-in and no port, a default port written out included: the parsed address drops :443 and :80, so the link
+  // is read as written.
+  const authority = /^[a-z][a-z0-9+.-]*:\/\/([^/?#]*)/iu.exec(link.trim())?.[1] ?? "";
+  if ((url.protocol !== "https:" && url.protocol !== "http:") || url.username !== "" || url.password !== "" ||
+    url.port !== "" || authority.includes(":") || authority.includes("@")) return undefined;
+  const host = url.hostname.toLowerCase();
+  const path = url.pathname;
+  const id = host === "youtu.be" ? path.slice(1)
+    : host !== "youtube.com" && host !== "www.youtube.com" && host !== "m.youtube.com" ? ""
+      : path === "/watch" ? url.searchParams.get("v") ?? ""
+        : /^\/(?:shorts|live)\/[^/]+$/u.test(path) ? path.split("/")[2]!
+          : "";
+  return YOUTUBE_VIDEO_ID.test(id) ? id : undefined;
+}
+
+/** A named video's link as AskRigor stores and shows it: the video's watch page, by its ID alone. */
+export function namedVideoLink(videoId: string): string {
+  return `https://www.youtube.com/watch?v=${videoId}`;
+}
+
+/** A stored named video's link, exactly as namedVideoLink writes one and the Atlas publishes it. */
+export const NAMED_VIDEO_LINK = ATLAS_NAMED_VIDEO_LINK;
+
+/** The IDs of the YouTube videos a person's words link, in the order first given; a bare ID is not read as a video. */
+export function namedVideoIdsIn(words: string): string[] {
+  // A link's scheme in any case (HTTPS://youtu.be/...), as namedVideoIdOf reads it (Codex's review of 15 November 2026,
+  // finding 5).
+  const ids = (words.match(new RegExp(BARE_URL.source, "giu")) ?? []).flatMap((link) => {
+    // A sentence's last mark after a bare link is not part of it.
+    const id = namedVideoIdOf(link.replace(/[.,;:!?'"]+$/u, ""));
+    return id === undefined ? [] : [id];
+  });
+  return [...new Set(ids)];
+}
+
+const SIGNED_NAMED_VIDEO = /^([1-5])\.([A-Za-z0-9_-]{11})$/u;
+
+/**
+ * What the finalization receipt signs of a card's named videos (`nv`, owner answer 307b): by the finding's place, 1 for
+ * the first, the ID of each video its named_videos link that the final check tied to the person. The save stores a
+ * link for those alone, so a link is never one the AI found by search and called the person's.
+ */
+export function signedNamedVideos(
+  card: { findings: ReadonlyArray<{ named_videos?: readonly string[] | undefined }> },
+  namedByPerson: (videoId: string) => boolean,
+): string[] {
+  return card.findings.flatMap(({ named_videos: links }, finding) =>
+    [...new Set((links ?? []).slice(0, NAMED_VIDEOS_PER_FINDING).flatMap((link) => {
+      const id = namedVideoIdOf(link);
+      return id !== undefined && namedByPerson(id) ? [id] : [];
+    }))].map((id) => `${finding + 1}.${id}`));
+}
+
+/** The named videos a receipt signed (`nv`), by the finding's place from 0; empty for a receipt that signed none. */
+export function namedVideosFromReceipt(signed: unknown, findings: number): Map<number, Set<string>> {
+  const named = new Map<number, Set<string>>();
+  for (const entry of typeof signed === "string" ? [signed] : Array.isArray(signed) ? signed : []) {
+    const match = typeof entry === "string" ? SIGNED_NAMED_VIDEO.exec(entry) : null;
+    if (match === null) continue;
+    const finding = Number(match[1]) - 1;
+    if (finding >= findings) continue;
+    named.set(finding, (named.get(finding) ?? new Set<string>()).add(match[2]!));
+  }
+  return named;
+}
+
+/**
  * A figure of the card's later shape: the published figure, and which of the finding's sources it comes from (owner
  * answer 252a: the page says which study each figure comes from).
  */
@@ -243,7 +341,8 @@ export const laterFindingSchema = findingsCardSchema.shape.findings.element.exte
       "an empty list if none, each with the source it comes from."),
   draws_on_youtube_comments: z.boolean().optional().describe(DRAWS_ON_YOUTUBE_COMMENTS_DESCRIPTION),
   backing: z.array(findingBackingSchema).max(BACKING_LIMITS.lines).optional().describe(BACKING_DESCRIPTION),
-  forum_signal: forumSignalSchema.optional().describe(FORUM_SIGNAL_DESCRIPTION)
+  forum_signal: forumSignalSchema.optional().describe(FORUM_SIGNAL_DESCRIPTION),
+  named_videos: z.array(cardText(300)).max(NAMED_VIDEOS_PER_FINDING).optional().describe(NAMED_VIDEOS_DESCRIPTION)
 }).strict();
 
 /** The findings card with each finding's declaration of owner answer 219b, as finalize_research and the save read it. */
@@ -512,8 +611,14 @@ export function isSafeReportedModel(value: string): boolean {
  * answer 219b) decided only whether it was held apart, which the finalization receipt signed, so it is not stored.
  */
 export type StoredFinding = Omit<FindingsCard["findings"][number],
-  "sources" | "draws_on_youtube_comments" | "backing" | "forum_signal"> & {
+  "sources" | "draws_on_youtube_comments" | "backing" | "forum_signal" | "named_videos"> & {
   sources: string[];
+  /**
+   * Owner answer 307b: the YouTube videos the person named that this finding is about, each as its watch page
+   * (NAMED_VIDEO_LINK): those the final check's receipt signed as tied to the person, for an account whose consent
+   * covers them. Nothing from YouTube's API is stored with a link.
+   */
+  named_videos?: string[];
   /**
    * A finding's declaration of whether it draws on YouTube comments, which a card saved after #398 and before its record
    * named them may still hold (the review of #417, finding 6); a save today stores none. True reads as drawn from them.
@@ -596,6 +701,11 @@ export function withoutYouTubeData(card: FindingsCard, drawnFromComments: Readon
     threadCommunities?: ReadonlyMap<number, ReadonlyMap<number, string>>;
     /** The forum pages whose links the final check's receipt signed as read (threadLinksFromReceipt). */
     threadLinksRead?: ReadonlyMap<number, ReadonlySet<number>>;
+    /**
+     * Owner answer 307b: the videos the final check's receipt signed as named by the person (namedVideosFromReceipt),
+     * given only for an account whose consent covers a video's link. Without it no finding keeps a named video.
+     */
+    namedVideos?: ReadonlyMap<number, ReadonlySet<string>>;
   } = {}): {
   card: StoredFindingsCard; omitted: boolean; kept: number[]; findingsLeftOut: number
 } {
@@ -609,10 +719,16 @@ export function withoutYouTubeData(card: FindingsCard, drawnFromComments: Readon
     heldByCardFields(finding) || drawnFromComments.has(index) ? [] : [index]);
   const findings = kept.map((index): StoredFinding => {
     // The backing lines are stored as the receipt signed their lookups, which the save adds (owner answer 252a).
-    const { sources, draws_on_youtube_comments: _declared, backing: _backing, forum_signal: signal, ...finding } =
-      card.findings[index]!;
+    const { sources, draws_on_youtube_comments: _declared, backing: _backing, forum_signal: signal,
+      named_videos: links, ...finding } = card.findings[index]!;
     const videos = sources.filter(isYouTubeVideoId).length;
     if (videos > 0) omitted = true;
+    // Owner answer 307b: a named video is kept as its watch page, and only when the receipt signed it for this finding.
+    const signedVideos = options.namedVideos?.get(index);
+    const named = signedVideos === undefined ? [] : [...new Set((links ?? []).flatMap((link) => {
+      const id = namedVideoIdOf(link);
+      return id !== undefined && signedVideos.has(id) ? [id] : [];
+    }))].map(namedVideoLink);
     // Owner answer 252a: stored with its communities and how many threads were read, and, owner answer 253a, the
     // threads' links when the saving account's notice covers them; a thread link to YouTube is never a forum thread (the
     // final check refuses one), and a signal left with no thread is not kept. Each thread is rebuilt from its verified
@@ -647,7 +763,8 @@ export function withoutYouTubeData(card: FindingsCard, drawnFromComments: Readon
       sources: sources.filter((source) => !isYouTubeVideoId(source)),
       ...(videos === 0 ? {} : { youtube_videos: videos }),
       // Owner answer 252a: the forum signal's texts are treated as every other card text.
-      ...(stored === undefined ? {} : { forum_signal: stored })
+      ...(stored === undefined ? {} : { forum_signal: stored }),
+      ...(named.length === 0 ? {} : { named_videos: named })
     };
   });
   const declared = card.public_value;
@@ -691,7 +808,7 @@ export function storedCardWithoutYouTubeFindings(card: StoredFindingsCard): {
     ...card,
     findings: card.findings.map(({
       youtube_videos: _videos, verified_bases: _bases, backing: _backing, source_reading: _reading, forum_signal: _signal,
-      ...finding
+      named_videos: _named, ...finding
     }) => finding),
   } as FindingsCard;
   const stored = withoutYouTubeData(checked, drawnFromComments);
@@ -700,8 +817,9 @@ export function storedCardWithoutYouTubeFindings(card: StoredFindingsCard): {
     card: {
       ...stored.card,
       findings: stored.card.findings.map((finding, index) => {
-        // The finding as stored keeps its signed bases, and its research behind it (owner answer 252a).
-        const { verified_bases: bases, backing, source_reading: reading, forum_signal: signal } =
+        // The finding as stored keeps its signed bases, its research behind it (owner answer 252a) and the videos the
+        // person named (owner answer 307b), which its own save stored as the receipt signed them.
+        const { verified_bases: bases, backing, source_reading: reading, forum_signal: signal, named_videos: named } =
           card.findings[stored.kept[index]!]!;
         return {
           ...finding,
@@ -709,6 +827,8 @@ export function storedCardWithoutYouTubeFindings(card: StoredFindingsCard): {
           ...(backing === undefined ? {} : { backing: backing.map((line) => ({ ...line })) }),
           ...(reading === undefined ? {} : { source_reading: reading.map((entry) => ({ ...entry })) }),
           ...(signal === undefined ? {} : { forum_signal: structuredClone(signal) }),
+          ...((named ?? []).some((link) => NAMED_VIDEO_LINK.test(link))
+            ? { named_videos: named!.filter((link) => NAMED_VIDEO_LINK.test(link)) } : {}),
         };
       }),
     },

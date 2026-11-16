@@ -159,6 +159,12 @@ a forum signal. An accepted finding's
 Atlas version keeps the same research as its publication shows, and an erasure
 removes it whole.
 
+Owner answer 307b (15 November 2026; built, not yet released): a finding may also
+hold the watch page of a YouTube video that a person named themselves, kept like
+a thread's link: the address the person gave, never data from YouTube's API,
+with no title, channel, count or comment. A video AskRigor found through its own
+YouTube tools is never kept, and that video's comments never enter a card.
+
 ## Rubric and disagreement policy
 
 The AskRigor-native study and review audit profiles are the initial rubrics:
@@ -274,3 +280,6 @@ identifiers, comments, transcripts, creator/channel identity, rediscovery
 leads, corpus hashes, and derived community assertions remain outside the
 durable pilot until an exact field-by-field policy and owner approval replaces
 this zero-storage rule.
+A link to a video that a person named (owner answer 307b, above) is not such a
+record: it is an address the person gave, and nothing from YouTube's API is
+stored with it.

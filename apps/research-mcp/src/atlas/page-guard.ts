@@ -5,7 +5,7 @@
  * and which stored rows a page leaves out, so that no one's comment or name can stop a whole page from being served.
  */
 
-import { opensYouTube, withoutFormatCharacters } from "@askrigor/evidence-repository";
+import { ATLAS_NAMED_VIDEO_LINK, opensYouTube, withoutFormatCharacters } from "@askrigor/evidence-repository";
 
 // How the Atlas reads a text and a link for its guards, shared with the stores' and the write-time checks (the review
 // of #422, fourth round): a text without its format characters, a link by the host a browser opens it at.
@@ -30,6 +30,24 @@ const PAGE_YOUTUBE = /(?:youtube(?:-nocookie)?\.com|youtu\.be)/iu;
 
 export type AtlasPageProblem = "script" | "card_reference" | "youtube_link";
 
+/**
+ * Owner answer 307b (15 November 2026): the one YouTube link a public page may hold. A finding's page links a video
+ * that a person named, exactly as namedVideoAnchor writes it: the video's watch page by its 11-character ID, under
+ * fixed words, with nothing else of the video. The last check sets each such link aside and reads the rest of the page
+ * as before, so any other YouTube text or link, a script or a card's reference still stops the page. Every text a page
+ * shows is escaped, so no stored text can write this link.
+ */
+export const NAMED_VIDEO_ANCHOR_WORDS = "Watch the video on YouTube";
+const NAMED_VIDEO_ANCHOR = new RegExp('<a class="named-video" href="https://www\\.youtube\\.com/watch\\?v=[A-Za-z0-9_-]{11}" ' +
+  `rel="noopener nofollow">${NAMED_VIDEO_ANCHOR_WORDS}</a>`, "gu");
+
+/** A named video's link as a page writes it, the only form the last check sets aside; undefined for any other link. */
+export function namedVideoAnchor(link: string): string | undefined {
+  return ATLAS_NAMED_VIDEO_LINK.test(link)
+    ? `<a class="named-video" href="${link}" rel="noopener nofollow">${NAMED_VIDEO_ANCHOR_WORDS}</a>`
+    : undefined;
+}
+
 // Each link a rendered page holds, as its attribute writes it (the pages write every one double-quoted and escaped).
 const PAGE_HREF = /\bhref="([^"]*)"/gu;
 const unescaped = (value: string) => value.replace(/&quot;/gu, "\"").replace(/&#39;/gu, "'").replace(/&lt;/gu, "<")
@@ -38,10 +56,11 @@ const unescaped = (value: string) => value.replace(/&quot;/gu, "\"").replace(/&#
 /**
  * What the last check finds in a rendered page, read as a reader sees it, without its format characters (so a
  * zero-width joiner inside "youtube.com" doesn't hide it): a script, a findings card's reference, or a YouTube link by
- * its words or by the host one of its links opens.
+ * its words or by the host one of its links opens, other than a named video's link as the pages write it.
  */
 export function atlasPageProblems(page: string): AtlasPageProblem[] {
-  const shown = withoutFormatCharacters(page);
+  // Owner answer 307b: a named video's link, exactly as the pages write it, is set aside before the rest is read.
+  const shown = withoutFormatCharacters(page).replace(NAMED_VIDEO_ANCHOR, "<a></a>");
   const youtube = PAGE_YOUTUBE.test(shown) ||
     [...shown.matchAll(PAGE_HREF)].some(([, href]) => opensYouTube(unescaped(href!)));
   return [

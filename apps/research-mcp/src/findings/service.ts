@@ -27,6 +27,7 @@ import {
   isSafeReportedModel,
   isYouTubeVideoId,
   laterFindingsCardSchema,
+  namedVideosFromReceipt,
   screenFindingsCard,
   screenFindingsText,
   withoutYouTubeData,
@@ -313,7 +314,7 @@ export class FindingsSaveService {
         ...heldFindingsFromReceipt(receipt.claims.held, input.findings_card.findings.length),
       ]);
       // Owner answer 253a: a forum signal keeps its threads' links only for an account whose consent covers them: a
-      // free contributor whose yes covers the current notice (version 5, or an earlier yes no version since changed
+      // free contributor whose yes covers the current notice (that version, or an earlier yes no version since changed
       // materially; the owner, 6 Nov 2026), or a paid private user's yes to this save, under the privacy page that says
       // so. A free contributor still on an earlier notice keeps none.
       const threadLinks = context.account?.mode === "PAID_PRIVATE" ||
@@ -323,8 +324,13 @@ export class FindingsSaveService {
       const threadCommunities = threadCommunitiesFromReceipt(receipt.claims.ft, input.findings_card);
       // The recheck of #417: a forum page's link only as its reader read it, which the final check signed (`fl`).
       const threadLinksRead = threadLinksFromReceipt(receipt.claims.fl, input.findings_card);
+      // Owner answer 307b: a finding keeps the link of a video the person named, as the final check signed it (`nv`),
+      // under the same consent as a forum thread's link: a free contributor whose yes covers the current notice
+      // (version 6 says a card may link a video that a person named), or a paid private user's yes to this save.
+      const namedVideos = threadLinks
+        ? namedVideosFromReceipt(receipt.claims.nv, input.findings_card.findings.length) : undefined;
       const stored = withoutYouTubeData(input.findings_card, drawnFromComments,
-        { threadLinks, threadCommunities, threadLinksRead });
+        { threadLinks, threadCommunities, threadLinksRead, ...(namedVideos === undefined ? {} : { namedVideos }) });
       // A card whose findings all rest on YouTube comments is not saved as a card (owner answer 170); its findings are
       // held, with its question and topic, for the owner's review (owner answer 173).
       if (stored.card.findings.length === 0) {
@@ -370,6 +376,12 @@ export class FindingsSaveService {
         // Owner answers 252a and 253a: a forum signal is stored with how many threads and their communities, and their
         // links only in the Atlas's id-only forms, never as given.
         ...(kept.some((finding) => finding.forum_signal !== undefined) ? ["forum_thread_links" as const] : []),
+        // Owner answer 307b: a named video is stored as its watch page, and only when the final check signed it, so a
+        // card whose links were given in another form, or not all kept, no longer matches the digest the check signed.
+        ...(kept.some((finding, index) =>
+          // An empty list given and none stored differ too (Codex's review of 15 November 2026, finding 3).
+          JSON.stringify(finding.named_videos) !== JSON.stringify(card.findings[index]!.named_videos))
+          ? ["named_video_links_as_given" as const] : []),
       ];
       const atlasBasis = atlasBasisFromReceipt(receipt.claims.atlas);
       if (atlasBasis.length > 0) card.atlas_basis = atlasBasis;

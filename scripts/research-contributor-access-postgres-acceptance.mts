@@ -75,6 +75,7 @@ const EARLIER_NOTICES = [
   "free-contributor-v2-2026-09-30",
   "free-contributor-v3-2026-10-22",
   "free-contributor-v4-2026-10-25",
+  "free-contributor-v5-2026-11-05",
 ] as const;
 const IDENTITY_SECRET = new TextEncoder().encode(
   "synthetic-postgres-identity-secret-at-least-thirty-two-bytes",
@@ -432,14 +433,15 @@ async function verify(
     ));
     checks.push("findings_save_stored_on_by_default_kept_by_save_and_only_account_columns_updatable");
 
-    // Owner answer 253a: v5 joins the earlier four notices (v4 from owner answer 171), each of which requires
-    // reacceptance before research.
+    // Owner answer 307b: v6 joins the earlier five notices (v5 from owner answer 253a, v4 from owner answer 171), each
+    // of which requires reacceptance before research, since every version so far is material.
     const noticeV4MigrationRows = await admin.query<{ migration_id: string }>(
       `SELECT migration_id FROM ${SCHEMA}.schema_migrations
-       WHERE migration_id IN ('0020_research_use_notice_v4', '0028_research_use_notice_v5')`,
+       WHERE migration_id IN ('0020_research_use_notice_v4', '0028_research_use_notice_v5',
+         '0036_research_use_notice_v6')`,
     );
-    assert(noticeV4MigrationRows.rowCount === 2, "MIGRATION_0020_OR_0028_NOT_APPLIED");
-    assert(RESEARCH_USE_NOTICE_VERSION === "free-contributor-v5-2026-11-05", "NOTICE_V5_NOT_CURRENT");
+    assert(noticeV4MigrationRows.rowCount === 3, "MIGRATION_0020_0028_OR_0036_NOT_APPLIED");
+    assert(RESEARCH_USE_NOTICE_VERSION === "free-contributor-v6-2026-11-15", "NOTICE_V6_NOT_CURRENT");
     for (const earlier of EARLIER_NOTICES) {
       const subject = `auth0|synthetic-postgres-${earlier}-user`;
       await service.acceptFreeContributor(subject, FREE_AGREEMENT);
@@ -471,12 +473,12 @@ async function verify(
       );
       await expectPgErrorMessage(() => admin.query(
         `UPDATE ${SCHEMA}.research_use_accounts
-            SET notice_version = 'free-contributor-v6-2026-12-31'
+            SET notice_version = 'free-contributor-v7-2026-12-31'
           WHERE account_key = $1`,
         [earlierKey],
       ), "research_use_accounts_free_notice_check");
     }
-    checks.push("notice_v5_admitted_and_v1_v2_v3_v4_accounts_accept_it_before_research");
+    checks.push("notice_v6_admitted_and_v1_v2_v3_v4_v5_accounts_accept_it_before_research");
 
     // The owner, 6 November 2026: migration 0031 records how a free account's notice was accepted, by the person or by
     // the owner's standing instruction for the owner's own login, at activated_at; a write that changes activated_at
@@ -1058,13 +1060,14 @@ async function verifyNoticeAcceptance(context: {
   const own = await row(OWNER_SUBJECT, person);
   assert(own?.notice_accepted_by === "PERSON" && own.same_time === true, "PERSON_ACCEPTANCE_NOT_RECORDED");
 
-  // Under an earlier notice (as the v1 to v4 loop above sets one), the owner's login accepts the current one by the
-  // standing instruction, recorded with its time; another person's login under the same service is asked as before.
+  // Under the notice before the current one, v5 (as the v1 to v5 loop above sets one), the owner's login accepts the
+  // current one, v6 (owner answer 307b, material), by the standing instruction, recorded with its time; another
+  // person's login under the same service is asked as before.
   const earlier = async (subject: string) => admin.query(
     `UPDATE ${SCHEMA}.research_use_accounts
         SET notice_version = $2, agreement_json = jsonb_set(agreement_json, '{noticeVersion}', to_jsonb($2::text))
       WHERE account_key = $1`,
-    [owner.accountKeyForSubject(subject), EARLIER_NOTICES[3]],
+    [owner.accountKeyForSubject(subject), EARLIER_NOTICES[4]],
   );
   await earlier(OWNER_SUBJECT);
   assert((await row(OWNER_SUBJECT, owner))?.notice_accepted_by === "PERSON", "NOTICE_CHANGE_ALONE_CLEARED_ACCEPTANCE");
@@ -1081,7 +1084,7 @@ async function verifyNoticeAcceptance(context: {
   assert((await owner.inspect(otherSubject)).status === "UNENROLLED", "OTHER_PERSON_ACCEPTED_BY_OWNER_INSTRUCTION");
   await expectCode(() => owner.requireActive(otherSubject), "RESEARCH_ACCESS_REQUIRED");
   const other = await row(otherSubject, owner);
-  assert(other?.notice_version === EARLIER_NOTICES[3] && other.notice_accepted_by === "PERSON",
+  assert(other?.notice_version === EARLIER_NOTICES[4] && other.notice_accepted_by === "PERSON",
     "OTHER_PERSON_ROW_CHANGED");
 
   // A write from an image that knows neither column moves activated_at alone: the trigger clears the pair.
