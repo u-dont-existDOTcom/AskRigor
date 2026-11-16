@@ -34,6 +34,10 @@ import {
 } from "../apps/research-mcp/src/research-receipts.js";
 import { VELMOR_CARD } from "./helpers/atlas-scenario.js";
 import { FakeGitHub } from "./helpers/fake-github-findings.js";
+import {
+  PHONE_NUMBERS_AND_CONTACTS_AMONG_IDENTIFIERS,
+  RESEARCH_IDENTIFIER_SENTENCES,
+} from "./helpers/research-identifier-texts.js";
 
 // Codex's review of AskRigor#477 stage 1 (16 Nov 2026): one regression for each finding the memory stores and the
 // dossier's own checks can show. The database's (the account lock, the retry table's rows, ARD numbers past 9999) are
@@ -348,6 +352,31 @@ describe("P0 2: the dossier's privacy screen refuses the person's details and pa
       { path: "studies[2].identifiers[0]", rule: "first_person" }]);
     expect((await problemsOf(withStudy("10.1016/S0140-6736(20)30183-5")))?.status).toBe("saved");
     expect((await problemsOf(withStudy("10.1016/j.jad.2019.01.002")))?.status).toBe("saved");
+  });
+});
+
+describe("P0 2, the first real dossier (16 Nov 2026): research identifiers in their published shapes are no phone numbers", () => {
+  it("passes research sentences citing each kind of identifier", () => {
+    for (const text of RESEARCH_IDENTIFIER_SENTENCES) expect(dossierPrivacyRule(text), text).toBeUndefined();
+  });
+  it("still refuses phone numbers, emails and addresses among them, and a phone number given a registry's prefix", () => {
+    for (const text of PHONE_NUMBERS_AND_CONTACTS_AMONG_IDENTIFIERS) {
+      expect(dossierPrivacyRule(text), text).not.toBeUndefined();
+    }
+  });
+  it("sets aside an identifier's digits only, and reads its words as every word", () => {
+    expect(dossierPrivacyRule("See 10.5555/my.husband.cramps for the trial.")).toBe("first_person");
+    expect(dossierPrivacyRule("ACTRN12620000032954 is the trial my husband joined.")).toBe("first_person");
+    expect(dossierPrivacyRule("See 10.5555/trial-youtube.com for the talk.")).toBe("youtube_reference");
+  });
+  it("saves the dossier whose open lead cites ACTRN12620000032954, and refuses one with a phone number beside it, for good", async () => {
+    const lead = "Check whether the registered trial ACTRN12620000032954 has posted results.";
+    expect((await problemsOf(edited((value) => { value.open_trails = [lead]; })))?.status).toBe("saved");
+    const refused = await saveResearchDossier(new InMemoryResearchDossierStore(),
+      request({}, edited((value) => { value.open_trails = [lead, "ACTRN12620000032954, or call 0412 345 678."]; })));
+    expect(refused?.disposition).toMatchObject({ status: "insufficient",
+      problems: [{ path: "open_trails[1]", rule: "direct_identifier" }] });
+    expect(refused?.note).toContain("A privacy or YouTube refusal is final for this research");
   });
 });
 

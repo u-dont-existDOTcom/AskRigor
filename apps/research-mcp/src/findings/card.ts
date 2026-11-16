@@ -28,6 +28,7 @@ import {
   type StoredBacking,
   type StoredForumSignal
 } from "./research-behind.js";
+import { withoutResearchIdentifiers } from "./research-identifiers.js";
 import {
   containsSecretLikeData,
   screenPrivateText,
@@ -552,6 +553,22 @@ export function findingsCardFingerprint(card: { question: string; findings: Read
 
 export type FindingsPrivacyReason = PrivacyScreenReasonCode | "not_a_source_identifier";
 
+/**
+ * What a privacy problem is, as the final check's card problems name it (research-finalization-gate.ts) and the research
+ * dossier's problems explain it (dossier.ts).
+ */
+export const FINDINGS_PRIVACY_PROBLEMS: Readonly<Record<FindingsPrivacyReason, string>> = {
+  secret_like_data: "something shaped like a key or token",
+  direct_identifier: "contact details, an address or a number shaped like a phone number",
+  personal_narrative: "a first-person health story, or a personal age or date",
+  raw_conversation: "lines of a chat transcript",
+  unsafe_url: "a link to a page other than a study's or a video's",
+  quoted_material: "a long quotation",
+  control_or_markup: "markup, a link to a page other than a study's or a video's, or a line break",
+  prompt_injection_like_text: "wording that reads like instructions to a tool",
+  not_a_source_identifier: "something other than a DOI, PMID, PMCID, NCT id or YouTube video id"
+};
+
 export interface FindingsPrivacyProblem {
   field: string;
   reasonCode: FindingsPrivacyReason;
@@ -971,9 +988,6 @@ function cardTexts(card: FindingsCard): Array<[string, string]> {
 // A link's destination may hold one level of parentheses, as many DOIs do.
 const MARKDOWN_LINK = /\[([^[\]\n]{0,500})\]\(((?:[^\s()[\]]|\([^\s()[\]]{0,200}\)){1,2048})\)/gu;
 const BARE_URL = /https?:\/\/(?:[^\s<>()[\]{}]|\([^\s<>()[\]{}]{0,200}\)){1,2048}/gu;
-// A DOI standing on its own, not inside a link; it may hold one level of parentheses.
-const DOI = /(?<![\w/.-])10\.\d{4,9}\/(?:[^\s"<>()[\]{}]|\([^\s"<>()[\]{}]{0,200}\))+/gu;
-const LABELED_IDENTIFIER = /\b(?:PMID:?\s*\d{1,9}|PMC\d{1,9}|NCT\d{8})\b/giu;
 // A decimal on its own, not one link of a dotted chain such as 01.23.45.67.
 const DECIMAL = /(?<![\d.])\d{1,3}\.\d{1,3}(?!\d|\.\d)/gu;
 const YEAR_RANGE = /(?<!\d)(?:1[89]|20)\d{2} ?- ?(?:1[89]|20)\d{2}(?!\d)/gu;
@@ -997,18 +1011,18 @@ export function withoutPubMedRecordNumbers(query: string): string {
 
 /**
  * A text with the forms a study summary legitimately carries set aside for the privacy screen: links to a study's or
- * a video's own page keep their text, a bare study link, DOI or labeled identifier becomes "SOURCE", a year range
- * "YEARS", a statistic-shaped decimal "N", and an apostrophe inside a word goes. Each rule is exact and structural.
+ * a video's own page keep their text, a bare study link becomes "SOURCE", and so does each research identifier in its
+ * exact published shape (a DOI, "PMID" and its number, a PMCID, a trial registry number with its prefix:
+ * research-identifiers.ts), a year range "YEARS", a statistic-shaped decimal "N", and an apostrophe inside a word goes.
+ * Each rule is exact and structural.
  */
 export function withoutStudyForms(text: string): string {
-  return text
+  return withoutResearchIdentifiers(text
     .replace(MARKDOWN_LINK, (link, label: string, target: string) => isStudyLink(target) ? label : link)
     .replace(BARE_URL, (url) => {
       const bare = url.replace(/[.,;:!?]+$/u, "");
       return isStudyLink(bare) ? `${PLACEHOLDER}${url.slice(bare.length)}` : url;
-    })
-    .replace(DOI, PLACEHOLDER)
-    .replace(LABELED_IDENTIFIER, PLACEHOLDER)
+    }), PLACEHOLDER)
     .replace(YEAR_RANGE, "YEARS")
     .replace(DECIMAL, "N")
     .replace(APOSTROPHE_IN_WORD, "");

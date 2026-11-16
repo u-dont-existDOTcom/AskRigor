@@ -11,11 +11,16 @@ import {
   isSafeReportedModel,
   isSourceIdentifier,
   screenFindingsCard,
+  withoutStudyForms,
   withoutYouTubeData,
 } from "../apps/research-mcp/src/findings/card.js";
 import { saveResearchFindingsInputSchema } from "../apps/research-mcp/src/findings/contracts.js";
 import { finalizeResearchPublishedInputSchema } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { CARD, parsedCard } from "./helpers/findings-fixtures.js";
+import {
+  PHONE_NUMBERS_AND_CONTACTS_AMONG_IDENTIFIERS,
+  RESEARCH_IDENTIFIER_SENTENCES,
+} from "./helpers/research-identifier-texts.js";
 
 describe("findings card", () => {
   it("has one canonical text and digest, whatever the key order, spacing or omitted defaults", () => {
@@ -94,6 +99,20 @@ describe("findings card", () => {
     expect(screenFindingsCard(findingsCardSchema.parse({
       ...CARD, findings: [{ ...CARD.findings[0], sources: ["10.1002/art.41142", "my own notes"] }],
     }))).toEqual([{ field: "findings[0].sources[1]", reasonCode: "not_a_source_identifier" }]);
+  });
+
+  it("passes research identifiers in their published shapes, and refuses phone numbers among them, as the dossier's screen does", () => {
+    // 16 Nov 2026: the first real dossier's open lead, ACTRN12620000032954, read as a phone number. A card's texts are
+    // public, so its screen sets aside the same exact shapes, and no more.
+    const withLead = (lead: string) => screenFindingsCard(findingsCardSchema.parse({ ...CARD, open_leads: [lead] }));
+    for (const text of RESEARCH_IDENTIFIER_SENTENCES) expect(withLead(text), text).toEqual([]);
+    for (const text of PHONE_NUMBERS_AND_CONTACTS_AMONG_IDENTIFIERS) {
+      expect(withLead(text), text).toEqual([{ field: "open_leads[0]", reasonCode: "direct_identifier" }]);
+    }
+    expect(withoutStudyForms("ACTRN12620000032954, EudraCT 2010-012345-12 and PMID 31234567 (PMC7654321)"))
+      .toBe("SOURCE, SOURCE and SOURCE (SOURCE)");
+    // A number that continues after one space, dot or dash is no PubMed record's: it stays, and is read as before.
+    expect(withoutStudyForms("PMID 612 345 678")).toBe("PMID 612 345 678");
   });
 
   it("checks sources and the reported model by their form", () => {

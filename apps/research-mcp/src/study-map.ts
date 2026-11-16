@@ -2,6 +2,9 @@ import type { ClinicalTrial } from "@askrigor/sources";
 import { z } from "zod";
 
 import { figureText } from "./binary-results.js";
+import {
+  DECLARED_ONLY_REGISTRY_FORMATS, REGISTRY_END, REGISTRY_START, SEARCHED_REGISTRY_FORMATS, type RegistryFormat
+} from "./registry-formats.js";
 import { salvageFinalizeInput } from "./salvage-finalize-input.js";
 import {
   lookUpQuotes, quoteCache, quoteTooShort, SOURCE_LINE_OUTCOMES, SOURCE_LINE_TEXTS,
@@ -99,36 +102,12 @@ export interface RegistryNumber {
   key: string;
 }
 
-// The formats of the trial registries AskRigor knows: strict, fixed-digit forms, each with its prefix (an EudraCT or EU
-// CT number with its label), in figureText's form (lower case, ASCII digits, dashes as "-"). A number is its core: a
-// registry's name or a label around it is set aside, so "EudraCT 2010-012345-12" and "EudraCT number: 2010-012345-12"
-// are one number.
-const START = String.raw`(?<![\p{L}\p{N}])`;
-const END = String.raw`(?![\p{L}\p{N}])`;
-type Format = readonly [registry: string, pattern: string, core: (parts: string[]) => string];
-const SEARCHED_FORMATS: readonly Format[] = [
-  ["NCT", String.raw`nct[\s-]?(\d{8})`, ([digits]) => `NCT${digits}`],
-  ["ISRCTN", String.raw`isrctn[\s-]?(\d{8})`, ([digits]) => `ISRCTN${digits}`],
-  ["EudraCT", String.raw`(?:eudract|ctis|eu[\s-]?ct|euctr)(?:[\s-]*(?:number|no\.?|nr\.?|id))?[\s:#-]*(\d{4}-\d{6}-\d{2})`,
-    ([digits]) => digits!],
-  ["ACTRN", String.raw`actrn[\s-]?(\d{14})`, ([digits]) => `ACTRN${digits}`],
-  ["ChiCTR", String.raw`chictr-?(\d{10})`, ([digits]) => `ChiCTR${digits}`],
-  ["ChiCTR", String.raw`chictr-([a-z]{3})-(\d{8})`, ([kind, digits]) => `ChiCTR-${kind!.toUpperCase()}-${digits}`],
-  ["DRKS", String.raw`drks[\s-]?(\d{8})`, ([digits]) => `DRKS${digits}`],
-  ["CTRI", String.raw`ctri/(\d{4})/(\d{2,3})/(\d{6})`, (parts) => `CTRI/${parts.join("/")}`],
-  ["jRCT", String.raw`jrct(\d{10})`, ([digits]) => `jRCT${digits}`],
-  ["UMIN", String.raw`umin[\s-]?(\d{9})`, ([digits]) => `UMIN${digits}`],
-  ["PACTR", String.raw`pactr(\d{15})`, ([digits]) => `PACTR${digits}`],
-  ["KCT", String.raw`kct(\d{7})`, ([digits]) => `KCT${digits}`],
-  ["TCTR", String.raw`tctr(\d{11})`, ([digits]) => `TCTR${digits}`],
-  ["RBR", String.raw`rbr-([0-9a-z]{6,8})`, ([code]) => `RBR-${code}`]
-];
-// Netherlands Trial Register numbers are accepted as the map declares them, and never looked for in a text: their
-// short forms are also gene and product names (NTR1, a neurotensin receptor).
-const DECLARED_ONLY_FORMATS: readonly Format[] = [
-  ["NTR", String.raw`ntr[\s-]?(\d{4,})`, ([digits]) => `NTR${digits}`],
-  ["NL", String.raw`nl[\s-]?(\d{4,})`, ([digits]) => `NL${digits}`]
-];
+// The trial registries' formats (registry-formats.ts), which the privacy screens' research identifiers read too.
+const START = REGISTRY_START;
+const END = REGISTRY_END;
+type Format = RegistryFormat;
+const SEARCHED_FORMATS = SEARCHED_REGISTRY_FORMATS;
+const DECLARED_ONLY_FORMATS = DECLARED_ONLY_REGISTRY_FORMATS;
 const compiled = (formats: readonly Format[]) => formats.map(([registry, pattern, core]) =>
   ({ registry, pattern: new RegExp(`${START}${pattern}${END}`, "gu"), core }));
 const SEARCHED = compiled(SEARCHED_FORMATS);

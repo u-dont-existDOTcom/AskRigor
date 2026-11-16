@@ -81,6 +81,7 @@ import {
   findingsCardDigest,
   findingsCardSchema,
   findingsSaveOffer,
+  FINDINGS_PRIVACY_PROBLEMS,
   heldByCardFields,
   isYouTubeVideoId,
   namedVideoIdOf,
@@ -90,7 +91,6 @@ import {
   signedNamedVideos,
   verifiedWorkPhrase,
   type FindingsCard,
-  type FindingsPrivacyReason,
   type VerifiedBasis,
   type VerifiedWork
 } from "./findings/card.js";
@@ -5524,19 +5524,6 @@ const privateFindings = (): FindingsCardCheck => ({ status: "private", problems:
 /** Whether this call's research account has the findings library open: saved (free) or offered (paid private). */
 const findingsOpen = (options: FinalizeResearchOptions): boolean =>
   options.findings === "save" || options.findings === "offer";
-
-// What a privacy problem is, as the card's problem names it.
-const FINDINGS_PRIVACY_PROBLEMS: Readonly<Record<FindingsPrivacyReason, string>> = {
-  secret_like_data: "something shaped like a key or token",
-  direct_identifier: "contact details, an address or a number shaped like a phone number",
-  personal_narrative: "a first-person health story, or a personal age or date",
-  raw_conversation: "lines of a chat transcript",
-  unsafe_url: "a link to a page other than a study's or a video's",
-  quoted_material: "a long quotation",
-  control_or_markup: "markup, a link to a page other than a study's or a video's, or a line break",
-  prompt_injection_like_text: "wording that reads like instructions to a tool",
-  not_a_source_identifier: "something other than a DOI, PMID, PMCID, NCT id or YouTube video id"
-};
 
 /**
  * Checks a findings card against this call. Each finding's sentence must be
