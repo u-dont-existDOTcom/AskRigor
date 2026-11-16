@@ -28,7 +28,7 @@ import {
   type StoredBacking,
   type StoredForumSignal
 } from "./research-behind.js";
-import { withoutResearchIdentifiers } from "./research-identifiers.js";
+import { withoutSourceIdentifiers } from "./research-identifiers.js";
 import {
   containsSecretLikeData,
   screenPrivateText,
@@ -1011,13 +1011,13 @@ export function withoutPubMedRecordNumbers(query: string): string {
 
 /**
  * A text with the forms a study summary legitimately carries set aside for the privacy screen: links to a study's or
- * a video's own page keep their text, a bare study link becomes "SOURCE", and so does each research identifier in its
- * exact published shape (a DOI, "PMID" and its number, a PMCID, a trial registry number with its prefix:
- * research-identifiers.ts), a year range "YEARS", a statistic-shaped decimal "N", and an apostrophe inside a word goes.
- * Each rule is exact and structural.
+ * a video's own page keep their text, a bare study link becomes "SOURCE", and so does a DOI, a PMID or PMCID and an NCT
+ * number in its exact shape (research-identifiers.ts; not one whose number the text goes on with), a year range
+ * "YEARS", a statistic-shaped decimal "N", and an apostrophe inside a word goes. Each rule is exact and structural.
+ * Other trial registries' numbers are set aside by the research dossier's screen only: a card's texts are public.
  */
 export function withoutStudyForms(text: string): string {
-  return withoutResearchIdentifiers(text
+  return withoutSourceIdentifiers(text
     .replace(MARKDOWN_LINK, (link, label: string, target: string) => isStudyLink(target) ? label : link)
     .replace(BARE_URL, (url) => {
       const bare = url.replace(/[.,;:!?]+$/u, "");

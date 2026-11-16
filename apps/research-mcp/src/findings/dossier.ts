@@ -212,12 +212,13 @@ export const RESEARCH_DOSSIER_SHAPE = "later_inputs.research_dossier: {scope: pu
   "bare}}, never from YouTube comments; open_trails}. " +
   "Ids: each search, study, result and finding has its own, a lower-case letter then up to 31 lower-case letters, " +
   "digits, - or _ (s1, f2); adds, rests_on, study and search give these ids exactly. " +
-  "Forms: a study's form and a finding's form, when given, are each one of forms, written the same way; a finding's " +
-  "form is also the form of every study it rests on, directly or through a result, so a finding across studies of " +
-  "different forms leaves its form out. " +
+  "Forms: list each form in forms; a study's form and a finding's form, when given, are each one of them, written the " +
+  "same way; a finding's form is also the form of every study it rests on that gives one, directly or through a " +
+  "result, so a finding across studies of different forms leaves its form out. " +
   "In any text, cite a paper or a trial by its DOI, PMID with its number (PMID 12345678), PMCID or registry number " +
-  "with the registry's prefix (NCT01234567, ACTRN12620000032954, EudraCT 2010-012345-12): any other long run of digits " +
-  "reads as a phone number, which refuses the dossier. " +
+  "with the registry's prefix (NCT01234567, ACTRN12620000032954, EudraCT 2010-012345-12), with punctuation, not a " +
+  "bare space, before a number that follows it: any other long run of digits reads as a phone number, which refuses " +
+  "the dossier. " +
   "Everything in general terms: never the person, the chat, the answer, quotes from papers or YouTube comments.";
 
 export interface DossierProblem {
@@ -278,7 +279,7 @@ const DOSSIER_CHECK_PROBLEMS = {
     "the card, or none",
   held_card_finding: "this finding is a card finding held apart for YouTube comments, which refuses the dossier, for " +
     "good in this research",
-  coverage_search_missing: "none_found names, by its id, the search that looked and found none",
+  coverage_search_missing: "none_found names, by its id, a search of this dossier that looked for entries",
   coverage_reason_missing: "not_researched says why, in reason",
   coverage_community_missing: "people_reports with entries needs the community section",
   value_not_substantial: "a dossier is saved only when its value statement says it saves a reader substantial work",

@@ -1,5 +1,5 @@
 import { FINDINGS_PRIVACY_PROBLEMS, holdsYouTubeReference, screenFindingsText } from "./card.js";
-import { withoutResearchIdentifierDigits } from "./research-identifiers.js";
+import { withoutResearchIdentifierDigits, withoutResearchIdentifiers } from "./research-identifiers.js";
 import type { PrivacyScreenReasonCode } from "../lessons/privacy-screen.js";
 
 /**
@@ -14,7 +14,7 @@ import type { PrivacyScreenReasonCode } from "../lessons/privacy-screen.js";
  * Ordinary research phrasing passes: an author before "et al." or "and colleagues", numerals such as phase I or I², and
  * patients' relatives in a study's report, and so do public research identifiers in their exact published shapes (a
  * DOI, "PMID" and its number, a PMCID, a trial registry number with its prefix: research-identifiers.ts), whose digits
- * the contact rules do not read as a phone number (the first real dossier, 16 Nov 2026, was refused for good over
+ * the phone rules do not read as a phone number (the first real dossier, 16 Nov 2026, was refused for good over
  * ACTRN12620000032954); their words are read as every word is. What it cannot see (a narrative with none of these
  * markers, another Latin-script language) the owner's review still has to catch; the tests hold it to a list of
  * realistic leaks and of research sentences that must pass. No model reads it: the owner has not decided on a model
@@ -27,11 +27,14 @@ export function dossierPrivacyRule(text: string): DossierPrivacyRule | undefined
   // Look-alike letters read as the Latin ones they imitate, for every word rule (Codex's final check: a Greek Α in a
   // name, a Cyrillic І for "I").
   const plain = lookAlikeFree(value);
-  // The contact rules read the text with each research identifier's digits left out, as the card's own screen sets the
-  // identifiers aside; a phone number beside one, or after a registry's prefix with another count of digits, stays.
+  // The card's screen reads the text with each research identifier set aside, trial registry numbers included, and the
+  // phone rule reads it with their digits left out; a phone number beside one, or after a registry's prefix with
+  // another count of digits, stays. The other contact rules read the text as written, so a street number written onto
+  // a DOI is still read.
   const numbers = withoutResearchIdentifierDigits(value);
-  return screenFindingsText(value) ?? (holdsYouTubeReference(value) || /youtu\.?be/iu.test(value) ? "youtube_reference"
-    : CONTACT.some((pattern) => pattern.test(numbers)) ? "contact_details"
+  return screenFindingsText(withoutResearchIdentifiers(value, "SOURCE")) ??
+    (holdsYouTubeReference(value) || /youtu\.?be/iu.test(value) ? "youtube_reference"
+    : PHONE.test(numbers) || CONTACT.some((pattern) => pattern.test(value)) ? "contact_details"
     : UNSCREENED_SCRIPT.test(value) ? "unscreened_script"
     : mixesScripts(value) ? "mixed_script"
     : identityRule(plain) ?? lexicalRule(plain));
@@ -61,13 +64,13 @@ export const DOSSIER_PRIVACY_PROBLEMS: Readonly<Record<DossierPrivacyRule, strin
 const INVISIBLE = /[­͏؜ᅟᅠ឴឵᠋-᠏​-‏‪-‮⁠-⁯ㅤ︀-️﻿ﾠ]/gu;
 const folded = (text: string) => text.replace(INVISIBLE, "").normalize("NFKC").replace(INVISIBLE, "");
 
-// Links, handles, e-mail, phone numbers (nine digits or more), street addresses and postal codes; read without the
-// digits of research identifiers in their published shapes.
+// Phone numbers (nine digits or more), read without the digits of research identifiers in their published shapes.
+const PHONE = /\+?\d(?:[\s().-]*\d){8,}/u;
+// Links, handles, e-mail, street addresses and postal codes.
 const CONTACT: readonly RegExp[] = [
   /https?:\/\/|www\.|\b[\w.+-]+@[\w-]+\.\w/iu,
   /(?:^|[\s(])@[\p{L}\p{N}_.]{2,}/u,
   /(?:^|[^\p{L}])u\/[\p{L}\p{N}_-]{3,}/u,
-  /\+?\d(?:[\s().-]*\d){8,}/u,
   /\b\d{1,5}[a-z]?,?\s+(?:rue|avenue|av\.?|boulevard|bd|street|st\.?|road|rd\.?|lane|drive|calle|avenida|straße|strasse|rua|via|piazza|allée|chemin|place)\b/iu,
   /\b(?:post ?code|zip ?code|postal code|code postal|código postal|postleitzahl)\b/iu,
   /\b[A-Z]{2} \d{5}(?:-\d{4})?\b/u,

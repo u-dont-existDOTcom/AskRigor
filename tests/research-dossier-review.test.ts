@@ -36,7 +36,8 @@ import { VELMOR_CARD } from "./helpers/atlas-scenario.js";
 import { FakeGitHub } from "./helpers/fake-github-findings.js";
 import {
   PHONE_NUMBERS_AND_CONTACTS_AMONG_IDENTIFIERS,
-  RESEARCH_IDENTIFIER_SENTENCES,
+  REGISTRY_NUMBER_SENTENCES,
+  SOURCE_IDENTIFIER_SENTENCES,
 } from "./helpers/research-identifier-texts.js";
 
 // Codex's review of AskRigor#477 stage 1 (16 Nov 2026): one regression for each finding the memory stores and the
@@ -356,8 +357,10 @@ describe("P0 2: the dossier's privacy screen refuses the person's details and pa
 });
 
 describe("P0 2, the first real dossier (16 Nov 2026): research identifiers in their published shapes are no phone numbers", () => {
-  it("passes research sentences citing each kind of identifier", () => {
-    for (const text of RESEARCH_IDENTIFIER_SENTENCES) expect(dossierPrivacyRule(text), text).toBeUndefined();
+  it("passes research sentences citing each kind of identifier, every trial registry's included", () => {
+    for (const text of [...SOURCE_IDENTIFIER_SENTENCES, ...REGISTRY_NUMBER_SENTENCES]) {
+      expect(dossierPrivacyRule(text), text).toBeUndefined();
+    }
   });
   it("still refuses phone numbers, emails and addresses among them, and a phone number given a registry's prefix", () => {
     for (const text of PHONE_NUMBERS_AND_CONTACTS_AMONG_IDENTIFIERS) {
@@ -368,6 +371,11 @@ describe("P0 2, the first real dossier (16 Nov 2026): research identifiers in th
     expect(dossierPrivacyRule("See 10.5555/my.husband.cramps for the trial.")).toBe("first_person");
     expect(dossierPrivacyRule("ACTRN12620000032954 is the trial my husband joined.")).toBe("first_person");
     expect(dossierPrivacyRule("See 10.5555/trial-youtube.com for the talk.")).toBe("youtube_reference");
+    // Only the phone rule reads the text without an identifier's digits: a street number written onto a DOI is read.
+    expect(dossierPrivacyRule("Read 10.1234/protocol/221 rue Victor Hugo.")).toBe("contact_details");
+    // A stated limit, not a goal: a number straight after an identifier, with only a space between, may be the rest of a
+    // phone number, so the text is read as before; a sentence writes "PMID 31234567: 12 weeks" (the shape says so).
+    expect(dossierPrivacyRule("PMID 31234567 12 weeks of psyllium eased pain.")).toBe("direct_identifier");
   });
   it("saves the dossier whose open lead cites ACTRN12620000032954, and refuses one with a phone number beside it, for good", async () => {
     const lead = "Check whether the registered trial ACTRN12620000032954 has posted results.";

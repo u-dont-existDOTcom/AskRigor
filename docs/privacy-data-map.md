@@ -1307,10 +1307,12 @@ card declares its findings public (a `personal_only` card is refused as
 the lesson queue's deterministic privacy screen over every text field, the
 declaration's included (with study and
 video identifiers, links to their pages, statistics-shaped numbers and in-word
-apostrophes set aside first; built 16 November 2026, not yet released: the study
-identifiers set aside include trial registry numbers in their registries' exact
-shapes, such as ACTRN12620000032954, a PMID or PMCID followed by more digits is
-read as before, and the research dossier's screen reads the same shapes); sources by their form; and a rate limit of its
+apostrophes set aside first; built 16 November 2026, not yet released: those
+identifiers are DOIs, PMIDs, PMCIDs and NCT numbers in their exact shapes, one the
+text goes on with as a longer number is read as before, and a DOI ends at a comma,
+";", "=" or "@"; the private research dossier's screen also sets aside other trial
+registries' numbers, such as ACTRN12620000032954, the card's does not); sources by
+their form; and a rate limit of its
 own (20 cards an hour and 100 a day per server process; later cards are not
 saved). A model name that does not read as one is left out. There is no model
 or API call on this path. Anything that fails is not stored, and the answer

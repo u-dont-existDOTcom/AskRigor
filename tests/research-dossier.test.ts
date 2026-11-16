@@ -479,11 +479,12 @@ describe("problems the AI can act on: the ids' and the forms' rules, said in the
     expect(RESEARCH_DOSSIER_SHAPE).toContain("Ids: each search, study, result and finding has its own, a lower-case " +
       "letter then up to 31 lower-case letters, digits, - or _ (s1, f2); adds, rests_on, study and search give these ids " +
       "exactly.");
-    expect(RESEARCH_DOSSIER_SHAPE).toContain("Forms: a study's form and a finding's form, when given, are each one of " +
-      "forms, written the same way; a finding's form is also the form of every study it rests on, directly or through " +
-      "a result, so a finding across studies of different forms leaves its form out.");
+    expect(RESEARCH_DOSSIER_SHAPE).toContain("Forms: list each form in forms; a study's form and a finding's form, when " +
+      "given, are each one of them, written the same way; a finding's form is also the form of every study it rests on " +
+      "that gives one, directly or through a result, so a finding across studies of different forms leaves its form out.");
     expect(RESEARCH_DOSSIER_SHAPE).toContain("cite a paper or a trial by its DOI, PMID with its number (PMID 12345678), " +
-      "PMCID or registry number with the registry's prefix");
+      "PMCID or registry number with the registry's prefix (NCT01234567, ACTRN12620000032954, EudraCT 2010-012345-12), " +
+      "with punctuation, not a bare space, before a number that follows it");
   });
 
   it("explains form_not_listed and form_mismatch once each, and a dossier corrected as they say is saved", async () => {

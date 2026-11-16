@@ -19,7 +19,7 @@ import { finalizeResearchPublishedInputSchema } from "../apps/research-mcp/src/r
 import { CARD, parsedCard } from "./helpers/findings-fixtures.js";
 import {
   PHONE_NUMBERS_AND_CONTACTS_AMONG_IDENTIFIERS,
-  RESEARCH_IDENTIFIER_SENTENCES,
+  SOURCE_IDENTIFIER_SENTENCES,
 } from "./helpers/research-identifier-texts.js";
 
 describe("findings card", () => {
@@ -101,17 +101,20 @@ describe("findings card", () => {
     }))).toEqual([{ field: "findings[0].sources[1]", reasonCode: "not_a_source_identifier" }]);
   });
 
-  it("passes research identifiers in their published shapes, and refuses phone numbers among them, as the dossier's screen does", () => {
-    // 16 Nov 2026: the first real dossier's open lead, ACTRN12620000032954, read as a phone number. A card's texts are
-    // public, so its screen sets aside the same exact shapes, and no more.
+  it("passes its own identifiers in their exact shapes and refuses the dossier screen's phone numbers among them", () => {
+    // 16 Nov 2026: the research dossier's screen now sets aside every trial registry's numbers in their exact shapes.
+    // A card's texts are public, and a card's privacy problem is rewritten, never final, so its screen keeps to DOIs,
+    // PMIDs, PMCIDs and NCT numbers, in the same exact shapes, which only tightens it (Codex's red team of 16 Nov).
     const withLead = (lead: string) => screenFindingsCard(findingsCardSchema.parse({ ...CARD, open_leads: [lead] }));
-    for (const text of RESEARCH_IDENTIFIER_SENTENCES) expect(withLead(text), text).toEqual([]);
+    for (const text of SOURCE_IDENTIFIER_SENTENCES) expect(withLead(text), text).toEqual([]);
     for (const text of PHONE_NUMBERS_AND_CONTACTS_AMONG_IDENTIFIERS) {
       expect(withLead(text), text).toEqual([{ field: "open_leads[0]", reasonCode: "direct_identifier" }]);
     }
-    expect(withoutStudyForms("ACTRN12620000032954, EudraCT 2010-012345-12 and PMID 31234567 (PMC7654321)"))
-      .toBe("SOURCE, SOURCE and SOURCE (SOURCE)");
-    // A number that continues after one space, dot or dash is no PubMed record's: it stays, and is read as before.
+    expect(withLead("Check whether the registered trial ACTRN12620000032954 has posted results."))
+      .toEqual([{ field: "open_leads[0]", reasonCode: "direct_identifier" }]);
+    expect(withoutStudyForms("PMID 31234567 (PMC7654321), NCT01234567 and ACTRN12620000032954"))
+      .toBe("SOURCE (SOURCE), SOURCE and ACTRN12620000032954");
+    // A number the text goes on with is no PubMed record's: it stays, and is read as before.
     expect(withoutStudyForms("PMID 612 345 678")).toBe("PMID 612 345 678");
   });
 
