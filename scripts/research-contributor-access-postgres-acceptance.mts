@@ -27,6 +27,8 @@ import {
   PostgresHeldYouTubeFindingsStore,
   PostgresResearchContributorAccessStore,
   PostgresResearchCallRecordStore,
+  PostgresResearchDossierEraser,
+  PostgresResearchDossierStore,
   RESEARCH_CALL_RECORD_RETENTION_MS,
   PostgresResearchContributionPromotionRunner,
   PostgresResearchContributionReviewStore,
@@ -42,6 +44,7 @@ import {
   deterministicUuid,
   prepareAtlasFindingIntent,
   prepareResearchContributionProposal,
+  stableJson,
   type AtlasCardDecision,
   type AtlasCardItemKind,
   type AtlasFindingIntent,
@@ -487,6 +490,8 @@ async function verify(
     await verifyCallRecord({ admin, restricted, checks });
     // Owner answer 303a: learn mode, a dev account's own menu choices, and the plan's lane in the call record (0035).
     await verifyMenuLearning({ admin, restricted, store, checks });
+    // AskRigor#477 stage 1 (owner answer 329a): the private research dossiers (0037).
+    await verifyResearchDossiers({ admin, restricted, service, reviewUrl, readerUrl, checks });
 
     // Owner answer 143a: a paid private account files only this research's map, and only under the user's yes to the
     // answer's offer. The database stores that finalization receipt's SHA-256, never the receipt, and takes it once;
@@ -1155,6 +1160,224 @@ async function verifyNoticeAcceptance(context: {
 }
 
 const PROMOTION_SUBJECT = "auth0|synthetic-postgres-promotion-user";
+/**
+ * AskRigor#477 stage 1 (owner answer 329a, 16 Nov 2026), migration 0037: the private research dossiers. Reached only
+ * through functions: the access role appends (checking the account in the same transaction), finds the newest version
+ * and reads back its own; the review role erases; no role, PUBLIC or the canonical reader touches a table. A request key
+ * replays its version, equal content writes nothing, concurrent writers queue, versions never change but by erasure,
+ * events never change, and revocation withdraws pending versions by trigger, also after a reactivation.
+ */
+async function verifyResearchDossiers(context: {
+  admin: Pool;
+  restricted: Pool;
+  service: ResearchContributorAccessService;
+  reviewUrl: string;
+  readerUrl: string;
+  checks: string[];
+}): Promise<void> {
+  const { admin, restricted, service, checks } = context;
+  const applied = await admin.query(`SELECT migration_id FROM ${SCHEMA}.schema_migrations
+    WHERE migration_id = '0037_research_dossiers'`);
+  assert(applied.rowCount === 1, "MIGRATION_0037_NOT_APPLIED");
+  const tables = ["research_dossiers", "research_dossier_versions", "research_dossier_identifiers", "research_dossier_events"];
+  const snapshot = async () => JSON.stringify({
+    tables: (await admin.query(`SELECT c.relname, c.relacl::text AS acl FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relname LIKE 'research_dossier%'
+      ORDER BY c.relname`, [SCHEMA])).rows,
+    constraints: (await admin.query(`SELECT conrelid::regclass::text AS on_table, conname,
+      pg_get_constraintdef(oid) AS definition FROM pg_constraint
+      WHERE conrelid::regclass::text LIKE '${SCHEMA}.research_dossier%' ORDER BY 1, 2`)).rows,
+    triggers: (await admin.query(`SELECT tgrelid::regclass::text AS on_table, tgname FROM pg_trigger
+      WHERE NOT tgisinternal AND (tgrelid::regclass::text LIKE '${SCHEMA}.research_dossier%'
+        OR tgname = 'research_dossiers_withdraw_on_revocation') ORDER BY 1, 2`)).rows,
+    functions: (await admin.query(`SELECT p.proname, p.prosecdef, p.proacl::text AS acl FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = $1 AND p.proname LIKE '%research_dossier%'
+      ORDER BY p.proname`, [SCHEMA])).rows,
+  });
+  const original = await snapshot();
+  const migration = (await readFile(resolve("packages/evidence-repository/migrations/0037_research_dossiers.sql"), "utf8"))
+    .replaceAll("__SCHEMA__", SCHEMA);
+  await admin.query(migration);
+  await admin.query(migration);
+  assert(await snapshot() === original, "DOSSIER_MIGRATION_NOT_IDEMPOTENT");
+  checks.push("dossier_migration_0037_applied_and_safe_to_run_again");
+
+  // No table or sequence right for any role, PUBLIC or the canonical reader; each function for its one role.
+  for (const role of ["public", "askrigor_research_access", "askrigor_research_review", "askrigor_reader"]) {
+    for (const table of tables) {
+      for (const privilege of ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"]) {
+        const result = await admin.query<{ allowed: boolean }>(
+          `SELECT has_table_privilege($1, $2, $3) AS allowed`, [role, `${SCHEMA}.${table}`, privilege]);
+        assert(result.rows[0]?.allowed === false, `DOSSIER_TABLE_PRIVILEGE_${role}_${table}_${privilege}`);
+      }
+    }
+    const sequence = await admin.query<{ allowed: boolean }>(
+      `SELECT has_sequence_privilege($1, $2, 'USAGE') AS allowed`, [role, `${SCHEMA}.research_dossier_number_seq`]);
+    assert(sequence.rows[0]?.allowed === false, `DOSSIER_SEQUENCE_PRIVILEGE_${role}`);
+  }
+  const functions: Record<string, string> = {
+    [`${SCHEMA}.append_research_dossier_version(text, text, text, text, text, jsonb, text, integer, jsonb, uuid, uuid, timestamptz)`]:
+      "askrigor_research_access",
+    [`${SCHEMA}.latest_research_dossier_version(text, text)`]: "askrigor_research_access",
+    [`${SCHEMA}.read_research_dossier_version(text, uuid)`]: "askrigor_research_access",
+    [`${SCHEMA}.erase_research_dossiers(text, integer[], timestamptz)`]: "askrigor_research_review",
+    [`${SCHEMA}.withdraw_research_dossiers_on_revocation()`]: "none",
+    [`${SCHEMA}.research_dossier_version_guard()`]: "none",
+  };
+  for (const [signature, owner] of Object.entries(functions)) {
+    for (const role of ["public", "askrigor_research_access", "askrigor_research_review", "askrigor_reader"]) {
+      const result = await admin.query<{ allowed: boolean }>(
+        `SELECT has_function_privilege($1, $2, 'EXECUTE') AS allowed`, [role, signature]);
+      assert(result.rows[0]?.allowed === (role === owner), `DOSSIER_FUNCTION_PRIVILEGE_${role}_${signature}`);
+    }
+  }
+  await expectPermissionDenied(() => restricted.query(`SELECT * FROM ${SCHEMA}.research_dossier_versions`));
+  await expectPermissionDenied(() => restricted.query(
+    `SELECT ${SCHEMA}.erase_research_dossiers(NULL, ARRAY[1]::integer[], now())`));
+  const reader = new Pool({ connectionString: context.readerUrl, max: 1 });
+  const reviewer = new Pool({ connectionString: context.reviewUrl, max: 1 });
+  try {
+    await expectPermissionDenied(() => reader.query(`SELECT * FROM ${SCHEMA}.research_dossiers`));
+    await expectPermissionDenied(() => reviewer.query(`SELECT * FROM ${SCHEMA}.research_dossier_versions`));
+    await expectPermissionDenied(() => reviewer.query(
+      `SELECT * FROM ${SCHEMA}.latest_research_dossier_version($1, $2)`, ["a".repeat(64), "b".repeat(64)]));
+  } finally {
+    await reader.end();
+    await reviewer.end();
+  }
+  checks.push("dossier_tables_closed_to_every_role_and_functions_granted_to_exactly_one");
+
+  const subject = "auth0|synthetic-postgres-dossier-user";
+  await service.acceptFreeContributor(subject, FREE_AGREEMENT);
+  const accountKey = service.accountKeyForSubject(subject);
+  const hex = (label: string) => createHash("sha256").update(`dossier-acceptance:${label}`).digest("hex");
+  const digest = (value: unknown) => createHash("sha256").update(stableJson(value)).digest("hex");
+  const store = new PostgresResearchDossierStore(restricted, SCHEMA);
+  const at = new Date("2026-11-16T15:00:00.000Z");
+  let version = 0;
+  const appendInput = (label: string, dossierKey: string, threadKey: string, expected: string | null,
+    cardNumber: number | null = null) => {
+    const payload = { schema: "askrigor.research-dossier.v1", question: `Synthetic question ${dossierKey.slice(0, 4)}`,
+      findings: [{ id: "f1", claim: `Synthetic claim ${label}` }] };
+    return {
+      accountKey, dossierKey, threadKey, requestKey: hex(`request:${label}`), inputSha256: hex(`input:${label}`),
+      payload, payloadSha256: digest(payload), cardNumber,
+      identifiers: [{ scheme: "pmid" as const, value: "11111111" }, { scheme: "doi" as const, value: "10.1000/synthetic" }],
+      expectedPreviousVersionId: expected, versionId: deterministicUuid(`dossier-acceptance:version:${version++}`), at,
+    };
+  };
+  const dossierOne = hex("dossier:one");
+  const threadOne = hex("thread:one");
+  const first = await store.append(appendInput("one", dossierOne, threadOne, null, 4242));
+  assert(first.outcome === "inserted" && first.versionNumber === 1 && !first.writtenAlongside &&
+    /^ARD-[0-9]{4,}$/u.test(first.dossierNumber), "DOSSIER_FIRST_APPEND_WRONG");
+  const replay = await store.append({ ...appendInput("one", dossierOne, threadOne, null, 4242),
+    versionId: deterministicUuid("dossier-acceptance:replay") });
+  assert(replay.outcome === "replayed" && replay.versionId === first.versionId, "DOSSIER_REQUEST_KEY_NOT_REPLAYED");
+  const same = await store.append({ ...appendInput("one", dossierOne, threadOne, null), requestKey: hex("request:other") });
+  assert(same.outcome === "same_as_latest" && same.versionId === first.versionId, "DOSSIER_SAME_CONTENT_NOT_RECOGNISED");
+  const second = await store.append(appendInput("two", dossierOne, threadOne, first.outcome === "inserted" ? first.versionId : null));
+  assert(second.outcome === "inserted" && second.versionNumber === 2 && !second.writtenAlongside, "DOSSIER_SECOND_APPEND_WRONG");
+  const stale = await store.append(appendInput("three", dossierOne, threadOne, first.outcome === "inserted" ? first.versionId : null));
+  assert(stale.outcome === "inserted" && stale.versionNumber === 3 && stale.writtenAlongside, "DOSSIER_STALE_NOT_MARKED");
+  // A retry of version 1's request after version 3 still returns version 1.
+  const late = await store.append(appendInput("one", dossierOne, threadOne, null, 4242));
+  assert(late.outcome === "replayed" && late.versionNumber === 1, "DOSSIER_LATE_RETRY_NOT_ORIGINAL");
+  const latest = await store.latestVersion(accountKey, dossierOne);
+  assert(latest?.versionNumber === 3, "DOSSIER_LATEST_WRONG");
+  // Two writers of a new dossier at once: versions 1 and 2, never two first versions or a fork.
+  const dossierTwo = hex("dossier:two");
+  const threadTwo = hex("thread:two");
+  const racing = await Promise.all([
+    store.append(appendInput("race-a", dossierTwo, threadTwo, null)),
+    store.append(appendInput("race-b", dossierTwo, threadTwo, null)),
+  ]);
+  const raced = racing.map((result) => result.outcome === "account_refused" ? 0 : result.versionNumber).sort();
+  assert(raced[0] === 1 && raced[1] === 2, "DOSSIER_CONCURRENT_APPENDS_FORKED");
+  const forks = await admin.query<{ count: string }>(`SELECT count(*) FROM ${SCHEMA}.research_dossier_versions
+    WHERE previous_version_id IS NOT NULL GROUP BY previous_version_id HAVING count(*) > 1`);
+  assert(forks.rowCount === 0, "DOSSIER_FORK_FOUND");
+  // The readback is exactly the version written, and only the account's own.
+  const read = await store.readVersion(accountKey, second.outcome === "inserted" ? second.versionId : "");
+  assert(read !== null && read.payload !== null && digest(read.payload) === read.payloadSha256 &&
+    read.versionNumber === 2, "DOSSIER_READBACK_WRONG");
+  assert(await store.readVersion("b".repeat(64), first.outcome === "inserted" ? first.versionId : "") === null,
+    "DOSSIER_READ_OTHER_ACCOUNT");
+  checks.push("dossier_append_replays_requests_marks_stale_writes_queues_writers_and_reads_back_its_own");
+
+  // The account as it is now decides, in the append's own transaction.
+  const refusedRows: Array<[string, string]> = [
+    ["paid", `'ACTIVE', 'PAID_PRIVATE', NULL, '{}'::jsonb, true`],
+    ["notice-v5", `'ACTIVE', 'FREE_CONTRIBUTOR', 'free-contributor-v5-2026-11-05', '{"synthetic": true}'::jsonb, true`],
+    ["saving-off", `'ACTIVE', 'FREE_CONTRIBUTOR', '${RESEARCH_USE_NOTICE_VERSION}', '{"synthetic": true}'::jsonb, false`],
+  ];
+  for (const [label, values] of refusedRows) {
+    const key = hex(`account:${label}`);
+    await admin.query(`INSERT INTO ${SCHEMA}.research_use_accounts
+      (account_key, status, mode, notice_version, agreement_json, findings_save, activated_at, created_at, updated_at)
+      VALUES ($1, ${values}, $2, $2, $2)`, [key, at.toISOString()]);
+    const refused = await store.append({ ...appendInput(`refused-${label}`, hex(`dossier:${label}`), hex(`thread:${label}`), null),
+      accountKey: key });
+    assert(refused.outcome === "account_refused", `DOSSIER_ACCOUNT_NOT_REFUSED_${label}`);
+  }
+  const unknown = await store.append({ ...appendInput("unknown", hex("dossier:unknown"), hex("thread:unknown"), null),
+    accountKey: hex("account:unknown") });
+  assert(unknown.outcome === "account_refused", "DOSSIER_UNKNOWN_ACCOUNT_NOT_REFUSED");
+  await expectPermissionDenied(() => restricted.query(`INSERT INTO ${SCHEMA}.research_dossier_events
+    (version_id, event, happened_at) VALUES ($1, 'accepted', now())`, [first.outcome === "inserted" ? first.versionId : null]));
+  checks.push("dossier_append_refuses_paid_stale_notice_saving_off_and_unknown_accounts");
+
+  // Versions change only by erasure; events never change.
+  await expectMessage(() => admin.query(`UPDATE ${SCHEMA}.research_dossier_versions SET card_number = 1
+    WHERE version_id = $1`, [stale.outcome === "inserted" ? stale.versionId : null]), "RESEARCH_DOSSIER_VERSION_IMMUTABLE");
+  await expectMessage(() => admin.query(`DELETE FROM ${SCHEMA}.research_dossier_versions WHERE version_id = $1`,
+    [stale.outcome === "inserted" ? stale.versionId : null]), "RESEARCH_DOSSIER_VERSION_IMMUTABLE");
+  await expectMessage(() => admin.query(`UPDATE ${SCHEMA}.research_dossier_events SET reason = 'changed'`), "APPEND_ONLY_TABLE");
+  checks.push("dossier_versions_change_only_by_erasure_and_events_never");
+
+  // Revocation withdraws every pending version by trigger; after a reactivation, a new version is pending again.
+  const events = async (event: string) => Number((await admin.query<{ count: string }>(
+    `SELECT count(*) FROM ${SCHEMA}.research_dossier_events e
+       JOIN ${SCHEMA}.research_dossier_versions v ON v.version_id = e.version_id
+       JOIN ${SCHEMA}.research_dossiers d ON d.dossier_number = v.dossier_number
+      WHERE d.account_key = $1 AND e.event = $2`, [accountKey, event])).rows[0]!.count);
+  assert(await events("submitted") === 5 && await events("withdrawn") === 0, "DOSSIER_EVENTS_BEFORE_REVOCATION");
+  await service.revoke(subject);
+  assert(await events("withdrawn") === 5, "DOSSIER_REVOCATION_DID_NOT_WITHDRAW");
+  const whileRevoked = await store.append(appendInput("revoked", hex("dossier:three"), hex("thread:three"), null));
+  assert(whileRevoked.outcome === "account_refused", "DOSSIER_REVOKED_ACCOUNT_NOT_REFUSED");
+  await service.acceptFreeContributor(subject, FREE_AGREEMENT);
+  assert(await events("withdrawn") === 5, "DOSSIER_REACTIVATION_WITHDREW");
+  const afterReactivation = await store.append(appendInput("reactivated", hex("dossier:three"), hex("thread:three"), null));
+  assert(afterReactivation.outcome === "inserted", "DOSSIER_REACTIVATED_ACCOUNT_REFUSED");
+  await service.revoke(subject);
+  assert(await events("withdrawn") === 6, "DOSSIER_SECOND_REVOCATION_WRONG");
+  checks.push("dossier_revocation_withdraws_pending_versions_by_trigger_across_reactivation");
+
+  // forget_card's erasure, through the review role: the card's dossier and its whole thread, nothing else.
+  const eraser = new PostgresResearchDossierEraser({ connectionString: context.reviewUrl, schema: SCHEMA });
+  try {
+    assert(await eraser.eraseForCards({ cardNumbers: [4242], at }) === 3, "DOSSIER_ERASE_BY_CARD_WRONG");
+    const erased = await admin.query<{ erased: boolean; keys: boolean }>(`SELECT v.erased_at IS NOT NULL AS erased,
+        (v.payload_json IS NULL AND v.payload_sha256 IS NULL AND v.request_key IS NULL AND v.input_sha256 IS NULL
+          AND v.card_number IS NULL AND d.dossier_key IS NULL AND d.account_key IS NULL AND d.thread_key IS NULL) AS keys
+       FROM ${SCHEMA}.research_dossier_versions v JOIN ${SCHEMA}.research_dossiers d ON d.dossier_number = v.dossier_number
+      WHERE v.version_id = ANY($1::uuid[])`, [[first, second, stale].map((result) =>
+      result.outcome === "inserted" ? result.versionId : null)]);
+    assert(erased.rowCount === 3 && erased.rows.every(({ erased: gone, keys }) => gone && keys), "DOSSIER_NOT_ERASED");
+    const identifiers = await admin.query(`SELECT 1 FROM ${SCHEMA}.research_dossier_identifiers i
+      JOIN ${SCHEMA}.research_dossier_versions v ON v.version_id = i.version_id WHERE v.erased_at IS NOT NULL`);
+    assert(identifiers.rowCount === 0, "DOSSIER_IDENTIFIERS_LEFT");
+    assert(Number((await admin.query<{ count: string }>(`SELECT count(*) FROM ${SCHEMA}.research_dossier_versions
+      WHERE erased_at IS NULL`)).rows[0]!.count) === 3, "DOSSIER_OTHER_THREADS_ERASED");
+    assert(await eraser.eraseForCards({ threadKey: threadTwo, cardNumbers: [], at }) === 2, "DOSSIER_ERASE_BY_THREAD_WRONG");
+    assert(await eraser.eraseForCards({ threadKey: threadTwo, cardNumbers: [], at }) === 0, "DOSSIER_ERASE_NOT_IDEMPOTENT");
+  } finally {
+    await eraser.close();
+  }
+  checks.push("dossier_erasure_by_card_and_thread_through_the_review_role_leaves_no_content_or_link");
+}
+
 const FREE_AGREEMENT = {
   noticeVersion: RESEARCH_USE_NOTICE_VERSION,
   eligibleDeidentifiedResearchContributionRequired: true,
@@ -1924,6 +2147,11 @@ const HELD_REVIEW_FUNCTIONS = [
   "hold_youtube_findings", "inspect_cardless_held_youtube_findings", "inspect_held_youtube_findings",
 ] as const;
 const HELD_ACCESS_FUNCTIONS = ["hold_youtube_findings"] as const;
+// Migration 0037 (AskRigor#477 stage 1): the access role's three dossier functions and the review role's erasure.
+const DOSSIER_ACCESS_FUNCTIONS = [
+  "append_research_dossier_version", "latest_research_dossier_version", "read_research_dossier_version",
+] as const;
+const DOSSIER_REVIEW_FUNCTIONS = ["erase_research_dossiers"] as const;
 const MIGRATIONS_BEFORE_ATLAS = [
   "0001_living_evidence", "0002_research_frontier", "0003_community_forum_synthetic_lab",
   "0004_community_forum_composer_frontier_queues", "0005_community_forum_hostile_lifecycle_research",
@@ -3886,7 +4114,8 @@ export async function verifyAtlasParticipation(context: {
     // With the pending-withdrawal function and migration 0019's hold (owner answer 173).
     assert(
       accessFunctions.join() === [...ATLAS_PARTICIPATION_FUNCTIONS, ...HELD_ACCESS_FUNCTIONS,
-        ...ATLAS_REPORT_ACCESS_FUNCTIONS, "withdraw_pending_research_contribution_proposals"].sort().join(),
+        ...ATLAS_REPORT_ACCESS_FUNCTIONS, "withdraw_pending_research_contribution_proposals",
+        ...DOSSIER_ACCESS_FUNCTIONS].sort().join(),
       `ATLAS_ACCESS_ROLE_FUNCTIONS_MISMATCH ${accessFunctions.join()}`,
     );
     const migration0022Functions: readonly string[] = [...ATLAS_PARTICIPATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
@@ -4638,7 +4867,7 @@ export async function verifyAtlasStorage(context: {
         [...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
           ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS,
           ...ATLAS_CHALLENGE_FUNCTIONS,
-          ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS].sort().join(),
+          ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS, ...DOSSIER_REVIEW_FUNCTIONS].sort().join(),
       `ATLAS_REVIEW_ROLE_FUNCTIONS_MISMATCH ${executable.rows.map(({ proname }) => proname).join()}`,
     );
     const now = tick();
