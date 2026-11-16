@@ -434,6 +434,21 @@ then serve the image, and only then set `ASKRIGOR_RESEARCH_DOSSIERS=enabled` in 
 `research-mcp`. Without the setting nothing is asked for or saved. Turning it off again stops new saves and keeps what
 was saved.
 
+Optional, off by default, the owner's decision (Codex's final check): `ASKRIGOR_DOSSIER_PRIVACY_READING=on` in
+`runtime.env` has every dossier read for personal details before it is stored
+(`apps/research-mcp/src/findings/dossier-privacy-reading.ts`), on the research planner's own Claude API path: its key
+file (`ASKRIGOR_RESEARCH_PLANNER_KEY_FILE`), its day's cap (`ASKRIGOR_RESEARCH_PLANNER_DAILY_CAP_USD`, within the
+owner's ceiling with the meaning judge's) and its state file, so it needs `ASKRIGOR_RESEARCH_PLANNER=on`; with the
+reading on and the planner off, no dossier is saved. One call per dossier to `claude-haiku-5-5`, the smallest model the
+planner prices: at most 64,000 characters of the dossier's text fields (never its identifiers, the chat or the
+answer; a typical dossier has about 7,500, and only one near every limit of the schema is longer), 1,024 reply tokens
+and 8 seconds, no retry. A refusal, a reply that is no reading, a text too long, a timeout, an error or the day's cap
+leave the dossier unsaved, with the reason in `research_dossier`. Expected cost per dossier at the list price the
+planner counts (USD 0.10 per million input tokens and 0.50 per million output tokens): about USD 0.0004 for a typical
+dossier (some 2,200 tokens in with the rubric, up to 300 out), about USD 0.002 for the longest that fits (some 16,000
+tokens in, 1,024 out), never more than about USD 0.007. It sends the dossier's text to Anthropic's API, so the privacy
+page should say so before it is turned on.
+
 Image rollback hazards (Codex's review of 16 November 2026, finding 7): an earlier image never reads the five
 tables, so its pages, review and research are unaffected, and its `finalize_research` drops a
 `later_inputs.research_dossier` with a note and checks the answer as before. Two things need care.

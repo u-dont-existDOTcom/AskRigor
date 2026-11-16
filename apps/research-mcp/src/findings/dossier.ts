@@ -15,6 +15,7 @@ import { discoveryQueryDigest, verifyResearchReceipt } from "../research-receipt
 import { FINDING_CERTAINTIES, heldFindingsFromReceipt, holdsYouTubeReference } from "./card.js";
 import type { ResearchDossierDisposition } from "./dossier-disposition.js";
 import { dossierPrivacyRule } from "./dossier-privacy.js";
+import type { DossierPrivacyReader, DossierPrivacyReading, DossierText } from "./dossier-privacy-reading.js";
 import { findingsQuestionKey, findingsThreadKey } from "./service.js";
 
 /**
@@ -556,12 +557,18 @@ const NOT_TEXT_KEYS: ReadonlySet<string> = new Set([
 ]);
 const SLUG_KEYS: ReadonlySet<string> = new Set(["id", "study", "rests_on", "adds", "search", "key"]);
 
-function dossierTexts(value: unknown, path = "", slug = false): Array<[string, string]> {
+function dossierTexts(value: unknown, path = "", slug = false, idsToo = true): Array<[string, string]> {
   if (typeof value === "string") return [[path, slug ? value.replace(/[-_.]+/gu, " ") : value]];
-  if (Array.isArray(value)) return value.flatMap((item, index) => dossierTexts(item, `${path}[${index}]`, slug));
+  if (Array.isArray(value)) return value.flatMap((item, index) => dossierTexts(item, `${path}[${index}]`, slug, idsToo));
   if (value === null || typeof value !== "object") return [];
   return Object.entries(value).flatMap(([key, item]) =>
-    NOT_TEXT_KEYS.has(key) ? [] : dossierTexts(item, path === "" ? key : `${path}.${key}`, SLUG_KEYS.has(key)));
+    NOT_TEXT_KEYS.has(key) || (!idsToo && SLUG_KEYS.has(key) && key !== "key") ? []
+      : dossierTexts(item, path === "" ? key : `${path}.${key}`, SLUG_KEYS.has(key), idsToo));
+}
+
+/** The dossier's text fields as the privacy reading reads them: the screen's, its ids and references left out. */
+export function dossierReadingTexts(input: ResearchDossierInput): DossierText[] {
+  return dossierTexts(input, "", false, false).map(([path, text]) => ({ path, text }));
 }
 
 /** The dossier as stored: the checked input, what the server read of each study and search, and its stamp. */
@@ -679,6 +686,11 @@ export interface ResearchDossierSaveRequest {
   commentsRead: boolean;
   /** How many findings the call's card has, when one came: the finalization receipt's held places refer to them. */
   cardFindings?: number;
+  /**
+   * AskRigor#477 stage 1, off by default: the meaning-based privacy reading (ASKRIGOR_DOSSIER_PRIVACY_READING=on),
+   * made after the dossier's own checks pass and before anything is written; only a pass lets it be saved.
+   */
+  privacyReading?: DossierPrivacyReader;
   secret: string | undefined;
   versions: { askrigor: string; build: string; hrp?: string; universal?: string };
   now?: () => Date;
@@ -831,6 +843,34 @@ export async function saveResearchDossier(
   const dossierKey = researchDossierKey(request.secret, account.accountKey, target, checked.input.question);
   const identifiers = [...new Map([...checked.studies.values()].flatMap(({ identifiers: own }) => own)
     .map((identifier) => [identifierKey(identifier), identifier])).values()];
+  // With the privacy reading on, nothing is saved unread: a refusal is final for the research, as the screen's is, and a
+  // reading that could not be made keeps the dossier unsaved with its reason (Codex's final check).
+  if (request.privacyReading !== undefined) {
+    let reading: DossierPrivacyReading;
+    try {
+      reading = await request.privacyReading(dossierReadingTexts(checked.input));
+    } catch {
+      reading = { status: "unavailable", reason: "error" };
+    }
+    if (reading.status === "refuse") {
+      return {
+        disposition: { status: "insufficient", reason: "privacy_reading",
+          problems: [{ path: reading.path ?? "research_dossier", rule: `privacy_reading_${reading.reason}` }] },
+        note: `Research dossier not saved, nothing of it was stored: AskRigor's privacy reading found ${
+          reading.reason.replaceAll("_", " ")}${reading.path === undefined ? "" : ` in ${reading.path}`}. A privacy refusal ` +
+          "is final for this research: leave the dossier unsaved, and do not rewrite it to get past the reading.",
+      };
+    }
+    if (reading.status === "unavailable") {
+      return {
+        disposition: { status: "unavailable", reason: `privacy_reading_${reading.reason}` },
+        note: "Research dossier not saved, nothing of it was stored: AskRigor reads every dossier for personal details " +
+          `before it is stored, and that reading could not be made (${reading.reason.replaceAll("_", " ")}). Do not ` +
+          "make another check solely for it.",
+      };
+    }
+  }
+
   // Nothing is written before the append: a store that fails here leaves nothing behind. From the append on, a failure
   // may come after the write landed, so the save is unconfirmed, never unavailable (Codex's review, finding 10).
   let latest: Awaited<ReturnType<ResearchDossierStore["latestVersion"]>>;

@@ -384,6 +384,17 @@ export function researchDossiersEnabledFromEnv(
 }
 
 /**
+ * AskRigor#477 stage 1, off by default (the owner's decision): ASKRIGOR_DOSSIER_PRIVACY_READING set to "on" has every
+ * research dossier read for personal details by the research planner's Claude API path before it is stored
+ * (findings/dossier-privacy-reading.ts); with it on, a dossier that is not read, or not passed, is not saved.
+ */
+export function dossierPrivacyReadingFromEnv(
+  value = process.env.ASKRIGOR_DOSSIER_PRIVACY_READING
+): boolean {
+  return value?.trim() === "on";
+}
+
+/**
  * Whether the owner's findings actions for the Atlas are open on review_research_contribution (Atlas phase 2 design,
  * section 3): ASKRIGOR_ATLAS_REVIEW set to "enabled". It stays closed until the release has applied migration 0017,
  * granted the review role its functions, bound the promotion timer to the deployed image and checked the catalog;

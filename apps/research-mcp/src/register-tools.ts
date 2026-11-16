@@ -117,6 +117,7 @@ import {
   atlasReviewEnabledFromEnv,
   crossrefConfigFromEnv,
   devAccountKeysFromEnv,
+  dossierPrivacyReadingFromEnv,
   findingsLibraryEnabledFromEnv,
   ncbiConfigFromEnv,
   optionalLivingEvidenceReuseConfigFromEnv,
@@ -311,6 +312,10 @@ import {
   type FinalizeResearchOptions,
   type FinalizeResearchOutput
 } from "./research-finalization-gate.js";
+import {
+  DOSSIER_PRIVACY_READING_LIMITS,
+  type DossierPrivacyReader,
+} from "./findings/dossier-privacy-reading.js";
 import {
   researchDossierAllowed,
   researchDossierFromCall,
@@ -968,6 +973,12 @@ export interface RegisterToolsOptions {
    * none is asked for or saved. Set by the server when ASKRIGOR_RESEARCH_DOSSIERS=enabled.
    */
   researchDossiers?: ResearchDossierStore;
+  /**
+   * AskRigor#477 stage 1, off by default: every dossier read for personal details before it is stored, on the research
+   * planner's Claude API path; defaults to ASKRIGOR_DOSSIER_PRIVACY_READING=on. With it on and the planner off, no
+   * dossier is saved.
+   */
+  dossierPrivacyReading?: boolean;
   /** Whether the findings library is open; defaults to ASKRIGOR_FINDINGS_LIBRARY. */
   findingsLibrary?: boolean;
   /** Shared questions and answers (owner answer 200a); null turns them off; defaults to the server's settings. */
@@ -2868,6 +2879,12 @@ function defineResearchOperations(
       // are not offered one yet (owner answer 330a).
       if (options.researchDossiers !== undefined && checkedInput !== undefined) {
         const dossierStore = options.researchDossiers;
+        // Codex's final check, off by default: the meaning-based privacy reading, on the planner's own API path. With it
+        // on, a planner that is off reads nothing, and nothing is saved.
+        const reading = options.dossierPrivacyReading ?? dossierPrivacyReadingFromEnv();
+        const privacyReading: DossierPrivacyReader | undefined = !reading ? undefined
+          : async (texts) => await configuredPlanner(options).readDossierPrivacy?.(texts) ??
+            { status: "unavailable", reason: "off" };
         const outcome = await withinDeadline(saveResearchDossier(dossierStore, {
           dossier: researchDossierFromCall(input),
           account: researcher,
@@ -2882,6 +2899,7 @@ function defineResearchOperations(
           // the card's findings are what its receipt's held places refer to.
           commentsRead,
           ...(checkedInput.findings_card === undefined ? {} : { cardFindings: checkedInput.findings_card.findings.length }),
+          ...(privacyReading === undefined ? {} : { privacyReading }),
           secret,
           versions: {
             askrigor: SERVICE_VERSION,
@@ -2891,7 +2909,8 @@ function defineResearchOperations(
             }),
           },
         }).catch((): ResearchDossierSaveOutcome => ({ disposition: { status: "unavailable", reason: "store_unavailable" } })),
-        options.findingsSaveDeadlineMilliseconds ?? FINDINGS_SAVE_DEADLINE_MILLISECONDS,
+        (options.findingsSaveDeadlineMilliseconds ?? FINDINGS_SAVE_DEADLINE_MILLISECONDS) +
+          (privacyReading === undefined ? 0 : DOSSIER_PRIVACY_READING_LIMITS.timeoutMs),
         { disposition: { status: "unconfirmed", reason: "not_confirmed_in_time" } } as ResearchDossierSaveOutcome);
         if (outcome !== undefined) {
           if (outcome.disposition !== undefined) result.research_dossier = outcome.disposition;
