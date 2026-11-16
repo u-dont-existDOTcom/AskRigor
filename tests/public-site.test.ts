@@ -45,8 +45,8 @@ describe("AskRigor public site", () => {
 
   it("counts only same-origin anchor navigation links", async () => {
     const result = await validatePublicSite(rootFile("site/"));
-    // 104 since 9 Nov 2026: the What's new link to the privacy notice's call record.
-    expect(result.internalLinks).toBe(104);
+    // 105 since 16 Nov 2026: the new inositol Atlas overview link in the roadmap adds one to the previous 104.
+    expect(result.internalLinks).toBe(105);
   });
 
   it("discloses connected research and the bounded legacy checkpoint", async () => {
