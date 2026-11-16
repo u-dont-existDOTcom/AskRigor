@@ -63,16 +63,17 @@ export interface ResearchDossierStore {
 }
 
 export interface ResearchDossierEraseInput {
-  /** The research thread forget_card found, when it found one. */
-  threadKey?: string;
-  /** The cards forget_card forgets: a dossier saved with one of them goes, with every dossier of its thread. */
-  cardNumbers: readonly number[];
+  /**
+   * The research thread forget_card forgets: exactly the person who asked. Never a card number, which another person's
+   * save of the same findings shares (Codex's review of 16 Nov 2026, finding 1).
+   */
+  threadKey: string;
   at: Date;
 }
 
 export interface ResearchDossierEraser {
-  /** Erases the dossiers of the thread and of the cards' threads; returns how many versions it erased. */
-  eraseForCards(input: ResearchDossierEraseInput): Promise<number>;
+  /** Erases the thread's dossiers; returns how many versions it erased. */
+  eraseThread(input: ResearchDossierEraseInput): Promise<number>;
 }
 
 const HEX_64 = /^[a-f0-9]{64}$/u;
@@ -95,9 +96,7 @@ function assertAppendInput(input: ResearchDossierAppendInput): void {
 }
 
 function assertEraseInput(input: ResearchDossierEraseInput): void {
-  if ((input.threadKey !== undefined && !HEX_64.test(input.threadKey)) || input.cardNumbers.length > 1_000 ||
-    input.cardNumbers.some((number) => !Number.isSafeInteger(number) || number <= 0) ||
-    (input.threadKey === undefined && input.cardNumbers.length === 0) || Number.isNaN(input.at.getTime())) {
+  if (!HEX_64.test(input.threadKey) || Number.isNaN(input.at.getTime())) {
     throw new Error("RESEARCH_DOSSIER_ERASE_INPUT_INVALID");
   }
 }
@@ -189,11 +188,11 @@ export class PostgresResearchDossierEraser implements ResearchDossierEraser {
     });
   }
 
-  async eraseForCards(input: ResearchDossierEraseInput): Promise<number> {
+  async eraseThread(input: ResearchDossierEraseInput): Promise<number> {
     assertEraseInput(input);
     const result = await this.pool.query<{ erased: number }>(
-      `SELECT ${this.options.schema}.erase_research_dossiers($1, $2::integer[], $3::timestamptz) AS erased`,
-      [input.threadKey ?? null, [...input.cardNumbers], input.at.toISOString()],
+      `SELECT ${this.options.schema}.erase_research_dossiers($1, $2::timestamptz) AS erased`,
+      [input.threadKey, input.at.toISOString()],
     );
     return result.rows[0]?.erased ?? 0;
   }
@@ -208,7 +207,6 @@ interface MemoryVersion {
   dossierNumber: string;
   versionNumber: number;
   previousVersionId: string | null;
-  requestKey: string | null;
   inputSha256: string | null;
   payload: Record<string, unknown> | null;
   payloadSha256: string | null;
@@ -229,13 +227,16 @@ interface MemoryDossier {
 }
 
 /**
- * The same rules in memory, for tests: the account check (eligible), one writer per dossier at a time, the request
- * key's replay, content equal to the newest version, erasure, and revocation's withdrawal (revoke, which the database
- * does with its trigger).
+ * The same rules in memory, for tests: the account check (eligible), one writer per dossier at a time, each request
+ * key's replay of the version it got, content equal to the newest version while that version is not withdrawn,
+ * rejected or erased, erasure by research thread, and revocation's withdrawal (revoke, which the database does with
+ * its trigger).
  */
 export class InMemoryResearchDossierStore implements ResearchDossierStore, ResearchDossierEraser {
   private readonly dossiers = new Map<string, MemoryDossier>();
   private readonly versions = new Map<string, MemoryVersion>();
+  /** Each request key and the version it got (the database's research_dossier_requests). */
+  private readonly requests = new Map<string, string>();
   private readonly queues = new Map<string, Promise<unknown>>();
   private nextNumber = 1;
 
@@ -273,22 +274,17 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
     };
   }
 
-  async eraseForCards(input: ResearchDossierEraseInput): Promise<number> {
+  async eraseThread(input: ResearchDossierEraseInput): Promise<number> {
     assertEraseInput(input);
-    const threads = new Set<string>(input.threadKey === undefined ? [] : [input.threadKey]);
-    for (const version of this.versions.values()) {
-      if (version.cardNumber === null || !input.cardNumbers.includes(version.cardNumber)) continue;
-      const thread = this.dossiers.get(version.dossierNumber)!.threadKey;
-      if (thread !== null) threads.add(thread);
-    }
     let erased = 0;
     for (const dossier of this.dossiers.values()) {
-      if (dossier.threadKey === null || !threads.has(dossier.threadKey) || dossier.erasedAt !== null) continue;
+      if (dossier.threadKey !== input.threadKey || dossier.erasedAt !== null) continue;
       for (const version of this.versions.values()) {
         if (version.dossierNumber !== dossier.dossierNumber || version.erasedAt !== null) continue;
         version.events.push({ event: "erased", reason: "deletion_requested", at: input.at });
-        Object.assign(version, { payload: null, payloadSha256: null, requestKey: null, inputSha256: null,
+        Object.assign(version, { payload: null, payloadSha256: null, inputSha256: null,
           cardNumber: null, identifiers: [], erasedAt: input.at });
+        for (const [request, versionId] of this.requests) if (versionId === version.versionId) this.requests.delete(request);
         erased += 1;
       }
       Object.assign(dossier, { dossierKey: null, accountKey: null, threadKey: null, erasedAt: input.at });
@@ -352,15 +348,19 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
     if (dossier.accountKey !== input.accountKey || dossier.threadKey !== input.threadKey) {
       throw new Error("RESEARCH_DOSSIER_IDENTITY_MISMATCH");
     }
-    const existing = [...this.versions.values()].find((version) => version.requestKey === input.requestKey);
+    const requested = this.requests.get(input.requestKey);
+    const existing = requested === undefined ? undefined : this.versions.get(requested);
     if (existing !== undefined) {
-      if (existing.dossierNumber !== dossier.dossierNumber || existing.inputSha256 !== input.inputSha256) {
+      if (existing.dossierNumber !== dossier.dossierNumber ||
+        (existing.inputSha256 !== null && existing.inputSha256 !== input.inputSha256)) {
         throw new Error("RESEARCH_DOSSIER_REQUEST_KEY_MISMATCH");
       }
       return { outcome: "replayed", ...this.resultOf(existing) };
     }
     const latest = this.latestOf(dossier.dossierNumber);
-    if (latest !== undefined && latest.inputSha256 === input.inputSha256) {
+    if (latest !== undefined && latest.inputSha256 === input.inputSha256 &&
+      !latest.events.some(({ event }) => event === "withdrawn" || event === "rejected" || event === "erased")) {
+      this.requests.set(input.requestKey, latest.versionId);
       return { outcome: "same_as_latest", ...this.resultOf(latest) };
     }
     const version: MemoryVersion = {
@@ -368,7 +368,6 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
       dossierNumber: dossier.dossierNumber,
       versionNumber: (latest?.versionNumber ?? 0) + 1,
       previousVersionId: latest?.versionId ?? null,
-      requestKey: input.requestKey,
       inputSha256: input.inputSha256,
       payload: structuredClone(input.payload),
       payloadSha256: input.payloadSha256,
@@ -381,6 +380,7 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
     };
     if (this.versions.has(version.versionId)) throw new Error("RESEARCH_DOSSIER_VERSION_EXISTS");
     this.versions.set(version.versionId, version);
+    this.requests.set(input.requestKey, version.versionId);
     return { outcome: "inserted", ...this.resultOf(version) };
   }
 

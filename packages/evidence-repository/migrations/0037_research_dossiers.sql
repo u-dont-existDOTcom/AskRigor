@@ -32,7 +32,6 @@ CREATE TABLE IF NOT EXISTS research_dossier_versions (
   dossier_number text NOT NULL REFERENCES research_dossiers(dossier_number),
   version_number integer NOT NULL CHECK (version_number >= 1),
   previous_version_id uuid UNIQUE REFERENCES research_dossier_versions(version_id),
-  request_key char(64) UNIQUE CHECK (request_key ~ '^[a-f0-9]{64}$'),
   input_sha256 char(64) CHECK (input_sha256 ~ '^[a-f0-9]{64}$'),
   payload_json jsonb CHECK (payload_json IS NULL OR jsonb_typeof(payload_json) = 'object'),
   payload_sha256 char(64) CHECK (payload_sha256 ~ '^[a-f0-9]{64}$'),
@@ -43,7 +42,7 @@ CREATE TABLE IF NOT EXISTS research_dossier_versions (
   UNIQUE (dossier_number, version_number),
   CHECK ((version_number = 1) = (previous_version_id IS NULL)),
   CHECK ((erased_at IS NULL) = (payload_json IS NOT NULL)),
-  CHECK ((erased_at IS NULL) = (request_key IS NOT NULL AND input_sha256 IS NOT NULL AND payload_sha256 IS NOT NULL)),
+  CHECK ((erased_at IS NULL) = (input_sha256 IS NOT NULL AND payload_sha256 IS NOT NULL)),
   CHECK (erased_at IS NULL OR card_number IS NULL)
 );
 
@@ -64,6 +63,18 @@ CREATE TABLE IF NOT EXISTS research_dossier_identifiers (
 CREATE INDEX IF NOT EXISTS research_dossier_identifiers_value_idx
   ON research_dossier_identifiers (scheme, value);
 
+-- Every save request and the version it got, the one that wrote it and each that found identical content, so a
+-- retry returns its own version whatever was saved since (Codex's review, finding 5).
+CREATE TABLE IF NOT EXISTS research_dossier_requests (
+  request_key char(64) PRIMARY KEY CHECK (request_key ~ '^[a-f0-9]{64}$'),
+  version_id uuid NOT NULL REFERENCES research_dossier_versions(version_id),
+  input_sha256 char(64) NOT NULL CHECK (input_sha256 ~ '^[a-f0-9]{64}$'),
+  recorded_at timestamptz NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS research_dossier_requests_version_idx
+  ON research_dossier_requests (version_id);
+
 CREATE TABLE IF NOT EXISTS research_dossier_events (
   event_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   version_id uuid NOT NULL REFERENCES research_dossier_versions(version_id),
@@ -80,11 +91,11 @@ COMMENT ON TABLE research_dossiers IS
 COMMENT ON COLUMN research_dossiers.dossier_key IS
   'HMAC of the account key, the research target''s digest and the question''s key, made by the server; NULL once erased.';
 COMMENT ON COLUMN research_dossiers.thread_key IS
-  'The findings card''s research-thread key, so forget_card finds the dossier; NULL once erased.';
+  'The findings card''s research-thread key: forget_card erases exactly the dossiers of the thread it forgets, never by a card number, which several people''s saves can share; NULL once erased.';
 COMMENT ON TABLE research_dossier_versions IS
-  'One version per research run that saved the dossier. Only erasure changes a row: it clears the payload, its digests, the request key and the card number.';
-COMMENT ON COLUMN research_dossier_versions.request_key IS
-  'Digest of the dossier key, the checked answer''s digest and the dossier''s own digest: a retry returns its original version.';
+  'One version per research run that saved the dossier. Only erasure changes a row: it clears the payload, its digests and the card number, and deletes the version''s requests and identifiers.';
+COMMENT ON TABLE research_dossier_requests IS
+  'Each save request (a digest of the dossier key, the checked answer''s digest and the dossier''s own digest) and the version it got: a retry returns that version. Deleted with the version''s erasure.';
 COMMENT ON COLUMN research_dossier_versions.written_alongside IS
   'True when another version landed between the start of this research''s final check and its save.';
 COMMENT ON TABLE research_dossier_identifiers IS
@@ -102,7 +113,7 @@ BEGIN
     RAISE EXCEPTION 'RESEARCH_DOSSIER_VERSION_IMMUTABLE' USING ERRCODE = '55000';
   END IF;
   IF OLD.erased_at IS NULL AND NEW.erased_at IS NOT NULL
-     AND NEW.payload_json IS NULL AND NEW.payload_sha256 IS NULL AND NEW.request_key IS NULL
+     AND NEW.payload_json IS NULL AND NEW.payload_sha256 IS NULL
      AND NEW.input_sha256 IS NULL AND NEW.card_number IS NULL
      AND NEW.version_id = OLD.version_id AND NEW.dossier_number = OLD.dossier_number
      AND NEW.version_number = OLD.version_number
@@ -127,8 +138,10 @@ CREATE TRIGGER append_only_guard
   FOR EACH ROW EXECUTE FUNCTION reject_living_evidence_mutation();
 
 -- Appends one version for an active free contributor whose yes covers notice v6, with card saving on, checked in this
--- transaction. The dossier row is locked, so writers of one dossier queue. A request key already stored returns its
--- own version, and content equal to the newest version returns that version; neither writes anything.
+-- transaction under a lock that a revocation, a change of mode or the saving switch must wait for, and that waits for
+-- them (Codex's review, finding 4). The dossier row is locked too, so writers of one dossier queue. A request key already
+-- stored returns its own version; content equal to the newest version, while that version is neither withdrawn,
+-- rejected nor erased, returns that version and records the request; neither writes a version.
 CREATE OR REPLACE FUNCTION append_research_dossier_version(
   target_account_key text,
   target_dossier_key text,
@@ -162,6 +175,7 @@ DECLARE
   existing research_dossier_versions%ROWTYPE;
   latest research_dossier_versions%ROWTYPE;
   has_latest boolean;
+  next_dossier bigint;
   next_number integer;
   alongside boolean;
 BEGIN
@@ -183,7 +197,7 @@ BEGIN
     INTO account_row
     FROM research_use_accounts account
    WHERE account.account_key = target_account_key
-   FOR KEY SHARE;
+   FOR NO KEY UPDATE;
   IF NOT FOUND OR account_row.status <> 'ACTIVE' OR account_row.mode IS DISTINCT FROM 'FREE_CONTRIBUTOR'
      OR account_row.notice_version IS DISTINCT FROM 'free-contributor-v6-2026-11-15'
      OR account_row.findings_save IS NOT TRUE THEN
@@ -193,8 +207,10 @@ BEGIN
 
   SELECT * INTO dossier_row FROM research_dossiers stored WHERE stored.dossier_key = target_dossier_key FOR UPDATE;
   IF NOT FOUND THEN
+    -- Four digits at least, and every digit past them (Codex's review, finding 8: lpad cuts a longer number).
+    next_dossier := nextval('research_dossier_number_seq');
     INSERT INTO research_dossiers (dossier_number, dossier_key, account_key, thread_key, created_at)
-    VALUES ('ARD-' || lpad(nextval('research_dossier_number_seq')::text, 4, '0'), target_dossier_key,
+    VALUES ('ARD-' || lpad(next_dossier::text, greatest(4, length(next_dossier::text)), '0'), target_dossier_key,
       target_account_key, target_thread_key, change_time)
     ON CONFLICT (dossier_key) DO NOTHING;
     SELECT * INTO dossier_row FROM research_dossiers stored WHERE stored.dossier_key = target_dossier_key FOR UPDATE;
@@ -204,9 +220,13 @@ BEGIN
     RAISE EXCEPTION 'RESEARCH_DOSSIER_IDENTITY_MISMATCH';
   END IF;
 
-  SELECT * INTO existing FROM research_dossier_versions stored WHERE stored.request_key = target_request_key;
+  SELECT stored.* INTO existing
+    FROM research_dossier_requests request
+    JOIN research_dossier_versions stored ON stored.version_id = request.version_id
+   WHERE request.request_key = target_request_key;
   IF FOUND THEN
-    IF existing.dossier_number <> dossier_row.dossier_number OR existing.input_sha256 <> target_input_sha256 THEN
+    IF existing.dossier_number <> dossier_row.dossier_number
+       OR (existing.input_sha256 IS NOT NULL AND existing.input_sha256 <> target_input_sha256) THEN
       RAISE EXCEPTION 'RESEARCH_DOSSIER_REQUEST_KEY_MISMATCH';
     END IF;
     RETURN QUERY SELECT 'replayed'::text, existing.dossier_number, existing.version_number, existing.version_id,
@@ -219,7 +239,13 @@ BEGIN
    ORDER BY stored.version_number DESC
    LIMIT 1;
   has_latest := FOUND;
-  IF has_latest AND latest.input_sha256 = target_input_sha256 THEN
+  IF has_latest AND latest.input_sha256 = target_input_sha256
+     AND NOT EXISTS (
+       SELECT 1 FROM research_dossier_events event
+        WHERE event.version_id = latest.version_id AND event.event IN ('withdrawn', 'rejected', 'erased')
+     ) THEN
+    INSERT INTO research_dossier_requests (request_key, version_id, input_sha256, recorded_at)
+    VALUES (target_request_key, latest.version_id, target_input_sha256, change_time);
     RETURN QUERY SELECT 'same_as_latest'::text, latest.dossier_number, latest.version_number, latest.version_id,
       latest.payload_sha256::text, latest.written_alongside;
     RETURN;
@@ -227,11 +253,13 @@ BEGIN
   next_number := CASE WHEN has_latest THEN latest.version_number + 1 ELSE 1 END;
   alongside := has_latest AND expected_previous_version_id IS DISTINCT FROM latest.version_id;
 
-  INSERT INTO research_dossier_versions (version_id, dossier_number, version_number, previous_version_id, request_key,
+  INSERT INTO research_dossier_versions (version_id, dossier_number, version_number, previous_version_id,
     input_sha256, payload_json, payload_sha256, card_number, written_alongside, created_at)
   VALUES (target_version_id, dossier_row.dossier_number, next_number,
-    CASE WHEN has_latest THEN latest.version_id END, target_request_key, target_input_sha256, target_payload,
+    CASE WHEN has_latest THEN latest.version_id END, target_input_sha256, target_payload,
     target_payload_sha256, target_card_number, alongside, change_time);
+  INSERT INTO research_dossier_requests (request_key, version_id, input_sha256, recorded_at)
+  VALUES (target_request_key, target_version_id, target_input_sha256, change_time);
   INSERT INTO research_dossier_identifiers (version_id, scheme, value)
   SELECT target_version_id, item ->> 'scheme', item ->> 'value'
     FROM jsonb_array_elements(target_identifiers) AS item
@@ -282,58 +310,42 @@ $function$;
 
 REVOKE ALL ON FUNCTION read_research_dossier_version(text, uuid) FROM PUBLIC;
 
--- forget_card: erases every dossier of the research thread, and of any thread a version of which was saved with one of
--- the cards, leaving content-free rows and an 'erased' event. Returns how many versions it erased.
-CREATE OR REPLACE FUNCTION erase_research_dossiers(
-  target_thread_key text,
-  target_card_numbers integer[],
-  change_time timestamptz
-)
+-- forget_card: erases the dossiers of exactly the research thread it forgets, one person's, and nothing found by a card
+-- number, which another person's save of the same findings shares (Codex's review, finding 1). Clears every part
+-- that holds the research or ties it to the account, deletes the requests and identifiers, and leaves content-free rows
+-- and an 'erased' event. Returns how many versions it erased.
+CREATE OR REPLACE FUNCTION erase_research_dossiers(target_thread_key text, change_time timestamptz)
 RETURNS integer
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 DECLARE
-  thread_keys text[];
   target_number text;
   erased_versions integer := 0;
   changed integer;
 BEGIN
-  IF (target_thread_key IS NOT NULL AND target_thread_key !~ '^[a-f0-9]{64}$')
-     OR target_card_numbers IS NULL OR cardinality(target_card_numbers) > 1000
-     OR EXISTS (SELECT 1 FROM unnest(target_card_numbers) AS given(number) WHERE given.number IS NULL OR given.number <= 0)
-     OR (target_thread_key IS NULL AND cardinality(target_card_numbers) = 0)
-     OR change_time IS NULL THEN
+  IF target_thread_key IS NULL OR target_thread_key !~ '^[a-f0-9]{64}$' OR change_time IS NULL THEN
     RAISE EXCEPTION 'RESEARCH_DOSSIER_ERASE_INPUT_INVALID';
-  END IF;
-  SELECT array_agg(DISTINCT keys.thread_key) INTO thread_keys FROM (
-    SELECT target_thread_key AS thread_key WHERE target_thread_key IS NOT NULL
-    UNION
-    SELECT dossier.thread_key::text
-      FROM research_dossiers dossier
-      JOIN research_dossier_versions stored ON stored.dossier_number = dossier.dossier_number
-     WHERE stored.card_number = ANY(target_card_numbers) AND dossier.thread_key IS NOT NULL
-  ) keys;
-  IF thread_keys IS NULL THEN
-    RETURN 0;
   END IF;
   FOR target_number IN
     SELECT dossier.dossier_number FROM research_dossiers dossier
-     WHERE dossier.thread_key::text = ANY(thread_keys) AND dossier.erased_at IS NULL
+     WHERE dossier.thread_key = target_thread_key AND dossier.erased_at IS NULL
      ORDER BY dossier.dossier_number
      FOR UPDATE
   LOOP
     DELETE FROM research_dossier_identifiers identifier
      USING research_dossier_versions stored
      WHERE identifier.version_id = stored.version_id AND stored.dossier_number = target_number;
+    DELETE FROM research_dossier_requests request
+     USING research_dossier_versions stored
+     WHERE request.version_id = stored.version_id AND stored.dossier_number = target_number;
     INSERT INTO research_dossier_events (version_id, event, reason, happened_at)
     SELECT stored.version_id, 'erased', 'deletion_requested', change_time
       FROM research_dossier_versions stored
      WHERE stored.dossier_number = target_number AND stored.erased_at IS NULL;
     UPDATE research_dossier_versions stored
-       SET payload_json = NULL, payload_sha256 = NULL, request_key = NULL, input_sha256 = NULL, card_number = NULL,
-           erased_at = change_time
+       SET payload_json = NULL, payload_sha256 = NULL, input_sha256 = NULL, card_number = NULL, erased_at = change_time
      WHERE stored.dossier_number = target_number AND stored.erased_at IS NULL;
     GET DIAGNOSTICS changed = ROW_COUNT;
     erased_versions := erased_versions + changed;
@@ -345,7 +357,7 @@ BEGIN
 END
 $function$;
 
-REVOKE ALL ON FUNCTION erase_research_dossiers(text, integer[], timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION erase_research_dossiers(text, timestamptz) FROM PUBLIC;
 
 -- Revoking an account withdraws its dossier versions still waiting for review, as revocation withdraws its pending
 -- proposals. A trigger, so an earlier image's revocation, which knows nothing of dossiers, withdraws them too.
@@ -381,6 +393,7 @@ REVOKE ALL ON TABLE research_dossiers FROM PUBLIC;
 REVOKE ALL ON TABLE research_dossier_versions FROM PUBLIC;
 REVOKE ALL ON TABLE research_dossier_identifiers FROM PUBLIC;
 REVOKE ALL ON TABLE research_dossier_events FROM PUBLIC;
+REVOKE ALL ON TABLE research_dossier_requests FROM PUBLIC;
 REVOKE ALL ON SEQUENCE research_dossier_number_seq FROM PUBLIC;
 -- The canonical reader's default table grants must not expose a private dossier.
 DO $$
@@ -390,6 +403,7 @@ BEGIN
     REVOKE ALL ON TABLE research_dossier_versions FROM askrigor_reader;
     REVOKE ALL ON TABLE research_dossier_identifiers FROM askrigor_reader;
     REVOKE ALL ON TABLE research_dossier_events FROM askrigor_reader;
+    REVOKE ALL ON TABLE research_dossier_requests FROM askrigor_reader;
     REVOKE ALL ON SEQUENCE research_dossier_number_seq FROM askrigor_reader;
   END IF;
 END

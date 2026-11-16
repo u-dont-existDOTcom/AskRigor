@@ -102,8 +102,11 @@ export interface CardForgetDependencies {
   publications?: Pick<AtlasPublicationStore, "withdraw">;
   /** The held YouTube findings (owner answer 173), deleted with the cards. */
   held?: Pick<HeldYouTubeFindingsStore, "deleteForCards">;
-  /** The research dossiers (AskRigor#477 stage 1): every one of the thread, and of the cards' threads, is erased. */
-  dossiers?: Pick<ResearchDossierEraser, "eraseForCards">;
+  /**
+   * The research dossiers (AskRigor#477 stage 1): those of the research thread forgotten, the person who asked, are
+   * erased; never by a card number, which another person's save of the same findings shares (Codex's review, finding 1).
+   */
+  dossiers?: Pick<ResearchDossierEraser, "eraseThread">;
 }
 
 /** How many cards' comments are read at once while looking for the person's later saves. */
@@ -217,18 +220,11 @@ export async function forgetCard(
       heldDeleted += await deps.held.deleteForCards(ordered.slice(start, start + HELD_YOUTUBE_FINDINGS_CARDS_PER_CALL));
     }
   }
-  // AskRigor#477 stage 1: the research thread's dossiers, and those saved with these cards, erased with them.
+  // AskRigor#477 stage 1: the dossiers of the research thread forgotten, and only those. Without a known thread there
+  // is no way to tell whose a dossier is, so none is erased (the reply says the thread is unknown).
   let dossiersErased: number | undefined;
   if (deps.dossiers !== undefined) {
-    dossiersErased = 0;
-    for (let start = 0; start < ordered.length; start += ATLAS_FORGET_CARDS_PER_CALL) {
-      const batch = ordered.slice(start, start + ATLAS_FORGET_CARDS_PER_CALL);
-      dossiersErased += await deps.dossiers.eraseForCards({
-        ...(thread === undefined || start > 0 ? {} : { threadKey: thread }),
-        cardNumbers: batch,
-        at: now,
-      });
-    }
+    dossiersErased = thread === undefined ? 0 : await deps.dossiers.eraseThread({ threadKey: thread, at: now });
   }
   if (live.length === 0 && ordered.length === 1 && statuses.get(cardNumber) === 404 && decisions.length === 0 &&
     publications.length === 0 && refiled.length === 0 && (heldDeleted ?? 0) === 0 && (dossiersErased ?? 0) === 0) {

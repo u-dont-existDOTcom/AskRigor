@@ -436,19 +436,17 @@ describe("a research dossier's record and its checks", () => {
     await saveResearchDossier(store, request({ account: { ...request().account!, accountKey: otherAccount } }));
     expect(store.revoke(ACCOUNT, NOW)).toBe(2);
     expect(store.revoke(ACCOUNT, NOW)).toBe(0);
-    // forget_card names the thread and the cards: the card's own dossier goes, with its whole thread.
-    expect(await store.eraseForCards({ cardNumbers: [42], at: NOW })).toBe(3);
+    // forget_card names the forgotten save's research thread: that dossier goes, every version of it, and another
+    // account's dossier that recorded the same card number stays whole (Codex's review, finding 1).
+    const thread = findingsThreadKey(SECRET, ACCOUNT, TARGET_DIGEST);
+    expect(await store.eraseThread({ threadKey: thread, at: NOW })).toBe(2);
     expect(store.snapshot().map(({ dossierNumber, erased, events, identifiers }) => [dossierNumber, erased, events.at(-1), identifiers]))
-      .toEqual([["ARD-0001", true, "erased", 0], ["ARD-0001", true, "erased", 0], ["ARD-0002", true, "erased", 0]]);
-    // The other account's dossier shared card 42 in this test only through the request's cardId: the thread of each
-    // card-linked dossier is erased, so both accounts' threads went. A thread key alone erases only that thread.
-    const fresh = new InMemoryResearchDossierStore();
-    await saveResearchDossier(fresh, request({ cardId: undefined }));
-    await saveResearchDossier(fresh, request({ cardId: undefined, account: { ...request().account!, accountKey: otherAccount } }));
-    expect(await fresh.eraseForCards({ threadKey: findingsThreadKey(SECRET, ACCOUNT, TARGET_DIGEST), cardNumbers: [], at: NOW }))
-      .toBe(1);
-    expect(fresh.snapshot().map(({ erased }) => erased)).toEqual([true, false]);
-    expect((await fresh.readVersion(otherAccount, fresh.snapshot()[1]!.versionId))?.payload).not.toBeNull();
+      .toEqual([["ARD-0001", true, "erased", 0], ["ARD-0001", true, "erased", 0],
+        ["ARD-0002", false, "submitted", expect.any(Number)]]);
+    expect(store.snapshot().map(({ cardNumber }) => cardNumber)).toEqual([null, null, 42]);
+    expect((await store.readVersion(otherAccount, store.snapshot()[2]!.versionId))?.payload).not.toBeNull();
+    expect(await store.eraseThread({ threadKey: thread, at: NOW })).toBe(0);
+    await expect(store.eraseThread({ threadKey: "not a thread", at: NOW })).rejects.toThrow("RESEARCH_DOSSIER_ERASE_INPUT_INVALID");
   });
 
   it("reads the dossier from later_inputs or the top level, and keys it by account, target and question", () => {

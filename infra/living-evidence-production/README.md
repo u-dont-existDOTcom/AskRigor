@@ -417,32 +417,65 @@ migration.
 AskRigor#477 stage 1 (owner answer 329a, 16 November 2026; built, not yet released; design
 `/home/joel/askrigor-releases/20261116-477/design-v2.md`): migration `0037_research_dossiers` adds a free
 contributor's private research dossier: the tables `research_dossiers`, `research_dossier_versions`,
-`research_dossier_identifiers` and `research_dossier_events`, the sequence `research_dossier_number_seq` (ARD
-numbers), five SECURITY DEFINER functions and a trigger on `research_use_accounts` that withdraws an account's dossier
-versions still waiting for review when the account is revoked. It is additive and safe to run again; it changes no
-existing table, row or grant. Every table and the sequence are revoked from PUBLIC and from the canonical reader, whose
-default grants would otherwise read them; the functions are revoked from PUBLIC. Release, in this order: run the
+`research_dossier_identifiers`, `research_dossier_requests` (each save request and the version it got, so a retry
+returns its own) and `research_dossier_events`, the sequence `research_dossier_number_seq` (ARD numbers, four digits
+at least and every digit past them), five SECURITY DEFINER functions and a trigger on `research_use_accounts` that
+withdraws an account's dossier versions still waiting for review when the account is revoked. A save checks the
+account under a row lock that a revocation, a switch to paid private or card saving switched off waits for, and
+that waits for them. It is additive and safe to run again; it changes no existing table, row or grant. Every table
+and the sequence are revoked from PUBLIC and from the canonical reader, whose default grants would otherwise read
+them; the functions are revoked from PUBLIC. Release, in this order: run the
 one-shot admin `migrate`; re-run `/usr/local/bin/provision-research-access-role` (it now grants
 `append_research_dossier_version`, `latest_research_dossier_version` and `read_research_dossier_version`) and
-`/usr/local/bin/provision-research-review-role` (it now grants `erase_research_dossiers`, which `forget_card` calls);
+`/usr/local/bin/provision-research-review-role` (it now grants `erase_research_dossiers(text, timestamptz)`, which
+`forget_card` calls with the research-thread key of the save it forgets, never a card number, which several people's
+saves can share);
 then serve the image, and only then set `ASKRIGOR_RESEARCH_DOSSIERS=enabled` in `runtime.env` and recreate
 `research-mcp`. Without the setting nothing is asked for or saved. Turning it off again stops new saves and keeps what
 was saved.
 
-Image rollback hazard: an earlier image never reads the four tables, so its pages, review and research are unaffected,
-and its `finalize_research` drops a `later_inputs.research_dossier` with a note and checks the answer as before. But it
-cannot list, erase or reconcile a dossier: its `forget_card` erases the person's cards and leaves their dossiers, and
-it strips the card's research-thread marker that the dossier-aware image's `forget_card` would use to find them. So
-while an earlier image serves, hold `forget_card` requests until the dossier-aware image serves again (the privacy page
-promises no deadline), or, for one that cannot wait, erase the thread's dossiers by the card numbers as the migrator
-before running the earlier image's `forget_card`
-(`SELECT living_evidence.erase_research_dossiers(NULL, ARRAY[<card numbers>]::integer[], now());`, which also erases
-the other dossiers of their research thread). A request that names a dossier by its ARD number is met, on any image,
-with `SELECT living_evidence.erase_research_dossiers(thread_key::text, ARRAY[]::integer[], now()) FROM
-living_evidence.research_dossiers WHERE dossier_number = 'ARD-0001' AND erased_at IS NULL;` as the migrator. Revocation
-needs no step: the trigger lives in the database, and an
-earlier image's migrations never drop it. A rollback below the image that runs `migrate` with 0037 needs no change to
-the database; its own `migrate` leaves 0037's objects alone. Read-only counts, as the migrator, before and after:
+Image rollback hazards (Codex's review of 16 November 2026, finding 7): an earlier image never reads the five
+tables, so its pages, review and research are unaffected, and its `finalize_research` drops a
+`later_inputs.research_dossier` with a note and checks the answer as before. Two things need care.
+
+1. The notice hold revokes, and revocation withdraws. Roll back no lower than `ce1d677a` when you can: it reads notice
+   v6, so no hold runs and no account changes. A target below v6 (`80ebc006` or earlier) needs the v6 hold above, which
+   marks every v6 account `REVOKED`; on its own that fires `research_dossiers_withdraw_on_revocation`, which withdraws
+   every version of their dossiers still waiting for review, for good: the restore puts the accounts back but never a
+   version's review state, since a withdrawal is an append-only event. So for such a target, stop `research-mcp` before
+   each run of the hold, run it as the migrator with the trigger off, and turn the trigger on again before
+   `research-mcp` starts; the two counts of withdrawals must match (the restore needs no step: the trigger fires only
+   when an active account is revoked):
+
+   ```sql
+   SELECT count(*) FROM living_evidence.research_dossier_events WHERE event = 'withdrawn';
+   ALTER TABLE living_evidence.research_use_accounts DISABLE TRIGGER research_dossiers_withdraw_on_revocation;
+   -- here, research-use-notice-v6-hold.sql, as above
+   ALTER TABLE living_evidence.research_use_accounts ENABLE TRIGGER research_dossiers_withdraw_on_revocation;
+   SELECT count(*) FROM living_evidence.research_dossier_events WHERE event = 'withdrawn';
+   ```
+
+   With `research-mcp` stopped, no one's revocation lands while the trigger is off; a person who revokes later, on
+   the earlier image, still withdraws their versions.
+2. An earlier image's `forget_card` cannot erase a dossier, and it strips the research-thread key from the person's
+   card markers, the only link this image's `forget_card` follows to their dossiers, those saved without a card too
+   (no card number finds a dossier: several people's saves can share one). So while an earlier image serves, hold
+   `forget_card` requests until the dossier-aware image serves again (the privacy page promises no deadline). For one
+   that cannot wait, first recover the thread key from the named card's issue on GitHub: its body ends with the hidden
+   marker `<!-- askrigor-findings-card:<data> -->`, whose data is base64url JSON with the key as `thread`. Then, as the
+   migrator, erase that thread's dossiers and check that none is left before the earlier image's `forget_card` runs:
+
+   ```sql
+   SELECT living_evidence.erase_research_dossiers('<thread key>', now());
+   SELECT count(*) FROM living_evidence.research_dossiers WHERE thread_key = '<thread key>';
+   ```
+
+A request that names a dossier by its ARD number is met, on any image, with `SELECT
+living_evidence.erase_research_dossiers(thread_key::text, now()) FROM living_evidence.research_dossiers WHERE
+dossier_number = 'ARD-0001' AND erased_at IS NULL;` as the migrator, which erases that dossier's research thread, the
+person's own. Revocation needs no step: the trigger lives in the database, and an earlier image's migrations never
+drop it. A rollback below the image that runs `migrate` with 0037 needs no other change to the database; its own
+`migrate` leaves 0037's objects alone. Read-only counts, as the migrator, before and after:
 
 ```sql
 SELECT count(*) FROM living_evidence.research_dossiers WHERE erased_at IS NULL;

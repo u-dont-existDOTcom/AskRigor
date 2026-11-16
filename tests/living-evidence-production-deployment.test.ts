@@ -1187,10 +1187,16 @@ describe("production living-evidence deployment", () => {
     // Additive: new objects only, each made once; nothing existing is dropped or altered but one trigger it owns.
     expect(migration).not.toMatch(/DROP (?!TRIGGER IF EXISTS)|ALTER TABLE|CREATE TABLE (?!IF NOT EXISTS)/u);
     expect([...migration.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)/gu)].map(([, name]) => name)).toEqual([
-      "research_dossiers", "research_dossier_versions", "research_dossier_identifiers", "research_dossier_events"]);
+      "research_dossiers", "research_dossier_versions", "research_dossier_identifiers", "research_dossier_requests",
+      "research_dossier_events"]);
     expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS research_dossier_number_seq");
     expect(migration).toContain("CREATE UNIQUE INDEX IF NOT EXISTS research_dossier_one_first_version");
-    expect(migration).toContain("request_key char(64) UNIQUE");
+    // Every request and the version it got, the deduplicated ones too, so a retry finds its own (Codex's review, 5).
+    expect(migration).toContain("request_key char(64) PRIMARY KEY");
+    expect(migration.match(/INSERT INTO research_dossier_requests/gu)).toHaveLength(2);
+    // ARD numbers keep every digit past four (Codex's review, 8): lpad would cut ARD-10000 to ARD-1000.
+    expect(migration).toContain("lpad(next_dossier::text, greatest(4, length(next_dossier::text)), '0')");
+    expect(migration).not.toMatch(/lpad\(nextval/u);
     expect(migration).toContain("previous_version_id uuid UNIQUE REFERENCES research_dossier_versions(version_id)");
     // What a stored dossier never holds: no column for an answer, a question's text, a person or a YouTube id.
     expect(migration).not.toMatch(/answer_text|asked|research_target text|subject|email|youtube|video_id/iu);
@@ -1210,13 +1216,15 @@ describe("production living-evidence deployment", () => {
     expect(migration).toContain("CREATE TRIGGER research_dossiers_withdraw_on_revocation\n" +
       "  AFTER UPDATE OF status ON research_use_accounts\n" +
       "  FOR EACH ROW WHEN (OLD.status = 'ACTIVE' AND NEW.status = 'REVOKED')");
-    // The account is read in the append's own transaction: active, free, notice v6, card saving on.
-    expect(migration).toContain("FOR KEY SHARE");
+    // The account is read in the append's own transaction, under a lock a revocation, a mode change or the saving
+    // switch waits for (Codex's review, 4): active, free, notice v6, card saving on.
+    expect(migration).toContain("WHERE account.account_key = target_account_key\n   FOR NO KEY UPDATE;");
+    expect(migration).not.toContain("FOR KEY SHARE");
     expect(migration).toContain("account_row.notice_version IS DISTINCT FROM 'free-contributor-v6-2026-11-15'");
     expect(migration).toContain("account_row.findings_save IS NOT TRUE");
     // Nothing for PUBLIC or the canonical reader, whose default table grants would otherwise read the tables.
     for (const table of ["research_dossiers", "research_dossier_versions", "research_dossier_identifiers",
-      "research_dossier_events"]) {
+      "research_dossier_requests", "research_dossier_events"]) {
       expect(migration).toContain(`REVOKE ALL ON TABLE ${table} FROM PUBLIC;`);
       expect(migration).toContain(`REVOKE ALL ON TABLE ${table} FROM askrigor_reader;`);
     }
@@ -1230,13 +1238,35 @@ describe("production living-evidence deployment", () => {
       "latest_research_dossier_version(text, text)",
       "read_research_dossier_version(text, uuid)",
     ]);
-    expect(signatures(review)).toEqual(["erase_research_dossiers(text, integer[], timestamptz)"]);
+    // Erasure by the forgotten research thread's key alone, never by a card number (Codex's review, 1).
+    expect(signatures(review)).toEqual(["erase_research_dossiers(text, timestamptz)"]);
+    expect(migration).toContain("CREATE OR REPLACE FUNCTION erase_research_dossiers(target_thread_key text, change_time timestamptz)");
+    expect(migration).not.toMatch(/card_number = ANY|target_card_numbers/u);
     for (const script of [access, review, gaps]) {
       expect(script).not.toMatch(/(?:SELECT|INSERT|UPDATE|DELETE|USAGE)[^;]*ON (?:TABLE |SEQUENCE )?living_evidence\.research_dossier/iu);
     }
     expect(gaps).not.toContain("research_dossier");
     // The runbook names the release order, what an earlier image cannot read, and read-only counts.
     expect(runbook).toContain("0037_research_dossiers");
+    // And the two rollback hazards (Codex's review, finding 7): the v6 hold's revocations would withdraw pending
+    // versions for good, so the trigger is off around it with research-mcp stopped, or the rollback stops at ce1d677a;
+    // an earlier image's forget_card strips the thread key, so it is recovered from the card's marker and its
+    // dossiers erased by it first. No card number erases a dossier.
+    const hazards = runbook.slice(runbook.indexOf("Image rollback hazards (Codex's review of 16 November 2026, finding 7)"));
+    expect(hazards).toContain("Roll back no lower than `ce1d677a` when you can");
+    expect(hazards).toContain("ALTER TABLE living_evidence.research_use_accounts DISABLE TRIGGER " +
+      "research_dossiers_withdraw_on_revocation;\n   -- here, research-use-notice-v6-hold.sql, as above\n" +
+      "   ALTER TABLE living_evidence.research_use_accounts ENABLE TRIGGER research_dossiers_withdraw_on_revocation;");
+    expect(hazards).toContain("stop `research-mcp` before\n   each run of the hold");
+    expect(hazards).toContain("<!-- askrigor-findings-card:<data> -->");
+    expect(hazards).toContain("SELECT living_evidence.erase_research_dossiers('<thread key>', now());");
+    expect(hazards).toContain("SELECT count(*) FROM living_evidence.research_dossiers WHERE thread_key = '<thread key>';");
+    expect(runbook).not.toMatch(/erase_research_dossiers\([^)]*integer\[\]/u);
+    const v6Hold = await read("infra/living-evidence-production/research-use-notice-v6-hold.sql");
+    expect(v6Hold).toContain("marking an account REVOKED here fires research_dossiers_withdraw_on_revocation,");
+    const acceptance = await read("scripts/research-contributor-access-postgres-acceptance.mts");
+    expect(acceptance).toContain("DISABLE TRIGGER research_dossiers_withdraw_on_revocation");
+    expect(acceptance).toContain("DOSSIER_NOTICE_HOLD_WITHDREW");
     expect(runbook).toContain("SELECT count(*) FROM living_evidence.research_dossier_versions");
     expect(runbook).toContain("ASKRIGOR_RESEARCH_DOSSIERS=enabled");
   });

@@ -31,6 +31,14 @@
 -- restored account's way of acceptance reads as not recorded, never as a stale
 -- value. That holds for the owner's own login too, whose v6 row the owner's
 -- standing instruction of 6 November 2026 accepted.
+--
+-- Once migration 0037 (AskRigor#477, private research dossiers) is applied,
+-- marking an account REVOKED here fires research_dossiers_withdraw_on_revocation,
+-- which withdraws for good the account's dossier versions still waiting for
+-- review; the restore cannot undo that. Stop research-mcp and turn the trigger
+-- off around each run, as infra/living-evidence-production/README.md says
+-- (its 0037 rollback hazards), or roll back no lower than an image that reads
+-- v6, which needs no hold.
 \set ON_ERROR_STOP on
 SET search_path TO :"schema", public;
 
