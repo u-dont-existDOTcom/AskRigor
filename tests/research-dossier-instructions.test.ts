@@ -1,3 +1,4 @@
+import { getProtocolManifest, loadProtocol } from "@askrigor/protocol";
 import {
   InMemoryResearchContributorAccessStore,
   InMemoryResearchDossierStore,
@@ -64,7 +65,24 @@ async function account(kind: "free" | "paid" | "saving_off" = "free") {
   return service;
 }
 
-describe("the server instructions", () => {
+describe("HRP 20.6.43: the private research dossier in DeepResearchTimeSavingAtlasPreservation", () => {
+  it("says, as Codex corrected it, to include a requested dossier with the first final check, card or no card", async () => {
+    const hrp = await loadProtocol("hrp");
+    const rule = /<Rule name="DeepResearchTimeSavingAtlasPreservation" priority="Critical">([\s\S]*?)<\/Rule>/u.exec(hrp)?.[1];
+    const flat = (rule ?? "").replace(/\s+/gu, " ");
+    expect(flat).toContain("Separately, when AskRigor requests a private research dossier and saving remains allowed, " +
+      "include it with the first final check if the completed work saves a later reader substantial effort, whether " +
+      "or not a card qualifies. Saving this dossier does not publish it.");
+    expect(flat).toContain("A limited five-finding card is not the entire research record: where AskRigor asks for a " +
+      "research dossier, the dossier holds the rest; otherwise, or for what its shape cannot hold, mark the dossier " +
+      "partial and file an actionable continuation until an authorized repository can store it.");
+    // Left as it was (instruction-disagreements.md): the card's own sentence keeps "during this turn".
+    expect(flat).toContain("preserve eligible work during this turn through a source-verified findings_card plus, " +
+      "when supported, the structured research map.");
+    expect(hrp).toContain('<Revision version="20.6.43" priority="Critical">');
+    await expect(getProtocolManifest("hrp")).resolves.toMatchObject({ version: "20.6.43", revisionDate: "2026-11-16" });
+  });
+
   it("leaves the server instructions within their cap, unchanged", () => {
     expect(Buffer.byteLength(SERVER_INSTRUCTIONS)).toBeLessThanOrEqual(2_048);
     expect(SERVER_INSTRUCTIONS).not.toMatch(/dossier/iu);

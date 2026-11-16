@@ -936,15 +936,25 @@ receipts name; once YouTube comments were read, each conclusion says whether it 
 card finding the same check held for them, refuses the dossier; and the dossier's privacy screen
 (`apps/research-mcp/src/findings/dossier-privacy.ts`) over every text, the ids and the topic key included: the findings
 card's screen, then the person's own voice, relatives, carers and places in English, French, Spanish, German,
-Portuguese and Italian, contacts and links, and any word in a script it cannot read. It refuses the whole dossier when in
-doubt, and still cannot prove that a text identifies no one, so the owner's review reads each one. Whether the papers
+Portuguese and Italian, a first name about a particular person, a date of birth or where someone lives, contacts and
+links, and any word in a script it cannot read or that mixes scripts, after folding look-alike letters, invisible
+characters and capitals; an author before "et al." and patients' partners in a study's report pass. It refuses the
+whole dossier when in doubt, and still cannot prove that a text identifies no one, so the owner's review reads each one.
+A study's identifiers that receipts link through one another are one paper, and a conclusion that repeats a card finding
+the same check held apart for YouTube comments refuses the dossier. Whether the papers
 say what the dossier claims is stored as the AI's judgement (Codex's review of 16 November 2026 set the paper, forum,
 YouTube and privacy checks).
 
 `finalize_research`'s `research_dossier` says what happened: `saved` (an ARD number and version, read back by its
 digest), `duplicate`, `insufficient` (paths and rules, never values), `private`, `consent_blocked`, `not_sent` (the
 research did work a quick answer cannot do and sent none), `unconfirmed` (whenever the write may have landed) or
-`unavailable`; the answer ends with one line saying which. Paid private accounts are not offered a dossier (owner answer 330a); a dev account with card saving off,
+`unavailable`; the answer ends with one line saying which. The AI is asked for the dossier before its first final check
+(Codex's red team of the instruction proposal, worded as it corrected it): `plan_research`, for a plan that goes on and
+is no light look-up, gives the request, the shape and the guards, in its text and in `research_dossier_request`; a check
+that is not ready yet reminds it; the card guidance says the dossier's own value test; HRP 20.6.43's
+`DeepResearchTimeSavingAtlasPreservation` says the same. Every ask goes by one rule (`researchDossierAllowed`: the
+store on, a free contributor whose yes covers notice v6, saving on, a call not marked off) and never follows a short
+look-up. What was left out for the owner is in `/home/joel/askrigor-releases/20261116-477/instruction-disagreements.md`. Paid private accounts are not offered a dossier (owner answer 330a); a dev account with card saving off,
 and a call marked `findings_save` off, save none. Nothing is asked for or saved unless the server runs with
 `ASKRIGOR_RESEARCH_DOSSIERS=enabled`. Storage, roles, revocation, deletion with `forget_card` (the forgotten save's
 research thread only, never by a card number, which several people's saves share) and the rollback hazards are in
