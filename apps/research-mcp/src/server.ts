@@ -20,6 +20,7 @@ import {
   ResearchContributionReviewService,
   ResearchContributorAccessService,
   type ResearchCallRecordStore,
+  type ResearchDossierStore,
 } from "@askrigor/evidence-repository";
 
 import {
@@ -44,6 +45,7 @@ import {
   researchFinalizationSigningConfigFromEnv,
   researchContributorAccessConfigFromEnv,
   researchContributionReviewConfigFromEnv,
+  researchDossiersEnabledFromEnv,
   researchSessionCheckpointConfigFromEnv,
   researchActionsAreEnabled,
   SERVER_INSTRUCTIONS,
@@ -130,6 +132,8 @@ export type McpToolCatalogProfile = "standard" | "gemini";
 
 export interface AskRigorMcpServerOptions {
   researchCallRecord?: ResearchCallRecordStore;
+  /** AskRigor#477 stage 1: where free contributors' research dossiers are saved privately; none without it. */
+  researchDossiers?: ResearchDossierStore;
   infoAccess?: InfoAccessClient;
   publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
   oauthResourceMetadataUrl?: URL;
@@ -211,6 +215,8 @@ function semverBuildMetadata(running: RunningVersions): string {
 
 export interface AskRigorHttpServerOptions {
   researchCallRecord?: ResearchCallRecordStore;
+  /** Replaces the research dossiers' store, for tests; otherwise ASKRIGOR_RESEARCH_DOSSIERS decides. */
+  researchDossiers?: ResearchDossierStore;
   publicServerEnabled?: boolean;
   actionsEnabled?: boolean;
   researchActionsEnabled?: boolean;
@@ -447,6 +453,9 @@ export function createAskRigorHttpServer(
       });
   // Owner answer 280a: the content-free call record, on the research-access database and pool.
   const researchCallRecord = options.researchCallRecord ?? researchAccessStore?.callRecordStore();
+  // AskRigor#477 stage 1 (owner answer 329a): research dossiers, on the research-access database and pool, once enabled.
+  const researchDossiers = options.researchDossiers ??
+    (researchDossiersEnabledFromEnv() ? researchAccessStore?.dossierStore() : undefined);
   const researchContributorAccessService =
     options.researchContributorAccessService ??
     (researchContributorAccessConfig === undefined || researchAccessStore === undefined
@@ -506,6 +515,7 @@ export function createAskRigorHttpServer(
   );
   const mcpServerOptions = (profile?: McpToolCatalogProfile, signIn?: SignInState): AskRigorMcpServerOptions => ({
     researchCallRecord,
+    ...(researchDossiers === undefined ? {} : { researchDossiers }),
     publicEvidenceGapReviewService,
     oauthResourceMetadataUrl,
     allowedReviewerSubjects: oauthResourceServer?.reviewerSubjects,
@@ -520,6 +530,7 @@ export function createAskRigorHttpServer(
   });
   const claudeMcpServerOptions = (signIn?: SignInState): AskRigorMcpServerOptions => ({
     researchCallRecord,
+    ...(researchDossiers === undefined ? {} : { researchDossiers }),
     publicEvidenceGapReviewService,
     oauthResourceMetadataUrl: claudeOAuthResourceServer === undefined
       ? undefined

@@ -209,7 +209,9 @@ describe("later_inputs (owner answer 189a)", () => {
           // Owner answer 301a: the person's words, for AskRigor's own review of a dev account's draft.
           "asked",
           // Owner answer 310a: the app that sends the call makes the check's AI readings itself.
-          "ai_readings"]
+          "ai_readings",
+          // AskRigor#477 stage 1 (owner answer 329a): this research's dossier, saved privately for the owner's review.
+          "research_dossier"]
           : operation.name === "save_research_findings" ? ["findings_card"]
           // The recheck of 5 Nov 2026: a test run's audits are marked, so nothing of them is held for the review inbox.
           : operation.name === "validate_study_method_audit" ? ["audit", "findings_save"]

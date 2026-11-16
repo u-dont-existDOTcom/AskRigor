@@ -373,6 +373,17 @@ export function findingsLibraryEnabledFromEnv(
 }
 
 /**
+ * AskRigor#477 stage 1 (owner answer 329a, 16 November 2026): free contributors' research dossiers are saved privately
+ * only while ASKRIGOR_RESEARCH_DOSSIERS=enabled, on the research-access database, after migration 0037 and the role
+ * scripts' grants are in place.
+ */
+export function researchDossiersEnabledFromEnv(
+  value = process.env.ASKRIGOR_RESEARCH_DOSSIERS
+): boolean {
+  return value?.trim() === "enabled";
+}
+
+/**
  * Whether the owner's findings actions for the Atlas are open on review_research_contribution (Atlas phase 2 design,
  * section 3): ASKRIGOR_ATLAS_REVIEW set to "enabled". It stays closed until the release has applied migration 0017,
  * granted the review role its functions, bound the promotion timer to the deployed image and checked the catalog;

@@ -51,6 +51,7 @@ import {
   type ResearchContributionReviewService,
   type ResearchContributorAccessService,
   type ResearchCallRecordStore,
+  type ResearchDossierStore,
 } from "@askrigor/evidence-repository";
 import {
   getProtocolManifest,
@@ -118,7 +119,9 @@ import {
   devAccountKeysFromEnv,
   findingsLibraryEnabledFromEnv,
   ncbiConfigFromEnv,
-  optionalLivingEvidenceReuseConfigFromEnv
+  optionalLivingEvidenceReuseConfigFromEnv,
+  askrigorBuildCommitFromEnv,
+  SERVICE_VERSION
 } from "./config.js";
 import type { AtlasReview } from "./findings/atlas-review.js";
 import { createConcurrencyLimiter } from "./rate-limit.js";
@@ -304,9 +307,16 @@ import {
   sourceLineRequestsOf,
   studyMapRequestsOf,
   backingRequestsOf,
+  shortLookupDeclared,
   type FinalizeResearchOptions,
   type FinalizeResearchOutput
 } from "./research-finalization-gate.js";
+import {
+  researchDossierFromCall,
+  researchDossierLine,
+  saveResearchDossier,
+  type ResearchDossierSaveOutcome,
+} from "./findings/dossier.js";
 import {
   assessTreatmentCoverageFromReceipts,
   treatmentCoverageFromReceiptsInputSchema,
@@ -952,6 +962,11 @@ export interface RegisterToolsOptions {
   findingsSave?: (raw: unknown, context: FindingsSaveContext) => Promise<FindingsSaveResult>;
   /** Keeps a private copy of a card that wasn't saved; for tests. */
   findingsKeep?: (input: UnsavedCardInput) => Promise<UnsavedCardResult>;
+  /**
+   * AskRigor#477 stage 1 (owner answer 329a): where a free contributor's research dossier is saved privately; without it
+   * none is asked for or saved. Set by the server when ASKRIGOR_RESEARCH_DOSSIERS=enabled.
+   */
+  researchDossiers?: ResearchDossierStore;
   /** Whether the findings library is open; defaults to ASKRIGOR_FINDINGS_LIBRARY. */
   findingsLibrary?: boolean;
   /** Shared questions and answers (owner answer 200a); null turns them off; defaults to the server's settings. */
@@ -2837,6 +2852,42 @@ function defineResearchOperations(
             (contribution) => submitServerSourceAnalysis(extra, options.researchContributorAccessService, contribution),
             options.findingsSaveDeadlineMilliseconds ?? ANALYSES_SAVE_DEADLINE_MILLISECONDS
           );
+        }
+      }
+      // AskRigor#477, stage 1 (owner answer 329a, 16 Nov 2026): this research's dossier, saved privately for AskRigor's
+      // owner to review, for a free contributor whose yes covers notice v6, with card saving on. Saved whole or not at
+      // all, read back, and said in one line before the check line; never a step of the check. Paid private accounts
+      // are not offered one yet (owner answer 330a).
+      if (options.researchDossiers !== undefined && checkedInput !== undefined) {
+        const dossierStore = options.researchDossiers;
+        const outcome = await withinDeadline(saveResearchDossier(dossierStore, {
+          dossier: researchDossierFromCall(input),
+          account: researcher,
+          callSavingOff,
+          finalizationReceipt: result.finalization_receipt,
+          shortLookup: shortLookupDeclared(checkedInput),
+          validatedSources: result.sources.validated.length,
+          receipts: checkedInput.receipts,
+          atlasReuse: checkedInput.atlas_reuse ?? [],
+          cardId: result.findings_card.saved?.card_id,
+          secret,
+          versions: {
+            askrigor: SERVICE_VERSION,
+            build: options.runningVersions?.build ?? askrigorBuildCommitFromEnv(),
+            ...(options.runningVersions === undefined ? {} : {
+              hrp: options.runningVersions.hrp, universal: options.runningVersions.universal,
+            }),
+          },
+        }).catch((): ResearchDossierSaveOutcome => ({ disposition: { status: "unavailable", reason: "store_unavailable" } })),
+        options.findingsSaveDeadlineMilliseconds ?? FINDINGS_SAVE_DEADLINE_MILLISECONDS,
+        { disposition: { status: "unconfirmed", reason: "not_confirmed_in_time" } } as ResearchDossierSaveOutcome);
+        if (outcome !== undefined) {
+          result.research_dossier = outcome.disposition;
+          if (outcome.note !== undefined) result.notes = [...(result.notes ?? []), outcome.note];
+          const line = researchDossierLine(outcome.disposition);
+          if (line !== undefined && result.finalization_receipt !== undefined) {
+            result.saved_line = result.saved_line === undefined ? line : `${result.saved_line} ${line}`;
+          }
         }
       }
       // Owner answer 200a: a research account's answer ends with the offer to share a de-identified copy of it.

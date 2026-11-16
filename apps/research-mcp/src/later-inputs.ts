@@ -180,6 +180,13 @@ const LATER_INPUT_SHAPES = Object.freeze({
         "rubrics (the review of the draft, the second reading and the meaning judge), so AskRigor's server makes " +
         "none for this call. The rule checks run as always. The result, its receipt and the check line say so, and " +
         "no findings card is saved from the call. Any other value leaves the readings to AskRigor."),
+    // AskRigor#477, stage 1 (owner answer 329a, 16 Nov 2026): this research's dossier, saved privately for AskRigor's
+    // owner to review. Read from the raw call (researchDossierFromCall), so any value parses here and its own checks
+    // name every problem: a dossier never holds back the answer.
+    research_dossier: z.unknown().optional()
+      .describe("When this research would save a later reader substantial work compared with one ordinary AI answer: " +
+        "its dossier, in general terms, as this check's result describes it. AskRigor checks it against this call's " +
+        "receipts and saves it whole, privately for its owner's review, or says why not."),
   },
   // Owner answer 219b: the card exactly as finalize_research checked it, its findings' declarations included.
   save_research_findings: {

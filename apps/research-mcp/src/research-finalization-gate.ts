@@ -3,6 +3,7 @@ import {
 } from "./later-inputs.js";
 import { sourceIdentifierOf } from "./atlas/page-data.js";
 import { atlasReuseSchema, checkAtlasReuse, atlasSourceDigest, checkedAtlasSources } from "./atlas/reuse.js";
+import { researchDossierDispositionSchema } from "./findings/dossier-disposition.js";
 import { preventingRuleSchema } from "./protocol-rule-names.js";
 import { rule, joinRules, ruleText, ruleParts, type RuleInput, type CheckRule } from "./check-rules.js";
 import { buildCheckReport, checkReportSchema, issueCheckReportToken, type ReportReceipt } from "./check-report.js";
@@ -1813,6 +1814,9 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
   turn_already_passed: z.literal(true).optional()
     .describe("True when this turn's check had already passed before this call: give this checked answer now, with " +
       "no further check in this turn."),
+  // AskRigor#477 stage 1 (owner answer 329a, 16 November 2026), runtime only (owner answer 189a): this research's
+  // dossier, saved privately for the owner's review. Never a blocking step: the six blocking checks stay six.
+  research_dossier: researchDossierDispositionSchema.optional(),
 });
 
 export const finalizeResearchPublishedOutputSchema = finalizeResearchRetainedOutputSchema.omit({ research_plan: true, notes: true })
@@ -4083,11 +4087,7 @@ export function finalizeResearch(
   // what the gate enforces.
   // Same short-lookup and pre-triage exemptions as the existing research/discovery routing. No content matcher
   // decides whether a finding matters: the model declares it, and these checks compare only exact fields.
-  const shortLookup = input.community_evidence === "not_relevant" &&
-    input.not_relevant_reason !== undefined && input.not_relevant_basis === "no_real_world_outcome" &&
-    input.question_about === "other" && input.treatment_choice !== "compared" &&
-    input.commercial_review_applicability?.status !== "required" &&
-    input.shopping?.status !== "buy_options" && input.shopping?.status !== "no_live_option_found";
+  const shortLookup = shortLookupDeclared(input);
   const emergency = input.community_evidence === "not_relevant" &&
     input.not_relevant_reason !== undefined && input.not_relevant_basis === "emergency_before_triage";
   const atlasReuse = checkAtlasReuse({ receipts: verified, target: targetDigest,
@@ -5676,6 +5676,19 @@ function researchTimeSentence(verified: readonly VerifiedReceipt[], now: Date): 
   }
   return ` The research took about ${minutes} ${minutes === 1 ? "minute" : "minutes"}, from its first research call ` +
     "to this check.";
+}
+
+/**
+ * The short look-up the final check exempts from the Atlas lookup (a question with no real-world outcome, about
+ * something other than a symptom or a test, comparing no treatments and buying nothing), read from the declarations
+ * alone; AskRigor#477's dossier asks for none after one.
+ */
+export function shortLookupDeclared(input: FinalizeResearchInput): boolean {
+  return input.community_evidence === "not_relevant" &&
+    input.not_relevant_reason !== undefined && input.not_relevant_basis === "no_real_world_outcome" &&
+    input.question_about === "other" && input.treatment_choice !== "compared" &&
+    input.commercial_review_applicability?.status !== "required" &&
+    input.shopping?.status !== "buy_options" && input.shopping?.status !== "no_live_option_found";
 }
 
 // Receipts that are no part of the research a map maps (owner answer 143a): a plain answer written before it, a final
