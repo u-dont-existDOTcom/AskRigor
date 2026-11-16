@@ -6,6 +6,7 @@ import {
   PostgresAtlasPublicationStore,
   PostgresAtlasReader,
   PostgresAtlasReviewStore,
+  PostgresResearchDossierEraser,
 } from "@askrigor/evidence-repository";
 import { getProtocolManifest } from "@askrigor/protocol";
 
@@ -259,6 +260,12 @@ export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): 
       // Owner answer 173: the held YouTube findings, through the review role: listed on the card view, deleted early,
       // moved out of cards stored before, and deleted with a forgotten card.
       held: heldYouTubeFindingsStoresFromEnv(env).review,
+      // AskRigor#477 stage 1: forget_card erases the research thread's dossiers, through the same review role.
+      dossiers: new PostgresResearchDossierEraser({
+        connectionString: review.connectionString,
+        schema: review.schema,
+        ssl: review.ssl,
+      }),
       // publish_cards looks a card's sources up for their titles and years, with the call's provider settings.
       sourceTitles: (providers) => atlasSourceTitleLookup({ ...providers, now }),
     });

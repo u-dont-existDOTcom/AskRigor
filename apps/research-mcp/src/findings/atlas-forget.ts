@@ -7,6 +7,7 @@ import {
   type AtlasPublicationView,
   type AtlasReviewStore,
   type HeldYouTubeFindingsStore,
+  type ResearchDossierEraser,
 } from "@askrigor/evidence-repository";
 
 import { GitHubApiError } from "../lessons/github-app.js";
@@ -66,6 +67,9 @@ export interface CardForgetReport {
   publications: AtlasPublicationView[];
   /** The held YouTube findings of the person's cards this call deleted; undefined where none are held. */
   heldDeleted?: number;
+  /** The research dossier versions of the person's research thread this call erased (AskRigor#477); undefined without
+   * the dossiers' store. */
+  dossiersErased?: number;
   /** The cards on which this call deleted a later save of the person's. */
   savesDeleted: number[];
   /** Other people's later saves on the person's cards, re-filed as cards of their own by this call or an earlier one. */
@@ -98,6 +102,8 @@ export interface CardForgetDependencies {
   publications?: Pick<AtlasPublicationStore, "withdraw">;
   /** The held YouTube findings (owner answer 173), deleted with the cards. */
   held?: Pick<HeldYouTubeFindingsStore, "deleteForCards">;
+  /** The research dossiers (AskRigor#477 stage 1): every one of the thread, and of the cards' threads, is erased. */
+  dossiers?: Pick<ResearchDossierEraser, "eraseForCards">;
 }
 
 /** How many cards' comments are read at once while looking for the person's later saves. */
@@ -211,8 +217,21 @@ export async function forgetCard(
       heldDeleted += await deps.held.deleteForCards(ordered.slice(start, start + HELD_YOUTUBE_FINDINGS_CARDS_PER_CALL));
     }
   }
+  // AskRigor#477 stage 1: the research thread's dossiers, and those saved with these cards, erased with them.
+  let dossiersErased: number | undefined;
+  if (deps.dossiers !== undefined) {
+    dossiersErased = 0;
+    for (let start = 0; start < ordered.length; start += ATLAS_FORGET_CARDS_PER_CALL) {
+      const batch = ordered.slice(start, start + ATLAS_FORGET_CARDS_PER_CALL);
+      dossiersErased += await deps.dossiers.eraseForCards({
+        ...(thread === undefined || start > 0 ? {} : { threadKey: thread }),
+        cardNumbers: batch,
+        at: now,
+      });
+    }
+  }
   if (live.length === 0 && ordered.length === 1 && statuses.get(cardNumber) === 404 && decisions.length === 0 &&
-    publications.length === 0 && refiled.length === 0 && (heldDeleted ?? 0) === 0) {
+    publications.length === 0 && refiled.length === 0 && (heldDeleted ?? 0) === 0 && (dossiersErased ?? 0) === 0) {
     return { kind: "not_found" };
   }
 
@@ -224,6 +243,7 @@ export async function forgetCard(
     decisions,
     publications,
     ...(heldDeleted === undefined ? {} : { heldDeleted }),
+    ...(dossiersErased === undefined ? {} : { dossiersErased }),
     savesDeleted: [],
     refiled,
     strippedNow: [],
