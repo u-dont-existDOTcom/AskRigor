@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 
 import Anthropic from "@anthropic-ai/sdk";
 import {
@@ -72,6 +73,24 @@ const request = (privacyReading?: DossierPrivacyReader): ResearchDossierSaveRequ
   now: () => NOW,
   newVersionId: () => deterministicUuid(`privacy-reading:${versions++}`),
   ...(privacyReading === undefined ? {} : { privacyReading }),
+});
+
+describe("what the privacy page and the data map say of the reading (owner answer 334a)", () => {
+  // The owner chose to release with the AI privacy reading on (334a, 16 Nov 2026): the page says so in his words, and
+  // the data map quotes the page and names the setting, the model and the key the reading uses.
+  const SENTENCE = "Before a research dossier is stored, its text (never your chat or anything about you) is checked " +
+    "for personal details by an AI model from Anthropic, on AskRigor’s own account.";
+  it("says it on the privacy page and in the data map's dossier row, in the same words", async () => {
+    const page = await readFile(new URL("../site/privacy/index.html", import.meta.url), "utf8");
+    const map = await readFile(new URL("../docs/privacy-data-map.md", import.meta.url), "utf8");
+    expect(page).toContain(SENTENCE);
+    const row = map.split("\n").find((line) => line.startsWith("| Private research dossier"))!;
+    expect(row).toContain(`"${SENTENCE}"`);
+    for (const fact of ["ASKRIGOR_DOSSIER_PRIVACY_READING=on", "owner answer 334a", "`claude-haiku-5-5`",
+      "never its identifiers, the chat or the answer", "a dossier the reading does not pass is not stored"]) {
+      expect(row).toContain(fact);
+    }
+  });
 });
 
 describe("the save with the privacy reading on", () => {

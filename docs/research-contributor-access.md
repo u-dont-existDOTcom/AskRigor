@@ -956,9 +956,10 @@ that is not ready yet reminds it; the card guidance says the dossier's own value
 store on, a free contributor whose yes covers notice v6, saving on, a call not marked off) and never follows a short
 look-up. What was left out for the owner is in `/home/joel/askrigor-releases/20261116-477/instruction-disagreements.md`.
 After a check that held card findings apart for YouTube comments, each conclusion also says which card finding it is,
-by its place, or none, and a held one refuses the dossier. Off by default, `ASKRIGOR_DOSSIER_PRIVACY_READING=on` adds a
-meaning-based privacy reading before storage on the research planner's API path (the infra README has its settings,
-limits and cost); with it on, a dossier is saved only after the reading passes it. Paid private accounts are not offered a dossier (owner answer 330a); a dev account with card saving off,
+by its place, or none, and a held one refuses the dossier. `ASKRIGOR_DOSSIER_PRIVACY_READING=on` (off in the code's
+default; owner answer 334a releases it on, and the privacy page says so) adds a meaning-based privacy reading before
+storage on the research planner's API path (the infra README has its settings, limits and cost); with it on, a dossier
+is saved only after the reading passes it. Paid private accounts are not offered a dossier (owner answer 330a); a dev account with card saving off,
 and a call marked `findings_save` off, save none. Nothing is asked for or saved unless the server runs with
 `ASKRIGOR_RESEARCH_DOSSIERS=enabled`. Storage, roles, revocation, deletion with `forget_card` (the forgotten save's
 research thread only, never by a card number, which several people's saves share) and the rollback hazards are in

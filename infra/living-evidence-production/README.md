@@ -446,8 +446,9 @@ and 8 seconds, no retry. A refusal, a reply that is no reading, a text too long,
 leave the dossier unsaved, with the reason in `research_dossier`. Expected cost per dossier at the list price the
 planner counts (USD 0.10 per million input tokens and 0.50 per million output tokens): about USD 0.0004 for a typical
 dossier (some 2,200 tokens in with the rubric, up to 300 out), about USD 0.002 for the longest that fits (some 16,000
-tokens in, 1,024 out), never more than about USD 0.007. It sends the dossier's text to Anthropic's API, so the privacy
-page should say so before it is turned on.
+tokens in, 1,024 out), never more than about USD 0.007. It sends the dossier's text to Anthropic's API, which the
+privacy page says (owner answer 334a, 16 November 2026: the release turns the reading on, with the planner's settings
+above in `runtime.env`).
 
 Image rollback hazards (Codex's review of 16 November 2026, finding 7): an earlier image never reads the five
 tables, so its pages, review and research are unaffected, and its `finalize_research` drops a

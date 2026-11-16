@@ -202,6 +202,13 @@ describe("AskRigor public site", () => {
     expect(section).toContain("A dossier holds nothing this paragraph excludes; only AskRigor’s owner can read it, it is " +
       "never shown on a page, revoking access withdraws it while it waits for review, and deleting a findings card of " +
       "the same research, or asking with the dossier’s ARD-#### id, erases it.");
+    // Owner answer 334a (16 Nov 2026: the release turns the AI privacy reading on): the owner's sentence, word for word
+    // in the page's typographic apostrophes, right after the dossier's, the effective date unchanged.
+    expect(section).toContain("erases it. Before a research dossier is stored, its text (never your chat or anything " +
+      "about you) is checked for personal details by an AI model from Anthropic, on AskRigor’s own account. Each " +
+      "submission first enters");
+    expect(privacy.match(/Anthropic/gu)).toHaveLength(1);
+    expect(privacy).toContain("Effective November 16, 2026");
     // After the exclusions it relies on, and before the paid private sentence, which it does not change.
     expect(section.indexOf("private research dossier")).toBeGreaterThan(section.indexOf("It excludes raw chat"));
     expect(section.indexOf("private research dossier")).toBeLessThan(section.indexOf("Paid private mode submits"));
