@@ -51,6 +51,7 @@ import {
   type ResearchContributionReviewService,
   type ResearchContributorAccessService,
   type ResearchCallRecordStore,
+  type ResearchDossierStore,
 } from "@askrigor/evidence-repository";
 import {
   getProtocolManifest,
@@ -116,9 +117,12 @@ import {
   atlasReviewEnabledFromEnv,
   crossrefConfigFromEnv,
   devAccountKeysFromEnv,
+  dossierPrivacyReadingFromEnv,
   findingsLibraryEnabledFromEnv,
   ncbiConfigFromEnv,
-  optionalLivingEvidenceReuseConfigFromEnv
+  optionalLivingEvidenceReuseConfigFromEnv,
+  askrigorBuildCommitFromEnv,
+  SERVICE_VERSION
 } from "./config.js";
 import type { AtlasReview } from "./findings/atlas-review.js";
 import { createConcurrencyLimiter } from "./rate-limit.js";
@@ -304,9 +308,21 @@ import {
   sourceLineRequestsOf,
   studyMapRequestsOf,
   backingRequestsOf,
+  shortLookupDeclared,
   type FinalizeResearchOptions,
   type FinalizeResearchOutput
 } from "./research-finalization-gate.js";
+import {
+  DOSSIER_PRIVACY_READING_LIMITS,
+  type DossierPrivacyReader,
+} from "./findings/dossier-privacy-reading.js";
+import {
+  researchDossierAllowed,
+  researchDossierFromCall,
+  researchDossierLine,
+  saveResearchDossier,
+  type ResearchDossierSaveOutcome,
+} from "./findings/dossier.js";
 import {
   assessTreatmentCoverageFromReceipts,
   treatmentCoverageFromReceiptsInputSchema,
@@ -952,6 +968,17 @@ export interface RegisterToolsOptions {
   findingsSave?: (raw: unknown, context: FindingsSaveContext) => Promise<FindingsSaveResult>;
   /** Keeps a private copy of a card that wasn't saved; for tests. */
   findingsKeep?: (input: UnsavedCardInput) => Promise<UnsavedCardResult>;
+  /**
+   * AskRigor#477 stage 1 (owner answer 329a): where a free contributor's research dossier is saved privately; without it
+   * none is asked for or saved. Set by the server when ASKRIGOR_RESEARCH_DOSSIERS=enabled.
+   */
+  researchDossiers?: ResearchDossierStore;
+  /**
+   * AskRigor#477 stage 1, off by default: every dossier read for personal details before it is stored, on the research
+   * planner's Claude API path; defaults to ASKRIGOR_DOSSIER_PRIVACY_READING=on. With it on and the planner off, no
+   * dossier is saved.
+   */
+  dossierPrivacyReading?: boolean;
   /** Whether the findings library is open; defaults to ASKRIGOR_FINDINGS_LIBRARY. */
   findingsLibrary?: boolean;
   /** Shared questions and answers (owner answer 200a); null turns them off; defaults to the server's settings. */
@@ -2087,6 +2114,8 @@ function defineResearchOperations(
       researchReviewer: () => configuredReviewer(options),
       // The owner, 14 Nov 2026: what AskRigor already holds for a registered question, for every account.
       askrigorHolds: ASKRIGOR_HOLDS,
+      // AskRigor#477 stage 1: plan_research asks for the research dossier where one can be saved.
+      ...(options.researchDossiers === undefined ? {} : { researchDossiers: true }),
       ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
       ...(sharing === undefined ? {} : { sharedAnswers: { ...sharing, versions: async () =>
@@ -2649,7 +2678,12 @@ function defineResearchOperations(
           : {})
       };
       let commentsRead = false;
-      let gateOptions: FinalizeResearchOptions = { ...finalizeOptions, onCommentsRead: (read) => { commentsRead = read; } };
+      // AskRigor#477: the card guidance says the dossier's own value test only where one can be saved (Codex's red team
+      // of the instruction proposal, item 3).
+      const dossierAsk = researchDossierAllowed(options.researchDossiers !== undefined, researcher, findingsSaveOff(input)) &&
+        checkedInput !== undefined && !shortLookupDeclared(checkedInput);
+      let gateOptions: FinalizeResearchOptions = { ...finalizeOptions, onCommentsRead: (read) => { commentsRead = read; },
+        ...(dossierAsk ? { researchDossierAsk: true } : {}) };
       let result = finalizeResearch(input, gateOptions);
       // Owner answer 237a: a passing check's source lines are looked up in the text AskRigor fetched, exactly and with
       // no model. Owner answer 252a: a checked card's backing lines are looked up with them, in one pass over the same
@@ -2837,6 +2871,54 @@ function defineResearchOperations(
             (contribution) => submitServerSourceAnalysis(extra, options.researchContributorAccessService, contribution),
             options.findingsSaveDeadlineMilliseconds ?? ANALYSES_SAVE_DEADLINE_MILLISECONDS
           );
+        }
+      }
+      // AskRigor#477, stage 1 (owner answer 329a, 16 Nov 2026): this research's dossier, saved privately for AskRigor's
+      // owner to review, for a free contributor whose yes covers notice v6, with card saving on. Saved whole or not at
+      // all, read back, and said in one line before the check line; never a step of the check. Paid private accounts
+      // are not offered one yet (owner answer 330a).
+      if (options.researchDossiers !== undefined && checkedInput !== undefined) {
+        const dossierStore = options.researchDossiers;
+        // Codex's final check, off by default: the meaning-based privacy reading, on the planner's own API path. With it
+        // on, a planner that is off reads nothing, and nothing is saved.
+        const reading = options.dossierPrivacyReading ?? dossierPrivacyReadingFromEnv();
+        const privacyReading: DossierPrivacyReader | undefined = !reading ? undefined
+          : async (texts) => await configuredPlanner(options).readDossierPrivacy?.(texts) ??
+            { status: "unavailable", reason: "off" };
+        const outcome = await withinDeadline(saveResearchDossier(dossierStore, {
+          dossier: researchDossierFromCall(input),
+          account: researcher,
+          callSavingOff,
+          finalizationReceipt: result.finalization_receipt,
+          shortLookup: shortLookupDeclared(checkedInput),
+          validatedSources: result.sources.validated.length,
+          receipts: checkedInput.receipts,
+          atlasReuse: checkedInput.atlas_reuse ?? [],
+          cardId: result.findings_card.saved?.card_id,
+          // Codex's second pass: whether comments were read is the final check's own decision, never a receipt's kind;
+          // the card's findings are what its receipt's held places refer to.
+          commentsRead,
+          ...(checkedInput.findings_card === undefined ? {} : { cardFindings: checkedInput.findings_card.findings.length }),
+          ...(privacyReading === undefined ? {} : { privacyReading }),
+          secret,
+          versions: {
+            askrigor: SERVICE_VERSION,
+            build: options.runningVersions?.build ?? askrigorBuildCommitFromEnv(),
+            ...(options.runningVersions === undefined ? {} : {
+              hrp: options.runningVersions.hrp, universal: options.runningVersions.universal,
+            }),
+          },
+        }).catch((): ResearchDossierSaveOutcome => ({ disposition: { status: "unavailable", reason: "store_unavailable" } })),
+        (options.findingsSaveDeadlineMilliseconds ?? FINDINGS_SAVE_DEADLINE_MILLISECONDS) +
+          (privacyReading === undefined ? 0 : DOSSIER_PRIVACY_READING_LIMITS.timeoutMs),
+        { disposition: { status: "unconfirmed", reason: "not_confirmed_in_time" } } as ResearchDossierSaveOutcome);
+        if (outcome !== undefined) {
+          if (outcome.disposition !== undefined) result.research_dossier = outcome.disposition;
+          if (outcome.note !== undefined) result.notes = [...(result.notes ?? []), outcome.note];
+          const line = outcome.disposition === undefined ? undefined : researchDossierLine(outcome.disposition);
+          if (line !== undefined && result.finalization_receipt !== undefined) {
+            result.saved_line = result.saved_line === undefined ? line : `${result.saved_line} ${line}`;
+          }
         }
       }
       // Owner answer 200a: a research account's answer ends with the offer to share a de-identified copy of it.

@@ -67,6 +67,7 @@ import {
   type AtlasVersionContent,
   type HeldYouTubeFinding,
   type HeldYouTubeFindingsStore,
+  type ResearchDossierEraser,
   type PreparedAtlasFindingIntent,
   withoutFormatCharacters,
 } from "@askrigor/evidence-repository";
@@ -1045,6 +1046,8 @@ export interface AtlasReviewDependencies {
   sourceCheckCache?: AtlasSourceCheckCache;
   /** The held YouTube findings, through the review role (owner answer 173); without it they are not shown or changed. */
   held?: HeldYouTubeFindingsStore;
+  /** The research dossiers' erasure, through the review role (AskRigor#477 stage 1): forget_card erases them. */
+  dossiers?: ResearchDossierEraser;
   /**
    * The Atlas publications (decision 171, section 4B), through the review role's functions: the owner's publication
    * actions need them, and accepting, editing, rejecting, erasing and forgetting move them. Without them those actions
@@ -2617,6 +2620,7 @@ export class AtlasReview {
       inbox: this.deps.inbox,
       ...(this.deps.publications === undefined ? {} : { publications: this.deps.publications }),
       ...(this.deps.held === undefined ? {} : { held: this.deps.held }),
+      ...(this.deps.dossiers === undefined ? {} : { dossiers: this.deps.dossiers }),
     }, cardNumber, this.now(), { confirmed: request.confirm === true });
     switch (outcome.kind) {
       case "not_a_card":
@@ -2658,7 +2662,7 @@ export class AtlasReview {
         const forget = this.forgetView(report, stripped > 0 ? "waiting_for_owner" : "forgotten");
         // A call that changed nothing finds the stripped issues still waiting for the owner.
         const lead = report.strippedNow.length > 0 || report.decisions.length > 0 || report.savesDeleted.length > 0 ||
-            (report.heldDeleted ?? 0) > 0
+            (report.heldDeleted ?? 0) > 0 || (report.dossiersErased ?? 0) > 0
           ? `Forgot ${id} at its contributor's request (decision 7).`
           : `GitHub still has ${stripped === 1 ? "the stripped issue" : `${stripped} stripped issues`} of ${id} ` +
             "(decision 7).";
@@ -3924,6 +3928,12 @@ function forgetSentences(forget: AtlasForget, report: CardForgetReport): string[
     sentences.push(forget.youtubeFindingsDeleted === 1
       ? "Its 1 held YouTube finding is deleted too."
       : `Its ${forget.youtubeFindingsDeleted} held YouTube findings are deleted too.`);
+  }
+  // AskRigor#477 stage 1: said in the text only, so the published forget object stays as it is (owner answer 189a).
+  if ((report.dossiersErased ?? 0) > 0) {
+    sentences.push(report.dossiersErased === 1
+      ? "1 version of its research dossier is erased too."
+      : `${report.dossiersErased} versions of its research dossiers are erased too.`);
   }
   if (forget.findingsOnlyFromThese.length > 0) {
     const one = forget.findingsOnlyFromThese.length === 1;

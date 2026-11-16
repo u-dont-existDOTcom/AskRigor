@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
 
+import { undoResearchDossierRequestPolicy } from "./undo-research-dossier-request.js";
+
 /** Rewind the 16 Nov 2026 depth-based saving clarification before comparing older exact protocol fixtures. */
 export function undoDeepResearchSavingPolicy(text: string): string {
+  // HRP 20.6.43 (AskRigor#477 stage 1) came after it, so it is rewound first.
+  text = undoResearchDossierRequestPolicy(text);
   if (!text.includes('version="20.6.42" revisionDate="2026-11-16"')) return text;
   const afterRule = NEW_CARD_RULE;
   const beforeRule = PREVIOUS_CARD_RULE;

@@ -280,8 +280,9 @@ describe("production living-evidence deployment", () => {
     );
     // The three contribution functions, then migration 0017's five Atlas functions (Atlas phase 2), migration 0019's
     // six held YouTube findings functions (owner answer 173), migration 0021's six publication functions and migration
-    // 0022's five moderation functions (decision 171), and since then 0024's, 0025's, 0026's, 0027's and 0030's.
-    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(36);
+    // 0022's five moderation functions (decision 171), and since then 0024's, 0025's, 0026's, 0027's and 0030's, and
+    // 0037's dossier erasure (AskRigor#477 stage 1).
+    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(37);
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failure_code text");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failed_at timestamptz");
     expect(migration).toContain("(status = 'FAILED' AND completed_at IS NULL");
@@ -572,7 +573,7 @@ describe("production living-evidence deployment", () => {
       '"0028_research_use_notice_v5",\n      "0029_atlas_research_behind",\n      "0030_atlas_challenges",\n      ' +
       '"0031_research_notice_acceptance",\n      "0032_research_call_record",\n      "0033_research_steering",\n      ' +
       '"0034_research_call_record_plan_next",\n      "0035_research_menu_learning",\n      ' +
-      '"0036_research_use_notice_v6",\n    ]');
+      '"0036_research_use_notice_v6",\n      "0037_research_dossiers",\n    ]');
     // append_only_guard on exactly the eight canonical tables; the two private review tables are not among them.
     const guarded = migration.slice(migration.indexOf("FOREACH table_name IN ARRAY ARRAY["));
     expect([...guarded.slice(0, guarded.indexOf("] LOOP")).matchAll(/'([a-z_]+)'/gu)].map(([, table]) => table))
@@ -635,8 +636,8 @@ describe("production living-evidence deployment", () => {
       .toEqual([...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
         ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS,
         ...ATLAS_CHALLENGE_FUNCTIONS]);
-    // With the three contribution functions and migration 0019's six (owner answer 173).
-    expect(granted).toHaveLength(36);
+    // With the three contribution functions, migration 0019's six (owner answer 173) and 0037's dossier erasure.
+    expect(granted).toHaveLength(37);
     // Each grant names the function's exact signature, as the migration's REVOKE does.
     const signature = (text: string, prefix: string) => {
       const start = text.indexOf(prefix) + prefix.length;
@@ -916,8 +917,9 @@ describe("production living-evidence deployment", () => {
       expect(script).not.toContain("held_youtube_findings TO");
       expect(script).not.toMatch(/GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE|TRUNCATE|ALL)\s+ON\s+(?:TABLE\s+)?living_evidence\.held/iu);
     }
-    // With the pending-withdrawal function and migration 0022's nine participation functions (decision 171, 4E).
-    expect(granted(access)).toHaveLength(15);
+    // With the pending-withdrawal function, migration 0022's nine participation functions (decision 171, 4E) and
+    // migration 0037's three dossier functions (AskRigor#477 stage 1).
+    expect(granted(access)).toHaveLength(18);
     expect(access).not.toContain("purge");
     expect(review).not.toContain("purge");
     // The release: migrate first, then both provisioning scripts, before the image serves.
@@ -940,14 +942,14 @@ describe("production living-evidence deployment", () => {
     // 0024, the findings kept for research (owner answers 229a and 231a), then 0025, the placements under Health, 0026,
     // people's reports (owner answer 229a), 0027, a problem's rows at a glance, 0028, notice version 5 (owner answer
     // 253a), 0029, the research behind each finding (owner answers 254a and 255a), and 0030, the findings that challenge
-    // the usual view (the owner, 6 November 2026). Last, after the account migrations 0031 to 0035, comes 0036, notice
-    // version 6 (owner answer 307b).
-    expect(order.slice(-16)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
+    // the usual view (the owner, 6 November 2026). After the account migrations 0031 to 0035 comes 0036, notice
+    // version 6 (owner answer 307b), and last 0037, the private research dossiers (AskRigor#477 stage 1).
+    expect(order.slice(-17)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
       "0023_research_findings_save_switch", "0024_atlas_kept_for_research", "0025_atlas_placements", "0026_atlas_reports",
       "0027_atlas_glance_rows", "0028_research_use_notice_v5", "0029_atlas_research_behind", "0030_atlas_challenges",
       "0031_research_notice_acceptance", "0032_research_call_record",
       "0033_research_steering", "0034_research_call_record_plan_next", "0035_research_menu_learning",
-      "0036_research_use_notice_v6"]);
+      "0036_research_use_notice_v6", "0037_research_dossiers"]);
     // One table and its sequence, safe to run again; the reason lists replaced on every run.
     expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS atlas_publication_number_seq AS bigint START WITH 1001");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS atlas_publications (");
@@ -1035,8 +1037,9 @@ describe("production living-evidence deployment", () => {
       expect(review).not.toContain(helper);
       expect(access).not.toContain(helper);
     }
-    // With the pending-withdrawal function and migration 0019's hold of YouTube findings (owner answer 173).
-    expect(access.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(15);
+    // With the pending-withdrawal function, migration 0019's hold of YouTube findings (owner answer 173) and migration
+    // 0037's three dossier functions (AskRigor#477 stage 1).
+    expect(access.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(18);
     expect(access).not.toMatch(/GRANT[^;]*atlas_(?:participants|votes|comments|comment_reports|home_picks|session_ends)/u);
     // Writes happen only inside the functions; nothing outside them touches a table or grants a role.
     const outsideFunctions = migration.replace(/AS \$function\$[\s\S]*?\$function\$;/gu, "");
@@ -1122,8 +1125,8 @@ describe("production living-evidence deployment", () => {
     // Right after 0034 in the migrate list; only 0036, notice version 6 (owner answer 307b), follows it.
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
-    expect(order.slice(-3)).toEqual(["0034_research_call_record_plan_next", "0035_research_menu_learning",
-      "0036_research_use_notice_v6"]);
+    expect(order.slice(-4)).toEqual(["0034_research_call_record_plan_next", "0035_research_menu_learning",
+      "0036_research_use_notice_v6", "0037_research_dossiers"]);
     // Safe to run again: the columns, the table and the index come once, and every check is added by its name only
     // when it is missing.
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS learn_menu_choices boolean NOT NULL DEFAULT false");
@@ -1168,6 +1171,109 @@ describe("production living-evidence deployment", () => {
       expect(script).toContain("REVOKE ALL ON ALL TABLES IN SCHEMA living_evidence FROM");
       expect(script).not.toMatch(/research_menu_choices|learn_menu_choices|research_call_record/u);
     }
+  });
+
+  // AskRigor#477 stage 1 (owner answer 329a, 16 Nov 2026): the private research dossiers.
+  it("ships migration 0037's private research dossiers, additive, safe to run again, reached only through role functions", async () => {
+    const migration = await read("packages/evidence-repository/migrations/0037_research_dossiers.sql");
+    const repository = await read("packages/evidence-repository/src/postgres.ts");
+    const access = await read("infra/living-evidence-production/provision-research-access-role.sh");
+    const review = await read("infra/living-evidence-production/provision-research-review-role.sh");
+    const gaps = await read("infra/living-evidence-production/provision-evidence-gap-role.sh");
+    const runbook = await read("infra/living-evidence-production/README.md");
+    const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
+    const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
+    expect(order.at(-1)).toBe("0037_research_dossiers");
+    // Additive: new objects only, each made once; nothing existing is dropped or altered but one trigger it owns.
+    expect(migration).not.toMatch(/DROP (?!TRIGGER IF EXISTS)|ALTER TABLE|CREATE TABLE (?!IF NOT EXISTS)/u);
+    expect([...migration.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)/gu)].map(([, name]) => name)).toEqual([
+      "research_dossiers", "research_dossier_versions", "research_dossier_identifiers", "research_dossier_requests",
+      "research_dossier_events"]);
+    expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS research_dossier_number_seq");
+    expect(migration).toContain("CREATE UNIQUE INDEX IF NOT EXISTS research_dossier_one_first_version");
+    // Every request and the version it got, the deduplicated ones too, so a retry finds its own (Codex's review, 5).
+    expect(migration).toContain("request_key char(64) PRIMARY KEY");
+    expect(migration.match(/INSERT INTO research_dossier_requests/gu)).toHaveLength(2);
+    // ARD numbers keep every digit past four (Codex's review, 8): lpad would cut ARD-10000 to ARD-1000.
+    expect(migration).toContain("lpad(next_dossier::text, greatest(4, length(next_dossier::text)), '0')");
+    expect(migration).not.toMatch(/lpad\(nextval/u);
+    expect(migration).toContain("previous_version_id uuid UNIQUE REFERENCES research_dossier_versions(version_id)");
+    // What a stored dossier never holds: no column for an answer, a question's text, a person or a YouTube id.
+    expect(migration).not.toMatch(/answer_text|asked|research_target text|subject|email|youtube|video_id/iu);
+    // Every function that touches the tables is SECURITY DEFINER and revoked from PUBLIC; the guard keeps rows fixed.
+    const functions = migration.split("CREATE OR REPLACE FUNCTION ").slice(1).map((chunk) => ({
+      name: chunk.slice(0, chunk.indexOf("(")),
+      header: chunk.slice(0, chunk.indexOf("AS $")),
+    }));
+    expect(functions.map(({ name }) => name)).toEqual(["research_dossier_version_guard",
+      "append_research_dossier_version", "latest_research_dossier_version", "read_research_dossier_version",
+      "erase_research_dossiers", "withdraw_research_dossiers_on_revocation"]);
+    for (const { name, header } of functions) {
+      expect(migration).toMatch(new RegExp(`REVOKE ALL ON FUNCTION ${name}\\([^;]*\\) FROM PUBLIC;`, "u"));
+      if (name !== "research_dossier_version_guard") expect(header).toContain("SECURITY DEFINER");
+    }
+    // Revocation withdraws pending versions in the database itself, so an earlier image's revocation does too.
+    // And a person's own revocation of an account a notice rollback hold already marked revoked: a new revoked_at
+    // (Codex's second pass), so the hold's trigger-off steps never lose it.
+    expect(migration).toContain("CREATE TRIGGER research_dossiers_withdraw_on_revocation\n" +
+      "  AFTER UPDATE OF status, revoked_at ON research_use_accounts\n" +
+      "  FOR EACH ROW WHEN (NEW.status = 'REVOKED'\n" +
+      "    AND (OLD.status IS DISTINCT FROM 'REVOKED' OR OLD.revoked_at IS DISTINCT FROM NEW.revoked_at))");
+    // The account is read in the append's own transaction, under a lock a revocation, a mode change or the saving
+    // switch waits for (Codex's review, 4): active, free, notice v6, card saving on.
+    expect(migration).toContain("WHERE account.account_key = target_account_key\n   FOR NO KEY UPDATE;");
+    expect(migration).not.toContain("FOR KEY SHARE");
+    expect(migration).toContain("account_row.notice_version IS DISTINCT FROM 'free-contributor-v6-2026-11-15'");
+    expect(migration).toContain("account_row.findings_save IS NOT TRUE");
+    // Nothing for PUBLIC or the canonical reader, whose default table grants would otherwise read the tables.
+    for (const table of ["research_dossiers", "research_dossier_versions", "research_dossier_identifiers",
+      "research_dossier_requests", "research_dossier_events"]) {
+      expect(migration).toContain(`REVOKE ALL ON TABLE ${table} FROM PUBLIC;`);
+      expect(migration).toContain(`REVOKE ALL ON TABLE ${table} FROM askrigor_reader;`);
+    }
+    expect(migration).toContain("REVOKE ALL ON SEQUENCE research_dossier_number_seq FROM PUBLIC;");
+    // The access role appends, finds the newest version and reads back; the review role erases; no table right.
+    const signatures = (script: string) => [...script.matchAll(/GRANT EXECUTE ON FUNCTION living_evidence\.(\w+)\(([^)]*)\)/gu)]
+      .filter(([, name]) => name!.includes("research_dossier"))
+      .map(([, name, args]) => `${name}(${args!.replace(/\s+/gu, " ").trim()})`);
+    expect(signatures(access)).toEqual([
+      "append_research_dossier_version(text, text, text, text, text, jsonb, text, integer, jsonb, uuid, uuid, timestamptz)",
+      "latest_research_dossier_version(text, text)",
+      "read_research_dossier_version(text, uuid)",
+    ]);
+    // Erasure by the forgotten research thread's key alone, never by a card number (Codex's review, 1).
+    expect(signatures(review)).toEqual(["erase_research_dossiers(text, timestamptz)"]);
+    expect(migration).toContain("CREATE OR REPLACE FUNCTION erase_research_dossiers(target_thread_key text, change_time timestamptz)");
+    expect(migration).not.toMatch(/card_number = ANY|target_card_numbers/u);
+    for (const script of [access, review, gaps]) {
+      expect(script).not.toMatch(/(?:SELECT|INSERT|UPDATE|DELETE|USAGE)[^;]*ON (?:TABLE |SEQUENCE )?living_evidence\.research_dossier/iu);
+    }
+    expect(gaps).not.toContain("research_dossier");
+    // The runbook names the release order, what an earlier image cannot read, and read-only counts.
+    expect(runbook).toContain("0037_research_dossiers");
+    // And the two rollback hazards (Codex's review, finding 7): the v6 hold's revocations would withdraw pending
+    // versions for good, so the trigger is off around it with research-mcp stopped, or the rollback stops at ce1d677a;
+    // an earlier image's forget_card strips the thread key, so it is recovered from the card's marker and its
+    // dossiers erased by it first. No card number erases a dossier.
+    const hazards = runbook.slice(runbook.indexOf("Image rollback hazards (Codex's review of 16 November 2026, finding 7)"));
+    expect(hazards).toContain("Roll back no lower than `ce1d677a` when you can");
+    expect(hazards).toContain("ALTER TABLE living_evidence.research_use_accounts DISABLE TRIGGER " +
+      "research_dossiers_withdraw_on_revocation;\n   -- here, research-use-notice-v6-hold.sql, as above\n" +
+      "   ALTER TABLE living_evidence.research_use_accounts ENABLE TRIGGER research_dossiers_withdraw_on_revocation;");
+    expect(hazards).toContain("stop `research-mcp` before\n   each run of the hold");
+    expect(hazards).toContain("<!-- askrigor-findings-card:<data> -->");
+    expect(hazards).toContain("SELECT living_evidence.erase_research_dossiers('<thread key>', now());");
+    expect(hazards).toContain("SELECT count(*) FROM living_evidence.research_dossiers WHERE thread_key = '<thread key>';");
+    expect(runbook).not.toMatch(/erase_research_dossiers\([^)]*integer\[\]/u);
+    const v6Hold = await read("infra/living-evidence-production/research-use-notice-v6-hold.sql");
+    expect(v6Hold).toContain("marking an account REVOKED here fires research_dossiers_withdraw_on_revocation,");
+    const acceptance = await read("scripts/research-contributor-access-postgres-acceptance.mts");
+    expect(acceptance).toContain("DISABLE TRIGGER research_dossiers_withdraw_on_revocation");
+    expect(acceptance).toContain("DOSSIER_NOTICE_HOLD_WITHDREW");
+    expect(acceptance).toContain("DOSSIER_REVOCATION_DURING_HOLD_LOST");
+    expect(hazards).toContain("the\n   trigger also fires when a revoked account is revoked again at a new time");
+    expect(runbook).toContain("SELECT count(*) FROM living_evidence.research_dossier_versions");
+    expect(runbook).toContain("ASKRIGOR_RESEARCH_DOSSIERS=enabled");
   });
 });
 

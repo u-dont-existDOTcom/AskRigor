@@ -28,6 +28,20 @@ export {
   type ResearchPlanLane,
 } from "./research-call-record.js";
 export {
+  InMemoryResearchDossierStore,
+  PostgresResearchDossierEraser,
+  PostgresResearchDossierStore,
+  RESEARCH_DOSSIER_IDENTIFIER_SCHEMES,
+  type ResearchDossierAppendInput,
+  type ResearchDossierAppendOutcome,
+  type ResearchDossierAppendResult,
+  type ResearchDossierEraseInput,
+  type ResearchDossierEraser,
+  type ResearchDossierIdentifierScheme,
+  type ResearchDossierStore,
+  type ResearchDossierVersionRead,
+} from "./research-dossiers.js";
+export {
   buildSyntheticPublicLeadProjection,
   communityDeadLetterErrorCode,
   computeCommunitySourceIndependenceKeys,

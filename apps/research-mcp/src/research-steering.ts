@@ -370,6 +370,8 @@ export function readResearchMenu(later: Record<string, unknown>): MenuReading {
   for (const [key, value] of Object.entries(later)) {
     if (key === menuKey) continue;
     const name = snakeKey(key);
+    // A test run's marker goes on beside the menu (withResearchMenuReading), never inside it.
+    if (name === "findings_save") continue;
     const field = name === "allocation" || name === "done" || name === "menu_digest" || name === "person_answered"
       ? name : MENU_ALIASES[name];
     if (field !== undefined && value === null) continue;

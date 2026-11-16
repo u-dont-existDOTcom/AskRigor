@@ -920,6 +920,51 @@ turns the setting off before a run and on after it, and the release record shows
 paid-private saves or research-map and source-analysis contributions. This adds no connector tool; the catalog
 stays at 33.
 
+## Private research dossiers (AskRigor#477 stage 1; owner answer 329a, 16 November 2026; built, not yet released)
+
+Notice v6 covers a free contributor's research dossier, kept privately for the owner's review (owner answer 329a).
+With a passing final check, the AI may send `later_inputs.research_dossier`: the question in general terms, the topic
+and forms, the searches, the studies, their results, up to 30 conclusions, what was covered, what communities reported
+(counts only in this stage), open trails and its own statement that the research saves a later reader substantial work
+(`apps/research-mcp/src/findings/dossier.ts` has the exact shape and limits, which the owner said are starting values
+to revisit). The server saves it whole or not at all, after exact checks with no model: each study one paper the
+receipts confirm, entered once, and read by a receipt of this call (or held by a checked Atlas finding used here) before
+a result or conclusion rests on it, a search never standing in for reading it; each search matching its own receipt;
+counts, numbers needed to treat or harm and calculated figures adding up; references, coverage and forms; people's
+reports only from forum threads AskRigor's reader read in this research, kept as counts under the communities their
+receipts name; once YouTube comments were read, each conclusion says whether it draws on them, and one that does, or a
+card finding the same check held for them, refuses the dossier; and the dossier's privacy screen
+(`apps/research-mcp/src/findings/dossier-privacy.ts`) over every text, the ids and the topic key included: the findings
+card's screen, then the person's own voice, relatives, carers and places in English, French, Spanish, German,
+Portuguese and Italian, a first name about a particular person, a date of birth or where someone lives, contacts and
+links, and any word in a script it cannot read or that mixes scripts, after folding look-alike letters, invisible
+characters and capitals; an author before "et al." and patients' partners in a study's report pass. It refuses the
+whole dossier when in doubt, and still cannot prove that a text identifies no one, so the owner's review reads each one.
+A study's identifiers that receipts link through one another are one paper, and a conclusion that repeats a card finding
+the same check held apart for YouTube comments refuses the dossier. Whether the papers
+say what the dossier claims is stored as the AI's judgement (Codex's review of 16 November 2026 set the paper, forum,
+YouTube and privacy checks).
+
+`finalize_research`'s `research_dossier` says what happened: `saved` (an ARD number and version, read back by its
+digest), `duplicate`, `insufficient` (paths and rules, never values), `private`, `consent_blocked`, `not_sent` (the
+research did work a quick answer cannot do and sent none), `unconfirmed` (whenever the write may have landed) or
+`unavailable`; the answer ends with one line saying which. The AI is asked for the dossier before its first final check
+(Codex's red team of the instruction proposal, worded as it corrected it): `plan_research`, for a plan that goes on and
+is no light look-up, gives the request, the shape and the guards, in its text and in `research_dossier_request`; a check
+that is not ready yet reminds it; the card guidance says the dossier's own value test; HRP 20.6.43's
+`DeepResearchTimeSavingAtlasPreservation` says the same. Every ask goes by one rule (`researchDossierAllowed`: the
+store on, a free contributor whose yes covers notice v6, saving on, a call not marked off) and never follows a short
+look-up. What was left out for the owner is in `/home/joel/askrigor-releases/20261116-477/instruction-disagreements.md`.
+After a check that held card findings apart for YouTube comments, each conclusion also says which card finding it is,
+by its place, or none, and a held one refuses the dossier. `ASKRIGOR_DOSSIER_PRIVACY_READING=on` (off in the code's
+default; owner answer 334a releases it on, and the privacy page says so) adds a meaning-based privacy reading before
+storage on the research planner's API path (the infra README has its settings, limits and cost); with it on, a dossier
+is saved only after the reading passes it. Paid private accounts are not offered a dossier (owner answer 330a); a dev account with card saving off,
+and a call marked `findings_save` off, save none. Nothing is asked for or saved unless the server runs with
+`ASKRIGOR_RESEARCH_DOSSIERS=enabled`. Storage, roles, revocation, deletion with `forget_card` (the forgotten save's
+research thread only, never by a card number, which several people's saves share) and the rollback hazards are in
+`infra/living-evidence-production/README.md` (migration `0037_research_dossiers`).
+
 ## Identity boundary
 
 Auth0 authenticates the connected account and supplies a stable OAuth subject.

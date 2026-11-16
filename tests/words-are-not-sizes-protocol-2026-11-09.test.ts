@@ -87,7 +87,7 @@ describe("owner answer 282a: HRP 20.6.41", () => {
     expect(XMLValidator.validate(text)).toBe(true);
     expect(hrp.to.version).toBe("20.6.41");
     expect(await getProtocolManifest("hrp")).toEqual({
-      name: "HRP", version: "20.6.42", revisionDate: "2026-11-16", sha256: "bef2125fc273d2c67c02ba0197739bce60b3134d5d59e25aca413cb943932b46",
+      name: "HRP", version: "20.6.43", revisionDate: "2026-11-16", sha256: "99f40aa2715dd60d16f49f435d5c14c027d02f985cf38aa4c1b6e41dae401f66",
     });
     expect([...text.matchAll(/<Revision version="([^"]+)"/gu)].slice(0, 2).map((match) => match[1]))
       .toEqual(["20.6.41", "20.6.40"]);
