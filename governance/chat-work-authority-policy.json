@@ -158,6 +158,31 @@
         "the API workspace ID"
       ],
       "codexOrWorkMayAuthorPaidProposal": false
+    },
+    {
+      "decisionId": "OWNER_JEV_ONE_DOLLAR_20261115",
+      "date": "2026-11-15",
+      "provider": "OPENROUTER_DECISIONS_API",
+      "scopes": [
+        "JEV_INDEPENDENT_VALUE_EVALUATION_ON_ASKRIGOR_AND_MISSION_CONTROL_TEST_CASES"
+      ],
+      "funding": "OWNER_EXISTING_PREPAID_OPENROUTER_CREDIT",
+      "ceiling": {
+        "basis": "OWNER_AGGREGATE_USD_1_FOR_THE_WHOLE_JEV_EVALUATION",
+        "maximumModelApiSpendUsdPerMonth": 1,
+        "spendBeyondCreditsPermitted": false,
+        "note": "USD 1.00 in all, once, for every new Jev inference call of the independent-value evaluation on AskRigor's and Mission Control's test cases together: not an amount per month, run, model, case or schedule, so the monthly field holds the whole total. Paid from the owner's existing prepaid OpenRouter credit (USD 3.80 by the owner's count), with no top-up. Spent only through UDA's budgeted Jev evaluator and its one shared ledger: the newest pinned Jev 1.x first, legacy Jev 1.13 only within the same total, no version priced above USD 0.042 per million input tokens, and no retry after a provider failure. Nothing is published."
+      },
+      "question": "No numbered owner question. On 15 November 2026 the owner answered the Jev budget and provider diagnosis given after the independent-value evaluations were built (UDA owner requirement 2026-11-15-jev-one-dollar-version-cap records it as a direct owner response). On 16 November 2026 at 01:34 UTC, in chat, the owner asked for this test to be implemented with UDA pull request #498.",
+      "ownerWords": [
+        "set the approrpiate spending caps $1 is fine. switch versions yeah that should be automatically checked. ... why wouldn't you have already done that? i have $3.80 on openrouter still",
+        "implement this test also"
+      ],
+      "notRecorded": [
+        "the key file's path",
+        "the exact words of the diagnosis the owner answered"
+      ],
+      "codexOrWorkMayAuthorPaidProposal": false
     }
   ],
   "completion": {
