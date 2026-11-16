@@ -1213,9 +1213,12 @@ describe("production living-evidence deployment", () => {
       if (name !== "research_dossier_version_guard") expect(header).toContain("SECURITY DEFINER");
     }
     // Revocation withdraws pending versions in the database itself, so an earlier image's revocation does too.
+    // And a person's own revocation of an account a notice rollback hold already marked revoked: a new revoked_at
+    // (Codex's second pass), so the hold's trigger-off steps never lose it.
     expect(migration).toContain("CREATE TRIGGER research_dossiers_withdraw_on_revocation\n" +
-      "  AFTER UPDATE OF status ON research_use_accounts\n" +
-      "  FOR EACH ROW WHEN (OLD.status = 'ACTIVE' AND NEW.status = 'REVOKED')");
+      "  AFTER UPDATE OF status, revoked_at ON research_use_accounts\n" +
+      "  FOR EACH ROW WHEN (NEW.status = 'REVOKED'\n" +
+      "    AND (OLD.status IS DISTINCT FROM 'REVOKED' OR OLD.revoked_at IS DISTINCT FROM NEW.revoked_at))");
     // The account is read in the append's own transaction, under a lock a revocation, a mode change or the saving
     // switch waits for (Codex's review, 4): active, free, notice v6, card saving on.
     expect(migration).toContain("WHERE account.account_key = target_account_key\n   FOR NO KEY UPDATE;");
@@ -1267,6 +1270,8 @@ describe("production living-evidence deployment", () => {
     const acceptance = await read("scripts/research-contributor-access-postgres-acceptance.mts");
     expect(acceptance).toContain("DISABLE TRIGGER research_dossiers_withdraw_on_revocation");
     expect(acceptance).toContain("DOSSIER_NOTICE_HOLD_WITHDREW");
+    expect(acceptance).toContain("DOSSIER_REVOCATION_DURING_HOLD_LOST");
+    expect(hazards).toContain("the\n   trigger also fires when a revoked account is revoked again at a new time");
     expect(runbook).toContain("SELECT count(*) FROM living_evidence.research_dossier_versions");
     expect(runbook).toContain("ASKRIGOR_RESEARCH_DOSSIERS=enabled");
   });

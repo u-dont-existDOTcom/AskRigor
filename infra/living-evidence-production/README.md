@@ -455,8 +455,10 @@ tables, so its pages, review and research are unaffected, and its `finalize_rese
    SELECT count(*) FROM living_evidence.research_dossier_events WHERE event = 'withdrawn';
    ```
 
-   With `research-mcp` stopped, no one's revocation lands while the trigger is off; a person who revokes later, on
-   the earlier image, still withdraws their versions.
+   With `research-mcp` stopped, no one's revocation lands while the trigger is off. A person who revokes later, on
+   the earlier image, still withdraws their versions, even while the hold has marked their account `REVOKED`: the
+   trigger also fires when a revoked account is revoked again at a new time, which is how that revocation is written
+   (Codex's second pass), and the restore then leaves their account revoked.
 2. An earlier image's `forget_card` cannot erase a dossier, and it strips the research-thread key from the person's
    card markers, the only link this image's `forget_card` follows to their dossiers, those saved without a card too
    (no card number finds a dossier: several people's saves can share one). So while an earlier image serves, hold

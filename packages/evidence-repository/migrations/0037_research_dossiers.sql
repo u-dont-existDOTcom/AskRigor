@@ -360,7 +360,10 @@ $function$;
 REVOKE ALL ON FUNCTION erase_research_dossiers(text, timestamptz) FROM PUBLIC;
 
 -- Revoking an account withdraws its dossier versions still waiting for review, as revocation withdraws its pending
--- proposals. A trigger, so an earlier image's revocation, which knows nothing of dossiers, withdraws them too.
+-- proposals. A trigger, so an earlier image's revocation, which knows nothing of dossiers, withdraws them too: when an
+-- active account is revoked, and when an account already marked revoked is revoked again at a new time, which is how a
+-- person's own revocation lands while a notice rollback hold has marked their account revoked (Codex's second pass:
+-- the README's rollback steps turn the trigger off for the hold itself, never for the person).
 CREATE OR REPLACE FUNCTION withdraw_research_dossiers_on_revocation()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -385,8 +388,9 @@ REVOKE ALL ON FUNCTION withdraw_research_dossiers_on_revocation() FROM PUBLIC;
 
 DROP TRIGGER IF EXISTS research_dossiers_withdraw_on_revocation ON research_use_accounts;
 CREATE TRIGGER research_dossiers_withdraw_on_revocation
-  AFTER UPDATE OF status ON research_use_accounts
-  FOR EACH ROW WHEN (OLD.status = 'ACTIVE' AND NEW.status = 'REVOKED')
+  AFTER UPDATE OF status, revoked_at ON research_use_accounts
+  FOR EACH ROW WHEN (NEW.status = 'REVOKED'
+    AND (OLD.status IS DISTINCT FROM 'REVOKED' OR OLD.revoked_at IS DISTINCT FROM NEW.revoked_at))
   EXECUTE FUNCTION withdraw_research_dossiers_on_revocation();
 
 REVOKE ALL ON TABLE research_dossiers FROM PUBLIC;

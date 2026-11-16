@@ -1461,7 +1461,34 @@ async function verifyResearchDossiers(context: {
     await service.revoke(holdSubject);
     assert(await versionEvents() === "submitted,withdrawn", "DOSSIER_TRIGGER_NOT_BACK_ON");
   }
-  checks.push("dossier_rollback_hold_with_the_trigger_off_keeps_versions_pending_and_the_trigger_comes_back");
+  // Codex's second pass: a person who revokes while the hold has marked their account revoked (the earlier image
+  // writes the revoked account again, at a new time) still withdraws their versions; a write that leaves the revocation
+  // time as it is withdraws nothing.
+  {
+    const heldSubject = "auth0|synthetic-postgres-dossier-revoked-while-held";
+    await service.acceptFreeContributor(heldSubject, FREE_AGREEMENT);
+    const heldKey = service.accountKeyForSubject(heldSubject);
+    const pendingVersion = await store.append({ ...appendInput("revoked-while-held", hex("dossier:revoked-while-held"),
+      hex("thread:revoked-while-held"), null), accountKey: heldKey });
+    assert(pendingVersion.outcome === "inserted", "DOSSIER_REVOKED_WHILE_HELD_SETUP_REFUSED");
+    const heldEvents = async () => (await admin.query<{ event: string }>(`SELECT event FROM ${SCHEMA}.research_dossier_events
+      WHERE version_id = $1 ORDER BY event_id`, [pendingVersion.versionId])).rows.map(({ event }) => event).join(",");
+    await admin.query(`ALTER TABLE ${SCHEMA}.research_use_accounts DISABLE TRIGGER research_dossiers_withdraw_on_revocation`);
+    try {
+      await admin.query(`UPDATE ${SCHEMA}.research_use_accounts SET status = 'REVOKED', mode = NULL, notice_version = NULL,
+        agreement_json = '{}'::jsonb, activated_at = NULL, revoked_at = clock_timestamp(), updated_at = clock_timestamp()
+        WHERE account_key = $1`, [heldKey]);
+    } finally {
+      await admin.query(`ALTER TABLE ${SCHEMA}.research_use_accounts ENABLE TRIGGER research_dossiers_withdraw_on_revocation`);
+    }
+    assert(await heldEvents() === "submitted", "DOSSIER_HOLD_WITHDREW_BEFORE_REVOCATION");
+    await admin.query(`UPDATE ${SCHEMA}.research_use_accounts SET status = 'REVOKED', revoked_at = revoked_at,
+      updated_at = updated_at WHERE account_key = $1`, [heldKey]);
+    assert(await heldEvents() === "submitted", "DOSSIER_UNCHANGED_REVOCATION_WITHDREW");
+    await service.revoke(heldSubject);
+    assert(await heldEvents() === "submitted,withdrawn", "DOSSIER_REVOCATION_DURING_HOLD_LOST");
+  }
+  checks.push("dossier_rollback_hold_with_the_trigger_off_keeps_versions_pending_and_a_revocation_during_it_withdraws");
 
   // forget_card's erasure, through the review role, by the forgotten research thread's key alone: another person's
   // dossier that recorded the same card number stays whole (Codex's review, finding 1).
