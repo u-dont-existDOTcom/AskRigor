@@ -342,12 +342,12 @@ describe("a research dossier's record and its checks", () => {
       { path: "coverage.people_reports", rule: "coverage_community_missing" },
       { path: "value.adds[0]", rule: "unknown_reference" },
     ]);
-    // The findings card's privacy screen, and no YouTube address.
+    // The dossier's privacy screen (the findings card's first), and no YouTube address.
     expect(check((dossier) => {
       dossier.findings[0].applies_to = "I was diagnosed with diabetes last year";
       dossier.open_trails = ["https://www.youtube.com/watch?v=dQw4w9WgXcQ"];
     })).toEqual([
-      { path: "findings[0].applies_to", rule: "privacy_screen" },
+      { path: "findings[0].applies_to", rule: "personal_narrative" },
       { path: "open_trails[0]", rule: "youtube_reference" },
     ]);
   });
@@ -424,11 +424,13 @@ describe("a research dossier's record and its checks", () => {
     const refusing = new InMemoryResearchDossierStore({ eligible: () => false });
     expect((await saveResearchDossier(refusing, request()))?.disposition)
       .toEqual({ status: "consent_blocked", reason: "account_not_eligible" });
+    // A store that fails before anything is written leaves nothing behind: unavailable, said in the answer.
     const failing: ResearchDossierStore = { ...tampered, latestVersion: async () => { throw new Error("down"); } };
-    await expect(saveResearchDossier(failing, request())).rejects.toThrow("down");
+    expect((await saveResearchDossier(failing, request()))?.disposition)
+      .toEqual({ status: "unavailable", reason: "store_unavailable" });
   });
 
-  it("withdraws pending versions on revocation and erases a thread's dossiers with its card, leaving no content", async () => {
+  it("withdraws pending versions on revocation and erases only the forgotten thread's dossiers, leaving no content", async () => {
     const store = new InMemoryResearchDossierStore();
     await saveResearchDossier(store, request());
     await saveResearchDossier(store, withDossier((dossier) => { dossier.open_trails = ["Second"]; }));

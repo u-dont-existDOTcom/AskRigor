@@ -10,9 +10,11 @@ import { z } from "zod";
 
 import { atlasSourceDigest, checkedAtlasSources, type AtlasReuse } from "../atlas/reuse.js";
 import { sourceIdentifierOf } from "../atlas/page-data.js";
+import { forumThreadDigest, publishedThreadOf } from "../forum-thread-links.js";
 import { discoveryQueryDigest, verifyResearchReceipt } from "../research-receipts.js";
-import { FINDING_CERTAINTIES, holdsYouTubeReference, screenFindingsText } from "./card.js";
+import { FINDING_CERTAINTIES, holdsYouTubeReference } from "./card.js";
 import type { ResearchDossierDisposition } from "./dossier-disposition.js";
+import { dossierPrivacyRule } from "./dossier-privacy.js";
 import { findingsQuestionKey, findingsThreadKey } from "./service.js";
 
 /**
@@ -26,11 +28,13 @@ import { findingsQuestionKey, findingsThreadKey } from "./service.js";
  * The AI sends the dossier in finalize_research's later_inputs.research_dossier with a passing final check. The server
  * saves it whole or not at all, only when the AI declares that it saves a reader substantial work. What is exact is
  * checked here, with no model: each study is read by a receipt of this call (or held by a checked Atlas finding used
- * here) before results or conclusions rest on it; each search matches its own receipt; counts, numbers needed to treat
- * or harm, and calculated figures add up; every reference points at an entry; every area of coverage is answered; each
- * conclusion keeps its form; each text passes the findings card's privacy screen. Whether a paper says what a figure or
- * a conclusion claims is the AI's reading, and the stored dossier says so. Never a blocking step of the final check.
- * The hard limits are starting values to revisit as topics need (the owner's note on 329a).
+ * here) before results or conclusions rest on it, each study is one paper the receipts confirm, entered once; each
+ * search matches its own receipt; counts, numbers needed to treat or harm, and calculated figures add up; every
+ * reference points at an entry; every area of coverage is answered; each conclusion keeps its form; people's reports
+ * come only from forum threads read here, and nothing from YouTube comments; every text passes the dossier's privacy
+ * screen (dossier-privacy.ts). Whether a paper says what a figure or a conclusion claims is the AI's reading, and the
+ * stored dossier says so. Never a blocking step of the final check. The hard limits are starting values to revisit as
+ * topics need (the owner's note on 329a). Codex's review of 16 Nov 2026 set the paper, forum, YouTube and privacy rules.
  */
 
 export const RESEARCH_DOSSIER_SCHEMA = "askrigor.research-dossier.v1" as const;
@@ -39,7 +43,7 @@ export const RESEARCH_DOSSIER_LIMITS = Object.freeze({
   question: 300, topicName: 200, otherNames: 10, otherName: 80, forms: 12, form: 80, searches: 40, query: 300,
   studies: 40, identifiers: 4, identifier: 300, studyField: 120, design: 200, reason: 200, results: 60, outcome: 200,
   unit: 40, findings: 30, claim: 500, appliesTo: 300, change: 300, restsOn: 20, trails: 10, trail: 200,
-  quickAnswer: 400, valueReason: 400, adds: 8, communities: 10, community: 80,
+  quickAnswer: 400, valueReason: 400, adds: 8, threads: 20,
 });
 
 export const DOSSIER_STUDY_KINDS = ["human_trial", "human_observational", "case_report", "animal", "lab", "review"] as const;
@@ -131,6 +135,9 @@ const findingSchema = z.object({
   rests_on: z.array(localId).min(1).max(L.restsOn),
   what_would_change_it: text(L.change),
   importance: z.enum(DOSSIER_IMPORTANCE),
+  // As the findings card's own (owner answer 219b): required once this research read YouTube comments, and a finding
+  // that draws on them refuses the whole dossier, which has no holding place for it (Codex's review, finding 3).
+  draws_on_youtube_comments: z.boolean().optional(),
 }).strict();
 
 const coverageEntrySchema = z.object({
@@ -139,8 +146,10 @@ const coverageEntrySchema = z.object({
   reason: text(L.reason).optional(),
 }).strict();
 
+// People's reports, only from forum threads AskRigor's reader read in this research: each thread is checked against its
+// read's receipt and kept only as a count; the communities stored are those the receipts name (Codex's review, 3).
 const communitySchema = z.object({
-  communities: z.array(text(L.community)).min(1).max(L.communities),
+  threads: z.array(z.string().trim().url().max(2_048)).min(1).max(L.threads),
   people: z.object({ better: count, no_change: count, worse: count, mixed: count }).strict(),
   report_quality: z.object({ detailed: count, measured: count, bare: count }).strict(),
 }).strict();
@@ -181,9 +190,11 @@ export const RESEARCH_DOSSIER_SHAPE = "later_inputs.research_dossier: {scope: pu
   "ratio or percent_change, from: [a, b]}, with calculated)}]; findings: [{id, claim, certainty, kind (helps, harms, " +
   "no_difference, mixed, not_known, correction, overlooked_option or tested_vs_sold), applies_to, form, rests_on " +
   "(study, result or search ids, or community), what_would_change_it, importance (decision_changing, important or " +
-  "context)}]; coverage: {benefits, harms, null_results, conflicts, mainstream_options, people_reports: each {status: " +
-  "entries, none_found with search, or not_researched with reason}}; community: {communities, people: {better, " +
-  "no_change, worse, mixed}, report_quality: {detailed, measured, bare}}, never from YouTube comments; open_trails}. " +
+  "context), draws_on_youtube_comments (required once this research read YouTube comments; true refuses the dossier)}]; " +
+  "coverage: {benefits, harms, null_results, conflicts, mainstream_options, people_reports: each {status: entries, " +
+  "none_found with search, or not_researched with reason}}; community: {threads, the forum threads read here with " +
+  "read_forum_thread, by their links; people: {better, no_change, worse, mixed}, report_quality: {detailed, measured, " +
+  "bare}}, never from YouTube comments; open_trails}. " +
   "Everything in general terms: never the person, the chat, the answer, quotes from papers or YouTube comments.";
 
 export interface DossierProblem {
@@ -218,6 +229,10 @@ export interface CheckedDossier {
   input: ResearchDossierInput;
   studies: Map<string, CheckedStudy>;
   searches: Map<string, { recordsFound: number | null }>;
+  /** The communities the forum reads' receipts name, as the Atlas would name them; none for a person's profile. */
+  communities: string[];
+  /** The forum threads read here that people's reports come from, each once. */
+  threadsRead: number;
 }
 
 const identifierKey = ({ scheme, value }: { scheme: string; value: string }) => `${scheme}:${value}`;
@@ -251,7 +266,12 @@ function decimalsOf(value: number): number {
 /** The exact checks; problems name a path and a rule, never a value. */
 export function checkResearchDossier(
   input: ResearchDossierInput,
-  context: { receipts: readonly DossierReceipt[]; atlasSources: ReadonlySet<string> },
+  context: {
+    receipts: readonly DossierReceipt[];
+    atlasSources: ReadonlySet<string>;
+    /** Whether the same check held findings of its card apart as drawn from YouTube comments (owner answer 219b). */
+    cardFindingsHeld?: boolean;
+  },
 ): { problems: DossierProblem[]; checked?: CheckedDossier } {
   const problems: DossierProblem[] = [];
   const problem = (path: string, rule: string) => problems.push({ path, rule });
@@ -284,22 +304,31 @@ export function checkResearchDossier(
     searches.set(search.id, { recordsFound: Number.isSafeInteger(total) && total >= 0 ? total : null });
   });
 
-  // Studies: how each was read, from this call's receipts; a PubMed record's other identifiers join the study.
+  // Studies (Codex's review, finding 6): a study is a paper the receipts confirm. Every identifier it gives must be named
+  // by one and the same reading receipt, whose other identifiers join it; one that receipt does not name is another
+  // paper. A study no receipt read gives one identifier. No paper is entered twice, under any of its identifiers.
   const readReceipts = context.receipts.flatMap((receipt) => {
     const reading = readingOf(receipt);
     if (reading === undefined) return [];
     const named = ["id", "doi", "pmid", "pmcid"].flatMap((key) => list(receipt.claims[key]))
       .flatMap((value) => identifiersOf(value) ?? []);
-    return named.length === 0 ? [] : [{ reading, identifiers: named }];
+    return named.length === 0 ? [] : [{ reading, identifiers: named, keys: new Set(named.map(identifierKey)) }];
   });
   const found = new Set(searchReceipts.flatMap(({ claims }) => list(claims.ids))
     .flatMap((value) => { const identifier = identifiersOf(value); return identifier === undefined ? [] : [identifierKey(identifier)]; }));
   const forms = new Set(input.forms.map((form) => form.toLowerCase()));
   const studies = new Map<string, CheckedStudy>();
+  const papers = new Map<string, number>();
   input.studies.forEach((study, index) => {
     const own = study.identifiers.map((value, at) => {
       const identifier = identifiersOf(value);
       if (identifier === undefined) problem(`studies[${index}].identifiers[${at}]`, "identifier_not_recognized");
+      else {
+        // An identifier is stored as given when no receipt names it, so its words pass the privacy screen too; its
+        // digits and separators are no words (a DOI's runs of digits would read as a phone number).
+        const rule = dossierPrivacyRule(identifier.value.replace(/[0-9]+/gu, " ").replace(/[-_/()]+/gu, " "));
+        if (rule !== undefined) problem(`studies[${index}].identifiers[${at}]`, rule);
+      }
       return identifier;
     }).flatMap((identifier) => identifier ?? []);
     if (study.decision === "set_aside" && study.decision_reason === undefined) {
@@ -308,18 +337,23 @@ export function checkResearchDossier(
     if (study.form !== undefined && forms.size > 0 && !forms.has(study.form.toLowerCase())) {
       problem(`studies[${index}].form`, "form_not_listed");
     }
-    const keys = new Set(own.map(identifierKey));
+    const keys = [...new Set(own.map(identifierKey))];
+    const covering = keys.length === 0 ? [] : readReceipts.filter((receipt) => keys.every((key) => receipt.keys.has(key)));
+    const touching = readReceipts.some((receipt) => keys.some((key) => receipt.keys.has(key)));
     const all = new Map(own.map((identifier) => [identifierKey(identifier), identifier]));
-    let read: DossierReading | undefined;
-    for (const receipt of readReceipts) {
-      if (!receipt.identifiers.some((identifier) => keys.has(identifierKey(identifier)))) continue;
-      for (const identifier of receipt.identifiers) all.set(identifierKey(identifier), identifier);
-      if (read === undefined || READING_ORDER.indexOf(receipt.reading) < READING_ORDER.indexOf(read)) read = receipt.reading;
-    }
-    if (read === undefined) {
+    let read: DossierReading;
+    if (covering.length > 0) {
+      for (const receipt of covering) for (const identifier of receipt.identifiers) all.set(identifierKey(identifier), identifier);
+      read = covering.map(({ reading }) => reading)
+        .sort((left, right) => READING_ORDER.indexOf(left) - READING_ORDER.indexOf(right))[0]!;
+    } else {
+      if (keys.length > 1 || touching) problem(`studies[${index}].identifiers`, "identifiers_not_one_paper");
       read = own.some((identifier) => context.atlasSources.has(atlasSourceDigest(identifier))) ? "from_atlas"
         : own.some((identifier) => found.has(identifierKey(identifier))) ? "found_in_search" : "not_in_receipts";
     }
+    const duplicate = [...all.keys()].map((key) => papers.get(key)).find((other) => other !== undefined);
+    if (duplicate !== undefined) problem(`studies[${index}]`, "duplicate_paper");
+    for (const key of all.keys()) if (!papers.has(key)) papers.set(key, index);
     studies.set(study.id, { identifiers: [...all.values()], read });
   });
   const backed = (studyId: string) => {
@@ -362,7 +396,35 @@ export function checkResearchDossier(
     }
   });
 
-  // Conclusions: what each rests on exists and backs it; its form is listed and is the form of its studies.
+  // People's reports: every thread one AskRigor's reader read here; the communities are the receipts' own.
+  const forumReads = context.receipts.filter(({ kind }) => kind === "forum_thread_read");
+  const communities = new Set<string>();
+  const threadsRead = new Set<string>();
+  input.community?.threads.forEach((thread, index) => {
+    if (holdsYouTubeReference(thread) || /youtu\.?be/iu.test(thread)) {
+      problem(`community.threads[${index}]`, "youtube_reference");
+      return;
+    }
+    const digest = forumThreadDigest(thread);
+    const read = forumReads.find(({ claims }) => claims.u === digest || claims.ur === digest);
+    if (read === undefined || typeof read.claims.u !== "string") {
+      problem(`community.threads[${index}]`, "community_thread_not_read");
+      return;
+    }
+    threadsRead.add(read.claims.u);
+    // Named as the Atlas names a thread read here: r/<subreddit> from the reader's signed subreddit, a forum's
+    // registrable host, or "another website"; nothing for a post on a person's profile.
+    const named = publishedThreadOf(thread, typeof read.claims.c === "string" ? read.claims.c : undefined)?.community;
+    if (named !== undefined) communities.add(named);
+  });
+  // After YouTube comments were read, each conclusion says whether it draws on them; one that does refuses the dossier,
+  // and so does a check that held findings of its card apart as drawn from them: which of the dossier's conclusions
+  // those are, nothing here can tell.
+  const commentsRead = context.receipts.some(({ kind }) => YOUTUBE_COMMENT_RECEIPTS.has(kind));
+  if (context.cardFindingsHeld === true) problem("findings", "card_findings_held_as_youtube");
+
+  // Conclusions: what each rests on exists and was read; a positive or negative finding rests on a paper read here or on
+  // people's reports, a search alone backing only what is not known; its form is listed and is its studies' form.
   input.findings.forEach((finding, index) => {
     const at = `findings[${index}]`;
     if (finding.form !== undefined && forms.size > 0 && !forms.has(finding.form.toLowerCase())) {
@@ -381,16 +443,27 @@ export function checkResearchDossier(
         problem(path, "unknown_reference");
         return;
       }
-      const studyId = kind === "study" ? reference
-        : kind === "result" ? input.results.find(({ id }) => id === reference)?.study : undefined;
-      if (kind === "search") backing ||= searches.has(reference);
-      else if (studyId !== undefined && backed(studyId)) backing = true;
-      const form = studyId === undefined ? undefined : studyForm(studyId);
+      if (kind === "search") {
+        if (finding.kind === "not_known" && searches.has(reference)) backing = true;
+        return;
+      }
+      const studyId = kind === "study" ? reference : input.results.find(({ id }) => id === reference)?.study;
+      if (studyId === undefined) return;
+      if (!backed(studyId)) {
+        // A result's own study is checked with the result.
+        if (kind === "study") problem(path, "finding_rests_on_unread_study");
+      } else backing = true;
+      const form = studyForm(studyId);
       if (finding.form !== undefined && form !== undefined && form !== finding.form.toLowerCase()) {
         problem(path, "form_mismatch");
       }
     });
     if (!backing) problem(at, "finding_without_backing");
+    if (commentsRead && finding.draws_on_youtube_comments === undefined) {
+      problem(`${at}.draws_on_youtube_comments`, "youtube_origin_undeclared");
+    } else if (finding.draws_on_youtube_comments === true) {
+      problem(`${at}.draws_on_youtube_comments`, "youtube_comment_material");
+    }
   });
 
   // What was covered: entries, none found with the search that looked, or not researched with why.
@@ -409,26 +482,34 @@ export function checkResearchDossier(
     if (ids.get(id) !== "finding") problem(`value.adds[${index}]`, "unknown_reference");
   });
 
-  // Every text through the findings card's privacy screen, and no YouTube address anywhere.
+  // Every supplied text, the topic key and the ids included, through the dossier's privacy screen; identifiers are
+  // papers the receipts named, and thread links are checked against their reads and never stored.
   for (const [path, value] of dossierTexts(input)) {
-    if (screenFindingsText(value) !== undefined) problem(path, "privacy_screen");
-    else if (holdsYouTubeReference(value)) problem(path, "youtube_reference");
+    const rule = dossierPrivacyRule(value);
+    if (rule !== undefined) problem(path, rule);
   }
-  return problems.length > 0 ? { problems } : { problems, checked: { input, studies, searches } };
+  return problems.length > 0 ? { problems }
+    : { problems, checked: { input, studies, searches, communities: [...communities].sort(), threadsRead: threadsRead.size } };
 }
 
-// The free texts the screen reads: everything but ids, references, enumerations, the topic key and identifiers.
-const NOT_TEXT_KEYS: ReadonlySet<string> = new Set([
-  "id", "study", "rests_on", "adds", "search", "identifiers", "key", "scope", "saves_work", "database", "kind",
-  "decision", "direction", "certainty", "provenance", "operation", "status", "importance", "start", "end",
+// Receipts that show this research read YouTube comments (the final check's own list).
+const YOUTUBE_COMMENT_RECEIPTS: ReadonlySet<string> = new Set([
+  "youtube_comments_read", "youtube_community_audit", "youtube_video_audit", "youtube_survey",
 ]);
 
-function dossierTexts(value: unknown, path = ""): Array<[string, string]> {
-  if (typeof value === "string") return [[path, value]];
-  if (Array.isArray(value)) return value.flatMap((item, index) => dossierTexts(item, `${path}[${index}]`));
+// Every string a dossier holds is screened but its fixed values; a key or an id is read as words.
+const NOT_TEXT_KEYS: ReadonlySet<string> = new Set([
+  "identifiers", "threads", "scope", "saves_work", "database", "kind", "decision", "direction", "certainty",
+  "provenance", "operation", "status", "importance", "start", "end",
+]);
+const SLUG_KEYS: ReadonlySet<string> = new Set(["id", "study", "rests_on", "adds", "search", "key"]);
+
+function dossierTexts(value: unknown, path = "", slug = false): Array<[string, string]> {
+  if (typeof value === "string") return [[path, slug ? value.replace(/[-_.]+/gu, " ") : value]];
+  if (Array.isArray(value)) return value.flatMap((item, index) => dossierTexts(item, `${path}[${index}]`, slug));
   if (value === null || typeof value !== "object") return [];
   return Object.entries(value).flatMap(([key, item]) =>
-    NOT_TEXT_KEYS.has(key) ? [] : dossierTexts(item, path === "" ? key : `${path}.${key}`));
+    NOT_TEXT_KEYS.has(key) ? [] : dossierTexts(item, path === "" ? key : `${path}.${key}`, SLUG_KEYS.has(key)));
 }
 
 /** The dossier as stored: the checked input, what the server read of each study and search, and its stamp. */
@@ -449,9 +530,20 @@ export function storedResearchDossier(checked: CheckedDossier, stamp: Record<str
       return { ...rest, identifiers: read.identifiers, read: read.read };
     }),
     results: input.results,
-    findings: input.findings,
+    // A conclusion's YouTube-comments declaration decided only whether the dossier could be saved, so, as the card's
+    // (card.ts, StoredFinding), it is not stored.
+    findings: input.findings.map(({ draws_on_youtube_comments: _declared, ...finding }) => finding),
     coverage: input.coverage,
-    ...(input.community === undefined ? {} : { community: input.community }),
+    // People's reports as counts, from the threads read here, by the communities their reads' receipts name: never a
+    // thread's link, title or words.
+    ...(input.community === undefined ? {} : {
+      community: {
+        communities: checked.communities,
+        threads_read: checked.threadsRead,
+        people: input.community.people,
+        report_quality: input.community.report_quality,
+      },
+    }),
     open_trails: input.open_trails,
     value: { ...input.value, judged_by: "researching_ai" },
     stamp,
@@ -600,7 +692,8 @@ export async function saveResearchDossier(
     return verified.ok ? [{ kind: verified.kind, claims: verified.claims }] : [];
   });
   const atlasSources = checkedAtlasSources(receipts, target, request.atlasReuse);
-  const { problems, checked } = checkResearchDossier(parsed.data, { receipts, atlasSources });
+  const cardFindingsHeld = list(receipt.claims.held).length > 0;
+  const { problems, checked } = checkResearchDossier(parsed.data, { receipts, atlasSources, cardFindingsHeld });
   if (checked === undefined) return insufficient(problems);
 
   const cardNumber = request.cardId === undefined ? null : Number(/^ARF-0*([1-9][0-9]*)$/u.exec(request.cardId)?.[1]);
@@ -613,7 +706,8 @@ export async function saveResearchDossier(
     ...(request.versions.universal === undefined ? {} : { universal: request.versions.universal }),
     finalized_at: receipt.issued_at,
     receipts_checked: receipts.length,
-    checks: ["receipts", "searches", "arithmetic", "references", "coverage", "forms", "privacy_screen"],
+    checks: ["receipts", "papers", "searches", "arithmetic", "references", "coverage", "forms", "forum_reads",
+      "youtube_comments", "privacy_screen"],
     not_checked: ["papers_support_claims", "figures_match_papers", "value_judgement"],
     ...(cardNumber === null || !Number.isSafeInteger(cardNumber) ? {} : { card_number: cardNumber }),
     ...(receipt.claims.ar === "caller" ? { ai_readings: "caller" } : {}),
@@ -623,28 +717,50 @@ export async function saveResearchDossier(
   const dossierKey = researchDossierKey(request.secret, account.accountKey, target, checked.input.question);
   const identifiers = [...new Map([...checked.studies.values()].flatMap(({ identifiers: own }) => own)
     .map((identifier) => [identifierKey(identifier), identifier])).values()];
-  const latest = await store.latestVersion(account.accountKey, dossierKey);
-  const appended = await store.append({
-    accountKey: account.accountKey,
-    dossierKey,
-    threadKey: findingsThreadKey(request.secret, account.accountKey, target),
-    requestKey: researchDossierRequestKey(dossierKey, answer, inputSha256),
-    inputSha256,
-    payload,
-    payloadSha256,
-    cardNumber: cardNumber === null || !Number.isSafeInteger(cardNumber) ? null : cardNumber,
-    identifiers,
-    expectedPreviousVersionId: latest?.versionId ?? null,
-    versionId: (request.newVersionId ?? randomUUID)(),
-    at: savedAt,
+  // Nothing is written before the append: a store that fails here leaves nothing behind. From the append on, a failure
+  // may come after the write landed, so the save is unconfirmed, never unavailable (Codex's review, finding 10).
+  let latest: Awaited<ReturnType<ResearchDossierStore["latestVersion"]>>;
+  try {
+    latest = await store.latestVersion(account.accountKey, dossierKey);
+  } catch {
+    return { disposition: { status: "unavailable", reason: "store_unavailable" } };
+  }
+  const unconfirmed = (reason: string): ResearchDossierSaveOutcome => ({
+    disposition: { status: "unconfirmed", reason },
+    note: "Research dossier: its save was not confirmed, so it may or may not have been saved. Sending the same " +
+      "dossier with a later final check of this research saves it once: if it was saved, its version is returned.",
   });
+  let appended: Awaited<ReturnType<ResearchDossierStore["append"]>>;
+  try {
+    appended = await store.append({
+      accountKey: account.accountKey,
+      dossierKey,
+      threadKey: findingsThreadKey(request.secret, account.accountKey, target),
+      requestKey: researchDossierRequestKey(dossierKey, answer, inputSha256),
+      inputSha256,
+      payload,
+      payloadSha256,
+      cardNumber: cardNumber === null || !Number.isSafeInteger(cardNumber) ? null : cardNumber,
+      identifiers,
+      expectedPreviousVersionId: latest?.versionId ?? null,
+      versionId: (request.newVersionId ?? randomUUID)(),
+      at: savedAt,
+    });
+  } catch {
+    return unconfirmed("write_not_confirmed");
+  }
   if (appended.outcome === "account_refused") return { disposition: { status: "consent_blocked", reason: "account_not_eligible" } };
   // Exactly the version written (or replayed), read back and digested again.
-  const read = await store.readVersion(account.accountKey, appended.versionId);
+  let read: Awaited<ReturnType<ResearchDossierStore["readVersion"]>>;
+  try {
+    read = await store.readVersion(account.accountKey, appended.versionId);
+  } catch {
+    return unconfirmed("readback_failed");
+  }
   if (read === null || read.payload === null || read.payloadSha256 !== appended.payloadSha256 ||
     researchDossierDigest(read.payload) !== appended.payloadSha256 || read.dossierNumber !== appended.dossierNumber ||
     read.versionNumber !== appended.versionNumber) {
-    return { disposition: { status: "unconfirmed", reason: "readback_mismatch" } };
+    return unconfirmed("readback_mismatch");
   }
   return {
     disposition: {
@@ -658,8 +774,11 @@ export async function saveResearchDossier(
   };
 }
 
-/** The line the answer ends with, before the check line; none where there is nothing for the person to know. */
-export function researchDossierLine(disposition: ResearchDossierDisposition): string | undefined {
+/**
+ * The line the answer ends with, before the check line: one for every outcome of a dossier that was sent, and for a
+ * dossier that was due and not sent (the design's 3.3; Codex's review, finding 10).
+ */
+export function researchDossierLine(disposition: ResearchDossierDisposition): string {
   switch (disposition.status) {
     case "saved":
       return `Research dossier ${disposition.dossier_id} was saved privately for AskRigor's owner to review ` +
@@ -668,15 +787,33 @@ export function researchDossierLine(disposition: ResearchDossierDisposition): st
       return `Research dossier ${disposition.dossier_id} was already saved privately for AskRigor's owner to review ` +
         `(version ${disposition.version}).`;
     case "insufficient":
-      return disposition.reason === "final_check_not_passed" ? undefined
+      return disposition.reason === "final_check_not_passed"
+        ? "No research dossier was saved: one is saved only with a final check that passed."
         : disposition.reason === "value_not_substantial"
           ? "No research dossier was saved: this research was judged not to save a reader substantial work."
           : "No research dossier was saved: it did not pass AskRigor's checks.";
+    case "private":
+      return disposition.reason === "personal_only"
+        ? "No research dossier was saved: this research was declared personal to this conversation."
+        : "No research dossier was saved: one is saved only for an account that contributes research to AskRigor.";
+    case "consent_blocked":
+      switch (disposition.reason) {
+        case "paid_private":
+          return "No research dossier was saved: this is a private paid account.";
+        case "saving_off":
+          return "No research dossier was saved: saving research is switched off for this account.";
+        case "call_saving_off":
+          return "No research dossier was saved: this check was marked not to save research.";
+        case "notice_not_current":
+          return "No research dossier was saved: this account's agreement with AskRigor does not cover it yet.";
+        default:
+          return "No research dossier was saved: this account no longer allows research to be saved.";
+      }
     case "not_sent":
       return "No research dossier was saved: none was sent.";
     case "unconfirmed":
-      return "The research dossier's save was not confirmed, so it may not have been saved.";
-    default:
-      return undefined;
+      return "The research dossier's save was not confirmed, so it may or may not have been saved.";
+    case "unavailable":
+      return "No research dossier was saved: AskRigor could not save it just now.";
   }
 }
