@@ -26,6 +26,8 @@ import {
 import {
   FINDING_CERTAINTIES,
   FINDING_TAGS,
+  NAMED_VIDEO_LINK,
+  NAMED_VIDEOS_PER_FINDING,
   PUBLIC_VALUE_SCOPES,
   VERIFIED_BASES,
   canonicalJson,
@@ -119,6 +121,8 @@ const storedFindingSchema = z.object({
   backing: z.array(storedBackingSchema).min(1).max(BACKING_LIMITS.lines).optional(),
   source_reading: z.array(sourceReadingSchema).min(1).max(10).optional(),
   forum_signal: storedForumSignalSchema.optional(),
+  // Owner answer 307b: the videos the person named, each as the watch page the save stored.
+  named_videos: z.array(z.string().regex(NAMED_VIDEO_LINK)).min(1).max(NAMED_VIDEOS_PER_FINDING).optional(),
   // A card a save stored with its findings' declarations (the review of #417, finding 6): read as it is.
   draws_on_youtube_comments: z.boolean().optional(),
 }).strict();

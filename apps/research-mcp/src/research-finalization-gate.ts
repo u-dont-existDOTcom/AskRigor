@@ -82,9 +82,11 @@ import {
   findingsSaveOffer,
   heldByCardFields,
   isYouTubeVideoId,
+  namedVideoIdOf,
   PUBLIC_VALUE_SCOPES,
   screenFindingsCard,
   signedFindingBases,
+  signedNamedVideos,
   verifiedWorkPhrase,
   type FindingsCard,
   type FindingsPrivacyReason,
@@ -4115,6 +4117,8 @@ export function finalizeResearch(
   let cardBases: VerifiedBasis[][] | undefined;
   // The places of a checked card's findings held apart as drawn from YouTube comments (owner answer 219b).
   let heldFindings: number[] = [];
+  // What the receipt signs of a checked card's named videos (owner answer 307b): those this call ties to the person.
+  let namedVideoClaims: string[] = [];
   // The meaning judge's holds and notes (owner answer 221), added after the check's own notes.
   const judgeHeld: number[] = [];
   const judgeNotes: string[] = [];
@@ -4261,6 +4265,40 @@ export function finalizeResearch(
           finding.sources.some((source) => !isYouTubeVideoId(source)));
         const signalMissing = forumThreads.size > 0 && findingsInCard.every(({ forum_signal: signal }) => signal === undefined);
         if (scope === "public" && (studyWithoutBacking || signalMissing)) notes.push(RESEARCH_BEHIND_NOTE);
+        // Owner answer 307b: a finding may link a YouTube video that the person named, and the save keeps the link only
+        // for a video this call ties to the person: one their own words linked when the plain answer was registered for
+        // this research target (the registration's receipt signs those IDs). Any other link is not signed, so it is not
+        // stored, and a note says so. A video read with extract_youtube_video_claims no longer counts by itself: that
+        // reading proves the video was read, not who gave it (Codex's review of 15 November 2026, finding 1). Nothing
+        // here holds the card or the answer back.
+        const registered = videosNamedAtRegistration(verified, options.plainAnswer?.account, targetDigest);
+        const namedByPerson = (id: string) => registered.videos.has(id);
+        namedVideoClaims = signedNamedVideos(input.findings_card, namedByPerson);
+        const notVideos: string[] = [];
+        const notNamed: string[] = [];
+        findingsInCard.forEach(({ named_videos: links }, index) => (links ?? []).forEach((link, place) => {
+          const id = namedVideoIdOf(link);
+          if (id === undefined) notVideos.push(`findings_card.findings[${index}].named_videos[${place}]`);
+          else if (!namedByPerson(id)) notNamed.push(`findings_card.findings[${index}].named_videos[${place}]`);
+        }));
+        if (notVideos.length > 0) {
+          notes.push(inputNote(`${joinNames(notVideos)} ${notVideos.length === 1 ? "is" : "are"} not stored: a named ` +
+            "video is the address of a video's own page on youtube.com or youtu.be, as the person gave it."));
+        }
+        if (notNamed.length > 0) {
+          notes.push(inputNote(`${joinNames(notNamed)} ${notNamed.length === 1 ? "is" : "are"} not stored: AskRigor ` +
+            "keeps a video's link only when the person's own words, passed on in later_inputs.asked when the plain " +
+            "answer was registered for this research target, link it. " + (registered.wordsPassedOn
+            ? "The words passed on with the latest registration link no such video; if the person named it in a later " +
+              "message, register the plain answer again with all their messages in later_inputs.asked."
+            : "No words of the person were passed on with that registration: register it again with them in " +
+              "later_inputs.asked.") +
+            " A video found through AskRigor's YouTube tools is never linked."));
+        }
+        const linkable = registered.videos.size > 0;
+        if (scope === "public" && linkable && findingsInCard.every(({ named_videos: links }) => (links ?? []).length === 0)) {
+          notes.push(inputNote(NAMED_VIDEOS_NOTE));
+        }
         // A paid private answer offers the save only when a finding rests on such work, which the offer names with
         // this call's counts; without one there is no offer line, and the receipt still signs the card, so the user
         // can still ask for the save. Owner answer 156a (2026-10-22): findings declared personal only are never
@@ -4841,7 +4879,9 @@ export function finalizeResearch(
             ...(backingClaims === undefined || backingClaims.bl.length === 0 ? {} : { bl: backingClaims.bl }),
             ...(backingClaims === undefined || backingClaims.bs.length === 0 ? {} : { bs: backingClaims.bs }),
             ...(threadCommunities.length === 0 ? {} : { ft: threadCommunities }),
-            ...(threadLinks.length === 0 ? {} : { fl: threadLinks })
+            ...(threadLinks.length === 0 ? {} : { fl: threadLinks }),
+            // Owner answer 307b: the videos the card links that this call ties to the person, by the finding's place.
+            ...(namedVideoClaims.length === 0 ? {} : { nv: namedVideoClaims })
           }
         : {}),
       // An offer that asks to file this research's map, made to this account: a paid private map is filed only with
@@ -4904,8 +4944,37 @@ export function finalizeResearch(
   return parsedOutput;
 }
 
+/** What the card's later shape adds for a video the person named (owner answer 307b), as a note. */
+export const NAMED_VIDEOS_NOTE = "The person named a YouTube video in this research. A finding about that video may " +
+  "link it: give that finding named_videos, the video's address as the person gave it, and send the whole card in " +
+  "later_inputs.findings_card. AskRigor then keeps the link with the saved finding and shows it on the finding's " +
+  "page in the Atlas. It links no video found through its own YouTube tools.";
+
+/**
+ * The YouTube videos the person's own words named when this account registered its plain answer for this research
+ * target (owner answer 307b): the registration's receipt signs the IDs of the videos those words link (`vids`), and
+ * whether any words of the person were passed on at all (`asked`). Only the latest registration for this target counts,
+ * since its words hold the person's messages so far; another target's, an older one and another account's count for
+ * nothing (Codex's review of 15 November 2026, findings 1 and 2).
+ */
+function videosNamedAtRegistration(
+  verified: readonly VerifiedReceipt[],
+  account: string | undefined,
+  target: string,
+): { wordsPassedOn: boolean; videos: Set<string> } {
+  const own = account === undefined ? []
+    : verified.filter(({ kind, claims }) => kind === "plain_answer" && text(claims.acct) === account &&
+      text(claims.target) === target);
+  const latest = [...own].sort((left, right) => receiptOrder(left) - receiptOrder(right) || left.index - right.index).at(-1);
+  return {
+    wordsPassedOn: latest !== undefined && text(latest.claims.asked) === "1",
+    videos: new Set(latest === undefined ? []
+      : list(latest.claims.vids).filter((id) => /^[A-Za-z0-9_-]{11}$/u.test(id))),
+  };
+}
+
 /** What the card's later shape adds for the Atlas's research behind each finding (owner answer 252a), as a note. */
-export const RESEARCH_BEHIND_NOTE = "The Atlas shows the research behind each finding. Send the whole card in " +
+export const RESEARCH_BEHIND_NOTE ="The Atlas shows the research behind each finding. Send the whole card in " +
   "later_inputs.findings_card, and give each finding that cites a study backing: up to 3 lines {source, sentence, " +
   "conclusion, against}, the paper's sentence behind the finding and its conclusion each copied whole and exactly (at " +
   "most 300 characters), and the strongest thing against it in your own words; and each figure its source " +

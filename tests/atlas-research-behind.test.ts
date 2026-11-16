@@ -836,11 +836,14 @@ describe("the save stores the research behind each finding", () => {
     expect(h.github.issue(42).body).not.toMatch(/youtube\.com|youtu\.be/u);
   });
 
-  // Owner answer 253a: notice version 5 covers the forum threads' links; an account still on version 4 gets none stored.
+  // Owner answer 253a: the notice covers the forum threads' links from version 5 on. Only a yes that covers the current
+  // notice counts, and version 6 (owner answer 307b) is material: an account still on version 5 or version 4, which is
+  // asked again before it researches, gets none stored.
   it("stores each thread's link as the Atlas publishes it, only for an account whose notice covers it", async () => {
     const accounts: Array<[FindingsSaveAccount, boolean]> = [
       [{ mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION }, true],
       [{ mode: "PAID_PRIVATE", noticeVersion: null }, true],
+      [{ mode: "FREE_CONTRIBUTOR", noticeVersion: "free-contributor-v5-2026-11-05" }, false],
       [{ mode: "FREE_CONTRIBUTOR", noticeVersion: "free-contributor-v4-2026-10-25" }, false],
     ];
     for (const [account, links] of accounts) {

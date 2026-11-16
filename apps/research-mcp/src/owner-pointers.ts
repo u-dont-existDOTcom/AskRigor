@@ -6,8 +6,9 @@ import { atlasSearchFold } from "./atlas/search.js";
  * anything related with so many crazy symptoms ... can see this video", and "anyone asking how
  * they can get into flow state also should know about Systema breathing"). A pointer is the owner's own suggestion,
  * handed to the person's AI in the chat with what AskRigor checked about it and what to weigh. It is not a finding:
- * it never goes on the Atlas, whose pages take no video link (decisions 170 and 171), and the AI is told to give it
- * as the owner's.
+ * it is not on the Atlas, whose pages took no video link when it was written (decisions 170 and 171), and the AI is
+ * told to give it as the owner's. Since owner answer 307b (15 November 2026) a finding may link a video that a person
+ * named, and the owner asked for no more pointers: these two are to become Atlas findings, and this list then goes.
  *
  * A pointer's link is one the owner gave, so it is not data from a video platform's API. Its "checked" text states
  * only what was read, with the date and how far the reading went.

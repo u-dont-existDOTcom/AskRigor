@@ -393,6 +393,18 @@ describe("production living-evidence deployment", () => {
     expect(noticeV5.match(/research_use_accounts_free_notice_check/gu)).toHaveLength(4);
     expect(noticeV5).toContain("IF NOT EXISTS");
     expect(noticeV5).not.toMatch(/CREATE TABLE|GRANT|DELETE|UPDATE/iu);
+    // Owner answer 307b (a card may link a YouTube video that a person named): and now v1 to v6, under the same
+    // idempotence guard, with 0028 among the migrations every migrate applies again first.
+    const noticeV6 = await read("packages/evidence-repository/migrations/0036_research_use_notice_v6.sql");
+    expect(noticeV6).toContain(
+      "notice_version IN ('free-contributor-v1-2026-09-01', 'free-contributor-v2-2026-09-30', 'free-contributor-v3-2026-10-22', 'free-contributor-v4-2026-10-25', 'free-contributor-v5-2026-11-05', 'free-contributor-v6-2026-11-15')",
+    );
+    expect(noticeV6).toContain("pg_get_constraintdef(oid) NOT LIKE '%free-contributor-v6-2026-11-15%'");
+    expect(noticeV6.match(/research_use_accounts_free_notice_check/gu)).toHaveLength(4);
+    expect(noticeV6).toContain("IF NOT EXISTS");
+    expect(noticeV6).not.toMatch(/CREATE TABLE|GRANT|DELETE|UPDATE/iu);
+    expect(noticeV6).toContain("Every migrate applies 0011, 0016, 0020 and 0028 again first");
+    expect(noticeV6).toContain("Owner answer 307b (15 November 2026)");
     expect(await read("packages/evidence-repository/src/postgres.ts"))
       .toContain('"0015_research_detailed_lesson_reports",\n      "0016_research_use_notice_v3",\n      "0017_atlas_findings",\n');
     expect(provision).not.toMatch(
@@ -403,6 +415,56 @@ describe("production living-evidence deployment", () => {
     expect(provision).not.toContain("analysis_versions");
     expect(provision).not.toContain("frontier_contributions");
     expect(provision).not.toContain("set -x");
+  });
+
+  // Owner answer 307b (15 November 2026): notice version 6, for a rollback to an image that reads only v1 to v5.
+  it("ships the v6 hold/restore pair and its disposable PostgreSQL acceptance (owner answer 307b)", async () => {
+    const hold = await read("infra/living-evidence-production/research-use-notice-v6-hold.sql");
+    const restore = await read("infra/living-evidence-production/research-use-notice-v6-restore.sql");
+    expect(hold).toContain("CREATE TABLE IF NOT EXISTS research_use_notice_v6_hold");
+    expect(hold).toContain("REVOKE ALL ON TABLE research_use_notice_v6_hold FROM PUBLIC");
+    expect(hold).toContain("acl.grantee <> class.relowner");
+    expect(hold).toContain("ON CONFLICT (account_key) DO NOTHING");
+    expect(hold).toContain("WHERE notice_version = 'free-contributor-v6-2026-11-15'");
+    expect(hold).toContain("AND account.notice_version = 'free-contributor-v6-2026-11-15'");
+    expect(hold).toContain("GREATEST(now(), created_at, updated_at)");
+    expect(hold).toContain("SET status = 'REVOKED'");
+    expect(hold).not.toMatch(/DELETE FROM|UPDATE research_contribution_proposals|UPDATE atlas_/u);
+    for (const guard of [
+      "account.status = 'REVOKED'", "account.mode IS NULL", "account.notice_version IS NULL",
+      "account.revoked_at = hold.held_at", "account.updated_at = hold.held_at",
+    ]) expect(restore).toContain(guard);
+    expect(restore).toContain("DELETE FROM research_use_notice_v6_hold");
+    expect(restore).toContain("\\if :hold_exists");
+    // The statements are the v5 pair's with only the version changed, so what the v5 pair's Docker acceptance showed
+    // of them holds here too.
+    const statements = (sql: string) => sql.split("\n").filter((line) => !line.startsWith("--")).join("\n");
+    const asV6 = (sql: string) => statements(sql)
+      .replaceAll("free-contributor-v5-2026-11-05", "free-contributor-v6-2026-11-15")
+      .replaceAll("v5", "v6").replaceAll("v1 to v4", "v1 to v5");
+    const v5Hold = await read("infra/living-evidence-production/research-use-notice-v5-hold.sql");
+    const v5Restore = await read("infra/living-evidence-production/research-use-notice-v5-restore.sql");
+    expect(statements(hold)).toBe(asV6(v5Hold));
+    expect(statements(restore)).toBe(asV6(v5Restore));
+    // How the notice was accepted (migration 0031) is left to the account table's trigger: no statement of either
+    // script names the pair, the hold says so, and the acceptance checks that the hold clears it and the restore leaves
+    // it not recorded, for a person's yes and for the owner's standing instruction alike.
+    for (const script of [hold, restore]) expect(statements(script)).not.toMatch(/notice_accepted_(?:by|at)/u);
+    expect(hold).toContain("How the notice was accepted (notice_accepted_by and notice_accepted_at,");
+    expect(restore).toContain("a restored\n-- account's way of acceptance reads as not recorded.");
+    const runner = await read("scripts/run-research-use-notice-v6-rollback-acceptance.sh");
+    expect(runner).toContain("phase seed\nrun_sql \"$hold\"\nrun_sql \"$hold\"\nphase after-hold\nphase reenroll-v5\nrun_sql \"$restore\"\nrun_sql \"$restore\"\nphase after-restore");
+    const acceptance = await read("scripts/research-use-notice-v6-rollback-acceptance.mts");
+    expect(acceptance).toContain("[V1, V2, V3, V4, V5]");
+    expect(acceptance).toContain('const V6 = "free-contributor-v6-2026-11-15"');
+    expect(acceptance).toContain('const STANDING = "OWNER_STANDING_INSTRUCTION_2026_11_06"');
+    for (const check of ["NEWER_ROW_OVERWRITTEN", "NOT_RESTORED_EXACTLY", "HOLD_NOT_EMPTIED", "SETTINGS_CHANGED",
+      "HOLD_READABLE_BY_RUNTIME_ROLE", "HOLD_READABLE_BY_READER", "OTHER_TABLE_CHANGED_", "ACCEPTANCE_NOT_CLEARED",
+      "ACCEPTANCE_NOT_LEFT_UNRECORDED"]) {
+      expect(acceptance).toContain(check);
+    }
+    expect(await read("package.json")).toContain('"contributor-access:notice-v6-rollback-acceptance": "bash scripts/run-research-use-notice-v6-rollback-acceptance.sh"');
+    expect(await read("infra/living-evidence-production/README.md")).toContain("Undo no migration: 0036 stays");
   });
 
   it("ships the v5 hold/restore pair and its disposable PostgreSQL acceptance (owner answer 253a)", async () => {
@@ -500,7 +562,8 @@ describe("production living-evidence deployment", () => {
     // findings save switch (decision 171), 0024 the findings kept for research (owner answers 229a and 231a), 0025 the
     // placements under Health, 0026 people's reports (owner answer 229a), 0027 a problem's rows at a glance, 0028
     // notice version 5 (owner answer 253a), 0029 the research behind each finding (owner answers 254a and 255a) and
-    // 0030 the findings that challenge the usual view (the owner, 6 November 2026).
+    // 0030 the findings that challenge the usual view (the owner, 6 November 2026). After the account migrations 0031
+    // to 0035 comes 0036, notice version 6 (owner answer 307b).
     expect(repository).toContain(
       '"0016_research_use_notice_v3",\n      "0017_atlas_findings",\n      "0018_atlas_card_fields",\n      ' +
       '"0019_held_youtube_findings",\n      "0020_research_use_notice_v4",\n      "0021_atlas_publications",\n      ' +
@@ -508,7 +571,8 @@ describe("production living-evidence deployment", () => {
       '"0025_atlas_placements",\n      "0026_atlas_reports",\n      "0027_atlas_glance_rows",\n      ' +
       '"0028_research_use_notice_v5",\n      "0029_atlas_research_behind",\n      "0030_atlas_challenges",\n      ' +
       '"0031_research_notice_acceptance",\n      "0032_research_call_record",\n      "0033_research_steering",\n      ' +
-      '"0034_research_call_record_plan_next",\n      "0035_research_menu_learning",\n    ]');
+      '"0034_research_call_record_plan_next",\n      "0035_research_menu_learning",\n      ' +
+      '"0036_research_use_notice_v6",\n    ]');
     // append_only_guard on exactly the eight canonical tables; the two private review tables are not among them.
     const guarded = migration.slice(migration.indexOf("FOREACH table_name IN ARRAY ARRAY["));
     expect([...guarded.slice(0, guarded.indexOf("] LOOP")).matchAll(/'([a-z_]+)'/gu)].map(([, table]) => table))
@@ -876,12 +940,14 @@ describe("production living-evidence deployment", () => {
     // 0024, the findings kept for research (owner answers 229a and 231a), then 0025, the placements under Health, 0026,
     // people's reports (owner answer 229a), 0027, a problem's rows at a glance, 0028, notice version 5 (owner answer
     // 253a), 0029, the research behind each finding (owner answers 254a and 255a), and 0030, the findings that challenge
-    // the usual view (the owner, 6 November 2026).
-    expect(order.slice(-15)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
+    // the usual view (the owner, 6 November 2026). Last, after the account migrations 0031 to 0035, comes 0036, notice
+    // version 6 (owner answer 307b).
+    expect(order.slice(-16)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
       "0023_research_findings_save_switch", "0024_atlas_kept_for_research", "0025_atlas_placements", "0026_atlas_reports",
       "0027_atlas_glance_rows", "0028_research_use_notice_v5", "0029_atlas_research_behind", "0030_atlas_challenges",
       "0031_research_notice_acceptance", "0032_research_call_record",
-      "0033_research_steering", "0034_research_call_record_plan_next", "0035_research_menu_learning"]);
+      "0033_research_steering", "0034_research_call_record_plan_next", "0035_research_menu_learning",
+      "0036_research_use_notice_v6"]);
     // One table and its sequence, safe to run again; the reason lists replaced on every run.
     expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS atlas_publication_number_seq AS bigint START WITH 1001");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS atlas_publications (");
@@ -1053,10 +1119,11 @@ describe("production living-evidence deployment", () => {
     const review = await read("infra/living-evidence-production/provision-research-review-role.sh");
     const gaps = await read("infra/living-evidence-production/provision-evidence-gap-role.sh");
     const reader = await read("infra/living-evidence-production/init-reader.sh");
-    // Last in the migrate list, right after 0034.
+    // Right after 0034 in the migrate list; only 0036, notice version 6 (owner answer 307b), follows it.
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
-    expect(order.slice(-2)).toEqual(["0034_research_call_record_plan_next", "0035_research_menu_learning"]);
+    expect(order.slice(-3)).toEqual(["0034_research_call_record_plan_next", "0035_research_menu_learning",
+      "0036_research_use_notice_v6"]);
     // Safe to run again: the columns, the table and the index come once, and every check is added by its name only
     // when it is missing.
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS learn_menu_choices boolean NOT NULL DEFAULT false");

@@ -18,7 +18,10 @@ AskRigor has two research-use modes:
   yet" until the owner reviews them. Signed-in people can vote and comment.
   Under notice v5 (owner answer 253a, 2026-11-05; built, not yet released), a
   card's summary of what communities reported also holds links to the forum
-  threads AskRigor read. This is the free product.
+  threads AskRigor read. Under notice v6 (owner answer 307b, 15 November 2026;
+  built, not yet released), a card may link a YouTube video that a person
+  named; videos AskRigor itself finds through YouTube's search stay out, and
+  cards still hold no YouTube comments. This is the free product.
 - **Paid private.** No research progress is submitted. Research findings and
   lesson feedback are saved only when the user accepts saving them for that
   answer. The answer's offer to save its findings ends with "Saved findings
@@ -33,29 +36,61 @@ usage itself is scientific evidence.
 
 ## Exact notice
 
-The version is `free-contributor-v5-2026-11-05` (owner answer 253a,
-2026-11-05; wording the owner chose, built, not yet released). The server returns
-the complete notice from `RESEARCH_USE_NOTICE`. Free mode activates only when
-all four versioned agreement fields are literal `true`. Silence, inferred
+The version is `free-contributor-v6-2026-11-15` (owner answer 307b,
+15 November 2026; wording the owner chose, built, not yet released). The server
+returns the complete notice from `RESEARCH_USE_NOTICE`. Free mode activates only
+when all four versioned agreement fields are literal `true`. Silence, inferred
 consent, a different notice version, or a partially checked agreement is rejected.
 
-Version 5 keeps every other sentence of v4 and changes the second sentence's
-community summary to:
+Version 6 keeps every other sentence of v5. Its second sentence now ends:
+
+> ... and links to the forum threads AskRigor read, never YouTube comments.
+
+and this sentence follows it:
+
+> A card may link a video that a person named.
+
+The decision behind it (owner answer 307b): a saved findings card and its page
+in the public Atlas may link a YouTube video that a person named themselves (the
+asker, someone reporting what worked for them, or AskRigor's owner); videos that
+AskRigor itself finds through YouTube's search stay out, as before; cards still
+hold no YouTube comments. The privacy page and terms say the same.
+
+Version 6 is material, since a card may publish a link it could not hold
+before; `RESEARCH_USE_NOTICE_CHANGES` declares it so (see below). An account
+that accepted v1 to v5 therefore inspects as `UNENROLLED`, and research tools
+refuse it with `RESEARCH_ACCESS_REQUIRED`, until it accepts v6; the owner's own
+login accepts v6 by the owner's standing instruction, as below. Migration
+`0036_research_use_notice_v6` widens the same constraint as 0011, 0016, 0020
+and 0028 to admit all six versions, safely on repeated runs. An image that reads
+only v1 to v5 fails the access check of an account whose row carries v6, so an
+image rollback below v6 first runs
+`infra/living-evidence-production/research-use-notice-v6-hold.sql`, which holds
+v6 rows in `research_use_notice_v6_hold` (migrator only) and marks the accounts
+revoked, so the person can accept v5 there;
+`research-use-notice-v6-restore.sql`, run once an image reading v6 serves again,
+restores each account still exactly in the held state. Neither script holds how
+the notice was accepted, so a restored account's way of acceptance reads as not
+recorded. The Docker acceptance is
+`npm run contributor-access:notice-v6-rollback-acceptance`.
+
+Version 5 (owner answer 253a, 2026-11-05) kept every other sentence of v4 and
+changed the second sentence's community summary to:
 
 > ... and what public online communities reported, summarized without their posts or names: the communities, counts of what people reported, and links to the forum threads AskRigor read, never YouTube comments or video IDs.
 
-The privacy page and terms say the same. A card saved for an account that
-accepted only v4 stores no thread link; one saved under v5, or a paid private
-user's yes to a save, stores each thread's link as the Atlas publishes it
-(`docs/superpowers/plans/2026-11-05-atlas-research-behind.md`).
+A card stores each thread's link as the Atlas publishes it
+(`docs/superpowers/plans/2026-11-05-atlas-research-behind.md`) for a free
+account whose yes covers the current notice, or on a paid private user's yes to
+a save; a card saved for an account still on an earlier notice stores none.
 
-An account that accepted v1 to v4 inspects as `UNENROLLED`, and research tools
-refuse it with `RESEARCH_ACCESS_REQUIRED`, until it accepts v5. Migration
+An account that accepted v1 to v4 inspected as `UNENROLLED`, and research tools
+refused it with `RESEARCH_ACCESS_REQUIRED`, until it accepted v5. Migration
 `0028_research_use_notice_v5` widens the same constraint as 0011, 0016 and 0020
 to admit all five versions, safely on repeated runs; it is renumbered when the
 Atlas stack next takes in main. An image that reads only v1 to v4 fails the
 access check of an account whose row carries v5, so an image rollback below v5
-first runs `infra/living-evidence-production/research-use-notice-v5-hold.sql`,
+also runs `infra/living-evidence-production/research-use-notice-v5-hold.sql`,
 which holds v5 rows in `research_use_notice_v5_hold` (migrator only) and marks
 the accounts revoked, so the person can accept v4 there;
 `research-use-notice-v5-restore.sql`, run once an image reading v5 serves again,
@@ -688,9 +723,58 @@ rare topic was placed by its subject; a long research target with three long fin
 pointer ten times by word groups read apart (central with sensitive, neuroplastic with symptoms), which are
 phrases now.
 
-A pointer never goes on the Atlas: its pages take no video link (owner answers 170 and 171), and a pointer's link is
-one the owner gave, not data from a video platform's API. Nothing new is kept or sent: the research target is read in
+A pointer never went on the Atlas: its pages took no video link then (owner answers 170 and 171; since owner answer
+307b, below, a finding may link a video that a person named), and a pointer's link is one the owner gave, not data
+from a video platform's API. Nothing new is kept or sent: the research target is read in
 memory, against public findings and the pointers' word groups.
+
+#### A video that a person named (owner answer 307b, 15 November 2026; built, not yet released)
+
+The owner, 14 November 2026, in the Inbox: "the atlas can carry video links. youtube prohibits using what they supply
+via their api for building public metrics and whatnot i guess but this is not that." Then option b of question 307,
+chosen on 15 November: a saved findings card and its page in the Atlas may link a video that a person named, the
+notice says so (version 6, above), and an email tells YouTube. Until then a stored card and every Atlas page held no
+YouTube link (owner answers 170 and 171).
+
+- **The field.** A finding of the card's later shape may give `named_videos`: at most three links to the YouTube
+  videos it is about, each as the person gave it. A video is never a source: the finding still cites its studies or
+  forum threads.
+- **Tied to the person.** `register_plain_answer` reads `later_inputs.asked` on every account, and the plain-answer
+  receipt signs that words were passed on (`asked`) and the IDs of the videos those words link (`vids`). The words are
+  neither signed nor kept. At the final check a named video counts when the latest plain-answer receipt of this
+  account for the same research target signs its ID. A video read with `extract_youtube_video_claims` does not
+  count by itself: that reading shows the video was read, not who gave it. The finalization receipt signs the videos
+  that count (`nv`), by the finding's place.
+- **Stored** as the video's watch page (`https://www.youtube.com/watch?v=` and its ID) and nothing else of the video,
+  only when the receipt signed it, under the same consent as a forum thread's link: a free contributor whose yes
+  covers the current notice, or a paid private user's yes to the save. `stored_without` names
+  `named_video_links_as_given` when a stored link is not the link the card gave. The kept copy of a card that wasn't
+  saved never holds one.
+- **Published and shown.** The publication carries it and so does an accepted version's research, so acceptance and
+  revision keep it. The finding's page shows it under "The video this is about", as one fixed link
+  (`namedVideoAnchor`), the only YouTube link the pages' last check lets through. A registration hands it over with a
+  held finding (`askrigor_holds.atlas_findings[].named_videos`), with one more sentence in `how_to_use` only then.
+- **Notes, never steps.** A link that is not a video's address, a video the check cannot tie to the person, and a
+  linkable video that no finding links each add a note; the check's status is the same with and without
+  `named_videos`.
+- **Unchanged.** Every text the library and the Atlas keep still holds no YouTube link; a finding drawn from YouTube
+  comments is still held for the owner (owner answers 173 and 219b); the published tool lists; people's reports, whose
+  texts take no link.
+
+Codex wrote the tests (`tests/named-videos*.test.ts`) and they showed three defects, fixed before the commit: a
+video that a YouTube search of the research turned up and the tool then read passed as the person's when no words were
+passed on; a card whose links were stored in another form, or not all kept, read back as tampered with; and a
+link with a default port written out passed. Codex's review of the whole change then found five more, fixed the same
+way: a video read by the tool counted without proof that the person gave it (so only the person's own words count
+now); an older registration, or one for another target, could authorize a link; an empty `named_videos` made an
+intact card read as tampered with; a link written with an upper-case scheme was not read; and two docs still said
+the Atlas holds no video link. A sixth, a video named after the card was saved, is a stated limit.
+
+Limits: an app that passes on none of the person's words cannot link a video. A video named after the card was saved
+is not added to it: a later save of the same card from the same research is a duplicate and writes nothing (Codex's
+review of 15 November 2026, finding 4). The lookup tool's published output is fixed, so it gives the finding's page,
+which shows the link. An image
+from before this release cannot read a stored row that holds a link (`infra/living-evidence-production/README.md`).
 
 ### AskRigor's own review of a draft answer, on dev accounts (owner answer 301a, 13 November 2026)
 

@@ -55,7 +55,7 @@ import {
   sameQuote,
   sentencesOf,
 } from "./research-finalization-gate.js";
-import { researchMapSavedLine } from "./findings/card.js";
+import { NAMED_VIDEOS_SIGNED, namedVideoIdsIn, researchMapSavedLine } from "./findings/card.js";
 import {
   askrigorHoldsSchema, heldFor, heldText, heldVariants, HELD_NEXT_STEP, holdsSomethingNow, OWNER_POINTER_HOW,
   ownerPointerText, shownOwnerPointer, shownOwnerPointerSchema, type AskRigorHolds, type AskRigorHoldsOptions,
@@ -1044,7 +1044,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       }
       if (parsed.action === "register_plain_answer") {
         // Owner answer 298b: on a dev account, AskRigor's own planning call makes the plan. Any other account's
-        // later_inputs.asked is not used, and not kept.
+        // later_inputs.asked is read only for the YouTube videos the person named (owner answer 307b), and not kept.
         const devAccount = isDevAccount(options.service.accountKeyForSubject(auth.subject),
           options.devAccountKeys?.() ?? new Set());
         const planner = devAccount ? options.researchPlanner?.() : undefined;
@@ -1064,7 +1064,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         return await registerPlainAnswer(options.service, auth.subject, parsed.plainAnswer!, options.plainAnswer,
           parsed.framing, planner?.enabled === true
             ? { planner, asked, reviewed, latest, markSecret: options.menuDigestSecret?.() } : undefined,
-          options.askrigorHolds);
+          options.askrigorHolds, asked);
       }
       if (parsed.action === "set_research_steering") {
         // Owner answer 303a: learn mode only for a dev account, while AskRigor's own planning call is on.
@@ -1344,6 +1344,10 @@ async function registerPlainAnswer(
     markSecret?: string | undefined },
   // The owner, 14 Nov 2026: what AskRigor already holds for the question, read while the plan is made.
   holds?: AskRigorHoldsOptions,
+  // Owner answer 307b: the person's own words, on any account, when the call passed them on (later_inputs.asked). The
+  // receipt signs that words were passed on and the IDs of the YouTube videos they link, so the final check can tie a
+  // finding's named video to the person. The words themselves are neither signed nor kept.
+  personWords?: string,
 ): Promise<CallToolResult> {
   const account = await plainAnswerAccount(service, subject, plain);
   if (account === undefined) return accessError("plain_answer_not_requested", plain === undefined ? PLAIN_ANSWER_SURFACE_UNAVAILABLE : PLAIN_ANSWER_NOT_REQUESTED);
@@ -1359,10 +1363,13 @@ async function registerPlainAnswer(
     if (earlier >= 0) problems.push(`plainAnswer.claims[${index}] repeats plainAnswer.claims[${earlier}]: give each claim once.`);
   });
   if (problems.length > 0) return rejectedPlainAnswer(problems);
+  const namedVideos = personWords === undefined ? [] : namedVideoIdsIn(personWords).slice(0, NAMED_VIDEOS_SIGNED);
   const receipt = plain!.sign({
     claims: plainAnswer.claims.map(plainAnswerClaimDigest),
     text: createHash("sha256").update(plainAnswer.text, "utf8").digest("hex"),
     target: researchTargetDigest(plainAnswer.researchTarget),
+    ...(personWords === undefined ? {} : { asked: "1" }),
+    ...(namedVideos.length === 0 ? {} : { vids: namedVideos }),
   }, account.accountKey);
   if (receipt === undefined) {
     return accessError("receipts_unavailable", "This AskRigor server cannot sign research receipts, so the plain " +
@@ -1385,6 +1392,10 @@ async function registerPlainAnswer(
     `Research target, as signed: ${JSON.stringify(plainAnswer.researchTarget)}. Give finalize_research this ` +
     "research_target word for word, in a later turn too (only case and spacing are ignored): a reworded one can't be " +
     "matched to this plain answer, and the answer then ends without the comparison. " +
+    // Owner answer 307b: said here, before the research, so the first card can carry the link.
+    (namedVideos.length === 0 ? "" : `The person's words link ${namedVideos.length === 1 ? "a YouTube video" :
+      `${namedVideos.length} YouTube videos`}: at the final check, a finding about a video the person named may link ` +
+      "it, with named_videos in later_inputs.findings_card, as the person gave its address. ") +
     (account.note ? NOTE_ON : NOTE_OFF);
   // Owner answer 298b: AskRigor's own planning call, for a dev account, once the plain answer is signed. It never
   // stops the registration: without a plan, the result is the one every account gets, with one sentence on why.

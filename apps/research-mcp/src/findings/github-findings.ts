@@ -563,6 +563,9 @@ function readableCard(record: FindingsRecord): string {
           ? []
           : [`${finding.youtube_videos} YouTube video(s) whose comments were audited`]),
       ].join(", ") || "none stored"}`,
+      // Owner answer 307b: the videos the person named, as the save stored their links.
+      ...((finding.named_videos ?? []).length === 0 ? []
+        : [`- Videos the person named: ${finding.named_videos!.map(escapeMarkdown).join(", ")}`]),
       `- Why the usual answer misses it: ${escapeMarkdown(finding.why_not_usual)}`,
       `- Tags: ${finding.tags.length === 0 ? "none" : finding.tags.map(escapeMarkdown).join(", ")}`,
       `- Beyond a quick answer, as the receipts show: ${(finding.verified_bases ?? []).length === 0

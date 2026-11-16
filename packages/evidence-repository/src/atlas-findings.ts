@@ -1,7 +1,9 @@
 import { Pool, type PoolConfig } from "pg";
 import { z } from "zod";
 
-import { ATLAS_PUBLISHED_BACKING_PER_FINDING, atlasResearchSchemas } from "./atlas-research.js";
+import { ATLAS_PUBLISHED_BACKING_PER_FINDING, atlasResearchSchemas,
+  atlasNamedVideosSchema,
+} from "./atlas-research.js";
 import { withoutFormatCharacters } from "./atlas-shown-text.js";
 import { assertNoProhibitedPersistentKeys } from "./contracts.js";
 import { deterministicUuid, sha256, stableJson } from "./hash.js";
@@ -300,6 +302,8 @@ export const atlasResearchSchema = z.object({
   source_reading: z.array(canonicalResearch.reading).min(1).max(10).optional(),
   figure_sources: z.array(atlasText(300).nullable()).min(1).max(20).optional(),
   forum_signal: canonicalResearch.forumSignal.optional(),
+  // Owner answer 307b: the videos the person named that the finding is about, each as its watch page.
+  named_videos: atlasNamedVideosSchema.optional(),
 }).strict().refine((research) => Object.keys(research).length > 0, { message: "the research behind it holds something" });
 export type AtlasResearch = z.infer<typeof atlasResearchSchema>;
 

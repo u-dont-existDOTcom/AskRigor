@@ -25,6 +25,19 @@ export type AtlasQuoteText = typeof ATLAS_QUOTE_TEXTS[number];
 /** HRP FormalAbsenceCannotEraseCommunitySignal's four formal relationships. */
 export const ATLAS_FORUM_SIGNAL_STUDIES = ["corroborated", "contradicted", "support_not_located", "outcome_mismatch"] as const;
 export type AtlasForumSignalStudies = typeof ATLAS_FORUM_SIGNAL_STUDIES[number];
+/**
+ * Owner answer 307b (15 November 2026): a publication, and an accepted finding's version, may link a YouTube video that
+ * a person named themselves (the asker, someone reporting what worked for them, or AskRigor's owner), as the video's
+ * watch page and nothing else: no title, channel, count or comment, none of which the Atlas holds. Every text the
+ * Atlas keeps still holds no YouTube link, and a video AskRigor found through its own YouTube tools is never linked.
+ */
+export const ATLAS_NAMED_VIDEO_LINK = /^https:\/\/www\.youtube\.com\/watch\?v=[A-Za-z0-9_-]{11}$/u;
+export const ATLAS_NAMED_VIDEOS_PER_FINDING = 3;
+/** A finding's named videos as the Atlas holds them: each watch page once. */
+export const atlasNamedVideosSchema = z.array(z.string().regex(ATLAS_NAMED_VIDEO_LINK)).min(1)
+  .max(ATLAS_NAMED_VIDEOS_PER_FINDING)
+  .refine((links) => new Set(links).size === links.length, { message: "each video once" });
+
 export const ATLAS_PUBLISHED_QUOTE_MAX_CHARACTERS = 300;
 export const ATLAS_PUBLISHED_BACKING_PER_FINDING = 3;
 export const ATLAS_PUBLISHED_THREADS_PER_FINDING = 20;

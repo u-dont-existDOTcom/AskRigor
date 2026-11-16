@@ -30,8 +30,10 @@ const OWNER = "auth0|synthetic-owner-login";
 const PERSON = "auth0|synthetic-other-person";
 const NOW = "2026-11-07T10:00:00.000Z";
 const LATER = "2026-11-07T11:00:00.000Z";
-const V4 = "free-contributor-v4-2026-10-25";
+// The notice before the current one, and the current one (owner answer 307b, 15 November 2026: a card may link a
+// YouTube video that a person named), which is material.
 const V5 = "free-contributor-v5-2026-11-05";
+const V6 = "free-contributor-v6-2026-11-15";
 const STANDING = "OWNER_STANDING_INSTRUCTION_2026_11_06";
 
 const agreement = (noticeVersion: string) => ({
@@ -50,11 +52,11 @@ function fixture(now = () => LATER) {
   return { store, service };
 }
 
-/** A free account as a person left it under notice v4, before this release. */
-function underV4(service: ResearchContributorAccessService, subject: string): ResearchUseAccountRecord {
+/** A free account as a person left it under notice v5, before version 6. */
+function underV5(service: ResearchContributorAccessService, subject: string): ResearchUseAccountRecord {
   return {
-    accountKey: service.accountKeyForSubject(subject), status: "ACTIVE", mode: "FREE_CONTRIBUTOR", noticeVersion: V4,
-    agreement: agreement(V4) as never, activatedAt: NOW, revokedAt: null, createdAt: NOW, updatedAt: NOW,
+    accountKey: service.accountKeyForSubject(subject), status: "ACTIVE", mode: "FREE_CONTRIBUTOR", noticeVersion: V5,
+    agreement: agreement(V5) as never, activatedAt: NOW, revokedAt: null, createdAt: NOW, updatedAt: NOW,
     noticeAcceptedBy: "PERSON",
   };
 }
@@ -72,6 +74,14 @@ describe("each notice version declares whether it is material", () => {
     }
     // Every version so far collected or published more than the one before it.
     expect(RESEARCH_USE_NOTICE_CHANGES.every(({ material }) => material)).toBe(true);
+    // Owner answer 307b: version 6 is material too, since a card may now link a YouTube video that a person named.
+    expect(RESEARCH_USE_NOTICE_CHANGES.at(-1)).toEqual({
+      version: V6,
+      material: true,
+      change: "A card may link a YouTube video that a person named; cards still hold no YouTube comments and no IDs " +
+        "of videos AskRigor found (owner answer 307b).",
+    });
+    expect(RESEARCH_USE_NOTICE_CHANGES.at(-2)).toMatchObject({ version: V5, material: true });
     expect(Object.isFrozen(RESEARCH_USE_NOTICE_CHANGES)).toBe(true);
     expect(NOTICE_ACCEPTED_BY).toEqual(["PERSON", STANDING]);
   });
@@ -94,14 +104,14 @@ describe("each notice version declares whether it is material", () => {
 describe("the owner's standing instruction (6 November 2026)", () => {
   it("accepts a new material notice for the owner's own login, and records what, when and how", async () => {
     const { store, service } = fixture();
-    await store.saveAccount(underV4(service, OWNER));
+    await store.saveAccount(underV5(service, OWNER));
     const view = await service.inspect(OWNER);
     expect(view).toMatchObject({
-      status: "ACTIVE", mode: "FREE_CONTRIBUTOR", noticeVersion: V5,
-      acceptance: { noticeVersion: V5, acceptedAt: LATER, acceptedBy: STANDING, current: "accepted" },
+      status: "ACTIVE", mode: "FREE_CONTRIBUTOR", noticeVersion: V6,
+      acceptance: { noticeVersion: V6, acceptedAt: LATER, acceptedBy: STANDING, current: "accepted" },
     });
     expect(store.allAccounts()).toEqual([expect.objectContaining({
-      accountKey: service.accountKeyForSubject(OWNER), noticeVersion: V5, agreement: agreement(V5),
+      accountKey: service.accountKeyForSubject(OWNER), noticeVersion: V6, agreement: agreement(V6),
       activatedAt: LATER, updatedAt: LATER, createdAt: NOW, noticeAcceptedBy: STANDING,
     })]);
     await expect(service.requireActive(OWNER)).resolves.toBe("FREE_CONTRIBUTOR");
@@ -116,7 +126,7 @@ describe("the owner's standing instruction (6 November 2026)", () => {
     const { store, service } = fixture();
     // A subject that differs from the owner's in any way, case included, is another person's account.
     const others = [PERSON, `${OWNER}x`, OWNER.toUpperCase(), OWNER.replace("auth0|", "google-oauth2|")];
-    for (const subject of others) await store.saveAccount(underV4(service, subject));
+    for (const subject of others) await store.saveAccount(underV5(service, subject));
     for (const subject of others) {
       expect(await service.inspect(subject)).toMatchObject({ status: "UNENROLLED", mode: null });
       await expect(service.requireActive(subject)).rejects.toMatchObject({ code: "RESEARCH_ACCESS_REQUIRED" });
@@ -124,10 +134,10 @@ describe("the owner's standing instruction (6 November 2026)", () => {
     }
     expect(store.allAccounts()).toHaveLength(others.length);
     expect(store.allAccounts().every(({ noticeVersion, noticeAcceptedBy, updatedAt }) =>
-      noticeVersion === V4 && noticeAcceptedBy === "PERSON" && updatedAt === NOW)).toBe(true);
+      noticeVersion === V5 && noticeAcceptedBy === "PERSON" && updatedAt === NOW)).toBe(true);
     // Without owner subjects, not even the owner's login is accepted for.
     const plain = new ResearchContributorAccessService({ store, identitySecret: IDENTITY_SECRET, now: () => LATER });
-    await store.saveAccount(underV4(plain, OWNER));
+    await store.saveAccount(underV5(plain, OWNER));
     expect(await plain.inspect(OWNER)).toMatchObject({ status: "UNENROLLED" });
   });
 
@@ -135,11 +145,11 @@ describe("the owner's standing instruction (6 November 2026)", () => {
     const { store, service } = fixture();
     expect(await service.inspect(OWNER)).toMatchObject({ status: "UNENROLLED" });
     expect(store.allAccounts()).toEqual([]);
-    await store.saveAccount({ ...underV4(service, OWNER), status: "REVOKED", mode: null, noticeVersion: null,
+    await store.saveAccount({ ...underV5(service, OWNER), status: "REVOKED", mode: null, noticeVersion: null,
       agreement: null, activatedAt: null, revokedAt: NOW, noticeAcceptedBy: null });
     expect(await service.inspect(OWNER)).toMatchObject({ status: "REVOKED" });
     expect(store.allAccounts()[0]).toMatchObject({ status: "REVOKED", updatedAt: NOW });
-    await store.saveAccount({ ...underV4(service, OWNER), mode: "PAID_PRIVATE", noticeVersion: null, agreement: null,
+    await store.saveAccount({ ...underV5(service, OWNER), mode: "PAID_PRIVATE", noticeVersion: null, agreement: null,
       noticeAcceptedBy: null });
     expect((await service.inspect(OWNER)).acceptance).toBeUndefined();
     expect(store.allAccounts()[0]).toMatchObject({ mode: "PAID_PRIVATE", updatedAt: NOW });
@@ -147,12 +157,12 @@ describe("the owner's standing instruction (6 November 2026)", () => {
 
   it("records a person's own yes as theirs, and shows an unrecorded way of acceptance as unknown", async () => {
     const { store, service } = fixture();
-    const accepted = await service.acceptFreeContributor(PERSON, agreement(V5));
-    expect(accepted.acceptance).toEqual({ noticeVersion: V5, acceptedAt: LATER, acceptedBy: "PERSON", current: "accepted" });
+    const accepted = await service.acceptFreeContributor(PERSON, agreement(V6));
+    expect(accepted.acceptance).toEqual({ noticeVersion: V6, acceptedAt: LATER, acceptedBy: "PERSON", current: "accepted" });
     expect(store.allAccounts()[0]).toMatchObject({ noticeAcceptedBy: "PERSON" });
     await store.saveAccount({ ...store.allAccounts()[0]!, noticeAcceptedBy: null });
     expect((await service.inspect(PERSON)).acceptance).toEqual({
-      noticeVersion: V5, acceptedAt: LATER, acceptedBy: null, current: "accepted",
+      noticeVersion: V6, acceptedAt: LATER, acceptedBy: null, current: "accepted",
     });
     await service.revoke(PERSON);
     expect(store.allAccounts()[0]).toMatchObject({ status: "REVOKED", noticeAcceptedBy: null });
@@ -179,8 +189,8 @@ describe("the owner's login through the connector", () => {
     const jwk: JWK = { ...(await exportJWK(publicKey)), kid: "notice-materiality-key" };
     const jwks = createLocalJWKSet({ keys: [jwk] });
     const { store, service } = fixture();
-    await store.saveAccount(underV4(service, OWNER));
-    await store.saveAccount(underV4(service, PERSON));
+    await store.saveAccount(underV5(service, OWNER));
+    await store.saveAccount(underV5(service, PERSON));
     const server = createAskRigorHttpServer({
       publicServerEnabled: true,
       oauthResourceServer: createJwtOAuthResourceServer({
@@ -213,11 +223,11 @@ describe("the owner's login through the connector", () => {
     expect((await owner.callTool(research)).isError).not.toBe(true);
     const inspected = await owner.callTool({ name: "manage_research_access", arguments: { action: "inspect" } });
     expect(inspected.structuredContent).toMatchObject({
-      ok: true, access: { status: "ACTIVE", acceptance: { noticeVersion: V5, acceptedBy: STANDING, current: "accepted" } },
+      ok: true, access: { status: "ACTIVE", acceptance: { noticeVersion: V6, acceptedBy: STANDING, current: "accepted" } },
     });
     expect(inspected.structuredContent).not.toHaveProperty("next_step");
     expect((inspected.content as Array<{ text: string }>)[0]!.text).toContain(
-      `The owner's standing instruction of 6 November 2026 accepted notice ${V5} for this login at ${LATER}.`);
+      `The owner's standing instruction of 6 November 2026 accepted notice ${V6} for this login at ${LATER}.`);
 
     const person = await connect(PERSON);
     const refused = await person.callTool(research);
@@ -226,6 +236,6 @@ describe("the owner's login through the connector", () => {
     const asked = await person.callTool({ name: "manage_research_access", arguments: { action: "inspect" } });
     expect(asked.structuredContent).toMatchObject({ access: { status: "UNENROLLED" }, next_step: expect.any(String) });
     expect(store.allAccounts().find(({ accountKey }) => accountKey === service.accountKeyForSubject(PERSON)))
-      .toMatchObject({ noticeVersion: V4, noticeAcceptedBy: "PERSON" });
+      .toMatchObject({ noticeVersion: V5, noticeAcceptedBy: "PERSON" });
   }, 30_000);
 });

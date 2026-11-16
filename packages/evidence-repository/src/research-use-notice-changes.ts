@@ -29,4 +29,9 @@ export const RESEARCH_USE_NOTICE_CHANGES: readonly ResearchUseNoticeChange[] = O
     change: "Free cards publish as soon as they are saved, with votes and comments (owner answer 171)." },
   { version: "free-contributor-v5-2026-11-05", material: true,
     change: "A card's summary of what communities reported holds links to the forum threads read (owner answer 253a)." },
+  // Material: a card may now publish a link it could not hold before, so every free account is asked again, and the
+  // owner's own login accepts by the owner's standing instruction of 6 November 2026.
+  { version: "free-contributor-v6-2026-11-15", material: true,
+    change: "A card may link a YouTube video that a person named; cards still hold no YouTube comments and no IDs of " +
+      "videos AskRigor found (owner answer 307b)." },
 ] satisfies ResearchUseNoticeChange[]).map((entry) => Object.freeze(entry)));

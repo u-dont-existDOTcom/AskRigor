@@ -370,6 +370,9 @@ export {
   type HoldYouTubeFindingsInput,
 } from "./held-youtube-findings.js";
 export {
+  ATLAS_NAMED_VIDEO_LINK,
+  ATLAS_NAMED_VIDEOS_PER_FINDING,
+  atlasNamedVideosSchema,
   ATLAS_FORUM_SIGNAL_STUDIES,
   ATLAS_PUBLISHED_BACKING_PER_FINDING,
   ATLAS_PUBLISHED_QUOTE_MAX_CHARACTERS,

@@ -172,10 +172,16 @@ describe("AskRigor public site", () => {
       "the summary it wrote of that, with the answer\u2019s research question, for its owner\u2019s review: no comment " +
       "text, commenter names, channel, comment or video IDs, or links. It is never published, and it is deleted on " +
       "request, or if YouTube asks AskRigor to delete it.</p>";
+    // Owner answer 307b (15 November 2026): the section then says, in a paragraph of its own, the one thing of a
+    // video a saved card may hold: the link of a video that a person named.
+    const named = "<p>A saved findings card, and its page in the public Atlas, may link a YouTube video that a " +
+      "person named themselves. The link is the address that person gave: it is not taken from YouTube API " +
+      "Services, and no YouTube API Data is stored with it or shown beside it.</p>";
     const start = privacy.indexOf("<section><h2>YouTube refresh, storage, and deletion</h2>");
     const section = privacy.slice(start, privacy.indexOf("</section>", start));
-    expect(section.endsWith(paragraph)).toBe(true);
+    expect(section.endsWith(paragraph + named)).toBe(true);
     expect(privacy.split(paragraph)).toHaveLength(2);
+    expect(privacy.split(named)).toHaveLength(2);
     expect(privacy).not.toContain("answer's research question");
     expect(privacy).not.toContain("owner's review");
     expect(privacy).toContain("Effective November 12, 2026");

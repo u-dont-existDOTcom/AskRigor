@@ -1,4 +1,6 @@
 import {
+  ATLAS_NAMED_VIDEO_LINK,
+  ATLAS_NAMED_VIDEOS_PER_FINDING,
   ATLAS_PUBLICATION_HOLD_REASONS,
   ATLAS_PUBLICATION_SCHEMA,
   ATLAS_PUBLICATION_SCHEMA_V2,
@@ -121,8 +123,9 @@ export function drawnFromYouTubeComments(finding: StoredFinding): boolean {
  * declares none (owner answer 191b); the finding's claim, certainty, applies_to, kind, subject, subject type, direction,
  * numbers block (the raw counts and follow-up; rates, NNT and NNH are worked out when the pages render), searches, source identifiers,
  * why_not_usual and what_would_change_it; its verified bases; the day the card was saved; and the AskRigor version from
- * its stamp. Never the ARF number, the account or contributor, the thread key, the answer quote, the surface, the
- * reported model, a YouTube video id or count. Every text is written without text-direction controls, which could show
+ * its stamp; and the watch pages of the videos the person named (owner answer 307b). Never the ARF number, the account
+ * or contributor, the thread key, the answer quote, the surface, the reported model, the id of a video AskRigor found, or
+ * a count of videos. Every text is written without text-direction controls, which could show
  * reversed characters as an address the contact-details check never sees (contact-check.ts). Undefined when the card has
  * no such finding or its fields do not make a publication.
  */
@@ -134,6 +137,15 @@ export function publishedFindingOf(record: FindingsRecord, findingNumber: number
   return parsed.success ? parsed.data : undefined;
 }
 
+/**
+ * The videos the person named that a stored finding is about, as the Atlas holds them (owner answer 307b): each watch
+ * page the save stored, once, and nothing else of a video.
+ */
+export function namedVideosOf(finding: Pick<StoredFinding, "named_videos">): string[] {
+  return [...new Set((finding.named_videos ?? []).filter((link) => ATLAS_NAMED_VIDEO_LINK.test(link)))]
+    .slice(0, ATLAS_NAMED_VIDEOS_PER_FINDING);
+}
+
 /** A finding's version 1 fields, unchecked: what publishedFindingOf reads, and what a version 3 builds on. */
 function publishedFieldsOf(record: FindingsRecord, findingNumber: number,
   ownerTopic?: NonNullable<AtlasPublishedFinding["topic"]>): AtlasPublishedFinding | undefined {
@@ -141,6 +153,7 @@ function publishedFieldsOf(record: FindingsRecord, findingNumber: number,
   if (!Number.isSafeInteger(findingNumber) || findingNumber < 1 || finding === undefined) return undefined;
   const topic = record.card.topic ?? ownerTopic;
   const plain = withoutDirectionControls;
+  const named = namedVideosOf(finding);
   return {
     schema: ATLAS_PUBLICATION_SCHEMA,
     topic: topic === undefined ? null : { key: topic.key, label: plain(topic.label) },
@@ -176,6 +189,8 @@ function publishedFieldsOf(record: FindingsRecord, findingNumber: number,
     askrigor_version: /^[0-9A-Za-z][0-9A-Za-z.+-]{0,39}$/u.test(record.stamp.askrigor_version)
       ? record.stamp.askrigor_version
       : "unknown",
+    // Owner answer 307b: the videos the person named, as the save stored their watch pages.
+    ...(named.length === 0 ? {} : { named_videos: named }),
   };
 }
 
@@ -321,6 +336,7 @@ export function canonicalResearchOf(finding: StoredFinding, numbers: readonly At
   const sources = finding.sources.filter((source) => !isYouTubeVideoId(source) && keys.has(sourceIdKey(source)));
   const research = researchBehindOf(finding, { sources, numbers: null });
   const own = (finding.numbers ?? []).map(({ source: _source, ...figure }) => figure);
+  const named = namedVideosOf(finding);
   const figureSources = own.length === numbers.length && own.every((figure, index) =>
     JSON.stringify(figure) === JSON.stringify(numbers[index]))
     ? (finding.numbers ?? []).map(({ source }) => source === undefined
@@ -331,6 +347,8 @@ export function canonicalResearchOf(finding: StoredFinding, numbers: readonly At
     ...(research?.source_reading === undefined ? {} : { source_reading: research.source_reading }),
     ...(figureSources.some((source) => source !== null) ? { figure_sources: figureSources } : {}),
     ...(research?.forum_signal === undefined ? {} : { forum_signal: research.forum_signal }),
+    // Owner answer 307b: the videos the person named, as the save stored their watch pages.
+    ...(named.length === 0 ? {} : { named_videos: named }),
   });
   return parsed.success ? parsed.data : undefined;
 }
@@ -349,6 +367,8 @@ export function researchKeeping(research: AtlasResearch, keeps: (source: string)
     ...(reading.length === 0 ? {} : { source_reading: reading }),
     ...(figures.some((source) => source !== null) ? { figure_sources: figures } : {}),
     ...(research.forum_signal === undefined ? {} : { forum_signal: research.forum_signal }),
+    // Owner answer 307b: a named video is no source, so no dropped source takes it with it.
+    ...(research.named_videos === undefined ? {} : { named_videos: research.named_videos }),
   };
   return Object.keys(kept).length === 0 ? undefined : kept;
 }
