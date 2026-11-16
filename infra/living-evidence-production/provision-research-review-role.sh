@@ -132,6 +132,9 @@ GRANT EXECUTE ON FUNCTION living_evidence.mark_atlas_challenges(text[], text, te
   TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_challenges()
   TO askrigor_research_review;
+-- AskRigor#477 stage 1 (migration 0037): forget_card erases the research thread's dossiers.
+GRANT EXECUTE ON FUNCTION living_evidence.erase_research_dossiers(text, integer[], timestamptz)
+  TO askrigor_research_review;
 ALTER ROLE askrigor_research_review SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_review SET idle_in_transaction_session_timeout = '5s';
 ALTER ROLE askrigor_research_review SET search_path = living_evidence, pg_catalog;

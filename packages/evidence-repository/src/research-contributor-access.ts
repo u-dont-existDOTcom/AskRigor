@@ -43,6 +43,7 @@ import {
 
 import { RESEARCH_USE_NOTICE_CHANGES, type ResearchUseNoticeChange } from "./research-use-notice-changes.js";
 import { PostgresResearchCallRecordStore } from "./research-call-record.js";
+import { PostgresResearchDossierStore } from "./research-dossiers.js";
 export { contributionPrivacyBoundarySchema, researchContributionProposalInputSchema };
 export { RESEARCH_USE_NOTICE_CHANGES, type ResearchUseNoticeChange };
 
@@ -1178,6 +1179,11 @@ implements ResearchContributorAccessStore {
    */
   callRecordStore(): PostgresResearchCallRecordStore {
     return new PostgresResearchCallRecordStore(this.pool, this.schema);
+  }
+
+  /** AskRigor#477 stage 1 (owner answer 329a): the private research dossiers, on this store's pool and schema. */
+  dossierStore(): PostgresResearchDossierStore {
+    return new PostgresResearchDossierStore(this.pool, this.schema);
   }
 
   async getAccount(accountKey: string): Promise<ResearchUseAccountRecord | null> {

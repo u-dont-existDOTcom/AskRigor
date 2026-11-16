@@ -71,6 +71,15 @@ GRANT INSERT, SELECT, DELETE ON TABLE living_evidence.research_menu_choices
 GRANT EXECUTE ON FUNCTION living_evidence.withdraw_pending_research_contribution_proposals(
   text, timestamptz
 ) TO askrigor_research_access;
+-- AskRigor#477 stage 1 (migration 0037): a free contributor's research dossier, appended and read back only through
+-- these functions, which check the account themselves; no table right on the dossiers.
+GRANT EXECUTE ON FUNCTION living_evidence.append_research_dossier_version(
+  text, text, text, text, text, jsonb, text, integer, jsonb, uuid, uuid, timestamptz
+) TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.latest_research_dossier_version(text, text)
+  TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.read_research_dossier_version(text, uuid)
+  TO askrigor_research_access;
 GRANT EXECUTE ON FUNCTION living_evidence.hold_youtube_findings(
   integer, text, timestamptz, jsonb, text, text, text
 ) TO askrigor_research_access;

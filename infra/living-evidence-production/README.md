@@ -414,6 +414,41 @@ mode off, so a rollback below this image empties the table and turns the switch 
 learn_menu_choices = false WHERE learn_menu_choices;`) to keep the promise that what was kept can be deleted. Undo no
 migration.
 
+AskRigor#477 stage 1 (owner answer 329a, 16 November 2026; built, not yet released; design
+`/home/joel/askrigor-releases/20261116-477/design-v2.md`): migration `0037_research_dossiers` adds a free
+contributor's private research dossier: the tables `research_dossiers`, `research_dossier_versions`,
+`research_dossier_identifiers` and `research_dossier_events`, the sequence `research_dossier_number_seq` (ARD
+numbers), five SECURITY DEFINER functions and a trigger on `research_use_accounts` that withdraws an account's dossier
+versions still waiting for review when the account is revoked. It is additive and safe to run again; it changes no
+existing table, row or grant. Every table and the sequence are revoked from PUBLIC and from the canonical reader, whose
+default grants would otherwise read them; the functions are revoked from PUBLIC. Release, in this order: run the
+one-shot admin `migrate`; re-run `/usr/local/bin/provision-research-access-role` (it now grants
+`append_research_dossier_version`, `latest_research_dossier_version` and `read_research_dossier_version`) and
+`/usr/local/bin/provision-research-review-role` (it now grants `erase_research_dossiers`, which `forget_card` calls);
+then serve the image, and only then set `ASKRIGOR_RESEARCH_DOSSIERS=enabled` in `runtime.env` and recreate
+`research-mcp`. Without the setting nothing is asked for or saved. Turning it off again stops new saves and keeps what
+was saved.
+
+Image rollback hazard: an earlier image never reads the four tables, so its pages, review and research are unaffected,
+and its `finalize_research` drops a `later_inputs.research_dossier` with a note and checks the answer as before. But it
+cannot list, erase or reconcile a dossier: its `forget_card` erases the person's cards and leaves their dossiers, and
+it strips the card's research-thread marker that the dossier-aware image's `forget_card` would use to find them. So
+while an earlier image serves, hold `forget_card` requests until the dossier-aware image serves again (the privacy page
+promises no deadline), or, for one that cannot wait, erase the thread's dossiers by the card numbers as the migrator
+before running the earlier image's `forget_card`
+(`SELECT living_evidence.erase_research_dossiers(NULL, ARRAY[<card numbers>]::integer[], now());`, which also erases
+the other dossiers of their research thread). Revocation needs no step: the trigger lives in the database, and an
+earlier image's migrations never drop it. A rollback below the image that runs `migrate` with 0037 needs no change to
+the database; its own `migrate` leaves 0037's objects alone. Read-only counts, as the migrator, before and after:
+
+```sql
+SELECT count(*) FROM living_evidence.research_dossiers WHERE erased_at IS NULL;
+SELECT count(*) FROM living_evidence.research_dossier_versions WHERE erased_at IS NULL;
+SELECT event, count(*) FROM living_evidence.research_dossier_events GROUP BY event ORDER BY event;
+```
+
+Undo no migration.
+
 Owner answers 254a and 255a (2026-11-05; built, not yet released; plan
 `../../docs/superpowers/plans/2026-11-05-atlas-research-behind.md`): migration
 `0029_atlas_research_behind` admits `forum_read` among the verified bases of
