@@ -375,7 +375,9 @@ describe("P0 2, the first real dossier (16 Nov 2026): research identifiers in th
     const refused = await saveResearchDossier(new InMemoryResearchDossierStore(),
       request({}, edited((value) => { value.open_trails = [lead, "ACTRN12620000032954, or call 0412 345 678."]; })));
     expect(refused?.disposition).toMatchObject({ status: "insufficient",
-      problems: [{ path: "open_trails[1]", rule: "direct_identifier" }] });
+      problems: [{ path: "open_trails[1]", rule: "direct_identifier" }],
+      explanations: { direct_identifier: "it looks like it holds contact details, an address or a number shaped like a " +
+        "phone number, which refuses the dossier for good in this research" } });
     expect(refused?.note).toContain("A privacy or YouTube refusal is final for this research");
   });
 });

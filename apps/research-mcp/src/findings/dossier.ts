@@ -14,8 +14,10 @@ import { forumThreadDigest, publishedThreadOf } from "../forum-thread-links.js";
 import { discoveryQueryDigest, verifyResearchReceipt } from "../research-receipts.js";
 import { FINDING_CERTAINTIES, heldFindingsFromReceipt, holdsYouTubeReference } from "./card.js";
 import type { ResearchDossierDisposition } from "./dossier-disposition.js";
-import { dossierPrivacyRule } from "./dossier-privacy.js";
-import type { DossierPrivacyReader, DossierPrivacyReading, DossierText } from "./dossier-privacy-reading.js";
+import { DOSSIER_PRIVACY_PROBLEMS, dossierPrivacyRule, type DossierPrivacyRule } from "./dossier-privacy.js";
+import {
+  DOSSIER_PRIVACY_REFUSALS, type DossierPrivacyReader, type DossierPrivacyReading, type DossierText,
+} from "./dossier-privacy-reading.js";
 import { findingsQuestionKey, findingsThreadKey } from "./service.js";
 
 /**
@@ -181,14 +183,20 @@ export const researchDossierInputSchema = z.object({
 
 export type ResearchDossierInput = z.output<typeof researchDossierInputSchema>;
 
-/** What the AI is told the dossier holds, in the result that asks for one. */
+/**
+ * What the AI is told the dossier holds, in the result that asks for one. The first real dossier (16 Nov 2026) failed
+ * twice on rules this did not state: its adds' id format ("shape"), then 13 forms not listed and 17 conclusions whose
+ * form was not their studies' (form_not_listed, form_mismatch); and once for good on a trial's registry number that the
+ * privacy screen read as a phone number. So the ids, the forms and the citing of papers and trials are said plainly.
+ */
 export const RESEARCH_DOSSIER_SHAPE = "later_inputs.research_dossier: {scope: public or personal_only; value: " +
   "{saves_work: substantial, some or none, compared with one ordinary AI answer; quick_answer, what that answer would " +
-  "give; adds, up to 8 finding ids that save the most work; reason}; question, in general terms; topic: {key, name, " +
-  "other_names}; forms, each form or formulation covered; searches: [{id, database (pubmed, europepmc, openalex or " +
-  "ctgov), query exactly as searched in this research, date_range when it had one}]; studies: [{id, identifiers (DOI, " +
-  "PMID, PMCID or NCT), kind (human_trial, human_observational, case_report, animal, lab or review), form, dose, " +
-  "route, population, comparator, design, decision (used or set_aside), decision_reason}]; results: [{id, study, " +
+  "give; adds, the ids of up to 8 findings that save the most work; reason}; question, in general terms; topic: {key " +
+  "(lower-case letters, digits, ., - or _), name, other_names}; forms, each form or formulation covered, once; " +
+  "searches: [{id, database (pubmed, europepmc, openalex or ctgov), query exactly as searched in this research, " +
+  "date_range ({start, end}, each YYYY-MM-DD) when it had one}]; studies: [{id, identifiers (DOI, PMID, PMCID or " +
+  "NCT), kind (human_trial, human_observational, case_report, animal, lab or review), form, dose, route, population, " +
+  "comparator, design, decision (used or set_aside), decision_reason}]; results: [{id, study, " +
   "outcome, comparator, follow_up, direction (benefit, harm, no_difference, mixed or unclear), certainty, figure " +
   "({kind: counts, option_events, option_total, comparator_events, comparator_total, nnt or nnh} or {kind: value, " +
   "value, unit, measure}), provenance (reported, calculated or from_table), calculation ({operation: difference, " +
@@ -202,11 +210,112 @@ export const RESEARCH_DOSSIER_SHAPE = "later_inputs.research_dossier: {scope: pu
   "none_found with search, or not_researched with reason}}; community: {threads, the forum threads read here with " +
   "read_forum_thread, by their links; people: {better, no_change, worse, mixed}, report_quality: {detailed, measured, " +
   "bare}}, never from YouTube comments; open_trails}. " +
+  "Ids: each search, study, result and finding has its own, a lower-case letter then up to 31 lower-case letters, " +
+  "digits, - or _ (s1, f2); adds, rests_on, study and search give these ids exactly. " +
+  "Forms: a study's form and a finding's form, when given, are each one of forms, written the same way; a finding's " +
+  "form is also the form of every study it rests on, directly or through a result, so a finding across studies of " +
+  "different forms leaves its form out. " +
+  "In any text, cite a paper or a trial by its DOI, PMID with its number (PMID 12345678), PMCID or registry number " +
+  "with the registry's prefix (NCT01234567, ACTRN12620000032954, EudraCT 2010-012345-12): any other long run of digits " +
+  "reads as a phone number, which refuses the dossier. " +
   "Everything in general terms: never the person, the chat, the answer, quotes from papers or YouTube comments.";
 
 export interface DossierProblem {
   path: string;
   rule: string;
+}
+
+/**
+ * What each check's rule asks for, in a clause the AI can act on, as the final check names a card's privacy problems
+ * (FINDINGS_PRIVACY_PROBLEMS). The first real dossier (16 Nov 2026) came back with 13 form_not_listed and 17
+ * form_mismatch problems, by path and rule only, and its AI could not tell what either asked. Each rule is explained
+ * once, in the note and in research_dossier.explanations, however many paths break it, so a long list stays short.
+ */
+const DOSSIER_CHECK_PROBLEMS = {
+  shape: "not in the form the shape gives (its type, its allowed values, its length or the list's size); an id, and " +
+    "each reference to one in adds, rests_on, study or search, is a lower-case letter then up to 31 lower-case " +
+    "letters, digits, - or _",
+  reserved_id: "community stands for people's reports in rests_on, so it is no entry's id",
+  duplicate_id: "each search, study, result and finding has an id of its own",
+  search_not_in_receipts: "no search this call's receipts show has this database, this query exactly as searched and " +
+    "this date range; give it as run here, or leave it out",
+  identifier_not_recognized: "a study's identifiers are DOIs, PMIDs, PMCIDs or NCT numbers",
+  set_aside_reason_missing: "a study set aside says why, in decision_reason",
+  form_not_listed: "a study's or a finding's form must be one of the forms listed in forms, written the same way " +
+    "(capitals aside): add it to forms, or write it as listed",
+  identifiers_not_one_paper: "a study's identifiers must all name one paper, as this call's receipts link them; give a " +
+    "paper no receipt read here by one identifier",
+  duplicate_paper: "this paper is already another study, under this identifier or another of its own; enter each " +
+    "paper once",
+  unknown_reference: "it names no entry of this dossier: rests_on gives study, result or search ids (or community, " +
+    "with a community section), study a study's id, adds findings' ids, a coverage area's search a search's id, and " +
+    "card_finding a place on the card",
+  result_study_not_read: "a result's study must have been read in this research (its abstract at least) or be held " +
+    "by a checked Atlas finding used here",
+  provenance_missing: "a result with a figure says whether the figure is reported, calculated or from_table",
+  calculation_missing: "a calculated figure is a value figure with its calculation: the operation and the two " +
+    "numbers it was done on",
+  calculation_mismatch: "the calculation's operation on its two numbers does not give the figure's value, at the " +
+    "figure's own rounding",
+  calculation_unexpected: "only a figure whose provenance is calculated has a calculation",
+  counts_exceed_total: "a group's events cannot outnumber its people",
+  nnt_and_nnh: "a figure gives nnt or nnh, not both",
+  no_difference_no_nnt: "with the same event rate in both groups there is no number needed to treat or harm",
+  nnt_mismatch: "nnt is 1 divided by the difference in event rates, rounded up",
+  nnh_mismatch: "nnh is 1 divided by the difference in event rates, rounded up",
+  community_thread_not_read: "each thread is a forum thread read with read_forum_thread in this research, by the " +
+    "link it was read at",
+  finding_rests_on_unread_study: "a finding rests only on studies read in this research (their abstract at least) " +
+    "or held by a checked Atlas finding used here",
+  form_mismatch: "a finding's form must be the form of every study it rests on, directly or through a result: when " +
+    "its studies' forms differ, leave the finding's form out",
+  finding_without_backing: "a finding rests on at least one study or result read here, or on community; a search " +
+    "alone backs only a not_known finding",
+  youtube_origin_undeclared: "once this research read YouTube comments, each finding says draws_on_youtube_comments, " +
+    "true or false",
+  youtube_comment_material: "a finding drawn from YouTube comments refuses the dossier, for good in this research",
+  card_finding_undeclared: "once this check held card findings apart, each finding says card_finding: its place on " +
+    "the card, or none",
+  held_card_finding: "this finding is a card finding held apart for YouTube comments, which refuses the dossier, for " +
+    "good in this research",
+  coverage_search_missing: "none_found names, by its id, the search that looked and found none",
+  coverage_reason_missing: "not_researched says why, in reason",
+  coverage_community_missing: "people_reports with entries needs the community section",
+  value_not_substantial: "a dossier is saved only when its value statement says it saves a reader substantial work",
+} as const;
+
+type DossierCheckRule = keyof typeof DOSSIER_CHECK_PROBLEMS;
+
+/** A problem's rule in plain words, or undefined for a rule no table names. */
+export function dossierProblemExplanation(rule: string): string | undefined {
+  if (Object.hasOwn(DOSSIER_CHECK_PROBLEMS, rule)) return DOSSIER_CHECK_PROBLEMS[rule as DossierCheckRule];
+  if (Object.hasOwn(DOSSIER_PRIVACY_PROBLEMS, rule)) {
+    return `it looks like it holds ${DOSSIER_PRIVACY_PROBLEMS[rule as DossierPrivacyRule]}, which refuses the ` +
+      "dossier for good in this research";
+  }
+  const reading = /^privacy_reading_([a-z_]+)$/u.exec(rule)?.[1];
+  return reading !== undefined && (DOSSIER_PRIVACY_REFUSALS as readonly string[]).includes(reading)
+    ? `AskRigor's privacy reading found ${reading.replaceAll("_", " ")}, which refuses the dossier for good in this ` +
+      "research"
+    : undefined;
+}
+
+/** Each rule the problems break, once, with its explanation. */
+export function dossierProblemExplanations(problems: readonly DossierProblem[]): Record<string, string> {
+  return Object.fromEntries([...new Set(problems.map(({ rule }) => rule))].flatMap((rule) => {
+    const explanation = dossierProblemExplanation(rule);
+    return explanation === undefined ? [] : [[rule, explanation]];
+  }));
+}
+
+/** The problems for the note: by rule, each rule once with its paths and what it asks for. */
+function problemsByRule(problems: readonly DossierProblem[]): string {
+  const paths = new Map<string, string[]>();
+  for (const { path, rule } of problems) paths.set(rule, [...paths.get(rule) ?? [], path]);
+  return [...paths].map(([rule, at]) => {
+    const explanation = dossierProblemExplanation(rule);
+    return `${rule} at ${at.join(", ")}${explanation === undefined ? "" : `: ${explanation}`}.`;
+  }).join(" ");
 }
 
 /** A receipt this call verified, as the dossier's checks read it. */
@@ -287,10 +396,11 @@ export function checkResearchDossier(
   },
 ): { problems: DossierProblem[]; checked?: CheckedDossier; final: boolean } {
   const problems: DossierProblem[] = [];
-  const problem = (path: string, rule: string) => problems.push({ path, rule });
+  // Every rule a check names has its explanation (DOSSIER_CHECK_PROBLEMS, DOSSIER_PRIVACY_PROBLEMS).
+  const problem = (path: string, rule: DossierCheckRule | DossierPrivacyRule) => problems.push({ path, rule });
   // A problem of the privacy screen or of YouTube material: final for the research (RESEARCH_DOSSIER_GUARDS).
   let final = false;
-  const refuse = (path: string, rule: string) => {
+  const refuse = (path: string, rule: DossierCheckRule | DossierPrivacyRule) => {
     final = true;
     problem(path, rule);
   };
@@ -778,18 +888,21 @@ export async function saveResearchDossier(
       : undefined;
   }
 
-  const insufficient = (problems: DossierProblem[], reason = "checks_failed", final = false): ResearchDossierSaveOutcome => ({
-    disposition: { status: "insufficient", reason, problems: problems.slice(0, PROBLEMS_SHOWN) },
-    note: reason === "value_not_substantial"
-      ? "Research dossier not saved: its value statement does not say it saves a reader substantial work."
-      : "Research dossier not saved, nothing of it was stored: " +
-        problems.slice(0, PROBLEMS_SHOWN).map(({ path, rule }) => `${path} (${rule})`).join("; ") +
-        (final
-          ? ". A privacy or YouTube refusal is final for this research: leave the dossier unsaved, and do not rewrite " +
-            "it to get past the screen."
-          : ". Correct them and send it again only with a final check already needed for this research; do not make " +
-            "another check solely to repair it."),
-  });
+  // Each problem by path and rule, and each rule's explanation once, in the disposition and in the note.
+  const insufficient = (problems: DossierProblem[], reason = "checks_failed", final = false): ResearchDossierSaveOutcome => {
+    const shown = problems.slice(0, PROBLEMS_SHOWN);
+    return {
+      disposition: { status: "insufficient", reason, problems: shown, explanations: dossierProblemExplanations(shown) },
+      note: reason === "value_not_substantial"
+        ? "Research dossier not saved: its value statement does not say it saves a reader substantial work."
+        : `Research dossier not saved, nothing of it was stored. ${problemsByRule(shown)}` +
+          (final
+            ? " A privacy or YouTube refusal is final for this research: leave the dossier unsaved, and do not rewrite " +
+              "it to get past the screen."
+            : " Correct them and send it again only with a final check already needed for this research; do not make " +
+              "another check solely to repair it."),
+    };
+  };
   const declared = z.object({ scope: z.enum(["public", "personal_only"]), value: valueSchema }).safeParse(request.dossier.value);
   if (declared.success && declared.data.scope === "personal_only") return { disposition: { status: "private", reason: "personal_only" } };
   if (declared.success && declared.data.value.saves_work !== "substantial") {
@@ -853,9 +966,10 @@ export async function saveResearchDossier(
       reading = { status: "unavailable", reason: "error" };
     }
     if (reading.status === "refuse") {
+      const refused = [{ path: reading.path ?? "research_dossier", rule: `privacy_reading_${reading.reason}` }];
       return {
-        disposition: { status: "insufficient", reason: "privacy_reading",
-          problems: [{ path: reading.path ?? "research_dossier", rule: `privacy_reading_${reading.reason}` }] },
+        disposition: { status: "insufficient", reason: "privacy_reading", problems: refused,
+          explanations: dossierProblemExplanations(refused) },
         note: `Research dossier not saved, nothing of it was stored: AskRigor's privacy reading found ${
           reading.reason.replaceAll("_", " ")}${reading.path === undefined ? "" : ` in ${reading.path}`}. A privacy refusal ` +
           "is final for this research: leave the dossier unsaved, and do not rewrite it to get past the reading.",

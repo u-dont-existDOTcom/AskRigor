@@ -120,7 +120,9 @@ describe("the save with the privacy reading on", () => {
     const refusal = await saveResearchDossier(refused, request(async () =>
       ({ status: "refuse", reason: "personal_health_story", path: "findings[0].applies_to" })));
     expect(refusal?.disposition).toEqual({ status: "insufficient", reason: "privacy_reading",
-      problems: [{ path: "findings[0].applies_to", rule: "privacy_reading_personal_health_story" }] });
+      problems: [{ path: "findings[0].applies_to", rule: "privacy_reading_personal_health_story" }],
+      explanations: { privacy_reading_personal_health_story: "AskRigor's privacy reading found personal health story, " +
+        "which refuses the dossier for good in this research" } });
     expect(refusal?.note).toContain("A privacy refusal is final for this research");
     expect(refused.snapshot()).toEqual([]);
     for (const [reader, reason] of [
@@ -315,7 +317,9 @@ describe("finalize_research with the reading on", () => {
     const refused = await finalizeWith({ reading: true,
       planner: plannerWith(async () => ({ status: "refuse", reason: "relative_or_household", path: "findings[0].claim" })) });
     expect(refused.structured.research_dossier).toEqual({ status: "insufficient", reason: "privacy_reading",
-      problems: [{ path: "findings[0].claim", rule: "privacy_reading_relative_or_household" }] });
+      problems: [{ path: "findings[0].claim", rule: "privacy_reading_relative_or_household" }],
+      explanations: { privacy_reading_relative_or_household: "AskRigor's privacy reading found relative or household, " +
+        "which refuses the dossier for good in this research" } });
     expect(refused.store.snapshot()).toEqual([]);
     const plannerOff = await finalizeWith({ reading: true, planner: plannerWith() });
     expect(plannerOff.structured.research_dossier).toEqual({ status: "unavailable", reason: "privacy_reading_off" });

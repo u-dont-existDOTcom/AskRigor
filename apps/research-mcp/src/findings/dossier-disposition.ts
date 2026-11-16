@@ -25,8 +25,11 @@ export const researchDossierDispositionSchema = z.object({
   written_alongside: z.boolean().optional(),
   reason: z.string().optional(),
   problems: z.array(z.object({ path: z.string(), rule: z.string() }).strict()).max(50).optional(),
+  /** What each rule among the problems asks for, in plain words, once for each rule (dossier.ts). */
+  explanations: z.record(z.string(), z.string()).optional(),
 }).strict().describe("This research's dossier (AskRigor#477): saved, stored privately for AskRigor's owner to review " +
-  "and read back; duplicate, saved before; insufficient, not saved, with its problems by path and rule; private, " +
+  "and read back; duplicate, saved before; insufficient, not saved, with its problems by path and rule and what each " +
+  "rule asks for in explanations; private, " +
   "personal only or no research account; consent_blocked, not saved for this account or call; not_sent, the research " +
   "did work a quick answer cannot do and no dossier came; unconfirmed, not confirmed in time; unavailable.");
 
