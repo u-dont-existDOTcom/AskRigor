@@ -927,19 +927,28 @@ With a passing final check, the AI may send `later_inputs.research_dossier`: the
 and forms, the searches, the studies, their results, up to 30 conclusions, what was covered, what communities reported
 (counts only in this stage), open trails and its own statement that the research saves a later reader substantial work
 (`apps/research-mcp/src/findings/dossier.ts` has the exact shape and limits, which the owner said are starting values
-to revisit). The server saves it whole or not at all, after exact checks with no model: each study read by a receipt of
-this call (or held by a checked Atlas finding used here) before a result or conclusion rests on it; each search matching
-its own receipt; counts, numbers needed to treat or harm and calculated figures adding up; references, coverage and
-forms; and the findings card's privacy screen, which reads health words in English only and cannot prove that a text
-identifies no one. Whether the papers say what the dossier claims is stored as the AI's judgement.
+to revisit). The server saves it whole or not at all, after exact checks with no model: each study one paper the
+receipts confirm, entered once, and read by a receipt of this call (or held by a checked Atlas finding used here) before
+a result or conclusion rests on it, a search never standing in for reading it; each search matching its own receipt;
+counts, numbers needed to treat or harm and calculated figures adding up; references, coverage and forms; people's
+reports only from forum threads AskRigor's reader read in this research, kept as counts under the communities their
+receipts name; once YouTube comments were read, each conclusion says whether it draws on them, and one that does, or a
+card finding the same check held for them, refuses the dossier; and the dossier's privacy screen
+(`apps/research-mcp/src/findings/dossier-privacy.ts`) over every text, the ids and the topic key included: the findings
+card's screen, then the person's own voice, relatives, carers and places in English, French, Spanish, German,
+Portuguese and Italian, contacts and links, and any word in a script it cannot read. It refuses the whole dossier when in
+doubt, and still cannot prove that a text identifies no one, so the owner's review reads each one. Whether the papers
+say what the dossier claims is stored as the AI's judgement (Codex's review of 16 November 2026 set the paper, forum,
+YouTube and privacy checks).
 
 `finalize_research`'s `research_dossier` says what happened: `saved` (an ARD number and version, read back by its
 digest), `duplicate`, `insufficient` (paths and rules, never values), `private`, `consent_blocked`, `not_sent` (the
-research did work a quick answer cannot do and sent none), `unconfirmed` or `unavailable`; the answer ends with one line
-saying which. Paid private accounts are not offered a dossier (owner answer 330a); a dev account with card saving off,
+research did work a quick answer cannot do and sent none), `unconfirmed` (whenever the write may have landed) or
+`unavailable`; the answer ends with one line saying which. Paid private accounts are not offered a dossier (owner answer 330a); a dev account with card saving off,
 and a call marked `findings_save` off, save none. Nothing is asked for or saved unless the server runs with
-`ASKRIGOR_RESEARCH_DOSSIERS=enabled`. Storage, roles, revocation, deletion with `forget_card` and the rollback hazard are
-in `infra/living-evidence-production/README.md` (migration `0037_research_dossiers`).
+`ASKRIGOR_RESEARCH_DOSSIERS=enabled`. Storage, roles, revocation, deletion with `forget_card` (the forgotten save's
+research thread only, never by a card number, which several people's saves share) and the rollback hazards are in
+`infra/living-evidence-production/README.md` (migration `0037_research_dossiers`).
 
 ## Identity boundary
 
