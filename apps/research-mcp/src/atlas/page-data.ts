@@ -843,7 +843,7 @@ async function loadAtlasTopicFamily(source: AtlasPageSource, family: AtlasTopicF
     const grouped = family.sections.map((section) =>
       ({ key: section.key, heading: section.heading, summary: section.summary, findings: [] as ShownFinding[] }));
     const seen = new Set<string>();
-    for await (const finding of allShown(reads, undefined, true)) {
+    for await (const finding of allShown(reads)) {
       if (seen.has(finding.publicationNumber)) continue;
       const texts = foldAtlasSearchTexts(searchTextsOf(finding));
       if (!inTopicFamily(texts, family)) continue;
@@ -1164,7 +1164,7 @@ export async function loadAtlasTopics(source: AtlasPageSource): Promise<AtlasTop
     const topics = new Map<string, AtlasTopicsModel["topics"][number]>();
     const familyCounts = new Map<string, number>(ATLAS_TOPIC_FAMILIES.map((family) => [family.key, 0]));
     let withoutTopic = 0;
-    for await (const finding of allShown(reads, undefined, true)) {
+    for await (const finding of allShown(reads)) {
       // Ordinary topic lists retain their prior visibility policy; a curated family can also show research-only
       // findings with their explicit "kept" / unreviewed labels and direct links.
       if (!finding.kept) {

@@ -804,8 +804,7 @@ ${model.family.groups.map((group) => html`<section aria-labelledby="family-${gro
 ${model.topic.key === "inositol" ? inositolEvidenceList(INOSITOL_DOSSIER.forms.find((form) => form.key === group.key)) : ""}
 <h3>Related individual Atlas findings</h3>
 ${group.findings.length === 0 ? html`<p class="meta">No separate Atlas finding is filed yet for this form; the source-linked dossier above gives the existing research.</p>`
-  : html`<ul class="finding-list">${group.findings.map((finding) => findingItem(finding,
-    finding.kept ? html`<p class="notice-line">Kept for AskRigor’s research: this finding has not met the public curation bar.</p>` : ""))}</ul>`}
+  : findingList(group.findings)}
 </section>`)}
 <section aria-labelledby="family-gaps"><h2 id="family-gaps">Safety and evidence limitations across forms</h2>
 <ul>${model.topic.key === "inositol" ? INOSITOL_DOSSIER.generalNotes.map((note) => html`<li>${note}</li>`) : []}</ul>

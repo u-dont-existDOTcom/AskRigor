@@ -1594,17 +1594,21 @@ describe("cross-topic inositol research collection", () => {
       .toContain('href="/atlas/topics/inositol"');
   });
 
-  it("keeps the research-only warning on individually hidden findings while allowing the family to list them", async () => {
+  it("does not publish findings deliberately kept for research in the public family view", async () => {
     const f = await fixture();
     const result = await f.store.publish(9704, recordOf({ ...oneFindingCard("Myo-inositol has an experimental effect."),
       topic: { key: "inositol-epilepsy", label: "Inositol and epilepsy" } }));
     const publication = result.rows[0]!.publicationNumber;
     const keep = new AtlasKeptReview({ publications: f.store.publications, now: () => new Date("2026-11-04T12:00:00.000Z") });
     await keep.run({ action: "keep_for_research", items: [publication], reason: "research not yet curated" });
+    const visible = await f.store.publish(9705, recordOf({ ...oneFindingCard("D-chiro-inositol was studied in a trial."),
+      topic: { key: "inositol-hormones", label: "Inositol hormone research" } }));
+    const visibleNumber = visible.rows[0]!.publicationNumber;
     const broad = await loadAtlasTopic(f.source, "inositol");
-    expect(broad?.family?.groups.some((section) => section.findings.some((finding) => finding.publicationNumber === publication && finding.kept))).toBe(true);
+    expect(broad?.family?.groups.some((section) => section.findings.some((finding) => finding.publicationNumber === visibleNumber))).toBe(true);
+    expect(broad?.family?.groups.some((section) => section.findings.some((finding) => finding.publicationNumber === publication))).toBe(false);
     const url = await serve(pages(f.source));
-    expect((await text(url, "/atlas/topics/inositol")).body).toContain("Kept for AskRigor");
+    expect((await text(url, "/atlas/topics/inositol")).body).not.toContain('href="/atlas/findings/' + publication + '"');
     expect((await loadAtlasSearch(f.source, { search: q("myo-inositol") })).results
       .some(({ finding }) => finding.publicationNumber === publication)).toBe(false);
   });
