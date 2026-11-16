@@ -212,9 +212,9 @@ export const RESEARCH_DOSSIER_SHAPE = "later_inputs.research_dossier: {scope: pu
   "bare}}, never from YouTube comments; open_trails}. " +
   "Ids: each search, study, result and finding has its own, a lower-case letter then up to 31 lower-case letters, " +
   "digits, - or _ (s1, f2); adds, rests_on, study and search give these ids exactly. " +
-  "Forms: list each form in forms; a study's form and a finding's form, when given, are each one of them, written the " +
-  "same way; a finding's form is also the form of every study it rests on that gives one, directly or through a " +
-  "result, so a finding across studies of different forms leaves its form out. " +
+  "Forms: list each form in forms; once it lists any, a study's form and a finding's form, when given, are each one of " +
+  "them, written the same way; a finding's form is also the form of every study it rests on that gives one, directly " +
+  "or through a result, so a finding across studies of different forms leaves its form out. " +
   "In any text, cite a paper or a trial by its DOI, PMID with its number (PMID 12345678), PMCID or registry number " +
   "with the registry's prefix (NCT01234567, ACTRN12620000032954, EudraCT 2010-012345-12), with punctuation, not a " +
   "bare space, before a number that follows it: any other long run of digits reads as a phone number, which refuses " +
@@ -242,7 +242,7 @@ const DOSSIER_CHECK_PROBLEMS = {
     "this date range; give it as run here, or leave it out",
   identifier_not_recognized: "a study's identifiers are DOIs, PMIDs, PMCIDs or NCT numbers",
   set_aside_reason_missing: "a study set aside says why, in decision_reason",
-  form_not_listed: "a study's or a finding's form must be one of the forms listed in forms, written the same way " +
+  form_not_listed: "once forms lists any, a study's or a finding's form must be one of them, written the same way " +
     "(capitals aside): add it to forms, or write it as listed",
   identifiers_not_one_paper: "a study's identifiers must all name one paper, as this call's receipts link them; give a " +
     "paper no receipt read here by one identifier",

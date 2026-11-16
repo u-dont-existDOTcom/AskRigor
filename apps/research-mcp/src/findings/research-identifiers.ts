@@ -10,7 +10,7 @@ import { REGISTRY_END, REGISTRY_START, SEARCHED_REGISTRY_FORMATS } from "../regi
  *   characters but ";"), with one level of parentheses, standing on its own (a link is read as a link); it ends at any
  *   other character, so a number or an address written onto one after a comma, ";", "=" or "@" stays in the text;
  * - "PMID" (a colon and spaces may follow) and a PubMed record number, and a PMCID (PMC and its number): one to nine
- *   digits with no leading zero; and an NCT number;
+ *   digits with no leading zero; and an NCT number (NCT and eight digits);
  * - for the research dossier only (RESEARCH_IDENTIFIERS), every trial registry number with its registry's prefix in the
  *   study map's formats (registry-formats.ts: ISRCTN, EudraCT and EU CT with their label, ACTRN, ChiCTR, DRKS, CTRI,
  *   jRCT, UMIN, PACTR, KCT, TCTR and RBR), and three the study map does not read: an EU CT number with its two-digit
@@ -21,7 +21,8 @@ import { REGISTRY_END, REGISTRY_START, SEARCHED_REGISTRY_FORMATS } from "../regi
  *   (Codex's red team of 16 Nov 2026: each prefix set aside is one more way to dress a phone number).
  *
  * An identifier other than a DOI is set aside only when the text does not go on with a digit after spaces, after a
- * hyphen or dot written against the digit, or with a group of one to three digits in parentheses (Codex's red team):
+ * hyphen written against it, after a dot written against the digit, or with one to four digits alone in parentheses
+ * that are not a year such as (2019) (Codex's red team):
  * its number may then be the first group of a longer one, as in "PMID 612 345 678", "UMIN 020794609  58" or
  * "NCT02079460 (958)", and the text is read as before. So a phone number written beside an identifier, or after its
  * prefix with another count of digits, stays a phone number; so does "PMID 31234567 12 weeks", which a sentence writes
@@ -37,7 +38,9 @@ const DOI_CHARACTER = String.raw`[-._/:a-z0-9]`;
 const DOI = String.raw`(?<![\w/.-])10\.\d{4,9}\/(?:${DOI_CHARACTER}|\(${DOI_CHARACTER}{0,200}\))+`;
 const PMID = String.raw`pmid:?\s*[1-9]\d{0,8}`;
 const PMCID = String.raw`pmc[1-9]\d{0,8}`;
-const NCT = String.raw`nct[\s-]?\d{8}`;
+// The card's NCT number, written as one word, as its screen read it before (the dossier's also takes the study map's
+// "NCT 01234567").
+const NCT = String.raw`nct\d{8}`;
 // Before the study map's EudraCT form, so an EU CT number's suffix is not read as a number that follows it.
 const EU_CT_WITH_SUFFIX =
   String.raw`(?:eudract|ctis|eu[\s-]?ct|euctr)(?:[\s-]*(?:number|no\.?|nr\.?|id))?[\s:#-]*\d{4}-\d{6}-\d{2}-\d{2}`;
@@ -48,9 +51,11 @@ const RESEARCH_IDENTIFIERS = new RegExp([DOI, ...bounded([PMID, PMCID, EU_CT_WIT
   ...SEARCHED_REGISTRY_FORMATS.map(([, pattern]) => pattern), ...OTHER_REGISTRIES])].join("|"), "giu");
 // Each one UTF-16 unit, as "-" is, so a match's place in the text read with "-" is its place in the text.
 const OTHER_DASHES = /[‐-―−﹘﹣－]/gu;
-// The text going on with a number: a digit after spaces, or after a hyphen or dot against it, or one to three digits
-// alone in parentheses.
-const CONTINUED = /^(?:\s*[-.]?\d|\s*\(\s*\d{1,3}\s*\))/u;
+// The text going on with a number: a digit after spaces, after a hyphen written against the identifier (spaces may
+// follow it), after a dot against the digit, or one to four digits alone in parentheses that are not a year (Codex's
+// second pass: "NCT 44207946 (0958)", "UMIN020794609- 58"). A dash with a space before it is an aside, and a full stop
+// with one after it ends a sentence.
+const CONTINUED = /^(?:\s*\d|-\s*\d|\.\d|\s*\(\s*(?!(?:19|20)\d\d\s*\))\d{1,4}\s*\))/u;
 
 function replaceIdentifiers(text: string, identifiers: RegExp, replacement: (identifier: string) => string): string {
   const dashed = text.replace(OTHER_DASHES, "-");

@@ -78,6 +78,9 @@ export const PHONE_NUMBERS_AND_CONTACTS_AMONG_IDENTIFIERS = [
   "Call UMIN 020794609 (58).",
   "Call UMIN 020794609‑58.",
   "Call NCT02079460 (958).",
+  // Its second pass: four digits in parentheses that are no year, after an NCT number written with a space.
+  "Call NCT 44207946 (0958).",
+  "Call UMIN020794609- 58.",
   "Call PMID 2025550  199.",
   "PMID: 2025550 (199)",
   "Call jRCT0207946095-8.",

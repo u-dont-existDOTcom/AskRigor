@@ -469,7 +469,7 @@ describe("a research dossier's record and its checks", () => {
 // The first real dossier (16 Nov 2026): its AI met a shape failure on value.adds it read as "the format of its ids", then
 // 13 form_not_listed and 17 form_mismatch problems, by path and rule only, and could not tell what either asked.
 describe("problems the AI can act on: the ids' and the forms' rules, said in the shape and explained with each problem", () => {
-  const FORM_NOT_LISTED = "a study's or a finding's form must be one of the forms listed in forms, written the same " +
+  const FORM_NOT_LISTED = "once forms lists any, a study's or a finding's form must be one of them, written the same " +
     "way (capitals aside): add it to forms, or write it as listed";
   const FORM_MISMATCH = "a finding's form must be the form of every study it rests on, directly or through a result: " +
     "when its studies' forms differ, leave the finding's form out";
@@ -479,9 +479,10 @@ describe("problems the AI can act on: the ids' and the forms' rules, said in the
     expect(RESEARCH_DOSSIER_SHAPE).toContain("Ids: each search, study, result and finding has its own, a lower-case " +
       "letter then up to 31 lower-case letters, digits, - or _ (s1, f2); adds, rests_on, study and search give these ids " +
       "exactly.");
-    expect(RESEARCH_DOSSIER_SHAPE).toContain("Forms: list each form in forms; a study's form and a finding's form, when " +
-      "given, are each one of them, written the same way; a finding's form is also the form of every study it rests on " +
-      "that gives one, directly or through a result, so a finding across studies of different forms leaves its form out.");
+    expect(RESEARCH_DOSSIER_SHAPE).toContain("Forms: list each form in forms; once it lists any, a study's form and a " +
+      "finding's form, when given, are each one of them, written the same way; a finding's form is also the form of " +
+      "every study it rests on that gives one, directly or through a result, so a finding across studies of different " +
+      "forms leaves its form out.");
     expect(RESEARCH_DOSSIER_SHAPE).toContain("cite a paper or a trial by its DOI, PMID with its number (PMID 12345678), " +
       "PMCID or registry number with the registry's prefix (NCT01234567, ACTRN12620000032954, EudraCT 2010-012345-12), " +
       "with punctuation, not a bare space, before a number that follows it");
