@@ -99,6 +99,7 @@ function request(overrides: Partial<ResearchDossierSaveRequest> = {}, value: unk
     receipts: BASE_RECEIPTS,
     atlasReuse: [],
     cardId: undefined,
+    commentsRead: false,
     secret: SECRET,
     versions: { askrigor: "0.1.0", build: "0123abc" },
     now: () => NOW,
@@ -211,6 +212,28 @@ describe("P0 2: the dossier's privacy screen refuses the person's details and pa
     "Write to @night_cramps_jane",
     "Visit https://example.com/my-story",
     "Springfield, IL 62704 is where it started",
+    // Codex's second pass (16 Nov 2026): a name with a birth date and a city, a verb no list named, capitals, and
+    // full-width letters; and the same tricks once more.
+    "Alice Smith, born 12 April 1984, takes aspirin daily and lives in Paris.",
+    "I swallow aspirin daily.",
+    "MY HUSBAND TAKES ASPIRIN FOR HIS HEART.",
+    "\uff2d\uff59 husband takes aspirin.",
+    "Alice takes aspirin daily.",
+    "Marie, 45, takes it every night.",
+    "She lives in Lyon and takes it every night.",
+    "Née le 3 mars 1990, elle le prend chaque soir.",
+    "Date of birth: 1984-04-12.",
+    "MY husband takes aspirin.",
+    "M\u200by husband takes aspirin.",
+    "\u041cy husband takes aspirin.",
+    "\u039cy husband takes aspirin.",
+    "Then I stopped it for a week.",
+    "We tried it for a month.",
+    "Lives in Leeds, takes 400 mg.",
+    "Born 3/4/1984, takes 400 mg.",
+    "John takes magnesium nightly.",
+    "Laura, 52, has cramps.",
+    "The asker's husband takes it.",
   ];
   const RESEARCH = [
     "Myo-inositol 2 g a day improved fasting insulin against placebo over 12 weeks.",
@@ -238,12 +261,39 @@ describe("P0 2: the dossier's privacy screen refuses the person's details and pa
     "A meta-analysis of 12 trials (n = 1 234) found no difference.",
     "Night cramps in pregnancy",
     "magnesium citrate",
+    // Codex's second pass: an author before "et al." and patients' partners in a study's report; and more of the same.
+    "Ho et al. found no effect.",
+    "Patients reported improved quality of life at home with their partner.",
+    "Mi et al. reported higher response rates.",
+    "Moro and colleagues found the same.",
+    "Each participant's partner completed a questionnaire.",
+    "Heterogeneity was high (I\u00b2 = 78%).",
+    "In phases I to III, no serious harm was seen.",
+    "Iodine (I-131) was used to image the thyroid.",
+    "Smith I, Jones K. A trial of magnesium for night cramps.",
+    "Two groups, (I) and (II), received different doses.",
+    "ANA titres were positive in 12 patients.",
+    "The Robert Koch Institute surveyed 2,000 adults.",
+    "Women born on 1 May 1950 or later were eligible.",
+    "Caregivers and their spouse were interviewed together.",
+    "Each woman and her partner were asked about side effects.",
+    "Parents reported their child's sleep improved.",
+    "Graves' disease and Hashimoto's thyroiditis were excluded.",
+    "Garrison et al. 2012 (Cochrane) found low-certainty benefit.",
+    "I risultati non mostrano differenze.",
+    "Women and their husbands were interviewed.",
   ];
   it("refuses each realistic leak", () => {
     for (const text of LEAKS) expect(dossierPrivacyRule(text), text).not.toBeUndefined();
   });
   it("passes each research sentence", () => {
     for (const text of RESEARCH) expect(dossierPrivacyRule(text), text).toBeUndefined();
+  });
+  it("still refuses what it cannot read, research or not: a script other than Latin and Greek", () => {
+    // Codex's second pass counts this as a refusal of valid research; it stays, as the owner's rule says to refuse when
+    // unsure (instruction-disagreements.md).
+    expect(dossierPrivacyRule("\u30de\u30b0\u30cd\u30b7\u30a6\u30e0\u306f\u52b9\u679c\u304c\u306a\u304b\u3063\u305f\u3002"))
+      .toBe("unscreened_script");
   });
   it("screens every supplied string, the topic key and ids included, and refuses the whole dossier", async () => {
     expect(await problemsOf(edited((value) => { value.findings[1].applies_to = "My husband, who takes it for his heart"; })))
@@ -294,10 +344,8 @@ describe("P0 3: nothing drawn from YouTube comments, and people's reports only f
     expect((await saveResearchDossier(new InMemoryResearchDossierStore(), request({}, value)))?.disposition)
       .toMatchObject({ status: "insufficient", problems: [{ path: "community.threads[0]", rule: "community_thread_not_read" }] });
   });
-  it("after YouTube comments were read, refuses a finding drawn from them or left undeclared", async () => {
-    const comments = receipt("youtube_comments_read", { video: "dQw4w9WgXcQ", records: 50 });
-    const receipts = [...BASE_RECEIPTS, comments];
-    expect((await problemsOf(dossier(), { receipts }))?.problems).toEqual([
+  it("after YouTube comments were read, as the final check decides it, refuses a finding drawn from them or left undeclared", async () => {
+    expect((await problemsOf(dossier(), { commentsRead: true }))?.problems).toEqual([
       { path: "findings[0].draws_on_youtube_comments", rule: "youtube_origin_undeclared" },
       { path: "findings[1].draws_on_youtube_comments", rule: "youtube_origin_undeclared" },
     ]);
@@ -305,24 +353,47 @@ describe("P0 3: nothing drawn from YouTube comments, and people's reports only f
       value.findings[0].draws_on_youtube_comments = false;
       value.findings[1].draws_on_youtube_comments = true;
     });
-    expect((await problemsOf(declared, { receipts }))?.problems).toEqual([
+    expect((await problemsOf(declared, { commentsRead: true }))?.problems).toEqual([
       { path: "findings[1].draws_on_youtube_comments", rule: "youtube_comment_material" }]);
     const clean = edited((value) => {
       for (const finding of value.findings) finding.draws_on_youtube_comments = false;
     });
     const store = new InMemoryResearchDossierStore();
-    expect((await saveResearchDossier(store, request({ receipts }, clean)))?.disposition.status).toBe("saved");
+    expect((await saveResearchDossier(store, request({ commentsRead: true }, clean)))?.disposition?.status).toBe("saved");
     const stored = await store.readVersion(ACCOUNT, store.snapshot()[0]!.versionId);
     expect(JSON.stringify(stored!.payload)).not.toContain("draws_on_youtube_comments");
   });
-  it("refuses the dossier of a check that held card findings apart as drawn from YouTube comments", async () => {
-    const clean = edited((value) => {
+  it("takes no discovery for comment reading: a survey or an audit that read no comments asks no declaration", async () => {
+    // Codex's second pass: the save read every YouTube receipt kind as comments read. The final check's own decision
+    // (commentsRead, from onCommentsRead) is what counts; these receipts alone change nothing.
+    const receipts = [...BASE_RECEIPTS,
+      receipt("youtube_survey", { access: "complete", searches: 1, videos: [], q: discoveryQueryDigest(["cramps"]),
+        target: TARGET_DIGEST }),
+      receipt("youtube_video_audit", { video: "dQw4w9WgXcQ", state: "complete", records: 0, shown: 0 })];
+    expect((await problemsOf(dossier(), { receipts, commentsRead: false }))?.status).toBe("saved");
+  });
+  it("binds a held card finding to the dossier's own conclusions, not to every dossier of its check", async () => {
+    const held = (places: string[]) => receipt("finalization", { status: "ready", target: TARGET_DIGEST,
+      answer: ANSWER_DIGEST, held: places });
+    const declaredClean = edited((value) => {
       for (const finding of value.findings) finding.draws_on_youtube_comments = false;
     });
-    const finalizationReceipt = receipt("finalization", { status: "ready", target: TARGET_DIGEST, answer: ANSWER_DIGEST,
-      held: ["2"] });
-    expect((await problemsOf(clean, { finalizationReceipt }))?.problems).toEqual([
-      { path: "findings", rule: "card_findings_held_as_youtube" }]);
+    const cardClaims = ["Magnesium shortened cramps in a small trial.",
+      "Commenters on cramp videos said magnesium glycinate stopped their cramps within a week."];
+    // An unrelated held card finding: the dossier's conclusions all declare their origin and none is that finding.
+    expect((await problemsOf(declaredClean, { finalizationReceipt: held(["2"]), cardClaims }))?.status).toBe("saved");
+    // Undeclared conclusions after a hold are refused, as after comments were read.
+    expect((await problemsOf(dossier(), { finalizationReceipt: held(["2"]), cardClaims }))?.problems).toEqual([
+      { path: "findings[0].draws_on_youtube_comments", rule: "youtube_origin_undeclared" },
+      { path: "findings[1].draws_on_youtube_comments", rule: "youtube_origin_undeclared" },
+    ]);
+    // A conclusion that is the held card finding, reworded a little, is refused whatever it declares.
+    const copied = edited((value) => {
+      for (const finding of value.findings) finding.draws_on_youtube_comments = false;
+      value.findings[1].claim = "Magnesium glycinate stopped cramps within a week, commenters on cramp videos said.";
+    });
+    expect((await problemsOf(copied, { finalizationReceipt: held(["2"]), cardClaims }))?.problems).toEqual([
+      { path: "findings[1].claim", rule: "held_card_finding" }]);
   });
   it("refuses a YouTube link among the threads people's reports come from", async () => {
     const video = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
@@ -373,6 +444,26 @@ describe("P1 6: studies are papers the receipts confirm, each once, and positive
       { path: "results[0].study", rule: "result_study_not_read" },
       { path: "findings[0]", rule: "finding_without_backing" },
     ]);
+  });
+  it("takes identifiers that receipts link through one another for one paper (Codex's second pass)", async () => {
+    // One receipt links the PMID and the DOI, another the same DOI and a PMCID: a study giving the PMID and the PMCID
+    // is that one paper, read as deeply as its deepest receipt.
+    const fullText = receipt("full_text_read", { id: "PMC7777777", pmcid: "PMC7777777", doi: "10.1000/mag.trial" });
+    const linked = edited((dossierValue) => { dossierValue.studies[0].identifiers = ["PMID 12121212", "PMC7777777"]; });
+    const store = new InMemoryResearchDossierStore();
+    expect((await saveResearchDossier(store, request({ receipts: [...BASE_RECEIPTS, fullText] }, linked)))
+      ?.disposition?.status).toBe("saved");
+    const stored = (await store.readVersion(ACCOUNT, store.snapshot()[0]!.versionId))!.payload as Record<string, any>;
+    expect(stored.studies[0]).toMatchObject({ read: "full_text_read" });
+    expect(stored.studies[0].identifiers).toEqual(expect.arrayContaining([
+      { scheme: "pmid", value: "12121212" }, { scheme: "doi", value: "10.1000/mag.trial" },
+      { scheme: "pmcid", value: "PMC7777777" }]));
+    // And entered again by its PMCID alone, it is the same paper twice.
+    const twice = edited((dossierValue) => {
+      dossierValue.studies.push({ id: "s3", identifiers: ["PMC7777777"], kind: "human_trial", decision: "used" });
+    });
+    expect((await problemsOf(twice, { receipts: [...BASE_RECEIPTS, fullText] }))?.problems).toEqual([
+      { path: "studies[2]", rule: "duplicate_paper" }]);
   });
   it("refuses one paper entered twice, by its PMID and by its DOI", async () => {
     const value = edited((dossierValue) => {

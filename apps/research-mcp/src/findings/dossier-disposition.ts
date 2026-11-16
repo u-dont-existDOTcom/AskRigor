@@ -31,3 +31,11 @@ export const researchDossierDispositionSchema = z.object({
   "did work a quick answer cannot do and no dossier came; unconfirmed, not confirmed in time; unavailable.");
 
 export type ResearchDossierDisposition = z.output<typeof researchDossierDispositionSchema>;
+
+/**
+ * The card guidance's sentence on the dossier (Codex's red team of the instruction proposal, 16 Nov 2026, item 3),
+ * given only where a dossier can be saved for the account and call; here so the final check reads it without the save.
+ */
+export const RESEARCH_DOSSIER_CARD_SENTENCE = "A dossier has a separate value test: when AskRigor requests one, include " +
+  "it with the first final check only if the completed research saves a later reader substantial work, even when no " +
+  "card qualifies.";

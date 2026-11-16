@@ -3,7 +3,7 @@ import {
 } from "./later-inputs.js";
 import { sourceIdentifierOf } from "./atlas/page-data.js";
 import { atlasReuseSchema, checkAtlasReuse, atlasSourceDigest, checkedAtlasSources } from "./atlas/reuse.js";
-import { researchDossierDispositionSchema } from "./findings/dossier-disposition.js";
+import { RESEARCH_DOSSIER_CARD_SENTENCE, researchDossierDispositionSchema } from "./findings/dossier-disposition.js";
 import { preventingRuleSchema } from "./protocol-rule-names.js";
 import { rule, joinRules, ruleText, ruleParts, type RuleInput, type CheckRule } from "./check-rules.js";
 import { buildCheckReport, checkReportSchema, issueCheckReportToken, type ReportReceipt } from "./check-report.js";
@@ -1851,6 +1851,12 @@ export interface FinalizeResearchOptions {
   backingLookups?: readonly BackingLookup[];
   /** Told whether this research read YouTube comments, for a kept copy of a card that wasn't saved to leave them out. */
   onCommentsRead?: (read: boolean) => void;
+  /**
+   * AskRigor#477 stage 1: a research dossier can be saved for this account and call (researchDossierAllowed, and no
+   * short look-up), so the card guidance also says the dossier's own value test (Codex's red team of the instruction
+   * proposal, item 3). Advice only: no check reads it.
+   */
+  researchDossierAsk?: boolean;
   now?: () => Date;
   // Rule, module and case names from the canonical protocols, which the answer
   // must not show (the rerun's answer headed its prompt with one).
@@ -4220,6 +4226,7 @@ export function finalizeResearch(
     if (findingsOpen(options) && input.findings_card === undefined && !parsed.droppedFindingsCard && citable) {
       requireDeclaration(
         joinRules(joinRules(joinRules(joinRules(joinRules((options.findings === "save" ? joinRules("Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for ", "the owner's review.") : joinRules("Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings ", "library, and they are saved only if the user says yes.")), " Put in the answer's best findings, none the user corrected, and no personal details, and say in "), "public_value whether they would help anyone beyond this person."), " A public card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers "), "(for an effect, harm or overlooked_option) and searches (for nothing_found), as the findings description "), "says. With no finding that a plain web search of the problem wouldn't already give, send no card.",
+          options.researchDossierAsk === true ? ` ${RESEARCH_DOSSIER_CARD_SENTENCE}` : "",
           // Owner answer 219b: once comments were read, each finding says whether it draws on them.
           !commentsRead ? "" : joinRules(" This research read YouTube comments, so each finding also gives ",
             "draws_on_youtube_comments: true when any part of it rests on what commenters wrote, false when none does; ",

@@ -312,6 +312,7 @@ import {
   type FinalizeResearchOutput
 } from "./research-finalization-gate.js";
 import {
+  researchDossierAllowed,
   researchDossierFromCall,
   researchDossierLine,
   saveResearchDossier,
@@ -2102,6 +2103,8 @@ function defineResearchOperations(
       researchReviewer: () => configuredReviewer(options),
       // The owner, 14 Nov 2026: what AskRigor already holds for a registered question, for every account.
       askrigorHolds: ASKRIGOR_HOLDS,
+      // AskRigor#477 stage 1: plan_research asks for the research dossier where one can be saved.
+      ...(options.researchDossiers === undefined ? {} : { researchDossiers: true }),
       ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
       ...(sharing === undefined ? {} : { sharedAnswers: { ...sharing, versions: async () =>
@@ -2664,7 +2667,12 @@ function defineResearchOperations(
           : {})
       };
       let commentsRead = false;
-      let gateOptions: FinalizeResearchOptions = { ...finalizeOptions, onCommentsRead: (read) => { commentsRead = read; } };
+      // AskRigor#477: the card guidance says the dossier's own value test only where one can be saved (Codex's red team
+      // of the instruction proposal, item 3).
+      const dossierAsk = researchDossierAllowed(options.researchDossiers !== undefined, researcher, findingsSaveOff(input)) &&
+        checkedInput !== undefined && !shortLookupDeclared(checkedInput);
+      let gateOptions: FinalizeResearchOptions = { ...finalizeOptions, onCommentsRead: (read) => { commentsRead = read; },
+        ...(dossierAsk ? { researchDossierAsk: true } : {}) };
       let result = finalizeResearch(input, gateOptions);
       // Owner answer 237a: a passing check's source lines are looked up in the text AskRigor fetched, exactly and with
       // no model. Owner answer 252a: a checked card's backing lines are looked up with them, in one pass over the same
@@ -2870,6 +2878,10 @@ function defineResearchOperations(
           receipts: checkedInput.receipts,
           atlasReuse: checkedInput.atlas_reuse ?? [],
           cardId: result.findings_card.saved?.card_id,
+          // Codex's second pass: whether comments were read is the final check's own decision, never a receipt's kind;
+          // the card's claims, in order, are what its receipt's held places refer to.
+          commentsRead,
+          cardClaims: (checkedInput.findings_card?.findings ?? []).map(({ claim }) => claim),
           secret,
           versions: {
             askrigor: SERVICE_VERSION,
@@ -2882,9 +2894,9 @@ function defineResearchOperations(
         options.findingsSaveDeadlineMilliseconds ?? FINDINGS_SAVE_DEADLINE_MILLISECONDS,
         { disposition: { status: "unconfirmed", reason: "not_confirmed_in_time" } } as ResearchDossierSaveOutcome);
         if (outcome !== undefined) {
-          result.research_dossier = outcome.disposition;
+          if (outcome.disposition !== undefined) result.research_dossier = outcome.disposition;
           if (outcome.note !== undefined) result.notes = [...(result.notes ?? []), outcome.note];
-          const line = researchDossierLine(outcome.disposition);
+          const line = outcome.disposition === undefined ? undefined : researchDossierLine(outcome.disposition);
           if (line !== undefined && result.finalization_receipt !== undefined) {
             result.saved_line = result.saved_line === undefined ? line : `${result.saved_line} ${line}`;
           }

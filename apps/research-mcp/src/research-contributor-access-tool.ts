@@ -57,6 +57,12 @@ import {
 } from "./research-finalization-gate.js";
 import { NAMED_VIDEOS_SIGNED, namedVideoIdsIn, researchMapSavedLine } from "./findings/card.js";
 import {
+  RESEARCH_DOSSIER_GUARDS,
+  RESEARCH_DOSSIER_REQUEST,
+  RESEARCH_DOSSIER_SHAPE,
+  researchDossierAllowed,
+} from "./findings/dossier.js";
+import {
   askrigorHoldsSchema, heldFor, heldText, heldVariants, HELD_NEXT_STEP, holdsSomethingNow, OWNER_POINTER_HOW,
   ownerPointerText, shownOwnerPointer, shownOwnerPointerSchema, type AskRigorHolds, type AskRigorHoldsOptions,
 } from "./askrigor-holds.js";
@@ -403,6 +409,16 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     .describe("With owner_pointer: the owner's pointer with that id, to be given to the person as the owner's own."),
   research_plan_not_used: z.enum(PLANNER_NOT_USED_REASONS).optional()
     .describe("With register_plain_answer on a dev account: why AskRigor's own planning call was not used."),
+  // AskRigor#477 stage 1 (runtime only): the research dossier, asked for with a research plan that goes on, for an
+  // account a dossier can be saved for, here as well as in the text, for an app that hands its model only this
+  // (Codex's red team of the instruction proposal, item 1).
+  research_dossier_request: z.object({
+    instruction: z.string(),
+    shape: z.string(),
+    guards: z.string(),
+  }).strict().optional()
+    .describe("With plan_research, when a research dossier can be saved: when to include one with the final check, " +
+      "its shape, and what keeps it truthful."),
 }).strict();
 
 /**
@@ -559,6 +575,8 @@ export interface ResearchContributorToolOptions {
    * the owner's pointers. Undefined: a registration says nothing of either, and owner_pointer finds none.
    */
   askrigorHolds?: AskRigorHoldsOptions;
+  /** AskRigor#477 stage 1: research dossiers are saved (ASKRIGOR_RESEARCH_DOSSIERS), so plan_research may ask for one. */
+  researchDossiers?: boolean;
 }
 
 export interface ResearchMapOptions {
@@ -1088,7 +1106,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         const learning = devAccount && options.researchPlanner?.()?.enabled === true
           ? { log: options.log ?? defaultLog } : undefined;
         return await planResearchAction(options.service, auth.subject, parsed.researchMenu!, options.plainAnswer,
-          options.menuDigestSecret?.(), devAccount, learning);
+          options.menuDigestSecret?.(), devAccount, learning, options.researchDossiers === true);
       }
       if (parsed.action === "set_plain_answer_note") {
         return await setPlainAnswerNote(options.service, auth.subject, parsed.plainAnswerNote!, options.plainAnswer);
@@ -1762,6 +1780,8 @@ async function planResearchAction(
   devAccount = false,
   // Owner answer 303a: given only for a dev account while AskRigor's own planning call is on.
   learning?: { log: (failureClass: string) => void },
+  // AskRigor#477 stage 1: research dossiers are saved on this server.
+  dossiers = false,
 ): Promise<CallToolResult> {
   const account = await service.activeAccount(subject);
   const accountKey = service.accountKeyForSubject(subject);
@@ -1831,14 +1851,23 @@ async function planResearchAction(
     ? [`later_inputs.researchMenu.allocation: not used; ${PERSON_ANSWER_DECLARED}, which the call did not give`,
       ...problems]
     : problems;
+  // AskRigor#477 stage 1 (Codex's red team of the instruction proposal, items 1 and 3): a research plan that goes on,
+  // not a light look-up's, for an account a dossier can be saved for, asks for the dossier before the first final check,
+  // after everything else the result says and never in next_step, which an ask of the person's keeps.
+  const dossierRequest = researchDossierAllowed(dossiers, account) && result.next === "go_on" && result.lane !== "light";
   return {
-    content: [{ type: "text", text }],
+    content: [{ type: "text", text },
+      ...(dossierRequest
+        ? [{ type: "text" as const, text: `${RESEARCH_DOSSIER_REQUEST} ${RESEARCH_DOSSIER_SHAPE} ${RESEARCH_DOSSIER_GUARDS}` }]
+        : [])],
     structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
       ok: true,
       researchMenu: result,
       ...(structuredProblems.length === 0 ? {} : { problems: structuredProblems }),
       next_step: planNextStep(result, learnMode),
       ...(youDecide === undefined ? {} : { you_decide_later_inputs: youDecide }),
+      ...(dossierRequest ? { research_dossier_request: { instruction: RESEARCH_DOSSIER_REQUEST,
+        shape: RESEARCH_DOSSIER_SHAPE, guards: RESEARCH_DOSSIER_GUARDS } } : {}),
     }),
   };
 }
