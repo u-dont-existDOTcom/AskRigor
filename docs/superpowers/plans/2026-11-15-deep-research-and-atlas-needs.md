@@ -327,8 +327,9 @@ Judged by the owner using it.
 research went, open leads, the page of what needs research), then the new card fields. Needs the notice and the
 privacy page first, so it needs the owner's yes on the exact words.
 
-**Stage 5. Other people.** After Anthropic's and OpenAI's answers: the app for download, GPT as a provider,
-contributions shown on findings.
+**Stage 5. Other people.** Nothing is asked of Anthropic or OpenAI first (313b). Built: the app for download with
+its setup guide, GPT as a provider, contributions shown on findings; the plugin's line about the runner (question
+321) goes live with the download.
 
 ## Decisions that are the owner's
 
@@ -344,6 +345,25 @@ at 22:44 UTC: the 312b typed at 15:47 UTC was a typo), 313b (15:19 UTC: nothing 
 
 Also the owner's: a share of the plan for real test runs. Not asked as a question: the app's first form is a page in
 the browser served on the person's own computer (the session's choice; the owner was told and can say otherwise).
+
+Asked on 16 Nov (the owner's message of 01:24 UTC):
+
+- **321.** What each research answer from the plugin says about the runner. The owner asked for a line saying people
+  get much better answers with the local app; there is no measured comparison yet (the two development runs went both
+  ways, and neither compared the runner with the plugin), and the runner can't be downloaded yet. Recommended: a line
+  saying what the runner does that the plugin can't, live with the download, its size added after blind tests on new
+  questions.
+- **322.** Which long research the runner takes on first: common, hard-to-treat conditions with many firsthand
+  reports. Recommended: IBS, whose trials let the method be checked, then long COVID and ME/CFS.
+
+Directed by the owner on 16 Nov (chat at 01:24 and 01:34 UTC, Inbox at 01:15 and 01:22 UTC): speed as a standing
+priority, never bought with quality unless the person chooses it; research tests in the runner, on the ChatGPT plan by
+default (so GPT as a provider comes first); a setting for which AI checks which and for how many rounds; a suggestion
+before a run whose thinking level looks too low; a setup guide for the providers (Claude, ChatGPT through Codex,
+Gemini, with a Gemini plan against pay per use) with the download; the Bell's theorem question as a test of plain
+explanation outside health; the AskRigor side of UDA's Jev test (pull request #498, branch
+`task/jev-research-quality-20261115`), within the shared USD 1 Jev budget; to brainstorm: emailing researchers for
+unpublished results; to rethink: the USD 7 a day for the hosted web app, where people buy credits or bring keys.
 
 ## Not done, and risks
 

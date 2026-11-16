@@ -18,6 +18,14 @@ Not done: a word ban, automatically classifying substantial real-world improveme
 Why: a full-depth answer took up to two and a half hours, most of it the model working through steps, not waiting on sources.\
 Not done: the old fixed minimum of eight videos and six programs. · Decided: 27 to 29 Sep 2026 (the owner); shipped 1 Oct.
 
+**Speed is a standing priority, but a faster answer never costs quality unless the person chooses it and is told the tradeoff.**\
+Why: the owner, 16 Nov 2026: "i can't wait to give people something faster and better than regular chatgpt extra high/pro. but obviously we don't want to dumb it down to get faster unless the user specifically sets that and is explained the tradeoffs". Each test run is read for where its time went. Running steps side by side, which only saves time, needs no choice.\
+Not done: lowering a step's thinking level by default (the runner's size readings ran at medium from 16 Nov 01:14 UTC; since 01:31 UTC that is its `--faster-checks` setting, off unless the person sets it). · Decided: 16 Nov 2026 (the owner, in chat).
+
+**A harm with an obvious way to prevent it gets that prevention from first principles, without waiting for a source, labelled as common sense rather than a finding.**\
+Why: the owner, 16 Nov 2026, on the betaine answers: both the runner's and plain ChatGPT's missed eating after a capsule that can stick in the throat, "basic common sense that pills can get stuck in the throat... ('start from first principles' is in HRP since day 1)". The owner's verdict stands over the blind judge's, which had preferred plain ChatGPT's answer for its clearer order.\
+Not done: presenting such advice as a research finding. · Decided: 16 Nov 2026 (the owner, in the Inbox); to be built in the runner's prompts.
+
 **Before researching, the AI writes the quick answer it would give without AskRigor, and the final answer ends with what the research confirmed, corrected or qualified.**\
 Why: the owner wants people to see how the answer is better than a plain AI answer.\
 Not done: keeping a copy of the quick answer (see Privacy and safety). · Decided: 20 Oct 2026 (owner answer 140b); free accounts too, 27 Oct (190a); kept when one claim went unchecked, 1 Nov (210b).
@@ -200,6 +208,10 @@ Decided: 4 Nov 2026 (owner answer 242a).
 
 ## People's reports and forums
 
+**Firsthand reports at nearby doses and relevant combinations count, ranked after stronger evidence; a small-dose question gets what matters at that dose; and the substance's own variability is raised unprompted.**\
+Why: the owner, 16 Nov 2026, refining the 15 Nov rule (only the dose and combination asked about): for "is it safe to take 10g inositol", reports at 5 g or 20 g matter, since doses close together overlap and people vary; for a microdose question, not warnings about large doses but how much potency varies between batches and strains; and impurities, isomers, how a substance was made, and generic against brand all change effects.\
+Not done: a fixed dose window; warnings about doses far from the one asked. · Decided: 16 Nov 2026 (the owner, in the Inbox); to be built in the runner's prompts.
+
 **The loop between people's reports and studies is a numbered task the person sees on the menu: a study search for something people reported, or a look at people's reports for something a study found.**\
 Why: the owner, 9 Nov: "make sure we have the forum to study feedback loop in place when warranted, i really think that is a key feature that i've been asking for for a long time". On 5 Nov, judges reading 18 runs found 19 of 98 report leads searched in studies; a declaration checked only at the end didn't make the loop happen.\
 Not done: a blocking check; a loop task for a question with no people's-report side. · Decided: 9 Nov 2026 (the owner); built and released 9 Nov.
@@ -297,6 +309,10 @@ Why: for a health research tool, having an account says something about a person
 Not done: turning off Auth0's generic sign-up message. · Decided: 27 to 28 Sep 2026 (the owner set it up).
 
 ## Spending and models
+
+**Research tests run in the runner, on the owner's ChatGPT plan by default, with Claude where it proves needed or to check GPT.**\
+Why: the owner, 16 Nov 2026: "for future run every research in the runner unless you're specifically testing the plugin or regular ai answers. and run on my chatgpt plan since i have more chatgpt credits, unless we find that claude is so much smarter that it's required for certain questions, or to check gpt". The owner also wants a setting for which AI checks which, and for how many rounds (or until a check finds no major flaws).\
+Not done: until the runner has GPT as a provider, its runs use Claude. · Decided: 16 Nov 2026 (the owner, in the Inbox).
 
 **AskRigor spends nothing on paid model calls of its own, except uses the owner approves one by one: today the meaning judge, the planning call and the review of a draft on the owner's monthly Claude API credit, whose daily caps together stay within USD 7 a day, and Gemini for videos under AskRigor's own monthly cap.**\
 Why: every cost is the owner's call, made in advance with a ceiling, and paid users' own model use, once payments exist, is theirs to pay.\
