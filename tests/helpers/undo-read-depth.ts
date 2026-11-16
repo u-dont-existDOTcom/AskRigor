@@ -1,8 +1,10 @@
+import { undoDeepResearchSavingPolicy } from "./undo-deep-research-saving.js";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { expect } from "vitest";
 
 async function undoRecordedEdits(text: string, protocol: "hrp" | "universal", file: string): Promise<string> {
+  if (protocol === "hrp") text = undoDeepResearchSavingPolicy(text);
   const recorded = JSON.parse(await readFile(new URL(
     `../fixtures/protocol-edits/${file}`, import.meta.url,
   ), "utf8"))[protocol] as {
@@ -19,6 +21,7 @@ async function undoRecordedEdits(text: string, protocol: "hrp" | "universal", fi
 }
 
 export async function undoOwnerQuestion161Hrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   if (/version="20\.6\.(?:3(?:[23]" revisionDate="2026-10-29|4" revisionDate="2026-10-30|5" revisionDate="2026-10-31|6" revisionDate="2026-11-01|[78]" revisionDate="2026-11-04)|(?:39|40)" revisionDate="2026-11-05|41" revisionDate="2026-11-09)"/u.test(text)) {
     text = await undoOwnerAnswer193Hrp(text);
   }
@@ -26,6 +29,7 @@ export async function undoOwnerQuestion161Hrp(text: string): Promise<string> {
 }
 
 export async function undoOwnerAnswer193Hrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   if (/version="20\.6\.(?:3(?:3" revisionDate="2026-10-29|4" revisionDate="2026-10-30|5" revisionDate="2026-10-31|6" revisionDate="2026-11-01|[78]" revisionDate="2026-11-04)|(?:39|40)" revisionDate="2026-11-05|41" revisionDate="2026-11-09)"/u.test(text)) {
     text = await undoLesson51AndUda444Hrp(text);
   }
@@ -33,6 +37,7 @@ export async function undoOwnerAnswer193Hrp(text: string): Promise<string> {
 }
 
 export async function undoLesson51AndUda444Hrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   if (/version="20\.6\.(?:3(?:4" revisionDate="2026-10-30|5" revisionDate="2026-10-31|6" revisionDate="2026-11-01|[78]" revisionDate="2026-11-04)|(?:39|40)" revisionDate="2026-11-05|41" revisionDate="2026-11-09)"/u.test(text)) {
     text = await undoOwnerAnswer205Hrp(text);
   }
@@ -40,6 +45,7 @@ export async function undoLesson51AndUda444Hrp(text: string): Promise<string> {
 }
 
 export async function undoOwnerAnswer205Hrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   if (/version="20\.6\.(?:3(?:5" revisionDate="2026-10-31|6" revisionDate="2026-11-01|[78]" revisionDate="2026-11-04)|(?:39|40)" revisionDate="2026-11-05|41" revisionDate="2026-11-09)"/u.test(text)) {
     text = await undoCommunitySearchAndVideoCommentMapHrp(text);
   }
@@ -47,26 +53,31 @@ export async function undoOwnerAnswer205Hrp(text: string): Promise<string> {
 }
 
 export async function undoCommunitySearchAndVideoCommentMapHrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   if (/version="20\.6\.(?:3(?:6" revisionDate="2026-11-01|[78]" revisionDate="2026-11-04)|(?:39|40)" revisionDate="2026-11-05|41" revisionDate="2026-11-09)"/u.test(text)) text = await undoForumReaderHrp(text);
   return undoRecordedEdits(text, "hrp", "2026-10-31-community-search-and-video-comment-map-hrp.json");
 }
 
 export async function undoForumReaderHrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   if (/version="20\.6\.(?:3[78]" revisionDate="2026-11-04|(?:39|40)" revisionDate="2026-11-05|41" revisionDate="2026-11-09)"/u.test(text)) text = await undoWhatPeopleWantHrp(text);
   return undoRecordedEdits(text, "hrp", "2026-11-01-forum-reader-hrp.json");
 }
 
 export async function undoWhatPeopleWantHrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   if (/version="20\.6\.(?:38" revisionDate="2026-11-04|(?:39|40)" revisionDate="2026-11-05|41" revisionDate="2026-11-09)"/u.test(text)) text = await undoCardRuleWordingHrp(text);
   return undoRecordedEdits(text, "hrp", "2026-11-04-what-people-want-hrp.json");
 }
 
 export async function undoCardRuleWordingHrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   if (/version="20\.6\.(?:(?:39|40)" revisionDate="2026-11-05|41" revisionDate="2026-11-09)"/u.test(text)) text = await undoResponseSpreadHrp(text);
   return undoRecordedEdits(text, "hrp", "2026-11-04-card-rule-wording-hrp.json");
 }
 
 export async function undoResponseSpreadHrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   if (/version="20\.6\.(?:40" revisionDate="2026-11-05|41" revisionDate="2026-11-09)"/u.test(text)) {
     text = await undoStudyMapSingleLeadsHrp(text);
   }
@@ -74,21 +85,25 @@ export async function undoResponseSpreadHrp(text: string): Promise<string> {
 }
 
 export async function undoStudyMapSingleLeadsHrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   if (text.includes('version="20.6.41" revisionDate="2026-11-09"')) text = await undoWordsAreNotSizesHrp(text);
   return undoRecordedEdits(text, "hrp", "2026-11-05-study-map-single-leads-hrp.json");
 }
 
 /** Owner answer 282a (9 Nov 2026): HRP 20.6.41's WordsAreNotSizes and RichSourceWithoutAnAmount, undone to 20.6.40. */
 export async function undoWordsAreNotSizesHrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   return undoRecordedEdits(text, "hrp", "2026-11-09-words-are-not-sizes-hrp.json");
 }
 
 export async function undoOwnerQuestion149Hrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   text = await undoOwnerQuestion161Hrp(text);
   return undoRecordedEdits(text, "hrp", "2026-10-22-owner-question-149-hrp.json");
 }
 
 export async function undoOwnerQuestions152And153Hrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   text = await undoOwnerQuestion149Hrp(text);
   return undoRecordedEdits(text, "hrp", "2026-10-21-owner-questions-152-153-hrp.json");
 }
@@ -98,6 +113,7 @@ export async function undoOwnerQuestion153Universal(text: string): Promise<strin
 }
 
 export async function undoOwnerQuestion125Hrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   text = await undoOwnerQuestions152And153Hrp(text);
   return undoRecordedEdits(text, "hrp", "2026-10-20-owner-question-125-hrp.json");
 }
@@ -108,6 +124,7 @@ export async function undoBookReviewsUniversal(text: string): Promise<string> {
 }
 
 export async function undoOwnerQuestion109Hrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   text = await undoOwnerQuestion125Hrp(text);
   return undoRecordedEdits(text, "hrp", "2026-10-17-owner-question-109-hrp.json");
 }
@@ -118,21 +135,25 @@ export async function undoOwnerQuestion109Universal(text: string): Promise<strin
 }
 
 export async function undoOwnerQuestions103And104Hrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   text = await undoOwnerQuestion109Hrp(text);
   return undoRecordedEdits(text, "hrp", "2026-10-16-owner-questions-103-104-hrp.json");
 }
 
 export async function undoOwnerQuestions97And99Hrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   text = await undoOwnerQuestions103And104Hrp(text);
   return undoRecordedEdits(text, "hrp", "2026-10-16-owner-questions-97-99-hrp.json");
 }
 
 export async function undoOwnerQuestion93Hrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   text = await undoOwnerQuestions97And99Hrp(text);
   return undoRecordedEdits(text, "hrp", "2026-10-15-owner-question-93-hrp.json");
 }
 
 export async function undoOwnerQuestions90To92Hrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   text = await undoOwnerQuestion93Hrp(text);
   return undoRecordedEdits(text, "hrp", "2026-10-14-owner-questions-90-92-hrp.json");
 }
@@ -148,6 +169,7 @@ export async function undoOwnerQuestions86To89Universal(text: string): Promise<s
 }
 
 export async function undoOwnerQuestions86To89Hrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   text = await undoOwnerQuestions90To92Hrp(text);
   return undoRecordedEdits(text, "hrp", "2026-10-14-owner-questions-86-89-hrp.json");
 }
@@ -158,6 +180,7 @@ export async function undoAcceptedLessonsUniversal(text: string): Promise<string
 }
 
 export async function undoAcceptedLessonsHrp(text: string): Promise<string> {
+  text = undoDeepResearchSavingPolicy(text);
   text = await undoOwnerQuestions86To89Hrp(text);
   return undoRecordedEdits(text, "hrp", "2026-10-12-accepted-lessons-hrp.json");
 }
