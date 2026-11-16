@@ -32,10 +32,13 @@ import {
   foldAtlasSearchTexts,
   matchFoldedAtlasSearch,
   prepareAtlasSearch,
+  atlasSearchQuery,
   type AtlasSearchField,
   type AtlasSearchQuery,
   type AtlasSearchText,
 } from "./search.js";
+
+import { ATLAS_TOPIC_FAMILIES, atlasSearchFamily, atlasTopicFamily, type AtlasTopicFamily } from "./topic-families.js";
 
 /**
  * What the public Atlas pages show (decision 171, section 4C; plan
@@ -261,6 +264,8 @@ export interface AtlasTopicModel {
   topic: { key: string; label: string };
   sections: Array<{ id: TopicSectionId; heading: string; findings: ShownFinding[] }>;
   connections: Array<{ from: ShownRelated; to: ShownRelated; relation: AtlasPageFinding["links"][number]["relation"] }>;
+  /** A curated, cross-topic research collection: forms grouped without treating one isomer as another. */
+  family?: { intro: string; unfinishedResearch: string; groups: Array<{ key: string; heading: string; summary: string; findings: ShownFinding[] }> };
 }
 
 export interface AtlasFindingModel {
@@ -841,9 +846,44 @@ async function contestedPairs(reads: AtlasPageReads): Promise<AtlasContestedPair
   return pairs;
 }
 
+/** Curated substance-family aliases are identity links, not a mechanism or effect inference. */
+function matchesFamilyTerm(texts: AtlasSearchText[], term: string): boolean {
+  const query = atlasSearchQuery(term).query;
+  return query !== null && matchFoldedAtlasSearch(prepareAtlasSearch(query), texts) !== undefined;
+}
+
+function inTopicFamily(texts: AtlasSearchText[], family: AtlasTopicFamily): boolean {
+  return family.aliases.some((term) => matchesFamilyTerm(texts, term));
+}
+
+async function loadAtlasTopicFamily(source: AtlasPageSource, family: AtlasTopicFamily): Promise<AtlasTopicModel | undefined> {
+  return source.read(async (reads) => {
+    const grouped = family.sections.map((section) =>
+      ({ key: section.key, heading: section.heading, summary: section.summary, findings: [] as ShownFinding[] }));
+    const seen = new Set<string>();
+    for await (const finding of allShown(reads)) {
+      if (seen.has(finding.publicationNumber)) continue;
+      const texts = foldAtlasSearchTexts(searchTextsOf(finding));
+      if (!inTopicFamily(texts, family)) continue;
+      seen.add(finding.publicationNumber);
+      const section = family.sections.find((candidate) => candidate.key !== "general" &&
+        candidate.aliases.some((term) => matchesFamilyTerm(texts, term))) ?? family.sections[0]!;
+      grouped[family.sections.indexOf(section)]!.findings.push(finding);
+    }
+    if (seen.size === 0) return undefined;
+    for (const group of grouped) group.findings.sort((left, right) =>
+      Number(left.status.kind === "unreviewed") - Number(right.status.kind === "unreviewed") ||
+      byStrength(left, right) || Date.parse(right.publishedAt) - Date.parse(left.publishedAt));
+    return { topic: { key: family.key, label: family.label }, sections: [], connections: [],
+      family: { intro: family.intro, unfinishedResearch: family.unfinishedResearch, groups: grouped } };
+  });
+}
+
 /** A topic page: the findings on the topic, by section; undefined when none shows. */
 export async function loadAtlasTopic(source: AtlasPageSource, topicKey: string, options: { includeKept?: boolean } = {}):
   Promise<AtlasTopicModel | undefined> {
+  const family = atlasTopicFamily(topicKey);
+  if (family !== undefined) return loadAtlasTopicFamily(source, family);
   return await source.read(async (reads) => {
     const shown = oncePerFinding(await shownFindings(reads,
       await reads.listPublications({ topicKey, limit: ATLAS_TOPIC_FINDINGS, includeKept: options.includeKept === true })))
@@ -1047,7 +1087,7 @@ export function searchTextsOf(finding: ShownFinding): AtlasSearchText[] {
 
 /** The deepest results page a search answers: the first 2,000 matches are listed, and a narrower search finds the rest. */
 export const ATLAS_SEARCH_MAX_PAGE = 100;
-export interface AtlasSearchResult { finding: ShownFinding; foundIn: AtlasSearchField[] }
+export interface AtlasSearchResult { finding: ShownFinding; foundIn: AtlasSearchField[]; relatedForm?: boolean }
 export interface AtlasSearchModel {
   results: AtlasSearchResult[];
   /** How many findings match in all. */
@@ -1095,20 +1135,34 @@ export function searchAtlasIndex(index: AtlasSearchIndex, options: {
 }): AtlasSearchModel {
   const page = searchPageOf(options.page);
   const search = prepareAtlasSearch(options.search);
+  const family = options.topicKey === undefined ? atlasSearchFamily(options.search.text) : undefined;
   const reach = page * ATLAS_FINDINGS_PER_PAGE;
   const groups: AtlasSearchResult[][] = Array.from({ length: 8 }, () => []);
+  const related: AtlasSearchResult[] = [];
   let total = 0;
   for (const { finding, texts } of index.entries) {
     if (options.topicKey !== undefined && finding.topic?.key !== options.topicKey) continue;
     const match = matchFoldedAtlasSearch(search, texts);
-    if (match === undefined) continue;
-    total += 1;
-    groups[match.rank * 2 + (match.asTyped ? 0 : 1)]!.push({ finding, foundIn: match.foundIn });
+    if (match !== undefined) {
+      total += 1;
+      groups[match.rank * 2 + (match.asTyped ? 0 : 1)]!.push({ finding, foundIn: match.foundIn });
+    } else if (family !== undefined) {
+      // The umbrella term "inositol" also finds chemically related IP6 / phytate records. Specific searches such as
+      // "IP6" are not broadened to other forms, and related matches follow all literal matches.
+      const alias = family.aliases.map((term) => atlasSearchQuery(term).query)
+        .filter((query): query is AtlasSearchQuery => query !== null)
+        .map((query) => matchFoldedAtlasSearch(prepareAtlasSearch(query), texts))
+        .find((candidate) => candidate !== undefined);
+      if (alias !== undefined) {
+        total += 1;
+        related.push({ finding, foundIn: alias.foundIn, relatedForm: true });
+      }
+    }
   }
-  // Within a group of equal matches, the stronger claims first (strength.ts), then the newest, as the index holds them.
   for (const group of groups) group.sort((left, right) => byStrength(left.finding, right.finding));
+  related.sort((left, right) => byStrength(left.finding, right.finding));
   return {
-    results: groups.flat().slice(reach - ATLAS_FINDINGS_PER_PAGE, reach),
+    results: [...groups.flat(), ...related].slice(reach - ATLAS_FINDINGS_PER_PAGE, reach),
     total,
     page,
     pages: Math.min(ATLAS_SEARCH_MAX_PAGE, Math.max(1, Math.ceil(total / ATLAS_FINDINGS_PER_PAGE))),
@@ -1126,16 +1180,30 @@ export async function loadAtlasSearch(source: AtlasPageSource, options: {
 export async function loadAtlasTopics(source: AtlasPageSource): Promise<AtlasTopicsModel> {
   return await source.read(async (reads) => {
     const topics = new Map<string, AtlasTopicsModel["topics"][number]>();
+    const familyCounts = new Map<string, number>(ATLAS_TOPIC_FAMILIES.map((family) => [family.key, 0]));
     let withoutTopic = 0;
     for await (const finding of allShown(reads)) {
-      if (finding.topic === null) { withoutTopic += 1; continue; }
-      const topic = topics.get(finding.topic.key);
-      if (topic === undefined) topics.set(finding.topic.key, { ...finding.topic, count: 1 });
-      else {
-        topic.count += 1;
-        // As on the topic page, prefer the canonical topic label over a card's earlier spelling.
-        if (finding.status.kind !== "unreviewed") topic.label = finding.topic.label;
+      // Ordinary topic lists retain their prior visibility policy; a curated family can also show research-only
+      // findings with their explicit "kept" / unreviewed labels and direct links.
+      if (!finding.kept) {
+        if (finding.topic === null) withoutTopic += 1;
+        else {
+          const topic = topics.get(finding.topic.key);
+          if (topic === undefined) topics.set(finding.topic.key, { ...finding.topic, count: 1 });
+          else {
+            topic.count += 1;
+            if (finding.status.kind !== "unreviewed") topic.label = finding.topic.label;
+          }
+        }
       }
+      const texts = foldAtlasSearchTexts(searchTextsOf(finding));
+      for (const family of ATLAS_TOPIC_FAMILIES) {
+        if (inTopicFamily(texts, family)) familyCounts.set(family.key, (familyCounts.get(family.key) ?? 0) + 1);
+      }
+    }
+    for (const family of ATLAS_TOPIC_FAMILIES) {
+      const count = familyCounts.get(family.key) ?? 0;
+      if (count > 0) topics.set(family.key, { key: family.key, label: family.label, count });
     }
     return { topics: [...topics.values()].sort((a, b) => a.label.localeCompare(b.label, "en") || a.key.localeCompare(b.key)),
       withoutTopic };
