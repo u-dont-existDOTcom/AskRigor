@@ -4,6 +4,7 @@ import { coreSectionNames, getProtocolManifest, loadProtocol, protocolNamedEleme
 import { XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 import { undoStudyMapSingleLeadsHrp, undoWordsAreNotSizesHrp } from "./helpers/undo-read-depth.js";
+import { undoDeepResearchSavingPolicy } from "./helpers/undo-deep-research-saving.js";
 
 const FIXTURE = "./fixtures/protocol-edits/2026-11-09-words-are-not-sizes-hrp.json";
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
@@ -79,14 +80,14 @@ describe("owner answer 282a: HRP 20.6.41", () => {
   });
 
   it("binds the current manifest and first revision to these bytes, and reverses to 20.6.40's", async () => {
-    const text = await loadProtocol("hrp");
+    const text = undoDeepResearchSavingPolicy(await loadProtocol("hrp"));
     const { hrp } = JSON.parse(await readFile(new URL(FIXTURE, import.meta.url), "utf8")) as {
       hrp: { from: { version: string; sha256: string }; to: { version: string; sha256: string }; edits: Array<[string, string]> };
     };
     expect(XMLValidator.validate(text)).toBe(true);
     expect(hrp.to.version).toBe("20.6.41");
     expect(await getProtocolManifest("hrp")).toEqual({
-      name: "HRP", version: hrp.to.version, revisionDate: "2026-11-09", sha256: hrp.to.sha256,
+      name: "HRP", version: "20.6.42", revisionDate: "2026-11-16", sha256: "bef2125fc273d2c67c02ba0197739bce60b3134d5d59e25aca413cb943932b46",
     });
     expect([...text.matchAll(/<Revision version="([^"]+)"/gu)].slice(0, 2).map((match) => match[1]))
       .toEqual(["20.6.41", "20.6.40"]);

@@ -1533,6 +1533,83 @@ describe("Atlas navigation (183b)", () => {
 
 // Full-text search and the findings map (plan docs/superpowers/plans/2026-11-02-atlas-full-text-search-and-findings-map.md)
 
+describe("cross-topic inositol research collection", () => {
+  const q = (text: string) => atlasSearchQuery(text).query!;
+
+  it("joins D-chiro, scyllo and IP6 research by chemical family, without changing the original topics", async () => {
+    const f = await fixture();
+    const seed: Array<{ cardNumber: number; wording: string; key: string; label: string }> = [
+      { cardNumber: 9701, wording: "D-chiro-inositol changed hormone measurements in ten invented participants.",
+        key: "male-testosterone-supplements", label: "Male testosterone supplements" },
+      { cardNumber: 9702, wording: "Phytate-rich food altered an invented mineral absorption outcome.",
+        key: "ip6-phytic-acid", label: "IP6 (phytic acid): benefits and risks" },
+      { cardNumber: 9703, wording: "Scyllo-inositol experimental study had a safety signal.",
+        key: "inositol-adverse-reactions", label: "Inositol adverse reactions" },
+    ];
+    const publications: string[] = [];
+    for (const item of seed) {
+      const card = { ...oneFindingCard(item.wording), topic: { key: item.key, label: item.label } };
+      const published = await f.store.publish(item.cardNumber, recordOf(card));
+      publications.push(published.rows[0]!.publicationNumber);
+    }
+    const family = await loadAtlasTopic(f.source, "inositol");
+    expect(family?.topic.label).toBe("Inositol: forms, benefits and risks");
+    const grouped = family?.family?.groups ?? [];
+    expect(grouped.flatMap((entry) => entry.findings.map((f) => f.publicationNumber)).sort()).toEqual([...publications].sort());
+    expect(grouped.find((entry) => entry.key === "d-chiro")?.findings).toHaveLength(1);
+    expect(grouped.find((entry) => entry.key === "scyllo")?.findings).toHaveLength(1);
+    expect(grouped.find((entry) => entry.key === "ip6")?.findings).toHaveLength(1);
+    const titleList = await loadAtlasTopics(f.source);
+    expect(titleList.topics.find(({ key }) => key === "inositol")?.count).toBe(3);
+    // A word-only search has a visible related-form result; an IP6-specific query is not expanded to every isomer.
+    const broad = await loadAtlasSearch(f.source, { search: q("inositol") });
+    for (const id of publications) expect(broad.results.some(({ finding }) => finding.publicationNumber === id)).toBe(true);
+    expect(broad.results.find(({ finding }) => finding.publicationNumber === publications[1])?.relatedForm).toBe(true);
+    const narrow = await loadAtlasSearch(f.source, { search: q("ip6") });
+    expect(narrow.results.some(({ finding }) => finding.publicationNumber === publications[1])).toBe(true);
+    expect(narrow.results.some(({ finding }) => finding.publicationNumber === publications[0])).toBe(false);
+    const base = await serve(pages(f.source));
+    const topic = await text(base, "/atlas/topics/inositol");
+    expect(topic.response.status).toBe(200);
+    expect(topic.body).toContain("Myo-inositol: psychiatric, metabolic and epilepsy evidence");
+    // The research dossier is a real, source-linked page, not merely a list of 7 short findings.
+    for (const claim of ["Which form has the best evidence", "25.0%", "26.8%",
+      "4.1 visible motor seizures", "Testosterone 222.8", "2014",
+      "Iron and zinc bioavailability", "D-pinitol", "PSSD forum benefits",
+      "No Atlas finding"]) {
+      // Some labels live inside study titles or source references. Check the rendered complete topic, not tool metadata.
+      if (claim !== "No Atlas finding") expect(topic.body).toContain(claim);
+    }
+    expect(topic.body).toContain("No separate Atlas finding is filed");
+    expect(topic.body).toContain("Primary studies and evidence boundaries");
+    expect(topic.body).toContain("Safety and evidence limitations across forms");
+    expect(topic.body).toContain("pubmed.ncbi.nlm.nih.gov/40920401/");
+    expect(topic.body).toContain("pubmed.ncbi.nlm.nih.gov/39632506/");
+    expect(topic.body).toContain("noindex");
+
+    expect(topic.body).toContain("Research still to consolidate");
+    for (const id of publications) expect(topic.body).toContain("/atlas/findings/" + id);
+    expect((await text(base, "/atlas/search?q=inositol")).body).toContain("consolidated inositol overview");
+    expect((await text(base, "/atlas/findings/" + publications[1])).body)
+      .toContain('href="/atlas/topics/inositol"');
+  });
+
+  it("keeps the research-only warning on individually hidden findings while allowing the family to list them", async () => {
+    const f = await fixture();
+    const result = await f.store.publish(9704, recordOf({ ...oneFindingCard("Myo-inositol has an experimental effect."),
+      topic: { key: "inositol-epilepsy", label: "Inositol and epilepsy" } }));
+    const publication = result.rows[0]!.publicationNumber;
+    const keep = new AtlasKeptReview({ publications: f.store.publications, now: () => new Date("2026-11-04T12:00:00.000Z") });
+    await keep.run({ action: "keep_for_research", items: [publication], reason: "research not yet curated" });
+    const broad = await loadAtlasTopic(f.source, "inositol");
+    expect(broad?.family?.groups.some((section) => section.findings.some((finding) => finding.publicationNumber === publication && finding.kept))).toBe(true);
+    const url = await serve(pages(f.source));
+    expect((await text(url, "/atlas/topics/inositol")).body).toContain("Kept for AskRigor");
+    expect((await loadAtlasSearch(f.source, { search: q("myo-inositol") })).results
+      .some(({ finding }) => finding.publicationNumber === publication)).toBe(false);
+  });
+});
+
 describe("full-text search", () => {
   const ids = (body: string) => [...body.matchAll(/class="finding-claim"><a href="\/atlas\/findings\/(P-\d+)"/gu)]
     .map((match) => match[1]);

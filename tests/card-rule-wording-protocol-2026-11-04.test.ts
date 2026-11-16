@@ -4,13 +4,14 @@ import { coreSectionNames, loadProtocol, protocolNamedElements, protocolSections
 import { XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 import { undoCardRuleWordingHrp, undoResponseSpreadHrp, undoWhatPeopleWantHrp } from "./helpers/undo-read-depth.js";
+import { undoDeepResearchSavingPolicy } from "./helpers/undo-deep-research-saving.js";
 
 const FIXTURE = "./fixtures/protocol-edits/2026-11-04-card-rule-wording-hrp.json";
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
 
 describe("the owner's review of 4 November 2026: HRP 20.6.38", () => {
   it("tests a finding with a search of the problem, and says what a new card replaces", async () => {
-    const rule = (await loadProtocol("hrp")).match(/<Rule name="FindingsCardForAPerson"[^>]*>([\s\S]*?)<\/Rule>/u)?.[1]
+    const rule = undoDeepResearchSavingPolicy(await loadProtocol("hrp")).match(/<Rule name="FindingsCardForAPerson"[^>]*>([\s\S]*?)<\/Rule>/u)?.[1]
       ?.replace(/\s+/gu, " ");
     expect(rule).toContain("a plain web search of the problem, by someone who has never heard of this option, doesn't " +
       "already give its useful point or offer something better");

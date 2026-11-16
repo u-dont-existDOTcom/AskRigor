@@ -47,6 +47,8 @@ import {
   type ShownSource,
 } from "./page-data.js";
 import { ATLAS_SEARCH_MAX_LENGTH, type AtlasSearchField } from "./search.js";
+import { atlasSearchFamily, atlasTopicFamily } from "./topic-families.js";
+import { INOSITOL_DOSSIER, type DossierForm, type DossierEvidence } from "./inositol-dossier.js";
 import { STRENGTH_RULE, STRONG_CLAIM } from "./strength.js";
 
 /**
@@ -432,6 +434,7 @@ const searchPageHref = (text: string, page: number) =>
 export function renderAtlasSearch(model: { text: string; message: string | null; results: AtlasSearchModel | null },
   reader?: AtlasPageReader): string {
   const results = model.results;
+  const family = atlasSearchFamily(model.text);
   const pager: SafeHtml[] = [];
   if (results !== null && results.page > 1) {
     pager.push(html`<a rel="prev" href="${new SafeHtml(searchPageHref(model.text, Math.min(results.page - 1, results.pages)))}">Previous results</a>`);
@@ -444,7 +447,8 @@ export function renderAtlasSearch(model: { text: string; message: string | null;
     noindex: true,
     description: "Search the public findings in the AskRigor Atlas.",
     body: html`<h1>Search findings</h1>
-${searchForm("atlas-query", model.text)}
+ ${searchForm("atlas-query", model.text)}
+${family === undefined ? "" : html`<p><strong>Related forms are included:</strong> this search also finds IP6 / phytate research. <a href="${topicPath(family.key)}">See the consolidated inositol overview</a>.</p>`}
 <p>Search reads each finding’s whole text: its wording, question, whom it applies to, subject, topic, numbers, searches, why it isn’t the usual answer, what would change it, its sources and its number.</p>
 <ul>
 <li>Every word you type must be there. Case and accents don’t matter.</li>
@@ -458,8 +462,8 @@ ${results === null ? "" : html`<h2>Results for “${queryText(model.text)}”</h
       : html`${count(results.total)} ${results.total === 1 ? "finding matches" : "findings match"}${results.pages === 1 ? "" : html`, page ${results.page} of ${results.pages}`}.`}</p>
 ${results.results.length === 0 ? (results.total === 0 ? "" : html`<p>There are no results on this page. <a href="${new SafeHtml(searchPageHref(model.text, 1))}">Go to the first page of results</a>.</p>`)
     : html`<ul class="finding-list">
-${results.results.map(({ finding, foundIn }) => findingItem(finding,
-    html`<p class="meta">Found in ${joined(foundIn.map((field) => html`${FOUND_IN_WORDS[field]}`), ", ")}.</p>`))}</ul>`}
+${results.results.map(({ finding, foundIn, relatedForm }) => findingItem(finding,
+    html`<p class="meta">${relatedForm === true ? "Related inositol family form; " : ""}Found in ${joined(foundIn.map((field) => html`${FOUND_IN_WORDS[field]}`), ", ")}.</p>`))}</ul>`}
 ${pager.length === 0 ? "" : html`<nav aria-label="Search result pages"><p>${joined(pager, " · ")}</p></nav>`}`}` });
 }
 
@@ -743,7 +747,75 @@ ${model.connections.length === 0 ? html`<p>No connections recorded between publi
 </section></section>`;
 }
 
+/** The authored evidence table is public, deidentified, cited, and distinct from supervisor-accepted findings. */
+function inositolEvidenceList(form: DossierForm | undefined): SafeHtml | "" {
+  if (form === undefined) return "";
+  return html`<p class="lede">${form.bottomLine}</p>
+<h3>Primary studies and evidence boundaries</h3>
+<ol class="dossier-studies">${form.evidence.map((entry: DossierEvidence) => html`<li>
+<h4>${entry.title}</h4>
+<p class="meta"><strong>Evidence tier: ${entry.certainty}.</strong> ${entry.context}</p>
+<p><strong>Measured outcome:</strong> ${entry.quantified}</p>
+<p><strong>Interpretation and limitations:</strong> ${entry.interpretation}</p>
+<p class="meta">Sources: ${joined(entry.sources.map((source) =>
+  html`<a href="${source.url}" rel="noreferrer">${source.label}</a>`), " · ")}</p>
+</li>`)}</ol>
+<h3>Safety and applicability</h3>
+<ul>${form.safety.map((item) => html`<li>${item}</li>`)}</ul>`;
+}
+
+function inositolDossierOverview(): SafeHtml {
+  return html`<section aria-labelledby="inositol-quick-comparison">
+<h2 id="inositol-quick-comparison">Which form has the best evidence for which outcome?</h2>
+<p>Evidence is ranked by <strong>how directly it answers the clinical question</strong>, not by chemical similarity. An experiment in rats or a change in a blood test does not establish a cure in humans.</p>
+<div class="atlas-dossier-table"><table><thead><tr><th scope="col">Form</th><th scope="col">Most studied / promising</th>
+<th scope="col">Evidence</th><th scope="col">Safety: what can be said</th></tr></thead><tbody>
+${INOSITOL_DOSSIER.comparisons.map((row) => html`<tr><th scope="row">${row.form}</th><td>${row.promisingFor}</td>
+<td>${row.evidence}</td><td>${row.safety}</td></tr>`)}</tbody></table></div>
+<p class="meta">Research synthesis updated ${INOSITOL_DOSSIER.date}. Preliminary AI-prepared synthesis; the linked Atlas findings remain independently marked with their supervisor-review status.</p>
+</section>
+<section aria-labelledby="inositol-critical-discoveries">
+<h2 id="inositol-critical-discoveries">Important discoveries and corrections</h2>
+<ul>
+<li><strong>Animal epilepsy signal:</strong> D-chiro-inositol injections were associated with approximately 90% fewer observed convulsions in one rat experiment, and none observed in a short post-treatment interval. This is not human epilepsy efficacy. <a href="https://pubmed.ncbi.nlm.nih.gov/39632506/">Rat study</a>.</li>
+<li><strong>Major clinical null result:</strong> in 2025, a 464-person randomized pregnancy trial found 25.0% versus 26.8% developing a composite complication on myo-inositol versus control, an uncertain 1.8-per-100 difference. <a href="https://pubmed.ncbi.nlm.nih.gov/40920401/">Pregnancy trial</a>.</li>
+<li><strong>Scyllo safety:</strong> serious adverse events were reported in about 22–23 of 100 patients on ELND005 versus 13 of 100 on placebo; the two higher doses were stopped after an infection/death imbalance without established causality. <a href="https://pubmed.ncbi.nlm.nih.gov/21917766/">Alzheimer trial</a>.</li>
+<li><strong>Unverified prolonged adverse reports:</strong> individual PSSD forum posters described both improvement and deterioration after inositol. These do not establish a treatment effect, a new syndrome, or an event rate. <a href="/atlas/findings/P-1228">Atlas signal</a>.</li>
+<li><strong>Supplement identity:</strong> myo-inositol and D-chiro-inositol are both water-soluble, and a small chromatography application-note sample found DCI label inaccuracies. Solubility cannot authenticate DCI. <a href="https://www.waters.com/nextgen/nl/en/library/application-notes/2026/analysis-of-free-inositol-stereoisomers-in-dietary-supplements-by-hilic-cad-detection-optimization-and-analytical-performance-evaluation.html">2026 chemistry analysis</a>.</li>
+</ul>
+</section>`;
+}
+
 export function renderAtlasTopic(model: AtlasTopicModel, reader?: AtlasPageReader): string {
+  // Substance-family dossiers collect source-bound claims previously filed under separate condition/topic names.
+  // Unreviewed and research-only claims retain their original labels and never become accepted by being grouped.
+  if (model.family !== undefined) {
+    const findings = model.family.groups.flatMap((group) => group.findings);
+    const body = html`<p class="breadcrumbs"><a href="/atlas">Atlas</a> › <a href="/atlas/topics">Topics</a></p>
+<h1>${model.topic.label}</h1>
+<p class="lede">${model.family.intro}</p>
+<p class="notice-line">A cross-topic, AI-prepared research synthesis, not a medical treatment guideline or supervisor-accepted systematic review. Each underlying finding retains its source, certainty and review status.</p>
+${model.topic.key === "inositol" ? inositolDossierOverview() : ""}
+<nav aria-label="Inositol forms"><p>${joined(model.family.groups.map((group) =>
+  html`<a href="#family-${group.key}">${group.heading}</a>`), " · ")}</p></nav>
+${model.family.groups.map((group) => html`<section aria-labelledby="family-${group.key}">
+<h2 id="family-${group.key}">${group.heading}</h2>
+<p>${group.summary}</p>
+${model.topic.key === "inositol" ? inositolEvidenceList(INOSITOL_DOSSIER.forms.find((form) => form.key === group.key)) : ""}
+<h3>Related individual Atlas findings</h3>
+${group.findings.length === 0 ? html`<p class="meta">No separate Atlas finding is filed yet for this form; the source-linked dossier above gives the existing research.</p>`
+  : html`<ul class="finding-list">${group.findings.map((finding) => findingItem(finding,
+    finding.kept ? html`<p class="notice-line">Kept for AskRigor’s research: this finding has not met the public curation bar.</p>` : ""))}</ul>`}
+</section>`)}
+<section aria-labelledby="family-gaps"><h2 id="family-gaps">Safety and evidence limitations across forms</h2>
+<ul>${model.topic.key === "inositol" ? INOSITOL_DOSSIER.generalNotes.map((note) => html`<li>${note}</li>`) : []}</ul>
+<h3>Research still to consolidate</h3>
+<p>${model.family.unfinishedResearch}</p></section>`;
+    return page({ path: topicPath(model.topic.key), noindex: unreviewedOnly(findings), reader,
+      title: `${model.topic.label} | AskRigor Atlas`,
+      description: "A joined index of inositol forms, benefits, harms, and unfinished research.",
+      body });
+  }
   const body = html`<p class="breadcrumbs"><a href="/atlas">Atlas</a></p>
 <h1>${model.topic.label}</h1>
 <p class="lede">Findings about ${model.topic.label}. Within each part, findings checked by supervisors come first.</p>
@@ -1292,6 +1364,10 @@ ${finding.whyNotUsual === null ? "" : html`<p><strong>Why this finding isn’t i
 
   const body = html`<p class="breadcrumbs"><a href="/atlas">Atlas</a>${finding.topic === null ? ""
     : html` › <a href="${topicPath(finding.topic.key)}">${finding.topic.label}</a>`}</p>
+ ${atlasTopicFamily("inositol") !== undefined &&
+  /inositol|phytate|phytic acid|\bip6\b|pinitol/iu.test(`${finding.claim} ${finding.topic?.label ?? ""}`)
+    ? html`<p><a href="${topicPath("inositol")}">Inositol: all forms, benefits, and risks</a></p>`
+    : ""}
 ${finding.kept ? html`<p class="notice-line" role="note">${KEPT_FOR_RESEARCH_LINE}</p>
 ` : ""}${statusBlock(finding)}
 ${challengeBox(finding)}${question}
@@ -1805,6 +1881,14 @@ p, li, dd { max-width: 72ch; }
 }
 .figure figcaption { margin-bottom: 0.5rem; }
 table { width: 100%; border-collapse: collapse; }
+.atlas-dossier-table { max-width: 100%; overflow-x: auto; }
+.atlas-dossier-table table { min-width: 680px; margin: 0.75rem 0 1.2rem; }
+.atlas-dossier-table th, .atlas-dossier-table td { padding: 0.65rem; vertical-align: top; border-bottom: 1px solid var(--border, #d1d5db); }
+.atlas-dossier-table th { text-align: left; }
+.dossier-studies { padding-left: 1.6rem; }
+.dossier-studies li { margin-bottom: 1.4rem; }
+.dossier-studies h4 { margin: 0 0 0.3rem; }
+.dossier-studies p { margin: 0.35rem 0; }
 th, td { padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 thead th { font-size: 0.9rem; color: var(--muted); }
 td:last-child, th:last-child { text-align: right; }
