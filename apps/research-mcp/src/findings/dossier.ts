@@ -138,6 +138,10 @@ const findingSchema = z.object({
   // As the findings card's own (owner answer 219b): required once this research read YouTube comments, and a finding
   // that draws on them refuses the whole dossier, which has no holding place for it (Codex's review, finding 3).
   draws_on_youtube_comments: z.boolean().optional(),
+  // Codex's final check: once the same check held card findings apart as drawn from YouTube comments, each conclusion
+  // says which card finding it is, by its place on the card (1 for the first), or none; one that is a held finding
+  // refuses the dossier. An explicit declaration bound to the receipt's signed places, never a comparison of words.
+  card_finding: z.union([z.number().int().min(1).max(5), z.literal("none")]).optional(),
 }).strict();
 
 const coverageEntrySchema = z.object({
@@ -190,7 +194,9 @@ export const RESEARCH_DOSSIER_SHAPE = "later_inputs.research_dossier: {scope: pu
   "ratio or percent_change, from: [a, b]}, with calculated)}]; findings: [{id, claim, certainty, kind (helps, harms, " +
   "no_difference, mixed, not_known, correction, overlooked_option or tested_vs_sold), applies_to, form, rests_on " +
   "(study, result or search ids, or community), what_would_change_it, importance (decision_changing, important or " +
-  "context), draws_on_youtube_comments (required once this research read YouTube comments; true refuses the dossier)}]; " +
+  "context), draws_on_youtube_comments (required once this research read YouTube comments; true refuses the dossier), " +
+  "card_finding (required when this check held card findings apart: the place on the card, 1 for the first, of the card " +
+  "finding this conclusion is, or none; a held one refuses the dossier)}]; " +
   "coverage: {benefits, harms, null_results, conflicts, mainstream_options, people_reports: each {status: entries, " +
   "none_found with search, or not_researched with reason}}; community: {threads, the forum threads read here with " +
   "read_forum_thread, by their links; people: {better, no_change, worse, mixed}, report_quality: {detailed, measured, " +
@@ -273,8 +279,10 @@ export function checkResearchDossier(
     atlasSources: ReadonlySet<string>;
     /** Whether this research read YouTube comments, as the final check itself decides it (owner answer 219b). */
     commentsRead: boolean;
-    /** The claims of the card findings the same check held apart as drawn from YouTube comments (owner answer 219b). */
-    heldCardClaims?: readonly string[];
+    /** The places on the card (1 for the first) the same check signed as held apart for YouTube comments (219b). */
+    heldCardPlaces?: ReadonlySet<number>;
+    /** How many findings the call's card has, when one came with it. */
+    cardFindings?: number;
   },
 ): { problems: DossierProblem[]; checked?: CheckedDossier; final: boolean } {
   const problems: DossierProblem[] = [];
@@ -459,10 +467,10 @@ export function checkResearchDossier(
   });
   // Once this research read YouTube comments, or its check held card findings apart as drawn from them, each conclusion
   // says whether it draws on them, and one that does refuses the dossier (Codex's second pass: bound to the dossier's
-  // own conclusions, never every dossier of such a check). A conclusion that is one of those held card findings, by
-  // its words, is refused whatever it declares.
-  const heldClaims = context.heldCardClaims ?? [];
-  const declarationsDue = context.commentsRead || heldClaims.length > 0;
+  // own conclusions, never every dossier of such a check). After a hold, each also says which card finding it is, or
+  // none, and one that is a held finding is refused (Codex's final check: declared and bound, never matched by words).
+  const heldPlaces = context.heldCardPlaces ?? new Set<number>();
+  const declarationsDue = context.commentsRead || heldPlaces.size > 0;
 
   // Conclusions: what each rests on exists and was read; a positive or negative finding rests on a paper read here or on
   // people's reports, a search alone backing only what is not known; its form is listed and is its studies' form.
@@ -505,7 +513,14 @@ export function checkResearchDossier(
     } else if (finding.draws_on_youtube_comments === true) {
       refuse(`${at}.draws_on_youtube_comments`, "youtube_comment_material");
     }
-    if (heldClaims.some((claim) => sameConclusion(claim, finding.claim))) refuse(`${at}.claim`, "held_card_finding");
+    if (heldPlaces.size > 0) {
+      const place = finding.card_finding;
+      if (place === undefined) problem(`${at}.card_finding`, "card_finding_undeclared");
+      else if (place !== "none" && heldPlaces.has(place)) refuse(`${at}.card_finding`, "held_card_finding");
+      else if (place !== "none" && context.cardFindings !== undefined && place > context.cardFindings) {
+        problem(`${at}.card_finding`, "unknown_reference");
+      }
+    }
   });
 
   // What was covered: entries, none found with the search that looked, or not researched with why.
@@ -532,22 +547,6 @@ export function checkResearchDossier(
   }
   return problems.length > 0 ? { problems, final }
     : { problems, final, checked: { input, studies, searches, communities: [...communities].sort(), threadsRead: threadsRead.size } };
-}
-
-// Two conclusions in the same words: most of either's words are the other's (a held card finding copied into the
-// dossier, reordered or lightly reworded).
-const CONCLUSION_STOP_WORDS: ReadonlySet<string> = new Set([
-  "the", "and", "for", "with", "that", "this", "from", "was", "were", "are", "has", "have", "had", "its", "their", "than",
-  "but", "not", "did", "does", "into", "over", "under", "after", "before", "about", "which", "who", "when", "also",
-]);
-function sameConclusion(left: string, right: string): boolean {
-  const words = (text: string) => new Set((text.normalize("NFKC").toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [])
-    .filter((word) => word.length > 2 && !CONCLUSION_STOP_WORDS.has(word)));
-  const a = words(left);
-  const b = words(right);
-  if (a.size === 0 || b.size === 0) return false;
-  const shared = [...a].filter((word) => b.has(word)).length;
-  return shared / Math.min(a.size, b.size) >= 0.8 || shared / new Set([...a, ...b]).size >= 0.6;
 }
 
 // Every string a dossier holds is screened but its fixed values; a key or an id is read as words.
@@ -583,9 +582,9 @@ export function storedResearchDossier(checked: CheckedDossier, stamp: Record<str
       return { ...rest, identifiers: read.identifiers, read: read.read };
     }),
     results: input.results,
-    // A conclusion's YouTube-comments declaration decided only whether the dossier could be saved, so, as the card's
-    // (card.ts, StoredFinding), it is not stored.
-    findings: input.findings.map(({ draws_on_youtube_comments: _declared, ...finding }) => finding),
+    // A conclusion's YouTube-comments and card declarations decided only whether the dossier could be saved, so, as the
+    // card's (card.ts, StoredFinding), they are not stored.
+    findings: input.findings.map(({ draws_on_youtube_comments: _declared, card_finding: _place, ...finding }) => finding),
     coverage: input.coverage,
     // People's reports as counts, from the threads read here, by the communities their reads' receipts name: never a
     // thread's link, title or words.
@@ -678,8 +677,8 @@ export interface ResearchDossierSaveRequest {
   cardId: string | undefined;
   /** Whether this research read YouTube comments, as the final check decided it (its onCommentsRead). */
   commentsRead: boolean;
-  /** The claims of the call's findings card, in its order, which the finalization receipt's held places refer to. */
-  cardClaims?: readonly string[];
+  /** How many findings the call's card has, when one came: the finalization receipt's held places refer to them. */
+  cardFindings?: number;
   secret: string | undefined;
   versions: { askrigor: string; build: string; hrp?: string; universal?: string };
   now?: () => Date;
@@ -802,14 +801,12 @@ export async function saveResearchDossier(
     return verified.ok ? [{ kind: verified.kind, claims: verified.claims }] : [];
   });
   const atlasSources = checkedAtlasSources(receipts, target, request.atlasReuse);
-  const cardClaims = request.cardClaims ?? [];
-  const held = heldFindingsFromReceipt(receipt.claims.held, cardClaims.length);
-  const heldCardClaims = [...held].sort((left, right) => left - right).map((index) => cardClaims[index]!);
-  // A check that held card findings without the card's words to compare (none came with the call) binds every
-  // conclusion's declaration all the same.
-  const unmatchedHold = list(receipt.claims.held).length > 0 && heldCardClaims.length === 0;
+  // The held places the receipt signs, 1 for the first, within the call's card (or a card's most, five, without one).
+  const heldCardPlaces = new Set([...heldFindingsFromReceipt(receipt.claims.held, request.cardFindings ?? 5)]
+    .map((index) => index + 1));
   const { problems, checked, final } = checkResearchDossier(parsed.data, {
-    receipts, atlasSources, commentsRead: request.commentsRead || unmatchedHold, heldCardClaims,
+    receipts, atlasSources, commentsRead: request.commentsRead, heldCardPlaces,
+    ...(request.cardFindings === undefined ? {} : { cardFindings: request.cardFindings }),
   });
   if (checked === undefined) return insufficient(problems, "checks_failed", final);
 

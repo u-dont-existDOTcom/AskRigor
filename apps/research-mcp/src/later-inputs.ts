@@ -257,6 +257,10 @@ const LATER_INPUT_SHAPES = Object.freeze({
     researchSteering: researchSteeringInputSchema.optional()
       .describe("With set_research_steering, when the person asks: style, checkBackMinutes and adjustmentDetail, any " +
         "of them."),
+    // AskRigor#477 stage 1 (Codex's final check): a test run's plan_research call marked off asks for no research
+    // dossier, as its final check saves none.
+    findings_save: findingsSaveMarkerSchema
+      .describe("off: with plan_research, ask for no research dossier, as a test run does. It changes nothing else."),
     // The review of 12 Nov 2026: list_calls shows what fits one result; its result says where the next ones start.
     callsPage: callsPageSchema.optional()
       .describe("With list_calls: before, the UTC time a previous result's calls_page.next_before gave, for the calls " +

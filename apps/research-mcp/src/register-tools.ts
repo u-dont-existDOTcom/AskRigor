@@ -2879,9 +2879,9 @@ function defineResearchOperations(
           atlasReuse: checkedInput.atlas_reuse ?? [],
           cardId: result.findings_card.saved?.card_id,
           // Codex's second pass: whether comments were read is the final check's own decision, never a receipt's kind;
-          // the card's claims, in order, are what its receipt's held places refer to.
+          // the card's findings are what its receipt's held places refer to.
           commentsRead,
-          cardClaims: (checkedInput.findings_card?.findings ?? []).map(({ claim }) => claim),
+          ...(checkedInput.findings_card === undefined ? {} : { cardFindings: checkedInput.findings_card.findings.length }),
           secret,
           versions: {
             askrigor: SERVICE_VERSION,

@@ -149,6 +149,29 @@ describe("plan_research asks for the dossier before the first final check (Codex
     expect((light.structuredContent as Record<string, any>).researchMenu.lane).toBe("light");
   });
 
+  it("asks nothing in a test run's call marked findings_save off, through the registered tool's menu reading", async () => {
+    // Codex's final check: the menu wrapper dropped the marker, and planning asked all the same.
+    const service = await account();
+    let manage: ((input: unknown, extra?: unknown) => Promise<CallToolResult>) | undefined;
+    registerTools({
+      registerTool: (registered: string, _config: unknown, execute: typeof manage) => {
+        if (registered === "manage_research_access") manage = execute;
+      },
+    } as unknown as McpServer, { researchAccessRequired: true, mcpSurface: "/mcp/claude",
+      researchContributorAccessService: service, researchDossiers: new InMemoryResearchDossierStore() });
+    const asked = await manage!({ action: "plan_research", later_inputs: { researchMenu: GOES_ON } }, auth);
+    expect(texts(asked)).toContain(ASK);
+    for (const marker of [{ findings_save: "off" }, { findings_save: "Off" }]) {
+      const off = await manage!({ action: "plan_research", later_inputs: { researchMenu: GOES_ON, ...marker } }, auth);
+      expect(off.isError).not.toBe(true);
+      expect((off.structuredContent as Record<string, any>).researchMenu.next).toBe("go_on");
+      expect(texts(off).join("\n")).not.toContain(RESEARCH_DOSSIER_REQUEST);
+      expect(off.structuredContent).not.toHaveProperty("research_dossier_request");
+      // The marker is no part of the menu, and the result does not call it ignored.
+      expect(texts(off).join("\n")).not.toContain("findings_save");
+    }
+  });
+
   it("fits a client's result with the largest menu the schema allows (Codex's red team, size)", async () => {
     const tasks = Array.from({ length: PLAN_LIMITS.tasks }, (_, index) => ({
       task: `Search trials ${index} `.padEnd(PLAN_LIMITS.task, "x"), kind: "study_search", could_change: "confidence",

@@ -18,11 +18,14 @@ import { holdsYouTubeReference, screenFindingsText } from "./card.js";
  */
 export function dossierPrivacyRule(text: string): string | undefined {
   const value = folded(text);
+  // Look-alike letters read as the Latin ones they imitate, for every word rule (Codex's final check: a Greek Α in a
+  // name, a Cyrillic І for "I").
+  const plain = lookAlikeFree(value);
   return screenFindingsText(value) ?? (holdsYouTubeReference(value) || /youtu\.?be/iu.test(value) ? "youtube_reference"
     : CONTACT.some((pattern) => pattern.test(value)) ? "contact_details"
     : UNSCREENED_SCRIPT.test(value) ? "unscreened_script"
     : mixesScripts(value) ? "mixed_script"
-    : identityRule(value) ?? lexicalRule(lookAlikeFree(value)));
+    : identityRule(plain) ?? lexicalRule(plain));
 }
 
 // Characters that show nothing (zero-width spaces and joiners, direction marks, the soft hyphen) are dropped, and every
@@ -57,12 +60,19 @@ function mixesScripts(text: string): boolean {
 
 // Greek and Cyrillic letters shaped like Latin ones, read as those for the word lists only.
 const LOOK_ALIKE: Readonly<Record<string, string>> = {
-  "Α": "A", "Β": "B", "Ε": "E", "Ζ": "Z", "Η": "H", "Ι": "I", "Κ": "K", "Μ": "M", "Ν": "N", "Ο": "O", "Ρ": "P", "Τ": "T",
-  "Υ": "Y", "Χ": "X", "ο": "o", "ι": "i", "ν": "v",
-  "А": "A", "В": "B", "Е": "E", "К": "K", "М": "M", "Н": "H", "О": "O", "Р": "P", "С": "C", "Т": "T", "Х": "X", "У": "Y",
-  "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "у": "y", "х": "x", "і": "i", "ј": "j", "ѕ": "s", "һ": "h", "ԁ": "d",
+  "\u0391": "A", "\u0392": "B", "\u0395": "E", "\u0396": "Z", "\u0397": "H", "\u0399": "I", "\u039a": "K",
+  "\u039c": "M", "\u039d": "N", "\u039f": "O", "\u03a1": "P", "\u03a4": "T", "\u03a5": "Y", "\u03a7": "X",
+  "\u03bf": "o", "\u03b9": "i", "\u03bd": "v", "\u03f2": "c", "\u03f3": "j", "\u03f9": "C",
+  "\u0410": "A", "\u0412": "B", "\u0415": "E", "\u041a": "K", "\u041c": "M", "\u041d": "H", "\u041e": "O",
+  "\u0420": "P", "\u0421": "C", "\u0422": "T", "\u0425": "X", "\u0423": "Y", "\u0406": "I", "\u0408": "J",
+  "\u0405": "S", "\u04c0": "I", "\u04cf": "l", "\u0430": "a", "\u0435": "e", "\u043e": "o", "\u0440": "p",
+  "\u0441": "c", "\u0443": "y", "\u0445": "x", "\u0456": "i", "\u0458": "j", "\u0455": "s", "\u04bb": "h",
+  "\u0501": "d",
+  // Latin letters shaped like others: dotless i, small capital I, script g, Latin alpha.
+  "\u0131": "i", "\u026a": "I", "\u0261": "g", "\u0251": "a",
 };
-const lookAlikeFree = (text: string) => text.replace(/[Ͱ-ϿЀ-ӿԀ-ԯ]/gu, (letter) => LOOK_ALIKE[letter] ?? letter);
+const lookAlikeFree = (text: string) =>
+  text.replace(/[\u0131\u0251\u0261\u026a\u0370-\u03ff\u0400-\u04ff\u0500-\u052f]/gu, (letter) => LOOK_ALIKE[letter] ?? letter);
 
 // Who the person is: a date of birth, where someone lives, a first name about a particular person.
 const MONTH = "(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|" +
@@ -81,7 +91,13 @@ const BORN_ON: readonly RegExp[] = [
   new RegExp(`${BORN}[^.;\\n]{0,24}?${START}${MONTH}\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?,?\\s+\\d{4}`, "giu"),
   new RegExp(`${BORN}[^.;\\n]{0,24}?${START}\\d{1,2}[/.-]\\d{1,2}[/.-]\\d{2,4}${END}`, "giu"),
 ];
-const BIRTH_DATE = /(?<![\p{L}\p{N}])(?:date of birth|birth ?date|d\.?o\.?b\.?|date de naissance|fecha de nacimiento|geburtsdatum|data de nascimento|data di nascita)(?![\p{L}\p{N}])/iu;
+// A date of birth given as a value ("Date of birth: 1984-04-12", "DOB 12/04/1984"): the field's name alone ("date of
+// birth was recorded as a covariate") is a study's (Codex's final check).
+const DATE_VALUE = `(?:\\d{4}[/.-]\\d{1,2}[/.-]\\d{1,2}|\\d{1,2}[/.-]\\d{1,2}[/.-]\\d{2,4}|` +
+  `\\d{1,2}(?:st|nd|rd|th|er|º|°)?\\.?\\s*(?:de\\s+)?${MONTH}\\.?,?\\s*(?:de\\s+)?\\d{4}|` +
+  `${MONTH}\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?,?\\s+\\d{4})`;
+const BIRTH_DATE = new RegExp(`${START}(?:date of birth|birth ?date|d\\.?o\\.?b\\.?|date de naissance|` +
+  `fecha de nacimiento|geburtsdatum|data de nascimento|data di nascita)${END}[^.;\\n]{0,16}?${START}${DATE_VALUE}`, "iu");
 // Someone living somewhere named: "lives in Paris", "habite à Nantes"; "people living in rural areas" passes.
 const RESIDES = new RegExp("(?<![\\p{L}\\p{N}])(?:" + ["lives", "resides", "grew up", "has lived", "is living", "was living",
   "habite", "réside", "reside", "vit", "vive", "wohnt", "lebt", "mora", "abita"]
@@ -100,7 +116,7 @@ const FIRST_NAMES: ReadonlySet<string> = new Set([
   "sandra", "sarah", "sophie", "stephanie", "steven", "susan", "thomas", "timothy", "william", "zoe", "amélie",
   "antoine", "camille", "chloé", "élodie", "émilie", "françoise", "françois", "isabelle", "jacques", "julien",
   "léa", "manon", "marie", "mathilde", "nathalie", "nicolas", "philippe", "pierre", "sylvie", "valérie", "alejandro",
-  "ana", "carlos", "carmen", "diego", "elena", "javier", "jorge", "josé", "juan", "lucía", "luis", "manuel",
+  "carlos", "carmen", "diego", "elena", "javier", "jorge", "josé", "juan", "lucía", "luis", "manuel",
   "maría", "marta", "miguel", "pablo", "pedro", "sofía", "andreas", "anja", "claudia", "jürgen", "katrin", "klaus",
   "markus", "monika", "petra", "sabine", "stefan", "ursula", "wolfgang", "antónio", "beatriz", "fernanda", "joão",
   "joana", "luiza", "mariana", "paulo", "rodrigo", "alessandro", "chiara", "francesca", "francesco", "giorgia",
@@ -147,19 +163,32 @@ function identityRule(text: string): string | undefined {
     }
   }
   if (RESIDES.test(text)) return "location_detail";
-  const words = wordsOf(text);
+  // A text in capitals is read with each word capitalized, as names are written (Codex's final check: "ALICE SMITH
+  // TAKES ASPIRIN DAILY"); in a text that is not, a first name in capitals counts before a surname in capitals.
+  const named = shouted(text) ? text.replace(/\p{L}+/gu, (word) => word[0]! + word.slice(1).toLowerCase()) : text;
+  const words = wordsOf(named);
   for (const [index, word] of words.entries()) {
-    if (!FIRST_NAMES.has(word.lower) || word.text[0] !== word.text[0]!.toUpperCase() || isCapitals(word.text) ||
-      authorAt(words, index)) continue;
+    if (!FIRST_NAMES.has(word.lower) || word.text[0] !== word.text[0]!.toUpperCase() || authorAt(words, index)) continue;
     const next = words[index + 1];
-    const between = next === undefined ? "" : text.slice(word.end, next.start);
-    const surname = next !== undefined && /^\s+$/u.test(between) && /^\p{Lu}\p{Ll}/u.test(next.text) &&
+    const between = next === undefined ? "" : named.slice(word.end, next.start);
+    const adjacent = next !== undefined && /^\s+$/u.test(between);
+    if (isCapitals(word.text)) {
+      if (adjacent && isCapitals(next!.text) && !EPONYM_WORDS.has(next!.lower)) return "personal_name";
+      continue;
+    }
+    const surname = adjacent && /^\p{Lu}\p{Ll}/u.test(next!.text) && !EPONYM_WORDS.has(next!.lower) &&
       !authorAt(words, index + 1) && !EPONYM_WORDS.has(words[index + 2]?.lower ?? "");
-    const aged = /^\s*,\s*\d{1,3}\b/u.test(text.slice(word.end));
-    const acting = next !== undefined && /^\s+$/u.test(between) && PERSON_VERBS.has(next.lower);
+    const aged = /^\s*,\s*\d{1,3}\b/u.test(named.slice(word.end));
+    const acting = adjacent && PERSON_VERBS.has(next!.lower);
     if (surname || aged || acting) return "personal_name";
   }
   return undefined;
+}
+
+// A text mostly in capitals: there, capitals are no abbreviation.
+function shouted(text: string): boolean {
+  const letters = text.match(/\p{L}/gu) ?? [];
+  return letters.length >= 8 && letters.filter((letter) => letter !== letter.toLowerCase()).length / letters.length > 0.7;
 }
 
 // The person's own voice: first-person singular pronouns and possessives. Matched in lower case or capitalized; in
@@ -170,8 +199,32 @@ const FIRST_PERSON: ReadonlySet<string> = new Set([
   "me", "my", "myself", "je", "moi", "mon", "yo", "mi", "mis", "conmigo", "ich", "mich", "mir", "mein", "meine",
   "meinen", "meinem", "meiner", "meines", "meu", "minha", "meus", "minhas", "comigo", "io", "mio", "mia", "miei",
   "mie", "ik", "mij", "mijn", "mój", "moja", "moje", "mnie",
-  // We, us: the person's household as much as anyone's ("we tried it for a month"); a dossier speaks of no one so.
-  "we", "us", "ourselves", "nous", "nosotros", "nosotras", "wir", "uns", "nós", "noi",
+]);
+// We: the researchers' own voice ("we found no difference") passes; we before what a household does with a treatment
+// ("we tried it for a month"), within the five words after it, is a person's story (Codex's final check).
+const WE: ReadonlySet<string> = new Set(["we", "nous", "nosotros", "nosotras", "wir", "nós", "noi"]);
+const HOUSEHOLD_VERBS: ReadonlySet<string> = new Set([
+  "tried", "try", "trying", "take", "took", "taking", "gave", "give", "giving", "started", "start", "stopped", "stop",
+  "quit", "noticed", "felt", "feel", "went", "live", "lived", "moved", "bought", "buy", "ordered", "switched", "visited",
+  "got", "get", "worried", "struggled", "suffer", "suffered", "essayé", "pris", "arrêté", "commencé", "donné",
+  "remarqué", "acheté", "vivons", "habitons", "prenons", "donnons", "essayons", "probamos", "tomamos", "dejamos",
+  "empezamos", "intentamos", "compramos", "vivimos", "versucht", "genommen", "abgesetzt", "gegeben", "gekauft",
+  "nehmen", "gaben", "probiert", "wohnen", "leben", "tentamos", "paramos", "começamos", "moramos", "vivemos", "provato",
+  "preso", "smesso", "iniziato", "comprato", "viviamo", "abitiamo", "prendiamo",
+]);
+// "1" for "I" ("1 have lupus"), before verbs a count of people would not take there ("1 was lost to follow-up" passes).
+const ONE_FOR_I = new RegExp(`(?:^|[.!?]\\s+|["“(]\\s*)1\\s+(?:have|am|take|took|feel|felt|started|stopped|tried|` +
+  `suffer|suffered|noticed|swallow|swallowed|live|think|need)(?![\\p{L}\\p{N}])`, "iu");
+// Italian's plural article before a possessive or a number: i loro figli, i due gruppi.
+const ITALIAN_ARTICLE_BEFORE: ReadonlySet<string> = new Set([
+  "loro", "suoi", "nostri", "vostri", "tuoi", "due", "tre", "quattro", "cinque", "sei", "sette", "otto", "nove", "dieci",
+]);
+// After a letter standing for "I" (l): the verbs of a personal account, so "2 l per day" passes.
+const PRONOUN_VERBS: ReadonlySet<string> = new Set([
+  "am", "was", "have", "had", "take", "took", "use", "used", "tried", "try", "started", "start", "stopped", "stop", "feel",
+  "felt", "got", "get", "noticed", "notice", "experienced", "suffer", "suffered", "live", "lived", "went", "go", "need",
+  "needed", "think", "believe", "know", "would", "will", "can", "could", "do", "did", "also", "still", "just", "never",
+  "always", "really", "began", "quit", "switched", "developed", "became", "swallow", "swallowed",
 ]);
 const FIRST_PERSON_CONTRACTIONS = /^(?:i['’](?:m|ve|d|ll)|j['’]\p{L}|m['’]\p{L})/u;
 // Spanish, Portuguese and Italian drop the pronoun, so their commonest first-person verbs of a health story count too
@@ -253,9 +306,9 @@ const personal = (word: string | undefined) => word !== undefined && (PERSONAL_S
 
 function lexicalRule(original: string): string | undefined {
   // A text mostly in capitals is read as if it were in lower case: there, capitals are no abbreviation.
-  const letters = original.match(/\p{L}/gu) ?? [];
-  const shouting = letters.length >= 8 && letters.filter((letter) => letter !== letter.toLowerCase()).length / letters.length > 0.7;
-  const text = shouting ? original.toLowerCase() : original;
+  const text = shouted(original) ? original.toLowerCase() : original;
+  // "1" standing for "I" at a sentence's start, before a verb only a person's own account uses so.
+  if (ONE_FOR_I.test(text)) return "first_person";
   const words = wordsOf(text);
   const groups = GROUPS.test(text);
   for (const [index, word] of words.entries()) {
@@ -264,8 +317,12 @@ function lexicalRule(original: string): string | undefined {
     const next = words[index + 1]?.lower.replace(/['’]$/u, "");
     const after = words[index + 2]?.lower.replace(/['’]$/u, "");
     if (authorAt(words, index)) continue;
-    if (raw === "I") {
+    // "I", in any case (a text in capitals is read in lower case), and an "l" standing for it before a personal verb.
+    if (raw === "I" || raw === "i" ||
+      (raw === "l" && next !== undefined && PRONOUN_VERBS.has(next) && !/\d\s*$/u.test(text.slice(0, word.start)))) {
       const following = text.slice(word.end, word.end + 3);
+      // An abbreviation (i.e., i.v., I.M.), and Italian's article before a possessive or a number.
+      if (/^\.\s?\p{L}/u.test(following) || (next !== undefined && ITALIAN_ARTICLE_BEFORE.has(next))) continue;
       const before = words[index - 1];
       const numeral = /^(?:[0-9^]|\s*[-–/]\s*(?:[IVX]|[0-9]))/u.test(following) ||
         (text[word.start - 1] === "(" && following.startsWith(")")) ||
@@ -291,6 +348,9 @@ function lexicalRule(original: string): string | undefined {
     // Capitalized inside a sentence, a pronoun or a first-person verb followed by another capitalized word is a name.
     const named = capitalized && !word.sentenceStart;
     if (FIRST_PERSON.has(lower) && !(named && /^\p{Lu}/u.test(words[index + 1]?.text ?? ""))) return "first_person";
+    if (WE.has(lower) && words.slice(index + 1, index + 6).some(({ lower: verb }) => HOUSEHOLD_VERBS.has(verb))) {
+      return "first_person";
+    }
     if (FIRST_PERSON_VERBS.has(lower) && !named) return "first_person";
     if (/['’]s$/u.test(lower) && personal(next)) {
       const determiner = words[index - 1]?.lower;

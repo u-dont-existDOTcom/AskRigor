@@ -234,6 +234,22 @@ describe("P0 2: the dossier's privacy screen refuses the person's details and pa
     "John takes magnesium nightly.",
     "Laura, 52, has cramps.",
     "The asker's husband takes it.",
+    // Codex's final check: a name in capitals, look-alike letters in a name and in "I", and more of the kind.
+    "ALICE SMITH TAKES ASPIRIN DAILY",
+    "ALICE SMITH takes aspirin daily.",
+    "\u0391lice Smith takes aspirin daily.",
+    "J\u03bfhn Smith takes aspirin daily.",
+    "\u0406 have lupus.",
+    "\u04c0 have lupus.",
+    "\u0131 have lupus.",
+    "l have lupus.",
+    "1 have lupus.",
+    "i take aspirin daily",
+    "I SWALLOW ASPIRIN DAILY",
+    "We have been taking it since May.",
+    "Nous avons essayé pendant un mois.",
+    "DOB 12/04/1984",
+    "fecha de nacimiento: 12 de abril de 1984",
   ];
   const RESEARCH = [
     "Myo-inositol 2 g a day improved fasting insulin against placebo over 12 weeks.",
@@ -282,6 +298,26 @@ describe("P0 2: the dossier's privacy screen refuses the person's details and pa
     "Garrison et al. 2012 (Cochrane) found low-certainty benefit.",
     "I risultati non mostrano differenze.",
     "Women and their husbands were interviewed.",
+    // Codex's final check: a birth date as a study's covariate in six languages, and the researchers' "we".
+    "Date of birth was recorded as a covariate.",
+    "La fecha de nacimiento se registró como covariable.",
+    "La date de naissance a été enregistrée comme covariable.",
+    "A data de nascimento foi registrada como covariável.",
+    "Das Geburtsdatum wurde als Kovariate erfasst.",
+    "La data di nascita è stata registrata come covariata.",
+    "We found no difference between treatments.",
+    "We observed no adverse events.",
+    "We used a random-effects model.",
+    "Nous avons inclus 120 patients.",
+    "Wir haben keinen Unterschied gefunden.",
+    "Date of birth and sex were adjusted for.",
+    "Magnesium was given i.v. over 30 minutes.",
+    "The outcomes were (i) cramp frequency and (ii) sleep.",
+    "Gli autori hanno seguito i loro figli per due anni.",
+    "1 was lost to follow-up.",
+    "Each received 2 l per day.",
+    "The ALICE trial was stopped early.",
+    "ANA was positive in 12 patients.",
   ];
   it("refuses each realistic leak", () => {
     for (const text of LEAKS) expect(dossierPrivacyRule(text), text).not.toBeUndefined();
@@ -372,28 +408,47 @@ describe("P0 3: nothing drawn from YouTube comments, and people's reports only f
       receipt("youtube_video_audit", { video: "dQw4w9WgXcQ", state: "complete", records: 0, shown: 0 })];
     expect((await problemsOf(dossier(), { receipts, commentsRead: false }))?.status).toBe("saved");
   });
-  it("binds a held card finding to the dossier's own conclusions, not to every dossier of its check", async () => {
+  it("binds a held card finding to the dossier's own conclusions by an explicit declaration, never by their words", async () => {
+    // Codex's final check: a word-overlap matcher let a paraphrase of the held finding through and refused a
+    // paper-backed opposite. Each conclusion now says which card finding it is, by its place, or none.
     const held = (places: string[]) => receipt("finalization", { status: "ready", target: TARGET_DIGEST,
       answer: ANSWER_DIGEST, held: places });
-    const declaredClean = edited((value) => {
-      for (const finding of value.findings) finding.draws_on_youtube_comments = false;
+    const declared = (change: (value: Record<string, any>) => void) => edited((value) => {
+      for (const finding of value.findings) {
+        finding.draws_on_youtube_comments = false;
+        finding.card_finding = "none";
+      }
+      change(value);
     });
-    const cardClaims = ["Magnesium shortened cramps in a small trial.",
-      "Commenters on cramp videos said magnesium glycinate stopped their cramps within a week."];
-    // An unrelated held card finding: the dossier's conclusions all declare their origin and none is that finding.
-    expect((await problemsOf(declaredClean, { finalizationReceipt: held(["2"]), cardClaims }))?.status).toBe("saved");
-    // Undeclared conclusions after a hold are refused, as after comments were read.
-    expect((await problemsOf(dossier(), { finalizationReceipt: held(["2"]), cardClaims }))?.problems).toEqual([
+    const options = { finalizationReceipt: held(["2"]), cardFindings: 2 };
+    // An unrelated held card finding: every conclusion declares its origin and none is that finding.
+    expect((await problemsOf(declared(() => undefined), options))?.status).toBe("saved");
+    // The held finding, paraphrased ("acetylsalicylic acid" for aspirin): its declaration names place 2, and is refused.
+    const paraphrase = declared((value) => {
+      value.findings[1].claim = "Acetylsalicylic acid eased pain more than an inert pill, by commenters' accounts.";
+      value.findings[1].card_finding = 2;
+    });
+    expect((await problemsOf(paraphrase, options))?.problems).toEqual([
+      { path: "findings[1].card_finding", rule: "held_card_finding" }]);
+    // The paper-backed opposite of the held finding: declared none, and saved.
+    const opposite = declared((value) => {
+      value.findings[0].claim = "Aspirin did not reduce pain more than placebo in the trial read here.";
+    });
+    expect((await problemsOf(opposite, options))?.status).toBe("saved");
+    // After a hold, a conclusion that does not say which card finding it is, or names one the card lacks, is refused.
+    const undeclared = declared((value) => { delete value.findings[0].card_finding; });
+    expect((await problemsOf(undeclared, options))?.problems).toEqual([
+      { path: "findings[0].card_finding", rule: "card_finding_undeclared" }]);
+    const beyond = declared((value) => { value.findings[0].card_finding = 4; });
+    expect((await problemsOf(beyond, options))?.problems).toEqual([
+      { path: "findings[0].card_finding", rule: "unknown_reference" }]);
+    // Undeclared YouTube origin after a hold is refused too, as after comments were read.
+    expect((await problemsOf(edited((value) => {
+      for (const finding of value.findings) finding.card_finding = "none";
+    }), options))?.problems).toEqual([
       { path: "findings[0].draws_on_youtube_comments", rule: "youtube_origin_undeclared" },
       { path: "findings[1].draws_on_youtube_comments", rule: "youtube_origin_undeclared" },
     ]);
-    // A conclusion that is the held card finding, reworded a little, is refused whatever it declares.
-    const copied = edited((value) => {
-      for (const finding of value.findings) finding.draws_on_youtube_comments = false;
-      value.findings[1].claim = "Magnesium glycinate stopped cramps within a week, commenters on cramp videos said.";
-    });
-    expect((await problemsOf(copied, { finalizationReceipt: held(["2"]), cardClaims }))?.problems).toEqual([
-      { path: "findings[1].claim", rule: "held_card_finding" }]);
   });
   it("refuses a YouTube link among the threads people's reports come from", async () => {
     const video = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";

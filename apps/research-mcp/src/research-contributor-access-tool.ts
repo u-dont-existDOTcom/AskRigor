@@ -66,7 +66,7 @@ import {
   askrigorHoldsSchema, heldFor, heldText, heldVariants, HELD_NEXT_STEP, holdsSomethingNow, OWNER_POINTER_HOW,
   ownerPointerText, shownOwnerPointer, shownOwnerPointerSchema, type AskRigorHolds, type AskRigorHoldsOptions,
 } from "./askrigor-holds.js";
-import { askedText, callsPageSchema, laterInputShape, latestMessage } from "./later-inputs.js";
+import { askedText, callsPageSchema, findingsSaveOff, laterInputShape, latestMessage } from "./later-inputs.js";
 import { ownerPointerById } from "./owner-pointers.js";
 import { MCP_RESULT_MAX_BYTES } from "./config.js";
 import { clientResultBytes } from "./tool-result.js";
@@ -855,7 +855,9 @@ export function withResearchMenuReading(execute: ResearchOperationHandler, optio
       const named = await (options.devAccount?.(extra) ?? Promise.resolve(false)).catch(() => false);
       return withToolListNotice(menuRefusal(reading, parsed?.error.issues, named), input, options.toolListVersion);
     }
-    const result = await execute({ ...input, later_inputs: reading.later }, extra);
+    // Codex's final check: a test run's findings_save "off" goes on with the menu, so the plan asks for no dossier.
+    const later_inputs = findingsSaveOff(input) ? { ...reading.later, findings_save: "off" } : reading.later;
+    const result = await execute({ ...input, later_inputs }, extra);
     return sentence === undefined ? result : withMenuReadingSentence(result, sentence);
   };
 }
@@ -1106,7 +1108,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         const learning = devAccount && options.researchPlanner?.()?.enabled === true
           ? { log: options.log ?? defaultLog } : undefined;
         return await planResearchAction(options.service, auth.subject, parsed.researchMenu!, options.plainAnswer,
-          options.menuDigestSecret?.(), devAccount, learning, options.researchDossiers === true);
+          options.menuDigestSecret?.(), devAccount, learning, options.researchDossiers === true, findingsSaveOff(parsed));
       }
       if (parsed.action === "set_plain_answer_note") {
         return await setPlainAnswerNote(options.service, auth.subject, parsed.plainAnswerNote!, options.plainAnswer);
@@ -1780,8 +1782,10 @@ async function planResearchAction(
   devAccount = false,
   // Owner answer 303a: given only for a dev account while AskRigor's own planning call is on.
   learning?: { log: (failureClass: string) => void },
-  // AskRigor#477 stage 1: research dossiers are saved on this server.
+  // AskRigor#477 stage 1: research dossiers are saved on this server; and the call is a test run's, marked
+  // findings_save "off", which asks for none.
   dossiers = false,
+  callSavingOff = false,
 ): Promise<CallToolResult> {
   const account = await service.activeAccount(subject);
   const accountKey = service.accountKeyForSubject(subject);
@@ -1854,7 +1858,8 @@ async function planResearchAction(
   // AskRigor#477 stage 1 (Codex's red team of the instruction proposal, items 1 and 3): a research plan that goes on,
   // not a light look-up's, for an account a dossier can be saved for, asks for the dossier before the first final check,
   // after everything else the result says and never in next_step, which an ask of the person's keeps.
-  const dossierRequest = researchDossierAllowed(dossiers, account) && result.next === "go_on" && result.lane !== "light";
+  const dossierRequest = researchDossierAllowed(dossiers, account, callSavingOff) && result.next === "go_on" &&
+    result.lane !== "light";
   return {
     content: [{ type: "text", text },
       ...(dossierRequest
