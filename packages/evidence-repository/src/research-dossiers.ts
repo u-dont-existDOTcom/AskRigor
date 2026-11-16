@@ -86,7 +86,8 @@ function assertAppendInput(input: ResearchDossierAppendInput): void {
   if (!UUID.test(input.versionId) || (input.expectedPreviousVersionId !== null && !UUID.test(input.expectedPreviousVersionId)) ||
     (input.cardNumber !== null && (!Number.isSafeInteger(input.cardNumber) || input.cardNumber <= 0)) ||
     !(input.at instanceof Date) || Number.isNaN(input.at.getTime()) ||
-    input.identifiers.length > 200 ||
+    // 40 studies, each with up to 4 identifiers given and the aliases its receipts add.
+    input.identifiers.length > 400 ||
     input.identifiers.some(({ scheme, value }) => !RESEARCH_DOSSIER_IDENTIFIER_SCHEMES.includes(scheme) ||
       value.length < 1 || value.length > 300)) {
     throw new Error("RESEARCH_DOSSIER_INPUT_INVALID");

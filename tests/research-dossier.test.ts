@@ -661,3 +661,19 @@ describe("forget_card erases the research thread's dossiers (AskRigor#477 stage 
       .toEqual([["ARD-0001", true], ["ARD-0002", false]]);
   });
 });
+
+describe("the dossier store's input limits", () => {
+  it("takes a dossier at its limits, whose studies' identifiers and aliases can pass 200, and refuses more than 400", async () => {
+    const store = new InMemoryResearchDossierStore();
+    const identifiers = Array.from({ length: 320 }, (_, index) => ({ scheme: "pmid" as const, value: String(10000000 + index) }));
+    const base = {
+      accountKey: ACCOUNT, dossierKey: "d".repeat(64), threadKey: "e".repeat(64), requestKey: "1".repeat(64),
+      inputSha256: "2".repeat(64), payload: { schema: "askrigor.research-dossier.v1" }, payloadSha256: "3".repeat(64),
+      cardNumber: null, expectedPreviousVersionId: null, at: NOW,
+    };
+    expect((await store.append({ ...base, identifiers, versionId: deterministicUuid("limits:1") })).outcome).toBe("inserted");
+    await expect(store.append({ ...base, requestKey: "4".repeat(64), inputSha256: "5".repeat(64),
+      identifiers: [...identifiers, ...identifiers.slice(0, 81)], versionId: deterministicUuid("limits:2") }))
+      .rejects.toThrow("RESEARCH_DOSSIER_INPUT_INVALID");
+  });
+});

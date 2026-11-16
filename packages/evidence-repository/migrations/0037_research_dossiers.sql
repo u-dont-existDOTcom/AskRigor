@@ -173,7 +173,7 @@ BEGIN
      OR target_payload_sha256 IS NULL OR target_payload_sha256 !~ '^[a-f0-9]{64}$'
      OR target_payload IS NULL OR jsonb_typeof(target_payload) <> 'object'
      OR target_identifiers IS NULL OR jsonb_typeof(target_identifiers) <> 'array'
-     OR jsonb_array_length(target_identifiers) > 200
+     OR jsonb_array_length(target_identifiers) > 400
      OR (target_card_number IS NOT NULL AND target_card_number <= 0)
      OR target_version_id IS NULL OR change_time IS NULL THEN
     RAISE EXCEPTION 'RESEARCH_DOSSIER_INPUT_INVALID';

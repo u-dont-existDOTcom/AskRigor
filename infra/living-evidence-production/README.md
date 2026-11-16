@@ -450,6 +450,11 @@ SELECT count(*) FROM living_evidence.research_dossier_versions WHERE erased_at I
 SELECT event, count(*) FROM living_evidence.research_dossier_events GROUP BY event ORDER BY event;
 ```
 
+Until the owner's review tool lists dossiers, the owner reads them as the migrator, read-only:
+`SELECT d.dossier_number, v.version_number, v.created_at, v.payload_json FROM living_evidence.research_dossiers d JOIN
+living_evidence.research_dossier_versions v ON v.dossier_number = d.dossier_number WHERE v.erased_at IS NULL ORDER BY
+v.created_at DESC LIMIT 20;`
+
 Undo no migration.
 
 Owner answers 254a and 255a (2026-11-05; built, not yet released; plan
