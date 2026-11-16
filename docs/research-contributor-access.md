@@ -920,6 +920,27 @@ turns the setting off before a run and on after it, and the release record shows
 paid-private saves or research-map and source-analysis contributions. This adds no connector tool; the catalog
 stays at 33.
 
+## Private research dossiers (AskRigor#477 stage 1; owner answer 329a, 16 November 2026; built, not yet released)
+
+Notice v6 covers a free contributor's research dossier, kept privately for the owner's review (owner answer 329a).
+With a passing final check, the AI may send `later_inputs.research_dossier`: the question in general terms, the topic
+and forms, the searches, the studies, their results, up to 30 conclusions, what was covered, what communities reported
+(counts only in this stage), open trails and its own statement that the research saves a later reader substantial work
+(`apps/research-mcp/src/findings/dossier.ts` has the exact shape and limits, which the owner said are starting values
+to revisit). The server saves it whole or not at all, after exact checks with no model: each study read by a receipt of
+this call (or held by a checked Atlas finding used here) before a result or conclusion rests on it; each search matching
+its own receipt; counts, numbers needed to treat or harm and calculated figures adding up; references, coverage and
+forms; and the findings card's privacy screen, which reads health words in English only and cannot prove that a text
+identifies no one. Whether the papers say what the dossier claims is stored as the AI's judgement.
+
+`finalize_research`'s `research_dossier` says what happened: `saved` (an ARD number and version, read back by its
+digest), `duplicate`, `insufficient` (paths and rules, never values), `private`, `consent_blocked`, `not_sent` (the
+research did work a quick answer cannot do and sent none), `unconfirmed` or `unavailable`; the answer ends with one line
+saying which. Paid private accounts are not offered a dossier (owner answer 330a); a dev account with card saving off,
+and a call marked `findings_save` off, save none. Nothing is asked for or saved unless the server runs with
+`ASKRIGOR_RESEARCH_DOSSIERS=enabled`. Storage, roles, revocation, deletion with `forget_card` and the rollback hazard are
+in `infra/living-evidence-production/README.md` (migration `0037_research_dossiers`).
+
 ## Identity boundary
 
 Auth0 authenticates the connected account and supplies a stable OAuth subject.

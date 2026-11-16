@@ -437,7 +437,10 @@ while an earlier image serves, hold `forget_card` requests until the dossier-awa
 promises no deadline), or, for one that cannot wait, erase the thread's dossiers by the card numbers as the migrator
 before running the earlier image's `forget_card`
 (`SELECT living_evidence.erase_research_dossiers(NULL, ARRAY[<card numbers>]::integer[], now());`, which also erases
-the other dossiers of their research thread). Revocation needs no step: the trigger lives in the database, and an
+the other dossiers of their research thread). A request that names a dossier by its ARD number is met, on any image,
+with `SELECT living_evidence.erase_research_dossiers(thread_key::text, ARRAY[]::integer[], now()) FROM
+living_evidence.research_dossiers WHERE dossier_number = 'ARD-0001' AND erased_at IS NULL;` as the migrator. Revocation
+needs no step: the trigger lives in the database, and an
 earlier image's migrations never drop it. A rollback below the image that runs `migrate` with 0037 needs no change to
 the database; its own `migrate` leaves 0037's objects alone. Read-only counts, as the migrator, before and after:
 

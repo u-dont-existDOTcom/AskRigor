@@ -188,6 +188,25 @@ describe("AskRigor public site", () => {
     expect(privacy).toContain("public forum websites (the page’s link), Reddit (a thread’s link or deidentified search words");
   });
 
+  // AskRigor#477 stage 1 (owner answer 329a, 16 Nov 2026): notice v6 covers a private research dossier; the page
+  // describes it in wording only, adding nothing the shared path did not already include.
+  it("describes the private research dossier inside the free shared path, never shown and erased with its card", async () => {
+    const privacy = await pageHtml("site/privacy/index.html");
+    const start = privacy.indexOf("<section><h2>Research access and shared learning</h2>");
+    const section = privacy.slice(start, privacy.indexOf("</section>", start));
+    expect(section).toContain("When a research run would save a later reader substantial work, these parts of it are " +
+      "kept together as one private research dossier: the question in general terms, the searches, the studies and how " +
+      "each was read, their results with numbers, the conclusions and how certain they are, what was covered, what " +
+      "communities reported as a findings card summarizes it, what is still open, and the AI’s own statement of the " +
+      "work it saves.");
+    expect(section).toContain("A dossier holds nothing this paragraph excludes; only AskRigor’s owner can read it, it is " +
+      "never shown on a page, revoking access withdraws it while it waits for review, and deleting a findings card of " +
+      "the same research, or asking with the dossier’s ARD-#### id, erases it.");
+    // After the exclusions it relies on, and before the paid private sentence, which it does not change.
+    expect(section.indexOf("private research dossier")).toBeGreaterThan(section.indexOf("It excludes raw chat"));
+    expect(section.indexOf("private research dossier")).toBeLessThan(section.indexOf("Paid private mode submits"));
+  });
+
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
