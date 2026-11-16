@@ -191,6 +191,12 @@ export interface ShownFinding {
    */
   namedVideos: string[];
   /**
+   * Owner answer 311a: "caller" when the app that sent the checking call made the final check's AI readings, as the
+   * finalization receipt signed it and the card's stamp kept it: the page then says who did what. Null when AskRigor's
+   * server made them, and for a finding whose research was erased.
+   */
+  aiReadings: "caller" | null;
+  /**
    * The owner, 6 Nov 2026: the usual view it challenges, with its source and the quick-answer test's verdict, from its
    * publication's challenge mark; null for none, or for a mark whose texts a page would refuse.
    */
@@ -503,6 +509,7 @@ function fromPublished(publication: AtlasPagePublication, published: AtlasPublis
     challenge: shownChallenge(publication),
     namedVideos: shownNamedVideos(published.named_videos),
     ...researchBehind(published, shownSource),
+    aiReadings: published.ai_readings ?? null,
   };
 }
 
@@ -677,6 +684,11 @@ function fromCanonical(
     // Owner answers 252a and 255a: an accepted or edited finding shows the research behind it from its own version, or
     // from its publication's fields; both are erased with its F number's wording.
     ...canonicalResearch(content, publication, sources, finding.sources),
+    // Owner answer 311a: from the research the page shows: its own version's when it has one, else its publication's
+    // fields, as canonicalResearch chooses (the review of #473: a version accepted from a save AskRigor's server read
+    // shows that research, so not the mark of the card it came from).
+    aiReadings: content.research !== undefined ? content.research.ai_readings ?? null
+      : publication.published?.ai_readings ?? null,
   };
 }
 

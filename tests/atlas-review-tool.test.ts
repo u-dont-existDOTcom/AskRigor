@@ -182,7 +182,7 @@ function harness(options: { enabled?: boolean; configured?: boolean } = {}) {
       };
     },
     async save(card: object, bases: string[] = ["full_text_audit"], atlas: string[] = [],
-      claims: Record<string, string[]> = {}) {
+      claims: Record<string, string | string[]> = {}) {
       contributor += 1;
       // The card's later shape, which takes the research behind each finding (owner answer 252a).
       const parsed = laterFindingsCardSchema.parse(card);
@@ -337,6 +337,57 @@ describe("the findings actions' calls", () => {
       content: { verifiedBases: ["forum_read"], research: { forum_signal: { communities: ["r/inventedvelmor"],
         threads_read: 1, threads: [], people: forum.people, studies: "support_not_located" } } } });
     expect((await h.promote()).result.status).toBe("promoted");
+  });
+
+  // Owner answer 311a (15 Nov 2026): a card from a check whose AI readings the calling app made says so in its stamp,
+  // from the receipt's signed claim. The version an accept stores keeps it with the research behind the finding, alone
+  // when the finding carries none, and a revision keeps it, so the accepted finding's page can say who did what.
+  it("keeps with the version that the calling app made the final check's AI readings", async () => {
+    await stubProviders();
+    const h = harness();
+    const source = "10.0000/synthetic-velmor-c";
+    const sentence = "Tremor scores halved in 20 of 100 people on the invented low dose.";
+    await h.save({ ...DOI_CARD, findings: [{ ...DOI_CARD.findings[0]!, numbers: [{ ...LOW_DOSE, source }],
+      backing: [{ source, sentence, against: "The invented trial was small." }] }] }, ["full_text_audit"], [],
+    { rd: ["1.1:full_text_audited:consistent"], bl: ["1.1:fu:full_text"], ar: "caller" });
+    // The owner sees it before deciding.
+    const shown = await h.call({ action: "inspect_finding", card: "ARF-0042", finding: 1 });
+    expect(shown.text).toContain("\nAI readings: the app that ran this research made the final check's AI readings; " +
+      "AskRigor's server checked the sources. The finding's page will say so.\n");
+    const accepted = await h.call({ action: "accept_finding", card: "ARF-0042", finding: 1,
+      cardSha256: await inspected(h, "ARF-0042", 1) });
+    expect(accepted.structured.outcome, accepted.text).toBe("finding_queued");
+    const [intent] = await h.review.inspectIntents(["F-1001"]);
+    expect((intent!.payload as { content: { research: unknown } }).content.research).toEqual({
+      backing: [{ source, sentence, text: "full_text", against: "The invented trial was small." }],
+      source_reading: [{ source, read: "full_text_audited", figures: "consistent" }],
+      figure_sources: [source],
+      ai_readings: "caller",
+    });
+    expect((await h.promote()).result.status).toBe("promoted");
+    expect(h.canonical.snapshot().versions.map(({ content }) => content.research?.ai_readings)).toEqual(["caller"]);
+    // A revision keeps it.
+    const revised = await h.call({ action: "edit_finding", atlasNumber: "F-1001", version: 1,
+      appliesTo: "Adults with Velmor syndrome, in one small invented trial", note: "Said the trial was small." });
+    expect(revised.structured.outcome, revised.text).toBe("finding_queued");
+    const revision = (await h.review.inspectIntents(["F-1001"])).find(({ intentKind }) => intentKind === "revise");
+    expect((revision!.payload as { content: { research: AtlasResearch } }).content.research.ai_readings).toBe("caller");
+    // A card with none of the research behind it: the version's research holds the mark alone. The same card from a
+    // check AskRigor's server read keeps no research at all.
+    await h.save({ ...DOI_CARD, question: "Does a second invented dose of Velmor medicine ease tremor?" },
+      ["full_text_audit"], [], { ar: "caller" });
+    const bare = await h.call({ action: "accept_finding", card: "ARF-0043", finding: 1,
+      cardSha256: await inspected(h, "ARF-0043", 1) });
+    expect(bare.structured.outcome, bare.text).toBe("finding_queued");
+    const [bareIntent] = await h.review.inspectIntents(["F-1002"]);
+    expect((bareIntent!.payload as { content: { research: unknown } }).content.research).toEqual({ ai_readings: "caller" });
+    await h.save({ ...DOI_CARD, question: "Does a third invented dose of Velmor medicine ease tremor?" });
+    const plain = await h.call({ action: "accept_finding", card: "ARF-0044", finding: 1,
+      cardSha256: await inspected(h, "ARF-0044", 1) });
+    expect(plain.structured.outcome, plain.text).toBe("finding_queued");
+    const [plainIntent] = await h.review.inspectIntents(["F-1003"]);
+    expect((plainIntent!.payload as { content: object }).content).not.toHaveProperty("research");
+    expect((await h.call({ action: "inspect_finding", card: "ARF-0044", finding: 1 })).text).not.toContain("AI readings:");
   });
 
   // The review of 5 November, finding 4: the research a version keeps holds only the sources the owner accepts, so a

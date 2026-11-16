@@ -1,9 +1,7 @@
 import { Pool, type PoolConfig } from "pg";
 import { z } from "zod";
 
-import { ATLAS_PUBLISHED_BACKING_PER_FINDING, atlasResearchSchemas,
-  atlasNamedVideosSchema,
-} from "./atlas-research.js";
+import { ATLAS_AI_READINGS_CALLER, ATLAS_PUBLISHED_BACKING_PER_FINDING, atlasNamedVideosSchema, atlasResearchSchemas } from "./atlas-research.js";
 import { withoutFormatCharacters } from "./atlas-shown-text.js";
 import { assertNoProhibitedPersistentKeys } from "./contracts.js";
 import { deterministicUuid, sha256, stableJson } from "./hash.js";
@@ -294,7 +292,8 @@ export type AtlasSearch = z.infer<typeof atlasSearchSchema>;
  * publication shows of it, kept with the version so that an accepted finding from any card, a paid private one's too,
  * shows it. Its backing lines' quotes, found word for word in a text AskRigor fetched itself, and the strongest thing
  * against each; how each source was read; each figure's source by its place in the numbers, null where none is named;
- * and the forum signal. An erasure removes it whole (migration 0029).
+ * the forum signal; and, when the app that sent the checking call made the final check's AI readings, that it did
+ * (owner answer 311a). An erasure removes it whole (migration 0029).
  */
 const canonicalResearch = atlasResearchSchemas(atlasText);
 export const atlasResearchSchema = z.object({
@@ -304,6 +303,8 @@ export const atlasResearchSchema = z.object({
   forum_signal: canonicalResearch.forumSignal.optional(),
   // Owner answer 307b: the videos the person named that the finding is about, each as its watch page.
   named_videos: atlasNamedVideosSchema.optional(),
+  // Owner answer 311a: the app that sent the checking call made the final check's AI readings.
+  ai_readings: z.literal(ATLAS_AI_READINGS_CALLER).optional(),
 }).strict().refine((research) => Object.keys(research).length > 0, { message: "the research behind it holds something" });
 export type AtlasResearch = z.infer<typeof atlasResearchSchema>;
 

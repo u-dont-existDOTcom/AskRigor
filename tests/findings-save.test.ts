@@ -34,6 +34,7 @@ import {
   type FindingsSaveResult,
 } from "../apps/research-mcp/src/findings/contracts.js";
 import { GitHubFindingsQueue } from "../apps/research-mcp/src/findings/github-findings.js";
+import { parseFindingsRecordBody } from "../apps/research-mcp/src/findings/github-findings-review.js";
 import {
   DEFAULT_FINDINGS_REPOSITORY,
   findingsRepositoryFromEnv,
@@ -367,6 +368,32 @@ describe("findings library save", () => {
     expect(issue!.body).toContain("Pending the owner's review");
     expect(issue!.body).toContain("Model, as the app reported it \\(not verified\\): Example Model 2026\\-08\\-06");
     expect(issue!.body).toMatch(/\n<!-- askrigor-findings-card:[A-Za-z0-9_-]+ -->$/u);
+  });
+
+  // Owner answer 311a (15 Nov 2026): a card from a check whose AI readings the calling app made is saved as any card
+  // is. Its stamp keeps the receipt's signed mark, and the card's readable part says who did what.
+  it("keeps in the stamp that the calling app made the final check's AI readings, from the receipt alone", async () => {
+    const github = new FakeGitHub();
+    await expect(service(github).save(saveInput({ finalization_receipt: finalization({ ar: "caller" }) }), CONTEXT))
+      .resolves.toEqual({ status: "saved", retryable: false, card_id: "ARF-0042", occurrence_count: 1 });
+    const [issue] = github.issues;
+    expect(storedRecord(issue!.body).stamp.research).toEqual({
+      finalized_at: "2026-09-30T12:00:00.000Z", depth: "first_pass", status: "ready_with_limits", receipts_verified: 7,
+      validated_sources: 1, lead_sources: 0, material_videos: 1, ai_readings: "caller",
+    });
+    expect(issue!.body).toContain("- Final check: AskRigor’s server checked the sources\\. The app that ran the " +
+      "research made the AI readings\\.");
+    // The record reads back as the library wrote it, mark and all.
+    expect(parseFindingsRecordBody(issue!.body, "card")).toMatchObject({
+      record: { stamp: { research: { ai_readings: "caller" } } } });
+    // Only the receipt's own word is the mark: another value, or none, leaves the stamp and the card's text without it.
+    for (const claims of [{ ar: "server" }, { ar: "Caller" }, {}]) {
+      const other = new FakeGitHub();
+      await expect(service(other).save(saveInput({ finalization_receipt: finalization(claims) }), CONTEXT))
+        .resolves.toMatchObject({ status: "saved" });
+      expect(storedRecord(other.issues[0]!.body).stamp.research, JSON.stringify(claims)).not.toHaveProperty("ai_readings");
+      expect(other.issues[0]!.body, JSON.stringify(claims)).not.toContain("Final check:");
+    }
   });
 
   // Owner answer 170 (24 Oct): the owner told YouTube on 29 Aug that AskRigor stores no YouTube-derived records until
@@ -1379,6 +1406,108 @@ describe("finalize_research, save_research_findings and the findings library", (
     expect(verifyResearchReceipt(unmarked.finalization_receipt!, { secret: SECRET }).claims).not.toHaveProperty("fs");
     expect((await save({ findings_card: CHECKED_CARD, finalization_receipt: unmarked.finalization_receipt,
       user_consent: "yes_to_this_save" }, "auth0|paid")).structuredContent).toMatchObject({ status: "saved" });
+  });
+
+  // Owner answer 310a (15 Nov 2026): a call whose AI readings its caller makes. The server asks no meaning judge for
+  // it, on a dev account either. Owner answer 311a: its card is saved as any call's is, with the receipt that signs
+  // who made the readings.
+  it("asks no meaning judge for a call that leaves the AI readings to its caller, and saves its card", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", service.accountKeyForSubject("auth0|free"));
+    const bundles: MeaningJudgeBundle[] = [];
+    const meaningJudge: MeaningJudge = { enabled: true, judge: async (bundle) => {
+      bundles.push(bundle);
+      return { cached: false, costUsd: 0.03, milliseconds: 5, judgment: { status: "ran", youtube: [], comparison: [],
+        sourceLines: [], limits: [], standalone: [] } };
+    } };
+    const { calls, findingsSave } = recorder();
+    const { kept, findingsKeep } = keeper();
+    const options = { researchContributorAccessService: service, findingsLibrary: true, findingsSave, findingsKeep,
+      meaningJudge };
+    const finalize = connectorTool("finalize_research", options);
+    const save = connectorTool("save_research_findings", options);
+    const result = await finalize({ ...request(), later_inputs: { ai_readings: "caller" } }, "auth0|free");
+    const output = result.structuredContent as FinalizeResearchOutput;
+    expect(output).toMatchObject({ status: "ready_with_limits", ai_readings: { by: "caller" },
+      findings_card: { status: "checked", saved: { status: "saved", card_id: "ARF-0042" } },
+      saved_line: "Saved to AskRigor's findings library for review as ARF-0042." });
+    expect(output).not.toHaveProperty("meaning_judge");
+    expect(bundles).toEqual([]);
+    expect(kept).toEqual([]);
+    // The save is given the check's own receipt, which signs who made the readings and no saving-off mark, so the
+    // saved card's stamp can say so.
+    expect(calls).toHaveLength(1);
+    expect(calls[0]![0].finalization_receipt).toBe(output.finalization_receipt);
+    const signed = verifyResearchReceipt(output.finalization_receipt!, { secret: SECRET });
+    expect(signed).toMatchObject({ ok: true, kind: "finalization", claims: { ar: "caller" } });
+    expect(signed.claims).not.toHaveProperty("fs");
+    // A save asked for with that receipt is taken as any save is.
+    const again = await save({ findings_card: CHECKED_CARD, finalization_receipt: output.finalization_receipt,
+      user_consent: "yes_to_this_save" }, "auth0|free");
+    expect(again.structuredContent).toMatchObject({ status: "saved", card_id: "ARF-0042" });
+    expect(calls).toHaveLength(2);
+    // The same check without the mark asks the judge once and saves the card.
+    const plain = await finalize(request(), "auth0|free");
+    expect(plain.structuredContent).toMatchObject({ status: "ready_with_limits", meaning_judge: { status: "ran" } });
+    expect(plain.structuredContent).not.toHaveProperty("ai_readings");
+    expect(verifyResearchReceipt((plain.structuredContent as FinalizeResearchOutput).finalization_receipt!,
+      { secret: SECRET }).claims).not.toHaveProperty("ar");
+    expect(bundles).toHaveLength(1);
+    expect(calls).toHaveLength(3);
+  });
+
+  // Owner answer 311a (15 Nov 2026): a call that leaves the AI readings to its caller is asked for its card, has a
+  // card that doesn't read kept for review, and is offered a paid account's save, each as any call is. The review of
+  // 15 Nov 2026 stays for a test run's mark: a paid account's result does not say a save follows the user's yes.
+  it("treats a caller-read call's card as any call's, and promises no save to a paid account's test run", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    const { calls, findingsSave } = recorder();
+    const { kept, findingsKeep } = keeper();
+    const finalize = connectorTool("finalize_research", { researchContributorAccessService: service,
+      findingsLibrary: true, findingsSave, findingsKeep });
+    const { findings_card: _card, ...withoutCard } = request();
+    // Without the mark, research that cites a study is asked for its card, in a note that says its research is saved.
+    const askedFor = (note: string) => note.startsWith("Give findings_card with answer_draft: ");
+    const asked = (await finalize(withoutCard, "auth0|free")).structuredContent as FinalizeResearchOutput;
+    expect(asked.status).toBe("ready_with_limits");
+    expect((asked.notes ?? []).filter(askedFor)).toEqual([
+      expect.stringMatching(/^Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library/u)]);
+    // With the mark it is asked the same way: its research is saved too.
+    const marked = await finalize({ ...withoutCard, later_inputs: { ai_readings: "caller" } }, "auth0|free");
+    expect(marked.structuredContent).toMatchObject({ status: "ready_with_limits", ai_readings: { by: "caller" },
+      findings_card: { status: "absent" } });
+    expect(((marked.structuredContent as FinalizeResearchOutput).notes ?? []).filter(askedFor))
+      .toEqual((asked.notes ?? []).filter(askedFor));
+    expect(resultText(marked)).toContain("A findings card from this call is saved as any call's is, and each of its " +
+      "findings' Atlas pages says that AskRigor's server checked the sources and the app that ran the research made " +
+      "the AI readings.");
+    // A card that doesn't read is kept for review, from a marked call as from any other.
+    const tooLong = { ...CHECKED_CARD, findings: [{ ...CHECKED_CARD.findings[0], claim: "An invented claim. ".repeat(60) }] };
+    const unread = await finalize({ ...withoutCard, later_inputs: { findings_card: tooLong, ai_readings: "caller" } }, "auth0|free");
+    expect(unread.structuredContent).toMatchObject({ findings_card: { status: "rejected" }, ai_readings: { by: "caller" } });
+    expect(kept).toHaveLength(1);
+    await finalize({ ...withoutCard, later_inputs: { findings_card: tooLong } }, "auth0|free");
+    expect(kept).toHaveLength(2);
+    expect(calls).toEqual([]);
+    // A paid account's marked call is offered the save, as any call is, and nothing is saved before the user's yes.
+    const paid = await finalize({ ...request(), later_inputs: { ai_readings: "caller" } }, "auth0|paid");
+    const unmarkedPaid = await finalize(request(), "auth0|paid");
+    expect(paid.structuredContent).toMatchObject({ status: "ready_with_limits", ai_readings: { by: "caller" },
+      findings_card: { status: "checked" } });
+    expect(resultText(paid)).not.toContain("not offered and not saved");
+    expect((paid.structuredContent as FinalizeResearchOutput).caveats)
+      .toEqual((unmarkedPaid.structuredContent as FinalizeResearchOutput).caveats);
+    expect((paid.structuredContent as FinalizeResearchOutput).findings_card)
+      .toEqual((unmarkedPaid.structuredContent as FinalizeResearchOutput).findings_card);
+    // A paid account's test run (findings_save "off"): no offer, and the text says the card is neither offered nor saved.
+    const testRun = await finalize({ ...request(), later_inputs: { findings_save: "off" } }, "auth0|paid");
+    expect(resultText(testRun)).toContain("Findings card: checked; not offered and not saved: this call turned card " +
+      "saving off, and save_research_findings refuses its card.");
+    expect(resultText(testRun)).not.toContain("saves it after their yes");
+    expect((testRun.structuredContent as FinalizeResearchOutput).caveats.join(" ")).not.toContain("save");
+    expect(calls).toEqual([]);
   });
 
   // The recheck of 5 Nov 2026: ["off"], and later_inputs sent as a JSON string holding the marker, let a card save. Its

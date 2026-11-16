@@ -551,6 +551,25 @@ checking them (`apps/research-mcp/src/absence-searches.ts`):
   a site's, so subreddits keep their declared limits; a community the reader read in part keeps the limits for its pages
   left unread. Limit: communities that share one host by path (healthunlocked.com/<community>) share its digest, so the
   reader's stop at one of them backs another's boundary; forums hosted as subdomains of one service are each their own.
+- A call marked `later_inputs.ai_readings` `"caller"` (owner answer 310a, 15 November 2026) leaves the check's AI
+  readings to the app that sends it: the review of the draft and the meaning judge, which the server makes on a dev
+  account, and the second reading, which it makes for every account. The server makes none of them for that call, on
+  any account, and counts nothing for them; the rule checks are the same. Every result of such a call says so:
+  `ai_readings` (`by` `caller`, and `declared`, the count of what the call declared for the rule checks, since a pass
+  tests the answer's safety statements, harms and figures only as far as they are declared; `declared` is left out
+  when the call could not be read), `second_reading` `skipped` with reason
+  `left_to_caller` on a pass, one note, and a check line that ends "Its rule checks ran on AskRigor's server; the app
+  that ran this research made the check's AI readings." The finalization receipt signs the mark (`ar` `caller`). Its
+  findings card is asked for, checked, saved, kept for review when it doesn't read, and offered to a paid account as
+  any call's is (owner answer 311a, 15 November 2026). The save reads the receipt's signed `ar` into the saved card's
+  stamp (`stamp.research.ai_readings` `caller`), never from the card, so an app cannot leave it out; each of the
+  card's findings then carries it in its Atlas publication (`ai_readings`, in any version) and in the research an
+  accepted version keeps, and its page says "AskRigor's server checked the sources. The app that ran the research
+  made the AI readings." Only the word `caller`, in any case, reads as the mark,
+  in the three places `findings_save` is read: in `later_inputs`, at the top level, or in `later_inputs` given as a
+  JSON string (then with a note, since a later input given as text is otherwise dropped). Every place that gives a
+  value must say `caller`; any other value leaves the readings to AskRigor, with a note. The owner's runner uses it: it makes the same three readings on the owner's Claude plan with AskRigor's
+  rubrics, where a dev account's check otherwise pays for the review on every call that carries the answer.
 - A call marked `findings_save` `"off"` (in `later_inputs`, or at the top level for an older app) saves nothing, for
   every account kind, whatever the account's switch says: no findings card (reason `call_saving_off`), no private copy,
   no save offer and no research-map reminder or offer, and at a free contributor's check no staged analysis goes to the

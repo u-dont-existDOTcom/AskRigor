@@ -125,6 +125,13 @@ export function repeatPassNote(note: string, asks: "answer" | "input" = "answer"
   }
   return note;
 }
+// Owner answer 310a (15 Nov 2026): the note on a call that leaves the check's AI readings to the app that sends it.
+export const CALLER_READINGS_NOTE = "This call left the final check's AI readings to the app that sent it " +
+  "(later_inputs.ai_readings caller): the review of the draft, the second reading and the meaning judge. AskRigor's " +
+  "server made none of them, and its rule checks ran as always. A pass tests the answer's safety statements, harms " +
+  "and figures only as far as the call declared them (ai_readings.declared counts what it gave). A findings card " +
+  "from this call is saved as any call's is, and each of its findings' Atlas pages says that AskRigor's server " +
+  "checked the sources and the app that ran the research made the AI readings.";
 // Owner answer 205a (30 October 2026): beside the limits of a passing check, which the panel lists in full.
 export const PASSING_LIMITS_GUIDANCE = "The panel lists every limit below beneath the checked answer, so the answer " +
   "need not repeat them. The answer " +

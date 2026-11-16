@@ -1,4 +1,5 @@
 import {
+  ATLAS_AI_READINGS_CALLER,
   ATLAS_NAMED_VIDEO_LINK,
   ATLAS_NAMED_VIDEOS_PER_FINDING,
   ATLAS_PUBLICATION_HOLD_REASONS,
@@ -191,7 +192,17 @@ function publishedFieldsOf(record: FindingsRecord, findingNumber: number,
       : "unknown",
     // Owner answer 307b: the videos the person named, as the save stored their watch pages.
     ...(named.length === 0 ? {} : { named_videos: named }),
+    ...(callerMadeAiReadings(record) ? { ai_readings: ATLAS_AI_READINGS_CALLER } : {}),
   };
+}
+
+/**
+ * Whether the app that sent the checking call made the final check's AI readings (owner answers 310a and 311a): what
+ * the saved card's stamp keeps of the finalization receipt's signed `ar`. Every finding of such a card says so, in its
+ * publication and in the research an accepted version keeps.
+ */
+export function callerMadeAiReadings(record: Pick<FindingsRecord, "stamp">): boolean {
+  return record.stamp.research.ai_readings === ATLAS_AI_READINGS_CALLER;
 }
 
 // The Atlas's own guard against a YouTube link in a text it keeps (atlasText in @askrigor/evidence-repository).
@@ -328,10 +339,12 @@ function inCardContext(published: AtlasPublishedFinding, record: FindingsRecord,
  * accepted (`kept`, the accept's sources; all the finding's when the owner kept them all) are in it, so a source the
  * owner dropped, a retracted one say, never shows (the review of 5 November, finding 4). Undefined when the finding
  * carries none, or when what it carries is not what the canonical Atlas keeps (its texts refuse a card's number and a
- * YouTube link): the accept goes ahead without it.
+ * YouTube link): the accept goes ahead without it. `callerRead`: the app that sent the checking call made the final
+ * check's AI readings (owner answer 311a); the research says so, and says it alone when nothing else of it is kept, so
+ * the finding's page never loses it.
  */
 export function canonicalResearchOf(finding: StoredFinding, numbers: readonly AtlasNumberEntry[],
-  kept: readonly string[] = finding.sources): AtlasResearch | undefined {
+  kept: readonly string[] = finding.sources, callerRead = false): AtlasResearch | undefined {
   const keys = new Set(kept.map(sourceIdKey));
   const sources = finding.sources.filter((source) => !isYouTubeVideoId(source) && keys.has(sourceIdKey(source)));
   const research = researchBehindOf(finding, { sources, numbers: null });
@@ -342,6 +355,7 @@ export function canonicalResearchOf(finding: StoredFinding, numbers: readonly At
     ? (finding.numbers ?? []).map(({ source }) => source === undefined
       ? null : sources.find((named) => sourceIdKey(named) === sourceIdKey(source)) ?? null)
     : [];
+  const readings = callerRead ? { ai_readings: ATLAS_AI_READINGS_CALLER } as const : undefined;
   const parsed = atlasResearchSchema.safeParse({
     ...(research?.backing === undefined ? {} : { backing: research.backing }),
     ...(research?.source_reading === undefined ? {} : { source_reading: research.source_reading }),
@@ -349,14 +363,15 @@ export function canonicalResearchOf(finding: StoredFinding, numbers: readonly At
     ...(research?.forum_signal === undefined ? {} : { forum_signal: research.forum_signal }),
     // Owner answer 307b: the videos the person named, as the save stored their watch pages.
     ...(named.length === 0 ? {} : { named_videos: named }),
+    ...readings,
   });
-  return parsed.success ? parsed.data : undefined;
+  return parsed.success ? parsed.data : readings;
 }
 
 /**
  * An accepted version's research behind it with only the sources a revision keeps (the review of 5 November, finding
  * 4): each backing line and reading of a source dropped is left out, and a figure's source dropped becomes none.
- * Undefined when nothing is left.
+ * Who made the final check's AI readings stays (owner answer 311a). Undefined when nothing is left.
  */
 export function researchKeeping(research: AtlasResearch, keeps: (source: string) => boolean): AtlasResearch | undefined {
   const backing = (research.backing ?? []).filter(({ source }) => keeps(source));
@@ -369,6 +384,7 @@ export function researchKeeping(research: AtlasResearch, keeps: (source: string)
     ...(research.forum_signal === undefined ? {} : { forum_signal: research.forum_signal }),
     // Owner answer 307b: a named video is no source, so no dropped source takes it with it.
     ...(research.named_videos === undefined ? {} : { named_videos: research.named_videos }),
+    ...(research.ai_readings === undefined ? {} : { ai_readings: research.ai_readings }),
   };
   return Object.keys(kept).length === 0 ? undefined : kept;
 }
