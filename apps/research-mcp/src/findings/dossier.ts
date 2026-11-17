@@ -1128,8 +1128,6 @@ export async function saveResearchDossier(
     versionId: appended.versionId,
     dossierNumber: appended.dossierNumber,
     stored: read.payload,
-    namesLivingPeople: checked.input.names_living_people,
-    origin: (payload.stamp as { origin: Record<string, unknown> }).origin,
     at: savedAt,
   });
   const publicationNote = publication === undefined ? undefined : dossierPublicationNote(publication);

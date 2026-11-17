@@ -54,6 +54,7 @@ export {
   RESEARCH_DOSSIER_PUBLIC_STATES,
   ResearchDossierPublicationError,
   publicDossierNoticeCovered,
+  researchDossierAdmission,
   type PublicDossierCopy,
   type PublicDossierHistoryEntry,
   type PublicDossierPageSource,

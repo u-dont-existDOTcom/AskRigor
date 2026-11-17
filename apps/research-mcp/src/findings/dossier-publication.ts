@@ -1,9 +1,5 @@
-import { createHash } from "node:crypto";
-
 import {
   publicDossierNoticeCovered,
-  stableJson,
-  type ResearchDossierAutoHoldReason,
   type ResearchDossierPublisher,
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
@@ -163,10 +159,6 @@ export function publicDossierOf(stored: Stored): PublicDossier {
   };
 }
 
-export function publicDossierDigest(dossier: PublicDossier): string {
-  return createHash("sha256").update(stableJson(dossier), "utf8").digest("hex");
-}
-
 /** The public dossier as a page reads it back: the shape publicDossierOf writes, checked, or undefined. */
 export function readPublicDossier(payload: unknown): PublicDossier | undefined {
   const parsed = publicDossierSchema.safeParse(payload);
@@ -324,11 +316,11 @@ export interface DossierPublicationRequest {
   noticeCovering?: readonly string[];
   versionId: string;
   dossierNumber: string;
-  /** The stored dossier (storedResearchDossier), as read back. */
+  /**
+   * The stored dossier (storedResearchDossier), as read back: its public part is checked here for the AI's note, and
+   * the publisher derives it again from the saved record and refuses anything else (Codex's review, finding 10).
+   */
   stored: Record<string, unknown>;
-  /** The AI's declarations the stored dossier keeps for this decision. */
-  namesLivingPeople: boolean | undefined;
-  origin: Record<string, unknown>;
   at: Date;
 }
 
@@ -366,30 +358,18 @@ export async function publishResearchDossier(request: DossierPublicationRequest)
     conflicts.add(other.publicNumber);
     if (found.some(({ important }) => important)) importantConflict = true;
   }
-  const privacyRead = dossier.checked.privacy_reading;
-  const reasons: ResearchDossierAutoHoldReason[] = [
-    // Nothing shows before a semantic privacy reading passed exactly what was saved (Codex's review, finding 1).
-    ...(privacyRead ? [] : ["privacy_reading_pending" as const]),
-    ...(dossier.value.confidence === "high" ? [] : ["not_high_confidence" as const]),
-    ...(request.namesLivingPeople === true ? ["names_living_people" as const]
-      : request.namesLivingPeople === undefined ? ["living_people_undeclared" as const] : []),
-    ...(importantConflict ? ["important_conflict" as const] : []),
-  ];
   const conflictsWith = [...conflicts].sort().slice(0, 50);
+  // Whether it shows, and why it is held, the publisher derives from the saved record (Codex's review, findings 1, 2
+  // and 10): waiting for the privacy reading, not highly confident, names a living person or did not say; this check's
+  // conflicts are the one thing it is told.
   let published: Awaited<ReturnType<ResearchDossierPublisher["publish"]>>;
   try {
     published = await request.publisher.publish({
       accountKey: request.accountKey,
       versionId: request.versionId,
-      topicKey: dossier.topic.key,
-      relatedTopicKeys: dossier.topic.related,
       payload: dossier as unknown as Record<string, unknown>,
-      payloadSha256: publicDossierDigest(dossier),
-      state: reasons.length === 0 ? "shown" : "held",
-      holdReasons: reasons,
       conflictsWith,
-      origin: request.origin,
-      privacyRead,
+      importantConflict,
       at: request.at,
     });
   } catch {
@@ -397,6 +377,8 @@ export async function publishResearchDossier(request: DossierPublicationRequest)
   }
   if (published.outcome === "account_refused") return { status: "not_published", reason: "account_not_eligible" };
   if (published.outcome === "version_refused") return { status: "not_published", reason: "version_not_publishable" };
+  if (published.outcome === "payload_refused") return { status: "not_published", reason: "not_publishable" };
+  const reasons = published.holdReasons;
   const page = dossierPagePath(published.publicNumber);
   if (published.state === "shown") {
     return { status: "shown", public_id: published.publicNumber, page,

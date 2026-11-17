@@ -545,8 +545,10 @@ number, D-1001 onward), `research_dossier_public_versions` (one copy per saved v
 with its reasons, superseded, taken down or erased; its public content, topic, related topics, the dossiers it conflicts
 with, where its research ran, whether the privacy reading passed its saved content, without which it never shows, and
 whether a claim names a living person, with the owner's recorded decision to show it) and
-`research_dossier_public_events` (append-only), six functions and two views. The research-access role publishes and
-reads a topic's shown copies (`publish_research_dossier_version`, `research_dossier_topic_publications`); the review role
+`research_dossier_public_events` (append-only), six role functions, three pure helpers that derive a copy from its
+private record, and two views. The research-access role publishes and reads a topic's shown copies
+(`publish_research_dossier_version`, which derives the public copy and why it is held from the saved private record and
+refuses anything else, and `research_dossier_topic_publications`); the review role
 lists, inspects and decides (`list_research_dossier_publications`, `inspect_research_dossier_publication`,
 `decide_research_dossier_publication`, and `decide_research_dossier_living_person`, the owner's own decision with his
 reason, the only way a copy whose claim names a living person shows);

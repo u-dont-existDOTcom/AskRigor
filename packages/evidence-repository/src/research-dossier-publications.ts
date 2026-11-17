@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 
 import { assertSafeAtlasSchema, atlasPool, type PostgresAtlasStoreOptions } from "./atlas-findings.js";
+import { sha256, stableJson } from "./hash.js";
 import type { InMemoryResearchDossierStore } from "./research-dossiers.js";
 
 /**
@@ -50,31 +51,29 @@ const TOPIC_KEY = /^[a-z0-9][a-z0-9._-]{0,199}$/u;
 const HEX_64 = /^[a-f0-9]{64}$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
 
+/**
+ * A copy to publish. The store takes nothing else on trust (Codex's review of stage 2, finding 10): it derives the
+ * public part, its topic, related topics and digest, where the research ran, whether a privacy reading passed it,
+ * whether a claim names a living person, and so whether it shows or is held and why, from the saved private record.
+ */
 export interface ResearchDossierPublishInput {
   accountKey: string;
   /** The saved private version this copy is of. */
   versionId: string;
-  topicKey: string;
-  relatedTopicKeys: readonly string[];
-  /** The public part of the dossier, as the server made it. */
+  /** The public part as the server made and checked it; anything but the store's own derivation is refused. */
   payload: Record<string, unknown>;
-  payloadSha256: string;
-  state: "shown" | "held";
-  holdReasons: readonly ResearchDossierAutoHoldReason[];
-  /** The shown dossiers it conflicts with, by public number. */
+  /** The shown dossiers it conflicts with, by public number: the server's conflict check, which it made. */
   conflictsWith: readonly string[];
-  /** Where the research ran (332a), for the review only. */
-  origin: Record<string, unknown>;
-  /**
-   * Whether AskRigor's semantic privacy reading passed exactly the saved content (its stamp says so); a copy without it
-   * is held for privacy_reading_pending and never shows.
-   */
-  privacyRead: boolean;
+  /** A conflict on an important finding (either finding decision-changing or important): the copy is held for it. */
+  importantConflict: boolean;
   at: Date;
 }
 
 export type ResearchDossierPublishResult =
-  | { outcome: "published" | "replayed"; publicNumber: string; state: ResearchDossierPublicState }
+  | { outcome: "published" | "replayed"; publicNumber: string; state: ResearchDossierPublicState;
+    holdReasons: ResearchDossierHoldReason[] }
+  /** The payload is not exactly the saved record's public part, or a comparison lacks its group sizes. */
+  | { outcome: "payload_refused" }
   /** The account may not publish now: not an active free contributor with saving on whose notice covers it. */
   | { outcome: "account_refused" }
   /** Not the newest version of one of the account's dossiers, or withdrawn, rejected or erased. */
@@ -197,17 +196,35 @@ export class ResearchDossierPublicationError extends Error {
 }
 
 function assertPublishInput(input: ResearchDossierPublishInput): void {
-  const reasons: readonly string[] = RESEARCH_DOSSIER_HOLD_REASONS.filter((reason) => reason !== "owner_hold");
-  if (!HEX_64.test(input.accountKey) || !UUID.test(input.versionId) || !TOPIC_KEY.test(input.topicKey) ||
-    input.relatedTopicKeys.length > 10 || !input.relatedTopicKeys.every((key) => TOPIC_KEY.test(key)) ||
-    !HEX_64.test(input.payloadSha256) || (input.state !== "shown" && input.state !== "held") ||
-    (input.state === "held") !== (input.holdReasons.length > 0) ||
-    !input.holdReasons.every((reason) => reasons.includes(reason)) ||
-    input.holdReasons.includes("privacy_reading_pending") === input.privacyRead ||
+  if (!HEX_64.test(input.accountKey) || !UUID.test(input.versionId) || input.payload === null ||
+    typeof input.payload !== "object" || Array.isArray(input.payload) || typeof input.importantConflict !== "boolean" ||
     input.conflictsWith.length > 50 || !input.conflictsWith.every((number) => PUBLIC_DOSSIER_NUMBER.test(number)) ||
+    (input.importantConflict && input.conflictsWith.length === 0) ||
     !(input.at instanceof Date) || Number.isNaN(input.at.getTime())) {
     throw new ResearchDossierPublicationError("INPUT_INVALID");
   }
+}
+
+/**
+ * Why a copy is held, derived from the saved private record and its public part, as the publish function derives it
+ * (migration 0040): waiting for the privacy reading, not highly confident, names a living person or did not say, and
+ * the server's conflict check.
+ */
+export function researchDossierAdmission(stored: Record<string, unknown>, projection: Record<string, unknown>,
+  importantConflict: boolean): { state: "shown" | "held"; holdReasons: ResearchDossierAutoHoldReason[];
+    privacyRead: boolean; namesLivingPerson: boolean } {
+  const checked = projection.checked as { privacy_reading?: unknown } | undefined;
+  const value = projection.value as { confidence?: unknown } | undefined;
+  const privacyRead = checked?.privacy_reading === true;
+  const named = stored.names_living_people;
+  const holdReasons: ResearchDossierAutoHoldReason[] = [
+    ...(privacyRead ? [] : ["privacy_reading_pending" as const]),
+    ...(value?.confidence === "high" ? [] : ["not_high_confidence" as const]),
+    ...(named === true ? ["names_living_people" as const] : typeof named === "boolean" ? []
+      : ["living_people_undeclared" as const]),
+    ...(importantConflict ? ["important_conflict" as const] : []),
+  ];
+  return { state: holdReasons.length === 0 ? "shown" : "held", holdReasons, privacyRead, namesLivingPerson: named === true };
 }
 
 function assertQuery(query: PublicDossierQuery): void {
@@ -246,21 +263,25 @@ export class PostgresResearchDossierPublisher implements ResearchDossierPublishe
 
   async publish(input: ResearchDossierPublishInput): Promise<ResearchDossierPublishResult> {
     assertPublishInput(input);
-    const result = await this.pool.query<{ outcome: string; public_number: string | null; state: string | null }>(
-      `SELECT outcome, public_number, state FROM ${this.schema}.publish_research_dossier_version(
-         $1, $2::uuid, $3, $4::text[], $5::jsonb, $6, $7, $8::text[], $9::text[], $10::jsonb, $11, $12::timestamptz)`,
-      [input.accountKey, input.versionId, input.topicKey, [...input.relatedTopicKeys], JSON.stringify(input.payload),
-        input.payloadSha256, input.state, [...input.holdReasons], [...input.conflictsWith], JSON.stringify(input.origin),
-        input.privacyRead, input.at.toISOString()],
+    const result = await this.pool.query<{ outcome: string; public_number: string | null; state: string | null;
+      hold_reasons: string[] | null }>(
+      `SELECT outcome, public_number, state, hold_reasons FROM ${this.schema}.publish_research_dossier_version(
+         $1, $2::uuid, $3::jsonb, $4::text[], $5, $6::timestamptz)`,
+      [input.accountKey, input.versionId, JSON.stringify(input.payload), [...input.conflictsWith],
+        input.importantConflict, input.at.toISOString()],
     );
     const row = result.rows[0];
     if (row === undefined) throw new Error("RESEARCH_DOSSIER_PUBLISH_RESULT_MISSING");
-    if (row.outcome === "account_refused" || row.outcome === "version_refused") return { outcome: row.outcome };
+    if (row.outcome === "account_refused" || row.outcome === "version_refused" || row.outcome === "payload_refused") {
+      return { outcome: row.outcome };
+    }
     if ((row.outcome !== "published" && row.outcome !== "replayed") || row.public_number === null ||
-      !(RESEARCH_DOSSIER_PUBLIC_STATES as readonly string[]).includes(row.state ?? "")) {
+      !(RESEARCH_DOSSIER_PUBLIC_STATES as readonly string[]).includes(row.state ?? "") || row.hold_reasons === null ||
+      !row.hold_reasons.every((reason) => (RESEARCH_DOSSIER_HOLD_REASONS as readonly string[]).includes(reason))) {
       throw new Error("RESEARCH_DOSSIER_PUBLISH_RESULT_INVALID");
     }
-    return { outcome: row.outcome, publicNumber: row.public_number, state: row.state as ResearchDossierPublicState };
+    return { outcome: row.outcome, publicNumber: row.public_number, state: row.state as ResearchDossierPublicState,
+      holdReasons: row.hold_reasons as ResearchDossierHoldReason[] };
   }
 
   async topicCopies(topicKey: string): Promise<ResearchDossierTopicCopy[]> {
@@ -489,6 +510,10 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
     dossiers: InMemoryResearchDossierStore;
     /** Whether the account may publish now: active, free, saving on, its notice covering public dossiers. */
     eligible?: (accountKey: string) => boolean | Promise<boolean>;
+    /** The public part of a saved record, as the database's research_dossier_public_projection makes it. */
+    project: (stored: Record<string, unknown>) => Record<string, unknown>;
+    /** The sizes rule, as research_dossier_public_sizes_complete reads it. */
+    sizesComplete: (projection: Record<string, unknown>) => boolean;
   }) {}
 
   async publish(input: ResearchDossierPublishInput): Promise<ResearchDossierPublishResult> {
@@ -498,15 +523,34 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
     const facts = this.options.dossiers.versionFacts(input.versionId);
     if (facts === undefined || facts.accountKey !== input.accountKey) return { outcome: "version_refused" };
     const existing = this.copyOfVersion(input.versionId);
-    if (existing !== undefined) return { outcome: "replayed", publicNumber: existing.publicNumber, state: existing.state };
-    if (!facts.newest || facts.closed || facts.erased) return { outcome: "version_refused" };
+    if (existing !== undefined) {
+      return { outcome: "replayed", publicNumber: existing.publicNumber, state: existing.state,
+        holdReasons: [...existing.holdReasons] };
+    }
+    if (!facts.newest || facts.closed || facts.erased || facts.payload === null) return { outcome: "version_refused" };
+    let projection: Record<string, unknown>;
+    try {
+      projection = this.options.project(facts.payload);
+    } catch {
+      return { outcome: "payload_refused" };
+    }
+    const topic = (projection.topic ?? {}) as { key?: unknown; related?: unknown };
+    if (stableJson(projection) !== stableJson(input.payload) || typeof topic.key !== "string" ||
+      !TOPIC_KEY.test(topic.key) || !this.options.sizesComplete(projection)) {
+      return { outcome: "payload_refused" };
+    }
+    const admission = researchDossierAdmission(facts.payload, projection, input.importantConflict);
+    const stamp = (facts.payload.stamp ?? {}) as { origin?: unknown };
+    const origin = stamp.origin !== null && typeof stamp.origin === "object" && !Array.isArray(stamp.origin)
+      ? structuredClone(stamp.origin as Record<string, unknown>) : {};
     let publicNumber = this.numbers.get(facts.dossierNumber);
     if (publicNumber === undefined) {
       publicNumber = `D-${this.nextNumber++}`;
       this.numbers.set(facts.dossierNumber, publicNumber);
     }
     for (const copy of this.copies.values()) {
-      if (copy.publicNumber === publicNumber && (copy.state === "held" || (input.state === "shown" && copy.state === "shown"))) {
+      if (copy.publicNumber === publicNumber && (copy.state === "held" || (admission.state === "shown" &&
+        copy.state === "shown"))) {
         Object.assign(copy, { state: "superseded", holdReasons: [], decidedAt: input.at });
         copy.events.push({ event: "superseded", reason: null, at: input.at });
       }
@@ -516,22 +560,23 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       publicNumber,
       dossierNumber: facts.dossierNumber,
       versionNumber: facts.versionNumber,
-      state: input.state,
-      topicKey: input.topicKey,
-      relatedTopicKeys: [...input.relatedTopicKeys],
-      payload: structuredClone(input.payload),
-      payloadSha256: input.payloadSha256,
-      holdReasons: [...input.holdReasons],
+      state: admission.state,
+      topicKey: topic.key,
+      relatedTopicKeys: Array.isArray(topic.related) ? topic.related.map(String) : [],
+      payload: projection,
+      payloadSha256: sha256(stableJson(projection)),
+      holdReasons: [...admission.holdReasons],
       conflictsWith: [...input.conflictsWith],
-      origin: structuredClone(input.origin),
-      privacyRead: input.privacyRead,
-      namesLivingPerson: input.holdReasons.includes("names_living_people"),
+      origin,
+      privacyRead: admission.privacyRead,
+      namesLivingPerson: admission.namesLivingPerson,
       livingPersonDecision: null,
       acceptedAt: null,
       decidedAt: input.at,
-      events: [{ event: input.state, reason: input.state === "held" ? input.holdReasons.join(" ") : null, at: input.at }],
+      events: [{ event: admission.state, reason: admission.state === "held" ? admission.holdReasons.join(" ") : null,
+        at: input.at }],
     });
-    return { outcome: "published", publicNumber, state: input.state };
+    return { outcome: "published", publicNumber, state: admission.state, holdReasons: [...admission.holdReasons] };
   }
 
   async topicCopies(topicKey: string): Promise<ResearchDossierTopicCopy[]> {

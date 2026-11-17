@@ -316,6 +316,8 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
   versionFacts(versionId: string): {
     accountKey: string | null; dossierNumber: string; versionNumber: number; newest: boolean; closed: boolean;
     erased: boolean; accountRevoked: boolean;
+    /** The saved record, as the publish function reads it; null once erased. */
+    payload: Record<string, unknown> | null;
   } | undefined {
     const version = this.versions.get(versionId);
     if (version === undefined) return undefined;
@@ -328,6 +330,7 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
       closed: version.events.some(({ event }) => event === "withdrawn" || event === "rejected" || event === "erased"),
       erased: version.erasedAt !== null,
       accountRevoked: dossier.accountKey !== null && this.revoked.has(dossier.accountKey),
+      payload: version.payload === null ? null : structuredClone(version.payload),
     };
   }
 

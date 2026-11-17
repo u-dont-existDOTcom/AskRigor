@@ -183,9 +183,15 @@ function stage1Dossier(change: (value: Record<string, any>) => void = () => unde
   });
 }
 
+/** The sizes rule on a public part, as the database's research_dossier_public_sizes_complete reads it. */
+const sizesComplete = (payload: Record<string, unknown>) => {
+  const read = readPublicDossier(payload);
+  return read !== undefined && publicSizeProblems(read).length === 0;
+};
+
 function stores() {
   const dossiers = new InMemoryResearchDossierStore();
-  const publications = new InMemoryResearchDossierPublications({ dossiers });
+  const publications = new InMemoryResearchDossierPublications({ dossiers, project: publicDossierOf, sizesComplete });
   return { dossiers, publications, publication: { publisher: publications, noticeCovering: COVERING } };
 }
 
@@ -261,16 +267,24 @@ describe("a saved dossier's public copy (332a: the researching AI's own judgemen
     const stored = (await dossiers.readVersion(ACCOUNT, version!.versionId))!.payload as Record<string, any>;
     expect(stored.stamp.privacy_reading).toBe("pass");
     const unread = structuredClone(stored);
-    delete unread.stamp.privacy_reading;
+    unread.question = "A record this version never saved?";
     const second = stores();
-    await saveResearchDossier(second.dossiers, request({ value: stage1Dossier() }));
+    // Saved with stage 2's declarations and no reading, under a notice that covers nothing yet: not published.
+    await saveResearchDossier(second.dossiers, request({ privacyReading: undefined,
+      publication: { publisher: second.publications, noticeCovering: [] } }));
     const [unpublished] = second.dossiers.snapshot();
     const { publishResearchDossier } = await import("../apps/research-mcp/src/findings/dossier-publication.js");
-    expect(await publishResearchDossier({ publisher: second.publications, accountKey: ACCOUNT,
-      noticeVersion: RESEARCH_USE_NOTICE_VERSION, noticeCovering: COVERING, versionId: unpublished!.versionId,
-      dossierNumber: unpublished!.dossierNumber, stored: unread, namesLivingPeople: false, privacyRead: true,
-      origin: {}, at: NOW } as never)).toEqual({ status: "held", public_id: "D-1001",
-      hold_reasons: ["privacy_reading_pending"] });
+    // Here the caller sends a record this version never saved, with a reading's pass, and claims a reading: the store
+    // reads this version's saved record itself and refuses what is not its public part.
+    const publish = (stored: Record<string, unknown>) => publishResearchDossier({ publisher: second.publications,
+      accountKey: ACCOUNT, noticeVersion: RESEARCH_USE_NOTICE_VERSION, noticeCovering: COVERING,
+      versionId: unpublished!.versionId, dossierNumber: unpublished!.dossierNumber, stored, privacyRead: true,
+      at: NOW } as never);
+    expect(await publish(unread)).toEqual({ status: "not_published", reason: "not_publishable" });
+    // Its own record, which no reading passed, is held for the reading.
+    const own = (await second.dossiers.readVersion(ACCOUNT, unpublished!.versionId))!.payload!;
+    expect(await publish(own)).toMatchObject({ status: "held",
+      hold_reasons: expect.arrayContaining(["privacy_reading_pending"]) });
   });
 
   it("publishes nothing without a publisher, and nothing for a notice that does not cover public dossiers", async () => {
@@ -422,6 +436,47 @@ describe("an accepted copy when its contributor loses access", () => {
     expect((await publications.inspect("D-1002"))[0]).toMatchObject({ state: "taken_down", dossierNumber: "ARD-0002" });
     // Nothing of the account remains to find it by: no copy names a private version of it.
     expect(publications.snapshot().find(({ publicNumber }) => publicNumber === "D-1001")).toMatchObject({ linked: false });
+  });
+});
+
+// Codex's review, finding 10: the publisher takes nothing on trust from the access role: the public copy, its topic,
+// digest, origin and why it is held are derived from the private record, and a payload that is not exactly the record's
+// public part, or breaks the sizes rule, is refused.
+describe("the publisher's own derivation", () => {
+  async function saved(change?: (value: Record<string, any>) => void) {
+    const { dossiers, publications } = stores();
+    // Saved privately with stage 2's declarations (a publisher that never publishes: no notice covers it).
+    await saveResearchDossier(dossiers, request({ publication: { publisher: publications, noticeCovering: [] },
+      ...(change === undefined ? {} : { value: dossier(change) }) }));
+    const [version] = dossiers.snapshot();
+    const stored = (await dossiers.readVersion(ACCOUNT, version!.versionId))!.payload as Record<string, any>;
+    return { publications, versionId: version!.versionId, stored, honest: publicDossierOf(stored) };
+  }
+  const claimed = (versionId: string, payload: unknown) => ({ accountKey: ACCOUNT, versionId, payload,
+    topicKey: "inositol-invented", relatedTopicKeys: [], payloadSha256: "a".repeat(64), state: "shown", holdReasons: [],
+    conflictsWith: [], importantConflict: false, origin: { surface: "/mcp" }, privacyRead: true, at: NOW }) as never;
+
+  it("refuses a payload that is not exactly the saved record's public part", async () => {
+    const { publications, versionId, honest } = await saved();
+    const tampered = { ...honest, question: "Zayd Qureshi's dialysis in Nouakchott" };
+    expect(await publications.publish(claimed(versionId, tampered))).toEqual({ outcome: "payload_refused" });
+    expect(await publications.publish(claimed(versionId, { ...honest, extra: "anything" })))
+      .toEqual({ outcome: "payload_refused" });
+    expect(await publications.list(undefined, 10)).toEqual([]);
+  });
+
+  it("derives why a copy is held from the private record, whatever state the caller claims", async () => {
+    const moderate = await saved((value) => { value.value.confidence = "moderate"; value.names_living_people = true; });
+    expect(await moderate.publications.publish(claimed(moderate.versionId, moderate.honest))).toMatchObject({
+      outcome: "published", state: "held", holdReasons: ["not_high_confidence", "names_living_people"] });
+    const [row] = await moderate.publications.list(undefined, 10);
+    expect(row).toMatchObject({ topicKey: "inositol-invented", namesLivingPerson: true, privacyRead: true,
+      origin: { surface: "/mcp/claude", run: "chat", readings: "askrigor" } });
+  });
+
+  it("refuses a comparison without its group sizes even when the caller skips the check", async () => {
+    const { publications, versionId, honest } = await saved((value) => { value.results[1].comparator = "baseline"; });
+    expect(await publications.publish(claimed(versionId, honest))).toEqual({ outcome: "payload_refused" });
   });
 });
 
@@ -676,9 +731,13 @@ describe("the dossier's shape and migration 0040", () => {
     }
     const functions = migration.split("CREATE OR REPLACE FUNCTION ").slice(1).map((chunk) => ({
       name: chunk.slice(0, chunk.indexOf("(")), header: chunk.slice(0, chunk.indexOf("AS $")) }));
+    // The pure helpers that derive a copy from its private record (Codex's review, finding 10) read no table: they run
+    // only inside the definer functions, as their owner.
+    const pure = ["research_dossier_pick", "research_dossier_public_projection", "research_dossier_public_sizes_complete"];
     for (const { name, header } of functions) {
       expect(migration).toMatch(new RegExp(`REVOKE ALL ON FUNCTION ${name}\\([^;]*\\) FROM PUBLIC;`, "u"));
-      if (name !== "research_dossier_public_version_guard") expect(header).toContain("SECURITY DEFINER");
+      if (pure.includes(name)) expect(header).toMatch(/IMMUTABLE/u);
+      else if (name !== "research_dossier_public_version_guard") expect(header).toContain("SECURITY DEFINER");
     }
     // The views show no column that names the account, the private number, where the research ran or why it was held.
     const views = migration.slice(migration.indexOf("CREATE OR REPLACE VIEW research_dossier_public_pages"),

@@ -81,9 +81,10 @@ GRANT EXECUTE ON FUNCTION living_evidence.latest_research_dossier_version(text, 
 GRANT EXECUTE ON FUNCTION living_evidence.read_research_dossier_version(text, uuid)
   TO askrigor_research_access;
 -- AskRigor#477 stage 2 (migration 0040): a saved dossier's public copy, published only through this function, which
--- checks the account and its notice itself, and the shown copies on a topic, for the conflict check.
+-- checks the account and its notice itself and derives the copy and why it is held from the private record, and the
+-- shown copies on a topic, for the conflict check.
 GRANT EXECUTE ON FUNCTION living_evidence.publish_research_dossier_version(
-  text, uuid, text, text[], jsonb, text, text, text[], text[], jsonb, boolean, timestamptz
+  text, uuid, jsonb, text[], boolean, timestamptz
 ) TO askrigor_research_access;
 GRANT EXECUTE ON FUNCTION living_evidence.research_dossier_topic_publications(text)
   TO askrigor_research_access;
