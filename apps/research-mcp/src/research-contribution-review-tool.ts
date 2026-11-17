@@ -33,6 +33,7 @@ import {
 import { atlasParticipationSchema } from "./atlas/participation-review.js";
 import { atlasKeptSchema } from "./atlas/kept-review.js";
 import { ATLAS_CHALLENGE_MARK_INPUTS, atlasChallengesSchema } from "./atlas/challenge-review.js";
+import { atlasDossiersSchema } from "./atlas/dossier-review.js";
 import { atlasPlacementsSchema } from "./atlas/placement-review.js";
 import { atlasReportsSchema } from "./atlas/report-review.js";
 import { atlasGlanceSchema } from "./atlas/glance-review.js";
@@ -106,6 +107,16 @@ export const researchContributionReviewInputSchema = z.object({
     for (const field of ["reportState", "report", "verdict"] as const) {
       const allowed = field === "reportState" ? value.action === "list_reports" : reportAction && value.action !== "list_reports";
       if (reportInputs[field] !== undefined && !allowed) {
+        context.addIssue({ code: "custom", message: `${value.action} does not take ${field}` });
+      }
+    }
+    // AskRigor#477 stage 2: the dossier inputs go only with the dossier actions.
+    const dossierInputs = value as { dossier?: unknown; dossierVersion?: unknown; dossierState?: unknown };
+    const dossierTakes = { dossier: ["inspect_dossier", "show_dossier", "hold_dossier", "take_down_dossier", "accept_dossier"],
+      dossierVersion: ["show_dossier", "hold_dossier", "take_down_dossier", "accept_dossier"],
+      dossierState: ["list_dossiers"] } as const;
+    for (const [field, actions] of Object.entries(dossierTakes)) {
+      if (dossierInputs[field as keyof typeof dossierInputs] !== undefined && !(actions as readonly string[]).includes(value.action)) {
         context.addIssue({ code: "custom", message: `${value.action} does not take ${field}` });
       }
     }
@@ -283,6 +294,8 @@ export const researchContributionReviewRuntimeOutputSchema = researchContributio
   glance: atlasGlanceSchema.optional(),
   // The owner, 6 Nov: mark_challenge, clear_challenge and list_challenges, runtime-only (owner answer 189a).
   challenges: atlasChallengesSchema.optional(),
+  // AskRigor#477 stage 2: the research dossiers' public copies, runtime-only (owner answer 189a).
+  dossiers: atlasDossiersSchema.optional(),
   sharedAnswers: z.object({
     kept: z.array(sharedAnswerSummarySchema).optional(),
     answer: sharedAnswerSummarySchema.extend({
@@ -601,6 +614,7 @@ function atlasToolResult(result: AtlasReviewResult): CallToolResult {
     ...(result.reports === undefined ? {} : { reports: result.reports }),
     ...(result.glance === undefined ? {} : { glance: result.glance }),
     ...(result.challenges === undefined ? {} : { challenges: result.challenges }),
+    ...(result.dossiers === undefined ? {} : { dossiers: result.dossiers }),
     canonicalEvidenceChangedByThisCall: false,
     ...(result.error === undefined ? {} : { error: result.error }),
   });

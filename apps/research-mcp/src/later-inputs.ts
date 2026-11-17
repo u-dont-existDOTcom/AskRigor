@@ -19,6 +19,7 @@ import { reportVerdictSchema } from "./atlas/report-review.js";
 import { atlasReportShareSchema, reportNumberSchema } from "./atlas/report-door.js";
 import { glanceRowIdSchema, glanceRowInputSchema } from "./atlas/glance-review.js";
 import { challengeMarkInputShape } from "./atlas/challenge-review.js";
+import { dossierNumberInputSchema, dossierStateInputSchema, dossierVersionInputSchema } from "./atlas/dossier-review.js";
 import { claimCoverageSchema } from "./claim-coverage.js";
 import { ASKED_LIMIT, framingSchema, researchMenuSchema, researchSteeringInputSchema } from "./research-steering.js";
 
@@ -296,6 +297,14 @@ const LATER_INPUT_SHAPES = Object.freeze({
     // The owner, 6 Nov 2026: findings that challenge the usual view, with mark_challenge (items too, and with
     // clear_challenge).
     ...challengeMarkInputShape,
+    // AskRigor#477 stage 2: research dossiers on the public Atlas.
+    dossier: dossierNumberInputSchema.optional()
+      .describe("With inspect_dossier, show_dossier, hold_dossier, take_down_dossier or accept_dossier: the dossier's " +
+        "public number, such as D-1001."),
+    dossierVersion: dossierVersionInputSchema.optional()
+      .describe("With show_dossier, hold_dossier, take_down_dossier or accept_dossier: the version; its newest by default."),
+    dossierState: dossierStateInputSchema.optional()
+      .describe("With list_dossiers: shown, held (the check's queue, by default), superseded, taken_down or erased."),
   },
 } satisfies Record<string, z.ZodRawShape>);
 
