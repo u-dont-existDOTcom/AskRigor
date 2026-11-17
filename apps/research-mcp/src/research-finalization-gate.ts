@@ -76,7 +76,7 @@ import {
 } from "./study-map.js";
 import type { SecondReaderFinding, SecondReaderKind } from "./second-reader.js";
 import {
-  checkFindingsSchema, findingsLedger, type ObservedFinding, type RememberedLedger
+  checkFindingsSchema, findingsLedger, type FindingChecker, type ObservedFinding, type RememberedLedger
 } from "./findings-ledger.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
 import {
@@ -2037,8 +2037,14 @@ export function finalizeResearch(
     return note;
   };
   let researchAdvised = false;
-  // Stage 1 of enforcing HRP: every problem this check finds, as admitted below, for the findings ledger.
+  // Stage 1 of enforcing HRP: every problem this check finds, as admitted below, for the findings ledger, and which part of
+  // the check gave each note that only some calls run (by default the rules, which run at every call).
   const observedSteps: ObservedFinding[] = [];
+  const noteCheckers = new Map<string, FindingChecker>();
+  const checkedBy = (checker: FindingChecker, note: string): string => {
+    if (!noteCheckers.has(note)) noteCheckers.set(note, checker);
+    return note;
+  };
   const addCheckStep = (step: CheckStep, blockingRule?: FinalCheckBlockingRule): void => {
     if (options.findingsLedger !== undefined) {
       const stop = blockingRule !== undefined && FINAL_CHECK_BLOCKING_RULES.includes(blockingRule) ? blockingRule : undefined;
@@ -4645,10 +4651,10 @@ export function finalizeResearch(
     // The note comes with a passing check, whose answer goes out as checked, so it asks for the check again (the
     // regression run on #389's build: o356-dropout-nausea and q136-weak-lead edited after the check instead).
     // After a pass that followed a pass in this turn, the turn's last check, the change asks for no further call.
-    if (repeated >= 3) notes.push(`The draft repeats ${repeated} of the panel's limits word for word; the panel ` +
+    if (repeated >= 3) notes.push(checkedBy("passing", `The draft repeats ${repeated} of the panel's limits word for word; the panel ` +
       "already lists every limit beneath the answer. Keep only those that change what this person should believe " +
       `or do, in your own words, ${passedEarlierThisTurn ? "with no further check in this turn"
-        : "and call finalize_research again with the changed draft"}.`);
+        : "and call finalize_research again with the changed draft"}.`));
   }
   // Owner answer 237a: each line's quotes are looked up once the check passes, in the text its key source's verified
   // receipts name, and what came of it goes to the AI as notes, and to the panel. None of it holds the answer back.
@@ -4682,12 +4688,12 @@ export function finalizeResearch(
     ];
     const at = `findings_card.findings[${finding}].backing[${line}]`;
     if (missing.length > 0) {
-      notes.push(`The ${missing.join(" and the ")} of ${at} ${missing.length === 1 ? "isn't" : "aren't"} in the text ` +
-        "AskRigor fetched, so the Atlas won't show it. Copy each whole and exactly, in the paper's language.");
+      notes.push(checkedBy("backing_lines", `The ${missing.join(" and the ")} of ${at} ${missing.length === 1 ? "isn't" : "aren't"} in the text ` +
+        "AskRigor fetched, so the Atlas won't show it. Copy each whole and exactly, in the paper's language."));
     } else if (lookup.text === "search_copy" || lookup.text === "library_copy") {
-      notes.push(`The quotes of ${at} were found only in ${lookup.text === "search_copy" ? "the copy the AI supplied"
+      notes.push(checkedBy("backing_lines", `The quotes of ${at} were found only in ${lookup.text === "search_copy" ? "the copy the AI supplied"
         : "the owner's library copy"}, which the Atlas never quotes; a quote found in a full text AskRigor fetched ` +
-        "itself or a PubMed abstract is shown.");
+        "itself or a PubMed abstract is shown."));
     }
   }
   const sourceLineChecks = passed && draft !== undefined ? (options.sourceLineLookups ?? []).flatMap((lookup, index) => {
@@ -4697,7 +4703,9 @@ export function finalizeResearch(
     return [{ ...lookup, label: key?.answer_marker ?? lookup.source,
       shown: quoteShown(draft, line.sentence) && quoteShown(draft, line.conclusion) }];
   }) : [];
-  for (const note of sourceLineChecks.flatMap(sourceLineNotes)) if (!notes.includes(note)) notes.push(note);
+  for (const note of sourceLineChecks.flatMap(sourceLineNotes)) {
+    if (!notes.includes(note)) notes.push(checkedBy("source_lines", note));
+  }
   // Owner answer 249a: the study map. Each study's source resolves through the verified receipts as a source line's
   // does, so its passages are looked up in its own text only, once the check passes; what the map gives is compared
   // exactly, and what came of it goes to the AI as notes. None of it holds the answer back or consumes a round.
@@ -4729,7 +4737,7 @@ export function finalizeResearch(
       sameQuote
     });
     studyMapCheck = checked.check;
-    for (const note of checked.notes) if (!notes.includes(note)) notes.push(note);
+    for (const note of checked.notes) if (!notes.includes(note)) notes.push(checkedBy("study_map", note));
   }
   // Owner answer 221: the meaning judge's notes, for the AI only; none of them is a step or holds the answer back.
   const judgment = options.meaningJudgment;
@@ -4775,7 +4783,7 @@ export function finalizeResearch(
           "about what and in whom, and applies_to to say whom it holds for, then send the card and check the answer again.");
       }
     }
-    for (const note of judgeNotes) if (!notes.includes(note)) notes.push(note);
+    for (const note of judgeNotes) if (!notes.includes(note)) notes.push(checkedBy("meaning_judge", note));
   }
   if (status === "stopped" && saveOfferCaveat !== undefined) {
     const at = caveats.indexOf(saveOfferCaveat);
@@ -4787,7 +4795,23 @@ export function finalizeResearch(
   const ledger = options.findingsLedger === undefined ? undefined : (() => {
     const admitted = new Set(observedSteps.map(({ text }) => text));
     const observed: ObservedFinding[] = [...observedSteps, ...notes.filter((note) => !admitted.has(note))
-      .map((note) => ({ text: note, ...(repeatedNotes.has(note) ? { call: true } : {}) }))];
+      .map((note) => ({ text: note, ...(repeatedNotes.has(note) ? { call: true } : {}),
+        ...(noteCheckers.has(note) ? { checker: noteCheckers.get(note)! } : {}) }))];
+    // Codex's review of 17 Nov 2026, finding 1: the parts of the check that ran in full in this call; an earlier finding
+    // of any other part is not rechecked, never fixed. A look-up cut short (a text that couldn't be read just then, or
+    // was no longer held, or came too late) did not run in full.
+    const cutShort = (reason: string | undefined) =>
+      reason === "text_unavailable" || reason === "text_expired" || reason === "late";
+    const coverage: FindingChecker[] = ["rules", "call",
+      ...(passed && draft !== undefined ? ["passing" as const] : []),
+      ...(secondReading?.status === "ran" ? ["second_reading" as const] : []),
+      ...(passed && judgment?.status === "ran" ? ["meaning_judge" as const] : []),
+      ...(passed && draft !== undefined && options.sourceLineLookups !== undefined &&
+        options.sourceLineLookups.every(({ reason }) => !cutShort(reason)) ? ["source_lines" as const] : []),
+      ...(options.backingLookups !== undefined && options.backingLookups.every(({ lookup }) => !cutShort(lookup.reason))
+        ? ["backing_lines" as const] : []),
+      ...(passed && draft !== undefined && studyMap !== undefined && options.studyMapLookup?.done === true &&
+        options.studyMapLookup.studies.every(({ reason }) => !cutShort(reason)) ? ["study_map" as const] : [])];
     return findingsLedger({
       secret: options.secret!,
       account: options.findingsLedger!.account,
@@ -4796,6 +4820,7 @@ export function finalizeResearch(
       raw: rawInput,
       observed,
       draft,
+      coverage,
       remembered: options.findingsLedger!.remembered,
       now: options.now?.() ?? new Date()
     });

@@ -48,6 +48,24 @@ export const FINDING_RESPONSES = ["fixed", "withdrawn", "disputed"] as const;
 const CALL_KINDS: ReadonlySet<NextStepKind> = new Set(["input_invalid", "receipt_rejected", "carried_state", "tool_list"]);
 /** Kinds whose findings only a check that read a draft can find again. */
 const DRAFT_KINDS: ReadonlySet<NextStepKind> = new Set(["answer_draft", "second_reading"]);
+/**
+ * Which part of the check found a finding (Codex's review of 17 Nov 2026, finding 1): an earlier finding no longer found
+ * counts as fixed only when the part that found it ran in full in this call. rules: the check's rules, which run at
+ * every call; passing: what the check reads only of a passing answer; source_lines, backing_lines and study_map: the
+ * look-ups of a passing answer's quotes, a checked card's backing lines and the study map; meaning_judge, second_reading
+ * and review: the AI readings; call: what is said of the call itself.
+ */
+export const FINDING_CHECKERS = ["rules", "passing", "source_lines", "backing_lines", "study_map", "meaning_judge",
+  "second_reading", "review", "call"] as const;
+export type FindingChecker = (typeof FINDING_CHECKERS)[number];
+/** What ran in full when nothing else is said: the rules and what is said of the call. */
+const ALWAYS_RUN: readonly FindingChecker[] = ["rules", "call"];
+const CHECKER_NAMES: Record<FindingChecker, string> = {
+  rules: "the check's rules", passing: "the checks of a passing answer", source_lines: "the look-up of source_lines' quotes",
+  backing_lines: "the look-up of the findings card's backing lines", study_map: "the look-up of the study map",
+  meaning_judge: "the meaning judge", second_reading: "the second reading", review: "AskRigor's review of the draft",
+  call: "the check of the call"
+};
 
 /** What a check found, as its single admission point and its notes give it. */
 export interface ObservedFinding {
@@ -60,6 +78,12 @@ export interface ObservedFinding {
   call?: boolean;
   /** A finding the writer dismissed through an older input (reader_dismissed), with its reason: disputed, not fixed. */
   disputed?: string;
+  /** The part of the check that found it; by default the second reading for its kind, else the rules. */
+  checker?: FindingChecker;
+}
+function checkerOf({ checker, kind }: { checker?: FindingChecker | undefined; kind?: NextStepKind | undefined }):
+  FindingChecker {
+  return checker ?? (kind === "second_reading" ? "second_reading" : "rules");
 }
 
 const hex = (length: number) => z.string().regex(new RegExp(`^[0-9a-f]{${length}}$`, "u"));
@@ -75,7 +99,8 @@ const entrySchema = z.object({
   s: z.string().regex(/^[a-z_]{1,40}$/u).optional(),
   c: z.literal(true).optional(),
   w: z.string().trim().min(1).max(300).optional(),
-  i: z.array(hex(12)).max(6).optional()
+  i: z.array(hex(12)).max(6).optional(),
+  x: z.enum(FINDING_CHECKERS).optional()
 }).strict();
 type LedgerEntry = z.output<typeof entrySchema>;
 const payloadSchema = z.object({
@@ -338,6 +363,11 @@ export interface FindingsLedgerParams {
   raw: unknown;
   observed: readonly ObservedFinding[];
   draft: string | undefined;
+  /**
+   * The parts of the check that ran in full in this call (FINDING_CHECKERS); by default the rules and what is said of
+   * the call. An earlier finding of a part that did not is not rechecked: neither fixed nor withdrawn.
+   */
+  coverage?: readonly FindingChecker[] | undefined;
   remembered?: RememberedLedger | undefined;
   now: Date;
 }
@@ -419,6 +449,7 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     ? previousRevision + 1 : Math.max(previousRevision, 1);
   const prior = previous?.e ?? [];
   const used = new Set<string>();
+  const covered = new Set<FindingChecker>(params.coverage ?? ALWAYS_RUN);
 
   // One record per finding: the same rule with the same inserted words, found twice in one call, is one finding.
   const observed: Fingerprinted[] = [];
@@ -461,7 +492,8 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     } else if (finding.disputed !== undefined && response === undefined) {
       disposition = "disputed";
       reason = finding.disputed.trim().slice(0, 300) || undefined;
-    } else if (before?.d === "disputed" && before.w !== undefined && response === undefined) {
+    } else if ((before?.d === "disputed" || before?.d === "not_rechecked") && before.w !== undefined &&
+        response === undefined) {
       disposition = "disputed";
       reason = before.w;
     } else if (response !== undefined) {
@@ -472,9 +504,11 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     }
     const reader = finding.call !== true && (finding.kind === undefined || !CALL_KINDS.has(finding.kind));
     const first = before?.n ?? revision;
+    const checker = checkerOf(finding);
     entries.push({
       id, r: finding.r, f: finding.f, h: finding.h, d: disposition, n: first, l: revision,
       ...(finding.kind === undefined ? {} : { k: finding.kind }),
+      ...(checker === "rules" ? {} : { x: checker }),
       ...(finding.stop === undefined ? {} : { s: finding.stop }),
       ...(reader ? {} : { c: true as const }),
       ...(reason === undefined ? {} : { w: reason }),
@@ -488,17 +522,24 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     });
   }
 
-  // Earlier findings this check no longer finds.
+  // Earlier findings this check no longer finds. One the part of the check that found it did not look for again, for
+  // want of a draft or because that part did not run in full, is not rechecked: the ledger keeps it as it was.
   const draftIdentifiers = draft === undefined ? [] : identifiers(normalized(draft));
+  const notRechecked = new Map<string, string[]>();
   for (const entry of prior) {
     if (used.has(entry.id)) continue;
     const response = responses.get(entry.id);
     if (response !== undefined) answered.add(entry.id);
     let disposition = entry.d;
+    let shown: FindingDisposition | undefined;
     if (!SETTLED.has(entry.d)) {
       const needsDraft = entry.k === undefined || DRAFT_KINDS.has(entry.k);
-      if (needsDraft && draftDigest === "") {
-        disposition = "not_rechecked";
+      const checker = checkerOf({ checker: entry.x, kind: entry.k });
+      if ((needsDraft && draftDigest === "") || !covered.has(checker)) {
+        shown = "not_rechecked";
+        const why = needsDraft && draftDigest === "" ? "this call gave no answer_draft"
+          : `${CHECKER_NAMES[checker]} did not run in full in this call`;
+        notRechecked.set(why, [...notRechecked.get(why) ?? [], entry.id]);
       } else if (response?.response === "withdrawn") {
         const still = response.passage !== undefined && draft !== undefined &&
           normalized(draft).includes(normalized(response.passage));
@@ -523,10 +564,15 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     entries.push({ ...entry, d: disposition });
     if (changed || !SETTLED.has(disposition)) {
       findings.push({ id: entry.id, ...(entry.k === undefined ? {} : { kind: entry.k }),
-        ...(entry.s === undefined ? {} : { stop: entry.s }), disposition,
-        ...(disposition === "disputed" && entry.w !== undefined ? { reason: entry.w } : {}),
+        ...(entry.s === undefined ? {} : { stop: entry.s }), disposition: shown ?? disposition,
+        ...(shown === undefined && disposition === "disputed" && entry.w !== undefined ? { reason: entry.w } : {}),
         reader: entry.c !== true, first_revision: entry.n, last_revision: entry.l });
     }
+  }
+  for (const [why, ids] of notRechecked) {
+    notes.push(`${joinIds(ids)} ${ids.length === 1 ? "was" : "were"} not checked again: ${why}, so ` +
+      `${ids.length === 1 ? "it is" : "they are"} neither fixed nor withdrawn until a check that looks for ` +
+      `${ids.length === 1 ? "it" : "them"} again.`);
   }
   for (const id of responses.keys()) {
     if (!answered.has(id)) {
@@ -549,6 +595,10 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   };
 }
 
+function joinIds(ids: readonly string[]): string {
+  return ids.length <= 1 ? ids.join("") : `${ids.slice(0, -1).join(", ")} and ${ids.at(-1)}`;
+}
+
 /** The ids and dispositions, in the result's text for an app that hands its model only that. */
 export function findingsLedgerGuidance(checkFindings: CheckFindings | undefined, token: string | undefined): string {
   if (checkFindings === undefined) return "";
@@ -556,11 +606,14 @@ export function findingsLedgerGuidance(checkFindings: CheckFindings | undefined,
   const lines = shown.map(({ id, stop, disposition, reason, text }) =>
     `- ${id} (${stop === undefined ? "note" : `stop: ${stop}`}; ${disposition}${reason === undefined ? "" : `: ${reason}`}): ` +
     `${text!.length > 200 ? `${text!.slice(0, 199).trimEnd()}…` : text}`);
-  const settled = checkFindings.findings.filter(({ text }) => text === undefined)
-    .map(({ id, disposition }) => `${id} ${disposition}`);
+  const settled = checkFindings.findings.filter(({ text, disposition }) =>
+    text === undefined && disposition !== "not_rechecked").map(({ id, disposition }) => `${id} ${disposition}`);
+  const unchecked = checkFindings.findings.filter(({ text, disposition }) =>
+    text === undefined && disposition === "not_rechecked").map(({ id }) => id);
   return (lines.length === 0 ? "" : `\nFindings of this check (ledger ${checkFindings.ledger}, revision ` +
       `${checkFindings.revision}):\n${lines.join("\n")}`) +
     (settled.length === 0 ? "" : `\nNo longer found: ${settled.join("; ")}.`) +
+    (unchecked.length === 0 ? "" : `\nNot checked again: ${unchecked.join(", ")} (see the notes).`) +
     (token === undefined ? "" : `\nPass this as later_inputs.findings_ledger in this research's next finalize_research ` +
       `call: ${token}`);
 }

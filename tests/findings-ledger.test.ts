@@ -12,7 +12,8 @@ import {
 } from "../apps/research-mcp/src/findings-ledger.js";
 import { laterInputNames } from "../apps/research-mcp/src/later-inputs.js";
 import {
-  FINAL_CHECK_BLOCKING_RULES, communitySkipCaveat, finalizeResearch as finalizeResearchUnwrapped,
+  FINAL_CHECK_BLOCKING_RULES, SECOND_READING_LEFT_TO_CALLER, communitySkipCaveat,
+  finalizeResearch as finalizeResearchUnwrapped,
   type FinalizeResearchInput, type FinalizeResearchOptions, type FinalizeResearchOutput,
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
@@ -347,6 +348,43 @@ describe("the final check with the ledger on", () => {
     const stops = result.check_findings!.findings.filter(({ stop }) => stop !== undefined);
     expect(stops.length).toBeGreaterThan(0);
     for (const { stop } of stops) expect(FINAL_CHECK_BLOCKING_RULES as readonly string[]).toContain(stop);
+  });
+});
+
+// Codex's review of 17 Nov 2026 (code-review.md), one regression for each of its findings.
+describe("the review of 17 Nov 2026", () => {
+  const judged = (limit: number): FinalizeResearchOptions["meaningJudgment"] => ({ status: "ran", youtube: [],
+    comparison: [], standalone: [], sourceLines: [], significance: [],
+    limits: [{ limit, why: "the answer concerns adults only" }] });
+
+  it("1: keeps a finding not rechecked, and says so, when the check that found it did not run in full", () => {
+    const first = finalizeResearch(fixture(), { ...options(WARNING), meaningJudgment: judged(1) });
+    expect(first.status).toBe("ready_with_limits");
+    const warning = warningFinding(first)!;
+    const judge = first.check_findings!.findings.find(({ text }) => text?.startsWith("The meaning judge reads"))!;
+    expect(judge).toMatchObject({ disposition: "open" });
+    // The same draft, with the second reading left to the caller and the meaning judge skipped: neither looked again.
+    const skipped = finalizeResearch(withLedger(fixture(), { findings_ledger: first.findings_ledger }), {
+      ...options(WARNING), secondReading: { status: "skipped", reason: SECOND_READING_LEFT_TO_CALLER },
+      meaningJudgment: { status: "skipped", reason: "timeout" } });
+    expect(skipped.check_findings!.findings).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: warning.id, disposition: "not_rechecked" }),
+      expect.objectContaining({ id: judge.id, disposition: "not_rechecked" })]));
+    const said = (skipped.notes ?? []).join(" ");
+    expect(said).toContain(`${warning.id} was not checked again`);
+    expect(said).toContain("the second reading");
+    expect(said).toContain(`${judge.id} was not checked again`);
+    expect(findingsLedgerGuidance(skipped.check_findings, skipped.findings_ledger)).toContain(
+      `Not checked again: ${warning.id}`);
+    // Its disposition is carried, not lost: the second reading runs again and finds it in the same draft, still open.
+    const again = finalizeResearch(withLedger(fixture(), { findings_ledger: skipped.findings_ledger }),
+      { ...options(WARNING), meaningJudgment: judged(1) });
+    expect(warningFinding(again)).toMatchObject({ id: warning.id, disposition: "open" });
+    // Only a run that no longer finds it calls it fixed.
+    const gone = finalizeResearch(withLedger(fixture(undefined), { findings_ledger: again.findings_ledger }),
+      { ...options(undefined), meaningJudgment: judged(1) });
+    expect(gone.check_findings!.findings).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: warning.id, disposition: "fixed" })]));
   });
 });
 
