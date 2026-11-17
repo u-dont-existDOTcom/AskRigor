@@ -887,12 +887,19 @@ AskRigor's research until the quick-answer test shows it
 (`../../docs/atlas-quick-answer-test.md`). The owner, 17 Nov 2026, asked for
 what passed the checks to show at once: `ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS=enabled`
 in `runtime.env` makes the save path keep nothing, so a saved finding shows on
-the pages at once, unreviewed and labelled "Not checked by supervisors yet",
-and a finding page then says what the quick-answer test found only from a
-challenge mark's stored verdict. Held, YouTube-comment and paid private
-findings are unaffected; it needs no migration and no grant. The recommended
-value is `enabled`; to turn it off, remove the line and recreate
-`research-mcp`: findings already shown stay shown until the owner keeps them.
+the pages at once, unreviewed and labelled "Not checked by supervisors yet".
+Migration `0041_atlas_show_saved_findings` stores that with the publication
+(`shown_by` is `automatic_showing`), and such a finding's page says what the
+quick-answer test found only from a challenge mark's stored verdict, whether
+the setting is still on or not. Run the one-shot admin `migrate` before the new
+image serves: it adds the nullable column and replaces `publish_atlas_findings`
+in its own shape, so no grant changes. Held, YouTube-comment and paid private
+findings are unaffected. The recommended value is `enabled`; to turn it off,
+remove the line and recreate `research-mcp`: findings already shown stay shown
+until the owner keeps them, and their pages still say nothing of the test. An
+earlier image's `migrate` puts back 0021's `publish_atlas_findings`, which
+leaves `shown_by` empty; this image's next `migrate` replaces it again. Undo no
+migration.
 
 An image rollback below 0021 needs no drain: the earlier image never reads the
 table, publishes nothing at a save, and has no publication action. Undo no

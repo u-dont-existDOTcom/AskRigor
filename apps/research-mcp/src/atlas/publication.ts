@@ -631,16 +631,21 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
         sourceTitles: await cardSourceTitles(saved.record, this.options.sourceTitles),
       });
       if (plan.problems.length === 0 && plan.drafts.length > 0) {
+        // Codex's review of 17 Nov 2026, finding 4: what the save shows at once is stored as such (migration 0041), so
+        // its page says nothing of the quick-answer test whether the setting is on or later turned off.
+        const showing = this.options.showOnPages === true;
         const rows = await this.options.store.publish({
           cardNumber: saved.issueNumber,
           cardSha256: saved.record.card_sha256,
-          findings: plan.drafts,
+          findings: showing
+            ? plan.drafts.map((draft) => draft.state === "unreviewed" ? { ...draft, shownBy: "automatic_showing" as const } : draft)
+            : plan.drafts,
           publishedAt: this.now().toISOString(),
           revive: false,
         });
         const waiting = rows.filter(({ outcome, state }) => outcome === "published" && state === "unreviewed")
           .map(({ publicationNumber }) => publicationNumber);
-        if (waiting.length > 0 && this.options.showOnPages !== true) {
+        if (waiting.length > 0 && !showing) {
           await this.options.store.keep({ publicationNumbers: waiting, atlasNumbers: [], keep: true,
             reason: QUICK_ANSWER_TEST_WAITING, at: this.now().toISOString() });
         }

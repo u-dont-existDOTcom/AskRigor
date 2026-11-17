@@ -426,8 +426,9 @@ export function atlasPagesEnabledFromEnv(
  * finding it publishes for AskRigor's research until the quick-answer test shows it (owner answer 240a), as before.
  * Either way a finding stays unreviewed, labelled "Not checked by supervisors yet"; held findings stay held, findings
  * drawn from YouTube comments and paid private cards are never published at the save, and the owner's
- * keep_for_research and unpublish work as before. On, a shown finding without a challenge mark may never have had the
- * quick-answer test, so its page no longer says a separate AI found that a quick AI answer misses it.
+ * keep_for_research and unpublish work as before. On, a finding the save shows at once is stored as such (migration
+ * 0041), so without a challenge mark its page never says a separate AI found that a quick AI answer misses it, even
+ * after the setting is turned off.
  */
 export function atlasShowSavedFindingsFromEnv(
   value = process.env.ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS

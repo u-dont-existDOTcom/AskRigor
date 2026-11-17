@@ -327,6 +327,31 @@ describe("the PostgreSQL publication store", () => {
     await expect(store.publish({ cardNumber: 250, cardSha256: DIGEST_A, findings: [draft(1, { state: "held" })],
       publishedAt: AT, revive: false })).rejects.toBeInstanceOf(AtlasPublicationError);
     expect(calls).toHaveLength(7);
+    // Migration 0041: a draft the save shows at once says so in its JSON, which publish_atlas_findings stores.
+    await store.publish({ cardNumber: 250, cardSha256: DIGEST_A, findings: [{ ...draft(1), shownBy: "automatic_showing" }],
+      publishedAt: AT, revive: false });
+    expect(JSON.parse(calls[7]!.values[2] as string)).toEqual([{ ...draft(1), shownBy: "automatic_showing" }]);
+  });
+
+  // Codex's review of 17 Nov 2026, finding 4: how a publication reached the pages, stored with it (migration 0041).
+  it("stores a draft shown at once as such, only for an unreviewed draft, and keeps it when the finding is published again", async () => {
+    const store = new InMemoryAtlasPublicationStore();
+    const [shown, held] = await store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: AT, revive: false,
+      findings: [{ ...draft(1), shownBy: "automatic_showing" }, draft(2, { state: "held", heldBecause: ["card_reference"] })] });
+    expect(store.shownByOf(shown!.publicationNumber)).toBe("automatic_showing");
+    expect(store.shownByOf(held!.publicationNumber)).toBeNull();
+    for (const refused of [
+      { ...draft(3, { state: "held", heldBecause: ["card_reference"] }), shownBy: "automatic_showing" as const },
+      { ...draft(3), shownBy: "quick_answer_test" as unknown as "automatic_showing" },
+    ]) {
+      await expect(store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: AT, revive: false,
+        findings: [refused] })).rejects.toBeInstanceOf(AtlasPublicationError);
+    }
+    // The owner's publish_cards publishing it again, after an unpublishing, leaves how it first reached the pages.
+    await store.withdraw({ reason: "owner_unpublished", publicationNumbers: [shown!.publicationNumber], ownerReason: "Wrong.",
+      withdrawnAt: LATER });
+    await store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: LATER, revive: true, findings: [draft(1)] });
+    expect(store.shownByOf(shown!.publicationNumber)).toBe("automatic_showing");
   });
 
   it("refuses a row that does not read as a publication", async () => {

@@ -256,7 +256,20 @@ export interface AtlasPublicationDraft {
   /** With held: why. */
   heldBecause: AtlasPublicationHoldReason[] | null;
   published: AtlasPublishedFinding;
+  /**
+   * How it reaches the pages, for an unreviewed draft the save shows at once (migration 0041): automatic_showing.
+   * Left out, as for every draft before it, it reaches them only once the quick-answer test or the owner shows it.
+   */
+  shownBy?: AtlasPublicationRoute;
 }
+
+/**
+ * How a publication reached the pages (Codex's review of 17 Nov 2026, finding 4): automatic_showing when the save
+ * showed it at once (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS), so its page says nothing of the quick-answer test without a
+ * challenge mark. A publication without one was kept for the quick-answer test, or published by the owner.
+ */
+export const ATLAS_PUBLICATION_ROUTES = ["automatic_showing"] as const;
+export type AtlasPublicationRoute = typeof ATLAS_PUBLICATION_ROUTES[number];
 
 export interface AtlasPublishInput {
   /** The card's issue number, for moderation; never in the published fields. */
@@ -508,7 +521,9 @@ function validatePublishInput(input: AtlasPublishInput): AtlasPublicationDraft[]
     if (!Number.isInteger(draft.findingNumber) || draft.findingNumber < 1 || draft.findingNumber > 5 ||
       !["unreviewed", "held", "accepted", "edited"].includes(draft.state) ||
       accepted !== (draft.atlasNumber !== null) || (draft.atlasNumber !== null && !ATLAS_NUMBER.test(draft.atlasNumber)) ||
-      (draft.state === "held") !== (draft.heldBecause !== null) || !validHeldReasons(draft.heldBecause)) {
+      (draft.state === "held") !== (draft.heldBecause !== null) || !validHeldReasons(draft.heldBecause) ||
+      (draft.shownBy !== undefined && (!(ATLAS_PUBLICATION_ROUTES as readonly string[]).includes(draft.shownBy) ||
+        draft.state !== "unreviewed"))) {
       throw invalid();
     }
     const parsed = atlasPublishedFindingSchema.safeParse(draft.published);
@@ -576,6 +591,8 @@ const iso = (value: string) => new Date(value).toISOString();
 export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
   private readonly rows: AtlasPublicationView[] = [];
   private nextNumber = 1_001;
+  // How each publication reached the pages, when its draft said (migration 0041's shown_by).
+  private readonly routes = new Map<string, AtlasPublicationRoute>();
 
   async publish(input: AtlasPublishInput): Promise<AtlasPublishedRow[]> {
     const drafts = validatePublishInput(input);
@@ -584,8 +601,10 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
     for (const draft of drafts) {
       const existing = this.rows.find((row) => row.cardSha256 === input.cardSha256 && row.findingNumber === draft.findingNumber);
       if (existing === undefined) {
+        const publicationNumber = `P-${this.nextNumber++}`;
+        if (draft.shownBy !== undefined) this.routes.set(publicationNumber, draft.shownBy);
         this.rows.push({
-          publicationNumber: `P-${this.nextNumber++}`,
+          publicationNumber,
           cardNumber: input.cardNumber,
           cardSha256: input.cardSha256,
           findingNumber: draft.findingNumber,
@@ -780,6 +799,11 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
     return this.rows.filter((row) => this.challenges.has(row.publicationNumber))
       .sort((left, right) => atlasPublicationOrder(left.publicationNumber) - atlasPublicationOrder(right.publicationNumber))
       .map((row) => this.challengeView(row));
+  }
+
+  /** How a publication reached the pages, for the in-memory pages: null for one its draft didn't say (migration 0041). */
+  shownByOf(publicationNumber: string): AtlasPublicationRoute | null {
+    return this.routes.get(publicationNumber) ?? null;
   }
 
   /** A publication's challenge mark, for the in-memory pages; null when it carries none. */

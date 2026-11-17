@@ -204,6 +204,13 @@ export interface ShownFinding {
    * publication's challenge mark; null for none, or for a mark whose texts a page would refuse.
    */
   challenge: ShownChallenge | null;
+  /**
+   * Codex's review of 17 Nov 2026, finding 4: true when the save showed it at once (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS),
+   * as its publication stores it (migration 0041), so it may never have had the quick-answer test and its page says
+   * nothing of the test without a challenge mark, whether the setting is on now or not. False when it was kept for the
+   * quick-answer test, which showed it (owner answer 240a), or the owner published it.
+   */
+  shownAtOnce: boolean;
 }
 
 /** A finding's challenge mark as its pages show it: never who marked it. */
@@ -272,12 +279,6 @@ export interface AtlasFindingModel {
   finding: ShownFinding;
   /** The other findings the pages show from the same card, in number order. */
   siblings: ShownFinding[];
-  /**
-   * The owner, 17 Nov 2026: true while saved findings show on the pages at once (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS),
-   * so a shown unreviewed finding without a challenge mark may never have had the quick-answer test, and its page says
-   * nothing of the test. Absent or false, being shown means the test showed it (owner answer 240a).
-   */
-  shownWithoutTest?: boolean;
   /**
    * Votes and comments (decision 171, section 4E): the totals, the comments that show and the signed-in viewer's own;
    * null when votes and comments are switched off, and then nothing of them renders.
@@ -518,6 +519,7 @@ function fromPublished(publication: AtlasPagePublication, published: AtlasPublis
     stateChangedAt: publication.stateChangedAt,
     kept: publication.kept,
     challenge: shownChallenge(publication),
+    shownAtOnce: publication.shownBy === "automatic_showing",
     namedVideos: shownNamedVideos(published.named_videos),
     ...researchBehind(published, shownSource),
     aiReadings: published.ai_readings ?? null,
@@ -691,6 +693,7 @@ function fromCanonical(
     stateChangedAt: publication.stateChangedAt,
     kept: publication.kept,
     challenge: shownChallenge(publication),
+    shownAtOnce: publication.shownBy === "automatic_showing",
     namedVideos: shownNamedVideos(content.research?.named_videos ?? publication.published?.named_videos),
     // Owner answers 252a and 255a: an accepted or edited finding shows the research behind it from its own version, or
     // from its publication's fields; both are erased with its F number's wording.
