@@ -58,6 +58,40 @@ export const DOSSIER_TOPIC_PAGES = 500;
  * order, and says how many more there are and where (finding 8).
  */
 export const DOSSIER_FINDING_BYTES = 1_000_000;
+/**
+ * The most a whole page that shows dossiers takes, as bytes (Codex's re-review of stage 2, P1): the list of every finding
+ * gets what the rest of the page leaves, and when the rest alone is more, the main points at a glance are listed
+ * without what each opens onto (fitDossierPage).
+ */
+export const DOSSIER_PAGE_BYTES = 2_000_000;
+/** The topics list, while dossiers show, this many topics a page, in the order of their keys. */
+export const DOSSIER_TOPIC_INDEX_PER_PAGE = 200;
+
+/** How much of a page that shows dossiers its parts may take (fitDossierPage). */
+export interface DossierPageSize {
+  /** The bytes the list of every finding may take. */
+  findingBytes?: number;
+  /** The main points at a glance as lines alone, each linking its dossier, without what each opens onto. */
+  compact?: boolean;
+}
+
+/**
+ * A page that shows dossiers, within its whole size: the list of every finding is cut to what the rest of the page
+ * leaves; if the rest alone is more, the main points at a glance are shown as lines alone. Everything else a dossier
+ * part holds is bounded by its count and the dossier's own limits.
+ */
+export function fitDossierPage(render: (size: DossierPageSize) => string, bytes = DOSSIER_PAGE_BYTES): string {
+  const sizeOf = (page: string) => Buffer.byteLength(page, "utf8");
+  let findingBytes = Math.min(DOSSIER_FINDING_BYTES, bytes);
+  for (let attempt = 0; attempt < 4 && findingBytes > 0; attempt += 1) {
+    const page = render({ findingBytes });
+    const size = sizeOf(page);
+    if (size <= bytes) return page;
+    findingBytes = Math.max(0, findingBytes - (size - bytes) - 4_096);
+  }
+  const page = render({ findingBytes: 0 });
+  return sizeOf(page) <= bytes ? page : render({ findingBytes: 0, compact: true });
+}
 /** A dossier page compares it with the newest this many shown dossiers on its topic, and says so when there are more. */
 const TOPIC_COMPARED = 200;
 /** Topics sharing a study are looked for among the newest this many shown dossiers: a bounded look, never a lookup. */
@@ -290,12 +324,53 @@ export async function loadDossierPage(source: PublicDossierPageSource, publicNum
   };
 }
 
-/** The topics with shown dossiers, for the topics list: key, name and how many findings they show. */
-export async function loadDossierTopicList(source: PublicDossierPageSource):
-  Promise<Array<{ key: string; label: string; count: number }>> {
-  // Every topic once, from the reader's topics view: never a read of every copy, and never only the newest ones.
-  return (await source.listTopics()).filter(({ name }) => rowPassesPageGuard(name))
-    .map(({ topicKey, name, findings }) => ({ key: topicKey, label: name, count: findings }));
+export interface DossierTopicIndexPage {
+  /** This page's topics, in the order of their keys, each once, its findings counted from cards and dossiers. */
+  topics: Array<{ key: string; label: string; count: number }>;
+  /** Whether more topics follow this page's last. */
+  more: boolean;
+}
+
+/**
+ * One page of the topics list while dossiers show (Codex's re-review of stage 2, P1: the list read every topic): the
+ * card topics and the dossier topics as one list in the order of their keys, DOSSIER_TOPIC_INDEX_PER_PAGE at a time
+ * after the key given, each topic once with the findings of both. The dossier topics are read one page at a time
+ * from the reader's topics view, never all of them; a topic is listed only once every dossier topic up to its key is
+ * read, so no count is cut.
+ */
+export async function loadDossierTopicIndex(source: PublicDossierPageSource,
+  cardTopics: ReadonlyArray<{ key: string; label: string; count: number }>, after?: string): Promise<DossierTopicIndexPage> {
+  const read = await source.listTopics({ ...(after === undefined ? {} : { after }), limit: DOSSIER_TOPIC_INDEX_PER_PAGE + 1 });
+  const bound = read.length > DOSSIER_TOPIC_INDEX_PER_PAGE ? read.at(-1)!.topicKey : undefined;
+  const topics = new Map<string, { key: string; label: string; count: number }>();
+  for (const topic of cardTopics) if (after === undefined || topic.key > after) topics.set(topic.key, { ...topic });
+  for (const { topicKey, name, findings } of read) {
+    if (!rowPassesPageGuard(name)) continue;
+    const known = topics.get(topicKey);
+    if (known === undefined) topics.set(topicKey, { key: topicKey, label: name, count: findings });
+    else known.count += findings;
+  }
+  const ordered = [...topics.values()].sort((left, right) => left.key < right.key ? -1 : left.key > right.key ? 1 : 0);
+  const complete = bound === undefined ? ordered : ordered.filter(({ key }) => key <= bound);
+  return { topics: complete.slice(0, DOSSIER_TOPIC_INDEX_PER_PAGE),
+    more: complete.length > DOSSIER_TOPIC_INDEX_PER_PAGE || complete.length < ordered.length || bound !== undefined };
+}
+
+/**
+ * A page of a list within the whole size: as many of its entries as fit, at least one; returns how many and the page.
+ */
+export function fitDossierEntries(render: (count: number) => string, total: number, bytes = DOSSIER_PAGE_BYTES):
+  { count: number; page: string } {
+  const fits = (count: number) => Buffer.byteLength(render(count), "utf8") <= bytes;
+  if (total <= 1 || fits(total)) return { count: total, page: render(total) };
+  let low = 1;
+  let high = total - 1;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if (fits(middle)) low = middle;
+    else high = middle - 1;
+  }
+  return { count: low, page: render(low) };
 }
 
 // Words ------------------------------------------------------------------------------------------------------------
@@ -457,10 +532,19 @@ ${facts.length === 0 ? "" : html`<p class="meta">${joined(facts, html` · `)}</p
 </li>`;
 }
 
-/** One finding as a line that opens onto what it rests on. */
-function glanceItem(item: DossierRankItem, showDossier: boolean): SafeHtml {
+/** One finding as a line that opens onto what it rests on; compact, the line alone, linking its dossier. */
+function glanceItem(item: DossierRankItem, showDossier: boolean, compact = false): SafeHtml {
   const { dossier, finding } = item;
   const evidence = item.evidence.parts.map(evidencePart);
+  if (compact) {
+    return html`<li class="dossier-finding dossier-${finding.importance}"><span class="dossier-importance">${
+      IMPORTANCE_WORDS[finding.importance]}</span>${finding.hard_to_find ? html` <span class="dossier-hard">Hard to find</span>`
+      : ""} <span class="dossier-claim">${finding.claim}</span>
+<span class="dossier-evidence">${KIND_WORDS[finding.kind] ?? finding.kind} · ${evidence.length === 0 ? "evidence not given"
+    : evidence.join("; ")} · ${CERTAINTY_WORDS[finding.certainty] ?? finding.certainty}${finding.form === undefined ? ""
+    : html` · ${finding.form}`}${showDossier ? html` · <a href="${dossierPagePath(item.publicNumber)}">${item.publicNumber}</a>`
+    : ""}</span></li>`;
+  }
   const results = finding.rests_on.flatMap((reference) => dossier.results.filter(({ id }) => id === reference));
   const studies = findingStudies(dossier, finding);
   const searches = finding.rests_on.flatMap((reference) => dossier.searches.filter(({ id }) => id === reference));
@@ -496,8 +580,8 @@ function communityText(community: NonNullable<PublicDossier["community"]>): Safe
 <p class="meta">Counted once per thread. These are what people chose to post, so they don’t show how often anything happens.</p>`;
 }
 
-function glanceList(items: readonly DossierRankItem[], showDossier: boolean): SafeHtml {
-  return html`<ol class="dossier-glance">${items.map((item) => glanceItem(item, showDossier))}</ol>`;
+function glanceList(items: readonly DossierRankItem[], showDossier: boolean, compact = false): SafeHtml {
+  return html`<ol class="dossier-glance">${items.map((item) => glanceItem(item, showDossier, compact))}</ol>`;
 }
 
 /**
@@ -553,7 +637,7 @@ const unreviewed = (dossiers: readonly ShownDossier[]) => dossiers.some(({ copy 
  * The dossiers' part of a topic page: main points at a glance, all findings by form within their size, conflicts, this
  * page's dossiers with links to the newer and older ones, and related topics.
  */
-export function dossierTopicSection(model: DossierTopicModel, size: { findingBytes?: number } = {}): SafeHtml {
+export function dossierTopicSection(model: DossierTopicModel, size: DossierPageSize = {}): SafeHtml {
   const glance = model.glance;
   const pageOf = (page: number) => page === 1 ? topicPath(model.topicKey) : `${topicPath(model.topicKey)}?page=${page}`;
   const paged = model.page > 1 || model.more;
@@ -564,7 +648,8 @@ ${unreviewed(model.dossiers) ? statusBadge(false) : statusBadge(true)}
 <p class="meta">${DOSSIER_ORDER_LINE} Open a line for what it rests on.</p>
 ${model.glanceAcross.dossiers > model.dossiers.length ? html`<p class="meta">Ranked across ${model.glanceAcross.every
     ? "all" : "the newest"} ${model.glanceAcross.dossiers} dossiers on this topic.</p>` : ""}
-${glanceList(glance, true)}
+${size.compact === true ? html`<p class="meta">Each line is on its dossier’s page with what it rests on.</p>` : ""}
+${glanceList(glance, true, size.compact === true)}
 ${model.ranked.length > glance.length || model.forms.length > 1 || paged ? html`<details class="dossier-more">
 <summary>All ${model.ranked.length} findings${paged ? " of the dossiers on this page" : ""}, by form</summary>
 ${formSections(model.forms, true, "topic", size.findingBytes ?? DOSSIER_FINDING_BYTES, (count) =>
@@ -580,7 +665,8 @@ ${relatedList(model.related)}
 }
 
 /** A topic page that only dossiers show (no card finding has the topic). */
-export function renderDossierTopicPage(model: DossierTopicModel, reader?: AtlasPageReader): string {
+export function renderDossierTopicPage(model: DossierTopicModel, reader?: AtlasPageReader,
+  size: DossierPageSize = {}): string {
   return page({
     path: model.page === 1 ? topicPath(model.topicKey) : `${topicPath(model.topicKey)}?page=${model.page}`,
     noindex: model.dossiers.every(({ copy }) => !copy.accepted),
@@ -590,7 +676,7 @@ export function renderDossierTopicPage(model: DossierTopicModel, reader?: AtlasP
     body: html`<p class="breadcrumbs"><a href="/atlas">Atlas</a> › <a href="/atlas/topics">Topics</a></p>
 <h1>${model.name}</h1>
 ${model.otherNames.length === 0 ? "" : html`<p class="lede">Also called: ${model.otherNames.join(", ")}</p>`}
-${dossierTopicSection(model)}`,
+${dossierTopicSection(model, size)}`,
   });
 }
 
@@ -620,7 +706,7 @@ function checkedSection(dossier: PublicDossier): SafeHtml {
 }
 
 /** A dossier's own page. */
-export function renderDossierPage(model: DossierPageModel, reader?: AtlasPageReader): string {
+export function renderDossierPage(model: DossierPageModel, reader?: AtlasPageReader, size: DossierPageSize = {}): string {
   const { copy, dossier } = model.shown;
   const studies = [...dossier.studies].sort((left, right) =>
     Number(left.decision === "set_aside") - Number(right.decision === "set_aside"));
@@ -644,10 +730,10 @@ ${dossier.value.reason === undefined ? "" : html`<p><strong>What this adds:</str
 </section>`}
 <h2>Main points at a glance</h2>
 <p class="meta">${DOSSIER_ORDER_LINE} Open a line for what it rests on.</p>
-${glanceList(model.ranked.slice(0, DOSSIER_GLANCE_COUNT), false)}
+${glanceList(model.ranked.slice(0, DOSSIER_GLANCE_COUNT), false, size.compact === true)}
 ${model.ranked.length > DOSSIER_GLANCE_COUNT || model.forms.length > 1 ? html`<details class="dossier-more">
 <summary>All ${model.ranked.length} findings, by form</summary>
-${formSections(model.forms, false, "dossier", DOSSIER_FINDING_BYTES, (count) =>
+${formSections(model.forms, false, "dossier", size.findingBytes ?? DOSSIER_FINDING_BYTES, (count) =>
     `${count} more ${count === 1 ? "finding is" : "findings are"} not listed here, to keep the page a readable size.`)}
 </details>` : ""}
 ${disagreementList(model.disagreements)}

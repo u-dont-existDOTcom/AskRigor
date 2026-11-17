@@ -19,7 +19,12 @@ import {
   type ResearchDossierPublishInput,
 } from "../packages/evidence-repository/src/index.js";
 import { publicDossierOf } from "../apps/research-mcp/src/findings/dossier-publication.js";
-import { loadDossierPage, loadDossierTopic, loadDossierTopicList } from "../apps/research-mcp/src/atlas/dossier-pages.js";
+import {
+  DOSSIER_TOPIC_INDEX_PER_PAGE,
+  loadDossierPage,
+  loadDossierTopic,
+  loadDossierTopicIndex,
+} from "../apps/research-mcp/src/atlas/dossier-pages.js";
 
 // AskRigor#477 stage 2 (owner answers 331a, 332a and 333a, 16 Nov 2026): migration 0040's public dossier copies, on a
 // real PostgreSQL with production's four roles (scripts/run-research-dossier-publications-postgres-acceptance.sh).
@@ -796,9 +801,19 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     const crowdedPage = await loadDossierTopic(pages, "crowded-topic", async () => undefined, 11);
     assert(crowdedPage !== undefined && crowdedPage.page === 11 && crowdedPage.dossiers.length > 0,
       "LATER_TOPIC_PAGE_NOT_FOUND");
-    const topicList = await loadDossierTopicList(pages);
-    assert(topicList.some(({ key }) => key === "synthetic-topic") && topicList.some(({ key }) => key === "filler-299") &&
-      topicList.length > 300, "TOPIC_LIST_INCOMPLETE");
+    // Codex's re-review, P1: the topics list comes a page at a time after a key, in the order of the keys, never whole.
+    const topicList: Array<{ key: string }> = [];
+    for (let after: string | undefined; ;) {
+      const index = await loadDossierTopicIndex(pages, [], after);
+      assert(index.topics.length <= DOSSIER_TOPIC_INDEX_PER_PAGE, "TOPIC_INDEX_PAGE_TOO_LONG");
+      topicList.push(...index.topics);
+      if (!index.more) break;
+      after = index.topics.at(-1)!.key;
+    }
+    const keys = topicList.map(({ key }) => key);
+    assert(keys.includes("synthetic-topic") && keys.includes("filler-299") && keys.length > 300 &&
+      new Set(keys).size === keys.length && keys.every((key, place) => place === 0 || keys[place - 1]! < key),
+    "TOPIC_LIST_INCOMPLETE");
     const beforeRevocation = await pages.generation();
     const watched = await account("watched");
     const w1 = await save(watched.accountKey, "watched", "watched-1", null, (value) => {

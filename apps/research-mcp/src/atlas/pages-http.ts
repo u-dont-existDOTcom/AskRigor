@@ -27,9 +27,11 @@ import {
 } from "../config.js";
 import {
   dossierTopicSection,
+  fitDossierEntries,
+  fitDossierPage,
   loadDossierPage,
   loadDossierTopic,
-  loadDossierTopicList,
+  loadDossierTopicIndex,
   renderDossierPage,
   renderDossierTopicPage,
 } from "./dossier-pages.js";
@@ -243,7 +245,8 @@ export type AtlasRoute =
   | { kind: "findings"; before?: string; filter?: AtlasFindingFilter }
   // The owner, 6 Nov 2026: the findings that challenge the usual view.
   | { kind: "challenges"; before?: string }
-  | { kind: "topics" }
+  // after: AskRigor#477 stage 2, while dossiers show, the topics after this key (?after=), from the query.
+  | { kind: "topics"; after?: string }
   | { kind: "health" }
   | { kind: "subcategory"; subcategoryKey: string }
   | { kind: "map" }
@@ -854,15 +857,18 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           route.before === undefined ? {} : { before: route.before }), reader) });
       case "topics": {
         const model = await loadAtlasTopics(source);
-        // AskRigor#477 stage 2: the topics that research dossiers show, beside the findings' own.
+        // AskRigor#477 stage 2 (Codex's re-review): the topics that research dossiers show join the findings' own, as one
+        // list in the order of their keys, a page at a time after a key and within the whole page's size.
         if (options.dossiers !== undefined) {
-          const topics = new Map(model.topics.map((topic) => [topic.key, { ...topic }]));
-          for (const topic of await loadDossierTopicList(options.dossiers)) {
-            const known = topics.get(topic.key);
-            if (known === undefined) topics.set(topic.key, topic);
-            else known.count += topic.count;
+          const index = await loadDossierTopicIndex(options.dossiers, model.topics, route.after);
+          if (route.after !== undefined && index.topics.length === 0) {
+            return checked({ status: 404, html: renderAtlasNotFound(reader) });
           }
-          model.topics = [...topics.values()].sort((a, b) => a.label.localeCompare(b.label, "en") || a.key.localeCompare(b.key));
+          const { page: fitted } = fitDossierEntries((count) => renderAtlasTopics({ ...model,
+            topics: index.topics.slice(0, count) }, reader, { ...(route.after === undefined ? {} : { after: route.after }),
+            ...(count < index.topics.length || index.more ? { next: index.topics[count - 1]!.key } : {}) }),
+          index.topics.length);
+          return checked({ status: 200, html: fitted });
         }
         return checked({ status: 200, html: renderAtlasTopics(model, reader) });
       }
@@ -881,7 +887,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           const later = options.dossiers === undefined ? undefined
             : await loadDossierTopic(options.dossiers, route.topicKey, cardTopicLabel(source), route.page);
           return checked(later === undefined ? { status: 404, html: renderAtlasNotFound(reader) }
-            : { status: 200, html: renderDossierTopicPage(later, reader) });
+            : { status: 200, html: fitDossierPage((size) => renderDossierTopicPage(later, reader, size)) });
         }
         const model = await loadAtlasTopic(source, route.topicKey);
         // AskRigor#477 stage 2: the topic's research dossiers lead it, or make its page when no finding has the topic.
@@ -889,16 +895,18 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           : await loadDossierTopic(options.dossiers, route.topicKey, cardTopicLabel(source));
         if (model === undefined) {
           return checked(dossiers === undefined ? { status: 404, html: renderAtlasNotFound(reader) }
-            : { status: 200, html: renderDossierTopicPage(dossiers, reader) });
+            : { status: 200, html: fitDossierPage((size) => renderDossierTopicPage(dossiers, reader, size)) });
         }
-        return checked({ status: 200, html: renderAtlasTopic(model, reader, dossiers === undefined ? undefined
-          : { section: dossierTopicSection(dossiers), anyChecked: dossiers.dossiers.some(({ copy }) => copy.accepted) }) });
+        if (dossiers === undefined) return checked({ status: 200, html: renderAtlasTopic(model, reader) });
+        // The whole page within its size, the card findings' part included (Codex's re-review of stage 2).
+        return checked({ status: 200, html: fitDossierPage((size) => renderAtlasTopic(model, reader, {
+          section: dossierTopicSection(dossiers, size), anyChecked: dossiers.dossiers.some(({ copy }) => copy.accepted) })) });
       }
       case "dossier": {
         const model = options.dossiers === undefined ? undefined
           : await loadDossierPage(options.dossiers, route.publicNumber, cardTopicLabel(source));
         return checked(model === undefined ? { status: 404, html: renderAtlasNotFound(reader) }
-          : { status: 200, html: renderDossierPage(model, reader) });
+          : { status: 200, html: fitDossierPage((size) => renderDossierPage(model, reader, size)) });
       }
       case "finding":
         return await findingPage(source, route.publicationNumber, undefined, clock());
@@ -1519,6 +1527,14 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           if (page !== undefined && page !== "1") {
             pageRoute = { kind: "topic", topicKey: pageRoute.topicKey, page: Number(page) };
             cacheKey = `${pathname}?page=${page}`;
+          }
+        }
+        // The topics list after a key, only while dossiers show (Codex's re-review of stage 2); otherwise as before.
+        if (pageRoute.kind === "topics" && options.dossiers !== undefined) {
+          const after = /^[a-z0-9][a-z0-9._-]{0,199}$/u.exec(queryOf(request).get("after") ?? "")?.[0];
+          if (after !== undefined) {
+            pageRoute = { kind: "topics", after };
+            cacheKey = `${pathname}?after=${after}`;
           }
         }
         if (options.dossiers !== undefined &&

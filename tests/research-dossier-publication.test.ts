@@ -957,6 +957,44 @@ describe("the dossier pages' reads, pages, size and cache", () => {
       expect(listOf(second)).toContain('href="/atlas/dossiers/D-1001"');
     }, 60_000);
 
+  // Codex's re-review of stage 2, P1: the topics list read every topic, and the size budget covered only the list of
+  // every finding. The list comes a page at a time after a key, never read whole, and the cap covers the whole page.
+  it("lists the topics a page at a time after a key, and keeps every whole page within its size", async () => {
+    const { publications } = await many(230, (index) => `topic-${String(index).padStart(3, "0")}`);
+    const limits: number[] = [];
+    const listTopics = publications.listTopics.bind(publications);
+    publications.listTopics = async (query?: { after?: string; limit: number }) => {
+      limits.push(query?.limit ?? Number.POSITIVE_INFINITY);
+      return await listTopics(query as never);
+    };
+    const base = await serve(handler(publications));
+    const first = (await get(base, "/atlas/topics")).body;
+    const entries = (body: string) => [...body.matchAll(/<li><a href="\/atlas\/topics\/([a-z0-9._-]+)">/gu)].map(([, key]) => key);
+    expect(entries(first)).toHaveLength(200);
+    expect(entries(first)[0]).toBe("inositol-invented");
+    expect(entries(first).at(-1)).toBe("topic-198");
+    expect(first).toContain('<a rel="next" href="/atlas/topics?after=topic-198">More topics</a>');
+    const second = (await get(base, "/atlas/topics?after=topic-198")).body;
+    expect(entries(second)).toEqual(Array.from({ length: 31 }, (_, index) => `topic-${String(199 + index).padStart(3, "0")}`));
+    expect(second).toContain('<a href="/atlas/topics">First topics</a>');
+    expect(second).not.toContain("More topics");
+    expect((await get(base, "/atlas/topics?after=topic-229")).status).toBe(404);
+    expect(Math.max(...limits)).toBeLessThanOrEqual(201);
+    // The whole response, not only its list of every finding, stays within the size it is given.
+    const { DOSSIER_PAGE_BYTES, fitDossierPage, loadDossierTopic, renderDossierTopicPage } =
+      await import("../apps/research-mcp/src/atlas/dossier-pages.js");
+    expect(DOSSIER_PAGE_BYTES).toBe(2_000_000);
+    const crowded = await many(30, () => "crowded-invented");
+    const model = (await loadDossierTopic(crowded.publications, "crowded-invented"))!;
+    const unbounded = renderDossierTopicPage(model);
+    for (const bytes of [Math.floor(Buffer.byteLength(unbounded, "utf8") / 2), 60_000, 20_000]) {
+      const fitted = fitDossierPage((size) => renderDossierTopicPage(model, undefined, size), bytes);
+      expect(Buffer.byteLength(fitted, "utf8")).toBeLessThanOrEqual(bytes);
+      expect(atlasPageProblems(fitted)).toEqual([]);
+      expect(fitted).toContain("Research dossiers: main points at a glance");
+    }
+  }, 120_000);
+
   it("drops every server's cached dossier pages when the research is withdrawn, also in another process", async () => {
     const { dossiers, publications, publication } = stores();
     await saveResearchDossier(dossiers, request({ publication }));

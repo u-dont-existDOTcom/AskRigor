@@ -67,6 +67,7 @@ export {
   type PublicDossierPageSource,
   type PublicDossierQuery,
   type PublicDossierTopic,
+  type PublicDossierTopicQuery,
   type ResearchDossierAutoHoldReason,
   type ResearchDossierDecisionInput,
   type ResearchDossierLivingPersonDecisionInput,

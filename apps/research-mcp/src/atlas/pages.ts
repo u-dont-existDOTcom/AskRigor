@@ -397,12 +397,21 @@ ${model.before === null ? "" : html`<p><a rel="next" href="${CHALLENGES_PATH}?be
 <p><a href="/atlas/findings">See all findings</a></p>` });
 }
 
-export function renderAtlasTopics(model: AtlasTopicsModel, reader?: AtlasPageReader): string {
+/**
+ * The topics list. pages (AskRigor#477 stage 2, while dossiers show): this page's topics follow the key given, and a
+ * link leads to the topics after its last; without it the list is as it always was.
+ */
+export function renderAtlasTopics(model: AtlasTopicsModel, reader?: AtlasPageReader,
+  pages?: { after?: string; next?: string }): string {
   return page({ path: "/atlas/topics", title: "Topics | AskRigor Atlas", current: "topics", reader,
     description: "Topics with published findings in the AskRigor Atlas.",
     body: html`<h1>Topics</h1>
 ${model.topics.length === 0 ? html`<p>No topics have findings yet.</p>` : html`<ul>${model.topics.map((topic) =>
-      html`<li><a href="${topicPath(topic.key)}">${topic.label}</a> — ${topic.count} ${topic.count === 1 ? "finding" : "findings"}</li>`)}</ul>`}
+      html`<li><a href="${topicPath(topic.key)}">${topic.label}</a> — ${topic.count} ${topic.count === 1 ? "finding" : "findings"}</li>`)}</ul>`}${
+  pages === undefined || (pages.after === undefined && pages.next === undefined) ? "" : html`
+<p class="dossier-pages">${pages.after === undefined ? "" : html`<a href="/atlas/topics">First topics</a>`}${
+    pages.after !== undefined && pages.next !== undefined ? " · " : ""}${pages.next === undefined ? ""
+    : html`<a rel="next" href="/atlas/topics?after=${pages.next}">More topics</a>`}</p>`}
 <p>${model.withoutTopic} ${model.withoutTopic === 1 ? "finding has" : "findings have"} no topic (older cards). <a href="/atlas/findings">Browse all findings</a>.</p>
 <p><a href="${MAP_PATH}">See the topics on the findings map</a></p>` });
 }

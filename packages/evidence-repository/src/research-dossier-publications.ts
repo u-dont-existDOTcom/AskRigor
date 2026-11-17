@@ -332,12 +332,28 @@ export interface PublicDossierTopic {
   dossiers: number;
 }
 
+/** A page of the topics with shown dossiers: those after a key, in the order of their keys. */
+export interface PublicDossierTopicQuery {
+  after?: string;
+  limit: number;
+}
+
+function assertTopicQuery(query: PublicDossierTopicQuery): void {
+  if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > PUBLIC_DOSSIERS_PER_READ ||
+    (query.after !== undefined && !TOPIC_KEY.test(query.after))) {
+    throw new ResearchDossierPublicationError("INPUT_INVALID");
+  }
+}
+
 /** The pages' reader side. */
 export interface PublicDossierPageSource {
   listShown(query: PublicDossierQuery): Promise<PublicDossierCopy[]>;
   history(publicNumbers: readonly string[]): Promise<PublicDossierHistoryEntry[]>;
-  /** Every topic with shown dossiers, by key. */
-  listTopics(): Promise<PublicDossierTopic[]>;
+  /**
+   * The topics with shown dossiers, a page at a time (Codex's re-review of stage 2): in the order of their keys, after
+   * the key given, at most limit (1 to PUBLIC_DOSSIERS_PER_READ); never every topic at once.
+   */
+  listTopics(query: PublicDossierTopicQuery): Promise<PublicDossierTopic[]>;
   /**
    * A value that changes with every change to the copies, made by any process or trigger: a cached dossier page is
    * kept under it, so every server renders again after a publication, a decision, a revocation or an erasure (finding 9).
@@ -775,9 +791,14 @@ export class PostgresPublicDossierPageSource implements PublicDossierPageSource 
     }));
   }
 
-  async listTopics(): Promise<PublicDossierTopic[]> {
+  async listTopics(query: PublicDossierTopicQuery): Promise<PublicDossierTopic[]> {
+    assertTopicQuery(query);
+    // Keys are lower-case ASCII, so their byte order here is the server's string order.
     const result = await this.pool.query<{ topic_key: string; name: string | null; findings: number; dossiers: number }>(
-      `SELECT topic_key, name, findings, dossiers FROM ${this.schema}.research_dossier_public_topics ORDER BY topic_key`);
+      `SELECT topic_key, name, findings, dossiers FROM ${this.schema}.research_dossier_public_topics
+        WHERE $1::text IS NULL OR topic_key COLLATE "C" > $1::text COLLATE "C"
+        ORDER BY topic_key COLLATE "C"
+        LIMIT $2`, [query.after ?? null, query.limit]);
     return result.rows.flatMap((row) => row.name === null ? [] : [{ topicKey: row.topic_key, name: row.name,
       findings: row.findings, dossiers: row.dossiers }]);
   }
@@ -1160,7 +1181,8 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       }));
   }
 
-  async listTopics(): Promise<PublicDossierTopic[]> {
+  async listTopics(query: PublicDossierTopicQuery): Promise<PublicDossierTopic[]> {
+    assertTopicQuery(query);
     this.followPrivate();
     const topics = new Map<string, PublicDossierTopic>();
     // Every shown copy, newest first, as the view groups them: the topic's name is its newest copy's.
@@ -1173,7 +1195,8 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       topic.dossiers += 1;
       topics.set(copy.topicKey!, topic);
     }
-    return [...topics.values()].sort((left, right) => left.topicKey < right.topicKey ? -1 : 1);
+    return [...topics.values()].sort((left, right) => left.topicKey < right.topicKey ? -1 : 1)
+      .filter(({ topicKey }) => query.after === undefined || topicKey > query.after).slice(0, query.limit);
   }
 
   /** In memory, a digest of every copy's state: it changes with any change, as the database's number does. */
