@@ -437,6 +437,37 @@ export function atlasShowSavedFindingsFromEnv(
   return value?.trim() === "enabled";
 }
 
+/** What the save does with a finding whose card doesn't say whether it names a living person. */
+export type AtlasLivingPersonUnknown = "keep" | "hold" | "reader";
+
+/**
+ * What the save does with a finding whose card doesn't say whether it names a living person, until the owner answers
+ * question 346: ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN. Unset, empty or "keep": as before (with saved findings shown at
+ * once it is kept off the lists for the owner; otherwise it waits for the quick-answer test). "hold": it is held for the
+ * owner like a finding that says yes, with no page. "reader": the meaning judge's reading, which the final check's one
+ * call already makes when the judge runs, decides: its no lets it go on as a finding that says no would, and its yes or
+ * no reading holds it. No new call is made. Any other value is a mistake and holds, the safe direction. A finding that
+ * says yes, or that the judge read as naming one, is held whatever this says (Codex's re-review of 17 Nov 2026).
+ */
+export function atlasLivingPersonUnknownFromEnv(
+  value = process.env.ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN
+): AtlasLivingPersonUnknown {
+  const given = value?.trim() ?? "";
+  if (given === "" || given === "keep") return "keep";
+  return given === "reader" ? "reader" : "hold";
+}
+
+/**
+ * Whether the final check asks a free contributor's public card to declare, for each finding, whether it names a living
+ * person even while saved findings don't show at once: ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION set to "on". Off
+ * (unset), it asks only while ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS is enabled, as before.
+ */
+export function atlasLivingPersonDeclarationFromEnv(
+  value = process.env.ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION
+): boolean {
+  return value?.trim() === "on";
+}
+
 /**
  * The dev accounts (owner answer 140b, 2026-10-20): ASKRIGOR_DEV_ACCOUNT_KEYS, a comma-separated list of account
  * references, the 12 characters manage_research_access shows a signed-in user (owner question, 2026-10-21), or of the

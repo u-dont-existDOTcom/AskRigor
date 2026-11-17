@@ -117,6 +117,8 @@ import {
   MCP_RESULT_MAX_BYTES,
   PUBLIC_TOOL_LIMITS,
   atlasReviewEnabledFromEnv,
+  atlasLivingPersonDeclarationFromEnv,
+  atlasLivingPersonUnknownFromEnv,
   atlasShowSavedFindingsFromEnv,
   crossrefConfigFromEnv,
   devAccountKeysFromEnv,
@@ -314,7 +316,8 @@ import {
   backingRequestsOf,
   shortLookupDeclared,
   type FinalizeResearchOptions,
-  type FinalizeResearchOutput
+  type FinalizeResearchOutput,
+  type LivingPersonNoteMode
 } from "./research-finalization-gate.js";
 import {
   DOSSIER_PRIVACY_READING_LIMITS,
@@ -2667,8 +2670,10 @@ function defineResearchOperations(
           : account === undefined ? "private" as const : account.mode === "FREE_CONTRIBUTOR" ? "save" as const : "offer" as const,
         ...(callerReads ? { aiReadings: "caller" as const } : {}),
         // Codex's review of 17 Nov 2026, finding 1: while saved findings show on the pages at once, the receipt signs
-        // which findings declare they name no living person, and only those may show at once.
-        ...(atlasShowSavedFindingsFromEnv() ? { livingPersonCheck: true } : {}),
+        // which findings declare they name no living person, and only those may show at once. Codex's re-review: also
+        // while a finding that doesn't say is held or read by the meaning judge, and the note asking for the
+        // declaration goes with showing at once or the declaration setting, in words true to the settings.
+        ...livingPersonCheckOptions(),
         ...(readsOnMobile(extra._meta) ? { mobileClient: true } : {}),
         ...(options.toolListVersion === undefined ? {} : { toolListVersion: options.toolListVersion }),
         ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) }),
@@ -5250,4 +5255,20 @@ function pubmedMcpFailureMessage(error: unknown): string {
 
 function isPubmedConfigurationError(error: unknown): boolean {
   return error instanceof Error && error.message === "Invalid PubMed configuration";
+}
+
+/**
+ * What the final check does about living people, from the three settings (Codex's review and re-review of 17 Nov
+ * 2026, finding 1). The check (signing nlp, nly and nln, and asking the meaning judge, in its one call, whether each
+ * finding names a living person) runs while saved findings show at once or a finding that doesn't say is held or read
+ * by the judge (ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN hold or reader); the note asking for the declaration goes with
+ * showing at once or ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION=on. All unset: neither, as before.
+ */
+function livingPersonCheckOptions(): { livingPersonCheck?: true; livingPersonNote: false | LivingPersonNoteMode } {
+  const showing = atlasShowSavedFindingsFromEnv();
+  const unknown = atlasLivingPersonUnknownFromEnv();
+  return {
+    ...(showing || unknown !== "keep" ? { livingPersonCheck: true as const } : {}),
+    livingPersonNote: showing || atlasLivingPersonDeclarationFromEnv() ? { showing, unknown } : false,
+  };
 }

@@ -1184,7 +1184,9 @@ What the model sends, and when:
   whatever the setting (Codex's re-review of 17 November 2026). The
   stored card keeps each finding's declaration as given, as the receipt's card
   digest covers it; the Atlas never publishes it. With the setting off nothing
-  is signed and the judge isn't asked.
+  is signed and the judge isn't asked, unless `ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN`
+  is `hold` or `reader`: then the receipt signs the same, and the places the
+  judge read as naming no one (`nln`), in the same call.
 - Owner answer 252a (5 November 2026; built, not yet released; plan
   `docs/superpowers/plans/2026-11-05-atlas-research-behind.md`), in the same
   card's later shape: for each finding, up to three backing lines (`backing`:

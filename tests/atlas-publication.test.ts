@@ -39,6 +39,10 @@ import {
   createAtlasPublicationStoreFromEnv,
 } from "../apps/research-mcp/src/findings/runtime.js";
 import {
+  atlasLivingPersonDeclarationFromEnv,
+  atlasLivingPersonUnknownFromEnv,
+} from "../apps/research-mcp/src/config.js";
+import {
   FindingsSaveService,
   type FindingsRecord,
   type FindingsSaveAccount,
@@ -324,7 +328,7 @@ describe("publishing at the save", () => {
     ({ surface: "/mcp/claude", toolCatalogSha256: "c".repeat(64), ...(account === undefined ? {} : { account }) });
 
   function harness(store: AtlasPublicationStore = new InMemoryAtlasPublicationStore(), sourceTitles?: AtlasSourceTitleLookup,
-    publisher: { showOnPages?: boolean } = {}) {
+    publisher: { showOnPages?: boolean; livingPersonUnknown?: "keep" | "hold" | "reader" } = {}) {
     const github = new FakeGitHub();
     const service = new FindingsSaveService({
       receiptSecret: () => SECRET,
@@ -575,6 +579,63 @@ describe("publishing at the save", () => {
       findings: base.card.findings.map((finding) => ({ ...finding, names_living_person: true })) } };
     expect(planCardPublication({ record, setAside: false, route: { route: "owner", paidPrivate: false } }).drafts
       .map(({ state, heldBecause }) => [state, heldBecause])).toEqual([["unreviewed", null], ["unreviewed", null]]);
+  });
+
+  // The owner's answer to what a card that doesn't say means is still to come (question 346), so it is one setting,
+  // ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN: keep (unset) treats such a finding as before; hold holds it as a yes; reader
+  // lets the meaning judge's reading, already made in the final check's one call and signed (nly yes, nln no), decide,
+  // and holds it without one. A finding declared no, as the receipt signed, is never held by it.
+  it("treats a finding whose card doesn't say as ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN says", async () => {
+    const card = { ...VELMOR_CARD, findings: [
+      { ...VELMOR_CARD.findings[0]! },
+      { ...VELMOR_CARD.findings[1]!, names_living_person: false },
+    ] };
+    const outcome = async (unknown: "keep" | "hold" | "reader" | undefined, showOnPages: boolean, claims: object) => {
+      const h = harness(undefined, undefined, { showOnPages, ...(unknown === undefined ? {} : { livingPersonUnknown: unknown }) });
+      await expect(h.save(card, FREE, "1", claims)).resolves.toMatchObject({ status: "saved" });
+      await h.service.publicationsSettled();
+      const kept = new Map((await h.store.inspectKept()).map(({ publicationNumber, reason }) => [publicationNumber, reason]));
+      return (await h.store.inspect({})).sort((left, right) => left.findingNumber - right.findingNumber)
+        .map(({ state, heldBecause, publicationNumber }) => state === "held" ? heldBecause!.join()
+          : kept.get(publicationNumber) ?? "shown");
+    };
+    const signed = { nlp: ["2"] };
+    const HELD = "living_person_review";
+    // keep, and unset: as before.
+    for (const unknown of [undefined, "keep"] as const) {
+      expect(await outcome(unknown, false, signed)).toEqual([QUICK_ANSWER_TEST_WAITING, QUICK_ANSWER_TEST_WAITING]);
+      expect(await outcome(unknown, true, signed)).toEqual([LIVING_PERSON_WAITING, "shown"]);
+    }
+    // hold: held like a yes, whether saved findings show at once or not; the signed no is not.
+    expect(await outcome("hold", false, signed)).toEqual([HELD, QUICK_ANSWER_TEST_WAITING]);
+    expect(await outcome("hold", true, signed)).toEqual([HELD, "shown"]);
+    // A declared no the receipt didn't sign is not known either.
+    expect(await outcome("hold", true, {})).toEqual([HELD, HELD]);
+    // reader: the judge's no clears it, its yes holds it, and no reading holds it.
+    expect(await outcome("reader", false, { ...signed, nln: ["1"] })).toEqual([QUICK_ANSWER_TEST_WAITING,
+      QUICK_ANSWER_TEST_WAITING]);
+    expect(await outcome("reader", true, { ...signed, nln: ["1"] })).toEqual(["shown", "shown"]);
+    expect(await outcome("reader", true, { ...signed, nly: ["1"] })).toEqual([HELD, "shown"]);
+    expect(await outcome("reader", false, signed)).toEqual([HELD, QUICK_ANSWER_TEST_WAITING]);
+    expect(await outcome("reader", true, signed)).toEqual([HELD, "shown"]);
+    // The judge's no never clears a declared yes.
+    const declaredYes = { ...card, findings: [{ ...card.findings[0]!, names_living_person: true }, card.findings[1]!] };
+    const h = harness(undefined, undefined, { showOnPages: true, livingPersonUnknown: "reader" });
+    await h.save(declaredYes, FREE, "1", { ...signed, nln: ["1"] });
+    await h.service.publicationsSettled();
+    expect((await h.store.inspect({ cardNumbers: [42] })).find(({ findingNumber }) => findingNumber === 1))
+      .toMatchObject({ state: "held", heldBecause: [HELD] });
+  });
+
+  it("reads the two living-person settings, each defaulting to what was done before", () => {
+    expect([undefined, "", " keep "].map((value) => atlasLivingPersonUnknownFromEnv(value))).toEqual(["keep", "keep", "keep"]);
+    expect(atlasLivingPersonUnknownFromEnv("hold")).toBe("hold");
+    expect(atlasLivingPersonUnknownFromEnv(" reader ")).toBe("reader");
+    // Any other value is a mistake, which holds: the safe direction.
+    for (const value of ["HOLD", "yes", "kept"]) expect(atlasLivingPersonUnknownFromEnv(value)).toBe("hold");
+    expect(atlasLivingPersonDeclarationFromEnv("on")).toBe(true);
+    expect(atlasLivingPersonDeclarationFromEnv(" on ")).toBe(true);
+    for (const value of [undefined, "", "off", "ON", "enabled", "1"]) expect(atlasLivingPersonDeclarationFromEnv(value)).toBe(false);
   });
 
   it("still holds what is held, and publishes nothing of a paid private card, while saved findings show", async () => {

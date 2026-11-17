@@ -19,6 +19,7 @@ import type { MeaningJudgment } from "../apps/research-mcp/src/meaning-judge.js"
 import {
   finalizeResearch as finalizeResearchUnwrapped,
   LIVING_PERSON_NOTE,
+  livingPersonNote,
   meaningJudgeSourceOf,
   MOBILE_NOTICE,
   TOOL_LIST_REFRESH_HINT,
@@ -3842,6 +3843,54 @@ describe("findings card at the final gate", () => {
       { ...options, meaningJudgment: judgment }).finalization_receipt)).toBeUndefined();
     expect(namingClaim(finalizeResearch({ ...READY, later_inputs: { findings_card: card } },
       { ...options, livingPersonCheck: true }).finalization_receipt)).toBeUndefined();
+  });
+
+  // The two settings for what isn't decided yet: with ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN=reader the meaning judge's no
+  // decides for a finding that doesn't say, so the receipt signs it too (nln); ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION=on
+  // asks for the declaration even with saved findings not shown at once, in words true to what the save then does.
+  it("signs the judge's no as well, and asks for the declaration in words true to the settings", () => {
+    const clearByReader = signedClaim("nln");
+    const clearClaim = signedClaim("nlp");
+    const finding = (claim: string, declared?: boolean) => ({ ...CARD.findings[0], claim, sources: ["10.1002/art.41142"],
+      tags: [], draws_on_youtube_comments: false, ...(declared === undefined ? {} : { names_living_person: declared }) });
+    const card = { ...CARD, findings: [
+      finding("Exercise therapy eased pain more than usual care in the audited trials.", false),
+      finding("Exercise therapy has the strongest evidence among the options for hip osteoarthritis."),
+    ] };
+    const judgment: MeaningJudgment = { status: "ran", sourceLines: [], youtube: [], comparison: [], limits: [],
+      standalone: [], significance: [], livingPerson: [{ finding: 1, names: true, why: "It names a researcher." },
+        { finding: 2, names: false, why: "" }] };
+    const check = (extra: object) => finalizeResearch({ ...READY, later_inputs: { findings_card: card } },
+      { ...options, ...extra });
+    expect(clearByReader(check({ livingPersonCheck: true, meaningJudgment: judgment }).finalization_receipt)).toEqual(["2"]);
+    expect(clearByReader(check({ meaningJudgment: judgment }).finalization_receipt)).toBeUndefined();
+    const middle = "Give each finding names_living_person: true when it names a living person or describes one so they " +
+      "could be recognized, false when it names no one living. Send the whole card, with that field in each finding, in " +
+      "later_inputs.findings_card, and check the answer again.";
+    const shownAtOnce = "AskRigor shows a saved finding on its public Atlas at once only when the finding says it names " +
+      "no living person.";
+    const waiting = "AskRigor holds a saved finding that says it names a living person off its public Atlas until its " +
+      "owner decides.";
+    expect(livingPersonNote({ showing: true, unknown: "keep" })).toBe(LIVING_PERSON_NOTE);
+    expect(livingPersonNote({ showing: true, unknown: "hold" })).toBe(LIVING_PERSON_NOTE);
+    expect(livingPersonNote({ showing: false, unknown: "keep" })).toBe(`${waiting} ${middle} A finding that says true ` +
+      "waits for AskRigor's owner to decide.");
+    expect(livingPersonNote({ showing: false, unknown: "hold" })).toBe(`${waiting} ${middle} A finding that says true, ` +
+      "or nothing, waits for AskRigor's owner to decide.");
+    for (const showing of [true, false]) {
+      expect(livingPersonNote({ showing, unknown: "reader" })).toBe(`${showing ? shownAtOnce : waiting} ${middle} A finding ` +
+        "that says true waits for AskRigor's owner to decide, and so does one that says nothing unless AskRigor's own " +
+        "reader finds that it names no one living.");
+    }
+    // The note alone, as ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION=on gives it: nothing signed, the judge not asked.
+    const asked = check({ livingPersonNote: { showing: false, unknown: "keep" } });
+    expect(asked.notes).toContainEqual(livingPersonNote({ showing: false, unknown: "keep" }));
+    expect(clearClaim(asked.finalization_receipt)).toBeUndefined();
+    expect(meaningJudgeSourceOf(asked)).not.toHaveProperty("livingPersonAsked");
+    // The check without the note, as ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN=hold gives it with both other settings off.
+    const silent = check({ livingPersonCheck: true, livingPersonNote: false });
+    expect((silent.notes ?? []).some((note) => note.includes("names_living_person"))).toBe(false);
+    expect(clearClaim(silent.finalization_receipt)).toEqual(["1"]);
   });
 
   it("asks a card's findings to declare YouTube comments only once this research read them", () => {

@@ -248,8 +248,8 @@ export function signedLivingPersonClear(
 
 /**
  * The indexes into a checked card of the findings a receipt's living-person claim signs, by their places: `nlp`, those
- * declared to name no living person; `nly`, those the meaning judge read as naming one (Codex's re-review of 17 Nov
- * 2026, finding 1). Empty for a receipt that signed none, as one from before the claim, or one made without the check.
+ * declared to name no living person; `nly`, those the meaning judge read as naming one, and `nln`, as naming no one
+ * (Codex's re-review of 17 Nov 2026, finding 1). Empty for a receipt that signed none, as one from before the claim, or one made without the check.
  */
 export function livingPersonPlacesFromReceipt(signed: unknown, findings: number): Set<number> {
   const entries = typeof signed === "string" ? [signed] : Array.isArray(signed) ? signed : [];

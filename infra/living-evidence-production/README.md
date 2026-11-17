@@ -900,7 +900,17 @@ person, or that the meaning judge read as naming one, is held
 setting. Any other whose card doesn't declare, as the final check signed, that
 it names no living person is published kept instead, with the reason "waiting
 for the owner's decision: it may name a living person" (`list_kept`), until
-the owner shows it. The recommended value is `enabled`; to turn it off,
+the owner shows it. Two settings wait for the owner's answer to question 346,
+and change nothing while unset: `ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN` says what
+a finding whose card doesn't say becomes (`keep`, the default, as above;
+`hold`, held like a yes; `reader`, the meaning judge's reading from the final
+check's one call decides, and no reading holds it; any other value holds), and
+`ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION=on` makes the final check ask a free
+contributor's public card for the declaration even while saved findings don't
+show at once. No migration touches findings already on the pages; once the
+owner names some, the one-shot admin holds them for the same reason with
+`DATABASE_URL=… npx tsx scripts/atlas-hold-living-person-findings.mts P-1001 …`,
+which only says what it would do until run again with `--apply`. The recommended value is `enabled`; to turn it off,
 remove the line and recreate `research-mcp`: findings already shown stay shown
 until the owner keeps them, and their pages still say nothing of the test. An
 earlier image's `migrate` puts back 0021's `publish_atlas_findings`, which

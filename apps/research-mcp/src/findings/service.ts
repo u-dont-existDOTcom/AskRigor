@@ -96,6 +96,11 @@ export interface SavedFindingsCard {
    * for a receipt that signed none. Left out, as by a caller from before it, it reads as empty.
    */
   judgedNamingLivingPeople?: ReadonlySet<number>;
+  /**
+   * And those it read as naming no one, as the receipt signed them (`nln`), which decide for a finding whose card
+   * doesn't say while ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN is reader. Left out, it reads as empty.
+   */
+  judgedClearOfLivingPeople?: ReadonlySet<number>;
 }
 
 /** Publishes a saved card's findings in the Atlas (decision 171, section 4B); the save never waits for it. */
@@ -441,6 +446,9 @@ export class FindingsSaveService {
         const signedNaming = livingPersonPlacesFromReceipt(receipt.claims.nly, input.findings_card.findings.length);
         const judgedNamingLivingPeople = new Set(stored.kept.flatMap((original, at) =>
           signedNaming.has(original) ? [at + 1] : []));
+        const signedNoOne = livingPersonPlacesFromReceipt(receipt.claims.nln, input.findings_card.findings.length);
+        const judgedClearOfLivingPeople = new Set(stored.kept.flatMap((original, at) =>
+          signedNoOne.has(original) && !signedNaming.has(original) ? [at + 1] : []));
         this.publishAfterSave(publisher, {
           record,
           issueNumber: queued.issueNumber,
@@ -450,6 +458,7 @@ export class FindingsSaveService {
           account: context.account,
           clearOfLivingPeople,
           judgedNamingLivingPeople,
+          judgedClearOfLivingPeople,
         });
       }
       return result({

@@ -22,6 +22,7 @@ import { AtlasCardPublisher } from "../atlas/publication.js";
 import {
   askrigorBuildCommitFromEnv,
   atlasReviewEnabledFromEnv,
+  atlasLivingPersonUnknownFromEnv,
   atlasShowSavedFindingsFromEnv,
   crossrefConfigFromEnv,
   findingsLibraryEnabledFromEnv,
@@ -150,6 +151,7 @@ function createFindingsServiceFromEnv(): FindingsSaveService {
           sourceTitles: atlasSourceTitleLookup({ crossref: crossrefConfigFromEnv(), pubmed: ncbiConfigFromEnv(), now }),
           // The owner, 17 Nov 2026: what passed the checks shows on the pages at once, while the setting is on.
           showOnPages: atlasShowSavedFindingsFromEnv(),
+          livingPersonUnknown: atlasLivingPersonUnknownFromEnv(),
         }),
       }),
       // Owner answer 173: the findings a saved card leaves out are held for the owner's review, through the

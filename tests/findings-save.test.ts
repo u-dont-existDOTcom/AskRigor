@@ -1060,6 +1060,35 @@ describe("finalize_research, save_research_findings and the findings library", (
     expect(await signed()).toEqual(["1"]);
   });
 
+  // The two settings for what isn't decided yet, read by the final check: ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN=hold (or
+  // reader) signs the declarations so the save can tell a declared no from no declaration; ASKRIGOR_ATLAS_LIVING_PERSON_
+  // DECLARATION=on asks for the declaration. Unset, as on origin/main: nothing is signed and nothing asked.
+  it("signs, and asks for, the living-person declaration as the two settings say, and neither while they are unset", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    const declared = { ...CHECKED_CARD, findings: CHECKED_CARD.findings.map((finding) => ({ ...finding, names_living_person: false })) };
+    const check = async (card: object) => {
+      const { calls, findingsSave } = recorder();
+      const finalize = connectorTool("finalize_research", { researchContributorAccessService: service, findingsLibrary: true, findingsSave });
+      const { findings_card: _card, ...rest } = request();
+      const result = await finalize({ ...rest, later_inputs: { findings_card: card } }, "auth0|free");
+      expect(calls).toHaveLength(1);
+      const receipt = verifyResearchReceipt(calls[0]![0].finalization_receipt as string, { secret: SECRET });
+      const notes = (result.structuredContent as { notes?: string[] }).notes ?? [];
+      return { nlp: receipt.ok ? receipt.claims.nlp : "unverified",
+        asked: notes.some((note) => note.includes("names_living_person")) };
+    };
+    expect(await check(declared)).toEqual({ nlp: undefined, asked: false });
+    expect(await check(CHECKED_CARD)).toEqual({ nlp: undefined, asked: false });
+    vi.stubEnv("ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION", "on");
+    expect(await check(declared)).toEqual({ nlp: undefined, asked: false });
+    expect(await check(CHECKED_CARD)).toEqual({ nlp: undefined, asked: true });
+    vi.stubEnv("ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION", "");
+    vi.stubEnv("ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN", "hold");
+    expect(await check(declared)).toEqual({ nlp: ["1"], asked: false });
+    expect(await check(CHECKED_CARD)).toEqual({ nlp: undefined, asked: false });
+  });
+
   // Codex's review of 17 Nov 2026, finding 5: a check that did not pass asked for the card, so the turn's note
   // deduplication left the request out of the first pass's notes, and the reminder, reading only the notes shown, said
   // nothing. The request is carried as its own fact and used on the turn's first pass.

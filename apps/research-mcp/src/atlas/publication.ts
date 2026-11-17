@@ -615,6 +615,11 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
     sourceTitles?: AtlasSourceTitleLookup;
     /** Show what the save publishes at once instead of keeping it for the quick-answer test (the owner, 17 Nov 2026). */
     showOnPages?: boolean;
+    /**
+     * What a finding whose card doesn't say whether it names a living person becomes
+     * (ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN, livingPersonReading): keep, as before, when left out.
+     */
+    livingPersonUnknown?: "keep" | "hold" | "reader";
   }) {
     this.now = options.now ?? (() => new Date());
   }
@@ -650,12 +655,15 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
         // off. Finding 1: one its card doesn't declare, as the receipt signed, to name no living person is kept for the
         // owner in the same write.
         const showing = this.options.showOnPages === true;
-        const forOwner = (findingNumber: number) => !saved.clearOfLivingPeople.has(findingNumber) ||
-          saved.record.card.findings[findingNumber - 1]?.names_living_person !== false;
+        const unknown = this.options.livingPersonUnknown ?? "keep";
+        const reading = (findingNumber: number) => livingPersonReading(saved, findingNumber, unknown);
+        const forOwner = (findingNumber: number) => reading(findingNumber) !== "clear";
         // Codex's re-review of 17 Nov 2026, finding 1 (P0): keeping a finding leaves its own page public, so one that
-        // names a living person is held, with no page, until the owner decides, whatever the setting.
-        const drafts = plan.drafts.map((draft) => withLivingPersonHold(draft,
-          namesLivingPerson(saved, draft.findingNumber)));
+        // names a living person is held, with no page, until the owner decides, whatever the setting; one whose card
+        // doesn't say is held too while ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN says hold, or says reader and the meaning
+        // judge read it as naming no one.
+        const drafts = plan.drafts.map((draft) => withLivingPersonHold(draft, reading(draft.findingNumber) === "names" ||
+          (reading(draft.findingNumber) === "unknown" && unknown !== "keep")));
         const rows = await this.options.store.publish({
           cardNumber: saved.issueNumber,
           cardSha256: saved.record.card_sha256,
@@ -693,6 +701,23 @@ export function namesLivingPerson(
 ): boolean {
   return saved.record.card.findings[findingNumber - 1]?.names_living_person === true ||
     saved.judgedNamingLivingPeople?.has(findingNumber) === true;
+}
+
+/**
+ * What the save knows of whether a saved finding names a living person: names (namesLivingPerson); clear, when its
+ * stored card declares it names no one and the receipt signed that (`nlp`), or, while ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN
+ * is reader, when its card doesn't say and the meaning judge read it as naming no one (`nln`); unknown otherwise.
+ */
+export function livingPersonReading(
+  saved: Pick<SavedFindingsCard, "record" | "clearOfLivingPeople" | "judgedNamingLivingPeople" | "judgedClearOfLivingPeople">,
+  findingNumber: number,
+  unknown: "keep" | "hold" | "reader",
+): "names" | "clear" | "unknown" {
+  if (namesLivingPerson(saved, findingNumber)) return "names";
+  const declared = saved.record.card.findings[findingNumber - 1]?.names_living_person;
+  if (declared === false && saved.clearOfLivingPeople.has(findingNumber)) return "clear";
+  return unknown === "reader" && declared === undefined && saved.judgedClearOfLivingPeople?.has(findingNumber) === true
+    ? "clear" : "unknown";
 }
 
 /**

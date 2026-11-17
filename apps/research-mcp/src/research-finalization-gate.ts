@@ -1848,6 +1848,13 @@ export interface FinalizeResearchOptions {
    * contributor's public card whose findings don't all declare it gets a note asking for it. Off, none of this happens.
    */
   livingPersonCheck?: boolean;
+  /**
+   * Whether, and in which words, a free contributor's public card whose findings don't all declare whether they name a
+   * living person gets a note asking for it: while saved findings show at once, or with
+   * ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION=on, the words true to the settings (livingPersonNote); false for none.
+   * Left out, the note goes with livingPersonCheck, in the words for saved findings shown at once.
+   */
+  livingPersonNote?: false | LivingPersonNoteMode;
   /** Each source line's quotes as looked up after this check's earlier pass (owner answer 237a), in the lines' order. */
   sourceLineLookups?: readonly SourceLineLookup[];
   /** The study map's texts and registry records as looked up after this check's earlier pass (owner answer 249a). */
@@ -4195,6 +4202,9 @@ export function finalizeResearch(
   // Codex's re-review of 17 Nov 2026, finding 1: the places the meaning judge read as naming a living person (nly),
   // which the save holds for the owner.
   let livingPersonNaming: string[] = [];
+  // And those it read as naming no one (nln), which decide for a finding that doesn't say while
+  // ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN is reader.
+  let livingPersonJudgedClear: string[] = [];
   // The meaning judge's holds and notes (owner answer 221), added after the check's own notes.
   const judgeHeld: number[] = [];
   const judgeNotes: string[] = [];
@@ -4339,10 +4349,15 @@ export function finalizeResearch(
         // declaration. A finding held apart as drawn from YouTube comments is never published, so it isn't asked.
         if (options.livingPersonCheck === true) {
           const judgedNaming = new Set<number>();
+          const judgedClear = new Set<number>();
           const read = options.meaningJudgment?.status === "ran" ? options.meaningJudgment.livingPerson ?? [] : [];
           for (const { finding: number, names, why } of read) {
             const index = number - 1;
-            if (!names || index < 0 || index >= findingsInCard.length || heldFindings.includes(index)) continue;
+            if (index < 0 || index >= findingsInCard.length || heldFindings.includes(index)) continue;
+            if (!names) {
+              judgedClear.add(index);
+              continue;
+            }
             judgedNaming.add(index);
             if (findingsInCard[index]!.names_living_person === false) {
               judgeNotes.push(`The meaning judge reads findings_card.findings[${index}] as naming a living person` +
@@ -4353,9 +4368,17 @@ export function finalizeResearch(
           livingPersonClear = signedLivingPersonClear(input.findings_card, judgedNaming)
             .filter((place) => !heldFindings.includes(Number(place) - 1));
           livingPersonNaming = [...judgedNaming].sort((left, right) => left - right).map((index) => String(index + 1));
+          livingPersonJudgedClear = [...judgedClear].filter((index) => !judgedNaming.has(index))
+            .sort((left, right) => left - right).map((index) => String(index + 1));
+        }
+        // The note asking for the declaration, while saved findings show at once or the declaration setting is on, in
+        // words true to what the save then does.
+        const noteMode = options.livingPersonNote ??
+          (options.livingPersonCheck === true ? { showing: true, unknown: "keep" as const } : false);
+        if (noteMode !== false) {
           const undeclared = findingsInCard.some((finding, index) =>
             finding.names_living_person === undefined && !heldFindings.includes(index));
-          if (options.findings === "save" && scope === "public" && undeclared) notes.push(inputNote(LIVING_PERSON_NOTE));
+          if (options.findings === "save" && scope === "public" && undeclared) notes.push(inputNote(livingPersonNote(noteMode)));
         }
         findingsCard = { ...findingsCard, beyond_quick_answer: beyond, public_value: scope,
           ...(heldFindings.length === 0 ? {} : { held: heldFindings.map((index) => index + 1) }) };
@@ -4988,7 +5011,9 @@ export function finalizeResearch(
             // Codex's review of 17 Nov 2026, finding 1: the findings that may show at once, by their places.
             ...(livingPersonClear.length === 0 ? {} : { nlp: livingPersonClear }),
             // Codex's re-review of 17 Nov 2026, finding 1: those the meaning judge read as naming one, which are held.
-            ...(livingPersonNaming.length === 0 ? {} : { nly: livingPersonNaming })
+            ...(livingPersonNaming.length === 0 ? {} : { nly: livingPersonNaming }),
+            // And those it read as naming no one, which decide for a finding that doesn't say under the reader setting.
+            ...(livingPersonJudgedClear.length === 0 ? {} : { nln: livingPersonJudgedClear })
           }
         : {}),
       // An offer that asks to file this research's map, made to this account: a paid private map is filed only with
@@ -5094,6 +5119,35 @@ export const LIVING_PERSON_NOTE = "AskRigor shows a saved finding on its public 
   "describes one so they could be recognized, false when it names no one living. Send the whole card, with that field " +
   "in each finding, in later_inputs.findings_card, and check the answer again. A finding that says true, or nothing, " +
   "waits for AskRigor's owner to decide.";
+
+/**
+ * The settings the note asking for the living-person declaration speaks for: whether saved findings show at once
+ * (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS) and what a finding that doesn't say becomes (ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN).
+ */
+export interface LivingPersonNoteMode {
+  showing: boolean;
+  unknown: "keep" | "hold" | "reader";
+}
+
+/**
+ * The note asking for each finding's living-person declaration, in words true to the settings (Codex's re-review of 17
+ * Nov 2026, finding 1): a finding that says true is held for the owner whatever they are; one that says nothing waits
+ * for the owner while saved findings show at once or ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN is hold, and under reader
+ * unless the meaning judge reads it as naming no one; otherwise it goes on as before, so the note says nothing of it.
+ * With saved findings shown at once and nothing else set, it is LIVING_PERSON_NOTE.
+ */
+export function livingPersonNote(mode: LivingPersonNoteMode): string {
+  const opening = mode.showing ? "AskRigor shows a saved finding on its public Atlas at once only when the finding says " +
+    "it names no living person." : "AskRigor holds a saved finding that says it names a living person off its public " +
+    "Atlas until its owner decides.";
+  const ending = mode.unknown === "reader" ? "A finding that says true waits for AskRigor's owner to decide, and so does " +
+    "one that says nothing unless AskRigor's own reader finds that it names no one living."
+    : mode.showing || mode.unknown === "hold" ? "A finding that says true, or nothing, waits for AskRigor's owner to decide."
+    : "A finding that says true waits for AskRigor's owner to decide.";
+  return `${opening} Give each finding names_living_person: true when it names a living person or describes one so ` +
+    "they could be recognized, false when it names no one living. Send the whole card, with that field in each " +
+    `finding, in later_inputs.findings_card, and check the answer again. ${ending}`;
+}
 
 /** What the card's later shape adds for the Atlas's research behind each finding (owner answer 252a), as a note. */
 export const RESEARCH_BEHIND_NOTE ="The Atlas shows the research behind each finding. Send the whole card in " +
