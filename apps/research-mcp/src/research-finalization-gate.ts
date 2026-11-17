@@ -2039,6 +2039,9 @@ export function finalizeResearch(
     for (const value of steps) addCheckStep({ kind, text: ruleText(value), rule: ruleParts(value) }, blockingRule);
   };
   let missingDeclaration = false;
+  // Codex's review of 17 Nov 2026, finding 5: whether this check asked for a findings card that did not come, kept apart
+  // from the notes it shows, which leave out a request an earlier check of the turn already gave.
+  let cardRequested = false;
   const requireDeclaration = (step: RuleInput): void => {
     missingDeclaration = true;
     addStep("declaration", rule`${step}`);
@@ -4224,6 +4227,7 @@ export function finalizeResearch(
     const citable = validatedIds.size > 0 || leadSources.length > 0 || auditedAtAll.size > 0 ||
       materialVideos.length > 0;
     if (findingsOpen(options) && input.findings_card === undefined && !parsed.droppedFindingsCard && citable) {
+      cardRequested = true;
       requireDeclaration(
         joinRules(joinRules(joinRules(joinRules(joinRules((options.findings === "save" ? joinRules("Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for ", "the owner's review.") : joinRules("Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings ", "library, and they are saved only if the user says yes.")), " Put in the answer's best findings, none the user corrected, and no personal details, and say in "), "public_value whether they would help anyone beyond this person."), " A public card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers "), "(for an effect, harm or overlooked_option) and searches (for nothing_found), as the findings description "), "says. With no finding that a plain web search of the problem wouldn't already give, send no card.",
           options.researchDossierAsk === true ? ` ${RESEARCH_DOSSIER_CARD_SENTENCE}` : "",
@@ -4972,6 +4976,7 @@ export function finalizeResearch(
     output.round_token = checkRound.token;
   }
   const parsedOutput = finalizeResearchOutputSchema.parse(output);
+  if (cardRequested) FINDINGS_CARD_REQUESTED.add(parsedOutput);
   if (passed && draft !== undefined && sourceLines.length > 0 && options.sourceLineLookups === undefined) {
     SOURCE_LINE_REQUESTS.set(parsedOutput, sourceLineRequests);
   }
@@ -5051,6 +5056,17 @@ export const RESEARCH_BEHIND_NOTE ="The Atlas shows the research behind each fin
 // What a passing check gives the meaning judge, by the result it returned; nothing else reads it, and it goes with the
 // result object.
 const MEANING_JUDGE_SOURCES = new WeakMap<FinalizeResearchOutput, MeaningJudgeSource>();
+
+// The results whose check asked for a findings card that did not come (Codex's review of 17 Nov 2026, finding 5).
+const FINDINGS_CARD_REQUESTED = new WeakSet<FinalizeResearchOutput>();
+
+/**
+ * Whether this result's check asked for a findings card that did not come, whether or not its notes show the request:
+ * a request an earlier check of the turn gave is left out of the notes, and the card reminder still needs to know it.
+ */
+export function findingsCardRequested(result: FinalizeResearchOutput): boolean {
+  return FINDINGS_CARD_REQUESTED.has(result);
+}
 
 /** What the meaning judge may read of this result's check: a passing check with a draft only. */
 export function meaningJudgeSourceOf(result: FinalizeResearchOutput): MeaningJudgeSource | undefined {
