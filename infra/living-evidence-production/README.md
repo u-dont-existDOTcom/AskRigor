@@ -929,7 +929,13 @@ contributor's public card for the declaration even while saved findings don't
 show at once. No migration touches findings already on the pages; once the
 owner names some, the one-shot admin holds them for the same reason with
 `DATABASE_URL=… npx tsx scripts/atlas-hold-living-person-findings.mts P-1001 …`,
-which only says what it would do until run again with `--apply`. A later save
+which only says what it would do until run again with `--apply`. With
+`--apply` it first saves each row it changes, as it was and as the hold left
+it, to a file it names (or `--images=FILE`), readable by its owner alone, and
+changes nothing if it can't; keep that file. `show_on_pages` can't undo a
+hold, so `--restore=FILE` puts each row back as it was, only if nothing else
+has changed it since, and again only says what it would do until run with
+`--apply`. A later save
 of the same question and claims lands on the open card (`existing_card`) and
 publishes nothing of its own; when it says a finding names a living person (its
 card declares it, or the meaning judge read it so), the save holds every

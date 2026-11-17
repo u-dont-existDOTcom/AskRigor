@@ -67,7 +67,11 @@ import {
   researchFrontierFixture,
   reusableStudyAuditFixture,
 } from "./living-evidence-task-acceptance.mts";
-import { holdForLivingPersonReview } from "./atlas-hold-living-person-findings.mts";
+import {
+  holdForLivingPersonReview,
+  restoreLivingPersonHolds,
+  type HoldScriptImages,
+} from "./atlas-hold-living-person-findings.mts";
 
 const SCHEMA = "living_evidence";
 const NOW = "2026-09-01T02:00:00.000Z";
@@ -4300,18 +4304,52 @@ export async function verifyAtlasPages(context: {
         apply: false, at: tick() });
       assert(await atlasMigrationSnapshot(admin, schema) === before &&
         dry.lines.map(({ outcome }) => outcome).join() === "held,already_held,decided", "HOLD_SCRIPT_DRY_RUN_CHANGED_SOMETHING");
-      const applied = await holdForLivingPersonReview(scriptClient, { schema, publications: [owner!, living!, accepted!],
-        apply: true, at: tick() });
+      // Codex's third review of 17 Nov 2026, finding 4: --apply saves each changed row's before-image before it commits.
+      const ownerBefore = (await admin.query(`SELECT state, held_because, state_changed_at, shown_by
+        FROM ${schema}.atlas_publications WHERE publication_number = $1`, [owner])).rows[0];
+      let images: HoldScriptImages | undefined;
+      const applied = await holdForLivingPersonReview(scriptClient, { schema,
+        publications: [owner!, living!, accepted!, ownerSaid!, unsaid!], apply: true, at: tick(),
+        saveImages: async (saved) => { images = saved; } });
       const [ownerAfter] = await store.inspect({ publicationNumbers: [owner!] });
       const [acceptedAfter] = await store.inspect({ publicationNumbers: [accepted!] });
       assert(applied.applied && ownerAfter?.state === "held" &&
         isDeepStrictEqual(ownerAfter.heldBecause, ["living_person_review"]) && acceptedAfter?.state === "accepted" &&
         (await loadAtlasFinding(source, owner!)) === undefined, "HOLD_SCRIPT_DID_NOT_HOLD");
+      assert(images?.images.map(({ publication }) => publication).join() === [owner, ownerSaid, unsaid].join() &&
+        images.images.every(({ before, after }) => before.state === "unreviewed" && after.state === "held"),
+      "HOLD_SCRIPT_BEFORE_IMAGES_MISMATCH");
+      // A save of the images that fails commits nothing.
+      const unchanged = await atlasMigrationSnapshot(admin, schema);
+      const failed = await holdForLivingPersonReview(scriptClient, { schema, publications: [laterOwner!], apply: true,
+        at: tick(), saveImages: async () => { throw new Error("SYNTHETIC_IMAGES_NOT_SAVED"); } })
+        .then(() => "", (error: Error) => error.message);
+      assert(failed === "SYNTHETIC_IMAGES_NOT_SAVED" && await atlasMigrationSnapshot(admin, schema) === unchanged,
+        "HOLD_SCRIPT_COMMITTED_WITHOUT_ITS_IMAGES");
+      // The owner then unpublishes one of them: the restore leaves that one, and puts the others back exactly.
+      await store.withdraw({ reason: "owner_unpublished", publicationNumbers: [unsaid!], ownerReason: "Synthetic.",
+        withdrawnAt: tick() });
+      const dryRestore = await restoreLivingPersonHolds(scriptClient, { images: images!, apply: false });
+      const beforeRestore = await atlasMigrationSnapshot(admin, schema);
+      assert(dryRestore.lines.map(({ outcome }) => outcome).join() === "restored,restored,changed_since" &&
+        await atlasMigrationSnapshot(admin, schema) === beforeRestore, "HOLD_SCRIPT_DRY_RESTORE_CHANGED_SOMETHING");
+      const restored = await restoreLivingPersonHolds(scriptClient, { images: images!, apply: true });
+      assert(restored.lines.map(({ outcome }) => outcome).join() === "restored,restored,changed_since",
+        `HOLD_SCRIPT_RESTORE_OUTCOMES ${restored.text}`);
+      const ownerRestored = (await admin.query(`SELECT state, held_because, state_changed_at, shown_by
+        FROM ${schema}.atlas_publications WHERE publication_number = $1`, [owner])).rows[0];
+      const [unsaidAfter] = await store.inspect({ publicationNumbers: [unsaid!] });
+      assert(isDeepStrictEqual(ownerRestored, ownerBefore) && unsaidAfter?.state === "withdrawn" &&
+        (await pageOf(owner!)).includes("ROUTE-OWNER claim."), "HOLD_SCRIPT_RESTORE_DID_NOT_PUT_BACK");
+      // Again: each is now changed since the hold, so nothing changes.
+      const again = await restoreLivingPersonHolds(scriptClient, { images: images!, apply: true });
+      assert(again.lines.every(({ outcome }) => outcome === "changed_since"), "HOLD_SCRIPT_RESTORED_TWICE");
     } finally {
       scriptClient.release();
       await scriptPool.end();
     }
     checks.push("hold_script_dry_run_changes_nothing_and_apply_holds_only_unreviewed_findings_for_living_person_review");
+    checks.push("hold_script_saves_before_images_and_restores_only_rows_nothing_else_changed_since");
   } finally {
     await Promise.allSettled([store.close(), source.close(), admin.end()]);
   }

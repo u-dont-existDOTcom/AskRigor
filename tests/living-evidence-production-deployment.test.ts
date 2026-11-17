@@ -1427,6 +1427,7 @@ describe("migration 0021's admitted edit", () => {
       "atlas_routes_stored_apart_by_the_review_functions_and_a_page_says_the_test_happened_only_from_the_record",
       "a_later_saves_living_person_yes_holds_what_the_owner_has_not_decided_and_notes_what_he_has",
       "hold_script_dry_run_changes_nothing_and_apply_holds_only_unreviewed_findings_for_living_person_review",
+      "hold_script_saves_before_images_and_restores_only_rows_nothing_else_changed_since",
     ]) expect(acceptance).toContain(`checks.push("${check}")`);
     // Codex's third review of 17 Nov 2026, finding 2: the routes are written by the showing that says them.
     expect(acceptance).toContain('route: { by: "quick_answer_test", verdict: "pass" } });');
