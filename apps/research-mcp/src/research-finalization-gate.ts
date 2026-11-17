@@ -67,7 +67,7 @@ import {
 } from "./tool-list-currency.js";
 import type { MeaningJudgeSource, MeaningJudgment } from "./meaning-judge.js";
 import {
-  quoteShown, sourceLineCheckSchema, sourceLineNotes, sourceLineSchema,
+  quoteShown, sourceLineCheckSchema, sourceLineMissing, sourceLineNotes, sourceLineSchema,
   type SourceLineLookup, type SourceLineRequest
 } from "./source-lines.js";
 import {
@@ -2054,18 +2054,21 @@ export function finalizeResearch(
   // passages and what they are from (findingItem: a source line's or backing line's quotes and source, a study map
   // claim's or link's sentences and studies), never its place or how many lines its source has.
   // Each line's passages too, the quotes the answer shows, by which a withdrawal settles the finding of a line taken
-  // out (Codex's third review of 17 Nov 2026, finding 3).
+  // out (Codex's third review of 17 Nov 2026, finding 3): of each note, those it objects to, by default all the line's
+  // and, for a note that some of its quotes weren't found, only those (its fourth review, finding 1).
   const noteItems = new Map<string, Set<string>>();
   const notePassages = new Map<string, Array<{ item: string; passage: string }>>();
   const checkedItems: string[] = [];
   const lineItems = (checker: FindingChecker, lines: ReadonlyArray<{ item: string; full: boolean;
-    notes: readonly string[]; passages: readonly string[] }>): void => {
-    for (const { item, full, notes: given, passages } of lines) {
+    notes: readonly string[]; passages: readonly string[]; objected?: ReadonlyMap<string, readonly string[]> }>):
+    void => {
+    for (const { item, full, notes: given, passages, objected } of lines) {
       if (full) checkedItems.push(item);
       for (const note of given) {
         if (noteCheckers.get(note) !== checker) continue;
         noteItems.set(note, new Set([...noteItems.get(note) ?? [], item]));
-        notePassages.set(note, [...notePassages.get(note) ?? [], ...passages.map((passage) => ({ item, passage }))]);
+        notePassages.set(note, [...notePassages.get(note) ?? [],
+          ...(objected?.get(note) ?? passages).map((passage) => ({ item, passage }))]);
       }
     }
   };
@@ -4709,18 +4712,21 @@ export function finalizeResearch(
     : [];
   const backingRequests: SourceLineRequest[] = backingLines.map(({ source }, line) => quoteRequest(source, line));
   const backingLookups = options.backingLookups ?? [];
-  const backingItems: Array<{ item: string; full: boolean; notes: string[]; passages: string[] }> = [];
+  const backingItems: Array<{ item: string; full: boolean; notes: string[]; passages: string[];
+    objected?: Map<string, string[]> }> = [];
   for (const { finding, line, lookup } of backingLookups) {
     const given = notes.length;
     const missing = [
-      ...(lookup.sentence === "not_found" ? ["sentence"] : []),
-      ...(lookup.conclusion === "not_found" ? ["conclusion"] : [])
+      ...(lookup.sentence === "not_found" ? ["sentence" as const] : []),
+      ...(lookup.conclusion === "not_found" ? ["conclusion" as const] : [])
     ];
     const at = `findings_card.findings[${finding}].backing[${line}]`;
+    let missingNote: string | undefined;
     if (missing.length > 0) {
-      notes.push(checkedBy("backing_lines", `The ${missing.join(" and the ")} of ${at} ` +
+      missingNote = `The ${missing.join(" and the ")} of ${at} ` +
         `${missing.length === 1 ? "isn't" : "aren't"} in the text AskRigor fetched, so the Atlas won't show it. Copy ` +
-        "each whole and exactly, in the paper's language."));
+        "each whole and exactly, in the paper's language.";
+      notes.push(checkedBy("backing_lines", missingNote));
     } else if (lookup.text === "search_copy" || lookup.text === "library_copy") {
       notes.push(checkedBy("backing_lines", `The quotes of ${at} were found only in ${lookup.text === "search_copy"
         ? "the copy the AI supplied" : "the owner's library copy"}, which the Atlas never quotes; a quote found in a ` +
@@ -4731,7 +4737,11 @@ export function finalizeResearch(
       : findingItem("backing_lines", normalizeIdentifier(backed.source), backed.sentence, backed.conclusion ?? ""),
     full: !cutShort(lookup.reason), notes: notes.slice(given),
     passages: backed === undefined ? [] : [backed.sentence, ...backed.conclusion === undefined ? []
-      : [backed.conclusion]] });
+      : [backed.conclusion]],
+    // The quotes not found, which alone that note objects to.
+    ...(backed === undefined || missingNote === undefined ? {} : { objected: new Map([[missingNote,
+      missing.flatMap((quote) => quote === "sentence" ? [backed.sentence] : backed.conclusion === undefined ? []
+        : [backed.conclusion])]]) }) });
   }
   if (options.findingsLedger !== undefined) lineItems("backing_lines", backingItems);
   const sourceLineChecks = passed && draft !== undefined ? (options.sourceLineLookups ?? []).flatMap((lookup, index) => {
@@ -4748,10 +4758,16 @@ export function finalizeResearch(
     // The lines checked, in sourceLineChecks' order.
     const checkedLines = sourceLineChecks.length === 0 ? [] : (options.sourceLineLookups ?? []).flatMap((_, index) =>
       sourceLines[index] === undefined ? [] : [sourceLines[index]!]);
-    lineItems("source_lines", sourceLineChecks.map((check, index) => ({ item: findingItem("source_lines",
-      normalizeIdentifier(checkedLines[index]!.source), checkedLines[index]!.sentence, checkedLines[index]!.conclusion),
-    full: !cutShort(check.reason), notes: sourceLineNotes(check),
-    passages: [checkedLines[index]!.sentence, checkedLines[index]!.conclusion] })));
+    lineItems("source_lines", sourceLineChecks.map((check, index) => {
+      const checked = checkedLines[index]!;
+      const missing = sourceLineMissing(check);
+      return { item: findingItem("source_lines", normalizeIdentifier(checked.source), checked.sentence,
+        checked.conclusion), full: !cutShort(check.reason), notes: sourceLineNotes(check),
+      passages: [checked.sentence, checked.conclusion],
+      // The quotes not found, which alone that note objects to.
+      ...(missing === undefined ? {}
+        : { objected: new Map([[missing.note, missing.quotes.map((quote) => checked[quote])]]) }) };
+    }));
   }
   // Owner answer 249a: the study map. Each study's source resolves through the verified receipts as a source line's
   // does, so its passages are looked up in its own text only, once the check passes; what the map gives is compared

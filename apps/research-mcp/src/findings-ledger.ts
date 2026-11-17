@@ -52,7 +52,8 @@ const MAX_RESPONSES = 30;
 // A source's lines (at most twelve) and those a finding still found was about before, each once; more is one item that
 // is never looked up again, so such a finding is never fixed by a look-up it can't follow.
 const MAX_ITEMS = 16;
-// The passages a withdrawal may name: one more is never carried, so it can't settle a finding (never a false settling).
+// The digests of the passages a withdrawal may name, and of each line's set of them: one more is never carried, so it
+// can't settle a finding (never a false settling).
 const MAX_PASSAGES = 24;
 const SKETCH_SIZE = 16;
 /** A finding of the same rule whose inserted words overlap an earlier one's at least this much is the same finding. */
@@ -111,9 +112,10 @@ export interface ObservedFinding {
    */
   items?: readonly string[];
   /**
-   * The passages of those lines, each with its item: a quote the answer shows, so a withdrawal that gives one of them,
-   * once the draft no longer has it, settles the finding of a line taken out (Codex's third review of 17 Nov 2026,
-   * finding 3).
+   * The passages of those lines the finding objects to, each with its item: a quote the answer shows, so a withdrawal
+   * that gives one of them, once the draft no longer has it, withdraws that line (Codex's third review of 17 Nov 2026,
+   * finding 3). A finding of lines taken out is withdrawn only when each line not looked up again is withdrawn, by the
+   * only passage of it the finding objects to (Codex's fourth review of 17 Nov 2026, finding 1).
    */
   passages?: ReadonlyArray<{ item: string; passage: string }>;
 }
@@ -153,7 +155,8 @@ const entrySchema = z.object({
   x: z.enum(FINDING_CHECKERS).optional(),
   // Codex's re-review of 17 Nov 2026, finding 1: keyed digests of what an open finding of a look-up was about.
   u: z.array(hex(12)).min(1).max(MAX_ITEMS).optional(),
-  // Codex's third review of 17 Nov 2026, finding 3: keyed digests of each of those lines' passages, with its line.
+  // Codex's third review of 17 Nov 2026, finding 3, and its fourth, finding 1: keyed digests of each passage of those
+  // lines the finding objects to, with its line, and of each line's set of them.
   p: z.array(hex(12)).min(1).max(MAX_PASSAGES).optional()
 }).strict();
 type LedgerEntry = z.output<typeof entrySchema>;
@@ -564,6 +567,9 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   const tooMany = itemDigest("\u0000more lines than a findings ledger keeps");
   const passageDigest = (item: string, passage: string) =>
     digest(secret, "passage", `${item}\u0000${normalized(passage)}`, 12);
+  // All the passages of a line the finding objects to (Codex's fourth review of 17 Nov 2026, finding 1).
+  const passagesDigest = (item: string, passages: readonly string[]) =>
+    digest(secret, "passages", `${item}\u0000${[...new Set(passages.map(normalized))].sort().join("\u0000")}`, 12);
   // One record per finding: the same rule with the same inserted words, found twice in one call, is one finding.
   const observed: Fingerprinted[] = [];
   for (const finding of params.observed) {
@@ -719,8 +725,13 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     const about = [...new Set([...(finding.items ?? []).map(itemDigest),
       ...(before?.u ?? []).filter((item) => !checkedItems.has(item))])].sort();
     const items = about.length > MAX_ITEMS ? [tooMany] : about;
-    const passages = [...new Set([...(finding.passages ?? []).map(({ item, passage }) =>
-      passageDigest(itemDigest(item), passage)), ...before?.p ?? []])].sort().slice(0, MAX_PASSAGES);
+    const objected = new Map<string, string[]>();
+    for (const { item, passage } of finding.passages ?? []) {
+      objected.set(itemDigest(item), [...objected.get(itemDigest(item)) ?? [], passage]);
+    }
+    const passages = [...new Set([...[...objected].flatMap(([item, given]) =>
+      [...given.map((passage) => passageDigest(item, passage)), passagesDigest(item, given)]), ...before?.p ?? []])]
+      .sort().slice(0, MAX_PASSAGES);
     entries.push({
       id, r: finding.r, f: finding.f, h: finding.h, d: disposition, n: first, l: revision,
       ...(finding.kind === undefined ? {} : { k: finding.kind }),
@@ -766,15 +777,21 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
       const needsDraft = entry.k === undefined || DRAFT_KINDS.has(entry.k);
       const checker = checkerOf({ checker: entry.x, kind: entry.k });
       const unchecked = entry.u === undefined ? !covered.has(checker) : entry.u.some((item) => !checkedItems.has(item));
-      // Codex's third review of 17 Nov 2026, finding 3: a finding of lines taken out is settled by a withdrawal that
-      // gives a passage of one of them this call did not look up again, once the draft it supplies no longer has it.
-      // Any other passage settles nothing.
+      // Codex's third review of 17 Nov 2026, finding 3, and its fourth, finding 1: a finding of lines taken out is
+      // settled by a withdrawal only when each line it was about that this call did not look up again is withdrawn: the
+      // withdrawal names every passage of it the finding objects to, and the draft it supplies has none of them. Any
+      // other passage settles nothing.
       const withdrawing = response?.response === "withdrawn" && entry.u !== undefined && draft !== undefined &&
         draftDigest !== "" && unchecked;
-      const passage = withdrawing ? response.passage : undefined;
-      const bound = passage !== undefined && entry.u!.some((item) => !checkedItems.has(item) &&
-        (entry.p ?? []).includes(passageDigest(item, passage)));
-      const gone = bound && !normalized(draft!).includes(normalized(passage));
+      const named = withdrawing && response.passage !== undefined ? [response.passage] : [];
+      const objected = (item: string) =>
+        named.filter((passage) => (entry.p ?? []).includes(passageDigest(item, passage)));
+      const open = withdrawing ? entry.u!.filter((item) => !checkedItems.has(item)) : [];
+      const bound = open.some((item) => objected(item).length > 0);
+      const present = named.some((passage) => normalized(draft!).includes(normalized(passage)));
+      const whole = open.every((item) => objected(item).length > 0 &&
+        (entry.p ?? []).includes(passagesDigest(item, objected(item))));
+      const gone = bound && whole && !present;
       if (gone) {
         disposition = "withdrawn";
         notes.push(`${entry.id} was withdrawn: its passage is gone from the draft, but a paraphrase of it, or a claim ` +
@@ -784,10 +801,14 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
         shown = "not_rechecked";
         const why = needsDraft && draftDigest === "" ? "draft" : entry.u === undefined ? checker : "items";
         notRechecked.set(why, [...notRechecked.get(why) ?? [], entry.id]);
-        if (bound) notes.push(stillThere(entry.id));
-        else if (withdrawing) {
-          notes.push(`${entry.id} stays as it was: a withdrawal counts only with a passage of the line it was about ` +
-            "that the draft no longer gives.");
+        if (bound && present) notes.push(stillThere(entry.id));
+        else if (bound) {
+          notes.push(`${entry.id} stays as it was: a line it was about that was not looked up again has another ` +
+            "passage the finding objects to, and a withdrawal settles a finding only when it leaves none. Give that " +
+            "line again so it is looked up.");
+        } else if (withdrawing) {
+          notes.push(`${entry.id} stays as it was: a withdrawal counts only with a passage the finding objects to, ` +
+            "of a line it was about, that the draft no longer gives.");
         }
         // A dispute is the writer's reply, recorded whether or not the check looked again (Codex's re-review of 17 Nov
         // 2026, finding 2); a fix or a withdrawal waits for a check that does.
@@ -823,11 +844,13 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   }
   for (const [why, ids] of notRechecked) {
     const one = ids.length === 1;
-    // Codex's third review of 17 Nov 2026, finding 3: a finding of a line taken out can be withdrawn by its passage.
+    // Codex's third review of 17 Nov 2026, finding 3: a finding of a line taken out can be withdrawn by its passage,
+    // the one it objects to (its fourth review, finding 1).
     notes.push(`${joinIds(ids)} ${one ? "was" : "were"} not checked again: ${why === "items"
       ? `the ${one ? "line it was" : "lines they were"} about ${one ? "was" : "were"} not looked up again, so ` +
         `${one ? "it is" : "they are"} not fixed. If you took ${one ? "the line" : "a line"} out, withdraw ` +
-        `${one ? "it" : "its finding"} with one of its quotes as the passage, once the draft no longer has that quote.`
+        `${one ? "it" : "its finding"} with the quote it objects to as the passage, once the draft no longer has ` +
+        "that quote."
       : `${why === "draft" ? "this call gave no answer_draft" : `${CHECKER_NAMES[why as FindingChecker]} did not run ` +
         "in full in this call"}, so ${one ? "it is" : "they are"} neither fixed nor withdrawn until a check that looks ` +
         `for ${one ? "it" : "them"} again.`}`);

@@ -738,6 +738,7 @@ describe("the third review of 17 Nov 2026", () => {
     { id: "10.1000/other", status: "validated", read_depth: "full_text_audited", answer_marker: "[Autre]" }] } as
     Partial<FinalizeResearchInput>;
   const quoted = `[Autre] [Autre étude](https://doi.org/10.1000/other). "${SENTENCE}" "${OTHER}" "${CONCLUSION}"`;
+  const linked = "[Autre] [Autre étude](https://doi.org/10.1000/other).";
   const withLines = (lines: Array<ReturnType<typeof line>>, later: Record<string, unknown> = {}) =>
     withLedger(fixture(quoted, { ...twoSources, source_lines: lines } as Partial<FinalizeResearchInput>), later);
   const lookups = (...given: Array<ReturnType<typeof looked>>) => ({ ...options(undefined), sourceLineLookups: given });
@@ -841,7 +842,6 @@ describe("the third review of 17 Nov 2026", () => {
     const withdraw = (draftText: string, passage: string) => finalizeResearch(withLedger(fixture(draftText,
       twoSources), { findings_ledger: first.findings_ledger, finding_responses: [{ id: bad.id, response: "withdrawn",
       passage }] }), lookups());
-    const linked = "[Autre] [Autre étude](https://doi.org/10.1000/other).";
     // Both lines taken out of source_lines. The draft still quoting the passage: not withdrawn.
     const still = withdraw(quoted, SENTENCE);
     expect(byId(still, bad.id)).toMatchObject({ disposition: "not_rechecked" });
@@ -851,8 +851,8 @@ describe("the third review of 17 Nov 2026", () => {
     for (const passage of [OTHER, "Some sentence this finding was never about, which no draft gives."]) {
       const unbound = withdraw(linked, passage);
       expect(byId(unbound, bad.id)).toMatchObject({ disposition: "not_rechecked" });
-      expect(unbound.notes).toContain(`${bad.id} stays as it was: a withdrawal counts only with a passage of the line ` +
-        "it was about that the draft no longer gives.");
+      expect(unbound.notes).toContain(`${bad.id} stays as it was: a withdrawal counts only with a passage the finding ` +
+        "objects to, of a line it was about, that the draft no longer gives.");
     }
     // Its own passage, gone from the draft: withdrawn, with the warning that what rested on it may remain.
     const gone = withdraw(linked, SENTENCE);
@@ -860,6 +860,54 @@ describe("the third review of 17 Nov 2026", () => {
     expect(gone.notes).toContain(`${bad.id} was withdrawn: its passage is gone from the draft, but a paraphrase of it, ` +
       "or a claim that rested on it, may still be there.");
     expect(byId(gone, otherBad.id)).toMatchObject({ disposition: "not_rechecked" });
+  });
+
+  // Codex's fourth review of 17 Nov 2026, finding 1: a withdrawal is bound to the passage the finding objects to, and
+  // settles a finding only when every line it was about is looked up again or withdrawn.
+  const leaves = (id: string) => `${id} stays as it was: a line it was about that was not looked up again has another ` +
+    "passage the finding objects to, and a withdrawal settles a finding only when it leaves none. Give that line again " +
+    "so it is looked up.";
+
+  it("3: withdraws a removed line's finding only by the passage it objects to, never by a good quote beside it", () => {
+    // The sentence not found, the conclusion found.
+    const first = finalizeResearch(withLines([line("10.1000/other")]), lookups(looked("10.1000/other", "not_found")));
+    const bad = sentenceNote(first);
+    expect(bad).toMatchObject({ disposition: "open" });
+    const withdraw = (draftText: string, passage: string) => finalizeResearch(withLedger(fixture(draftText,
+      twoSources), { findings_ledger: first.findings_ledger, finding_responses: [{ id: bad.id, response: "withdrawn",
+      passage }] }), lookups());
+    // The line taken out of source_lines; the good conclusion gone from the draft, the unfound sentence still in it
+    // word for word.
+    const kept = withdraw(`${linked} "${SENTENCE}"`, CONCLUSION);
+    expect(byId(kept, bad.id)).toMatchObject({ disposition: "not_rechecked" });
+    expect(kept.notes).toContain(`${bad.id} stays as it was: a withdrawal counts only with a passage the finding ` +
+      "objects to, of a line it was about, that the draft no longer gives.");
+    // The unfound sentence gone: withdrawn.
+    const gone = withdraw(`${linked} "${CONCLUSION}"`, SENTENCE);
+    expect(byId(gone, bad.id)).toMatchObject({ disposition: "withdrawn" });
+  });
+
+  it("3: settles a finding of several lines only when each is looked up again or withdrawn", () => {
+    // Two bad lines of one source give one finding.
+    const first = finalizeResearch(withLines([line("10.1000/other"), line("10.1000/other", OTHER)]),
+      lookups(looked("10.1000/other", "not_found"), looked("10.1000/other", "not_found")));
+    const bad = sentenceNote(first);
+    const withdraw = (draftText: string, lines: Array<ReturnType<typeof line>>,
+      ...given: Array<ReturnType<typeof looked>>) => finalizeResearch(withLedger(fixture(draftText,
+      { ...twoSources, source_lines: lines } as Partial<FinalizeResearchInput>), { findings_ledger: first.findings_ledger,
+      finding_responses: [{ id: bad.id, response: "withdrawn", passage: SENTENCE }] }), lookups(...given));
+    // Both lines taken out; one bad passage gone, the other still in the draft word for word.
+    const half = withdraw(`${linked} "${OTHER}" "${CONCLUSION}"`, []);
+    expect(byId(half, bad.id)).toMatchObject({ disposition: "not_rechecked" });
+    expect(half.notes).toContain(leaves(bad.id));
+    // Both gone, but a withdrawal of one passage leaves the other line's.
+    const both = withdraw(`${linked} "${CONCLUSION}"`, []);
+    expect(byId(both, bad.id)).toMatchObject({ disposition: "not_rechecked" });
+    expect(both.notes).toContain(leaves(bad.id));
+    // The other line given again and found, the withdrawn passage gone: withdrawn.
+    const checked = withdraw(`${linked} "${OTHER}" "${CONCLUSION}"`, [line("10.1000/other", OTHER)],
+      looked("10.1000/other", "found"));
+    expect(byId(checked, bad.id)).toMatchObject({ disposition: "withdrawn" });
   });
 
   it("4: says a dispute's reason isn't available, whether the ledger was left out or did not verify", () => {
