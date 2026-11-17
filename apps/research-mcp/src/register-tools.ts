@@ -1,4 +1,5 @@
 import { registerForumTools } from "./forum-tools.js";
+import { resultSizeDeclarationsFromEnv, resultSizeMeta } from "./result-size-limits.js";
 import type { RedditReaderClient } from "./reddit-reader-client.js";
 import type { readForumPage } from "@askrigor/sources";
 import {
@@ -986,6 +987,11 @@ export interface RegisterToolsOptions {
   /** How long finalize_research waits for a findings save; replaced for tests. */
   findingsSaveDeadlineMilliseconds?: number;
   mcpSurface?: McpSurface;
+  /**
+   * Whether tools/list declares Claude Code's larger result sizes (result-size-limits.ts); defaults to
+   * ASKRIGOR_DECLARE_RESULT_SIZES, off, as the tool list is frozen (owner answer 189a).
+   */
+  declareResultSizes?: boolean;
   /** The versions this server runs, returned by get_protocol_manifest. */
   runningVersions?: RunningVersions;
   /** This surface's tool list version (toolListVersionOf), which a call's tool_list_version is compared with. */
@@ -4603,6 +4609,9 @@ function collectResearchOperations(
         throw new Error(`Incomplete research operation definition: ${name}`);
       }
       const annotations = Object.freeze({ ...config.annotations });
+      // Server fix 3 (17 Nov 2026): a larger result size for Claude Code, only while declarations are on.
+      const sizeMeta = resultSizeMeta(name, { declare: options.declareResultSizes ?? resultSizeDeclarationsFromEnv(),
+        gemini: options.mcpSurface === "/mcp/gemini" });
       const _meta = PRIVATE_MCP_OPERATION_NAMES.has(name)
         ? evidenceGapReviewSecurityMetadata()
         : PUBLIC_READ_OPERATION_NAMES.has(name)
@@ -4656,7 +4665,7 @@ function collectResearchOperations(
         inputSchema: evolving.inputSchema,
         outputSchema,
         annotations,
-        _meta: Object.freeze({ ...config._meta, ..._meta }),
+        _meta: Object.freeze({ ...config._meta, ..._meta, ...sizeMeta }),
       });
       operations.push(Object.freeze({
         name,
