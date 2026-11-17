@@ -69,7 +69,7 @@ export function announcingPublicationStore(
     markChallenges: (change) => announcing(signal, () => store.markChallenges(change)),
     inspectChallenges: () => store.inspectChallenges(),
     // Codex's third review of 17 Nov 2026, finding 1: holding a publication takes its page away.
-    holdForLivingPerson: (change) => announcing(signal, () => store.holdForLivingPerson(change)),
+    recordLivingPerson: (change) => announcing(signal, () => store.recordLivingPerson(change)),
     inspectLivingPersonNotes: (publicationNumbers) => store.inspectLivingPersonNotes(publicationNumbers),
   };
 }

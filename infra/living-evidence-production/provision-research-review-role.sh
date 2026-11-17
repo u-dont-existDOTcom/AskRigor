@@ -132,9 +132,10 @@ GRANT EXECUTE ON FUNCTION living_evidence.mark_atlas_challenges(text[], text, te
   TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_challenges()
   TO askrigor_research_review;
--- Codex's third review of 17 Nov 2026, finding 1 (migration 0041): a later save that says a finding may name a living
--- person holds the card's matching publications the owner hasn't decided, and notes the ones he has.
-GRANT EXECUTE ON FUNCTION living_evidence.hold_atlas_publications_for_living_person(text[], timestamptz)
+-- Codex's third review of 17 Nov 2026, finding 1, and its fourth review's P0s (migration 0041): each save records what
+-- it says of a living person with its card, and a yes holds the card's matching publications the owner hasn't decided,
+-- and notes the ones he has, in one transaction.
+GRANT EXECUTE ON FUNCTION living_evidence.record_atlas_living_person(integer, jsonb, text[], timestamptz)
   TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_living_person_notes(text[])
   TO askrigor_research_review;

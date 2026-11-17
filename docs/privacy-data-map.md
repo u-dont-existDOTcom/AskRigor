@@ -1186,7 +1186,14 @@ What the model sends, and when:
   digest covers it; the Atlas never publishes it. With the setting off nothing
   is signed and the judge isn't asked, unless `ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN`
   is `hold` or `reader`: then the receipt signs the same, and the places the
-  judge read as naming no one (`nln`), in the same call.
+  judge read as naming no one (`nln`), in the same call. Codex's fourth review of
+  17 November 2026: for the Atlas's hold, the review database also stores, by
+  the card's number and the sha256 of each finding's claim as the duplicate check
+  reads it, whether a save said it names a living person (yes, no or not said)
+  and when (`atlas_living_person_readings`), and each publication keeps its
+  claim's sha256 (`claim_key`). Neither holds a claim's text, an account or a
+  person; the reader can't read the first; a claim's sha256 is erased with its
+  texts, and a card's readings when the card is forgotten.
 - Owner answer 252a (5 November 2026; built, not yet released; plan
   `docs/superpowers/plans/2026-11-05-atlas-research-behind.md`), in the same
   card's later shape: for each finding, up to three backing lines (`backing`:

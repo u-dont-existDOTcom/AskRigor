@@ -461,45 +461,86 @@ describe("the PostgreSQL publication store", () => {
     ]);
   });
 
-  // Codex's third review of 17 Nov 2026, finding 1 (migration 0041): a later save that says a finding may name a living
-  // person holds what the owner hasn't decided and notes what he has, which stays as it is.
-  it("holds for a later save's living-person yes only what the owner hasn't decided, and notes the rest", async () => {
+  // Codex's third review of 17 Nov 2026, finding 1, and its fourth review's P0s (migration 0041): a save stores what
+  // it says of a living person with the card, a yes never lowered, and its yes holds, by the claim's key or by the
+  // numbers the server matched, what the owner hasn't decided, and notes what he has, which stays as it is.
+  it("records a save's living-person yes with the card, holding only what the owner hasn't decided", async () => {
     const store = new InMemoryAtlasPublicationStore();
+    const KEY = "c".repeat(64);
+    const OTHER = "d".repeat(64);
+    const living = (claimKey: string) => ({ livingPerson: { claimKey, reading: "no" as const, holdNotSaid: false } });
     const rows = await store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: AT, revive: false, findings: [
-      { ...draft(1), shownBy: "automatic_showing" },
-      draft(2, { state: "held", heldBecause: ["card_reference"] }),
-      { ...draft(3), shownBy: "owner_action" },
-      draft(4, { state: "accepted", atlasNumber: "F-1001" }),
+      { ...draft(1), shownBy: "automatic_showing", ...living(KEY) },
+      { ...draft(2, { state: "held", heldBecause: ["card_reference"] }), ...living(KEY) },
+      { ...draft(3), shownBy: "owner_action", ...living(KEY) },
+      { ...draft(4, { state: "accepted", atlasNumber: "F-1001" }), ...living(KEY) },
+      // Published before claim keys were stored: the server matched it by its claim.
       draft(5),
     ] });
-    const [automatic, heldBefore, ownerShown, accepted, rejected] = rows.map(({ publicationNumber }) => publicationNumber);
-    await store.decide({ cardNumber: 250, findingNumber: 5, state: "rejected", atlasNumber: null, decidedAt: AT });
-    const numbers = [automatic!, heldBefore!, ownerShown!, accepted!, rejected!];
-    expect((await store.holdForLivingPerson({ publicationNumbers: numbers, at: LATER }))
-      .map(({ state, heldBecause, outcome }) => [state, heldBecause, outcome])).toEqual([
-      ["held", ["living_person_review"], "held"],
-      ["held", ["card_reference", "living_person_review"], "reason_added"],
-      ["unreviewed", null, "noted"],
-      ["accepted", null, "noted"],
-      ["rejected", null, "unchanged"],
+    const [automatic, heldBefore, ownerShown, accepted, older] = rows.map(({ publicationNumber }) => publicationNumber);
+    expect(rows.map(({ state }) => state)).toEqual(["unreviewed", "held", "unreviewed", "accepted", "unreviewed"]);
+    expect(store.livingPersonReadingOf(250, KEY)).toBe("no");
+    const record = (readings: Array<{ claimKey: string; reading: "yes" | "no" | "not_said" }>, numbers: string[] = [],
+      at = LATER) => store.recordLivingPerson({ cardNumber: 250, readings, publicationNumbers: numbers, at });
+    // A no or not said holds nothing, and never lowers what is stored.
+    expect(await record([{ claimKey: KEY, reading: "not_said" }, { claimKey: OTHER, reading: "no" }])).toEqual([]);
+    expect([store.livingPersonReadingOf(250, KEY), store.livingPersonReadingOf(250, OTHER)]).toEqual(["no", "no"]);
+    expect((await record([{ claimKey: KEY, reading: "yes" }], [older!]))
+      .map(({ publicationNumber, state, heldBecause, outcome }) => [publicationNumber, state, heldBecause, outcome])).toEqual([
+      [automatic, "held", ["living_person_review"], "held"],
+      [heldBefore, "held", ["card_reference", "living_person_review"], "reason_added"],
+      [ownerShown, "unreviewed", null, "noted"],
+      [accepted, "accepted", null, "noted"],
+      [older, "held", ["living_person_review"], "held"],
     ]);
-    expect(await store.inspectLivingPersonNotes(numbers)).toEqual([{ publicationNumber: ownerShown, notedAt: LATER },
-      { publicationNumber: accepted, notedAt: LATER }]);
+    expect(store.livingPersonReadingOf(250, KEY)).toBe("yes");
+    expect(await record([{ claimKey: KEY, reading: "no" }])).toEqual([]);
+    expect(store.livingPersonReadingOf(250, KEY)).toBe("yes");
+    expect(await store.inspectLivingPersonNotes([automatic!, ownerShown!, accepted!])).toEqual([
+      { publicationNumber: ownerShown, notedAt: LATER }, { publicationNumber: accepted, notedAt: LATER }]);
     // Again: nothing more changes, and a note keeps when it was first made.
-    expect((await store.holdForLivingPerson({ publicationNumbers: numbers, at: "2026-11-06T10:00:00.000Z" }))
-      .map(({ outcome }) => outcome)).toEqual(["already_held", "already_held", "noted", "noted", "unchanged"]);
+    expect((await record([{ claimKey: KEY, reading: "yes" }], [], "2026-11-06T10:00:00.000Z"))
+      .map(({ outcome }) => outcome)).toEqual(["already_held", "already_held", "noted", "noted"]);
     expect((await store.inspectLivingPersonNotes([accepted!]))[0]!.notedAt).toBe(LATER);
-    for (const refused of [[], ["F-1001"], Array.from({ length: 101 }, (_, index) => `P-${1001 + index}`)]) {
-      await expect(store.holdForLivingPerson({ publicationNumbers: refused, at: LATER }))
-        .rejects.toBeInstanceOf(AtlasPublicationError);
+    // Another card's publication with the same claim is not this card's.
+    const [elsewhere] = await store.publish({ cardNumber: 251, cardSha256: DIGEST_B, publishedAt: AT, revive: false,
+      findings: [{ ...draft(1), ...living(KEY) }] });
+    expect(elsewhere).toMatchObject({ state: "unreviewed" });
+    // A publication on its way after the yes reads it at the moment it publishes: held, whatever its draft says, and
+    // shown by no route.
+    const [late] = await store.publish({ cardNumber: 250, cardSha256: "f".repeat(64), publishedAt: LATER, revive: false,
+      findings: [{ ...draft(1), shownBy: "automatic_showing", keptReason: "waiting", ...living(KEY) }] });
+    expect(late).toMatchObject({ state: "held", heldBecause: ["living_person_review"] });
+    expect(store.shownByOf(late!.publicationNumber)).toBeNull();
+    expect((await store.inspectKept()).some(({ publicationNumber }) => publicationNumber === late!.publicationNumber)).toBe(false);
+    // Not said holds one only while its draft says ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN holds it.
+    const UNSAID = "e".repeat(64);
+    const unsaid = (findingNumber: number, holdNotSaid: boolean) => ({ ...draft(findingNumber),
+      livingPerson: { claimKey: UNSAID, reading: "not_said" as const, holdNotSaid } });
+    expect((await store.publish({ cardNumber: 252, cardSha256: "9".repeat(64), publishedAt: AT, revive: false,
+      findings: [unsaid(1, false), unsaid(2, true)] })).map(({ state }) => state)).toEqual(["unreviewed", "held"]);
+    for (const refused of [
+      { readings: [], numbers: [] },
+      { readings: [{ claimKey: "C".repeat(64), reading: "yes" }], numbers: [] },
+      { readings: [{ claimKey: KEY, reading: "maybe" }], numbers: [] },
+      { readings: [{ claimKey: KEY, reading: "yes" }], numbers: ["F-1001"] },
+      { readings: Array.from({ length: 6 }, () => ({ claimKey: KEY, reading: "yes" })), numbers: [] },
+    ]) {
+      await expect(store.recordLivingPerson({ cardNumber: 250, readings: refused.readings as never,
+        publicationNumbers: refused.numbers, at: LATER })).rejects.toBeInstanceOf(AtlasPublicationError);
     }
-    // Through the review role's two functions.
+    await expect(store.publish({ cardNumber: 253, cardSha256: DIGEST_A, publishedAt: AT, revive: false,
+      findings: [{ ...draft(1), livingPerson: { claimKey: KEY, reading: "yes", holdNotSaid: "no" } as never }] }))
+      .rejects.toBeInstanceOf(AtlasPublicationError);
+    // Through the review role's functions.
     const { store: postgres, calls } = recorded([{ held_publication_number: "P-1001", held_state: "held",
       held_reasons: ["living_person_review"], held_outcome: "held" }]);
-    expect(await postgres.holdForLivingPerson({ publicationNumbers: ["P-1001"], at: AT })).toEqual([
+    expect(await postgres.recordLivingPerson({ cardNumber: 250, readings: [{ claimKey: KEY, reading: "yes" }],
+      publicationNumbers: ["P-1001"], at: AT })).toEqual([
       { publicationNumber: "P-1001", state: "held", heldBecause: ["living_person_review"], outcome: "held" }]);
-    expect(calls[0]!.sql).toBe("SELECT * FROM living_evidence.hold_atlas_publications_for_living_person($1::text[], " +
-      "$2::timestamptz)");
+    expect(calls.map(({ sql, values }) => [sql, values])).toEqual([[
+      "SELECT * FROM living_evidence.record_atlas_living_person($1::integer, $2::jsonb, $3::text[], $4::timestamptz)",
+      [250, JSON.stringify([{ claimKey: KEY, reading: "yes" }]), ["P-1001"], AT]]]);
     const notes = recorded([{ noted_publication_number: "P-1001", noted_at: new Date(AT) }]);
     expect(await notes.store.inspectLivingPersonNotes(["P-1001"])).toEqual([{ publicationNumber: "P-1001", notedAt: AT }]);
     expect(notes.calls[0]!.sql).toBe("SELECT * FROM living_evidence.inspect_atlas_living_person_notes($1::text[])");

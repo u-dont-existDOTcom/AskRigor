@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   EARLIER_RESEARCH_USE_NOTICE_VERSIONS,
@@ -42,6 +42,8 @@ import {
   atlasLivingPersonDeclarationFromEnv,
   atlasLivingPersonUnknownFromEnv,
 } from "../apps/research-mcp/src/config.js";
+import { findingsSaveToolResult } from "../apps/research-mcp/src/findings/connector-tool.js";
+import type { FindingsSaveResult } from "../apps/research-mcp/src/findings/contracts.js";
 import {
   FindingsSaveService,
   type FindingsRecord,
@@ -636,6 +638,69 @@ describe("publishing at the save", () => {
     await h.service.publicationsSettled();
     expect((await h.store.inspect({})).map(({ state }) => state)).toEqual(["unreviewed", "unreviewed"]);
     expect(await h.store.inspectLivingPersonNotes(["P-1001", "P-1002"])).toEqual([]);
+  });
+
+  // Codex's fourth review of 17 Nov 2026, P0 (publication race): the first save's publishing was paused, a duplicate
+  // "yes" save completed meanwhile and found nothing to hold, and the first then published unreviewed. The yes is now
+  // stored with the card before the duplicate save answers, and the publishing reads it at the moment it publishes.
+  it("holds a finding whose duplicate save said yes while the first save's publishing was paused", async () => {
+    const clear = { ...VELMOR_CARD, findings: VELMOR_CARD.findings.map((finding) => ({ ...finding,
+      names_living_person: false })) };
+    const yes = { ...clear, findings: [clear.findings[1]!, { ...clear.findings[0]!, names_living_person: true }] };
+    for (const showOnPages of [false, true]) {
+      const store = new InMemoryAtlasPublicationStore();
+      const publish = store.publish.bind(store);
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => { release = resolve; });
+      let paused = false;
+      store.publish = async (input) => {
+        paused = true;
+        await gate;
+        return publish(input);
+      };
+      const h = harness(store, undefined, { showOnPages });
+      await expect(h.save(clear, FREE, "1", { nlp: ["1", "2"] })).resolves.toMatchObject({ status: "saved" });
+      await vi.waitFor(() => expect(paused).toBe(true));
+      await expect(h.save(yes, FREE, "2", { target: "ba9876543210", nlp: ["1"] })).resolves.toMatchObject({
+        status: "existing_card", card_id: "ARF-0042" });
+      release();
+      await h.service.publicationsSettled();
+      const rows = (await h.store.inspect({})).sort((left, right) => left.findingNumber - right.findingNumber);
+      expect(rows.map(({ findingNumber, state, heldBecause }) => [findingNumber, state, heldBecause]),
+        `showing ${showOnPages}`).toEqual([[1, "held", ["living_person_review"]], [2, "unreviewed", null]]);
+      // Held, it is in no list of kept findings either: it has no page.
+      expect((await h.store.inspectKept()).map(({ publicationNumber }) => publicationNumber)
+        .includes(rows[0]!.publicationNumber)).toBe(false);
+    }
+  });
+
+  // Codex's fourth review of 17 Nov 2026, P0 (silent hold failure): PostgreSQL refused the hold, the save still answered
+  // existing_card, and the finding stayed public. Recording what a save says of a living person is now part of the
+  // save: when it fails the save fails, retryable, and nothing is published.
+  it("fails a save loudly, retryable, and publishes nothing, when its living-person record can't be stored", async () => {
+    const refusing = () => {
+      const store = new InMemoryAtlasPublicationStore();
+      store.recordLivingPerson = async () => { throw new Error("permission denied for function record_atlas_living_person"); };
+      return store;
+    };
+    const failed = { status: "queue_unavailable", retryable: true, reason_code: "queue_service_unavailable" };
+    // A new card: not saved, and nothing published.
+    const first = harness(refusing(), undefined, { showOnPages: true });
+    await expect(first.save(VELMOR_CARD, FREE, "1", { nlp: ["1", "2"] })).resolves.toEqual(failed);
+    await first.service.publicationsSettled();
+    expect(await first.store.inspect({})).toEqual([]);
+    // A later save that says yes: not answered existing_card, and the AI is told to save again.
+    const store = new InMemoryAtlasPublicationStore();
+    const h = harness(store, undefined, { showOnPages: true });
+    const clear = { ...VELMOR_CARD, findings: VELMOR_CARD.findings.map((finding) => ({ ...finding,
+      names_living_person: false })) };
+    await expect(h.save(clear, FREE, "1", { nlp: ["1", "2"] })).resolves.toMatchObject({ status: "saved" });
+    await h.service.publicationsSettled();
+    store.recordLivingPerson = async () => { throw new Error("permission denied for function record_atlas_living_person"); };
+    const yes = { ...clear, findings: [{ ...clear.findings[0]!, names_living_person: true }, clear.findings[1]!] };
+    await expect(h.save(yes, FREE, "2", { target: "ba9876543210", nlp: ["2"] })).resolves.toEqual(failed);
+    expect(findingsSaveToolResult(failed as FindingsSaveResult).content).toEqual([{ type: "text",
+      text: "Not saved: the findings library is unavailable right now; try saving again." }]);
   });
 
   // The owner's answer to what a card that doesn't say means is still to come (question 346), so it is one setting,

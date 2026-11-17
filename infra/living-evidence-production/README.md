@@ -935,14 +935,19 @@ it, to a file it names (or `--images=FILE`), readable by its owner alone, and
 changes nothing if it can't; keep that file. `show_on_pages` can't undo a
 hold, so `--restore=FILE` puts each row back as it was, only if nothing else
 has changed it since, and again only says what it would do until run with
-`--apply`. A later save
+`--apply`. The database enforces this hold (Codex's fourth review of 17 Nov
+2026): before a save answers, it stores what the card says of each finding
+(yes, no or not said) with the card, in `atlas_living_person_readings`,
+through `record_atlas_living_person`, and `publish_atlas_findings` reads that
+value under a lock at the moment it publishes, so a finding stored as yes is
+held whichever path publishes it, `publish_cards` included. If that store
+fails, the save fails, says to save again, and publishes nothing. A later save
 of the same question and claims lands on the open card (`existing_card`) and
 publishes nothing of its own; when it says a finding names a living person (its
-card declares it, or the meaning judge read it so), the save holds every
-publication of that card with the same claim, in any order, that the owner
-hasn't decided, through `hold_atlas_publications_for_living_person`. What the
-owner accepted, or showed by his own action, stays as he decided it, and
-`list_publications` says that a later save marks it
+card declares it, or the meaning judge read it so), the same transaction holds
+every publication of that card with the same claim, in any order, that the
+owner hasn't decided. What the owner accepted, or showed by his own action,
+stays as he decided it, and `list_publications` says that a later save marks it
 (`inspect_atlas_living_person_notes`). Re-run
 `/usr/local/bin/provision-research-review-role` after this `migrate`, so the
 review role gets those two functions. The recommended value is `enabled`; to turn it off,
@@ -983,7 +988,7 @@ back to:
 2. Then this release, with its migrations: run its one-shot `migrate` (0021's
    edit and 0041), re-run `/usr/local/bin/provision-research-review-role`
    inside the PostgreSQL container (it grants
-   `hold_atlas_publications_for_living_person`,
+   `record_atlas_living_person`,
    `inspect_atlas_living_person_notes` and `show_atlas_publications`), and
    recreate `research-mcp` with this image, with
    `ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS`, `ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN`

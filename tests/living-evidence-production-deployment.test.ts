@@ -34,8 +34,9 @@ const ATLAS_REPORT_REVIEW_FUNCTIONS = ["inspect_atlas_reports", "decide_atlas_re
 const ATLAS_GLANCE_FUNCTIONS = ["propose_atlas_glance_row", "set_atlas_glance_row_state", "inspect_atlas_glance_rows"];
 // The owner, 6 Nov: migration 0030's two functions for findings that challenge the usual view, for the review role.
 const ATLAS_CHALLENGE_FUNCTIONS = ["mark_atlas_challenges", "inspect_atlas_challenges"];
-// Codex's third review of 17 Nov 2026, finding 1 (migration 0041): a later save's living-person yes.
-const ATLAS_LIVING_PERSON_FUNCTIONS = ["hold_atlas_publications_for_living_person", "inspect_atlas_living_person_notes"];
+// Codex's third review of 17 Nov 2026, finding 1, and its fourth review's P0s (migration 0041): what a save says of a
+// living person, recorded with its card, and a later save's yes.
+const ATLAS_LIVING_PERSON_FUNCTIONS = ["record_atlas_living_person", "inspect_atlas_living_person_notes"];
 // Its finding 2 (migration 0041): show_on_pages records how it shows a finding.
 const ATLAS_SHOW_FUNCTIONS = ["show_atlas_publications"];
 const ATLAS_PARTICIPATION_FUNCTIONS = [
@@ -1332,20 +1333,29 @@ describe("migration 0041", () => {
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
     expect(order.at(-1)).toBe("0041_atlas_show_saved_findings");
-    // One nullable column, held to its one value by a check added by name; no table, and nothing dropped.
+    // Nullable columns, each held to its values by a check added by name; nothing dropped but its own trigger, made
+    // again; one table, the readings a save stores with its card (Codex's fourth review of 17 Nov 2026, P0s).
     expect(migration).toContain("ALTER TABLE atlas_publications ADD COLUMN IF NOT EXISTS shown_by text;");
     // Codex's re-review of 17 Nov 2026, finding 4: four routes stored apart, NULL being not recorded (older rows).
     expect(migration).toContain("ADD CONSTRAINT atlas_publications_v1_shown_by_check CHECK (\n  shown_by IS NULL OR " +
       "shown_by IN ('owner_action', 'quick_answer_test', 'automatic_showing')\n);");
-    expect(migration).not.toMatch(/CREATE TABLE|DROP FUNCTION|DROP COLUMN/u);
+    expect(migration).not.toMatch(/DROP FUNCTION|DROP COLUMN|DROP TABLE/u);
+    expect([...migration.matchAll(/CREATE TABLE IF NOT EXISTS ([a-z_]+)/gu)].map(([, name]) => name))
+      .toEqual(["atlas_living_person_readings"]);
+    expect(migration).toContain("REVOKE ALL ON TABLE atlas_living_person_readings FROM PUBLIC;");
+    expect(migration).toContain("REVOKE ALL ON TABLE atlas_living_person_readings FROM askrigor_reader;");
     // publish_atlas_findings and keep_atlas_publications are replaced, each with its own arguments and result (0021's
     // and 0024's), so their grants stand as they were; the functions it adds are revoked from PUBLIC and granted to the
     // review role alone, each by its exact signature.
     const kept = await read("packages/evidence-repository/migrations/0024_atlas_kept_for_research.sql");
     const functions = migration.split("CREATE OR REPLACE FUNCTION ").slice(1);
     expect(functions.map((chunk) => chunk.slice(0, chunk.indexOf("(")))).toEqual(["publish_atlas_findings",
-      "keep_atlas_publications", ...ATLAS_LIVING_PERSON_FUNCTIONS, ...ATLAS_SHOW_FUNCTIONS]);
-    for (const [name, args] of [["hold_atlas_publications_for_living_person", "text[], timestamptz"],
+      "keep_atlas_publications", "atlas_publication_claim_key_forgotten", ...ATLAS_LIVING_PERSON_FUNCTIONS,
+      ...ATLAS_SHOW_FUNCTIONS]);
+    // The trigger's function runs for no role: it is revoked from PUBLIC and granted to none.
+    expect(migration).toContain("REVOKE ALL ON FUNCTION atlas_publication_claim_key_forgotten() FROM PUBLIC;");
+    expect(review).not.toContain("atlas_publication_claim_key_forgotten");
+    for (const [name, args] of [["record_atlas_living_person", "integer, jsonb, text[], timestamptz"],
       ["inspect_atlas_living_person_notes", "text[]"],
       ["show_atlas_publications", "text[], text[], text, text, timestamptz"]] as const) {
       expect(migration).toContain(`REVOKE ALL ON FUNCTION ${name}(${args}) FROM PUBLIC;`);
@@ -1370,7 +1380,8 @@ describe("migration 0041", () => {
       "'\"owner_action\"'::jsonb AND draft_state IN ('unreviewed', 'accepted', 'edited'))))");
     // Publishing a withdrawn finding again takes the owner's route when its draft gives one, and otherwise leaves it.
     const revive = migration.slice(migration.indexOf("ELSIF revive_withdrawn"), migration.indexOf("outcomes := outcomes || jsonb_build_object(draft_number::text, 'revived')"));
-    expect(revive).toContain("shown_by = coalesce(draft_shown_by #>> '{}', stored.shown_by),");
+    expect(revive).toContain("shown_by = CASE WHEN draft_state = 'held' THEN NULL ELSE coalesce(draft_shown_by #>> '{}', " +
+      "stored.shown_by) END,");
     expect(revive).not.toMatch(/kept_/u);
     // Codex's third review of 17 Nov 2026, finding 2: the route is written by the showing that says it, with the test's
     // verdict only for the test's own route; nothing is read from a kept reason's text, and 0024's showing, which an
@@ -1383,8 +1394,17 @@ describe("migration 0041", () => {
       "  (shown_by IS NOT DISTINCT FROM 'quick_answer_test') = (shown_test_verdict IS NOT NULL)\n" +
       "  AND (shown_test_verdict IS NULL OR shown_test_verdict IN ('pass', 'headline', 'fail'))\n);");
     // Finding 1: a finding kept for the owner is kept in the same write, by 0024's columns, only when unreviewed.
-    expect(migration).toContain("held_because, published_at, state_changed_at, shown_by, kept_for_research_at, kept_reason)");
-    expect(migration).toContain("draft_shown_by #>> '{}', CASE WHEN draft_kept IS NULL THEN NULL ELSE publish_time END, draft_kept #>> '{}')");
+    expect(migration).toContain("held_because, published_at, state_changed_at, shown_by, kept_for_research_at, kept_reason, " +
+      "claim_key)");
+    expect(migration).toContain("draft_shown_by #>> '{}', CASE WHEN draft_kept IS NULL THEN NULL ELSE publish_time END, " +
+      "draft_kept #>> '{}',\n         draft_claim_key)");
+    // Codex's fourth review of 17 Nov 2026 (P0s): the publishing reads a save's stored reading under its row's lock,
+    // taken in the keys' order before any row is written, and a stored yes holds the draft whatever it says.
+    expect(migration).toContain("ON CONFLICT (card_number, claim_key) DO UPDATE\n       SET reading = CASE WHEN " +
+      "excluded.reading = 'yes' THEN 'yes' ELSE stored.reading END,");
+    expect(migration).toContain("RETURNING stored.reading INTO stored_reading;");
+    expect(migration).toContain("IF draft_state IN ('unreviewed', 'held') AND (stored_reading = 'yes'\n       OR " +
+      "(stored_reading = 'not_said' AND (draft_living -> 'holdNotSaid') = 'true'::jsonb)) THEN");
     expect(migration).toContain("OR (draft_kept IS NOT NULL AND (jsonb_typeof(draft_kept) <> 'string' OR draft_state <> 'unreviewed'");
     // No hold reason is added: 0021 replaces its own list on every run, so a new one would stop migrate.
     expect(migration).not.toContain("atlas_publications_v1_held_check");

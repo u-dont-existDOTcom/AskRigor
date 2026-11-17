@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
+
 import {
   ATLAS_AI_READINGS_CALLER,
-  ATLAS_LIVING_PERSON_HOLDS_PER_CALL,
+  ATLAS_LIVING_PERSON_MATCHES_PER_RECORD,
   ATLAS_NAMED_VIDEO_LINK,
   ATLAS_NAMED_VIDEOS_PER_FINDING,
   ATLAS_PUBLICATION_HOLD_REASONS,
@@ -20,6 +22,8 @@ import {
   type AtlasDecisionView,
   type AtlasNumberEntry,
   type AtlasIntentView,
+  type AtlasLivingPersonDraft,
+  type AtlasLivingPersonReading,
   type AtlasPublicationDraft,
   type AtlasPublicationHoldReason,
   type AtlasPublicationStore,
@@ -605,7 +609,10 @@ export const LIVING_PERSON_WAITING = "waiting for the owner's decision: it may n
  * list, for the owner's decision (LIVING_PERSON_WAITING), kept in the publishing's own write. Codex's re-review of 17
  * Nov 2026, finding 1: a kept finding's own page stays public, so one whose card declares that it names a living
  * person, or that the meaning judge read as naming one, is held (living_person_review), with no page, whatever the
- * setting (namesLivingPerson, withLivingPersonHold).
+ * setting (namesLivingPerson, withLivingPersonHold). Codex's fourth review of 17 Nov 2026 (P0s): the database enforces
+ * that hold. recordSave stores, before the save answers, what the save says of each finding, and a yes holds the card's
+ * matching publications in the same transaction; the publishing then reads the stored value under lock, so a later
+ * save's yes holds a publication still on its way. recordSave throws when that fails, and the save fails.
  */
 export class AtlasCardPublisher implements FindingsCardPublisher {
   private readonly now: () => Date;
@@ -628,6 +635,32 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
 
   accountPublishes(account: FindingsSaveAccount | undefined): boolean {
     return accountPublicationProblems(account).length === 0;
+  }
+
+  /**
+   * Codex's third review of 17 Nov 2026, finding 1, and its fourth review's two P0s: before the save answers, stores
+   * what it says of whether each of its card's findings names a living person, by the card and the finding's claim
+   * (record_atlas_living_person), and, in the same transaction, holds every publication of the card with a claim it
+   * says yes of that the owner hasn't decided; what he decided (accepted or edited, or shown by his own action) stays as
+   * he decided it, and his list says that a later save marks it. A later save of the same question and claims lands on
+   * the open card (existing_card) and publishes nothing of its own, so its yes is matched by claim, whatever the claims'
+   * order: by the key stored with each publication, and, for one from before keys were stored, by the claim read here.
+   * Whatever the settings: the owner's rule is that claims about named living people publish only on his explicit
+   * decision. It throws when the store does: the save then fails, retryable, and publishes nothing.
+   */
+  async recordSave(saved: SavedFindingsCard): Promise<void> {
+    const readings = saved.record.card.findings.map((finding, index) => ({
+      claimKey: livingPersonClaimKey(finding.claim), reading: livingPersonStoredReading(saved, index + 1) }));
+    if (readings.length === 0) return;
+    const naming = new Set(readings.flatMap(({ claimKey, reading }) => reading === "yes" ? [claimKey] : []));
+    let matched: string[] = [];
+    if (saved.kind === "existing" && naming.size > 0) {
+      const rows = await this.options.store.inspect({ cardNumbers: [saved.issueNumber], limit: ATLAS_PUBLICATIONS_PER_INSPECT });
+      matched = rows.filter(({ published }) => published !== null && naming.has(livingPersonClaimKey(published.claim)))
+        .map(({ publicationNumber }) => publicationNumber).slice(0, ATLAS_LIVING_PERSON_MATCHES_PER_RECORD);
+    }
+    await this.options.store.recordLivingPerson({ cardNumber: saved.issueNumber, readings, publicationNumbers: matched,
+      at: this.now().toISOString() });
   }
 
   async afterSave(saved: SavedFindingsCard): Promise<void> {
@@ -664,8 +697,11 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
         // names a living person is held, with no page, until the owner decides, whatever the setting; one whose card
         // doesn't say is held too while ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN says hold, or says reader and the meaning
         // judge read it as naming no one.
-        const drafts = plan.drafts.map((draft) => withLivingPersonHold(draft, reading(draft.findingNumber) === "names" ||
-          (reading(draft.findingNumber) === "unknown" && unknown !== "keep")));
+        // The database holds them too, from what is stored for the card when it publishes (recordSave): so a later
+        // save's yes stored meanwhile holds this one.
+        const drafts = plan.drafts.map((draft) => withLivingPersonHold({ ...draft,
+          livingPerson: savedLivingPersonDraft(saved, draft.findingNumber, unknown) },
+        reading(draft.findingNumber) === "names" || (reading(draft.findingNumber) === "unknown" && unknown !== "keep")));
         const rows = await this.options.store.publish({
           cardNumber: saved.issueNumber,
           cardSha256: saved.record.card_sha256,
@@ -689,44 +725,60 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
         }
       }
     }
-    if (saved.kind === "existing") {
-      try {
-        await this.holdMatchingForLivingPerson(saved);
-      } catch (error) {
-        failure ??= error;
-      }
-    }
     if (failure !== undefined) throw failure;
-  }
-
-  /**
-   * Codex's third review of 17 Nov 2026, finding 1 (P0): a later save of the same question and claims lands on the open
-   * card (existing_card) and publishes nothing of its own, so a "yes" it carries, its card's declaration or the meaning
-   * judge's reading as the receipt signed (namesLivingPerson), holds every publication of that card whose claim is the
-   * finding's, matched by the claim's text as the duplicate check reads it, whatever the claims' order. Whatever the
-   * settings: the owner's rule is that claims about named living people publish only on his explicit decision. What
-   * the owner decided (accepted or edited, or shown by his own action) stays as he decided it, and his list says that a
-   * later save marks it (hold_atlas_publications_for_living_person, migration 0041).
-   */
-  private async holdMatchingForLivingPerson(saved: SavedFindingsCard): Promise<void> {
-    const naming = new Set(saved.record.card.findings.flatMap((finding, index) =>
-      namesLivingPerson(saved, index + 1) ? [findingIdentity(finding.claim)] : []));
-    if (naming.size === 0) return;
-    const rows = await this.options.store.inspect({ cardNumbers: [saved.issueNumber], limit: ATLAS_PUBLICATIONS_PER_INSPECT });
-    const matching = rows.filter(({ published }) => published !== null && naming.has(findingIdentity(published.claim)))
-      .map(({ publicationNumber }) => publicationNumber);
-    for (let start = 0; start < matching.length; start += ATLAS_LIVING_PERSON_HOLDS_PER_CALL) {
-      await this.options.store.holdForLivingPerson({
-        publicationNumbers: matching.slice(start, start + ATLAS_LIVING_PERSON_HOLDS_PER_CALL),
-        at: this.now().toISOString(),
-      });
-    }
   }
 }
 
 /** A finding's identity across saves of the same card: its claim as the duplicate check reads it (findingsCardFingerprint). */
 function findingIdentity(claim: string): string {
   return normalizedFindingsText(withoutDirectionControls(claim));
+}
+
+/**
+ * The key a finding's living-person reading is stored under with its card (migration 0041): the sha256, in hex, of its
+ * claim as the duplicate check reads it, so every save of the card, in any order, finds the same one.
+ */
+export function livingPersonClaimKey(claim: string): string {
+  return createHash("sha256").update(findingIdentity(claim), "utf8").digest("hex");
+}
+
+/**
+ * What a save stores of whether its finding names a living person: yes (namesLivingPerson); no, when its stored card
+ * declares it names no one and the receipt signed that; not_said otherwise. A stored yes is never lowered.
+ */
+export function livingPersonStoredReading(
+  saved: Pick<SavedFindingsCard, "record" | "clearOfLivingPeople" | "judgedNamingLivingPeople">,
+  findingNumber: number,
+): AtlasLivingPersonReading {
+  if (namesLivingPerson(saved, findingNumber)) return "yes";
+  return saved.record.card.findings[findingNumber - 1]?.names_living_person === false &&
+    saved.clearOfLivingPeople.has(findingNumber) ? "no" : "not_said";
+}
+
+/**
+ * What the save path's draft says of a finding for the database to read under lock: its claim's key, what the save
+ * says, and whether one stored as not said is held, as ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN says (with reader, the
+ * meaning judge's no clears it).
+ */
+function savedLivingPersonDraft(saved: SavedFindingsCard, findingNumber: number, unknown: "keep" | "hold" | "reader"):
+  AtlasLivingPersonDraft {
+  return {
+    claimKey: livingPersonClaimKey(saved.record.card.findings[findingNumber - 1]!.claim),
+    reading: livingPersonStoredReading(saved, findingNumber),
+    holdNotSaid: unknown !== "keep" && livingPersonReading(saved, findingNumber, unknown) === "unknown",
+  };
+}
+
+/**
+ * What the owner's publishing (publish_cards) says of a card's finding for the database to read under lock: yes when
+ * its stored card declares it names a living person, not_said otherwise (the owner's route has no receipt), and a
+ * finding stored as not said is not held for it, as before. What a save stored for the card stands: a stored yes holds
+ * the finding here too, and the owner decides it.
+ */
+export function ownerLivingPersonDraft(record: FindingsRecord, findingNumber: number): AtlasLivingPersonDraft {
+  const finding = record.card.findings[findingNumber - 1]!;
+  return { claimKey: livingPersonClaimKey(finding.claim),
+    reading: finding.names_living_person === true ? "yes" : "not_said", holdNotSaid: false };
 }
 
 /**

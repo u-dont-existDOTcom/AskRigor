@@ -30,6 +30,7 @@ import {
   FINDING_LEFT_OUT_REASONS,
   cardSourceTitles,
   decidedPublicationState,
+  ownerLivingPersonDraft,
   planCardPublication,
   publicationHoldReasons,
   withCardContext,
@@ -368,8 +369,10 @@ export class AtlasPublicationReview {
         cardNumber: number,
         cardSha256: card.record.card_sha256,
         // Codex's re-review of 17 Nov 2026, finding 4: what the owner publishes is stored as the owner's action, so its
-        // page never says the quick-answer test happened.
-        findings: drafts.map((draft) => draft.state === "held" ? draft : { ...draft, shownBy: "owner_action" as const }),
+        // page never says the quick-answer test happened. Codex's fourth review (P0): each says what its card declares
+        // of a living person, and the database holds one whose card a save stored as naming one, as it would on a save.
+        findings: drafts.map((draft) => ({ ...(draft.state === "held" ? draft : { ...draft, shownBy: "owner_action" as const }),
+          livingPerson: ownerLivingPersonDraft(card.record, draft.findingNumber) })),
         publishedAt: this.deps.now().toISOString(),
         revive: true,
       });

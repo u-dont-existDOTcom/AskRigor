@@ -2435,9 +2435,9 @@ const ATLAS_REPORT_REVIEW_FUNCTIONS = ["decide_atlas_report", "inspect_atlas_rep
 const ATLAS_GLANCE_FUNCTIONS = ["inspect_atlas_glance_rows", "propose_atlas_glance_row", "set_atlas_glance_row_state"] as const;
 // The owner, 6 Nov: migration 0030's two functions for findings that challenge the usual view.
 const ATLAS_CHALLENGE_FUNCTIONS = ["inspect_atlas_challenges", "mark_atlas_challenges"] as const;
-// Codex's third review of 17 Nov 2026, finding 1 (migration 0041): a later save's living-person yes.
-const ATLAS_LIVING_PERSON_FUNCTIONS = ["hold_atlas_publications_for_living_person",
-  "inspect_atlas_living_person_notes"] as const;
+// Codex's third review of 17 Nov 2026, finding 1, and its fourth review's P0s (migration 0041): what a save says of a
+// living person, recorded with its card, and a later save's yes.
+const ATLAS_LIVING_PERSON_FUNCTIONS = ["inspect_atlas_living_person_notes", "record_atlas_living_person"] as const;
 // Its finding 2 (migration 0041): show_on_pages records how it shows a finding.
 const ATLAS_SHOW_FUNCTIONS = ["show_atlas_publications"] as const;
 const ATLAS_PARTICIPATION_FUNCTIONS = [
@@ -4279,20 +4279,28 @@ export async function verifyAtlasPages(context: {
         { ...unreviewedDraft(4, "LATER-KEPT claim."), keptReason: "waiting for the quick-answer test (owner answer 240a)" },
       ] });
     const [laterAutomatic, laterOwner, laterHeld, laterKept] = laterRows.map(({ publicationNumber }) => publicationNumber);
-    const laterNumbers = [laterAutomatic!, laterOwner!, laterHeld!, laterKept!, accepted!];
-    const laterHolds = await store.holdForLivingPerson({ publicationNumbers: laterNumbers, at: tick() });
+    // Published without claim keys, as before they were stored: the server matched them by their claims.
+    const laterNumbers = [laterAutomatic!, laterOwner!, laterHeld!, laterKept!];
+    const laterHolds = await store.recordLivingPerson({ cardNumber: laterCard, publicationNumbers: laterNumbers,
+      readings: [{ claimKey: atlasHex("LATER claim key"), reading: "yes" }], at: tick() });
     assert(isDeepStrictEqual(Object.fromEntries(laterHolds.map(({ publicationNumber, outcome }) => [publicationNumber, outcome])),
-      { [laterAutomatic!]: "held", [laterOwner!]: "noted", [laterHeld!]: "reason_added", [laterKept!]: "held",
-        [accepted!]: "noted" }), `LATER_SAVE_HOLD_OUTCOMES ${JSON.stringify(laterHolds)}`);
+      { [laterAutomatic!]: "held", [laterOwner!]: "noted", [laterHeld!]: "reason_added", [laterKept!]: "held" }),
+    `LATER_SAVE_HOLD_OUTCOMES ${JSON.stringify(laterHolds)}`);
+    // Another card's publication, accepted, named among them, is not this card's: unchanged, and not noted.
+    assert((await store.recordLivingPerson({ cardNumber: laterCard, publicationNumbers: [accepted!],
+      readings: [{ claimKey: atlasHex("LATER claim key"), reading: "yes" }], at: tick() })).length === 0,
+    "LATER_SAVE_HELD_ANOTHER_CARD");
     const laterHeldAfter = laterHolds.find(({ publicationNumber }) => publicationNumber === laterHeld)!;
     assert(isDeepStrictEqual(laterHeldAfter.heldBecause, ["email_address", "living_person_review"]),
       "LATER_SAVE_HOLD_REASONS_OUT_OF_ORDER");
-    assert(isDeepStrictEqual((await store.inspectLivingPersonNotes(laterNumbers)).map(({ publicationNumber }) =>
-      publicationNumber).sort(), [laterOwner!, accepted!].sort()), "LATER_SAVE_NOTES_MISMATCH");
+    assert(isDeepStrictEqual((await store.inspectLivingPersonNotes([...laterNumbers, accepted!])).map(({ publicationNumber }) =>
+      publicationNumber).sort(), [laterOwner!].sort()), "LATER_SAVE_NOTES_MISMATCH");
     assert((await loadAtlasFinding(source, laterAutomatic!)) === undefined &&
       (await loadAtlasFinding(source, laterKept!)) === undefined &&
       (await pageOf(laterOwner!)).includes("LATER-OWNER claim."), "LATER_SAVE_HOLD_PAGES_MISMATCH");
     checks.push("a_later_saves_living_person_yes_holds_what_the_owner_has_not_decided_and_notes_what_he_has");
+
+    await verifyLivingPersonEnforced({ adminUrl, reviewUrl, schema, store, source, tick, checks });
 
     // The owner's script for findings already on the pages: a dry run changes nothing; --apply holds them. It runs as
     // the one-shot admin, on its own connection.
@@ -4353,6 +4361,177 @@ export async function verifyAtlasPages(context: {
   } finally {
     await Promise.allSettled([store.close(), source.close(), admin.end()]);
   }
+}
+
+/**
+ * Codex's fourth review of 17 Nov 2026, its two P0s, on this database through the review role. The race: the first
+ * save's publishing paused, a duplicate save saying a finding names a living person completed, and the first resumed;
+ * it published the finding unreviewed. The permission denied: PostgreSQL refused the hold, the save still answered
+ * existing_card, and the finding stayed public. Both run through the save itself, with the review role's store.
+ */
+async function verifyLivingPersonEnforced(context: {
+  adminUrl: string;
+  reviewUrl: string;
+  schema: string;
+  store: PostgresAtlasPublicationStore;
+  source: PostgresAtlasPageSource;
+  tick: () => string;
+  checks: string[];
+}): Promise<void> {
+  const { adminUrl, reviewUrl, schema, store, source, tick, checks } = context;
+  const { AtlasCardPublisher, livingPersonClaimKey } = await import("../apps/research-mcp/src/atlas/publication.js");
+  const { FindingsSaveService } = await import("../apps/research-mcp/src/findings/service.js");
+  const { findingsCardDigest, laterFindingsCardSchema } = await import("../apps/research-mcp/src/findings/card.js");
+  const { issueResearchReceipt } = await import("../apps/research-mcp/src/research-receipts.js");
+  const { VELMOR_CARD } = await import("../tests/helpers/atlas-scenario.ts");
+  const SECRET = "living-person-acceptance-secret-0123456789";
+  const pause = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+  const card = (run: string, declared: [boolean, boolean]) => ({ ...VELMOR_CARD,
+    question: `${VELMOR_CARD.question} (${run})`,
+    findings: VELMOR_CARD.findings.map((finding, index) => ({ ...finding, claim: `${finding.claim} (${run})`,
+      names_living_person: declared[index]! })) });
+  // The save path as the server runs it, on one card: the first save creates it, each later one joins it.
+  const saving = (cardNumber: number, publications: PostgresAtlasPublicationStore, showOnPages: boolean) => {
+    let saves = 0;
+    const service = new FindingsSaveService({
+      receiptSecret: () => SECRET,
+      limiter: { consume: () => ({ allowed: true }), lastBlockingReason: () => "hourly_limit" },
+      queue: { submit: async () => ({ kind: saves++ === 0 ? "created" as const : "existing" as const, issueNumber: cardNumber,
+        occurrenceCount: saves, replaced: 0, replacedCards: [], setAside: false }) },
+      protocols: async () => [{ name: "HRP", version: "20.6.32", sha256: "a".repeat(64) }],
+      version: "0.1.0",
+      build: "0123abc",
+      publisher: new AtlasCardPublisher({ store: publications, showOnPages }),
+    });
+    const save = (given: object, thread: string, claims: object) => {
+      const parsed = laterFindingsCardSchema.parse(given);
+      return service.save({ findings_card: given, contributor: thread.padStart(64, "0"),
+        finalization_receipt: issueResearchReceipt("finalization", { status: "ready", depth: "standard",
+          target: `${thread}0123456789ab`.slice(0, 12), findings: findingsCardDigest(parsed),
+          bases: parsed.findings.map(() => "full_text_audit"), ...claims }, { secret: SECRET }),
+      }, { surface: "/mcp", toolCatalogSha256: "b".repeat(64),
+        account: { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION } });
+    };
+    return { service, save };
+  };
+
+  // The race, with saved findings shown at once and without.
+  for (const [cardNumber, showOnPages] of [[7205, false], [7206, true]] as const) {
+    const run = `race ${cardNumber}`;
+    const gated = new PostgresAtlasPublicationStore({ connectionString: reviewUrl, schema });
+    const publish = gated.publish.bind(gated);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let paused = false;
+    gated.publish = async (input) => {
+      paused = true;
+      await gate;
+      return publish(input);
+    };
+    try {
+      const { service, save } = saving(cardNumber, gated, showOnPages);
+      const first = await save(card(run, [false, false]), "1", { nlp: ["1", "2"] });
+      assert(first.status === "saved", `RACE_FIRST_SAVE ${JSON.stringify(first)}`);
+      for (let waited = 0; !paused && waited < 5_000; waited += 20) await pause(20);
+      assert(paused, "RACE_FIRST_PUBLISHING_NEVER_STARTED");
+      // The duplicate, its claims in the other order, says the first save's finding 1 names a living person.
+      const both = card(run, [true, false]);
+      const duplicate = await save({ ...both, findings: [both.findings[1]!, both.findings[0]!] }, "2", { nlp: ["1"] });
+      assert(duplicate.status === "existing_card", `RACE_DUPLICATE_SAVE ${JSON.stringify(duplicate)}`);
+      release();
+      await service.publicationsSettled();
+      const rows = (await store.inspect({ cardNumbers: [cardNumber] })).sort((left, right) => left.findingNumber - right.findingNumber);
+      assert(isDeepStrictEqual(rows.map(({ findingNumber, state, heldBecause }) => [findingNumber, state, heldBecause]),
+        [[1, "held", ["living_person_review"]], [2, "unreviewed", null]]), `RACE_PUBLISHED_UNREVIEWED ${JSON.stringify(rows)}`);
+      assert((await loadAtlasFinding(source, rows[0]!.publicationNumber)) === undefined, "RACE_HELD_FINDING_HAS_A_PAGE");
+    } finally {
+      release();
+      await gated.close();
+    }
+  }
+  checks.push("a_duplicate_saves_yes_holds_a_publishing_paused_before_it_with_saved_findings_shown_at_once_or_not");
+
+  // The same race inside the database: each waits for the other's transaction at the reading's row, whichever is first.
+  const lockPool = new Pool({ connectionString: reviewUrl, max: 1 });
+  const lockClient = await lockPool.connect();
+  try {
+    const living = (claimKey: string, reading: "yes" | "no") => ({ claimKey, reading, holdNotSaid: false });
+    const draft = (claim: string, claimKey: string): AtlasPublicationDraft => ({ findingNumber: 1, state: "unreviewed",
+      atlasNumber: null, heldBecause: null, livingPerson: living(claimKey, "no"), published: {
+        schema: ATLAS_PUBLICATION_SCHEMA, topic: { key: "pages-topic", label: "A topic only the pages check uses" },
+        claim, certainty: "low", applies_to: "Adults with an invented condition", kind: null, subject: null,
+        subject_type: null, direction: null, numbers: null, searches: null, sources: ["10.0000/synthetic-pages"],
+        why_not_usual: "Quick answers miss it.", what_would_change_it: "A trial.", verified_bases: [],
+        saved_on: "2026-11-06", askrigor_version: "0.1.0" } });
+    // The publishing first, its transaction open: the yes waits for it, then holds what it published.
+    const publishingFirst = livingPersonClaimKey("LOCK-PUBLISHING-FIRST claim.");
+    await lockClient.query("BEGIN");
+    await lockClient.query(`SELECT * FROM ${schema}.publish_atlas_findings($1::integer, $2::text, $3::jsonb,
+      $4::timestamptz, false)`, [7208, atlasHex("lock-publishing-first"),
+      JSON.stringify([draft("LOCK-PUBLISHING-FIRST claim.", publishingFirst)]), tick()]);
+    let recorded = false;
+    const recording = store.recordLivingPerson({ cardNumber: 7208, publicationNumbers: [],
+      readings: [{ claimKey: publishingFirst, reading: "yes" }], at: tick() }).finally(() => { recorded = true; });
+    await pause(300);
+    assert(!recorded, "LIVING_PERSON_YES_DID_NOT_WAIT_FOR_THE_PUBLISHING");
+    await lockClient.query("COMMIT");
+    assert(isDeepStrictEqual((await recording).map(({ outcome }) => outcome), ["held"]), "LIVING_PERSON_YES_MISSED_THE_PUBLISHING");
+    // The yes first, its transaction open: the publishing waits for it, then reads it and publishes held.
+    const yesFirst = livingPersonClaimKey("LOCK-YES-FIRST claim.");
+    await lockClient.query("BEGIN");
+    await lockClient.query(`SELECT * FROM ${schema}.record_atlas_living_person($1::integer, $2::jsonb, $3::text[],
+      $4::timestamptz)`, [7209, JSON.stringify([{ claimKey: yesFirst, reading: "yes" }]), [], tick()]);
+    let published = false;
+    const publishing = store.publish({ cardNumber: 7209, cardSha256: atlasHex("lock-yes-first"), publishedAt: tick(),
+      revive: false, findings: [{ ...draft("LOCK-YES-FIRST claim.", yesFirst), shownBy: "automatic_showing" }] })
+      .finally(() => { published = true; });
+    await pause(300);
+    assert(!published, "PUBLISHING_DID_NOT_WAIT_FOR_THE_LIVING_PERSON_YES");
+    await lockClient.query("COMMIT");
+    const [lockedRow] = await publishing;
+    assert(lockedRow?.state === "held" && isDeepStrictEqual(lockedRow.heldBecause, ["living_person_review"]),
+      `PUBLISHING_MISSED_THE_LIVING_PERSON_YES ${JSON.stringify(lockedRow)}`);
+  } finally {
+    await lockClient.query("ROLLBACK").catch(() => undefined);
+    lockClient.release();
+    await lockPool.end();
+  }
+  checks.push("the_living_person_yes_and_the_publishing_wait_for_each_other_at_the_readings_lock");
+
+  // Permission denied: the review role can't run record_atlas_living_person (a provisioning step skipped).
+  const admin = new Pool({ connectionString: adminUrl, max: 1 });
+  const signature = `${schema}.record_atlas_living_person(integer, jsonb, text[], timestamptz)`;
+  try {
+    const { service, save } = saving(7210, store, true);
+    const clear = card("denied", [false, false]);
+    assert((await save(clear, "1", { nlp: ["1", "2"] })).status === "saved", "DENIED_FIRST_SAVE");
+    await service.publicationsSettled();
+    await admin.query(`REVOKE EXECUTE ON FUNCTION ${signature} FROM askrigor_research_review`);
+    const before = await store.inspect({ cardNumbers: [7210] });
+    const both = card("denied", [true, false]);
+    const denied = await save({ ...both, findings: [both.findings[1]!, both.findings[0]!] }, "2", { nlp: ["1"] });
+    assert(isDeepStrictEqual(denied, { status: "queue_unavailable", retryable: true, reason_code: "queue_service_unavailable" }),
+      `DENIED_SAVE_ANSWERED ${JSON.stringify(denied)}`);
+    assert(isDeepStrictEqual(await store.inspect({ cardNumbers: [7210] }), before), "DENIED_SAVE_CHANGED_THE_PUBLICATIONS");
+    // A new card's save: refused, and nothing of it published.
+    const fresh = saving(7211, store, true);
+    const refused = await fresh.save(card("denied fresh", [true, false]), "3", { nlp: ["2"] });
+    await fresh.service.publicationsSettled();
+    assert(refused.status === "queue_unavailable" && refused.retryable && (await store.inspect({ cardNumbers: [7211] }))
+      .length === 0, `DENIED_NEW_CARD_PUBLISHED ${JSON.stringify(refused)}`);
+  } finally {
+    await admin.query(`GRANT EXECUTE ON FUNCTION ${signature} TO askrigor_research_review`);
+    await admin.end();
+  }
+  // Granted again (provision-research-review-role.sh), the saved again duplicate holds it.
+  const again = saving(7210, store, true);
+  await again.save(card("denied", [false, false]), "1", { nlp: ["1", "2"] });
+  const both = card("denied", [true, false]);
+  const retried = await again.save({ ...both, findings: [both.findings[1]!, both.findings[0]!] }, "2", { nlp: ["1"] });
+  const retriedRows = (await store.inspect({ cardNumbers: [7210] })).sort((left, right) => left.findingNumber - right.findingNumber);
+  assert(retried.status === "existing_card" && retriedRows[0]?.state === "held" && retriedRows[1]?.state === "unreviewed",
+    `DENIED_RETRY_DID_NOT_HOLD ${JSON.stringify(retriedRows)}`);
+  checks.push("a_save_whose_living_person_record_is_denied_fails_retryable_and_publishes_nothing");
 }
 
 /**

@@ -17,7 +17,7 @@ import {
 import { CONTEXT_REASON, AtlasPublicationReview } from "../apps/research-mcp/src/atlas/publication-review.js";
 import { loadAtlasFinding } from "../apps/research-mcp/src/atlas/page-data.js";
 import { QUICK_ANSWER_MISSES_IT, renderAtlasFinding } from "../apps/research-mcp/src/atlas/pages.js";
-import { AtlasCardPublisher, publishedFindingOf } from "../apps/research-mcp/src/atlas/publication.js";
+import { AtlasCardPublisher, livingPersonClaimKey, publishedFindingOf } from "../apps/research-mcp/src/atlas/publication.js";
 import { AtlasReview } from "../apps/research-mcp/src/findings/atlas-review.js";
 import { findingsCardDigest, findingsCardSchema, laterFindingsCardSchema } from "../apps/research-mcp/src/findings/card.js";
 import { GitHubFindingsReview } from "../apps/research-mcp/src/findings/github-findings-review.js";
@@ -403,8 +403,10 @@ describe("the publications through the owner's review", () => {
   });
 
   // Codex's re-review of 17 Nov 2026, finding 1 (P0): what the save holds because it may name a living person is
-  // listed to the owner with that reason, and the owner's own publish_cards holds nothing for it.
-  it("lists a finding held because it may name a living person, and the owner's own publishing holds nothing", async () => {
+  // listed to the owner with that reason. Its fourth review (P0s): the database holds a finding stored as naming one at
+  // the moment anything publishes it, so publish_cards, which the review login shared with the scheduled test can call,
+  // holds it too; the owner decides it with accept_finding.
+  it("lists a finding held because it may name a living person, and publish_cards holds one too", async () => {
     const h = harness();
     const declared = { ...VELMOR_CARD, findings: VELMOR_CARD.findings.map((finding, index) =>
       ({ ...finding, names_living_person: index === 0 })) };
@@ -414,10 +416,11 @@ describe("the publications through the owner's review", () => {
       card: "ARF-0042", finding: 1, state: "held", heldBecause: ["living_person_review"] })]);
     expect(listed.text).toContain("P-1001 (ARF-0042 finding 1), held for the owner: it holds a claim that may name a " +
       "living person: ");
-    // A card saved before publishing began, which the owner chooses to publish: shown, not held.
+    // A card whose account's cards aren't published at their save, which publish_cards publishes: held all the same.
     await h.save({ ...DOI_CARD, findings: [{ ...DOI_CARD.findings[0]!, names_living_person: true }] }, null, {});
     const published = await h.call({ action: "publish_cards", cards: ["ARF-0043"] });
-    expect(published.text).toContain("ARF-0043: finding 1 published as P-1003 (published, not checked by supervisors yet).");
+    expect(published.text).toContain("ARF-0043: finding 1 published as P-1003 (held for the owner: it holds a claim " +
+      "that may name a living person).");
   });
 
   // Codex's third review of 17 Nov 2026, finding 1: a later save never undoes what the owner decided, so his list says
@@ -427,7 +430,8 @@ describe("the publications through the owner's review", () => {
     await h.save(VELMOR_CARD, FREE, {});
     await h.publications.decide({ cardNumber: 42, findingNumber: 1, state: "accepted", atlasNumber: "F-1007",
       decidedAt: "2026-11-04T09:00:00.000Z" });
-    expect((await h.publications.holdForLivingPerson({ publicationNumbers: ["P-1001", "P-1002"],
+    expect((await h.publications.recordLivingPerson({ cardNumber: 42, publicationNumbers: [],
+      readings: VELMOR_CARD.findings.map(({ claim }) => ({ claimKey: livingPersonClaimKey(claim), reading: "yes" as const })),
       at: "2026-11-04T09:00:00.000Z" }))
       .map(({ outcome }) => outcome)).toEqual(["noted", "held"]);
     const listed = await h.call({ action: "list_publications" });
