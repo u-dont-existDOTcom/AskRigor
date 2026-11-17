@@ -266,7 +266,7 @@ describe("omission and replay", () => {
     const memory = createFindingsLedgerMemory();
     const key = findingsLedgerMemoryKey(SECRET, "acct-a", "A research target");
     const first = findingsLedger(params({ observed: [draftNote(WARNING)] }));
-    memory.remember(key, first.token!, SECRET, undefined, NOW.getTime());
+    memory.update(key, () => first.remember, NOW.getTime());
     const omitted = findingsLedger(params({ observed: [draftNote(WARNING)], remembered: memory.get(key, NOW.getTime()) }));
     expect(omitted.checkFindings.ledger).toBe("omitted");
     expect(omitted.notes.join(" ")).toContain("left out later_inputs.findings_ledger");
@@ -282,11 +282,11 @@ describe("omission and replay", () => {
     const memory = createFindingsLedgerMemory();
     const key = findingsLedgerMemoryKey(SECRET, "acct-a", "A research target");
     const first = findingsLedger(params({ observed: [draftNote(WARNING)], draft: "Draft one." }));
-    memory.remember(key, first.token!, SECRET, undefined, NOW.getTime());
+    memory.update(key, () => first.remember, NOW.getTime());
     const second = findingsLedger(params({ observed: [draftNote(WARNING)], draft: "Draft two.",
       raw: { later_inputs: { findings_ledger: first.token } }, remembered: memory.get(key, NOW.getTime()) }));
     expect(second.checkFindings.ledger).toBe("continued");
-    memory.remember(key, second.token!, SECRET, first.token, NOW.getTime());
+    memory.update(key, () => second.remember, NOW.getTime());
     // The same call sent again (a retry: the same ledger, the same draft) is not a replay.
     const retry = findingsLedger(params({ observed: [draftNote(WARNING)], draft: "Draft two.",
       raw: { later_inputs: { findings_ledger: first.token } }, remembered: memory.get(key, NOW.getTime()) }));
@@ -385,6 +385,43 @@ describe("the review of 17 Nov 2026", () => {
       { ...options(undefined), meaningJudgment: judged(1) });
     expect(gone.check_findings!.findings).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: warning.id, disposition: "fixed" })]));
+  });
+
+  it("3: never lets a call that finishes late overwrite a newer ledger the server remembers", async () => {
+    vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", SECRET);
+    const memory = createFindingsLedgerMemory();
+    const key = findingsLedgerMemoryKey(SECRET, undefined, fixture().research_target as string);
+    // The edited draft's second reading waits until released, so its call finishes after two later calls.
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => { release = resolve; });
+    let waiting!: () => void;
+    const isWaiting = new Promise<void>((resolve) => { waiting = resolve; });
+    const server = createAskRigorServer("standard", { researchAccessRequired: false, findingsLibrary: false,
+      findingsLedger: true, findingsLedgerMemory: memory, secondReader: { enabled: true, readAnswer: async (draft) => {
+        if (draft.includes(EDITED)) { waiting(); await released; }
+        return reading(draft.includes(WARNING) ? WARNING : EDITED) as never;
+      } } });
+    const client = new Client({ name: "findings-ledger-race-test", version: "1" });
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    try {
+      await server.connect(b); await client.connect(a);
+      const call = async (input: Record<string, unknown>) => {
+        const response = await client.callTool({ name: "finalize_research", arguments: withSourceReading(input) });
+        expect(response.isError).not.toBe(true);
+        return response.structuredContent as FinalizeResearchOutput;
+      };
+      const first = await call(fixture());
+      const late = call(withLedger(fixture(EDITED), { findings_ledger: first.findings_ledger }));
+      await isWaiting;
+      const second = await call(withLedger(fixture(), { findings_ledger: first.findings_ledger }));
+      await call(withLedger(fixture(), { findings_ledger: second.findings_ledger }));
+      expect(memory.get(key)!.payload.seq).toBe(3);
+      release();
+      const last = await late;
+      // It passed the first ledger, older than the latest: it continues from the latest, and the memory moves on.
+      expect(last.check_findings!.ledger).toBe("replayed");
+      expect(memory.get(key)!.payload.seq).toBe(4);
+    } finally { await client.close(); await server.close(); }
   });
 
   it("4: never gives two findings one id, and signs no ledger that does", () => {

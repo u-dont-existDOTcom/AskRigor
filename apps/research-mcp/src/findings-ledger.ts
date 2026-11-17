@@ -246,25 +246,34 @@ export interface RememberedLedger {
 }
 export interface FindingsLedgerMemory {
   get(key: string, now?: number): RememberedLedger | undefined;
-  remember(key: string, token: string, secret: string, parent: unknown, now?: number): void;
+  /**
+   * Codex's review of 17 Nov 2026, finding 3: reads the ledger last remembered for an account and research target and
+   * remembers what `next` makes of it, in one step. `next` runs synchronously, so no other call's update comes between
+   * the read and the write: a call that finished late builds on the latest ledger rather than overwriting it. What
+   * `next` returns undefined for is left as it was.
+   */
+  update(key: string, next: (remembered: RememberedLedger | undefined) => Omit<RememberedLedger, "at"> | undefined,
+    now?: number): void;
 }
 
 export function createFindingsLedgerMemory(): FindingsLedgerMemory {
   const kept = new Map<string, RememberedLedger>();
+  const get = (memoryKey: string, now: number) => {
+    const found = kept.get(memoryKey);
+    if (found === undefined) return undefined;
+    if (now - found.at > FINDINGS_LEDGER_MEMORY_MS) { kept.delete(memoryKey); return undefined; }
+    return found;
+  };
   return {
     get(memoryKey, now = Date.now()) {
-      const found = kept.get(memoryKey);
-      if (found === undefined) return undefined;
-      if (now - found.at > FINDINGS_LEDGER_MEMORY_MS) { kept.delete(memoryKey); return undefined; }
-      return found;
+      return get(memoryKey, now);
     },
-    remember(memoryKey, token, secret, parent, now = Date.now()) {
-      const verified = verifyFindingsLedger(token, secret);
-      if (!verified.ok) return;
+    update(memoryKey, next, now = Date.now()) {
+      const record = next(get(memoryKey, now));
+      if (record === undefined) return;
       kept.delete(memoryKey);
       if (kept.size >= FINDINGS_LEDGER_MEMORY_ENTRIES) kept.delete(kept.keys().next().value!);
-      kept.set(memoryKey, { payload: verified.payload, token: tokenDigest(token),
-        ...(typeof parent === "string" ? { parent: tokenDigest(parent) } : {}), at: now });
+      kept.set(memoryKey, { ...record, at: now });
     }
   };
 }
@@ -411,12 +420,14 @@ export interface FindingsLedgerResult {
   checkFindings: CheckFindings;
   token: string | undefined;
   notes: string[];
+  /** What the server's memory keeps of the ledger issued, for FindingsLedgerMemory.update; none when none was. */
+  remember: Omit<RememberedLedger, "at"> | undefined;
 }
 
 /**
  * This check's findings, matched with the ledger the call passed back (or, when it left it out or passed an older one,
- * the one the server last issued), with their dispositions and a new signed ledger. Pure: the caller remembers the
- * ledger it returns, once per tool call.
+ * the one the server last issued), with their dispositions and a new signed ledger. Pure: the caller remembers what it
+ * returns in `remember`, once per tool call, in the same step as it read `remembered` (FindingsLedgerMemory.update).
  */
 export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResult {
   const { secret, raw, draft, now } = params;
@@ -653,7 +664,9 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   return {
     checkFindings: { ledger: state, revision: issued?.payload.rev ?? Math.min(revision, 10_000), findings },
     token: issued?.token,
-    notes
+    notes,
+    remember: issued === undefined ? undefined : { payload: issued.payload, token: tokenDigest(issued.token),
+      ...(typeof given === "string" && given !== "" ? { parent: tokenDigest(given) } : {}) }
   };
 }
 

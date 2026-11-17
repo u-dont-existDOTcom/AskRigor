@@ -17,7 +17,7 @@ import { currentProtocolElementNames } from "./protocol-rule-names.js";
 import { createHash } from "node:crypto";
 import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
 import {
-  findingsLedgerEnabledFromEnv, findingsLedgerGuidance, findingsLedgerMemory, findingsLedgerMemoryKey, laterInputValue,
+  findingsLedgerEnabledFromEnv, findingsLedgerGuidance, findingsLedgerMemory, findingsLedgerMemoryKey,
   type FindingChecker, type FindingsLedgerMemory, type ObservedFinding
 } from "./findings-ledger.js";
 import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./meaning-judge.js";
@@ -2636,13 +2636,12 @@ function defineResearchOperations(
       const library = options.findingsLibrary ?? findingsLibraryEnabledFromEnv();
       const researcher = await researchUseAccount(extra, options.researchContributorAccessService);
       const account = library ? researcher : undefined;
-      // Enforcing HRP, stage 1: the ledger this process last issued for this account and research target, read once for
-      // the call, before the check runs as many passes as it needs; the ledger the result returns is remembered after.
+      // Enforcing HRP, stage 1: this process's memory of the last ledger issued for this account and research target,
+      // read and replaced in one step once the call's notes are all given (Codex's review of 17 Nov 2026, finding 3).
       const ledgerMemory = options.findingsLedgerMemory ?? findingsLedgerMemory;
       const ledgerKey = (options.findingsLedger ?? findingsLedgerEnabledFromEnv()) && secret !== undefined &&
         checkedInput !== undefined ? findingsLedgerMemoryKey(secret, researcher?.accountKey, checkedInput.research_target)
         : undefined;
-      const rememberedLedger = ledgerKey === undefined ? undefined : ledgerMemory.get(ledgerKey);
       // Codex's review of 17 Nov 2026, finding 7: the notes this tool gives after the check's own passes are findings of
       // the ledger as the check's are, each with the part of the check it came from; the ledger is built once they are
       // all given. With the ledger off, a note is given as before and nothing else is kept.
@@ -2689,8 +2688,7 @@ function defineResearchOperations(
         ...(callerReads ? { aiReadings: "caller" as const } : {}),
         ...(readsOnMobile(extra._meta) ? { mobileClient: true } : {}),
         ...(options.toolListVersion === undefined ? {} : { toolListVersion: options.toolListVersion }),
-        ...(ledgerKey === undefined ? {} : { findingsLedger: { account: researcher?.accountKey,
-          remembered: rememberedLedger, deferred: true } }),
+        ...(ledgerKey === undefined ? {} : { findingsLedger: { account: researcher?.accountKey, deferred: true } }),
         ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) }),
         // Owner answer 190a: every active research account's plain answer, registered before research, is compared
         // with the answer, on the MCP connector only.
@@ -2971,9 +2969,12 @@ function defineResearchOperations(
       // value that was not read as that.
       if (callerReads) addLateNote(CALLER_READINGS_NOTE, { checker: "call", call: true });
       if (aiReadings.note !== undefined) addLateNote(aiReadings.note, { checker: "call", call: true });
-      // Enforcing HRP, stage 1: the findings ledger, built once, now that every note of the call is given.
+      // Enforcing HRP, stage 1: the findings ledger, built once, now that every note of the call is given, from the
+      // latest ledger this process remembers, and remembered in the same step, with no await between (Codex's review of
+      // 17 Nov 2026, finding 3): a call that ran long can't overwrite a newer one's ledger.
       if (ledgerKey !== undefined) {
-        settleFindingsLedger(result, { late: lateFindings, coverage: lateCoverage, remembered: rememberedLedger });
+        ledgerMemory.update(ledgerKey, (remembered) =>
+          settleFindingsLedger(result, { late: lateFindings, coverage: lateCoverage, remembered })?.remember);
       }
       const card = result.findings_card;
       const analyses = result.analyses_saved;
@@ -3122,11 +3123,6 @@ function defineResearchOperations(
                 : ". Pass this as round_token in this turn's next finalize_research call: ") + result.round_token),
         result as unknown as Record<string, unknown>
       );
-      // Enforcing HRP, stage 1: the ledger this call returns is the one this process remembers, once per tool call, so
-      // the next call that leaves it out or passes an older one is noticed.
-      if (ledgerKey !== undefined && result.findings_ledger !== undefined) {
-        ledgerMemory.remember(ledgerKey, result.findings_ledger, secret!, laterInputValue(input, "findings_ledger"));
-      }
       return toolResult;
     }
   );
