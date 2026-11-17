@@ -6,6 +6,8 @@ import type {
   AtlasPlacementStore,
   AtlasReportReviewStore,
   AtlasGlanceStore,
+  ResearchDossierPublicationReviewStore,
+  ResearchDossierPublisher,
 } from "@askrigor/evidence-repository";
 
 /**
@@ -151,5 +153,28 @@ export function announcingGlanceStore(store: AtlasGlanceStore, signal: AtlasChan
     propose: (row, at) => store.propose(row, at),
     setState: (publicId, state, at) => announcing(signal, () => store.setState(publicId, state, at)),
     inspect: (state, after, limit) => store.inspect(state, after, limit),
+  };
+}
+
+/** AskRigor#477 stage 2: the dossiers' publisher, announcing each publication, so a shown dossier shows at once. */
+export function announcingDossierPublisher(
+  publisher: ResearchDossierPublisher,
+  signal: AtlasChangeSignal = atlasChanges,
+): ResearchDossierPublisher {
+  return {
+    publish: (input) => announcing(signal, () => publisher.publish(input)),
+    topicCopies: (topicKey) => publisher.topicCopies(topicKey),
+  };
+}
+
+/** AskRigor#477 stage 2: the dossiers' review, announcing each decision. */
+export function announcingDossierReview(
+  store: ResearchDossierPublicationReviewStore,
+  signal: AtlasChangeSignal = atlasChanges,
+): ResearchDossierPublicationReviewStore {
+  return {
+    list: (state, limit) => store.list(state, limit),
+    inspect: (publicNumber) => store.inspect(publicNumber),
+    decide: (input) => announcing(signal, () => store.decide(input)),
   };
 }

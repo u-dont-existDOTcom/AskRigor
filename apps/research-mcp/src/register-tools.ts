@@ -51,6 +51,7 @@ import {
   type ResearchContributionReviewService,
   type ResearchContributorAccessService,
   type ResearchCallRecordStore,
+  type ResearchDossierPublisher,
   type ResearchDossierStore,
 } from "@askrigor/evidence-repository";
 import {
@@ -973,6 +974,13 @@ export interface RegisterToolsOptions {
    * none is asked for or saved. Set by the server when ASKRIGOR_RESEARCH_DOSSIERS=enabled.
    */
   researchDossiers?: ResearchDossierStore;
+  /**
+   * AskRigor#477 stage 2: where a saved dossier's public copy is published, shown or held for AskRigor's check. Set by
+   * the server only when ASKRIGOR_PUBLIC_DOSSIERS=enabled; without it nothing is published.
+   */
+  researchDossierPublisher?: ResearchDossierPublisher;
+  /** For tests: the notices that cover public dossiers, in place of PUBLIC_DOSSIER_NOTICE_VERSIONS (none until v7). */
+  publicDossierNotices?: readonly string[];
   /**
    * AskRigor#477 stage 1, off by default: every dossier read for personal details before it is stored, on the research
    * planner's Claude API path; defaults to ASKRIGOR_DOSSIER_PRIVACY_READING=on. With it on and the planner off, no
@@ -2900,6 +2908,12 @@ function defineResearchOperations(
           commentsRead,
           ...(checkedInput.findings_card === undefined ? {} : { cardFindings: checkedInput.findings_card.findings.length }),
           ...(privacyReading === undefined ? {} : { privacyReading }),
+          // AskRigor#477 stage 2: where the research ran, and the public copy, only while public dossiers are on.
+          ...(options.mcpSurface === undefined ? {} : { surface: options.mcpSurface }),
+          ...(options.researchDossierPublisher === undefined ? {} : { publication: {
+            publisher: options.researchDossierPublisher,
+            ...(options.publicDossierNotices === undefined ? {} : { noticeCovering: options.publicDossierNotices }),
+          } }),
           secret,
           versions: {
             askrigor: SERVICE_VERSION,

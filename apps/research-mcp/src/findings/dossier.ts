@@ -4,6 +4,7 @@ import {
   researchUseNoticeCovered,
   stableJson,
   type ResearchDossierIdentifierScheme,
+  type ResearchDossierPublisher,
   type ResearchDossierStore,
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
@@ -19,6 +20,9 @@ import {
   DOSSIER_PRIVACY_REFUSALS, type DossierPrivacyReader, type DossierPrivacyReading, type DossierText,
 } from "./dossier-privacy-reading.js";
 import { findingsQuestionKey, findingsThreadKey } from "./service.js";
+import {
+  dossierPublicationNote, dossierPublicationSentence, publishResearchDossier,
+} from "./dossier-publication.js";
 
 /**
  * AskRigor#477, stage 1 (owner answer 329a, 16 November 2026): a research run's dossier, saved privately for the
@@ -46,7 +50,7 @@ export const RESEARCH_DOSSIER_LIMITS = Object.freeze({
   question: 300, topicName: 200, otherNames: 10, otherName: 80, forms: 12, form: 80, searches: 40, query: 300,
   studies: 40, identifiers: 4, identifier: 300, studyField: 120, design: 200, reason: 200, results: 60, outcome: 200,
   unit: 40, findings: 30, claim: 500, appliesTo: 300, change: 300, restsOn: 20, trails: 10, trail: 200,
-  quickAnswer: 400, valueReason: 400, adds: 8, threads: 20,
+  quickAnswer: 400, valueReason: 400, adds: 8, threads: 20, related: 10,
 });
 
 export const DOSSIER_STUDY_KINDS = ["human_trial", "human_observational", "case_report", "animal", "lab", "review"] as const;
@@ -72,6 +76,9 @@ const valueSchema = z.object({
   quick_answer: text(L.quickAnswer).optional(),
   adds: z.array(localId).max(L.adds).default([]),
   reason: text(L.valueReason).optional(),
+  // AskRigor#477 stage 2 (owner answer 332a): how sure the researching AI is that the dossier is right and complete;
+  // anything but high sends a public copy for AskRigor's check instead of the pages.
+  confidence: z.enum(["high", "moderate", "low"]).optional(),
 }).strict();
 
 const searchSchema = z.object({
@@ -91,6 +98,8 @@ const studySchema = z.object({
   population: text(L.studyField).optional(),
   comparator: text(L.studyField).optional(),
   design: text(L.design).optional(),
+  // Stage 2: the people studied, so every comparison a page shows carries its size (the owner's standing rule).
+  participants: count.min(1).optional(),
   decision: z.enum(["used", "set_aside"]),
   decision_reason: text(L.reason).optional(),
 }).strict();
@@ -126,6 +135,8 @@ const resultSchema = z.object({
     operation: z.enum(["difference", "ratio", "percent_change"]),
     from: z.tuple([finite, finite]),
   }).strict().optional(),
+  // Stage 2: the people in each group compared; a counts figure gives them already.
+  group_sizes: z.object({ option: count.min(1), comparator: count.min(1).optional() }).strict().optional(),
 }).strict();
 
 const findingSchema = z.object({
@@ -169,6 +180,8 @@ export const researchDossierInputSchema = z.object({
     key: z.string().trim().regex(/^[a-z0-9][a-z0-9._-]{0,199}$/u),
     name: text(L.topicName),
     other_names: z.array(text(L.otherName)).max(L.otherNames).default([]),
+    // Stage 2: the keys of related topics, which the topic page links (one navigable collection, AskRigor#477).
+    related: z.array(z.string().trim().regex(/^[a-z0-9][a-z0-9._-]{0,199}$/u)).max(L.related).optional(),
   }).strict(),
   forms: z.array(text(L.form)).max(L.forms).default([]),
   searches: z.array(searchSchema).max(L.searches).default([]),
@@ -179,6 +192,12 @@ export const researchDossierInputSchema = z.object({
     Record<typeof DOSSIER_COVERAGE_AREAS[number], typeof coverageEntrySchema>).strict(),
   community: communitySchema.optional(),
   open_trails: z.array(text(L.trail)).max(L.trails).default([]),
+  // Stage 2: whether any text makes a claim about a named living person; such a dossier waits for the owner, and one
+  // that does not say waits for AskRigor's check (the owner's standing rule: those claims are out of scope).
+  names_living_people: z.boolean().optional(),
+  // Stage 2 (owner answer 332a: "we should mark what came from plugin vs runner"): runner, sent only by AskRigor's own
+  // research runner. The server records the connector surface itself.
+  run: z.literal("runner").optional(),
 }).strict();
 
 export type ResearchDossierInput = z.output<typeof researchDossierInputSchema>;
@@ -219,6 +238,11 @@ export const RESEARCH_DOSSIER_SHAPE = "later_inputs.research_dossier: {scope: pu
   "with the registry's prefix (NCT01234567, ACTRN12620000032954, EudraCT 2010-012345-12), with punctuation, not a " +
   "bare space, before a number that follows it: any other long run of digits reads as a phone number, which refuses " +
   "the dossier. " +
+  "Also give, wherever they apply: value.confidence (high, moderate or low: how sure you are that the dossier is " +
+  "right and complete, judged truthfully); names_living_people (true when any text makes a claim about a named " +
+  "living person, else false); topic.related (keys of up to 10 related topics); each study's participants (the " +
+  "people studied); each comparing result's group_sizes ({option, comparator}, the people in each group; a counts " +
+  "figure gives them already); run: runner only from AskRigor's own research runner. " +
   "Everything in general terms: never the person, the chat, the answer, quotes from papers or YouTube comments.";
 
 export interface DossierProblem {
@@ -259,6 +283,7 @@ const DOSSIER_CHECK_PROBLEMS = {
   calculation_mismatch: "the calculation's operation on its two numbers does not give the figure's value, at the " +
     "figure's own rounding",
   calculation_unexpected: "only a figure whose provenance is calculated has a calculation",
+  group_sizes_mismatch: "a counts figure's totals are its group sizes: group_sizes, when given too, gives the same",
   counts_exceed_total: "a group's events cannot outnumber its people",
   nnt_and_nnh: "a figure gives nnt or nnh, not both",
   no_difference_no_nnt: "with the same event rate in both groups there is no number needed to treat or harm",
@@ -542,6 +567,11 @@ export function checkResearchDossier(
         }
       }
     } else if (result.calculation !== undefined) problem(`${at}.calculation`, "calculation_unexpected");
+    if (figure?.kind === "counts" && result.group_sizes !== undefined &&
+      (result.group_sizes.option !== figure.option_total || (result.group_sizes.comparator !== undefined &&
+        result.group_sizes.comparator !== figure.comparator_total))) {
+      problem(`${at}.group_sizes`, "group_sizes_mismatch");
+    }
     if (figure?.kind === "counts") {
       if (figure.option_events > figure.option_total) problem(`${at}.figure.option_events`, "counts_exceed_total");
       if (figure.comparator_events > figure.comparator_total) problem(`${at}.figure.comparator_events`, "counts_exceed_total");
@@ -664,9 +694,9 @@ export function checkResearchDossier(
 // Every string a dossier holds is screened but its fixed values; a key or an id is read as words.
 const NOT_TEXT_KEYS: ReadonlySet<string> = new Set([
   "identifiers", "threads", "scope", "saves_work", "database", "kind", "decision", "direction", "certainty",
-  "provenance", "operation", "status", "importance", "start", "end",
+  "provenance", "operation", "status", "importance", "start", "end", "confidence", "run",
 ]);
-const SLUG_KEYS: ReadonlySet<string> = new Set(["id", "study", "rests_on", "adds", "search", "key"]);
+const SLUG_KEYS: ReadonlySet<string> = new Set(["id", "study", "rests_on", "adds", "search", "key", "related"]);
 
 function dossierTexts(value: unknown, path = "", slug = false, idsToo = true): Array<[string, string]> {
   if (typeof value === "string") return [[path, slug ? value.replace(/[-_.]+/gu, " ") : value]];
@@ -715,6 +745,8 @@ export function storedResearchDossier(checked: CheckedDossier, stamp: Record<str
       },
     }),
     open_trails: input.open_trails,
+    // Stage 2: the AI's declaration on named living people decides only whether a public copy waits for the owner.
+    ...(input.names_living_people === undefined ? {} : { names_living_people: input.names_living_people }),
     value: { ...input.value, judged_by: "researching_ai" },
     stamp,
   };
@@ -804,6 +836,13 @@ export interface ResearchDossierSaveRequest {
   privacyReading?: DossierPrivacyReader;
   secret: string | undefined;
   versions: { askrigor: string; build: string; hrp?: string; universal?: string };
+  /** The connector surface the call came through (/mcp, /mcp/claude, /mcp/gemini): where the research ran (332a). */
+  surface?: string;
+  /**
+   * AskRigor#477 stage 2, behind ASKRIGOR_PUBLIC_DOSSIERS=enabled (off by default): a saved dossier's public copy,
+   * shown or held for AskRigor's check, for an account whose notice covers public dossiers (dossier-publication.ts).
+   */
+  publication?: { publisher: ResearchDossierPublisher; noticeCovering?: readonly string[] };
   now?: () => Date;
   newVersionId?: () => string;
 }
@@ -951,6 +990,8 @@ export async function saveResearchDossier(
     not_checked: ["papers_support_claims", "figures_match_papers", "value_judgement"],
     ...(cardNumber === null || !Number.isSafeInteger(cardNumber) ? {} : { card_number: cardNumber }),
     ...(receipt.claims.ar === "caller" ? { ai_readings: "caller" } : {}),
+    // Owner answer 332a: where the research ran, the plugin, ChatGPT or the runner; private, never on a page.
+    origin: researchOrigin(request.surface, checked.input.run, receipt.claims.ar === "caller"),
   });
   const payloadSha256 = researchDossierDigest(payload);
   const inputSha256 = researchDossierDigest(checked.input);
@@ -1032,6 +1073,21 @@ export async function saveResearchDossier(
     read.versionNumber !== appended.versionNumber) {
     return unconfirmed("readback_mismatch");
   }
+  // Stage 2: the saved version's public copy, from exactly what was read back, shown or held, or why not.
+  const publication = request.publication === undefined ? undefined : await publishResearchDossier({
+    publisher: request.publication.publisher,
+    accountKey: account.accountKey,
+    noticeVersion: account.noticeVersion,
+    ...(request.publication.noticeCovering === undefined ? {} : { noticeCovering: request.publication.noticeCovering }),
+    versionId: appended.versionId,
+    dossierNumber: appended.dossierNumber,
+    stored: read.payload,
+    namesLivingPeople: checked.input.names_living_people,
+    privacyRead: request.privacyReading !== undefined,
+    origin: (payload.stamp as { origin: Record<string, unknown> }).origin,
+    at: savedAt,
+  });
+  const publicationNote = publication === undefined ? undefined : dossierPublicationNote(publication);
   return {
     disposition: {
       status: appended.outcome === "inserted" ? "saved" : "duplicate",
@@ -1040,7 +1096,22 @@ export async function saveResearchDossier(
       visibility: "private_review",
       digest: appended.payloadSha256.slice(0, 16),
       ...(appended.writtenAlongside ? { written_alongside: true } : {}),
+      ...(publication === undefined ? {} : { publication }),
     },
+    ...(publicationNote === undefined ? {} : { note: publicationNote }),
+  };
+}
+
+/**
+ * Where the research ran (owner answer 332a: "we should mark what came from plugin vs runner"): the connector surface
+ * the server saw, whether the caller made the final check's AI readings, and the runner's own declaration.
+ */
+export function researchOrigin(surface: string | undefined, run: "runner" | undefined, callerReadings: boolean):
+  { surface: string; run: "runner" | "chat"; readings: "askrigor" | "caller" } {
+  return {
+    surface: surface === "/mcp" || surface === "/mcp/claude" || surface === "/mcp/gemini" ? surface : "unknown",
+    run: run ?? "chat",
+    readings: callerReadings ? "caller" : "askrigor",
   };
 }
 
@@ -1050,12 +1121,16 @@ export async function saveResearchDossier(
  */
 export function researchDossierLine(disposition: ResearchDossierDisposition): string {
   switch (disposition.status) {
-    case "saved":
+    case "saved": {
+      const published = dossierPublicationSentence(disposition.publication);
       return `Research dossier ${disposition.dossier_id} was saved privately for AskRigor's owner to review ` +
-        `(version ${disposition.version}); it is not public.`;
-    case "duplicate":
+        `(version ${disposition.version})${published === undefined ? "; it is not public." : `. ${published}`}`;
+    }
+    case "duplicate": {
+      const published = dossierPublicationSentence(disposition.publication);
       return `Research dossier ${disposition.dossier_id} was already saved privately for AskRigor's owner to review ` +
-        `(version ${disposition.version}).`;
+        `(version ${disposition.version}).${published === undefined ? "" : ` ${published}`}`;
+    }
     case "insufficient":
       return disposition.reason === "final_check_not_passed"
         ? "No research dossier was saved: one is saved only with a final check that passed."
