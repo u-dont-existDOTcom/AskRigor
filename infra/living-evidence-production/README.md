@@ -508,6 +508,36 @@ v.created_at DESC LIMIT 20;`
 
 Undo no migration.
 
+Migration `0038_research_proposal_idempotency_index` (16 November 2026; built, not yet released) adds one index,
+`research_contribution_proposals_idempotency_idx`, on `research_contribution_proposals (account_key, proposal_kind,
+(payload_json ->> 'idempotencyKey'))` for the statuses `PENDING_REVIEW`, `ACCEPTED` and `REJECTED`: the research-access
+role's lookup of an account's own proposal by its idempotency key, which every server-built analysis runs before it is
+filed. Without it each lookup reads and decompresses the payload of every proposal; on 16 November 2026 nine made
+together for one passing check were all cancelled by the role's five-second statement timeout, and those analyses were
+not filed. It changes no table, row, constraint or grant, and no query. Every idempotency key is at most 200 characters,
+so no insert can fail on the index.
+
+The lock: `migrate` runs every migration in one transaction, so the index is built without CONCURRENTLY and takes a
+SHARE lock on `research_contribution_proposals` (reads go on, inserts and updates wait). `migrate` already holds that
+table under ACCESS EXCLUSIVE until it commits, because re-running 0009 and 0012 drops and recreates their triggers, so
+during every `migrate` the research-access role's reads and writes of proposals already wait; the build lengthens that
+wait by one pass over every proposal's payload, about 25 microseconds a row with the table cached (0.5 s for 20,000
+synthetic proposals of 19 KB, 406 MB), more from a cold disk. A final check that files analyses during that wait may
+time out as before; run `migrate` when the table's size makes that matter. Read-only, as the migrator, before and after:
+
+```sql
+SELECT count(*), pg_size_pretty(pg_total_relation_size('living_evidence.research_contribution_proposals'))
+  FROM living_evidence.research_contribution_proposals;
+SELECT indexname, indexdef FROM pg_indexes
+  WHERE schemaname = 'living_evidence' AND indexname = 'research_contribution_proposals_idempotency_idx';
+```
+
+An earlier image needs no step: its `migrate` re-runs its own migrations and leaves the index alone, and its lookup is
+the same query, which uses it. Leave the index in place on a rollback: dropping it brings the timeouts back, and the
+next `migrate` that includes 0038 builds it again. Should it ever have to go, drop it outside a transaction without
+blocking writes: `DROP INDEX CONCURRENTLY IF EXISTS living_evidence.research_contribution_proposals_idempotency_idx;`.
+Undo no migration.
+
 Owner answers 254a and 255a (2026-11-05; built, not yet released; plan
 `../../docs/superpowers/plans/2026-11-05-atlas-research-behind.md`): migration
 `0029_atlas_research_behind` admits `forum_read` among the verified bases of
