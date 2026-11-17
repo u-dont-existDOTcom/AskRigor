@@ -24,12 +24,13 @@ import { dossierPagePath, holdReasonWords } from "../findings/dossier-publicatio
  * A copy held because a claim names a living person is refused by show_dossier and accept_dossier: the owner's rule is
  * that such claims are published only on his explicit decision, so show_dossier_naming_living_person, with his typed
  * reason, alone shows it, and records who decided (the reviewer login's digest) and when (Codex's review of stage 2,
- * finding 2).
+ * finding 2). revise_dossier_importance changes one finding's importance mark the only way it changes: a new version of
+ * the copy with the reviewer and his reason recorded, the old version kept as it was (finding 7).
  */
 
 export const ATLAS_DOSSIER_ACTIONS = [
   "list_dossiers", "inspect_dossier", "show_dossier", "hold_dossier", "take_down_dossier", "accept_dossier",
-  "show_dossier_naming_living_person",
+  "show_dossier_naming_living_person", "revise_dossier_importance",
 ] as const;
 export type AtlasDossierAction = typeof ATLAS_DOSSIER_ACTIONS[number];
 export const ATLAS_DOSSIER_OUTCOMES = ["dossiers_listed", "dossier_inspected", "dossier_decided"] as const;
@@ -39,9 +40,15 @@ export type AtlasDossierOutcome = typeof ATLAS_DOSSIER_OUTCOMES[number];
 export const dossierNumberInputSchema = z.string().trim().toUpperCase().regex(PUBLIC_DOSSIER_NUMBER);
 export const dossierVersionInputSchema = z.number().int().min(1);
 export const dossierStateInputSchema = z.enum(RESEARCH_DOSSIER_PUBLIC_STATES);
+export const dossierFindingInputSchema = z.string().trim().regex(/^[a-z][a-z0-9_-]{0,31}$/u);
+export const dossierImportanceInputSchema = z.enum(["decision_changing", "important", "context"]);
+
+const IMPORTANCE_WORDS: Readonly<Record<string, string>> = {
+  decision_changing: "could change a decision", important: "important", context: "background",
+};
 
 const DECISIONS: Readonly<Record<Exclude<AtlasDossierAction, "list_dossiers" | "inspect_dossier" |
-  "show_dossier_naming_living_person">, ResearchDossierPublicDecision>> = {
+  "show_dossier_naming_living_person" | "revise_dossier_importance">, ResearchDossierPublicDecision>> = {
   show_dossier: "show", hold_dossier: "hold", take_down_dossier: "take_down", accept_dossier: "accept",
 };
 const LIST_LIMIT = 50;
@@ -52,10 +59,14 @@ const SURFACE_WORDS: Readonly<Record<string, string>> = {
   "/mcp/gemini": "Gemini",
 };
 
-/** Who decided on a named living person: the reviewer login as 16 hex characters of a domain-separated SHA-256. */
-export function livingPersonDecider(reviewer: string): string {
-  return `reviewer:${createHash("sha256").update("askrigor:dossier-living-person-decision:v1\0", "utf8")
-    .update(reviewer, "utf8").digest("hex").slice(0, 16)}`;
+/**
+ * Who decided on a named living person, or revised an importance mark: the reviewer login as 16 hex characters of a
+ * domain-separated SHA-256, never the login.
+ */
+export function livingPersonDecider(reviewer: string, purpose: "living_person" | "importance" = "living_person"): string {
+  const domain = purpose === "living_person" ? "askrigor:dossier-living-person-decision:v1\0"
+    : "askrigor:dossier-importance-revision:v1\0";
+  return `reviewer:${createHash("sha256").update(domain, "utf8").update(reviewer, "utf8").digest("hex").slice(0, 16)}`;
 }
 
 /** Where a copy's research ran, in words: the connector surface, the runner's declaration, who made the readings. */
@@ -84,6 +95,9 @@ export const atlasDossiersSchema = z.object({
     livingPersonDecision: z.object({ by: z.string(), on: z.string(), reason: z.string() }).strict().nullable()
       .describe("The owner's decision to show a copy whose claim names a living person: the reviewer login's digest, " +
         "the day and the reason typed."),
+    revision: z.object({ of: z.number().int(), by: z.string(), reason: z.string().nullable() }).strict().nullable()
+      .describe("A reviewed revision of an importance mark: the version it revises, the reviewer login's digest and the " +
+        "reason typed."),
     accepted: z.boolean(),
     decidedOn: z.string(),
     page: z.string().nullable(),
@@ -100,6 +114,9 @@ export interface AtlasDossierRequest {
   reason?: string;
   /** The reviewer login that made the call, set by the tool after its owner check; never an input. */
   reviewer?: string;
+  /** revise_dossier_importance: the finding's id, and the mark it gets. */
+  dossierFinding?: string;
+  dossierImportance?: "decision_changing" | "important" | "context";
 }
 
 export interface AtlasDossierResult {
@@ -127,6 +144,7 @@ function itemOf(row: ResearchDossierPublicationRow, content?: Record<string, unk
     namesLivingPerson: row.namesLivingPerson,
     livingPersonDecision: row.livingPersonDecision === null ? null : { by: row.livingPersonDecision.by,
       on: row.livingPersonDecision.at.slice(0, 10), reason: row.livingPersonDecision.reason },
+    revision: row.revision === null ? null : { ...row.revision },
     accepted: row.accepted,
     decidedOn: row.decidedAt.slice(0, 10),
     page: row.state === "shown" ? dossierPagePath(row.publicNumber) : null,
@@ -177,6 +195,10 @@ export class AtlasDossierReview {
       };
     }
     if (request.action === "show_dossier_naming_living_person") return await this.livingPerson(request, copies);
+    if (request.action === "revise_dossier_importance") return await this.reviseImportance(request, copies);
+    if (request.dossierFinding !== undefined || request.dossierImportance !== undefined) {
+      return refused(`${request.action} does not take dossierFinding or dossierImportance.`);
+    }
     const decision = DECISIONS[request.action];
     const reason = request.reason?.trim();
     if ((decision === "hold" || decision === "take_down") && (reason === undefined || reason.length === 0)) {
@@ -206,6 +228,48 @@ export class AtlasDossierReview {
       outcome: "dossier_decided",
       text: `${request.dossier} version ${version} is now ${decided.state}${decided.accepted ? ", checked by supervisors"
         : ""}${decided.state === "shown" ? `, at ${dossierPagePath(request.dossier)}` : ", off the pages"}.`,
+      ...(after === undefined ? {} : { dossiers: { items: [itemOf(after)] } }),
+    };
+  }
+
+  /** A reviewed revision of one importance mark: a new version, never an edit in place. */
+  private async reviseImportance(request: AtlasDossierRequest, copies: readonly ResearchDossierPublicationRow[]):
+    Promise<AtlasDossierResult> {
+    const dossier = request.dossier!;
+    const reason = request.reason?.trim();
+    if (request.dossierFinding === undefined || request.dossierImportance === undefined) {
+      return refused("revise_dossier_importance needs later_inputs.dossierFinding, the finding's id such as f3, and " +
+        "later_inputs.dossierImportance: decision_changing, important or context. Nothing was changed.");
+    }
+    if (reason === undefined || reason.length === 0) {
+      return refused("revise_dossier_importance needs reason: why the mark changes, kept with the new version. " +
+        "Nothing was changed.");
+    }
+    if (reason.length > 200) return refused("reason is at most 200 characters here.");
+    if (request.reviewer === undefined || request.reviewer === "") {
+      return refused("revise_dossier_importance needs the reviewer login that revises it; nothing was changed.");
+    }
+    const version = request.dossierVersion ?? Math.max(...copies.map(({ versionNumber }) => versionNumber));
+    const revised = await this.deps.store.reviseImportance({ publicNumber: dossier, versionNumber: version,
+      findingId: request.dossierFinding, importance: request.dossierImportance, reason,
+      revisedBy: livingPersonDecider(request.reviewer, "importance"), at: this.deps.now() });
+    if (revised.outcome === "not_found") return refused(`${dossier} has no version ${version}; nothing was changed.`);
+    if (revised.outcome === "not_revisable") {
+      return refused(revised.previous === null
+        ? `${dossier} version ${version} has no finding ${request.dossierFinding}; nothing was changed.`
+        : revised.previous === request.dossierImportance
+          ? `${dossier} version ${version} already marks ${request.dossierFinding} as ${
+            IMPORTANCE_WORDS[revised.previous]}; nothing was changed.`
+          : `${dossier} version ${version} is ${revised.state}, so its marks can't be revised (only the newest copy, ` +
+            "shown or held); nothing was changed.");
+    }
+    const after = (await this.deps.store.inspect(dossier)).find(({ versionNumber }) => versionNumber === revised.versionNumber);
+    return {
+      ok: true,
+      outcome: "dossier_decided",
+      text: `${dossier} version ${revised.versionNumber} now marks finding ${request.dossierFinding} as ${
+        IMPORTANCE_WORDS[request.dossierImportance]} (it was ${IMPORTANCE_WORDS[revised.previous] ?? revised.previous}), ` +
+        `on your review; version ${version} is kept as it was.`,
       ...(after === undefined ? {} : { dossiers: { items: [itemOf(after)] } }),
     };
   }

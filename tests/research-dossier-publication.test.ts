@@ -120,7 +120,8 @@ function dossier(change: (value: Record<string, any>) => void = () => undefined)
         what_would_change_it: "A controlled trial", importance: "decision_changing" },
       { id: "f2", claim: "Myo-inositol 2 g a day improved fasting insulin against placebo over 12 weeks.",
         certainty: "moderate", kind: "helps", applies_to: "Adults with a metabolic syndrome", form: "myo-inositol",
-        rests_on: ["r1"], what_would_change_it: "Larger trials with clinical outcomes", importance: "important" },
+        population_key: "adults-metabolic-syndrome", rests_on: ["r1"],
+        what_would_change_it: "Larger trials with clinical outcomes", importance: "important" },
       { id: "f3", claim: "High-dose scyllo-inositol came with more serious infections than placebo.",
         certainty: "moderate", kind: "harms", applies_to: "Adults with a memory disorder", form: "scyllo-inositol",
         rests_on: ["r3"], what_would_change_it: "A trial at lower doses", importance: "decision_changing" },
@@ -128,8 +129,9 @@ function dossier(change: (value: Record<string, any>) => void = () => undefined)
         applies_to: "Adults eating a high-phytate diet", form: "IP6", rests_on: ["r4"],
         what_would_change_it: "Studies of supplements apart from diet", importance: "important" },
       { id: "f5", claim: "Whether myo-inositol helps mood is not known: the search found no trial of it.",
-        certainty: "high", kind: "not_known", applies_to: "Adults with low mood", form: "myo-inositol",
-        rests_on: ["q1"], what_would_change_it: "Any trial of it for mood", importance: "decision_changing" },
+        certainty: "high", kind: "not_known", applies_to: "Adults with a metabolic syndrome", form: "myo-inositol",
+        population_key: "adults-metabolic-syndrome", rests_on: ["q1"], what_would_change_it: "Any trial of it for mood",
+        importance: "decision_changing" },
     ],
     coverage: {
       benefits: { status: "entries" }, harms: { status: "entries" }, null_results: { status: "none_found", search: "q1" },
@@ -180,6 +182,7 @@ function stage1Dossier(change: (value: Record<string, any>) => void = () => unde
     delete value.topic.related;
     for (const study of value.studies) delete study.participants;
     for (const result of value.results) delete result.group_sizes;
+    for (const finding of value.findings) delete finding.population_key;
     change(value);
   });
 }
@@ -216,6 +219,7 @@ describe("a saved dossier's public copy (332a: the researching AI's own judgemen
       // Each unknown key is refused where it stands, as released stage 1 refuses any key it does not know.
       expect(refused?.disposition?.problems).toEqual([{ path: "value", rule: "shape" }, { path: "topic", rule: "shape" },
         { path: "studies[1]", rule: "shape" }, { path: "studies[3]", rule: "shape" }, { path: "studies[4]", rule: "shape" },
+        { path: "findings[1]", rule: "shape" }, { path: "findings[4]", rule: "shape" },
         { path: "research_dossier", rule: "shape" }]);
       const saved = await saveResearchDossier(dossiers, request({ value: stage1Dossier() }));
       expect(saved?.disposition?.status).toBe("saved");
@@ -503,10 +507,11 @@ describe("the ranking rule (owner answer 333a)", () => {
   it("never puts what is not known before what the same form is known to do, a measured no difference included", () => {
     // The inversion the owner described: a sure "nothing found" ahead of a less sure known effect. The two known
     // findings keep their own order (the more certain first); the not-known one goes after both.
+    const men = { form: "D-chiro-inositol", population_key: "healthy-men" };
     expect(ranked([
-      { kind: "not_known", certainty: "high", importance: "decision_changing", form: "D-chiro-inositol", rests_on: ["q1"] },
-      { kind: "helps", certainty: "low", importance: "context", form: "D-chiro-inositol", rests_on: ["r2"] },
-      { kind: "no_difference", importance: "context", form: "D-chiro-inositol" },
+      { kind: "not_known", certainty: "high", importance: "decision_changing", ...men, rests_on: ["q1"] },
+      { kind: "helps", certainty: "low", importance: "context", ...men, rests_on: ["r2"] },
+      { kind: "no_difference", importance: "context", ...men },
     ])).toEqual(["f3", "f2", "f1"]);
     // Another form's known finding does not move it; only the not-known finding moves.
     expect(ranked([
@@ -516,6 +521,69 @@ describe("the ranking rule (owner answer 333a)", () => {
     ])).toEqual(["f2", "f3", "f1"]);
     expect(DOSSIER_ORDER_LINE).toBe("Findings that could change a decision come first, hard-to-find ones first among " +
       "equals; each says what kind of evidence it rests on, and what is unknown never comes before what is known.");
+  });
+
+  // Codex's review, finding 7: rule 3 is for the same form and the same people, as the AI declared them; an identity
+  // not given never matches.
+  it("compares the declared people as well as the form, and never matches a form or people not given", () => {
+    // A decision-changing unknown about children stays above a background known effect in adults.
+    expect(ranked([
+      { kind: "not_known", importance: "decision_changing", form: "myo-inositol", population_key: "children",
+        rests_on: ["q1"] },
+      { kind: "helps", importance: "context", form: "myo-inositol", population_key: "adults" },
+    ])).toEqual(["f1", "f2"]);
+    // For the same people it goes after the known effect.
+    expect(ranked([
+      { kind: "not_known", importance: "decision_changing", form: "myo-inositol", population_key: "adults",
+        rests_on: ["q1"] },
+      { kind: "helps", importance: "context", form: "Myo-Inositol", population_key: "adults" },
+    ])).toEqual(["f2", "f1"]);
+    // Neither a missing form nor missing people compare as equal.
+    for (const missing of [{ population_key: "adults" }, { form: "myo-inositol" }, {}]) {
+      expect(ranked([
+        { kind: "not_known", importance: "decision_changing", rests_on: ["q1"], ...missing },
+        { kind: "helps", importance: "context", ...missing },
+      ])).toEqual(["f1", "f2"]);
+    }
+  });
+
+  it("keeps the AI's declared people in the public part, and asks for them only while public dossiers are on", async () => {
+    const { dossiers, publications, publication } = stores();
+    expect((await saveResearchDossier(dossiers, request({ publication })))?.disposition?.publication?.status)
+      .toBe("shown");
+    const [shown] = await publications.listShown({ limit: 1 });
+    expect(readPublicDossier(shown!.payload)?.findings[1]).toMatchObject({ population_key: "adults-metabolic-syndrome" });
+    expect(researchDossierShape(true)).toContain("each finding's population_key");
+    expect(researchDossierShape(false)).not.toContain("population_key");
+  });
+});
+
+// Codex's review, finding 7: an importance mark is revised only by a new, reviewed version, never in place.
+describe("a reviewed revision of an importance mark", () => {
+  it("makes a new version with the reviewer and reason recorded, and keeps the old one as it was", async () => {
+    const { dossiers, publications, publication } = stores();
+    await saveResearchDossier(dossiers, request({ publication }));
+    const review = new AtlasDossierReview({ store: publications, now: () => NOW });
+    const ask = { action: "revise_dossier_importance" as const, dossier: "D-1001", dossierFinding: "f4",
+      dossierImportance: "decision_changing" as const, reviewer: "auth0|synthetic-owner" };
+    expect((await review.run(ask)).ok).toBe(false);
+    expect((await review.run({ ...ask, reason: "Iron loss matters for people with anaemia", reviewer: undefined })).ok)
+      .toBe(false);
+    expect((await review.run({ ...ask, dossierFinding: "f9", reason: "No such finding" })).ok).toBe(false);
+    const revised = await review.run({ ...ask, reason: "Iron loss matters for people with anaemia" });
+    expect(revised.text).toBe("D-1001 version 2 now marks finding f4 as could change a decision (it was important), " +
+      "on your review; version 1 is kept as it was.");
+    expect(revised.dossiers?.items[0]).toMatchObject({ version: 2, state: "shown", revision: { of: 1,
+      by: expect.stringMatching(/^reviewer:[0-9a-f]{16}$/u), reason: "Iron loss matters for people with anaemia" } });
+    const copies = await publications.inspect("D-1001");
+    expect(copies.map(({ versionNumber, state }) => [versionNumber, state])).toEqual([[2, "shown"], [1, "superseded"]]);
+    const findingOf = (payload: unknown) => readPublicDossier(payload)!.findings.find(({ id }) => id === "f4")!;
+    expect(findingOf(copies[0]!.payload).importance).toBe("decision_changing");
+    expect(findingOf(copies[1]!.payload).importance).toBe("important");
+    const [shown] = await publications.listShown({ limit: 1 });
+    expect(shown!.versionNumber).toBe(2);
+    // The same mark again changes nothing.
+    expect((await review.run({ ...ask, reason: "again" })).ok).toBe(false);
   });
 });
 

@@ -134,6 +134,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       "inspect_research_dossier_publication(text)": "askrigor_research_review",
       "decide_research_dossier_publication(text, integer, text, text, timestamptz)": "askrigor_research_review",
       "decide_research_dossier_living_person(text, integer, text, text, timestamptz)": "askrigor_research_review",
+      "revise_research_dossier_importance(text, integer, text, text, text, text, timestamptz)": "askrigor_research_review",
       "research_dossier_public_follow_private()": "none",
       "research_dossier_public_on_revocation()": "none",
       "research_dossier_public_version_guard()": "none",
@@ -189,7 +190,8 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
         ],
         findings: [
           { id: "f1", claim: "Myo-inositol improved fasting insulin against placebo.", certainty: "moderate",
-            kind: "helps", applies_to: "Adults with a metabolic syndrome", form: "myo-inositol", rests_on: ["r1"],
+            kind: "helps", applies_to: "Adults with a metabolic syndrome", form: "myo-inositol",
+            population_key: "adults-metabolic-syndrome", rests_on: ["r1"],
             what_would_change_it: "Larger trials", importance: "important", draws_on_youtube_comments: false,
             card_finding: "none" },
           { id: "f2", claim: "Whether D-chiro-inositol helps people is not known.", certainty: "low", kind: "not_known",
@@ -543,6 +545,43 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     assert(importantConflict.outcome === "published" && importantConflict.holdReasons.join() === "important_conflict",
       "IMPORTANT_CONFLICT_NOT_HELD");
     checks.push("admission_is_serialized_per_topic_and_rechecks_the_comparison_set");
+
+    // Codex's review, finding 7: an importance mark changes only by a new, reviewed version: the old one is kept as it
+    // was, the new one records who revised it and why, and a dossier's later copy is numbered after it.
+    const marked = await account("marked");
+    const m1 = await save(marked.accountKey, "marked", "marked-1", null, (value) => {
+      value.topic = { key: "marked-topic", name: "Marked", other_names: [], related: [] }; value.forms = ["marked-form"]; });
+    const markedCopy = await publisher.publish(await copy(marked.accountKey, m1));
+    assert(markedCopy.outcome === "published" && markedCopy.state === "shown", "MARKED_NOT_SHOWN");
+    const revision = { publicNumber: markedCopy.publicNumber, versionNumber: 1, findingId: "f1",
+      importance: "decision_changing" as const, reason: "It changes what people with diabetes decide",
+      revisedBy: "reviewer:fedcba9876543210", at: AT };
+    const revisedCopy = await review.reviseImportance(revision);
+    assert(revisedCopy.outcome === "revised" && revisedCopy.versionNumber === 2 && revisedCopy.previous === "important",
+      "REVISION_WRONG");
+    const markedRows = await review.inspect(markedCopy.publicNumber);
+    const importanceOf = (payload: Record<string, unknown> | null) =>
+      (payload?.findings as Array<{ id: string; importance: string }>).find(({ id }) => id === "f1")!.importance;
+    assert(markedRows[0]!.versionNumber === 2 && markedRows[0]!.state === "shown" &&
+      importanceOf(markedRows[0]!.payload) === "decision_changing" && markedRows[0]!.revision?.of === 1 &&
+      markedRows[0]!.revision.by === "reviewer:fedcba9876543210" && markedRows[1]!.state === "superseded" &&
+      importanceOf(markedRows[1]!.payload) === "important", "REVISION_NOT_A_NEW_VERSION");
+    assert((await review.reviseImportance({ ...revision, versionNumber: 2 })).outcome === "not_revisable",
+      "SAME_MARK_REVISED_AGAIN");
+    assert((await review.reviseImportance({ ...revision, versionNumber: 1, importance: "context" })).outcome ===
+      "not_revisable", "OLDER_COPY_REVISED");
+    const markedHistory = await pages.history([markedCopy.publicNumber]);
+    assert(markedHistory.map(({ versionNumber, revised }) => `${versionNumber}:${revised}`).join() === "2:true,1:false",
+      "REVISION_HISTORY_WRONG");
+    await expectError(() => admin.query(`UPDATE ${SCHEMA}.research_dossier_public_versions SET revision_reason = 'x'
+      WHERE public_number = $1 AND version_number = 2`, [markedCopy.publicNumber]),
+    /RESEARCH_DOSSIER_PUBLIC_VERSION_IMMUTABLE/u, "REVISION_EDITED_IN_PLACE");
+    const m2 = await save(marked.accountKey, "marked", "marked-2", m1, (value) => {
+      value.topic = { key: "marked-topic", name: "Marked", other_names: [], related: [] }; value.forms = ["marked-form"]; });
+    const markedNext = await publisher.publish(await copy(marked.accountKey, m2));
+    assert(markedNext.outcome === "published" && (await review.inspect(markedCopy.publicNumber))[0]!.versionNumber === 3,
+      "LATER_COPY_NOT_NUMBERED_AFTER_THE_REVISION");
+    checks.push("an_importance_mark_changes_only_by_a_new_reviewed_version");
 
     // Saving switched off refuses, under the account lock the private append uses.
     const fourth = await account("fourth");

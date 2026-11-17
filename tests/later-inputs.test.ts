@@ -222,8 +222,8 @@ describe("later_inputs (owner answer 189a)", () => {
               : operation.name === "review_research_contribution" ? ["sharedAnswerId", "items", "placements", "reportState", "report", "verdict", "glanceRow", "glanceRowId", "glanceState",
                 // The owner, 6 Nov 2026: a challenge mark's usual view, its source and the quick-answer verdict.
                 "usual_view", "usual_view_source_url", "usual_view_source_label", "quick_answer_verdict",
-                // AskRigor#477 stage 2: the research dossiers on the public Atlas.
-                "dossier", "dossierVersion", "dossierState"] : [];
+                // AskRigor#477 stage 2: the research dossiers on the public Atlas, and a reviewed importance revision.
+                "dossier", "dossierVersion", "dossierState", "dossierFinding", "dossierImportance"] : [];
       expect(laterInputNames(operation.name)).toEqual(expected);
       // An MCP call always carries its request context; an empty one stands in for it here.
       const result = await operation.execute({ later_inputs: { synthetic_future_input: 1 } }, {} as never);

@@ -546,7 +546,8 @@ ${dossier.community === undefined ? "" : html`<h2>People’s reports</h2>${commu
 ${dossier.open_trails.length === 0 ? "" : html`<h2>Still unknown</h2><ul>${dossier.open_trails.map((trail) => html`<li>${trail}</li>`)}</ul>`}
 ${model.history.length <= 1 ? "" : html`<h2>Versions</h2><ul>${model.history.map((entry) => html`<li>Version ${entry.versionNumber}, ${
     dayOf(entry.decidedAt)}: ${entry.state === "shown" ? "shown now" : "replaced by a later version"}${entry.accepted
-    ? ", checked by supervisors" : ""}</li>`)}</ul>`}
+    ? ", checked by supervisors" : ""}${entry.revised ? "; AskRigor’s review changed how much one of its findings matters"
+    : ""}</li>`)}</ul>`}
 ${relatedList(model.related)}
 </div>`,
   });

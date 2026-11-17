@@ -134,6 +134,8 @@ export interface ResearchDossierPublicationRow {
   namesLivingPerson: boolean;
   /** That decision: who (the reviewer login's digest), when, and the reason typed; null until made. */
   livingPersonDecision: { by: string; at: string; reason: string } | null;
+  /** A reviewed revision of an importance mark: the version it revises, who (digest) and why; null for a published copy. */
+  revision: { of: number; by: string; reason: string | null } | null;
 }
 
 export interface ResearchDossierPublicationDetail extends ResearchDossierPublicationRow {
@@ -166,12 +168,32 @@ export interface ResearchDossierLivingPersonDecisionInput {
   at: Date;
 }
 
+/** A reviewed revision of one finding's importance mark (Codex's review of stage 2, finding 7). */
+export interface ResearchDossierImportanceRevisionInput {
+  publicNumber: string;
+  versionNumber: number;
+  findingId: string;
+  importance: "decision_changing" | "important" | "context";
+  /** The reviewer's typed reason, 1 to 200 characters. */
+  reason: string;
+  /** Who revised it: the reviewer login's digest, reviewer: and 16 hex characters. */
+  revisedBy: string;
+  at: Date;
+}
+
+export type ResearchDossierImportanceRevisionResult =
+  | { outcome: "revised"; versionNumber: number; state: ResearchDossierPublicState; previous: string }
+  | { outcome: "not_found" }
+  /** Not the newest copy, not shown or held, no such finding, or the mark is already that. */
+  | { outcome: "not_revisable"; state: ResearchDossierPublicState; previous: string | null };
+
 /** The review role's side: the owner's review, and AskRigor's check of held copies. */
 export interface ResearchDossierPublicationReviewStore {
   list(state: ResearchDossierPublicState | undefined, limit: number): Promise<ResearchDossierPublicationRow[]>;
   inspect(publicNumber: string): Promise<ResearchDossierPublicationDetail[]>;
   decide(input: ResearchDossierDecisionInput): Promise<ResearchDossierDecisionResult>;
   decideLivingPerson(input: ResearchDossierLivingPersonDecisionInput): Promise<ResearchDossierDecisionResult>;
+  reviseImportance(input: ResearchDossierImportanceRevisionInput): Promise<ResearchDossierImportanceRevisionResult>;
 }
 
 /** A shown copy, as the pages read it. */
@@ -194,6 +216,8 @@ export interface PublicDossierHistoryEntry {
   state: "shown" | "superseded";
   accepted: boolean;
   decidedAt: string;
+  /** A reviewed revision of an importance mark. */
+  revised: boolean;
 }
 
 export interface PublicDossierQuery {
@@ -294,6 +318,16 @@ function assertDecision(input: ResearchDossierDecisionInput): void {
   }
 }
 
+function assertImportanceRevision(input: ResearchDossierImportanceRevisionInput): void {
+  if (!PUBLIC_DOSSIER_NUMBER.test(input.publicNumber) || !Number.isInteger(input.versionNumber) ||
+    input.versionNumber < 1 || !/^[a-z][a-z0-9_-]{0,31}$/u.test(input.findingId) ||
+    !["decision_changing", "important", "context"].includes(input.importance) || typeof input.reason !== "string" ||
+    input.reason !== input.reason.trim() || input.reason.length < 1 || input.reason.length > 200 ||
+    !/^reviewer:[0-9a-f]{16}$/u.test(input.revisedBy) || Number.isNaN(input.at.getTime())) {
+    throw new ResearchDossierPublicationError("INPUT_INVALID");
+  }
+}
+
 function assertLivingPersonDecision(input: ResearchDossierLivingPersonDecisionInput): void {
   if (!PUBLIC_DOSSIER_NUMBER.test(input.publicNumber) || !Number.isInteger(input.versionNumber) ||
     input.versionNumber < 1 || typeof input.reason !== "string" || input.reason !== input.reason.trim() ||
@@ -368,6 +402,9 @@ interface ReviewRow {
   living_person_decided_by: string | null;
   living_person_decided_at: Date | string | null;
   living_person_reason: string | null;
+  revision_of: number | null;
+  revised_by: string | null;
+  revision_reason: string | null;
 }
 
 const reviewRowOf = (row: ReviewRow & { question?: string | null }): ResearchDossierPublicationRow => ({
@@ -387,6 +424,8 @@ const reviewRowOf = (row: ReviewRow & { question?: string | null }): ResearchDos
   livingPersonDecision: row.living_person_decided_at === null || row.living_person_decided_by === null ||
     row.living_person_reason === null ? null
     : { by: row.living_person_decided_by, at: iso(row.living_person_decided_at), reason: row.living_person_reason },
+  revision: row.revision_of === null || row.revised_by === null ? null
+    : { of: row.revision_of, by: row.revised_by, reason: row.revision_reason },
 });
 
 /** The review role's side, on its own pool (the review runtime's, as forget_card's eraser). */
@@ -437,6 +476,27 @@ export class PostgresResearchDossierPublicationReview implements ResearchDossier
       throw new Error("RESEARCH_DOSSIER_DECISION_RESULT_INVALID");
     }
     return { outcome: row.outcome, state: row.state, accepted: row.accepted };
+  }
+
+  async reviseImportance(input: ResearchDossierImportanceRevisionInput): Promise<ResearchDossierImportanceRevisionResult> {
+    assertImportanceRevision(input);
+    const result = await this.pool.query<{ outcome: string; version_number: number | null;
+      state: ResearchDossierPublicState | null; previous_importance: string | null }>(
+      `SELECT outcome, version_number, state, previous_importance FROM ${this.schema}.revise_research_dossier_importance(
+         $1, $2, $3, $4, $5, $6, $7::timestamptz)`,
+      [input.publicNumber, input.versionNumber, input.findingId, input.importance, input.reason, input.revisedBy,
+        input.at.toISOString()],
+    );
+    const row = result.rows[0];
+    if (row === undefined) throw new Error("RESEARCH_DOSSIER_REVISION_RESULT_MISSING");
+    if (row.outcome === "not_found") return { outcome: "not_found" };
+    if (row.outcome === "not_revisable" && row.state !== null) {
+      return { outcome: "not_revisable", state: row.state, previous: row.previous_importance };
+    }
+    if (row.outcome !== "revised" || row.version_number === null || row.state === null || row.previous_importance === null) {
+      throw new Error("RESEARCH_DOSSIER_REVISION_RESULT_INVALID");
+    }
+    return { outcome: "revised", versionNumber: row.version_number, state: row.state, previous: row.previous_importance };
   }
 
   async decideLivingPerson(input: ResearchDossierLivingPersonDecisionInput): Promise<ResearchDossierDecisionResult> {
@@ -503,8 +563,8 @@ export class PostgresPublicDossierPageSource implements PublicDossierPageSource 
     if (publicNumbers.length === 0) return [];
     assertQuery({ publicNumbers, limit: 1 });
     const result = await this.pool.query<{ public_number: string; version_number: number; state: "shown" | "superseded";
-      accepted: boolean; decided_at: Date | string }>(
-      `SELECT public_number, version_number, state, accepted, decided_at
+      accepted: boolean; decided_at: Date | string; revised: boolean }>(
+      `SELECT public_number, version_number, state, accepted, decided_at, revised
          FROM ${this.schema}.research_dossier_public_history
         WHERE public_number = ANY($1::text[])
         ORDER BY public_number, version_number DESC
@@ -512,7 +572,7 @@ export class PostgresPublicDossierPageSource implements PublicDossierPageSource 
       [[...publicNumbers]],
     );
     return result.rows.map((row) => ({ publicNumber: row.public_number, versionNumber: row.version_number,
-      state: row.state, accepted: row.accepted, decidedAt: iso(row.decided_at) }));
+      state: row.state, accepted: row.accepted, decidedAt: iso(row.decided_at), revised: row.revised }));
   }
 
   async close(): Promise<void> {
@@ -540,6 +600,7 @@ interface MemoryCopy {
   privacyRead: boolean;
   namesLivingPerson: boolean;
   livingPersonDecision: { by: string; at: Date; reason: string } | null;
+  revision: { of: number; by: string; reason: string | null } | null;
   acceptedAt: Date | null;
   decidedAt: Date;
   events: Array<{ event: string; reason: string | null; at: Date }>;
@@ -559,7 +620,13 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
   private nextNumber = 1001;
 
   private copyOfVersion(versionId: string): MemoryCopy | undefined {
-    return [...this.copies.values()].find((copy) => copy.versionId === versionId);
+    return [...this.copies.values()].find((copy) => copy.versionId === versionId && copy.revision === null);
+  }
+
+  /** The next version number of a dossier's copies: after every copy and revision so far. */
+  private nextVersion(publicNumber: string): number {
+    return Math.max(0, ...[...this.copies.values()].filter((copy) => copy.publicNumber === publicNumber)
+      .map(({ versionNumber }) => versionNumber)) + 1;
   }
 
   constructor(private readonly options: {
@@ -618,11 +685,12 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
         copy.events.push({ event: "superseded", reason: null, at: input.at });
       }
     }
-    this.copies.set(`${publicNumber}#${facts.versionNumber}`, {
+    const versionNumber = this.nextVersion(publicNumber);
+    this.copies.set(`${publicNumber}#${versionNumber}`, {
       versionId: input.versionId,
       publicNumber,
       dossierNumber: facts.dossierNumber,
-      versionNumber: facts.versionNumber,
+      versionNumber,
       state: admission.state,
       topicKey: topic.key,
       relatedTopicKeys: Array.isArray(topic.related) ? topic.related.map(String) : [],
@@ -635,6 +703,7 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       privacyRead: admission.privacyRead,
       namesLivingPerson: admission.namesLivingPerson,
       livingPersonDecision: null,
+      revision: null,
       acceptedAt: null,
       decidedAt: input.at,
       events: [{ event: admission.state, reason: admission.state === "held" ? admission.holdReasons.join(" ") : null,
@@ -719,6 +788,36 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
     return { outcome: "decided", state: next, accepted: input.decision === "accept" || accepted };
   }
 
+  async reviseImportance(input: ResearchDossierImportanceRevisionInput): Promise<ResearchDossierImportanceRevisionResult> {
+    assertImportanceRevision(input);
+    this.followPrivate();
+    const copies = [...this.copies.values()].filter((copy) => copy.publicNumber === input.publicNumber);
+    const copy = copies.find(({ versionNumber }) => versionNumber === input.versionNumber);
+    if (copy === undefined) return { outcome: "not_found" };
+    const newest = Math.max(...copies.map(({ versionNumber }) => versionNumber));
+    const findings = (copy.payload?.findings ?? []) as Array<Record<string, unknown>>;
+    const place = findings.findIndex((finding) => finding.id === input.findingId);
+    const previous = place < 0 ? null : String(findings[place]!.importance);
+    if ((copy.state !== "shown" && copy.state !== "held") || copy.versionNumber !== newest || previous === null ||
+      previous === input.importance) {
+      return { outcome: "not_revisable", state: copy.state, previous };
+    }
+    const payload = structuredClone(copy.payload!);
+    (payload.findings as Array<Record<string, unknown>>)[place]!.importance = input.importance;
+    const versionNumber = newest + 1;
+    copy.events.push({ event: "superseded", reason: null, at: input.at });
+    const state = copy.state;
+    this.copies.set(`${copy.publicNumber}#${versionNumber}`, {
+      ...structuredClone({ ...copy, events: [] }), versionId: copy.versionId, versionNumber, payload,
+      payloadSha256: sha256(stableJson(payload)), decidedAt: input.at, acceptedAt: copy.acceptedAt,
+      livingPersonDecision: copy.livingPersonDecision,
+      revision: { of: copy.versionNumber, by: input.revisedBy, reason: input.reason },
+      events: [{ event: "revised", reason: input.reason, at: input.at }, { event: state, reason: null, at: input.at }],
+    });
+    Object.assign(copy, { state: "superseded", holdReasons: [], decidedAt: input.at });
+    return { outcome: "revised", versionNumber, state, previous };
+  }
+
   async decideLivingPerson(input: ResearchDossierLivingPersonDecisionInput): Promise<ResearchDossierDecisionResult> {
     assertLivingPersonDecision(input);
     this.followPrivate();
@@ -772,7 +871,7 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       .sort((left, right) => left.publicNumber.localeCompare(right.publicNumber) || right.versionNumber - left.versionNumber)
       .map((copy) => ({ publicNumber: copy.publicNumber, versionNumber: copy.versionNumber,
         state: copy.state as "shown" | "superseded", accepted: copy.acceptedAt !== null,
-        decidedAt: copy.decidedAt.toISOString() }));
+        decidedAt: copy.decidedAt.toISOString(), revised: copy.revision !== null }));
   }
 
   /**
@@ -798,7 +897,8 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
           copy.events.push({ event: "erased", reason: "contributor_access_revoked", at });
           Object.assign(copy, { state: "erased", payload: null, payloadSha256: null, topicKey: null, relatedTopicKeys: [],
             topicNames: [], holdReasons: [], conflictsWith: [], origin: {}, livingPersonDecision: null, decidedAt: at,
-            versionId: null, dossierNumber: null });
+            versionId: null, dossierNumber: null,
+            revision: copy.revision === null ? null : { ...copy.revision, reason: null } });
         } else if (copy.versionId !== null && copy.state !== "erased") {
           copy.events.push({ event: "detached", reason: "contributor_access_revoked", at });
           Object.assign(copy, { versionId: null, dossierNumber: null, origin: {} });
@@ -811,7 +911,8 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       if (facts === undefined || copy.acceptedAt !== null || copy.state === "erased") continue;
       if (facts.erased) {
         Object.assign(copy, { state: "erased", payload: null, payloadSha256: null, topicKey: null, relatedTopicKeys: [],
-          topicNames: [], holdReasons: [], conflictsWith: [], origin: {}, livingPersonDecision: null, decidedAt: at });
+          topicNames: [], holdReasons: [], conflictsWith: [], origin: {}, livingPersonDecision: null, decidedAt: at,
+          revision: copy.revision === null ? null : { ...copy.revision, reason: null } });
         copy.events.push({ event: "erased", reason: "deletion_requested", at });
       } else if (facts.closed && (copy.state === "shown" || copy.state === "held")) {
         Object.assign(copy, { state: "taken_down", decidedAt: at });
@@ -857,6 +958,7 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       namesLivingPerson: copy.namesLivingPerson,
       livingPersonDecision: copy.livingPersonDecision === null ? null : { by: copy.livingPersonDecision.by,
         at: copy.livingPersonDecision.at.toISOString(), reason: copy.livingPersonDecision.reason },
+      revision: copy.revision === null ? null : { ...copy.revision },
     };
   }
 }

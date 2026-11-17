@@ -178,5 +178,6 @@ export function announcingDossierReview(
     inspect: (publicNumber) => store.inspect(publicNumber),
     decide: (input) => announcing(signal, () => store.decide(input)),
     decideLivingPerson: (input) => announcing(signal, () => store.decideLivingPerson(input)),
+    reviseImportance: (input) => announcing(signal, () => store.reviseImportance(input)),
   };
 }

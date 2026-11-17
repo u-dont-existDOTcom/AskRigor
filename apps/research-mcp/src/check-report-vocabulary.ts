@@ -2277,6 +2277,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "review_service_unavailable",
   "review_site",
   "revise",
+  "revise_dossier_importance",
   "revoke",
   "revoked",
   "robots_disallowed",

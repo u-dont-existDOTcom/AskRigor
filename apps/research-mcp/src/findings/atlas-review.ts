@@ -480,6 +480,8 @@ export interface AtlasReviewRequest {
   dossier?: string;
   dossierVersion?: number;
   dossierState?: import("@askrigor/evidence-repository").ResearchDossierPublicState;
+  dossierFinding?: string;
+  dossierImportance?: "decision_changing" | "important" | "context";
   /** mark_challenge (the owner, 6 Nov 2026): the usual view, its source and the quick-answer verdict, from later_inputs. */
   usual_view?: AtlasChallengeRequest["usual_view"];
   usual_view_source_url?: AtlasChallengeRequest["usual_view_source_url"];
@@ -561,6 +563,8 @@ const FIELDS_BY_ACTION: Record<AtlasReviewAction | "edit_after", readonly AtlasF
   accept_dossier: ["reason"],
   // Codex's review of stage 2, finding 2: the owner's own decision on a named living person, with his reason.
   show_dossier_naming_living_person: ["reason"],
+  // Codex's review of stage 2, finding 7: a reviewed revision of an importance mark, with the reviewer's reason.
+  revise_dossier_importance: ["reason"],
 };
 
 /**
@@ -1262,6 +1266,7 @@ export class AtlasReview {
         case "take_down_dossier":
         case "accept_dossier":
         case "show_dossier_naming_living_person":
+        case "revise_dossier_importance":
           return await this.dossierAction(request.action, request);
       }
     } catch (error) {
@@ -1371,6 +1376,8 @@ export class AtlasReview {
       ...(request.dossierState === undefined ? {} : { dossierState: request.dossierState }),
       ...(request.reason === undefined ? {} : { reason: request.reason }),
       ...(request.reviewer === undefined ? {} : { reviewer: request.reviewer }),
+      ...(request.dossierFinding === undefined ? {} : { dossierFinding: request.dossierFinding }),
+      ...(request.dossierImportance === undefined ? {} : { dossierImportance: request.dossierImportance }),
     });
     return {
       ok: result.ok,

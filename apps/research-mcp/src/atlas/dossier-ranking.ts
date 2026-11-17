@@ -19,13 +19,15 @@ import { resultSizes } from "../findings/dossier-publication.js";
  *
  * How each part is read here, exactly, from what the dossiers declare:
  * - "Could change a decision" is the finding's importance mark (decision_changing, important, context), which the
- *   researching AI set and the owner's review can change.
+ *   researching AI set. The owner's review revises a mark only by a new version of the copy, with the reviewer and the
+ *   reason recorded; the version it replaces stays as it was (Codex's review of stage 2, finding 7).
  * - "An ordinary AI answer would miss it" is the AI's own list of the findings that save the most work against one
  *   ordinary answer (value.adds); stage 2 has no separate novelty test.
- * - Rule 3 compares forms only, not people: a finding's people are free text, which code cannot match. So a
- *   "not known" finding goes after every known finding of the same declared form, whoever they are about, which keeps
- *   rule 3 for the same people and is stricter for others. Known means helps, harms, no difference or mixed (mixed
- *   results were measured too). It moves only the "not known" finding; the others keep their order.
+ * - Rule 3 reads the form and the people as the AI declared them: the finding's form, and its population_key, a short
+ *   key the AI gives for the people it applies to. A "not known" finding goes after every known finding with the same
+ *   form and the same people. A form or people not declared never match anything, so a finding that gives neither is
+ *   not moved. Known means helps, harms, no difference or mixed (mixed results were measured too). It moves only the
+ *   "not known" finding; the others keep their order.
  * - Strength, a tie-break only: human trials, then reviews, observational studies, case reports, animal studies, and
  *   lab studies and people's reports last, a search alone below them; then how certain the finding is.
  * Then the newer dossier first, then the dossier's own order, so the order is the same on every read.
@@ -127,7 +129,16 @@ export function dossierRankItems(dossiers: ReadonlyArray<{ publicNumber: string;
   })));
 }
 
-const formOf = (item: DossierRankItem) => item.finding.form?.trim().toLocaleLowerCase("en") ?? "";
+/**
+ * The form and the people a finding is about, as declared, or undefined when either is not given: then it matches
+ * nothing (Codex's review of stage 2, finding 7).
+ */
+const identityOf = (item: DossierRankItem): string | undefined => {
+  const form = item.finding.form?.trim().toLocaleLowerCase("en");
+  const people = item.finding.population_key?.trim().toLocaleLowerCase("en");
+  return form === undefined || form === "" || people === undefined || people === "" ? undefined
+    : JSON.stringify([form, people]);
+};
 
 /** The findings in the order of rule 333a. */
 export function rankDossierFindings(items: readonly DossierRankItem[]): DossierRankItem[] {
@@ -139,17 +150,19 @@ export function rankDossierFindings(items: readonly DossierRankItem[]): DossierR
     Date.parse(right.shownAt) - Date.parse(left.shownAt) ||
     left.publicNumber.localeCompare(right.publicNumber) ||
     left.place - right.place);
-  // Rule 3: each "not known" finding moves after the last known finding of its form; nothing else moves.
+  // Rule 3: each "not known" finding moves after the last known finding of its form and people; nothing else moves.
   let moved = true;
   for (let guard = 0; moved && guard < sorted.length * sorted.length + 1; guard += 1) {
     moved = false;
     for (let index = 0; index < sorted.length; index += 1) {
       const item = sorted[index]!;
       if (item.finding.kind !== "not_known") continue;
+      const identity = identityOf(item);
+      if (identity === undefined) continue;
       let last = -1;
       for (let later = index + 1; later < sorted.length; later += 1) {
         const other = sorted[later]!;
-        if (KNOWN.has(other.finding.kind) && formOf(other) === formOf(item)) last = later;
+        if (KNOWN.has(other.finding.kind) && identityOf(other) === identity) last = later;
       }
       if (last > index) {
         sorted.splice(index, 1);

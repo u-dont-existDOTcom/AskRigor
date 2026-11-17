@@ -65,6 +65,8 @@ export {
   type ResearchDossierAutoHoldReason,
   type ResearchDossierDecisionInput,
   type ResearchDossierLivingPersonDecisionInput,
+  type ResearchDossierImportanceRevisionInput,
+  type ResearchDossierImportanceRevisionResult,
   type ResearchDossierDecisionResult,
   type ResearchDossierHoldReason,
   type ResearchDossierPublicDecision,

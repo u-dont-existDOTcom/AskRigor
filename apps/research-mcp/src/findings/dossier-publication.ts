@@ -82,6 +82,8 @@ export interface PublicDossierFinding {
   kind: string;
   applies_to: string;
   form?: string;
+  /** The people it applies to, as the AI declared them by a short key (Codex's review of stage 2, finding 7). */
+  population_key?: string;
   rests_on: string[];
   what_would_change_it: string;
   importance: "decision_changing" | "important" | "context";
@@ -139,7 +141,7 @@ export function publicDossierOf(stored: Stored): PublicDossier {
       "follow_up", "direction", "certainty", "figure", "provenance", "calculation", "group_sizes"])),
     findings: (stored.findings ?? []).map((finding: Stored) => ({
       ...pick<Omit<PublicDossierFinding, "hard_to_find">>(finding, ["id", "claim", "certainty", "kind", "applies_to",
-        "form", "rests_on", "what_would_change_it", "importance"]),
+        "form", "population_key", "rests_on", "what_would_change_it", "importance"]),
       hard_to_find: adds.has(finding.id),
     })),
     coverage: Object.fromEntries(Object.entries(stored.coverage ?? {}).map(([area, entry]) =>
@@ -193,7 +195,7 @@ const publicDossierSchema = z.object({
     calculation: z.object({ operation: str, from: z.tuple([num, num]) }).optional(),
     group_sizes: z.object({ option: num, comparator: num.optional() }).optional() })),
   findings: z.array(z.object({ id: str, claim: str, certainty: str, kind: str, applies_to: str, form: str.optional(),
-    rests_on: z.array(str), what_would_change_it: str, importance: z.enum(["decision_changing", "important", "context"]),
+    population_key: str.optional(), rests_on: z.array(str), what_would_change_it: str, importance: z.enum(["decision_changing", "important", "context"]),
     hard_to_find: z.boolean() })),
   coverage: z.record(str, z.object({ status: str, search: str.optional(), reason: str.optional() })),
   community: z.object({ communities: z.array(str), threads_read: num,

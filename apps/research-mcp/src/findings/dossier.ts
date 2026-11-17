@@ -157,6 +157,9 @@ const findingSchema = z.object({
   // says which card finding it is, by its place on the card (1 for the first), or none; one that is a held finding
   // refuses the dossier. An explicit declaration bound to the receipt's signed places, never a comparison of words.
   card_finding: z.union([z.number().int().min(1).max(5), z.literal("none")]).optional(),
+  // Stage 2 (Codex's review of stage 2, finding 7): the people it applies to as a short key, the same key wherever the
+  // same people are meant, so the ranking's rule 3 compares the declared people as well as the declared form.
+  population_key: z.string().trim().regex(/^[a-z0-9][a-z0-9._-]{0,79}$/u).optional(),
 }).strict();
 
 const coverageEntrySchema = z.object({
@@ -218,6 +221,7 @@ export const RELEASED_RESEARCH_DOSSIER_INPUT_SCHEMA = researchDossierInputSchema
     topic: topicSchema.omit({ related: true }),
     studies: z.array(studySchema.omit({ participants: true })).min(1).max(L.studies),
     results: z.array(resultSchema.omit({ group_sizes: true })).max(L.results).default([]),
+    findings: z.array(findingSchema.omit({ population_key: true })).min(1).max(L.findings),
   });
 
 /**
@@ -266,8 +270,9 @@ export const RESEARCH_DOSSIER_PUBLIC_DECLARATIONS = "Also give, wherever they ap
   "or low: how sure you are that the dossier is right and complete, judged truthfully); names_living_people (true " +
   "when any text makes a claim about a named living person, else false); topic.related (keys of up to 10 related " +
   "topics); each study's participants (the people studied); each comparing result's group_sizes ({option, " +
-  "comparator}, the people in each group; a counts figure gives them already); run: runner only from AskRigor's own " +
-  "research runner.";
+  "comparator}, the people in each group; a counts figure gives them already); each finding's population_key (a " +
+  "short lower-case key for the people it applies to, such as adults-metabolic-syndrome, the same key wherever the " +
+  "same people are meant); run: runner only from AskRigor's own research runner.";
 
 /** The shape the AI is given: stage 1's, and stage 2's declarations after it while public dossiers are on. */
 export function researchDossierShape(publicDossiers: boolean): string {
@@ -725,7 +730,8 @@ const NOT_TEXT_KEYS: ReadonlySet<string> = new Set([
   "identifiers", "threads", "scope", "saves_work", "database", "kind", "decision", "direction", "certainty",
   "provenance", "operation", "status", "importance", "start", "end", "confidence", "run",
 ]);
-const SLUG_KEYS: ReadonlySet<string> = new Set(["id", "study", "rests_on", "adds", "search", "key", "related"]);
+const SLUG_KEYS: ReadonlySet<string> = new Set(["id", "study", "rests_on", "adds", "search", "key", "related",
+  "population_key"]);
 
 function dossierTexts(value: unknown, path = "", slug = false, idsToo = true): Array<[string, string]> {
   if (typeof value === "string") return [[path, slug ? value.replace(/[-_.]+/gu, " ") : value]];

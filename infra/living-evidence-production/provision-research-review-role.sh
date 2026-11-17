@@ -148,6 +148,11 @@ GRANT EXECUTE ON FUNCTION living_evidence.decide_research_dossier_publication(te
 -- stage 2, finding 2).
 GRANT EXECUTE ON FUNCTION living_evidence.decide_research_dossier_living_person(text, integer, text, text, timestamptz)
   TO askrigor_research_review;
+-- A reviewed revision of an importance mark: a new version with the reviewer and reason, never an edit in place (Codex's
+-- review of stage 2, finding 7).
+GRANT EXECUTE ON FUNCTION living_evidence.revise_research_dossier_importance(
+  text, integer, text, text, text, text, timestamptz
+) TO askrigor_research_review;
 ALTER ROLE askrigor_research_review SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_review SET idle_in_transaction_session_timeout = '5s';
 ALTER ROLE askrigor_research_review SET search_path = living_evidence, pg_catalog;
