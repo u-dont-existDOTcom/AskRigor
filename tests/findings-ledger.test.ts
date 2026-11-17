@@ -6,7 +6,8 @@ import { rule } from "../apps/research-mcp/src/check-rules.js";
 import { FINAL_CHECK_PANEL_RENDER_SOURCE } from "../apps/research-mcp/src/final-check-panel.js";
 import {
   FINAL_CHECK_PANEL_FINDINGS_LEAD, FINDINGS_LEDGER_MEMORY_MS, FINDINGS_LEDGER_NOTE, WHAT_STOPS, WHAT_STOPS_TEXT,
-  createFindingsLedgerMemory, findingsLedger, findingsLedgerEnabledFromEnv, findingsLedgerGuidance,
+  createFindingsLedgerMemory, findingsLedger, findingsLedgerAccountsFromEnv, findingsLedgerEnabledFromEnv,
+  findingsLedgerGuidance,
   findingsLedgerMemoryKey, issueFindingsLedger, sketchSimilarity, verifyFindingsLedger, whatStops,
   type FindingsLedgerParams, type ObservedFinding,
 } from "../apps/research-mcp/src/findings-ledger.js";
@@ -428,7 +429,8 @@ describe("the review of 17 Nov 2026", () => {
     let waiting!: () => void;
     const isWaiting = new Promise<void>((resolve) => { waiting = resolve; });
     const server = createAskRigorServer("standard", { researchAccessRequired: false, findingsLibrary: false,
-      findingsLedger: true, findingsLedgerMemory: memory, secondReader: { enabled: true, readAnswer: async (draft) => {
+      findingsLedger: true, findingsLedgerAccounts: "all", findingsLedgerMemory: memory,
+      secondReader: { enabled: true, readAnswer: async (draft) => {
         if (draft.includes(EDITED)) { waiting(); await released; }
         return reading(draft.includes(WARNING) ? WARNING : EDITED) as never;
       } } });
@@ -1102,7 +1104,7 @@ describe("through the MCP tool", () => {
     vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", SECRET);
     const memory = createFindingsLedgerMemory();
     const server = createAskRigorServer("standard", { researchAccessRequired: false, findingsLibrary: false,
-      findingsLedger: true, findingsLedgerMemory: memory,
+      findingsLedger: true, findingsLedgerAccounts: "all", findingsLedgerMemory: memory,
       secondReader: { enabled: true, readAnswer: async (draft) => reading(draft.includes(WARNING) ? WARNING : EDITED) as never } });
     const client = new Client({ name: "findings-ledger-test", version: "1" });
     const [a, b] = InMemoryTransport.createLinkedPair();
@@ -1153,7 +1155,7 @@ describe("before switching on (Fable's check of 17 Nov 2026)", () => {
     serverOptions: Record<string, unknown> = {}) => {
     vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", SECRET);
     const server = createAskRigorServer("standard", { researchAccessRequired: false, findingsLibrary: false,
-      findingsLedger: true, findingsLedgerMemory: createFindingsLedgerMemory(),
+      findingsLedger: true, findingsLedgerAccounts: "all", findingsLedgerMemory: createFindingsLedgerMemory(),
       secondReader: { enabled: true, readAnswer: async (draft) => reading(draft.includes(WARNING) ? WARNING : undefined) as never },
       ...serverOptions });
     const client = new Client({ name: "findings-ledger-fable-test", version: "1" });
@@ -1277,5 +1279,28 @@ describe("before switching on (Fable's check of 17 Nov 2026)", () => {
     expect(added.filter((text) => /finding/iu.test(text))).toEqual([]);
     expect(texts(render({ status: "ready", check_findings: { ledger: "continued", revision: 2,
       findings: [unchecked("F-0000000003")] } }))).toContain("1 earlier problem was not checked again.");
+  });
+
+  it("5: keeps the ledger to the owner's development accounts unless ASKRIGOR_FINDINGS_LEDGER_ACCOUNTS is all", async () => {
+    expect(findingsLedgerAccountsFromEnv(undefined)).toBe("dev");
+    expect(findingsLedgerAccountsFromEnv("everyone")).toBe("dev");
+    expect(findingsLedgerAccountsFromEnv(" all ")).toBe("all");
+    // A caller with no development account (here, none at all): nothing by default, the ledger with "all".
+    await mcp(async (call) => {
+      const output = await call(fixture());
+      expect(output.check_findings).toBeUndefined();
+      expect(output.findings_ledger).toBeUndefined();
+    }, { findingsLedgerAccounts: undefined });
+    vi.stubEnv("ASKRIGOR_FINDINGS_LEDGER_ACCOUNTS", "all");
+    await mcp(async (call) => {
+      expect((await call(fixture())).check_findings!.ledger).toBe("new");
+    }, { findingsLedgerAccounts: undefined });
+    // With the main setting off, nothing, whatever this one says.
+    vi.stubEnv("ASKRIGOR_FINDINGS_LEDGER", "");
+    await mcp(async (call) => {
+      const output = await call(fixture());
+      expect(output.check_findings).toBeUndefined();
+      expect(output.findings_ledger).toBeUndefined();
+    }, { findingsLedger: undefined, findingsLedgerAccounts: undefined });
   });
 });

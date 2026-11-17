@@ -17,8 +17,8 @@ import { currentProtocolElementNames } from "./protocol-rule-names.js";
 import { createHash } from "node:crypto";
 import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
 import {
-  findingsLedgerEnabledFromEnv, findingsLedgerGuidance, findingsLedgerMemory, findingsLedgerMemoryKey,
-  type FindingChecker, type FindingsLedgerMemory, type ObservedFinding
+  findingsLedgerAccountsFromEnv, findingsLedgerEnabledFromEnv, findingsLedgerGuidance, findingsLedgerMemory,
+  findingsLedgerMemoryKey, type FindingChecker, type FindingsLedgerAccounts, type FindingsLedgerMemory, type ObservedFinding
 } from "./findings-ledger.js";
 import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./meaning-judge.js";
 import { researchPlannerFromEnv, type ResearchPlanner } from "./research-planner.js";
@@ -992,6 +992,11 @@ export interface RegisterToolsOptions {
    * for each account and research target is this process's, unless replaced for tests.
    */
   findingsLedger?: boolean;
+  /**
+   * Whose answers get it while it is on (Fable's check of 17 Nov 2026): "dev", only the owner's development accounts, or
+   * "all"; defaults to ASKRIGOR_FINDINGS_LEDGER_ACCOUNTS, "dev" unless it is "all".
+   */
+  findingsLedgerAccounts?: FindingsLedgerAccounts;
   findingsLedgerMemory?: FindingsLedgerMemory;
   /** Shared questions and answers (owner answer 200a); null turns them off; defaults to the server's settings. */
   sharedAnswers?: SharedAnswers | null;
@@ -2128,8 +2133,8 @@ function defineResearchOperations(
       askrigorHolds: ASKRIGOR_HOLDS,
       // AskRigor#477 stage 1: plan_research asks for the research dossier where one can be saved.
       ...(options.researchDossiers === undefined ? {} : { researchDossiers: true }),
-      // Enforcing HRP, stage 1: plan_research says what can stop an answer while the findings ledger is on.
-      findingsLedger: () => options.findingsLedger ?? findingsLedgerEnabledFromEnv(),
+      // Enforcing HRP, stage 1: plan_research says what can stop an answer while the findings ledger is on for the account.
+      findingsLedger: (devAccount) => findingsLedgerFor(options, () => devAccount),
       ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
       ...(sharing === undefined ? {} : { sharedAnswers: { ...sharing, versions: async () =>
@@ -2639,7 +2644,8 @@ function defineResearchOperations(
       // Enforcing HRP, stage 1: this process's memory of the last ledger issued for this account and research target,
       // read and replaced in one step once the call's notes are all given (Codex's review of 17 Nov 2026, finding 3).
       const ledgerMemory = options.findingsLedgerMemory ?? findingsLedgerMemory;
-      const ledgerKey = (options.findingsLedger ?? findingsLedgerEnabledFromEnv()) && secret !== undefined &&
+      const ledgerKey = findingsLedgerFor(options, () => researcher !== undefined &&
+        isDevAccount(researcher.accountKey, devAccountKeysFromEnv())) && secret !== undefined &&
         checkedInput !== undefined ? findingsLedgerMemoryKey(secret, researcher?.accountKey, checkedInput.research_target)
         : undefined;
       // Codex's review of 17 Nov 2026, finding 7: the notes this tool gives after the check's own passes are findings of
@@ -3212,6 +3218,16 @@ function findingsSaveAccount(account: {
   noticeVersion: string | null;
 }): FindingsSaveAccount {
   return { mode: account.mode, noticeVersion: account.noticeVersion };
+}
+
+/**
+ * Enforcing HRP, stage 1: whether a call's answer gets the findings ledger (Fable's check of 17 Nov 2026): the ledger is
+ * on, and the account is one of the owner's development accounts or ASKRIGOR_FINDINGS_LEDGER_ACCOUNTS is "all". With
+ * it off, the account is not looked at.
+ */
+function findingsLedgerFor(options: RegisterToolsOptions, devAccount: () => boolean): boolean {
+  return (options.findingsLedger ?? findingsLedgerEnabledFromEnv()) &&
+    ((options.findingsLedgerAccounts ?? findingsLedgerAccountsFromEnv()) === "all" || devAccount());
 }
 
 /**

@@ -1361,6 +1361,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "detailed_reports_off",
   "deterministic_hash_chronological",
   "deterministic_validator",
+  "dev",
   "dev_account_required",
   "device_or_energy",
   "diagnosis_not_specified",

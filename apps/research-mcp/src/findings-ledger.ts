@@ -32,7 +32,8 @@ import { NEXT_STEP_KINDS, type NextStepKind } from "./next-step-kinds.js";
  * the digest kept (Codex's re-review of 17 Nov 2026, finding 6). Across processes or restarts the signed token alone
  * carries the ledger (Codex's review of 17 Nov 2026, finding 6).
  *
- * Off unless ASKRIGOR_FINDINGS_LEDGER is "on". It adds a record of what the check found and never changes what the check
+ * Off unless ASKRIGOR_FINDINGS_LEDGER is "on", and then only for the owner's development accounts unless
+ * ASKRIGOR_FINDINGS_LEDGER_ACCOUNTS is "all" (Fable's check of 17 Nov 2026). It adds a record of what the check found and never changes what the check
  * finds or stops: the six stops stay six. Holding a claim (owner answer 338a) waits for the owner's answer on how it fits
  * with the six stops, and is not built here.
  */
@@ -64,6 +65,16 @@ export const FINDINGS_SAME_AFTER_EDIT = 0.5;
 
 export function findingsLedgerEnabledFromEnv(value = process.env.ASKRIGOR_FINDINGS_LEDGER): boolean {
   return value?.trim() === "on";
+}
+/**
+ * Whose answers get the ledger while ASKRIGOR_FINDINGS_LEDGER is on (Fable's check of 17 Nov 2026), from
+ * ASKRIGOR_FINDINGS_LEDGER_ACCOUNTS: "dev", the default, only the owner's development accounts (ASKRIGOR_DEV_ACCOUNT_KEYS);
+ * "all", every caller. Any other value is "dev". With the ledger off it changes nothing.
+ */
+export type FindingsLedgerAccounts = "dev" | "all";
+export function findingsLedgerAccountsFromEnv(value = process.env.ASKRIGOR_FINDINGS_LEDGER_ACCOUNTS):
+  FindingsLedgerAccounts {
+  return value?.trim() === "all" ? "all" : "dev";
 }
 
 export const FINDING_DISPOSITIONS = ["open", "unresolved", "fixed", "withdrawn", "disputed", "not_rechecked"] as const;

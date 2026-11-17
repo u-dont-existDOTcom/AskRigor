@@ -584,10 +584,11 @@ export interface ResearchContributorToolOptions {
   /** AskRigor#477 stage 1: research dossiers are saved (ASKRIGOR_RESEARCH_DOSSIERS), so plan_research may ask for one. */
   researchDossiers?: boolean;
   /**
-   * Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026): while the findings ledger is on, plan_research says up front what
-   * can stop an answer at the final check (the owner's note on question 338): the six whole-answer stops.
+   * Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026): while the findings ledger is on for the account (whether it is
+   * one of the owner's development accounts is given), plan_research says up front what can stop an answer at the final
+   * check (the owner's note on question 338): the six whole-answer stops.
    */
-  findingsLedger?: () => boolean;
+  findingsLedger?: (devAccount: boolean) => boolean;
 }
 
 export interface ResearchMapOptions {
@@ -1120,7 +1121,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           ? { log: options.log ?? defaultLog } : undefined;
         return await planResearchAction(options.service, auth.subject, parsed.researchMenu!, options.plainAnswer,
           options.menuDigestSecret?.(), devAccount, learning, options.researchDossiers === true, findingsSaveOff(parsed),
-          options.findingsLedger?.() === true);
+          options.findingsLedger?.(devAccount) === true);
       }
       if (parsed.action === "set_plain_answer_note") {
         return await setPlainAnswerNote(options.service, auth.subject, parsed.plainAnswerNote!, options.plainAnswer);

@@ -3451,12 +3451,24 @@ describe("what can stop an answer, said when the research is planned", () => {
     expect(off.isError).not.toBe(true);
     expect(text(off)).not.toContain(WHAT_STOPS_TEXT);
     expect(off.structuredContent).not.toHaveProperty("what_stops");
+    // On, by default only for the owner's development accounts (Fable's check of 17 Nov 2026): not this person's.
     vi.stubEnv("ASKRIGOR_FINDINGS_LEDGER", "on");
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", "");
+    const notDev = await plan();
+    expect(text(notDev)).not.toContain(WHAT_STOPS_TEXT);
+    expect(notDev.structuredContent).not.toHaveProperty("what_stops");
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", service.accountKeyForSubject("auth0|person"));
     const on = await plan();
     expect(on.isError).not.toBe(true);
     expect(text(on)).toContain(WHAT_STOPS_TEXT);
     expect(on.structuredContent).toMatchObject({ what_stops: { text: WHAT_STOPS_TEXT } });
     expect((on.structuredContent as { researchMenu: unknown }).researchMenu)
       .toEqual((off.structuredContent as { researchMenu: unknown }).researchMenu);
+    // ASKRIGOR_FINDINGS_LEDGER_ACCOUNTS all: every account; with the main setting off, none.
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", "");
+    vi.stubEnv("ASKRIGOR_FINDINGS_LEDGER_ACCOUNTS", "all");
+    expect(text(await plan())).toContain(WHAT_STOPS_TEXT);
+    vi.stubEnv("ASKRIGOR_FINDINGS_LEDGER", "");
+    expect(text(await plan())).not.toContain(WHAT_STOPS_TEXT);
   });
 });

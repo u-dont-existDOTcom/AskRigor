@@ -2703,7 +2703,10 @@ pending-proposal stores have their own strict contracts and authority boundaries
   receipt or the carried state, and never saved with a findings card.
 - The findings ledger of `finalize_research` (stage 1 of enforcing HRP, 17
   November 2026) is off unless `ASKRIGOR_FINDINGS_LEDGER` is `on`; while off,
-  nothing below is made, kept or returned. On, each problem the final check
+  nothing below is made, kept or returned. On, it applies only to the owner's
+  development accounts (`ASKRIGOR_DEV_ACCOUNT_KEYS`) unless
+  `ASKRIGOR_FINDINGS_LEDGER_ACCOUNTS` is `all`; for any other caller nothing
+  below is made, kept or returned either. On, each problem the final check
   finds gets an id and a disposition, returned in `check_findings` for that
   call, and the ledger travels with the AI as a signed token,
   `findings_ledger`, passed back as `later_inputs.findings_ledger`. The token
