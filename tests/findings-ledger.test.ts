@@ -402,10 +402,13 @@ describe("the review of 17 Nov 2026", () => {
     expect(disputed.checkFindings.findings[0]).toMatchObject({ id, disposition: "disputed", reason });
     memory.update(key, () => disputed.remember, at);
     // The first ledger again with the same draft but without the reply: not a retry, so the dispute recorded since stays.
+    // Its reason was in the ledger left out, and the server keeps only its digest (the re-review of 17 Nov 2026,
+    // finding 6), so the result says so.
     const rolledBack = findingsLedger(params({ observed: [draftNote(WARNING)], draft: "Draft one.",
       raw: { later_inputs: { findings_ledger: first.token } }, remembered: memory.get(key, at) }));
     expect(rolledBack.checkFindings.ledger).toBe("replayed");
-    expect(rolledBack.checkFindings.findings[0]).toMatchObject({ id, disposition: "disputed", reason });
+    expect(rolledBack.checkFindings.findings[0]).toMatchObject({ id, disposition: "disputed" });
+    expect(rolledBack.notes.join(" ")).toContain(`${id} is still disputed, but its reason was in a findings_ledger`);
     // The same request sent again is a retry: the same ledger, token for token.
     const retried = findingsLedger(params({ observed: [draftNote(WARNING)], draft: "Draft one.", raw: disputing,
       remembered: memory.get(key, at), now: new Date(at + 5_000) }));
@@ -528,13 +531,15 @@ describe("the review of 17 Nov 2026", () => {
       vi.advanceTimersByTime(FINDINGS_LEDGER_MEMORY_MS + 2_000);
       expect(idle.size()).toBe(0);
     } finally { vi.useRealTimers(); }
-    // A dispute's reason is kept while the finding is disputed, and dropped, from the token and the memory, once it
-    // is settled; the memory holds no words of the findings or the answer.
+    // A dispute's reason is kept in the token while the finding is disputed, and dropped once it is settled; the memory
+    // holds only its digest (the re-review of 17 Nov 2026, finding 6), and no words of the findings or the answer.
     const id = one.checkFindings.findings[0]!.id;
     const reason = "A reason that only a disputed finding needs.";
     const disputed = findingsLedger(params({ target: "One target", observed: [draftNote(WARNING)], raw: { later_inputs: {
       findings_ledger: one.token, finding_responses: [{ id, response: "disputed", reason }] } } }));
-    expect(JSON.stringify(disputed.remember)).toContain(reason);
+    expect(JSON.stringify(disputed.remember)).not.toContain(reason);
+    const disputedToken = verifyFindingsLedger(disputed.token, SECRET);
+    expect(JSON.stringify(disputedToken.ok ? disputedToken.payload : {})).toContain(reason);
     const fixed = findingsLedger(params({ target: "One target", observed: [], draft: "The fixed draft.",
       raw: { later_inputs: { findings_ledger: disputed.token } } }));
     expect(JSON.stringify(fixed.remember)).not.toContain(reason);
@@ -658,6 +663,44 @@ describe("the re-review of 17 Nov 2026", () => {
     expect(result.token).toBeDefined();
     expect(verifyFindingsLedger(result.token, SECRET).ok).toBe(true);
     expect(result.notes.join(" ")).toContain("are listed in check_findings but not carried");
+  });
+
+  it("6: remembers no reason's words, keeps a dispute without them, and takes them back only from a matching ledger", () => {
+    const memory = createFindingsLedgerMemory();
+    const key = findingsLedgerMemoryKey(SECRET, "acct-a", "A research target");
+    const at = NOW.getTime();
+    const call = (raw: Record<string, unknown>) => {
+      const result = findingsLedger(params({ observed: [draftNote(WARNING)], raw, remembered: memory.get(key, at) }));
+      memory.update(key, () => result.remember, at);
+      return { result, finding: result.checkFindings.findings[0]! };
+    };
+    const first = call({});
+    const id = first.finding.id;
+    const reason = "The sentence reports a guideline's wording, not a claim of this answer.";
+    const disputed = call({ later_inputs: { findings_ledger: first.result.token,
+      finding_responses: [{ id, response: "disputed", reason }] } });
+    expect(disputed.finding).toMatchObject({ id, disposition: "disputed", reason });
+    // The server's memory keeps the reason's digest, not its words.
+    expect(JSON.stringify(memory.get(key, at))).not.toMatch(/guideline|wording/u);
+    // The ledger left out: the finding is still disputed, and the result says where its reason was.
+    const omitted = call({});
+    expect(omitted.result.checkFindings.ledger).toBe("omitted");
+    expect(omitted.finding).toMatchObject({ id, disposition: "disputed" });
+    expect(omitted.finding.reason).toBeUndefined();
+    expect(omitted.result.notes).toContain(`${id} is still disputed, but its reason was in a findings_ledger that ` +
+      "wasn't passed back. Give the reason again in later_inputs.finding_responses so the reader sees it.");
+    // An older ledger whose reason matches the one remembered gives it back.
+    const restored = call({ later_inputs: { findings_ledger: disputed.result.token } });
+    expect(restored.result.checkFindings.ledger).toBe("replayed");
+    expect(restored.finding).toMatchObject({ id, disposition: "disputed", reason });
+    // Disputed again for another reason, an older ledger never brings the earlier reason back.
+    const later = "A later reason: the guideline is quoted, and the answer says so.";
+    call({ later_inputs: { findings_ledger: restored.result.token, finding_responses: [{ id, response: "disputed",
+      reason: later }] } });
+    const stale = call({ later_inputs: { findings_ledger: disputed.result.token } });
+    expect(stale.result.checkFindings.ledger).toBe("replayed");
+    expect(stale.finding).toMatchObject({ id, disposition: "disputed" });
+    expect(stale.finding.reason).toBeUndefined();
   });
 });
 

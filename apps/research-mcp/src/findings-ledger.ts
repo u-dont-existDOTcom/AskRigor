@@ -16,15 +16,18 @@ import { NEXT_STEP_KINDS, type NextStepKind } from "./next-step-kinds.js";
  * receipts, carried state and round tokens, and bound to the account, the research target, the checked draft and the
  * running versions. Signed, not encrypted: it is deflated JSON in base64url, so whoever holds the token can read what it
  * carries, with no account. That is the findings' ids; keyed digests of the account, the research target, the draft,
- * the versions and each finding's rule, words and cited identifiers; each finding's kind, stop rule and disposition and
- * the part of the check that found it; sequence and revision numbers; the time it was issued; and, for a finding still
- * disputed, the writer's reason, which the reader is shown anyway. It holds no words of the answer or of the findings.
+ * the versions and each finding's rule, words, cited identifiers and the lines it was about; each finding's kind, stop
+ * rule and disposition and the part of the check that found it; sequence and revision numbers; the most open findings
+ * a ledger of the research has had to leave out; the time it was issued; and, for a finding still disputed, the
+ * writer's reason, which the reader is shown anyway, or, when that reason is no longer at hand, its keyed digest. It
+ * holds no words of the answer or of the findings.
  * The server keeps, per process and for two hours at most (swept when they pass, whether or not the ledger is asked for
  * again), the last ledger it issued for an account and research target, so a call that leaves the ledger out, or passes
- * an older one, is detected: the same digests, numbers and dispositions, the digests of that token, its parent and the
- * request that issued it, and the reasons of findings still disputed, the only words it keeps, so a dispute survives a
- * ledger left out. Across processes or restarts the signed token alone carries it (Codex's review of 17 Nov 2026,
- * finding 6).
+ * an older one, is detected: the same digests, numbers and dispositions, with each dispute reason's keyed digest in
+ * place of its words, and the digests of that token, its parent and the request that issued it. It keeps no words: a
+ * dispute survives a ledger left out, and its reason is shown again only from a ledger passed back whose reason has
+ * the digest kept (Codex's re-review of 17 Nov 2026, finding 6). Across processes or restarts the signed token alone
+ * carries the ledger (Codex's review of 17 Nov 2026, finding 6).
  *
  * Off unless ASKRIGOR_FINDINGS_LEDGER is "on". It adds a record of what the check found and never changes what the check
  * finds or stops: the six stops stay six. Holding a claim (owner answer 338a) waits for the owner's answer on how it fits
@@ -122,6 +125,9 @@ const entrySchema = z.object({
   s: z.string().regex(/^[a-z_]{1,40}$/u).optional(),
   c: z.literal(true).optional(),
   w: z.string().trim().min(1).max(300).optional(),
+  // Codex's re-review of 17 Nov 2026, finding 6: the keyed digest of a disputed finding's reason, which the server's
+  // memory keeps in place of its words, and a token keeps when it can't carry them.
+  g: hex(16).optional(),
   i: z.array(hex(12)).max(6).optional(),
   x: z.enum(FINDING_CHECKERS).optional(),
   // Codex's re-review of 17 Nov 2026, finding 1: keyed digests of what an open finding of a look-up was about.
@@ -270,8 +276,9 @@ function tokenDigest(token: string): string {
 }
 
 /**
- * The last ledger the server issued for an account and research target: its payload (digests, numbers, dispositions,
- * and the reasons of findings still disputed) and digests of tokens and the request; no token itself.
+ * The last ledger the server issued for an account and research target: its payload (digests, numbers and
+ * dispositions; for a finding still disputed, its reason's digest, never its words) and digests of tokens and the
+ * request; no token itself.
  */
 export interface RememberedLedger {
   payload: FindingsLedgerPayload;
@@ -450,15 +457,26 @@ function fingerprinted(secret: string, finding: ObservedFinding): Fingerprinted 
  * 3): its id, disposition, reason and what it was about are kept, and a check that finds it again unchanged finds it;
  * its rule, sketch and identifiers, which only match it through an edit, are not.
  */
-function shortEntry({ id, f, d, n, l, k, s, c, w, x, u }: LedgerEntry): LedgerEntry {
+function shortEntry({ id, f, d, n, l, k, s, c, w, g, x, u }: LedgerEntry): LedgerEntry {
   return { id, f, d, n, l, ...(k === undefined ? {} : { k }), ...(s === undefined ? {} : { s }),
-    ...(c === undefined ? {} : { c }), ...(w === undefined ? {} : { w }), ...(x === undefined ? {} : { x }),
-    ...(u === undefined ? {} : { u }) };
+    ...(c === undefined ? {} : { c }), ...(w === undefined ? {} : { w }), ...(g === undefined ? {} : { g }),
+    ...(x === undefined ? {} : { x }), ...(u === undefined ? {} : { u }) };
 }
 /** A settled finding as the ledger keeps it: no rule, sketch, identifiers, reason or items, which only an open one uses. */
 function settledEntry(entry: LedgerEntry): LedgerEntry {
-  const { w: _reason, u: _items, ...kept } = shortEntry(entry);
+  const { w: _reason, g: _reasonDigest, u: _items, ...kept } = shortEntry(entry);
   return kept;
+}
+function reasonDigest(secret: string, reason: string): string {
+  return digest(secret, "reason", reason, 16);
+}
+/**
+ * What the server's memory keeps of a ledger it issued (Codex's re-review of 17 Nov 2026, finding 6): each reason's
+ * keyed digest in place of its words.
+ */
+function forMemory(payload: FindingsLedgerPayload, secret: string): FindingsLedgerPayload {
+  return { ...payload, e: payload.e.map(({ w, ...entry }) =>
+    w === undefined ? entry : { ...entry, g: reasonDigest(secret, w) }) };
 }
 
 /** How much two findings' inserted words overlap, from their sketches (the smallest word digests of each). */
@@ -549,6 +567,8 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   let state: FindingsLedgerState = "new";
   let previous: FindingsLedgerPayload | undefined;
   let retry = false;
+  // The reasons of an older ledger passed back, which give back only a reason the memory's digest matches.
+  let older: FindingsLedgerPayload | undefined;
   if (given === undefined || given === null || given === "") {
     if (remembered !== undefined) {
       state = "omitted";
@@ -574,13 +594,13 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     } else {
       const givenDigest = tokenDigest(given as string);
       retry = remembered !== undefined && remembered.parent === givenDigest && remembered.request === request;
-      const older = remembered !== undefined && !retry && remembered.token !== givenDigest &&
-        remembered.payload.seq >= verified.payload.seq;
-      if (older) {
+      if (remembered !== undefined && !retry && remembered.token !== givenDigest &&
+          remembered.payload.seq >= verified.payload.seq) {
         state = "replayed";
-        previous = remembered!.payload;
+        previous = remembered.payload;
+        older = verified.payload;
         notes.push(`later_inputs.findings_ledger is ledger ${verified.payload.seq}, not the latest (ledger ` +
-          `${remembered!.payload.seq}) AskRigor issued for this research, so the latest was used. Pass the findings_ledger ` +
+          `${remembered.payload.seq}) AskRigor issued for this research, so the latest was used. Pass the findings_ledger ` +
           "of the last result.");
       } else {
         state = "continued";
@@ -595,6 +615,16 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   }
 
   notes.push(...responseNotes);
+  // Codex's re-review of 17 Nov 2026, finding 6: the memory keeps a reason's digest, not its words. A reason is taken
+  // back only from a verified ledger of this research whose reason for that finding has the digest remembered, so an
+  // older ledger never brings back a reason the writer has since replaced.
+  if (previous !== undefined && older !== undefined) {
+    const reasons = new Map(older.e.flatMap(({ id, w }) => w === undefined ? [] : [[id, w] as const]));
+    previous = { ...previous, e: previous.e.map((entry) => {
+      const reason = entry.w === undefined && entry.g !== undefined ? reasons.get(entry.id) : undefined;
+      return reason !== undefined && reasonDigest(secret, reason) === entry.g ? { ...entry, w: reason } : entry;
+    }) };
+  }
   const previousRevision = previous?.rev ?? 0;
   const draftChanged = draftDigest !== "" && previous !== undefined && previous.d !== draftDigest;
   const revision = draftDigest !== "" && (previous === undefined || previous.d !== draftDigest)
@@ -624,6 +654,7 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   const findings: CheckFindings["findings"] = [];
   const entries: LedgerEntry[] = [];
   const answered = new Set<string>();
+  const reasonLost: string[] = [];
   // A new finding's id is made from what it first was; every id the ledger holds is taken, so one carried through an
   // edit keeps its id and the finding first made with it, seen again, gets another (Codex's review, finding 4).
   const taken = new Set(prior.map(({ id }) => id));
@@ -641,16 +672,23 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     if (response !== undefined) answered.add(id);
     let disposition: FindingDisposition = "open";
     let reason: string | undefined;
+    // The digest of a reason no longer at hand, kept so a ledger that has it can give it back.
+    let lost: string | undefined;
     if (response?.response === "disputed") {
       disposition = "disputed";
       reason = response.reason;
     } else if (finding.disputed !== undefined && response === undefined) {
       disposition = "disputed";
       reason = finding.disputed.trim().slice(0, 300) || undefined;
-    } else if ((before?.d === "disputed" || before?.d === "not_rechecked") && before.w !== undefined &&
-        response === undefined) {
+    } else if (response === undefined && before !== undefined &&
+        (before.d === "disputed" || (before.d === "not_rechecked" && before.w !== undefined))) {
+      // Still disputed whether or not its reason is at hand (Codex's re-review of 17 Nov 2026, finding 6).
       disposition = "disputed";
       reason = before.w;
+      if (reason === undefined) {
+        lost = before.g;
+        reasonLost.push(id);
+      }
     } else if (response !== undefined) {
       disposition = "unresolved";
       notes.push(`${id} is still found by this check, though later_inputs.finding_responses calls it ${response.response}.`);
@@ -668,6 +706,7 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
       ...(finding.stop === undefined ? {} : { s: finding.stop }),
       ...(reader ? {} : { c: true as const }),
       ...(reason === undefined ? {} : { w: reason }),
+      ...(lost === undefined ? {} : { g: lost }),
       ...(finding.ids.length === 0 ? {} : { i: finding.ids.map((found) => digest(secret, "identifier", found, 12)) }),
       ...(items.length === 0 ? {} : { u: items })
     });
@@ -726,8 +765,10 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
       }
     }
     const changed = disposition !== entry.d;
+    // A reason given now replaces the digest of one no longer at hand.
+    const { g: lostReason, ...rest } = entry;
     entries.push(SETTLED.has(disposition) ? settledEntry({ ...entry, d: disposition })
-      : { ...entry, d: disposition, ...(reason === undefined ? {} : { w: reason }) });
+      : reason === undefined ? { ...entry, d: disposition } : { ...rest, d: disposition, w: reason });
     if (changed || !SETTLED.has(disposition)) {
       findings.push({ id: entry.id, ...(entry.k === undefined ? {} : { kind: entry.k }),
         ...(entry.s === undefined ? {} : { stop: entry.s }), disposition: shown ?? disposition,
@@ -742,6 +783,12 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
         ? `the ${one ? "line it was" : "lines they were"} about ${one ? "was" : "were"} not looked up again`
         : `${CHECKER_NAMES[why as FindingChecker]} did not run in full in this call`}, so ${one ? "it is" : "they are"} ` +
       `neither fixed nor withdrawn until a check that looks for ${one ? "it" : "them"} again.`);
+  }
+  if (reasonLost.length > 0) {
+    const one = reasonLost.length === 1;
+    notes.push(`${joinIds(reasonLost)} ${one ? "is" : "are"} still disputed, but ${one ? "its reason was" : "their " +
+      "reasons were"} in a findings_ledger that wasn't passed back. Give the reason${one ? "" : "s"} again in ` +
+      "later_inputs.finding_responses so the reader sees " + (one ? "it." : "them."));
   }
   for (const id of responses.keys()) {
     if (!answered.has(id)) {
@@ -781,7 +828,8 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     checkFindings: { ledger: state, revision: issued?.payload.rev ?? Math.min(revision, 10_000), findings },
     token: issued?.token,
     notes,
-    remember: issued === undefined ? undefined : { payload: issued.payload, token: tokenDigest(issued.token),
+    remember: issued === undefined ? undefined : { payload: forMemory(issued.payload, secret),
+      token: tokenDigest(issued.token),
       ...(typeof given === "string" && given !== "" ? { parent: tokenDigest(given) } : {}), request }
   };
 }

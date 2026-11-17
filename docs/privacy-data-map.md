@@ -2540,7 +2540,8 @@ pending-proposal stores have their own strict contracts and authority boundaries
   issue time in milliseconds made strictly increasing within the server
   process, so the gate orders rounds without trusting the caller. They expire
   after 24 hours. `finalize_research` verifies the receipts the client passes
-  back and returns next steps or limits; it keeps no ledger, and its optional
+  back and returns next steps or limits; it keeps no ledger of them (the
+  findings ledger below, off by default, is apart), and its optional
   free-text reasons, open-lead topics and its required research target are
   processed for that call only (the target only to compare its digest). Its
   `community_findings`, the model's short summary of what the comments it read
@@ -2700,6 +2701,35 @@ pending-proposal stores have their own strict contracts and authority boundaries
   internal labels gets a next step naming them; like the other declarations,
   the reason is request-local: not stored or logged, not in the finalization
   receipt or the carried state, and never saved with a findings card.
+- The findings ledger of `finalize_research` (stage 1 of enforcing HRP, 17
+  November 2026) is off unless `ASKRIGOR_FINDINGS_LEDGER` is `on`; while off,
+  nothing below is made, kept or returned. On, each problem the final check
+  finds gets an id and a disposition, returned in `check_findings` for that
+  call, and the ledger travels with the AI as a signed token,
+  `findings_ledger`, passed back as `later_inputs.findings_ledger`. The token
+  is HMAC-signed, not encrypted: whoever holds it can read what it carries,
+  with no account. It carries each finding's id; keyed 6- to 16-hex digests
+  of the account, the research target, the checked draft, the running
+  versions, and each finding's rule, words, cited identifiers and the lines it
+  was about; each finding's kind, stop rule, disposition, the part of the
+  check that found it, and the revisions it was first and last found in; the
+  ledger's sequence and revision numbers, the most open findings a ledger of
+  the research has had to leave out, and the time it was issued; and, for a
+  finding still disputed, the writer's reason (at most 300 characters, which
+  the reader is shown anyway), or, when that reason is no longer at hand, its
+  keyed 16-hex digest. It carries no words of the answer or of the findings,
+  at most 24,000 characters, and at most 256 KiB once inflated. The server
+  process keeps in memory only, for two hours at most and at most 2,000
+  ledgers, the last ledger it issued for each account and research target,
+  keyed by the account's and target's digests: the same digests, numbers and
+  dispositions as the token, with each dispute reason's keyed digest in place
+  of its words, and 16-hex digests of that token, the token it was issued
+  from, and the request that issued it. It keeps no words of the answer, the
+  findings or the reasons, and no token. An expired ledger is swept at the
+  next call or by a timer; none survives a restart. A dispute survives a
+  ledger left out; its reason is shown again only from a verified ledger
+  passed back whose reason has the digest kept, so an older ledger never
+  brings back a reason since replaced.
 - The MCP `scout_gemini_youtube_candidates` tool runs the same de-identified,
   population-level scout as the controlled Action route, applying the same
   screen: a target with first-person words, contact details, links, keys or
