@@ -76,7 +76,8 @@ import {
 } from "./study-map.js";
 import type { SecondReaderFinding, SecondReaderKind } from "./second-reader.js";
 import {
-  checkFindingsSchema, findingsLedger, type FindingChecker, type ObservedFinding, type RememberedLedger
+  checkFindingsSchema, findingsLedger, type FindingChecker, type FindingsLedgerParams, type FindingsLedgerResult,
+  type ObservedFinding, type RememberedLedger
 } from "./findings-ledger.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
 import {
@@ -1906,10 +1907,11 @@ export interface FinalizeResearchOptions {
    * Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026; ASKRIGOR_FINDINGS_LEDGER=on): every problem this check reports
    * becomes a record with an id and a disposition in check_findings, and a signed findings_ledger carries them to the
    * next call. `account` is the research account's key the ledger is bound to (none for a caller without one);
-   * `remembered` is the ledger the server last issued for this account and research target, read once per tool call.
-   * It changes nothing the check finds, stops or holds.
+   * `remembered` is the ledger the server last issued for this account and research target. With `deferred`, the
+   * caller gives notes of its own after the check, and builds the ledger itself, once they are all given, with
+   * settleFindingsLedger (Codex's review of 17 Nov 2026, finding 7). It changes nothing the check finds, stops or holds.
    */
-  findingsLedger?: { account?: string | undefined; remembered?: RememberedLedger | undefined };
+  findingsLedger?: { account?: string | undefined; remembered?: RememberedLedger | undefined; deferred?: boolean };
 }
 
 // The owner's words (2026-10-15), many users' reports and the owner's own
@@ -4791,8 +4793,8 @@ export function finalizeResearch(
     mapOffered = false;
   }
   // Stage 1 of enforcing HRP (design-v2 of 17 Nov 2026): every problem found, admitted as a step or given as a note,
-  // matched with the ledger the call passed back, with its id and disposition. It records; it changes nothing above.
-  const ledger = options.findingsLedger === undefined ? undefined : (() => {
+  // for the ledger, which is built once every note is given (settleFindingsLedger). It records; it changes nothing.
+  const ledgerSource = options.findingsLedger === undefined ? undefined : (() => {
     const admitted = new Set(observedSteps.map(({ text }) => text));
     const observed: ObservedFinding[] = [...observedSteps, ...notes.filter((note) => !admitted.has(note))
       .map((note) => ({ text: note, ...(repeatedNotes.has(note) ? { call: true } : {}),
@@ -4812,7 +4814,7 @@ export function finalizeResearch(
         ? ["backing_lines" as const] : []),
       ...(passed && draft !== undefined && studyMap !== undefined && options.studyMapLookup?.done === true &&
         options.studyMapLookup.studies.every(({ reason }) => !cutShort(reason)) ? ["study_map" as const] : [])];
-    return findingsLedger({
+    return {
       secret: options.secret!,
       account: options.findingsLedger!.account,
       target: input.research_target,
@@ -4821,11 +4823,9 @@ export function finalizeResearch(
       observed,
       draft,
       coverage,
-      remembered: options.findingsLedger!.remembered,
       now: options.now?.() ?? new Date()
-    });
+    } satisfies FindingsLedgerSource;
   })();
-  for (const note of ledger?.notes ?? []) if (!notes.includes(note)) notes.push(note);
   // 5 Nov 2026: a note an earlier check of this turn gave is not given again (runs removed a study to quiet a note
   // their drafts already met in their own words); a note whose words changed is new. A token without turn_notes, or
   // from an earlier turn, repeats nothing.
@@ -4879,10 +4879,6 @@ export function finalizeResearch(
       notes: judgeNotes.length
     } })
   };
-  if (ledger !== undefined) {
-    output.check_findings = ledger.checkFindings;
-    if (ledger.token !== undefined) output.findings_ledger = ledger.token;
-  }
   output.round = { number: checkRound.round, limit: CHECK_ROUND_LIMIT };
   if (status === "ready") output.check_line = CHECK_LINE + (callerReads ? CALLER_READINGS_CHECK_LINE : "");
   else if (status === "ready_with_limits") {
@@ -5060,6 +5056,13 @@ export function finalizeResearch(
   if (passed && backingLines.length > 0 && options.backingLookups === undefined) {
     BACKING_REQUESTS.set(parsedOutput, { lines: backingLines, requests: backingRequests });
   }
+  // Stage 1 of enforcing HRP: the ledger is built here unless the caller gives notes of its own after the check.
+  if (ledgerSource !== undefined) {
+    FINDINGS_LEDGER_SOURCES.set(parsedOutput, ledgerSource);
+    if (options.findingsLedger!.deferred !== true) {
+      settleFindingsLedger(parsedOutput, { remembered: options.findingsLedger!.remembered });
+    }
+  }
   // Owner answer 221: what the meaning judge may read of a passing check with a draft, for the tool's dev accounts.
   if (passed && draft !== undefined) {
     MEANING_JUDGE_SOURCES.set(parsedOutput, {
@@ -5126,6 +5129,40 @@ export const RESEARCH_BEHIND_NOTE ="The Atlas shows the research behind each fin
   "(only when studies measured it the way the reports did), support_not_located or outcome_mismatch, with " +
   "studies_measured for outcome_mismatch}. A finding may rest on its forum_signal alone, with no sources, when the " +
   "reports agree. Then check the answer again.";
+
+/** What the findings ledger of a check is built from, but for the notes its caller gives after it. */
+type FindingsLedgerSource = Omit<FindingsLedgerParams, "remembered" | "coverage" | "observed"> &
+  { observed: readonly ObservedFinding[]; coverage: readonly FindingChecker[] };
+// Stage 1 of enforcing HRP: what each check's findings ledger is built from, by the result it returned.
+const FINDINGS_LEDGER_SOURCES = new WeakMap<FinalizeResearchOutput, FindingsLedgerSource>();
+
+/**
+ * Enforcing HRP, stage 1 (Codex's review of 17 Nov 2026, finding 7): the one place a check's findings ledger is built,
+ * once every note of the call is given. The check's own steps and notes, and `late`, the notes its caller gave after it
+ * (the review of the draft, a kept card or dossier, what the call left to its caller), each with the part of the
+ * check it came from, are matched with the ledger passed back or `remembered`; `coverage` adds the parts the caller
+ * ran in full. It sets check_findings, findings_ledger and the ledger's notes on the result, and returns the ledger;
+ * nothing for a result whose check kept none.
+ */
+export function settleFindingsLedger(result: FinalizeResearchOutput, settle: {
+  late?: readonly ObservedFinding[]; coverage?: readonly FindingChecker[]; remembered?: RememberedLedger | undefined;
+}): FindingsLedgerResult | undefined {
+  const source = FINDINGS_LEDGER_SOURCES.get(result);
+  if (source === undefined) return undefined;
+  const ledger = findingsLedger({
+    ...source,
+    observed: [...source.observed, ...settle.late ?? []],
+    coverage: [...source.coverage, ...settle.coverage ?? []],
+    remembered: settle.remembered
+  });
+  result.check_findings = ledger.checkFindings;
+  if (ledger.token === undefined) delete result.findings_ledger;
+  else result.findings_ledger = ledger.token;
+  const notes = [...result.notes ?? []];
+  for (const note of ledger.notes) if (!notes.includes(note)) notes.push(note);
+  if (notes.length > 0) result.notes = notes;
+  return ledger;
+}
 
 // What a passing check gives the meaning judge, by the result it returned; nothing else reads it, and it goes with the
 // result object.

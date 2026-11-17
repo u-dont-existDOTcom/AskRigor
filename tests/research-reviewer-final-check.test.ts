@@ -12,6 +12,7 @@ import {
 } from "@askrigor/evidence-repository";
 
 import { PASSING_NOTES_HEADING } from "../apps/research-mcp/src/final-check-messages.js";
+import { createFindingsLedgerMemory, type CheckFindings } from "../apps/research-mcp/src/findings-ledger.js";
 import { finalCheckAsked, laterInputNames } from "../apps/research-mcp/src/later-inputs.js";
 import { registerTools, type RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
 import {
@@ -268,6 +269,34 @@ describe("AskRigor's own review at the final check (owner answer 301a)", () => {
     const result = await pending;
     expect(notesOf(result).at(-1)).toContain("AskRigor's own review of this draft (advice");
     expect(memory.seen).toHaveLength(1);
+  });
+});
+
+// Codex's review of 17 Nov 2026, finding 7: the review's note, given after the check's own passes, is a finding of the
+// findings ledger like the check's own notes, with an id and a disposition, and not fixed by a review that did not run.
+describe("the review's note in the findings ledger (enforcing HRP, stage 1)", () => {
+  it("is admitted with the check's own findings, and stays not rechecked when the next review does not run", async () => {
+    const service = await accounts();
+    const memory = createFindingsLedgerMemory();
+    const findingsOf = (result: Result) => result.structuredContent?.check_findings as CheckFindings | undefined;
+    const reviewed = tool("finalize_research", { researchContributorAccessService: service, findingsLedger: true,
+      findingsLedgerMemory: memory, researchReviewer: memoryReviewer().reviewer });
+    const first = await reviewed(request());
+    expect(first.structuredContent?.status).toBe("ready_with_limits");
+    const note = answerReviewNote({ reviewing: { status: "reviewed", review: { gaps: GAPS, searches: 2 } } })!;
+    expect(notesOf(first)).toContain(note);
+    const finding = findingsOf(first)!.findings.find(({ text: words }) => words === note);
+    expect(finding).toMatchObject({ disposition: "open", reader: true });
+    expect(text(first)).toContain(`- ${finding!.id} (note; open): `);
+    // The same draft, the review failing: its note isn't fixed, it wasn't looked for.
+    const failing = tool("finalize_research", { researchContributorAccessService: service, findingsLedger: true,
+      findingsLedgerMemory: memory, researchReviewer: memoryReviewer(() => ({ status: "skipped", reason: "error" })).reviewer });
+    const later = (result: Result) => ({ ...request(), later_inputs: {
+      ...(request().later_inputs as Record<string, unknown> | undefined), findings_ledger: result.structuredContent?.findings_ledger } });
+    const second = await failing(later(first));
+    expect(findingsOf(second)!.findings).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: finding!.id, disposition: "not_rechecked" })]));
+    expect(notesOf(second).join(" ")).toContain(`${finding!.id} was not checked again: AskRigor's review of the draft`);
   });
 });
 

@@ -18,7 +18,7 @@ import { createHash } from "node:crypto";
 import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
 import {
   findingsLedgerEnabledFromEnv, findingsLedgerGuidance, findingsLedgerMemory, findingsLedgerMemoryKey, laterInputValue,
-  type FindingsLedgerMemory
+  type FindingChecker, type FindingsLedgerMemory, type ObservedFinding
 } from "./findings-ledger.js";
 import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./meaning-judge.js";
 import { researchPlannerFromEnv, type ResearchPlanner } from "./research-planner.js";
@@ -312,6 +312,7 @@ import {
   sourceLineRequestsOf,
   studyMapRequestsOf,
   backingRequestsOf,
+  settleFindingsLedger,
   shortLookupDeclared,
   type FinalizeResearchOptions,
   type FinalizeResearchOutput
@@ -2641,6 +2642,16 @@ function defineResearchOperations(
       const ledgerKey = (options.findingsLedger ?? findingsLedgerEnabledFromEnv()) && secret !== undefined &&
         checkedInput !== undefined ? findingsLedgerMemoryKey(secret, researcher?.accountKey, checkedInput.research_target)
         : undefined;
+      const rememberedLedger = ledgerKey === undefined ? undefined : ledgerMemory.get(ledgerKey);
+      // Codex's review of 17 Nov 2026, finding 7: the notes this tool gives after the check's own passes are findings of
+      // the ledger as the check's are, each with the part of the check it came from; the ledger is built once they are
+      // all given. With the ledger off, a note is given as before and nothing else is kept.
+      const lateFindings: ObservedFinding[] = [];
+      const lateCoverage: FindingChecker[] = [];
+      const addLateNote = (note: string, finding: Omit<ObservedFinding, "text">): void => {
+        result.notes = [...(result.notes ?? []), note];
+        if (ledgerKey !== undefined) lateFindings.push({ text: note, ...finding });
+      };
       // Owner answer 301a: for the owner's dev accounts, AskRigor's own review of the draft, once per call whatever the
       // check's status. It starts as soon as its inputs are known, so it runs while the check's other lookups wait, and
       // is awaited before the result is returned. Advice only: it adds one note and changes nothing else of the result.
@@ -2679,7 +2690,7 @@ function defineResearchOperations(
         ...(readsOnMobile(extra._meta) ? { mobileClient: true } : {}),
         ...(options.toolListVersion === undefined ? {} : { toolListVersion: options.toolListVersion }),
         ...(ledgerKey === undefined ? {} : { findingsLedger: { account: researcher?.accountKey,
-          remembered: ledgerMemory.get(ledgerKey) } }),
+          remembered: rememberedLedger, deferred: true } }),
         ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) }),
         // Owner answer 190a: every active research account's plain answer, registered before research, is compared
         // with the answer, on the MCP connector only.
@@ -2865,7 +2876,7 @@ function defineResearchOperations(
         if (kept?.status === "kept") {
           keptCardId = kept.card_id;
           result.findings_card.saved = { status: "not_saved", reason: KEPT_FOR_REVIEW };
-          result.notes = [...(result.notes ?? []), unsavedCardNote(kept.card_id)];
+          addLateNote(unsavedCardNote(kept.card_id), { checker: "call", call: true });
         }
       }
       // Owner answer 143a: a free answer whose research map was filed ends by saying what was saved, the card's id
@@ -2935,7 +2946,7 @@ function defineResearchOperations(
         { disposition: { status: "unconfirmed", reason: "not_confirmed_in_time" } } as ResearchDossierSaveOutcome);
         if (outcome !== undefined) {
           if (outcome.disposition !== undefined) result.research_dossier = outcome.disposition;
-          if (outcome.note !== undefined) result.notes = [...(result.notes ?? []), outcome.note];
+          if (outcome.note !== undefined) addLateNote(outcome.note, { checker: "call", call: true });
           const line = outcome.disposition === undefined ? undefined : researchDossierLine(outcome.disposition);
           if (line !== undefined && result.finalization_receipt !== undefined) {
             result.saved_line = result.saved_line === undefined ? line : `${result.saved_line} ${line}`;
@@ -2947,13 +2958,23 @@ function defineResearchOperations(
       // Owner answer 301a: the review's one note, after every other part of the result is settled, so no later pass of
       // the check can drop it and nothing else of the result depends on it.
       if (reviewing !== undefined) {
-        const reviewNote = answerReviewNote(await reviewing);
-        if (reviewNote !== undefined) result.notes = [...(result.notes ?? []), reviewNote];
+        const review = await reviewing;
+        const reviewNote = answerReviewNote(review);
+        // Only a review that ran looked for what an earlier one found; only its gaps are about the answer.
+        if (review.reviewing.status === "reviewed") lateCoverage.push("review");
+        if (reviewNote !== undefined) {
+          addLateNote(reviewNote, review.reviewing.status === "reviewed" && review.reviewing.review.gaps.length > 0
+            ? { checker: "review" } : { checker: "review", call: true });
+        }
       }
       // Owner answer 310a: what a call that leaves the AI readings to its caller did not get from the server, and a
       // value that was not read as that.
-      if (callerReads) result.notes = [...(result.notes ?? []), CALLER_READINGS_NOTE];
-      if (aiReadings.note !== undefined) result.notes = [...(result.notes ?? []), aiReadings.note];
+      if (callerReads) addLateNote(CALLER_READINGS_NOTE, { checker: "call", call: true });
+      if (aiReadings.note !== undefined) addLateNote(aiReadings.note, { checker: "call", call: true });
+      // Enforcing HRP, stage 1: the findings ledger, built once, now that every note of the call is given.
+      if (ledgerKey !== undefined) {
+        settleFindingsLedger(result, { late: lateFindings, coverage: lateCoverage, remembered: rememberedLedger });
+      }
       const card = result.findings_card;
       const analyses = result.analyses_saved;
       const passing = result.status === "ready" || result.status === "ready_with_limits";
