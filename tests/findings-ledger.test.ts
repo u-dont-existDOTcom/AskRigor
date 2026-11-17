@@ -566,7 +566,7 @@ describe("the review of 17 Nov 2026", () => {
     expect(sixth).toContain("plain_answer_comparison missing, or leaving out a claim");
     expect(sixth).toContain("a change the research doesn't back is a note, not a stop");
     expect(WHAT_STOPS_TEXT).toContain(sixth);
-    expect(WHAT_STOPS_TEXT.length).toBeLessThan(1_200);
+    expect(WHAT_STOPS_TEXT.length).toBeLessThan(1_300);
   });
 });
 
@@ -1087,13 +1087,13 @@ describe("the panel", () => {
 describe("what can stop an answer, said up front", () => {
   it("names only the six whole-answer stops that exist today, each in its scope", () => {
     expect(WHAT_STOPS.map(({ rule: name }) => name)).toEqual([...FINAL_CHECK_BLOCKING_RULES]);
-    expect(WHAT_STOPS_TEXT).toContain("Six checks stop the whole answer");
+    expect(WHAT_STOPS_TEXT).toContain("six checks stop the whole answer");
     for (const { scope } of WHAT_STOPS) expect(WHAT_STOPS_TEXT).toContain(scope);
     expect(WHAT_STOPS_TEXT).toContain("Nothing else stops it");
     // Claim holds wait for the owner's answer on how they fit with the six stops.
     expect(WHAT_STOPS_TEXT).not.toMatch(/\bhold/u);
     expect(whatStops()).toEqual({ text: WHAT_STOPS_TEXT, stops: WHAT_STOPS.map((stop) => ({ ...stop })) });
-    expect(WHAT_STOPS_TEXT.length).toBeLessThan(1_200);
+    expect(WHAT_STOPS_TEXT.length).toBeLessThan(1_300);
   });
 });
 
@@ -1238,5 +1238,25 @@ describe("before switching on (Fable's check of 17 Nov 2026)", () => {
       .toContain("Checks that did not run: the meaning judge and AskRigor's review of the draft.");
     expect(render({ status: "not_ready", check_findings: { ledger: "new", revision: 1, findings: [],
       not_run: ["the meaning judge"] } }).textContent).not.toContain("did not run");
+  });
+
+  it("3: says up front exactly what stops an answer: a call it can't check, and the six checks as the code applies them", () => {
+    const scope = (name: string) => WHAT_STOPS.find(({ rule: stop }) => stop === name)!.scope;
+    // A call without a usable draft is not checked, and its answer is not ready.
+    const blank = finalizeResearch({ ...fixture(), answer_draft: "   " }, options(WARNING));
+    expect(blank).toMatchObject({ status: "not_ready", next_step_kinds: ["input_invalid"] });
+    expect(WHAT_STOPS_TEXT).toContain("Without a usable answer_draft and research_target the check doesn't run");
+    // A key study the answer doesn't link stops it, under source_provenance.
+    const unlinked = finalizeResearch(fixture(WARNING, { answer_draft: "[Texte lu] Étude.\n\n" +
+      communitySkipCaveat("Synthetic fixture isolates the findings ledger.") }), options(WARNING));
+    expect(unlinked.status).toBe("not_ready");
+    expect(unlinked.check_findings!.findings).toEqual(expect.arrayContaining([expect.objectContaining({
+      stop: "source_provenance", text: expect.stringContaining("has no link in the answer") })]));
+    expect(scope("source_provenance")).toContain("not linked in the answer");
+    // Either group's figure missing from the quote stops it, not only both.
+    expect(WHAT_STOPS_TEXT).not.toContain("lacks both groups' figures");
+    expect(scope("numbers")).toContain("lacks either group's figure, that number or its follow-up");
+    expect(WHAT_STOPS_TEXT).toContain("Nothing else stops it");
+    expect(WHAT_STOPS.map(({ rule: name }) => name)).toEqual([...FINAL_CHECK_BLOCKING_RULES]);
   });
 });

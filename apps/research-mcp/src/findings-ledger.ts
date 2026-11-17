@@ -990,24 +990,29 @@ export function findingsLedgerGuidance(checkFindings: CheckFindings | undefined,
  * answers how they fit with these stops (owner question 1 of 17 Nov 2026; a question pauses the work that depends on it).
  */
 export const WHAT_STOPS = Object.freeze([
-  { rule: "source_provenance", scope: "a key source with no AskRigor receipt for this research, or a link that leads elsewhere" },
-  { rule: "read_depth", scope: "a declared reading deeper than the receipts show, or a cited key source without the " +
-    "answer's words on how it was read" },
-  { rule: "numbers", scope: "a declared yes-or-no result whose arithmetic fails or whose sentence lacks both groups' figures" },
-  { rule: "harm_screen", scope: "listed safety statements with no serious harm named as searched" },
-  { rule: "retractions", scope: "a statement taken back that still appears anywhere in the answer" },
+  // Fable's check of 17 Nov 2026: each scope as research-finalization-gate.ts applies the rule (addBlockingStep).
+  { rule: "source_provenance", scope: "a key source with no AskRigor receipt from this research, not linked in the " +
+    "answer, or linked to a page no receipt ties to it" },
+  { rule: "read_depth", scope: "a reading in read_depth or source_reading beyond what the receipts show, or a cited key " +
+    "source without the answer's words on how it was read" },
+  { rule: "numbers", scope: "a binary_results entry whose counts or number needed to treat or harm are wrong, or whose " +
+    "quote lacks either group's figure, that number or its follow-up" },
+  { rule: "harm_screen", scope: "safety_claims with no harm searched in harm_screen" },
+  { rule: "retractions", scope: "a statement taken back, in corrections or earlier in this conversation, still in the " +
+    "answer outside the sentence saying what changed" },
   // Codex's review of 17 Nov 2026, finding 8: as the check applies it (research-finalization-gate.ts, owner answers 140b
   // and 217b). With the account's note off, a missing or incomplete comparison is a note; an unbacked change always is.
-  { rule: "plain_answer_comparison", scope: "when the receipt of the plain answer this account registered for this " +
-    "research before researching is among the receipts and the account's plain-answer note is on: " +
-    "plain_answer_comparison missing, or leaving out a claim of that plain answer (a change the research doesn't back " +
-    "is a note, not a stop)" }
+  { rule: "plain_answer_comparison", scope: "when the receipt of the plain answer registered before researching is " +
+    "passed and the account's plain-answer note is on: plain_answer_comparison missing, or leaving out a claim (a " +
+    "change the research doesn't back is a note, not a stop)" }
 ] as const);
-export const WHAT_STOPS_TEXT = "What can stop this answer at finalize_research. Six checks stop the whole answer " +
-  "until it is fixed, each only in its own scope: " +
-  WHAT_STOPS.map(({ scope }, index) => `${index + 1}. ${scope}`).join("; ") + ". Nothing else stops it: everything " +
-  "else the check finds is a note with an id. Fix it, or dispute it in later_inputs.finding_responses with a reason " +
-  "the reader will see. Open and disputed findings are listed to the reader under the checked answer.";
+// Fable's check of 17 Nov 2026: a call whose answer_draft or research_target is missing or unusable is not checked
+// (invalidFinalizeResearchInput), so its answer is not ready either; nothing else stops it.
+export const WHAT_STOPS_TEXT = "What can stop this answer at finalize_research. Without a usable answer_draft and " +
+  "research_target the check doesn't run, and the answer is not ready. Otherwise six checks stop the whole answer " +
+  "until fixed, each only in its scope: " + WHAT_STOPS.map(({ scope }, index) => `${index + 1}. ${scope}`).join("; ") +
+  ". Nothing else stops it: all else is a note with an id. Fix it, or dispute it in later_inputs.finding_responses " +
+  "with a reason; the reader sees open and disputed ones under the answer.";
 export const whatStopsSchema = z.object({
   text: z.string(),
   stops: z.array(z.object({ rule: z.string(), scope: z.string() }).strict())

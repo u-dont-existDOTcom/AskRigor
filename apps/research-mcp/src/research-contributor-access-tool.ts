@@ -423,7 +423,8 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
   // Enforcing HRP, stage 1 (runtime only): what can stop the answer, here as well as in the text.
   what_stops: whatStopsSchema.optional()
     .describe("With plan_research, while AskRigor keeps a findings ledger: the six checks that stop a whole answer, " +
-      "each in its scope; everything else is a note to fix or dispute."),
+      "each in its scope, once the call gives a usable answer_draft and research_target; everything else is a note to " +
+      "fix or dispute."),
 }).strict();
 
 /**
