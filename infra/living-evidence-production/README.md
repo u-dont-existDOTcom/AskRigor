@@ -894,7 +894,10 @@ quick-answer test found only from a challenge mark's stored verdict, whether
 the setting is still on or not. Run the one-shot admin `migrate` before the new
 image serves: it adds the nullable column and replaces `publish_atlas_findings`
 in its own shape, so no grant changes. Held, YouTube-comment and paid private
-findings are unaffected. The recommended value is `enabled`; to turn it off,
+findings are unaffected. A finding whose card doesn't declare, as the final
+check signed, that it names no living person is published kept instead, with
+the reason "waiting for the owner's decision: it may name a living person"
+(`list_kept`), until the owner shows it. The recommended value is `enabled`; to turn it off,
 remove the line and recreate `research-mcp`: findings already shown stay shown
 until the owner keeps them, and their pages still say nothing of the test. An
 earlier image's `migrate` puts back 0021's `publish_atlas_findings`, which

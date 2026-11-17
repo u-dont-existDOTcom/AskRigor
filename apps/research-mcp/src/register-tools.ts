@@ -117,6 +117,7 @@ import {
   MCP_RESULT_MAX_BYTES,
   PUBLIC_TOOL_LIMITS,
   atlasReviewEnabledFromEnv,
+  atlasShowSavedFindingsFromEnv,
   crossrefConfigFromEnv,
   devAccountKeysFromEnv,
   dossierPrivacyReadingFromEnv,
@@ -2665,6 +2666,9 @@ function defineResearchOperations(
           ? "closed" as const
           : account === undefined ? "private" as const : account.mode === "FREE_CONTRIBUTOR" ? "save" as const : "offer" as const,
         ...(callerReads ? { aiReadings: "caller" as const } : {}),
+        // Codex's review of 17 Nov 2026, finding 1: while saved findings show on the pages at once, the receipt signs
+        // which findings declare they name no living person, and only those may show at once.
+        ...(atlasShowSavedFindingsFromEnv() ? { livingPersonCheck: true } : {}),
         ...(readsOnMobile(extra._meta) ? { mobileClient: true } : {}),
         ...(options.toolListVersion === undefined ? {} : { toolListVersion: options.toolListVersion }),
         ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) }),

@@ -635,6 +635,13 @@ depends on the AI declaring truthfully. The receipt from `get_youtube_comments` 
 (`youtube_comments_read`) counts only here: it is no audit, so community evidence is checked as before. An AI that
 leaves the receipt out gets no hold on a finding that declares nothing, as with any receipt left out.
 
+Codex's review of 17 November 2026, finding 1, adds one more declaration and no blocking rule: each finding may say
+whether it names a living person (`names_living_person`, true or false), in the card's later shape. Only while
+`ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS=enabled`, the finalization receipt signs the places of the findings declared false
+(`nlp`), less any the meaning judge reads as naming one (it is asked that only then, in its one call), and a free
+contributor's public card whose findings don't all declare it gets a note asking for it. A finding the receipt doesn't
+sign this way is kept off the Atlas's pages for the owner's decision instead of showing at once.
+
 Owner answer 221 (2 November 2026) adds the meaning judge, for the owner's dev accounts only, and no blocking rule.
 Exact comparisons cannot judge meaning, so once a dev account's check passes, AskRigor makes one Claude API call
 (`apps/research-mcp/src/meaning-judge.ts`; `claude-opus-5-5` at effort low by default, structured JSON output, a fixed

@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createMeaningJudge,
   keyFromSecretFile,
+  MEANING_JUDGE_LIVING_PERSON_OUTPUT_SCHEMA,
+  MEANING_JUDGE_LIVING_PERSON_RUBRIC,
   MEANING_JUDGE_OUTPUT_SCHEMA,
   MEANING_JUDGE_RUBRIC,
   meaningJudgeBundle,
@@ -226,6 +228,42 @@ describe("the meaning judge's call", () => {
     // Its cost from the reply's usage: 4,000 input, 700 output and 3,000 cached tokens at Opus 5.5's prices.
     expect(call.costUsd).toBeCloseTo((4_000 * 4 + 700 * 20 + 3_000 * 0.2) / 1e6, 10);
     expect(call.usage).toEqual({ input: 4_000, output: 700, cacheWrite: 0, cacheRead: 3_000, thinking: 150 });
+  });
+
+  // Codex's review of 17 Nov 2026, finding 1 (P0): while saved findings show at once, the same call also says whether
+  // each finding names a living person; with that setting off the call is exactly as before.
+  it("asks whether each finding names a living person only when the check asks it, in the same call", async () => {
+    expect(bundle()).not.toHaveProperty("living_person_asked");
+    const asked = meaningJudgeBundle({ ...SOURCE, livingPersonAsked: true })!;
+    expect(asked).toEqual({ ...bundle(), living_person_asked: true });
+    const fake = fakeClient(reply({ youtube_comments: [], comparison: [], limits: [], standalone: [],
+      living_person: [{ finding: 1, names_living_person: false, why: "" },
+        { finding: 2, names_living_person: true, why: "It names a researcher." },
+        { finding: 9, names_living_person: true, why: "No such finding." }] }));
+    const { judge: configured } = judge(fake);
+    const call = await configured.judge(asked);
+    expect(fake.requests).toHaveLength(1);
+    expect(fake.requests[0]!.body).toMatchObject({
+      output_config: { format: { type: "json_schema", schema: MEANING_JUDGE_LIVING_PERSON_OUTPUT_SCHEMA } },
+      system: [{ type: "text", text: MEANING_JUDGE_LIVING_PERSON_RUBRIC, cache_control: { type: "ephemeral" } }],
+    });
+    expect(call.judgment).toMatchObject({ status: "ran", livingPerson: [{ finding: 1, names: false, why: "" },
+      { finding: 2, names: true, why: "It names a researcher." }] });
+    // The rubric adds the seventh job and nothing else; the schema adds its answers.
+    expect(MEANING_JUDGE_LIVING_PERSON_RUBRIC).toContain("in the seven jobs below.");
+    expect(MEANING_JUDGE_LIVING_PERSON_RUBRIC).toContain("- living_person_asked: true, as job 7 below is asked.");
+    expect(MEANING_JUDGE_LIVING_PERSON_RUBRIC).toContain("Job 7, living_person. Only when living_person_asked is true");
+    expect(MEANING_JUDGE_LIVING_PERSON_RUBRIC).toMatch(/when you are unsure, answer true\.\n\nEach why is one short sentence/u);
+    expect(MEANING_JUDGE_RUBRIC).not.toContain("living_person");
+    expect(MEANING_JUDGE_LIVING_PERSON_OUTPUT_SCHEMA.required).toEqual([...MEANING_JUDGE_OUTPUT_SCHEMA.required, "living_person"]);
+    expect(MEANING_JUDGE_OUTPUT_SCHEMA.properties).not.toHaveProperty("living_person");
+    // Not asked, a reply's living-person answers count for nothing, and the call is the one it was.
+    const plain = fakeClient(reply({ youtube_comments: [], comparison: [], limits: [], standalone: [],
+      living_person: [{ finding: 2, names_living_person: true, why: "x" }] }));
+    const unasked = await judge(plain).judge.judge(bundle());
+    expect(unasked.judgment).not.toHaveProperty("livingPerson");
+    expect(plain.requests[0]!.body).toMatchObject({ system: [{ text: MEANING_JUDGE_RUBRIC }],
+      output_config: { format: { schema: MEANING_JUDGE_OUTPUT_SCHEMA } } });
   });
 
   it("ignores YouTube judgments when the research read no comments", async () => {

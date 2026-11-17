@@ -574,6 +574,14 @@ export function planCardPublication(input: {
 export const QUICK_ANSWER_TEST_WAITING = "waiting for the quick-answer test (owner answer 240a)";
 
 /**
+ * The kept reason a saved finding carries, while saved findings show at once, when its card doesn't declare, as the
+ * final check's receipt signed, that it names no living person (Codex's review of 17 Nov 2026, finding 1). The owner's
+ * rule: claims about named living people publish only on his explicit decision, so it waits for the owner's
+ * show_on_pages, and the quick-answer test, which reads only its own reason, leaves it alone.
+ */
+export const LIVING_PERSON_WAITING = "waiting for the owner's decision: it may name a living person";
+
+/**
  * The save path's publisher (FindingsSaveService calls it right after a confirmed save, without waiting for it): it
  * withdraws the unreviewed and held publications of the cards the save replaced (a corrected answer's findings, not the
  * replaced ones, are what stays: owner decision Q9), then publishes the card's eligible findings when the save made the
@@ -587,9 +595,12 @@ export const QUICK_ANSWER_TEST_WAITING = "waiting for the quick-answer test (own
  * The owner, 17 Nov 2026 ("show all the findings automatically when they pass quality checks like this one, i
  * shouldn't be reviewing everything"): with showOnPages (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS=enabled), a finding that
  * passed the final check and the publication checks shows on the pages at once, unreviewed, labelled "Not checked by
- * supervisors yet", and nothing is kept. What is held, left out or never published stays so: a finding whose text
- * holds contact details, a card reference or a YouTube link is held, one drawn from YouTube comments is left out, and
- * a paid private or earlier-notice card publishes nothing here (planCardPublication, cardPublicationProblems).
+ * supervisors yet". What is held, left out or never published stays so: a finding whose text holds contact details, a
+ * card reference or a YouTube link is held, one drawn from YouTube comments is left out, and a paid private or
+ * earlier-notice card publishes nothing here (planCardPublication, cardPublicationProblems). Codex's review of 17 Nov
+ * 2026, finding 1 (P0): a finding shows at once only when its card declares that it names no living person and the
+ * final check's receipt signed that (SavedFindingsCard.clearOfLivingPeople); any other is published kept, off every
+ * list, for the owner's decision (LIVING_PERSON_WAITING), kept in the publishing's own write.
  */
 export class AtlasCardPublisher implements FindingsCardPublisher {
   private readonly now: () => Date;
@@ -631,23 +642,33 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
         sourceTitles: await cardSourceTitles(saved.record, this.options.sourceTitles),
       });
       if (plan.problems.length === 0 && plan.drafts.length > 0) {
-        // Codex's review of 17 Nov 2026, finding 4: what the save shows at once is stored as such (migration 0041), so
-        // its page says nothing of the quick-answer test whether the setting is on or later turned off.
+        // Codex's review of 17 Nov 2026, finding 4: what the save publishes under the setting is stored as such
+        // (migration 0041), so its page says nothing of the quick-answer test whether the setting is on or later turned
+        // off. Finding 1: one its card doesn't declare, as the receipt signed, to name no living person is kept for the
+        // owner in the same write.
         const showing = this.options.showOnPages === true;
+        const forOwner = (findingNumber: number) => !saved.clearOfLivingPeople.has(findingNumber) ||
+          saved.record.card.findings[findingNumber - 1]?.names_living_person !== false;
         const rows = await this.options.store.publish({
           cardNumber: saved.issueNumber,
           cardSha256: saved.record.card_sha256,
           findings: showing
-            ? plan.drafts.map((draft) => draft.state === "unreviewed" ? { ...draft, shownBy: "automatic_showing" as const } : draft)
+            ? plan.drafts.map((draft) => draft.state !== "unreviewed" ? draft : {
+                ...draft, shownBy: "automatic_showing" as const,
+                ...(forOwner(draft.findingNumber) ? { keptReason: LIVING_PERSON_WAITING } : {}),
+              })
             : plan.drafts,
           publishedAt: this.now().toISOString(),
           revive: false,
         });
-        const waiting = rows.filter(({ outcome, state }) => outcome === "published" && state === "unreviewed")
+        const waiting = rows.filter(({ outcome, state, findingNumber }) => outcome === "published" &&
+          state === "unreviewed" && (!showing || forOwner(findingNumber)))
           .map(({ publicationNumber }) => publicationNumber);
-        if (waiting.length > 0 && !showing) {
+        if (waiting.length > 0) {
+          // While saved findings show at once, kept already by the publishing itself; kept again here, with the same
+          // reason, in case the store's publishing didn't (one whose function predates migration 0041).
           await this.options.store.keep({ publicationNumbers: waiting, atlasNumbers: [], keep: true,
-            reason: QUICK_ANSWER_TEST_WAITING, at: this.now().toISOString() });
+            reason: showing ? LIVING_PERSON_WAITING : QUICK_ANSWER_TEST_WAITING, at: this.now().toISOString() });
         }
       }
     }

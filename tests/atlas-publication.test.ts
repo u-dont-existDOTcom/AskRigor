@@ -11,6 +11,7 @@ import {
 
 import {
   AtlasCardPublisher,
+  LIVING_PERSON_WAITING,
   QUICK_ANSWER_TEST_WAITING,
   accountPublicationProblems,
   cardPublicationProblems,
@@ -26,10 +27,12 @@ import {
 import {
   findingsCardDigest,
   findingsCardSchema,
+  laterFindingsCardSchema,
   withoutYouTubeData,
   type StoredFinding,
 } from "../apps/research-mcp/src/findings/card.js";
 import { parseMarker } from "../apps/research-mcp/src/findings/github-findings.js";
+import { parseFindingsRecordBody } from "../apps/research-mcp/src/findings/github-findings-review.js";
 import { GitHubFindingsQueue } from "../apps/research-mcp/src/findings/github-findings.js";
 import {
   DEFAULT_FINDINGS_REPOSITORY,
@@ -339,7 +342,8 @@ describe("publishing at the save", () => {
         ...publisher }),
     });
     const save = (card: object, account: FindingsSaveAccount | undefined, thread = "1", receiptClaims: object = {}) => {
-      const parsed = findingsCardSchema.parse(card);
+      // The card as the save reads it, its later shape's declarations included.
+      const parsed = laterFindingsCardSchema.parse(card);
       return service.save({
         findings_card: card,
         contributor: thread.padStart(64, "0"),
@@ -443,7 +447,9 @@ describe("publishing at the save", () => {
     let kept = 0;
     const keep = h.store.keep.bind(h.store);
     h.store.keep = async (input) => { kept += 1; return await keep(input); };
-    await expect(h.save(VELMOR_CARD, FREE)).resolves.toMatchObject({ status: "saved", card_id: "ARF-0042" });
+    // Each finding declares it names no living person, as the receipt signed (Codex's review of 17 Nov 2026, finding 1).
+    const declared = { ...VELMOR_CARD, findings: VELMOR_CARD.findings.map((finding) => ({ ...finding, names_living_person: false })) };
+    await expect(h.save(declared, FREE, "1", { nlp: ["1", "2"] })).resolves.toMatchObject({ status: "saved", card_id: "ARF-0042" });
     await h.service.publicationsSettled();
     expect((await h.store.inspect({})).map(({ publicationNumber, state }) => [publicationNumber, state]))
       .toEqual([["P-1002", "unreviewed"], ["P-1001", "unreviewed"]]);
@@ -457,6 +463,71 @@ describe("publishing at the save", () => {
     await h.store.keep({ publicationNumbers: ["P-1001"], atlasNumbers: [], keep: true, reason: "owner's choice",
       at: NOW.toISOString() });
     expect((await h.store.inspectKept()).map(({ publicationNumber }) => publicationNumber)).toEqual(["P-1001"]);
+  });
+
+  // Codex's review of 17 Nov 2026, finding 1 (P0): with saved findings shown at once, a synthetic claim about a named
+  // living person passed the privacy screen and showed unreviewed. The owner's rule: claims about named living people
+  // publish only on his explicit decision. A finding shows at once only when its card declares that it names no living
+  // person and the final check's receipt signed it so (nlp); any other is kept off the pages for the owner.
+  it("keeps a finding for the owner unless its card declares, as its receipt signed, that it names no living person", async () => {
+    const named = { ...VELMOR_CARD.findings[0]!, claim: "LIVINGPERSON Dr Invented Zentaro, a living cardiologist, " +
+      "said zentarine 20 mg halved the tremor score in 60 of 240 against 36 of 240 on placebo over 12 weeks." };
+    const card = (declared: boolean | undefined) => ({ ...VELMOR_CARD, findings: [
+      { ...named, ...(declared === undefined ? {} : { names_living_person: declared }) },
+      { ...VELMOR_CARD.findings[1]!, names_living_person: false },
+    ] });
+    const outcome = async (cardGiven: object, claims: object, store?: AtlasPublicationStore) => {
+      const h = harness(store, undefined, { showOnPages: true });
+      await expect(h.save(cardGiven, FREE, "1", claims)).resolves.toMatchObject({ status: "saved" });
+      await h.service.publicationsSettled();
+      const kept = new Map((await h.store.inspectKept()).map(({ publicationNumber, reason }) => [publicationNumber, reason]));
+      return (await h.store.inspect({})).sort((left, right) => left.findingNumber - right.findingNumber)
+        .map(({ findingNumber, state, heldBecause, publicationNumber }) =>
+          [findingNumber, state, heldBecause, kept.get(publicationNumber) ?? "shown"]);
+    };
+    const keptFirst = [[1, "unreviewed", null, LIVING_PERSON_WAITING], [2, "unreviewed", null, "shown"]];
+    // No declaration, as an older app's card: kept for the owner.
+    expect(await outcome(card(undefined), { nlp: ["2"] })).toEqual(keptFirst);
+    // Declared to name one: kept.
+    expect(await outcome(card(true), { nlp: ["2"] })).toEqual(keptFirst);
+    // Declared to name none, but the receipt didn't sign it so (the meaning judge read it as naming one): kept.
+    expect(await outcome(card(false), { nlp: ["2"] })).toEqual(keptFirst);
+    // A receipt from before the declaration was signed signs none: both kept.
+    expect(await outcome(card(false), {})).toEqual([[1, "unreviewed", null, LIVING_PERSON_WAITING],
+      [2, "unreviewed", null, LIVING_PERSON_WAITING]]);
+    // A receipt signing a place the card doesn't declare free of living people shows nothing of it.
+    expect(await outcome(card(undefined), { nlp: ["1", "2"] })).toEqual(keptFirst);
+    // Declared to name none and signed so: shown at once.
+    expect(await outcome(card(false), { nlp: ["1", "2"] })).toEqual([[1, "unreviewed", null, "shown"],
+      [2, "unreviewed", null, "shown"]]);
+    // A finding held for its text stays held, as before.
+    const reference = { ...VELMOR_CARD, findings: [{ ...named, why_not_usual: "As ARF-0142 also found." }] };
+    expect(await outcome(reference, {})).toEqual([[1, "held", ["card_reference"], "shown"]]);
+    // Kept in the publishing itself, so a keep that fails afterwards never leaves it shown.
+    const failing = new InMemoryAtlasPublicationStore();
+    failing.keep = async () => { throw new Error("keep failed"); };
+    expect(await outcome(card(undefined), { nlp: ["2"] }, failing)).toEqual(keptFirst);
+  });
+
+  it("keeps a finding's living-person declaration on its stored card, which still reads as the check signed it", async () => {
+    const h = harness(undefined, undefined, { showOnPages: true });
+    const card = { ...VELMOR_CARD, findings: VELMOR_CARD.findings.map((finding) => ({ ...finding, names_living_person: false })) };
+    await h.save(card, FREE, "1", { nlp: ["1", "2"] });
+    await h.service.publicationsSettled();
+    const body = h.github.issue(42).body;
+    const read = parseFindingsRecordBody(body, "card");
+    expect(read).not.toBe("tampered");
+    expect(read !== "tampered" && read?.record.card.findings.map(({ names_living_person: declared }) => declared))
+      .toEqual([false, false]);
+  });
+
+  it("holds nothing for a living person while saved findings wait for the quick-answer test, as before", async () => {
+    const h = harness();
+    await h.save(VELMOR_CARD, FREE);
+    await h.service.publicationsSettled();
+    expect((await h.store.inspect({})).map(({ state, heldBecause }) => [state, heldBecause]))
+      .toEqual([["unreviewed", null], ["unreviewed", null]]);
+    expect((await h.store.inspectKept()).map(({ reason }) => reason)).toEqual([QUICK_ANSWER_TEST_WAITING, QUICK_ANSWER_TEST_WAITING]);
   });
 
   it("still holds what is held, and publishes nothing of a paid private card, while saved findings show", async () => {

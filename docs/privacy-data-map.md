@@ -1168,6 +1168,20 @@ What the model sends, and when:
   digest, which covers the declarations, and the result lists them
   (`findings_card.held`); the save holds those findings apart and stores no
   declaration. The declaration is otherwise request-local, never logged or stored.
+- Codex's review of 17 November 2026, finding 1 (built, not yet released), in
+  the same card's later shape: each finding may say whether it names a living
+  person, or describes one so they could be recognized (`names_living_person`,
+  a boolean). While `ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS=enabled`, the
+  finalization receipt signs the places of the findings declared `false`
+  (`nlp`, 1 for the first), less any the meaning judge, on the owner's dev
+  accounts, reads as naming one: it is asked in the same call, from the card it
+  already reads, and returns only a yes or no and a short reason per finding,
+  which nothing stores. Only those findings show on the Atlas's pages at once;
+  any other is published kept, off every list, with the reason "waiting for the
+  owner's decision: it may name a living person", until the owner shows it. The
+  stored card keeps each finding's declaration as given, as the receipt's card
+  digest covers it; the Atlas never publishes it. With the setting off nothing
+  is signed and the judge isn't asked.
 - Owner answer 252a (5 November 2026; built, not yet released; plan
   `docs/superpowers/plans/2026-11-05-atlas-research-behind.md`), in the same
   card's later shape: for each finding, up to three backing lines (`backing`:

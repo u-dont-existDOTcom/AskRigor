@@ -1346,7 +1346,13 @@ describe("migration 0041", () => {
     // Only an unreviewed draft may say it is shown at once; publishing a withdrawn finding again leaves it as it was.
     expect(migration).toContain("OR (draft_shown_by IS NOT NULL AND (draft_shown_by <> '\"automatic_showing\"'::jsonb OR draft_state <> 'unreviewed'))");
     const revive = migration.slice(migration.indexOf("ELSIF revive_withdrawn"), migration.indexOf("outcomes := outcomes || jsonb_build_object(draft_number::text, 'revived')"));
-    expect(revive).not.toContain("shown_by");
+    expect(revive).not.toMatch(/shown_by|kept_/u);
+    // Finding 1: a finding kept for the owner is kept in the same write, by 0024's columns, only when unreviewed.
+    expect(migration).toContain("held_because, published_at, state_changed_at, shown_by, kept_for_research_at, kept_reason)");
+    expect(migration).toContain("draft_shown_by #>> '{}', CASE WHEN draft_kept IS NULL THEN NULL ELSE publish_time END, draft_kept #>> '{}')");
+    expect(migration).toContain("OR (draft_kept IS NOT NULL AND (jsonb_typeof(draft_kept) <> 'string' OR draft_state <> 'unreviewed'");
+    // No hold reason is added: 0021 replaces its own list on every run, so a new one would stop migrate.
+    expect(migration).not.toContain("atlas_publications_v1_held_check");
     // The pages read it.
     const pages = await read("packages/evidence-repository/src/atlas-pages.ts");
     const columns = pages.slice(pages.indexOf("const PAGE_PUBLICATION_COLUMNS"), pages.indexOf("function publicationsSql"));

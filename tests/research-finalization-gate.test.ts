@@ -18,6 +18,7 @@ import {
 import type { MeaningJudgment } from "../apps/research-mcp/src/meaning-judge.js";
 import {
   finalizeResearch as finalizeResearchUnwrapped,
+  LIVING_PERSON_NOTE,
   meaningJudgeSourceOf,
   MOBILE_NOTICE,
   TOOL_LIST_REFRESH_HINT,
@@ -3761,6 +3762,61 @@ describe("findings card at the final gate", () => {
     expect(meaningJudgeSourceOf(notReady)).toBeUndefined();
     expect(finalizeResearch({ ...READY, findings_card: CARD, answer_draft: undefined },
       { ...options, meaningJudgment: { status: "skipped", reason: "timeout" } })).not.toHaveProperty("meaning_judge");
+  });
+
+  // Codex's review of 17 Nov 2026, finding 1 (P0): while saved findings show at once, the receipt signs which findings
+  // declare they name no living person (nlp), and only those may show at once; the meaning judge's yes overrides it.
+  it("signs which findings declare they name no living person, while saved findings show at once, and asks for it", () => {
+    const clearClaim = signedClaim("nlp");
+    const showing = { ...options, livingPersonCheck: true };
+    const finding = (claim: string, declared?: boolean) => ({ ...CARD.findings[0], claim, sources: ["10.1002/art.41142"],
+      tags: [], draws_on_youtube_comments: false, ...(declared === undefined ? {} : { names_living_person: declared }) });
+    const card = { ...CARD, findings: [
+      finding("Exercise therapy eased pain more than usual care in the audited trials.", false),
+      finding("Exercise therapy has the strongest evidence for hip osteoarthritis.", true),
+      finding("Exercise therapy has the strongest evidence among the options for hip osteoarthritis."),
+    ] };
+    const plain = finalizeResearch({ ...READY, later_inputs: { findings_card: card } }, options);
+    const result = finalizeResearch({ ...READY, later_inputs: { findings_card: card } }, showing);
+    // Nothing of it holds the answer back or changes what is checked.
+    expect(result).toMatchObject({ status: plain.status, next_steps: plain.next_steps, limits: plain.limits,
+      findings_card: plain.findings_card });
+    expect(clearClaim(result.finalization_receipt)).toEqual(["1"]);
+    expect(findingsClaim(result.finalization_receipt)).toBe(findingsCardDigest(laterFindingsCardSchema.parse(card)));
+    // A finding that doesn't declare it is named in a note, which asks for it in each.
+    expect(result.notes).toContainEqual(LIVING_PERSON_NOTE);
+    expect(LIVING_PERSON_NOTE).toBe("AskRigor shows a saved finding on its public Atlas at once only when the finding " +
+      "says it names no living person. Give each finding names_living_person: true when it names a living person or " +
+      "describes one so they could be recognized, false when it names no one living. Send the whole card, with that " +
+      "field in each finding, in later_inputs.findings_card, and check the answer again. A finding that says true, or " +
+      "nothing, waits for AskRigor's owner to decide.");
+    // Every finding declaring it: no note.
+    const declared = { ...card, findings: [card.findings[0], card.findings[1], { ...card.findings[2], names_living_person: false }] };
+    const complete = finalizeResearch({ ...READY, later_inputs: { findings_card: declared } }, showing);
+    expect(clearClaim(complete.finalization_receipt)).toEqual(["1", "3"]);
+    expect(complete.notes ?? []).not.toContainEqual(LIVING_PERSON_NOTE);
+    // The meaning judge, asked only now, reads the first as naming one: its yes overrides the declaration.
+    expect(meaningJudgeSourceOf(complete)).toMatchObject({ livingPersonAsked: true });
+    const judgment: MeaningJudgment = { status: "ran", sourceLines: [], youtube: [], comparison: [], limits: [],
+      standalone: [], significance: [],
+      livingPerson: [{ finding: 1, names: true, why: "It names a researcher." }, { finding: 3, names: false, why: "" }] };
+    const judged = finalizeResearch({ ...READY, later_inputs: { findings_card: declared } },
+      { ...showing, meaningJudgment: judgment });
+    expect(clearClaim(judged.finalization_receipt)).toEqual(["3"]);
+    expect(judged.notes).toContainEqual("The meaning judge reads findings_card.findings[0] as naming a living person " +
+      "(It names a researcher), though it declares names_living_person false, so AskRigor keeps it off its public Atlas " +
+      "until its owner decides. If it does name one, declare it true.");
+    expect(judged).toMatchObject({ status: plain.status, next_steps: plain.next_steps });
+    // With the setting off, as before: nothing signed, no note, and the judge isn't asked.
+    for (const off of [plain, finalizeResearch({ ...READY, later_inputs: { findings_card: declared } },
+      { ...options, meaningJudgment: judgment })]) {
+      expect(clearClaim(off.finalization_receipt)).toBeUndefined();
+      expect((off.notes ?? []).some((note) => note.includes("names_living_person") || note.includes("living person"))).toBe(false);
+    }
+    expect(meaningJudgeSourceOf(plain)).not.toHaveProperty("livingPersonAsked");
+    // A paid private answer, which offers the save, signs which findings declare it, and gets no note.
+    const offered = finalizeResearch({ ...READY, later_inputs: { findings_card: card } }, { ...showing, findings: "offer" as const });
+    expect(offered.notes ?? []).not.toContainEqual(LIVING_PERSON_NOTE);
   });
 
   it("asks a card's findings to declare YouTube comments only once this research read them", () => {

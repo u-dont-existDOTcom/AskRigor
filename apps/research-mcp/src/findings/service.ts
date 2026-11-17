@@ -27,6 +27,7 @@ import {
   isSafeReportedModel,
   isYouTubeVideoId,
   laterFindingsCardSchema,
+  livingPersonClearFromReceipt,
   namedVideosFromReceipt,
   screenFindingsCard,
   screenFindingsText,
@@ -83,6 +84,12 @@ export interface SavedFindingsCard {
   /** The cards of the same research thread this save replaced. */
   replacedCards: number[];
   account: FindingsSaveAccount | undefined;
+  /**
+   * Codex's review of 17 Nov 2026, finding 1 (P0): the stored card's findings, by number from 1, that the final check's
+   * receipt signed as naming no living person (`nlp`) and the card declares so; while saved findings show on the pages
+   * at once, only these may. Empty for a receipt that signed none.
+   */
+  clearOfLivingPeople: ReadonlySet<number>;
 }
 
 /** Publishes a saved card's findings in the Atlas (decision 171, section 4B); the save never waits for it. */
@@ -419,6 +426,11 @@ export class FindingsSaveService {
       // waits for it, and a failure never changes the save's result: the owner retries it with publish_cards. The
       // publisher reads the stored card, so a finding held above is never among them.
       if (publisher !== undefined) {
+        // Codex's review of 17 Nov 2026, finding 1: by the stored card's numbers, the findings the receipt signed, and
+        // the card declares, as naming no living person.
+        const signedClear = livingPersonClearFromReceipt(receipt.claims.nlp, input.findings_card.findings.length);
+        const clearOfLivingPeople = new Set(stored.kept.flatMap((original, at) => signedClear.has(original) &&
+          input.findings_card.findings[original]!.names_living_person === false ? [at + 1] : []));
         this.publishAfterSave(publisher, {
           record,
           issueNumber: queued.issueNumber,
@@ -426,6 +438,7 @@ export class FindingsSaveService {
           setAside: queued.setAside,
           replacedCards: queued.replacedCards,
           account: context.account,
+          clearOfLivingPeople,
         });
       }
       return result({

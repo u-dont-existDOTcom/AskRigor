@@ -11,7 +11,10 @@ and the publication checks shows on the pages at once, unreviewed and labelled "
 ones not kept and not yet in the log (step 6). A pass changes nothing; a headline or a fail goes to `keep_for_research`
 as step 5 says, which takes it off the lists. A finding shown at once is stored as such (migration 0041), so its page
 says what the test found only from a challenge mark's stored verdict, whether the setting is still on or not, since
-being shown that way doesn't mean the test showed it.
+being shown that way doesn't mean the test showed it. A finding whose card doesn't declare, as the final check signed,
+that it names no living person is not shown: the save keeps it with the reason `waiting for the owner's decision: it may
+name a living person` (Codex's review of 17 Nov 2026, finding 1), for the owner alone to show, and the test leaves it
+alone.
 
 ## What runs it
 

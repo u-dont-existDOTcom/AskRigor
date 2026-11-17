@@ -12,7 +12,9 @@ import { significanceMentions } from "./significance-language-lint.js";
  * comparison reports is backed by what it names, whether each limit applies to this answer, whether each finding
  * makes sense on its own to a reader of the public Atlas, and whether each source line's quotes back its claim (owner
  * answer 237a). Jobs 2 to 5 return notes for the AI only; job 1 holds the
- * findings it flags, the safe direction, as a declared one is held (owner answer 219b). It never blocks an answer: a
+ * findings it flags, the safe direction, as a declared one is held (owner answer 219b). While saved findings show on the
+ * pages at once, a seventh job asks whether each finding names a living person, and its yes keeps that finding off the
+ * pages for the owner (Codex's review of 17 Nov 2026, finding 1). It never blocks an answer: a
  * failure, timeout, refusal or reached cap leaves the check as it was, with one note saying the judge did not run.
  *
  * It is off unless ASKRIGOR_MEANING_JUDGE is `on`, with the key read from the file ASKRIGOR_MEANING_JUDGE_KEY_FILE
@@ -120,10 +122,35 @@ Each why is one short sentence of at most 200 characters, in English, quoting at
 commenter's words; only a limit that applies has an empty why, and a limit whose premise you find true applies. Number each item exactly as given. Reply with the JSON
 object the schema asks for.`;
 
+/**
+ * Codex's review of 17 Nov 2026, finding 1 (P0): the judge also says whether each finding names a living person, asked
+ * only while saved findings show on the pages at once (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS), so with that setting off the
+ * judge's call is exactly as before. Its yes keeps the finding off the pages for the owner whatever the card declares.
+ */
+const LIVING_PERSON_JOB = `Job 7, living_person. Only when living_person_asked is true and the card has findings; otherwise return [].
+For each finding, say whether a reader of its public Atlas page would read a claim about a living person who could be
+identified: whether its claim, applies_to, why_not_usual or what_would_change_it names a living person, or describes
+one so they could be recognized, such as a researcher, a doctor, a company's founder, a public figure or someone who
+reported their own experience. A group of people, such as adults with a condition or a trial's participants, is not a
+person, and neither is someone known to have died. AskRigor shows a finding that names a living person only after its
+owner decides, so when you are unsure, answer true.`;
+
+/** The rubric with the living-person job, for a bundle that asks it (living_person_asked). */
+export const MEANING_JUDGE_LIVING_PERSON_RUBRIC = MEANING_JUDGE_RUBRIC
+  .replace("Exact comparisons cannot judge meaning; you do, in the six jobs below.",
+    "Exact comparisons cannot judge meaning; you do, in the seven jobs below.")
+  .replace("Your judgments reach the AI as notes, and for job 1 they also keep a finding private.",
+    "Your judgments reach the AI as notes; for job 1 they also keep a finding private, and for job 7 they keep it off\nthe public pages until AskRigor's owner decides.")
+  .replace("this research read YouTube comments.\n- card:",
+    "this research read YouTube comments.\n- living_person_asked: true, as job 7 below is asked.\n- card:")
+  .replace("\n\nEach why is one short sentence", `\n\n${LIVING_PERSON_JOB}\n\nEach why is one short sentence`);
+
 /** What one check sends to the judge, read from the check's own input and result. */
 export interface MeaningJudgeSource {
   answer: string;
   commentsRead: boolean;
+  /** Ask whether each finding names a living person (job 7): only while saved findings show at once. */
+  livingPersonAsked?: boolean;
   card?: {
     question: string;
     topic?: { label: string } | undefined;
@@ -162,6 +189,8 @@ export interface MeaningJudgeSource {
 export interface MeaningJudgeBundle {
   answer: string;
   comments_read: boolean;
+  /** Present, and true, only when the check asks job 7 (living_person); the bundle is otherwise as before. */
+  living_person_asked?: true;
   card: null | {
     question: string;
     topic: string | null;
@@ -206,6 +235,7 @@ export function meaningJudgeBundle(source: MeaningJudgeSource): MeaningJudgeBund
   return {
     answer: source.answer,
     comments_read: source.commentsRead,
+    ...(source.livingPersonAsked === true ? { living_person_asked: true as const } : {}),
     card: source.card === undefined || findings.length === 0 ? null : {
       question: source.card.question,
       topic: source.card.topic?.label ?? null,
@@ -248,6 +278,18 @@ export const MEANING_JUDGE_OUTPUT_SCHEMA = {
   additionalProperties: false,
 } as const;
 
+/** The output schema with job 7's answers, for a bundle that asks it. */
+export const MEANING_JUDGE_LIVING_PERSON_OUTPUT_SCHEMA = {
+  ...MEANING_JUDGE_OUTPUT_SCHEMA,
+  properties: {
+    ...MEANING_JUDGE_OUTPUT_SCHEMA.properties,
+    living_person: { type: "array", items: { type: "object", properties: {
+      finding: { type: "integer" }, names_living_person: { type: "boolean" }, why,
+    }, required: ["finding", "names_living_person", "why"], additionalProperties: false } },
+  },
+  required: [...MEANING_JUDGE_OUTPUT_SCHEMA.required, "living_person"],
+} as const;
+
 /** Each judgment by the 1-based number of the item it judges, as the bundle numbered it. */
 export interface MeaningJudgmentItems {
   youtube: Array<{ finding: number; rests: boolean; why: string }>;
@@ -256,6 +298,8 @@ export interface MeaningJudgmentItems {
   standalone: Array<{ finding: number; standsAlone: boolean; why: string }>;
   sourceLines: Array<{ line: number; backed: boolean; why: string }>;
   significance: Array<{ occurrence: number; misused: boolean; why: string }>;
+  /** Job 7, only when the bundle asked it: whether each finding names a living person. */
+  livingPerson?: Array<{ finding: number; names: boolean; why: string }>;
 }
 
 export type MeaningJudgeSkipReason = "off" | "daily_budget" | "error" | "timeout" | "refusal" | "unreadable";
@@ -320,6 +364,7 @@ const judgmentSchema = z.object({
   standalone: z.array(z.unknown()),
   source_lines: z.array(z.unknown()).default([]),
   significance_language: z.array(z.unknown()).default([]),
+  living_person: z.array(z.unknown()).default([]),
 });
 
 /**
@@ -375,6 +420,11 @@ export function judgmentItems(reply: unknown, bundle: MeaningJudgeBundle, key = 
     significance: once(parsed.data.significance_language, "occurrence", significance,
       (entry, reason) => typeof entry.misused === "boolean"
         ? { occurrence: entry.occurrence as number, misused: entry.misused, why: reason } : undefined),
+    ...(bundle.living_person_asked !== true ? {} : {
+      livingPerson: once(parsed.data.living_person, "finding", findings, (entry, reason) =>
+        typeof entry.names_living_person === "boolean"
+          ? { finding: entry.finding as number, names: entry.names_living_person, why: reason } : undefined),
+    }),
   };
 }
 
@@ -427,6 +477,8 @@ export function createMeaningJudge(dependencies: MeaningJudgeDependencies = {}):
 
   async function request(bundle: MeaningJudgeBundle): Promise<MeaningJudgeCall> {
     const started = now();
+    // Job 7 only when the bundle asks it, so a call that doesn't is exactly as before.
+    const asked = bundle.living_person_asked === true;
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const fail = (reason: MeaningJudgeSkipReason, costUsd = 0): MeaningJudgeCall => {
@@ -443,9 +495,11 @@ export function createMeaningJudge(dependencies: MeaningJudgeDependencies = {}):
         // The model's thinking is always on; effort is the only control (no thinking or temperature setting).
         output_config: {
           effort: effort as "low" | "medium",
-          format: { type: "json_schema", schema: MEANING_JUDGE_OUTPUT_SCHEMA as unknown as Record<string, unknown> },
+          format: { type: "json_schema", schema: (asked ? MEANING_JUDGE_LIVING_PERSON_OUTPUT_SCHEMA
+            : MEANING_JUDGE_OUTPUT_SCHEMA) as unknown as Record<string, unknown> },
         },
-        system: [{ type: "text", text: MEANING_JUDGE_RUBRIC, cache_control: { type: "ephemeral" } }],
+        system: [{ type: "text", text: asked ? MEANING_JUDGE_LIVING_PERSON_RUBRIC : MEANING_JUDGE_RUBRIC,
+          cache_control: { type: "ephemeral" } }],
         messages: [{ role: "user", content: JSON.stringify(bundle) }],
       }, { signal: controller.signal, timeout: timeoutMs, maxRetries: 0 })), timedOut]);
       const usage = message.usage;

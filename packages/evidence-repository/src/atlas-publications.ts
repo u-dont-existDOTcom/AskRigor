@@ -261,6 +261,12 @@ export interface AtlasPublicationDraft {
    * Left out, as for every draft before it, it reaches them only once the quick-answer test or the owner shows it.
    */
   shownBy?: AtlasPublicationRoute;
+  /**
+   * Codex's review of 17 Nov 2026, finding 1: for an unreviewed draft the save publishes but keeps off the pages for
+   * the owner's decision, the private reason it is kept for, set in the same write as the publication (migration 0041),
+   * so a later write that fails never leaves it shown. 1 to 2,000 characters, with no space at either end.
+   */
+  keptReason?: string;
 }
 
 /**
@@ -523,7 +529,9 @@ function validatePublishInput(input: AtlasPublishInput): AtlasPublicationDraft[]
       accepted !== (draft.atlasNumber !== null) || (draft.atlasNumber !== null && !ATLAS_NUMBER.test(draft.atlasNumber)) ||
       (draft.state === "held") !== (draft.heldBecause !== null) || !validHeldReasons(draft.heldBecause) ||
       (draft.shownBy !== undefined && (!(ATLAS_PUBLICATION_ROUTES as readonly string[]).includes(draft.shownBy) ||
-        draft.state !== "unreviewed"))) {
+        draft.state !== "unreviewed")) ||
+      (draft.keptReason !== undefined && (typeof draft.keptReason !== "string" || draft.keptReason !== draft.keptReason.trim() ||
+        draft.keptReason.length < 1 || draft.keptReason.length > 2_000 || draft.state !== "unreviewed"))) {
       throw invalid();
     }
     const parsed = atlasPublishedFindingSchema.safeParse(draft.published);
@@ -603,6 +611,7 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
       if (existing === undefined) {
         const publicationNumber = `P-${this.nextNumber++}`;
         if (draft.shownBy !== undefined) this.routes.set(publicationNumber, draft.shownBy);
+        if (draft.keptReason !== undefined) this.kept.set(publicationNumber, { reason: draft.keptReason, at });
         this.rows.push({
           publicationNumber,
           cardNumber: input.cardNumber,

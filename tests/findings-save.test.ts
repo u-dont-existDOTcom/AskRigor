@@ -1040,6 +1040,26 @@ describe("finalize_research, save_research_findings and the findings library", (
     expect(calls).toHaveLength(1);
   });
 
+  // Codex's review of 17 Nov 2026, finding 1 (P0): while saved findings show at once, the finalization receipt the save
+  // reads signs the findings that declare they name no living person (nlp); with the setting off it signs none.
+  it("signs the findings that declare they name no living person only while saved findings show at once", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    const declared = { ...CHECKED_CARD, findings: CHECKED_CARD.findings.map((finding) => ({ ...finding, names_living_person: false })) };
+    const signed = async () => {
+      const { calls, findingsSave } = recorder();
+      const finalize = connectorTool("finalize_research", { researchContributorAccessService: service, findingsLibrary: true, findingsSave });
+      const { findings_card: _card, ...rest } = request();
+      await finalize({ ...rest, later_inputs: { findings_card: declared } }, "auth0|free");
+      expect(calls).toHaveLength(1);
+      const receipt = verifyResearchReceipt(calls[0]![0].finalization_receipt as string, { secret: SECRET });
+      return receipt.ok ? receipt.claims.nlp : "unverified";
+    };
+    expect(await signed()).toBeUndefined();
+    vi.stubEnv("ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS", "enabled");
+    expect(await signed()).toEqual(["1"]);
+  });
+
   // Codex's review of 17 Nov 2026, finding 5: a check that did not pass asked for the card, so the turn's note
   // deduplication left the request out of the first pass's notes, and the reminder, reading only the notes shown, said
   // nothing. The request is carried as its own fact and used on the turn's first pass.

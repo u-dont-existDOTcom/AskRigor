@@ -331,6 +331,28 @@ describe("the PostgreSQL publication store", () => {
     await store.publish({ cardNumber: 250, cardSha256: DIGEST_A, findings: [{ ...draft(1), shownBy: "automatic_showing" }],
       publishedAt: AT, revive: false });
     expect(JSON.parse(calls[7]!.values[2] as string)).toEqual([{ ...draft(1), shownBy: "automatic_showing" }]);
+    await store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: AT, revive: false,
+      findings: [{ ...draft(1), shownBy: "automatic_showing", keptReason: "waiting for the owner" }] });
+    expect(JSON.parse(calls[8]!.values[2] as string)).toEqual([{ ...draft(1), shownBy: "automatic_showing",
+      keptReason: "waiting for the owner" }]);
+  });
+
+  // Codex's review of 17 Nov 2026, finding 1: a finding the save keeps for the owner is kept in the publishing's own
+  // write, so a keep that fails afterwards never leaves it shown (migration 0041).
+  it("keeps a draft that carries a kept reason in the same write, only an unreviewed one with a reason that reads", async () => {
+    const store = new InMemoryAtlasPublicationStore();
+    const [kept, shown] = await store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: AT, revive: false,
+      findings: [{ ...draft(1), shownBy: "automatic_showing", keptReason: "waiting for the owner" }, draft(2)] });
+    expect(await store.inspectKept()).toEqual([expect.objectContaining({ publicationNumber: kept!.publicationNumber,
+      state: "unreviewed", reason: "waiting for the owner" })]);
+    expect(store.isKept(shown!.publicationNumber)).toBe(false);
+    for (const keptReason of ["", " padded ", "x".repeat(2_001)]) {
+      await expect(store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: AT, revive: false,
+        findings: [{ ...draft(3), keptReason }] })).rejects.toBeInstanceOf(AtlasPublicationError);
+    }
+    await expect(store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: AT, revive: false,
+      findings: [{ ...draft(3, { state: "held", heldBecause: ["card_reference"] }), keptReason: "waiting" }] }))
+      .rejects.toBeInstanceOf(AtlasPublicationError);
   });
 
   // Codex's review of 17 Nov 2026, finding 4: how a publication reached the pages, stored with it (migration 0041).

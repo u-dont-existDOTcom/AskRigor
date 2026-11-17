@@ -2335,9 +2335,13 @@ describe("findings that challenge the usual view", () => {
   // turned off, and its page said again that a separate AI had tested it. How it reached the pages is stored with it.
   it("reads how a finding reached the pages from its publication, so its page stays true when the setting is off", async () => {
     const { store, source, shown } = await fixture();
-    const record = recordOf(oneFindingCard("SHOWNATONCE zentarine 20 mg cut relapse from 30 of 120 to 18 of 120 in one invented trial."));
+    const given = recordOf(oneFindingCard("SHOWNATONCE zentarine 20 mg cut relapse from 30 of 120 to 18 of 120 in one invented trial."));
+    // Its card declares it names no living person, and the receipt signed that (Codex's review of 17 Nov 2026, finding 1).
+    const record = { ...given, card: { ...given.card, findings: given.card.findings.map((finding) =>
+      ({ ...finding, names_living_person: false })) } };
     await new AtlasCardPublisher({ store: store.publications, now: () => new Date(store.tick()), showOnPages: true })
-      .afterSave({ record, issueNumber: 4400, kind: "created", setAside: false, replacedCards: [], account: FREE });
+      .afterSave({ record, issueNumber: 4400, kind: "created", setAside: false, replacedCards: [], account: FREE,
+        clearOfLivingPeople: new Set([1]) });
     const [atOnce] = await store.publications.inspect({ cardNumbers: [4400] });
     expect(atOnce).toMatchObject({ state: "unreviewed" });
     // The pages run with the setting off: nothing in their options says saved findings show at once.

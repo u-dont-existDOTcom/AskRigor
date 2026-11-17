@@ -428,7 +428,8 @@ export function atlasPagesEnabledFromEnv(
  * drawn from YouTube comments and paid private cards are never published at the save, and the owner's
  * keep_for_research and unpublish work as before. On, a finding the save shows at once is stored as such (migration
  * 0041), so without a challenge mark its page never says a separate AI found that a quick AI answer misses it, even
- * after the setting is turned off.
+ * after the setting is turned off; and a finding shows at once only when its card declares that it names no living
+ * person, as the final check signed, any other being kept for the owner (Codex's review of 17 Nov 2026, finding 1).
  */
 export function atlasShowSavedFindingsFromEnv(
   value = process.env.ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS

@@ -4,12 +4,17 @@ SET search_path TO __SCHEMA__, public;
 -- the save shows a finding on the pages at once, unreviewed, instead of keeping it for AskRigor's research until the
 -- quick-answer test shows it (owner answer 240a). Its page then says nothing of the test, but the pages knew only the
 -- setting, so turning it off made such a page say again that a separate AI had found a quick AI answer misses it. How a
--- publication reached the pages is now stored with it: shown_by is 'automatic_showing' when the save showed it at once,
--- and NULL otherwise, as for every publication before this migration: kept for the quick-answer test until the test
--- (or the owner) showed it, or published by the owner. publish_atlas_findings writes it from a draft's shownBy, which
--- only an unreviewed draft may carry; publishing a withdrawn finding again leaves it as it was. The reader reads the
--- column for the pages. Existing functions keep their shapes. Safe to run again: every migration runs on each start,
--- in one transaction.
+-- publication reached the pages is now stored with it: shown_by is 'automatic_showing' when the save published it under
+-- that setting rather than keeping it for the quick-answer test, so the test never showed it, and NULL otherwise, as
+-- for every publication before this migration: kept for the quick-answer test until the test (or the owner) showed it,
+-- or published by the owner. publish_atlas_findings writes it from a draft's shownBy, which only an unreviewed draft may
+-- carry; publishing a withdrawn finding again leaves it as it was. The reader reads the column for the pages.
+--
+-- Codex's review of 17 Nov 2026, finding 1 (P0): under that setting, a finding whose card doesn't declare, as the final
+-- check signed, that it names no living person is kept off the pages for the owner's decision. So that a keep that
+-- fails after the publishing never leaves it shown, an unreviewed draft may carry keptReason, which
+-- publish_atlas_findings sets as the new row's kept reason in the same write (0024's columns and check). Existing
+-- functions keep their shapes. Safe to run again: every migration runs on each start, in one transaction.
 
 ALTER TABLE atlas_publications ADD COLUMN IF NOT EXISTS shown_by text;
 
@@ -19,13 +24,14 @@ ALTER TABLE atlas_publications ADD CONSTRAINT atlas_publications_v1_shown_by_che
 );
 
 COMMENT ON COLUMN atlas_publications.shown_by IS
-  'How the publication reached the pages: automatic_showing when the save showed it at once (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS), so its page says nothing of the quick-answer test without a challenge mark; NULL when it was kept for the quick-answer test, or published by the owner.';
+  'How the publication reached the pages: automatic_showing when the save published it while saved findings show at once (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS), not kept for the quick-answer test, so its page says nothing of the test without a challenge mark; NULL when it was kept for the quick-answer test, or published by the owner.';
 
 -- Publishes a card's findings: a new row for each finding without one for this card digest, each taking the next
--- public number, with how it reached the pages (shown_by) when its draft gives it. A finding already published is
--- returned as it is, unless revive_withdrawn (the owner's choice of card) finds it withdrawn because its card was set
--- aside or replaced or the owner unpublished it, with its texts still there: then it is published again with the fields
--- given, and its shown_by as it was. Each returned row says which happened. Its shape is migration 0021's.
+-- public number, with how it reached the pages (shown_by) and the reason it is kept off them for the owner when its
+-- draft gives them. A finding already published is returned as it is, unless revive_withdrawn (the owner's choice of
+-- card) finds it withdrawn because its card was set aside or replaced or the owner unpublished it, with its texts still
+-- there: then it is published again with the fields given, and its shown_by and kept reason as they were. Each returned
+-- row says which happened. Its shape is migration 0021's.
 CREATE OR REPLACE FUNCTION publish_atlas_findings(
   target_card_number integer,
   target_card_sha256 text,
@@ -62,6 +68,7 @@ DECLARE
   draft_atlas text;
   draft_held jsonb;
   draft_shown_by jsonb;
+  draft_kept jsonb;
   existing atlas_publications%ROWTYPE;
   outcomes jsonb := '{}'::jsonb;
 BEGIN
@@ -86,11 +93,14 @@ BEGIN
     draft_atlas := draft ->> 'atlasNumber';
     draft_held := NULLIF(draft -> 'heldBecause', 'null'::jsonb);
     draft_shown_by := NULLIF(draft -> 'shownBy', 'null'::jsonb);
+    draft_kept := NULLIF(draft -> 'keptReason', 'null'::jsonb);
     IF outcomes ? draft_number::text
        OR (draft_state IN ('accepted', 'edited')) <> (draft_atlas IS NOT NULL)
        OR (draft_atlas IS NOT NULL AND draft_atlas !~ '^F-[1-9][0-9]{3,}$')
        OR (draft_state = 'held') <> (draft_held IS NOT NULL)
        OR (draft_shown_by IS NOT NULL AND (draft_shown_by <> '"automatic_showing"'::jsonb OR draft_state <> 'unreviewed'))
+       OR (draft_kept IS NOT NULL AND (jsonb_typeof(draft_kept) <> 'string' OR draft_state <> 'unreviewed'
+           OR draft_kept #>> '{}' <> btrim(draft_kept #>> '{}') OR length(draft_kept #>> '{}') NOT BETWEEN 1 AND 2000))
     THEN
       RAISE EXCEPTION 'ATLAS_PUBLICATION_INPUT_INVALID';
     END IF;
@@ -103,11 +113,11 @@ BEGIN
     IF NOT FOUND THEN
       INSERT INTO atlas_publications
         (publication_number, card_number, card_sha256, finding_number, published_json, state, atlas_number,
-         held_because, published_at, state_changed_at, shown_by)
+         held_because, published_at, state_changed_at, shown_by, kept_for_research_at, kept_reason)
       VALUES
         ('P-' || nextval('atlas_publication_number_seq')::text, target_card_number, target_card_sha256,
          draft_number::smallint, draft -> 'published', draft_state, draft_atlas, draft_held, publish_time, publish_time,
-         draft_shown_by #>> '{}')
+         draft_shown_by #>> '{}', CASE WHEN draft_kept IS NULL THEN NULL ELSE publish_time END, draft_kept #>> '{}')
       ON CONFLICT (card_sha256, finding_number) WHERE card_sha256 IS NOT NULL DO NOTHING;
       outcomes := outcomes || jsonb_build_object(draft_number::text, CASE WHEN FOUND THEN 'published' ELSE 'existing' END);
     ELSIF revive_withdrawn AND existing.state = 'withdrawn'
