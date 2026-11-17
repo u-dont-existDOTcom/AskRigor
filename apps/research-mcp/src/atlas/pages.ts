@@ -808,8 +808,8 @@ export function renderAtlasTopic(model: AtlasTopicModel, reader?: AtlasPageReade
     const body = html`<p class="breadcrumbs"><a href="/atlas">Atlas</a> › <a href="/atlas/topics">Topics</a></p>
 <h1>${model.topic.label}</h1>
 <p class="lede">${model.family.intro}</p>
-<p class="notice-line">A cross-topic, AI-prepared research synthesis, not a medical treatment guideline or supervisor-accepted systematic review. Each underlying finding retains its source, certainty and review status.</p>
-${dossiers?.section ?? ""}
+<p class="notice-line">A cross-topic, AI-prepared research synthesis, not a medical treatment guideline or supervisor-accepted systematic review. Each underlying finding retains its source, certainty and review status.</p>${dossiers === undefined ? "" : html`
+${dossiers.section}`}
 ${model.topic.key === "inositol" ? inositolDossierOverview() : ""}
 <nav aria-label="Inositol forms"><p>${joined(model.family.groups.map((group) =>
   html`<a href="#family-${group.key}">${group.heading}</a>`), " · ")}</p></nav>
@@ -832,8 +832,8 @@ ${group.findings.length === 0 ? html`<p class="meta">No separate Atlas finding i
   }
   const body = html`<p class="breadcrumbs"><a href="/atlas">Atlas</a></p>
 <h1>${model.topic.label}</h1>
-<p class="lede">Findings about ${model.topic.label}. Within each part, findings checked by supervisors come first.</p>
-${dossiers?.section ?? ""}
+<p class="lede">Findings about ${model.topic.label}. Within each part, findings checked by supervisors come first.</p>${dossiers === undefined ? "" : html`
+${dossiers.section}`}
 ${topicMap(model)}
 ${model.sections.map((section) => html`<section aria-labelledby="part-${section.id}">
 <h2 id="part-${section.id}">${section.heading}</h2>

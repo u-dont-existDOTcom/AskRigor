@@ -1522,7 +1522,8 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         // page that shows dossiers is kept under the number that moves with any change to them, in this process or
         // another, so a withdrawal or an erasure is never served from a cache. Unread, the page renders afresh.
         let dossierCache = true;
-        if (pageRoute.kind === "topic") {
+        // Only while dossiers show (Codex's re-review of stage 2): otherwise a topic's query is not read, as before.
+        if (pageRoute.kind === "topic" && options.dossiers !== undefined) {
           const page = /^[1-9][0-9]{0,2}$/u.exec(queryOf(request).get("page") ?? "")?.[0];
           if (page !== undefined && page !== "1") {
             pageRoute = { kind: "topic", topicKey: pageRoute.topicKey, page: Number(page) };
