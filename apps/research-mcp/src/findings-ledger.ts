@@ -664,6 +664,7 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     const response = responses.get(entry.id);
     if (response !== undefined) answered.add(entry.id);
     let disposition = entry.d;
+    let reason = entry.w;
     let shown: FindingDisposition | undefined;
     if (!SETTLED.has(entry.d)) {
       const needsDraft = entry.k === undefined || DRAFT_KINDS.has(entry.k);
@@ -673,6 +674,12 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
         shown = "not_rechecked";
         const why = needsDraft && draftDigest === "" ? "draft" : entry.u === undefined ? checker : "items";
         notRechecked.set(why, [...notRechecked.get(why) ?? [], entry.id]);
+        // A dispute is the writer's reply, recorded whether or not the check looked again (Codex's re-review of 17 Nov
+        // 2026, finding 2); a fix or a withdrawal waits for a check that does.
+        if (response?.response === "disputed") {
+          disposition = "disputed";
+          reason = response.reason;
+        }
       } else if (response?.response === "withdrawn") {
         const still = response.passage !== undefined && draft !== undefined &&
           normalized(draft).includes(normalized(response.passage));
@@ -694,11 +701,12 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
       }
     }
     const changed = disposition !== entry.d;
-    entries.push(SETTLED.has(disposition) ? settledEntry({ ...entry, d: disposition }) : { ...entry, d: disposition });
+    entries.push(SETTLED.has(disposition) ? settledEntry({ ...entry, d: disposition })
+      : { ...entry, d: disposition, ...(reason === undefined ? {} : { w: reason }) });
     if (changed || !SETTLED.has(disposition)) {
       findings.push({ id: entry.id, ...(entry.k === undefined ? {} : { kind: entry.k }),
         ...(entry.s === undefined ? {} : { stop: entry.s }), disposition: shown ?? disposition,
-        ...(shown === undefined && disposition === "disputed" && entry.w !== undefined ? { reason: entry.w } : {}),
+        ...(shown === undefined && disposition === "disputed" && reason !== undefined ? { reason } : {}),
         reader: entry.c !== true, first_revision: entry.n, last_revision: entry.l });
     }
   }

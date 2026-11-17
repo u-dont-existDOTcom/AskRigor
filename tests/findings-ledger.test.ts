@@ -599,6 +599,20 @@ describe("the re-review of 17 Nov 2026", () => {
     expect(again.check_findings!.findings).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: bad.id, disposition: "fixed" })]));
   });
+
+  it("2: records a dispute given while the check that found the finding did not run", () => {
+    const first = findingsLedger(params({ observed: [draftNote(WARNING)] }));
+    const id = first.checkFindings.findings[0]!.id;
+    const reason = "The sentence reports a guideline's wording, not a claim of this answer.";
+    // No draft in the call: the finding wasn't looked for again, but the dispute is the writer's, and counts.
+    const skipped = findingsLedger(params({ observed: [], draft: undefined, raw: { later_inputs: {
+      findings_ledger: first.token, finding_responses: [{ id, response: "disputed", reason }] } } }));
+    expect(skipped.checkFindings.findings[0]).toMatchObject({ id, disposition: "not_rechecked" });
+    expect(skipped.notes.join(" ")).not.toContain("not a finding");
+    const again = findingsLedger(params({ observed: [draftNote(WARNING)],
+      raw: { later_inputs: { findings_ledger: skipped.token } } }));
+    expect(again.checkFindings.findings[0]).toMatchObject({ id, disposition: "disputed", reason });
+  });
 });
 
 // The panel's harness, as in final-check-panel.test.ts.
