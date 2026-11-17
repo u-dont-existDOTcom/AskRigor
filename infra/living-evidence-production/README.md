@@ -974,7 +974,17 @@ stops the start with `MIGRATION_SHA256_MISMATCH`. After that `migrate`, an
 image whose 0021 is the old one stops at its own `migrate` with
 `MIGRATION_SHA256_MISMATCH migration=0021_atlas_publications` and changes
 nothing, so the rollback image is the compatibility build below, which takes
-both digests; no other earlier image can serve this database.
+both digests. Any other earlier image is unsupported and unsafe on this
+database: only its `migrate` stops, and HTTP start-up doesn't migrate, so it
+still starts and serves, without this release's hold for a finding that may
+name a living person and with pages that read the setting rather than the
+stored route. Don't run one. The only fallback is the compatibility build:
+branch `claude/server-fixes-compat-20261117` at commit
+`e12e563f689a385e1b3388489883f1c95d586f70`, the image built from that commit.
+It starts, migrates (running nothing again) and serves on a database this
+release migrated, as checked on 17 Nov 2026 against a local PostgreSQL. A rollback
+to it gives up this release's living-person hold for the saves made while it
+runs, as before this release.
 
 This release goes out in this order (Codex's third review of 17 Nov 2026,
 finding 3), so that an image that can serve the database is always there to go

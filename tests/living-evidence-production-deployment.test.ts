@@ -1473,6 +1473,20 @@ describe("migration 0021's admitted edit", () => {
     expect(acceptance).toContain("await verifyLivingPersonHoldMigration({ adminUrl, schema: SCHEMA, checks });");
   });
 
+  // Codex's fourth review of 17 Nov 2026 (P2): HTTP start-up doesn't migrate, so an earlier image still starts and
+  // serves on this release's database; the README says it is unsupported and unsafe, and names the exact fallback.
+  it("says an earlier image still starts but is unsupported and unsafe, and names the compatibility build's commit", async () => {
+    const readme = (await read("infra/living-evidence-production/README.md")).replace(/\s+/gu, " ");
+    expect(readme).not.toContain("no other earlier image can serve this database");
+    expect(readme).toContain("Any other earlier image is unsupported and unsafe on this database: only its `migrate` " +
+      "stops, and HTTP start-up doesn't migrate, so it still starts and serves, without this release's hold for a " +
+      "finding that may name a living person and with pages that read the setting rather than the stored route. Don't " +
+      "run one. The only fallback is the compatibility build: branch `claude/server-fixes-compat-20261117` at commit " +
+      "`e12e563f689a385e1b3388489883f1c95d586f70`, the image built from that commit.");
+    expect(readme).toContain("A rollback to it gives up this release's living-person hold for the saves made while it " +
+      "runs, as before this release.");
+  });
+
   // Codex's re-review of 17 Nov 2026, finding 4: an earlier image reads its pages from the setting, not the route, and
   // with the setting off would say the quick-answer test happened for a finding shown at once.
   it("says how a rollback image's pages stay true about the quick-answer test", async () => {
