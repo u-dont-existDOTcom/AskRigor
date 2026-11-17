@@ -66,7 +66,9 @@ export function inlineFinalCheckAppBundle(bundle: string): string {
 // the findings ledger on, under a passing check one closed line opens the problems the check found that the answer
 // leaves open, each with its id: not fixed, or disputed with the AI's reason. Problems about the call itself are left
 // out; at most 20 are listed. Below it, one line counts the earlier problems this check did not look for again, so the
-// reader sees they were not shown as fixed (Codex's re-review of 17 Nov 2026), even when none is listed above.
+// reader sees they were not shown as fixed (Codex's re-review of 17 Nov 2026), even when none is listed above. A check
+// that did not run (the meaning judge timed out, say) is no problem of the answer: one line names those apart (Fable's
+// check of 17 Nov 2026).
 export const FINAL_CHECK_PANEL_RENDER_SOURCE = String.raw`
 const COMPLETE_CHECKS_TIP = ${JSON.stringify(COMPLETE_CHECKS_TIP)};
 const CHECK_SCOPE = ${JSON.stringify(FINAL_CHECK_PANEL_SCOPE)};
@@ -223,6 +225,13 @@ function renderFinalCheck(doc, structuredContent) {
     if (unchecked > 0) {
       appendText("p", unchecked === 1 ? "1 earlier finding was not checked again."
         : unchecked + " earlier findings were not checked again.");
+    }
+    const notRun = result.check_findings && typeof result.check_findings === "object" &&
+      Array.isArray(result.check_findings.not_run) ? result.check_findings.not_run.filter((name) =>
+        typeof name === "string" && name !== "") : [];
+    if (notRun.length > 0) {
+      appendText("p", "Checks that did not run: " + (notRun.length === 1 ? notRun[0]
+        : notRun.slice(0, -1).join(", ") + " and " + notRun[notRun.length - 1]) + ".");
     }
   }
   if (result.status === "stopped") {

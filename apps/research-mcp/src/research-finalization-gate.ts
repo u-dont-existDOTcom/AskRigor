@@ -2045,6 +2045,8 @@ export function finalizeResearch(
   // part of the check gave each note that only some calls run (by default the rules, which run at every call).
   const observedSteps: ObservedFinding[] = [];
   const noteCheckers = new Map<string, FindingChecker>();
+  // Fable's check of 17 Nov 2026: the notes that say a part of the check did not run, no problem of the answer.
+  const notRunNotes = new Set<string>();
   const checkedBy = (checker: FindingChecker, note: string): string => {
     if (!noteCheckers.has(note)) noteCheckers.set(note, checker);
     return note;
@@ -4811,8 +4813,10 @@ export function finalizeResearch(
   const judgment = options.meaningJudgment;
   if (judgment !== undefined && passed) {
     if (judgment.status === "skipped") {
-      judgeNotes.push(`The meaning judge did not run (${MEANING_JUDGE_SKIP_REASONS[judgment.reason] ?? judgment.reason}); ` +
-        "this check is as it would be without it.");
+      const notRun = `The meaning judge did not run (${MEANING_JUDGE_SKIP_REASONS[judgment.reason] ?? judgment.reason}); ` +
+        "this check is as it would be without it.";
+      judgeNotes.push(notRun);
+      notRunNotes.add(notRun);
     } else {
       // Only an entry the note credits to its work was the judge's question.
       for (const { item, backed, why } of judgment.comparison) {
@@ -4865,6 +4869,7 @@ export function finalizeResearch(
     const observed: ObservedFinding[] = [...observedSteps, ...notes.filter((note) => !admitted.has(note))
       .map((note) => ({ text: note, ...(repeatedNotes.has(note) ? { call: true } : {}),
         ...(noteCheckers.has(note) ? { checker: noteCheckers.get(note)! } : {}),
+        ...(notRunNotes.has(note) ? { notRun: true as const } : {}),
         ...(noteItems.has(note) ? { items: [...noteItems.get(note)!] } : {}),
         ...(notePassages.has(note) ? { passages: notePassages.get(note)! } : {}) }))];
     // Codex's review of 17 Nov 2026, finding 1: the parts of the check that ran in full in this call; an earlier finding

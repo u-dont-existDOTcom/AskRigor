@@ -297,6 +297,10 @@ describe("the review's note in the findings ledger (enforcing HRP, stage 1)", ()
     expect(findingsOf(second)!.findings).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: finding!.id, disposition: "not_rechecked" })]));
     expect(notesOf(second).join(" ")).toContain(`${finding!.id} was not checked again: AskRigor's review of the draft`);
+    // Fable's check of 17 Nov 2026: a review that did not run is named apart for the reader, never as a problem.
+    expect(findingsOf(second)!.not_run).toEqual(["AskRigor's review of the draft"]);
+    expect(findingsOf(second)!.findings.filter(({ text: words }) => words?.includes("did not run")))
+      .toEqual([expect.objectContaining({ reader: false })]);
   });
 });
 

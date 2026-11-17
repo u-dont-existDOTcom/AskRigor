@@ -2958,11 +2958,13 @@ function defineResearchOperations(
       if (reviewing !== undefined) {
         const review = await reviewing;
         const reviewNote = answerReviewNote(review);
-        // Only a review that ran looked for what an earlier one found; only its gaps are about the answer.
+        // Only a review that ran looked for what an earlier one found; only its gaps are about the answer. One that did
+        // not run is named apart for the reader (Fable's check of 17 Nov 2026).
         if (review.reviewing.status === "reviewed") lateCoverage.push("review");
         if (reviewNote !== undefined) {
           addLateNote(reviewNote, review.reviewing.status === "reviewed" && review.reviewing.review.gaps.length > 0
-            ? { checker: "review" } : { checker: "review", call: true });
+            ? { checker: "review" } : { checker: "review", call: true,
+              ...(review.reviewing.status === "reviewed" ? {} : { notRun: true as const }) });
         }
       }
       // Owner answer 310a: what a call that leaves the AI readings to its caller did not get from the server, and a

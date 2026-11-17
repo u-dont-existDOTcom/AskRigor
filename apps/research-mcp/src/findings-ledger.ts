@@ -106,6 +106,11 @@ export interface ObservedFinding {
   call?: boolean;
   /** A finding the writer dismissed through an older input (reader_dismissed), with its reason: disputed, not fixed. */
   disputed?: string;
+  /**
+   * A note that the part of the check that gives it (`checker`) did not run in this call (Fable's check of 17 Nov 2026):
+   * no problem of the answer, so never listed to the reader as one; check_findings.not_run names that part apart.
+   */
+  notRun?: true;
   /** The part of the check that found it; by default the second reading for its kind, else the rules. */
   checker?: FindingChecker;
   /**
@@ -195,7 +200,10 @@ export const checkFindingSchema = z.object({
 export const checkFindingsSchema = z.object({
   ledger: z.enum(FINDINGS_LEDGER_STATES),
   revision: z.number().int().positive(),
-  findings: z.array(checkFindingSchema)
+  findings: z.array(checkFindingSchema),
+  not_run: z.array(z.string()).optional()
+    .describe("The parts of the check that did not run in this call, named for the reader, who sees them apart from " +
+      "the problems the answer leaves open.")
 }).strict();
 export type CheckFindings = z.output<typeof checkFindingsSchema>;
 
@@ -747,7 +755,8 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     } else if (before !== undefined && (draftChanged || before.d === "unresolved" || SETTLED.has(before.d))) {
       disposition = "unresolved";
     }
-    const reader = finding.call !== true && (finding.kind === undefined || !CALL_KINDS.has(finding.kind));
+    const reader = finding.call !== true && finding.notRun !== true &&
+      (finding.kind === undefined || !CALL_KINDS.has(finding.kind));
     const first = before?.n ?? revision;
     const checker = checkerOf(finding);
     // What it is about now, and what it was about before that this call did not look up again (Codex's third review of
@@ -932,8 +941,12 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   }
   notes.push(...retention);
   if (observed.length > 0 || responses.size > 0) notes.push(FINDINGS_LEDGER_NOTE);
+  // Fable's check of 17 Nov 2026: the parts of the check that did not run, named apart for the reader.
+  const notRun = [...new Set(observed.filter(({ notRun: given }) => given === true)
+    .map((finding) => CHECKER_NAMES[checkerOf(finding)]))];
   return {
-    checkFindings: { ledger: state, revision: issued?.payload.rev ?? Math.min(revision, 10_000), findings },
+    checkFindings: { ledger: state, revision: issued?.payload.rev ?? Math.min(revision, 10_000), findings,
+      ...(notRun.length === 0 ? {} : { not_run: notRun }) },
     token: issued?.token,
     notes,
     retention,

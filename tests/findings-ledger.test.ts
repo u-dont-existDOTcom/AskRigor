@@ -1213,4 +1213,30 @@ describe("before switching on (Fable's check of 17 Nov 2026)", () => {
     expect(findingsLedger(params({ observed: [draftNote(WARNING)], turns: undefined, remembered: remembered() }))
       .checkFindings.ledger).toBe("new");
   });
+
+  it("2: shows a check that did not run apart, in one line, never as a problem not fixed", () => {
+    const result = finalizeResearch(fixture(), { ...options(WARNING),
+      meaningJudgment: { status: "skipped", reason: "timeout" } });
+    expect(result.status).toBe("ready_with_limits");
+    // The AI's note stays as it was, with its id.
+    expect(result.notes).toContain("The meaning judge did not run (it timed out); this check is as it would be without it.");
+    const judge = result.check_findings!.findings.find(({ text }) => text?.startsWith("The meaning judge did not run"));
+    expect(judge).toMatchObject({ reader: false });
+    expect(result.check_findings!.not_run).toEqual(["the meaning judge"]);
+    const root = render(result);
+    // The fold of problems the answer leaves open (the AI's notes keep their own fold, as on main).
+    const fold = root.children.find(({ tagName, children }) =>
+      tagName === "details" && children[0]!.textContent.startsWith(OPENING))!;
+    const items = fold.all("li").map(({ textContent }) => textContent);
+    expect(items.filter((text) => text.includes("did not run"))).toEqual([]);
+    expect(items.filter((text) => text.startsWith("Not fixed"))).toHaveLength(1);
+    expect(root.all("p").map(({ textContent }) => textContent)).toContain("Checks that did not run: the meaning judge.");
+    // Two, in one line; none under a check that has not passed.
+    const both = render({ status: "ready", check_findings: { ledger: "new", revision: 1, findings: [],
+      not_run: ["the meaning judge", "AskRigor's review of the draft"] } });
+    expect(both.all("p").map(({ textContent }) => textContent))
+      .toContain("Checks that did not run: the meaning judge and AskRigor's review of the draft.");
+    expect(render({ status: "not_ready", check_findings: { ledger: "new", revision: 1, findings: [],
+      not_run: ["the meaning judge"] } }).textContent).not.toContain("did not run");
+  });
 });
