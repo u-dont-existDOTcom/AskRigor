@@ -26,7 +26,9 @@ import { withSourceReading } from "./helpers/source-reading.js";
 // owner's answer to question 1 of 17 Nov 2026 and are not named.
 
 const SECRET = "findings-ledger-test-secret-0123456789abcdef0123";
-const NOW = new Date("2026-11-17T18:00:00.000Z");
+// The test run's own clock, whole seconds: the fixture's receipt is issued now, and one issued after a fixed check time
+// would not verify (the review run of 17 Nov 2026 began before 18:00 UTC, so a fixed 18:00 passed then and fails after).
+const NOW = new Date(Math.floor(Date.now() / 1_000) * 1_000);
 const finalizeResearch = (input: FinalizeResearchInput & Record<string, unknown>, options: FinalizeResearchOptions) =>
   finalizeResearchUnwrapped(withSourceReading(input, { check: options }), options);
 
