@@ -910,9 +910,9 @@ serves: it adds the nullable columns, replaces `publish_atlas_findings` and
 `/usr/local/bin/provision-research-review-role` is re-run.
 An image from before 0041 read its pages from the setting, not the route, and
 with the setting off would say the quick-answer test happened for a finding
-shown at once; it can't serve this database anyway once this release's 0021
-edit is recorded (below), so a rollback image is this release or a later one,
-whose pages read the route. Held, YouTube-comment and paid private
+shown at once, and its `migrate` stops on this release's 0021 edit (below), so
+this release goes out in the order below, and a rollback goes to the
+compatibility build, whose pages read the route. Held, YouTube-comment and paid private
 findings are unaffected. A finding whose card declares that it names a living
 person, or that the meaning judge read as naming one, is held
 (`living_person_review`), with no page, until the owner decides, whatever the
@@ -948,9 +948,10 @@ owner accepted, or showed by his own action, stays as he decided it, and
 review role gets those two functions. The recommended value is `enabled`; to turn it off,
 remove the line and recreate `research-mcp`: findings already shown stay shown
 until the owner keeps them, and their pages still say nothing of the test. An
-earlier image's `migrate` puts back 0021's `publish_atlas_findings`, which
-leaves `shown_by` empty; this image's next `migrate` replaces it again. Undo no
-migration.
+image from before the compatibility build stops at its own `migrate` and
+changes nothing (below). The compatibility build's `migrate` runs nothing again
+on a database this release migrated, so it puts back none of 0021's or 0024's
+earlier functions. Undo no migration.
 
 Migration 0021 now lists `living_person_review` among the hold reasons, and a
 held finding may carry all six. 0021 replaces that list on every start, so the
@@ -962,8 +963,40 @@ transaction (`ADMITTED_MIGRATION_EDITS` in `postgres.ts`). Any other edit still
 stops the start with `MIGRATION_SHA256_MISMATCH`. After that `migrate`, an
 image whose 0021 is the old one stops at its own `migrate` with
 `MIGRATION_SHA256_MISMATCH migration=0021_atlas_publications` and changes
-nothing, so the rollback image must be one built with this 0021 (this release
-or a later one); an image from before it can't serve this database.
+nothing, so the rollback image is the compatibility build below, which takes
+both digests; no other earlier image can serve this database.
+
+This release goes out in this order (Codex's third review of 17 Nov 2026,
+finding 3), so that an image that can serve the database is always there to go
+back to:
+
+1. The compatibility build first: branch `claude/server-fixes-compat-20261117`,
+   made from `origin/main`. Run its one-shot `migrate`, recreate `research-mcp`
+   with it, and keep that image: from then on it is the rollback image. It
+   changes no behaviour but this. Its `migrate` takes either digest of 0021
+   (`f52a42eb…` as released, `95b5d194…` as this release records it), and on a
+   database a later release migrated it checks the digests it knows and runs
+   nothing again, so the six-reason constraint and 0041's functions stay. It
+   reads all six hold reasons. Its pages read the stored route, and say the
+   quick-answer test happened only for the test's own recorded pass or a
+   challenge mark's verdict.
+2. Then this release, with its migrations: run its one-shot `migrate` (0021's
+   edit and 0041), re-run `/usr/local/bin/provision-research-review-role`
+   inside the PostgreSQL container (it grants
+   `hold_atlas_publications_for_living_person`,
+   `inspect_atlas_living_person_notes` and `show_atlas_publications`), and
+   recreate `research-mcp` with this image, with
+   `ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS`, `ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN`
+   and `ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION` still unset.
+3. Then acceptance: `npm run contributor-access:postgres-acceptance` on this
+   release's commit, and on the server the Atlas home page and a finding's page
+   answering and `list_publications` listing.
+4. Only then the settings: add the ones the owner chose to `runtime.env` and
+   recreate `research-mcp`.
+
+A rollback after step 1 removes those settings and recreates `research-mcp`
+with the compatibility image; its `migrate`, if run, changes nothing. Undo no
+migration.
 
 An image rollback below 0021 needs no drain: the earlier image never reads the
 table, publishes nothing at a save, and has no publication action. Undo no

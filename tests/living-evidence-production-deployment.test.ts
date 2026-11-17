@@ -1412,7 +1412,15 @@ describe("migration 0021's admitted edit", () => {
     }
     const readme = await read("infra/living-evidence-production/README.md");
     expect(readme).toContain("`MIGRATION_SHA256_MISMATCH migration=0021_atlas_publications` and changes\nnothing, so the " +
-      "rollback image must be one built with this 0021");
+      "rollback image is the compatibility build below");
+    // Codex's third review of 17 Nov 2026, finding 3: the release order, in place of "this release or a later one".
+    expect(readme).not.toContain("this release or a later one");
+    const steps = ["1. The compatibility build first: branch `claude/server-fixes-compat-20261117`",
+      "2. Then this release, with its migrations:", "3. Then acceptance:", "4. Only then the settings:"]
+      .map((step) => readme.indexOf(step));
+    expect(steps.every((at) => at > 0)).toBe(true);
+    expect([...steps].sort((left, right) => left - right)).toEqual(steps);
+    expect(readme).toContain("(`f52a42eb…` as released, `95b5d194…` as this release records it)");
     expect(readme).toContain("(`living_person_review`), with no page, until the owner decides, whatever the\nsetting.");
   });
 
@@ -1439,8 +1447,8 @@ describe("migration 0021's admitted edit", () => {
   // with the setting off would say the quick-answer test happened for a finding shown at once.
   it("says how a rollback image's pages stay true about the quick-answer test", async () => {
     const readme = await read("infra/living-evidence-production/README.md");
-    expect(readme).toContain("edit is recorded (below), so a rollback image is this release or a later one,\nwhose " +
-      "pages read the route.");
+    expect(readme).toContain("this release goes out in the order below, and a rollback goes to the\ncompatibility build, " +
+      "whose pages read the route.");
   });
 });
 
