@@ -16,9 +16,14 @@ import type { InMemoryResearchDossierStore } from "./research-dossiers.js";
 export const RESEARCH_DOSSIER_PUBLIC_STATES = ["shown", "held", "superseded", "taken_down", "erased"] as const;
 export type ResearchDossierPublicState = typeof RESEARCH_DOSSIER_PUBLIC_STATES[number];
 
-/** Why a copy waits for AskRigor's check (332a, and the standing rule on named living people); owner_hold is the review's. */
+/**
+ * Why a copy waits for AskRigor's check (332a, and the standing rule on named living people); owner_hold is the
+ * review's. privacy_reading_pending: no semantic privacy reading passed the saved content (Codex's review of stage 2,
+ * finding 1); such a copy never shows.
+ */
 export const RESEARCH_DOSSIER_HOLD_REASONS = [
   "not_high_confidence", "names_living_people", "living_people_undeclared", "important_conflict", "owner_hold",
+  "privacy_reading_pending",
 ] as const;
 export type ResearchDossierHoldReason = typeof RESEARCH_DOSSIER_HOLD_REASONS[number];
 export type ResearchDossierAutoHoldReason = Exclude<ResearchDossierHoldReason, "owner_hold">;
@@ -60,7 +65,10 @@ export interface ResearchDossierPublishInput {
   conflictsWith: readonly string[];
   /** Where the research ran (332a), for the review only. */
   origin: Record<string, unknown>;
-  /** Whether AskRigor's privacy reading read and passed the dossier before it was saved. */
+  /**
+   * Whether AskRigor's semantic privacy reading passed exactly the saved content (its stamp says so); a copy without it
+   * is held for privacy_reading_pending and never shows.
+   */
   privacyRead: boolean;
   at: Date;
 }
@@ -177,6 +185,7 @@ function assertPublishInput(input: ResearchDossierPublishInput): void {
     !HEX_64.test(input.payloadSha256) || (input.state !== "shown" && input.state !== "held") ||
     (input.state === "held") !== (input.holdReasons.length > 0) ||
     !input.holdReasons.every((reason) => reasons.includes(reason)) ||
+    input.holdReasons.includes("privacy_reading_pending") === input.privacyRead ||
     input.conflictsWith.length > 50 || !input.conflictsWith.every((number) => PUBLIC_DOSSIER_NUMBER.test(number)) ||
     !(input.at instanceof Date) || Number.isNaN(input.at.getTime())) {
     throw new ResearchDossierPublicationError("INPUT_INVALID");
@@ -504,7 +513,8 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       (input.decision === "take_down" && copy.state !== "shown" && copy.state !== "held") ||
       (input.decision === "show" && copy.state !== "held" && copy.state !== "taken_down") ||
       (input.decision === "accept" && copy.state !== "shown" && copy.state !== "held" && copy.state !== "taken_down") ||
-      ((input.decision === "show" || input.decision === "accept") && (copy.versionNumber !== newest || (!accepted && closed)));
+      ((input.decision === "show" || input.decision === "accept") && (copy.versionNumber !== newest || (!accepted && closed) ||
+        !copy.privacyRead));
     if (refused) return { outcome: "not_decidable", state: copy.state, accepted };
     const next: ResearchDossierPublicState = input.decision === "hold" ? "held"
       : input.decision === "take_down" ? "taken_down" : "shown";

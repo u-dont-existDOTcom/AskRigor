@@ -1014,32 +1014,10 @@ export async function saveResearchDossier(
   });
   if (checked === undefined) return insufficient(problems, "checks_failed", final);
 
-  const cardNumber = request.cardId === undefined ? null : Number(/^ARF-0*([1-9][0-9]*)$/u.exec(request.cardId)?.[1]);
-  const savedAt = now();
-  const payload = storedResearchDossier(checked, {
-    saved_at: savedAt.toISOString(),
-    askrigor_version: request.versions.askrigor,
-    askrigor_build: request.versions.build,
-    ...(request.versions.hrp === undefined ? {} : { hrp: request.versions.hrp }),
-    ...(request.versions.universal === undefined ? {} : { universal: request.versions.universal }),
-    finalized_at: receipt.issued_at,
-    receipts_checked: receipts.length,
-    checks: ["receipts", "papers", "searches", "arithmetic", "references", "coverage", "forms", "forum_reads",
-      "youtube_comments", "privacy_screen"],
-    not_checked: ["papers_support_claims", "figures_match_papers", "value_judgement"],
-    ...(cardNumber === null || !Number.isSafeInteger(cardNumber) ? {} : { card_number: cardNumber }),
-    ...(receipt.claims.ar === "caller" ? { ai_readings: "caller" } : {}),
-    // Owner answer 332a: where the research ran, the plugin, ChatGPT or the runner; private, never on a page. Recorded
-    // only while public dossiers are on, for their review.
-    ...(publicDossiers ? { origin: researchOrigin(request.surface, checked.input.run, receipt.claims.ar === "caller") } : {}),
-  });
-  const payloadSha256 = researchDossierDigest(payload);
-  const inputSha256 = researchDossierDigest(checked.input);
-  const dossierKey = researchDossierKey(request.secret, account.accountKey, target, checked.input.question);
-  const identifiers = [...new Map([...checked.studies.values()].flatMap(({ identifiers: own }) => own)
-    .map((identifier) => [identifierKey(identifier), identifier])).values()];
   // With the privacy reading on, nothing is saved unread: a refusal is final for the research, as the screen's is, and a
-  // reading that could not be made keeps the dossier unsaved with its reason (Codex's final check).
+  // reading that could not be made keeps the dossier unsaved with its reason (Codex's final check). It reads the checked
+  // input, which the payload below is made from, so its pass can be kept in the saved record.
+  let privacyPassed = false;
   if (request.privacyReading !== undefined) {
     let reading: DossierPrivacyReading;
     try {
@@ -1065,8 +1043,36 @@ export async function saveResearchDossier(
           "make another check solely for it.",
       };
     }
+    privacyPassed = reading.status === "pass";
   }
 
+  const cardNumber = request.cardId === undefined ? null : Number(/^ARF-0*([1-9][0-9]*)$/u.exec(request.cardId)?.[1]);
+  const savedAt = now();
+  const payload = storedResearchDossier(checked, {
+    saved_at: savedAt.toISOString(),
+    askrigor_version: request.versions.askrigor,
+    askrigor_build: request.versions.build,
+    ...(request.versions.hrp === undefined ? {} : { hrp: request.versions.hrp }),
+    ...(request.versions.universal === undefined ? {} : { universal: request.versions.universal }),
+    finalized_at: receipt.issued_at,
+    receipts_checked: receipts.length,
+    checks: ["receipts", "papers", "searches", "arithmetic", "references", "coverage", "forms", "forum_reads",
+      "youtube_comments", "privacy_screen"],
+    not_checked: ["papers_support_claims", "figures_match_papers", "value_judgement"],
+    ...(cardNumber === null || !Number.isSafeInteger(cardNumber) ? {} : { card_number: cardNumber }),
+    ...(receipt.claims.ar === "caller" ? { ai_readings: "caller" } : {}),
+    // Owner answer 332a: where the research ran, the plugin, ChatGPT or the runner; private, never on a page. Recorded
+    // only while public dossiers are on, for their review.
+    ...(publicDossiers ? { origin: researchOrigin(request.surface, checked.input.run, receipt.claims.ar === "caller") } : {}),
+    // Stage 2: the semantic privacy reading passed exactly this content, kept in the saved record itself, so a public
+    // copy reads the pass from what was saved and nothing else (Codex's review of stage 2, finding 1).
+    ...(publicDossiers && privacyPassed ? { privacy_reading: "pass" } : {}),
+  });
+  const payloadSha256 = researchDossierDigest(payload);
+  const inputSha256 = researchDossierDigest(checked.input);
+  const dossierKey = researchDossierKey(request.secret, account.accountKey, target, checked.input.question);
+  const identifiers = [...new Map([...checked.studies.values()].flatMap(({ identifiers: own }) => own)
+    .map((identifier) => [identifierKey(identifier), identifier])).values()];
   // Nothing is written before the append: a store that fails here leaves nothing behind. From the append on, a failure
   // may come after the write landed, so the save is unconfirmed, never unavailable (Codex's review, finding 10).
   let latest: Awaited<ReturnType<ResearchDossierStore["latestVersion"]>>;
@@ -1123,7 +1129,6 @@ export async function saveResearchDossier(
     dossierNumber: appended.dossierNumber,
     stored: read.payload,
     namesLivingPeople: checked.input.names_living_people,
-    privacyRead: request.privacyReading !== undefined,
     origin: (payload.stamp as { origin: Record<string, unknown> }).origin,
     at: savedAt,
   });

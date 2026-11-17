@@ -165,7 +165,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
         topic: { key: "synthetic-topic" } };
       return { accountKey, versionId, topicKey: "synthetic-topic", relatedTopicKeys: ["other-topic"], payload,
         payloadSha256: digest(payload), state, holdReasons: reasons, conflictsWith: [],
-        origin: { surface: "/mcp", run: "chat", readings: "askrigor" }, privacyRead: false, at: AT };
+        origin: { surface: "/mcp", run: "chat", readings: "askrigor" }, privacyRead: true, at: AT };
     };
 
     // No notice covers public dossiers until v7's release adds it: an active v6 account publishes nothing.
@@ -264,6 +264,30 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     assert((await pages.listShown({ publicNumbers: [published.publicNumber], limit: 1 })).length === 1,
       "ACCEPTED_COPY_LEFT_THE_PAGES");
     checks.push("erasure_erases_unaccepted_copies_and_keeps_accepted_ones_without_their_origin");
+
+    // Codex's review, finding 1: no copy shows without a semantic privacy reading that passed its saved content. The
+    // database refuses a shown copy without one, and the review can neither show nor accept a copy held for it.
+    const unread = await account("unread");
+    const u1 = await save(unread.accountKey, "unread", "unread-1");
+    const unreadCopy = copy(unread.accountKey, u1, "unread-1");
+    await expectError(() => access.query(`SELECT * FROM ${SCHEMA}.publish_research_dossier_version($1, $2::uuid, $3,
+      $4::text[], $5::jsonb, $6, 'shown', '{}'::text[], '{}'::text[], $7::jsonb, false, $8::timestamptz)`,
+    [unread.accountKey, u1, unreadCopy.topicKey, [...unreadCopy.relatedTopicKeys], JSON.stringify(unreadCopy.payload),
+      unreadCopy.payloadSha256, JSON.stringify(unreadCopy.origin), AT.toISOString()]),
+    /RESEARCH_DOSSIER_PUBLISH_INPUT_INVALID/u, "SHOWN_WITHOUT_PRIVACY_READING");
+    const pending = await publisher.publish({ ...copy(unread.accountKey, u1, "unread-1", "held", ["privacy_reading_pending"]),
+      privacyRead: false });
+    assert(pending.outcome === "published" && pending.state === "held", "PRIVACY_PENDING_NOT_HELD");
+    for (const decision of ["show", "accept"] as const) {
+      assert((await review.decide({ publicNumber: pending.publicNumber, versionNumber: 1, decision, reason: null,
+        at: AT })).outcome === "not_decidable", `PRIVACY_PENDING_${decision.toUpperCase()}N`);
+    }
+    await expectError(() => admin.query(`UPDATE ${SCHEMA}.research_dossier_public_versions SET state = 'shown',
+      hold_reasons = '{}' WHERE public_number = $1`, [pending.publicNumber]), /check constraint/u,
+    "PRIVACY_PENDING_FORCED_SHOWN");
+    assert((await pages.listShown({ publicNumbers: [pending.publicNumber], limit: 1 })).length === 0,
+      "PRIVACY_PENDING_ON_A_PAGE");
+    checks.push("nothing_shows_without_a_privacy_reading_that_passed_the_saved_content");
 
     // Saving switched off refuses, under the account lock the private append uses.
     const fourth = await account("fourth");

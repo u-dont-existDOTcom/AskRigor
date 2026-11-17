@@ -8,7 +8,7 @@ import {
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
-import { dossierPagePath } from "../findings/dossier-publication.js";
+import { dossierPagePath, holdReasonWords } from "../findings/dossier-publication.js";
 
 /**
  * AskRigor#477, stage 2 (owner answer 332a, 16 November 2026): the research dossiers' public copies, as runtime actions
@@ -112,7 +112,7 @@ function itemOf(row: ResearchDossierPublicationRow, content?: Record<string, unk
 
 const lineOf = (row: ResearchDossierPublicationRow) => `${row.publicNumber} version ${row.versionNumber} ` +
   `(${row.dossierNumber}), ${row.state}${row.accepted ? ", checked by supervisors" : ""}${row.topicKey === null ? ""
-    : `, topic ${row.topicKey}`}${row.holdReasons.length === 0 ? "" : `, held for: ${row.holdReasons.join(", ")}`}${
+    : `, topic ${row.topicKey}`}${row.holdReasons.length === 0 ? "" : `, held for: ${holdReasonWords(row.holdReasons)}`}${
     row.conflictsWith.length === 0 ? "" : `, conflicts with ${row.conflictsWith.join(", ")}`}; researched in ${
     originWords(row.origin)}`;
 
@@ -162,9 +162,9 @@ export class AtlasDossierReview {
     if (decided.outcome === "not_found") return refused(`${request.dossier} has no version ${version}; nothing was changed.`);
     if (decided.outcome === "not_decidable") {
       return refused(`${request.dossier} version ${version} is ${decided.state}${decided.accepted ? " and accepted" : ""}, ` +
-        `so ${request.action} can't apply to it (a copy that isn't its dossier's newest, or whose research was ` +
-        "withdrawn, rejected or deleted, can't be shown or accepted; only an unaccepted shown copy can be held); nothing " +
-        "was changed.");
+        `so ${request.action} can't apply to it (a copy that isn't its dossier's newest, whose research was ` +
+        "withdrawn, rejected or deleted, or that no privacy reading has passed can't be shown or accepted; only an " +
+        "unaccepted shown copy can be held); nothing was changed.");
     }
     const after = (await this.deps.store.inspect(request.dossier)).find(({ versionNumber }) => versionNumber === version);
     return {

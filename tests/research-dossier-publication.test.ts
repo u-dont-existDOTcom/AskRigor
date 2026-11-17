@@ -143,6 +143,8 @@ function dossier(change: (value: Record<string, any>) => void = () => undefined)
   return value;
 }
 
+const PRIVACY_PASS = async () => ({ status: "pass" as const });
+
 let sequence = 0;
 function request(overrides: Partial<ResearchDossierSaveRequest> & { value?: Record<string, any> } = {}):
   ResearchDossierSaveRequest {
@@ -161,6 +163,8 @@ function request(overrides: Partial<ResearchDossierSaveRequest> & { value?: Reco
     secret: SECRET,
     versions: { askrigor: "0.1.0", build: "0123abc", hrp: "20.6.43" },
     surface: "/mcp/claude",
+    // A fake of AskRigor's privacy reading that passes; no model is called in these tests.
+    privacyReading: PRIVACY_PASS,
     now: () => NOW,
     newVersionId: () => deterministicUuid(`dossier-publication-test:${sequence++}`),
     ...rest,
@@ -218,6 +222,57 @@ describe("a saved dossier's public copy (332a: the researching AI's own judgemen
       expect(researchDossierReminder(true)).toContain("names_living_people");
     });
 
+  // Codex's review, finding 1: the deterministic screen passes a living person's treatment and town; only a semantic
+  // privacy reading that passed the exact saved content lets a copy show.
+  it("holds a copy waiting for the privacy reading unless a reading passed exactly what was saved", async () => {
+    const personal = dossier((value) => {
+      value.findings[1].claim = "Zayd Qureshi receives dialysis in Nouakchott and took myo-inositol 2 g a day.";
+    });
+    for (const privacyReading of [undefined, async () => ({ status: "unavailable" as const, reason: "daily_budget" as const })]) {
+      const { dossiers, publications, publication } = stores();
+      const outcome = await saveResearchDossier(dossiers, request({ value: personal, publication, privacyReading }));
+      if (privacyReading !== undefined) {
+        // A reading that could not be made (no money left today) saves nothing, so nothing can be shown either.
+        expect(outcome?.disposition?.status).toBe("unavailable");
+        expect(await publications.list(undefined, 10)).toEqual([]);
+        continue;
+      }
+      expect(outcome?.disposition?.publication).toEqual({ status: "held", public_id: "D-1001",
+        hold_reasons: ["privacy_reading_pending"] });
+      expect(outcome?.note).toBe("Research dossier: saved, and its public copy is held (waiting for the privacy " +
+        "reading): nothing appears on the public Atlas before AskRigor's privacy reading has passed it. Do not change " +
+        "or resend it to get past the check.");
+      expect(researchDossierLine(outcome!.disposition!)).toContain("It is not on AskRigor's public Atlas: a copy " +
+        "written without you is held, since nothing appears there before AskRigor's privacy reading has passed it.");
+      expect(await publications.listShown({ limit: 10 })).toEqual([]);
+      // Neither the owner's show nor accept puts it up without a reading.
+      const review = new AtlasDossierReview({ store: publications, now: () => NOW });
+      expect((await review.run({ action: "show_dossier", dossier: "D-1001" })).ok).toBe(false);
+      expect((await review.run({ action: "accept_dossier", dossier: "D-1001" })).ok).toBe(false);
+      expect(await publications.listShown({ limit: 10 })).toEqual([]);
+      expect((await review.run({ action: "list_dossiers" })).text).toContain("held for: waiting for the privacy reading");
+    }
+    // The pass is read from the saved record itself: a stored dossier without it is held, whatever the caller says.
+    const { dossiers, publications } = stores();
+    const passed = await saveResearchDossier(dossiers, request({ publication: { publisher: publications,
+      noticeCovering: COVERING } }));
+    expect(passed?.disposition?.publication?.status).toBe("shown");
+    const [version] = dossiers.snapshot();
+    const stored = (await dossiers.readVersion(ACCOUNT, version!.versionId))!.payload as Record<string, any>;
+    expect(stored.stamp.privacy_reading).toBe("pass");
+    const unread = structuredClone(stored);
+    delete unread.stamp.privacy_reading;
+    const second = stores();
+    await saveResearchDossier(second.dossiers, request({ value: stage1Dossier() }));
+    const [unpublished] = second.dossiers.snapshot();
+    const { publishResearchDossier } = await import("../apps/research-mcp/src/findings/dossier-publication.js");
+    expect(await publishResearchDossier({ publisher: second.publications, accountKey: ACCOUNT,
+      noticeVersion: RESEARCH_USE_NOTICE_VERSION, noticeCovering: COVERING, versionId: unpublished!.versionId,
+      dossierNumber: unpublished!.dossierNumber, stored: unread, namesLivingPeople: false, privacyRead: true,
+      origin: {}, at: NOW } as never)).toEqual({ status: "held", public_id: "D-1001",
+      hold_reasons: ["privacy_reading_pending"] });
+  });
+
   it("publishes nothing without a publisher, and nothing for a notice that does not cover public dossiers", async () => {
     const { dossiers, publications } = stores();
     const off = await saveResearchDossier(dossiers, request({ value: stage1Dossier() }));
@@ -246,7 +301,7 @@ describe("a saved dossier's public copy (332a: the researching AI's own judgemen
       expect(text).not.toContain(hidden);
     }
     expect(readPublicDossier(shown!.payload)).toBeDefined();
-    expect(shown!.payload).toMatchObject({ checked: { on: "2026-11-17", privacy_reading: false,
+    expect(shown!.payload).toMatchObject({ checked: { on: "2026-11-17", privacy_reading: true,
       not_checked: ["papers_support_claims", "figures_match_papers", "value_judgement"] } });
     // The private record keeps where the research ran (332a): the surface, the readings and the runner's declaration.
     const [row] = await publications.list("shown", 10);
@@ -352,7 +407,7 @@ async function threadOf(store: InMemoryResearchDossierStore, versionId: string):
 
 describe("the ranking rule (owner answer 333a)", () => {
   const ranked = (findings: Array<Partial<PublicDossierFinding>>) => {
-    const base = publicDossierOf(storedOf(dossier()), false);
+    const base = publicDossierOf(storedOf(dossier()));
     const public_: PublicDossier = { ...base, findings: findings.map((finding, index) => ({ id: `f${index + 1}`,
       claim: `Claim ${index + 1}`, certainty: "moderate", kind: "helps", applies_to: "Adults", rests_on: ["r1"],
       what_would_change_it: "More trials", importance: "important", hard_to_find: false, ...finding })) };
@@ -406,7 +461,7 @@ function storedOf(value: Record<string, any>): Record<string, unknown> {
 
 describe("the sizes rule on its own", () => {
   it("names each comparison without sizes and each comparing finding with none behind it", () => {
-    const value = publicDossierOf(storedOf(dossier((change) => { delete change.studies[3].participants; })), false);
+    const value = publicDossierOf(storedOf(dossier((change) => { delete change.studies[3].participants; })));
     expect(publicSizeProblems(value)).toEqual([{ path: "findings[3].rests_on", rule: "finding_sizes_missing" }]);
   });
 });
@@ -511,8 +566,8 @@ describe("the owner's dossier actions (runtime only)", () => {
     await saveResearchDossier(dossiers, request({ publication, value: dossier((value) => { value.value.confidence = "low"; }) }));
     const review = new AtlasDossierReview({ store: publications, now: () => NOW });
     const queue = await review.run({ action: "list_dossiers" });
-    expect(queue.text).toContain("D-1001 version 1 (ARD-0001), held, topic inositol-invented, held for: not_high_confidence;" +
-      " researched in a chat through the Claude plugin");
+    expect(queue.text).toContain("D-1001 version 1 (ARD-0001), held, topic inositol-invented, held for: the " +
+      "researching AI was not highly confident in it; researched in a chat through the Claude plugin");
     const inspected = await review.run({ action: "inspect_dossier", dossier: "D-1001" });
     expect(inspected.dossiers?.items[0]?.content).toMatchObject({ question: expect.any(String) });
     expect((await review.run({ action: "show_dossier", dossier: "D-1001" })).text)

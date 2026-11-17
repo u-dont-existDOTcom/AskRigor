@@ -41,10 +41,12 @@ CREATE TABLE IF NOT EXISTS research_dossier_public_versions (
   public_payload jsonb CHECK (public_payload IS NULL OR jsonb_typeof(public_payload) = 'object'),
   public_sha256 char(64) CHECK (public_sha256 IS NULL OR public_sha256 ~ '^[a-f0-9]{64}$'),
   hold_reasons text[] NOT NULL DEFAULT '{}' CHECK (hold_reasons <@ ARRAY['not_high_confidence', 'names_living_people',
-    'living_people_undeclared', 'important_conflict', 'owner_hold']::text[]),
+    'living_people_undeclared', 'important_conflict', 'owner_hold', 'privacy_reading_pending']::text[]),
   conflicts_with text[] NOT NULL DEFAULT '{}' CHECK (cardinality(conflicts_with) <= 50),
   -- Where the research ran (332a: the plugin, ChatGPT or the runner), for the review only; never on a page.
   origin jsonb NOT NULL CHECK (jsonb_typeof(origin) = 'object'),
+  -- Whether AskRigor's semantic privacy reading passed exactly the saved content; a copy without it never shows
+  -- (Codex's review of stage 2, finding 1).
   privacy_read boolean NOT NULL,
   accepted_at timestamptz,
   decided_at timestamptz NOT NULL,
@@ -54,6 +56,7 @@ CREATE TABLE IF NOT EXISTS research_dossier_public_versions (
   CHECK ((state = 'erased') = (erased_at IS NOT NULL)),
   CHECK ((erased_at IS NULL) = (public_payload IS NOT NULL AND public_sha256 IS NOT NULL AND topic_key IS NOT NULL)),
   CHECK (state <> 'held' OR cardinality(hold_reasons) > 0),
+  CHECK (state <> 'shown' OR privacy_read),
   CHECK (accepted_at IS NULL OR state IN ('shown', 'superseded', 'taken_down'))
 );
 
@@ -172,7 +175,9 @@ BEGIN
      OR target_hold_reasons IS NULL OR target_conflicts_with IS NULL
      OR (target_state = 'held') <> (cardinality(target_hold_reasons) > 0)
      OR NOT (target_hold_reasons <@ ARRAY['not_high_confidence', 'names_living_people', 'living_people_undeclared',
-       'important_conflict']::text[])
+       'important_conflict', 'privacy_reading_pending']::text[])
+     OR target_privacy_read IS NULL
+     OR ('privacy_reading_pending' = ANY(target_hold_reasons)) = target_privacy_read
      OR cardinality(target_conflicts_with) > 50
      OR EXISTS (SELECT 1 FROM unnest(target_conflicts_with) AS other WHERE other IS NULL
        OR other !~ '^D-[1-9][0-9]{3,}$')
@@ -332,8 +337,8 @@ REVOKE ALL ON FUNCTION inspect_research_dossier_publication(text) FROM PUBLIC;
 
 -- The review's decision on one copy: show (a held or taken-down copy), hold (send a shown copy the owner has not
 -- accepted back for the check), take_down, or accept (it shows, checked by supervisors). Only the dossier's newest copy can be shown or accepted, and
--- only while its private version is neither withdrawn, rejected nor erased; showing or accepting supersedes the
--- dossier's other shown copy.
+-- only while its private version is neither withdrawn, rejected nor erased and a privacy reading passed its saved
+-- content; showing or accepting supersedes the dossier's other shown copy.
 CREATE OR REPLACE FUNCTION decide_research_dossier_publication(
   target_public_number text,
   target_version_number integer,
@@ -377,7 +382,7 @@ BEGIN
      OR (target_decision = 'take_down' AND copy_row.state NOT IN ('shown', 'held'))
      OR (target_decision = 'show' AND copy_row.state NOT IN ('held', 'taken_down'))
      OR (target_decision = 'accept' AND copy_row.state NOT IN ('shown', 'held', 'taken_down'))
-     OR (target_decision IN ('show', 'accept') AND (copy_row.version_number <> newest
+     OR (target_decision IN ('show', 'accept') AND (copy_row.version_number <> newest OR NOT copy_row.privacy_read
        OR (copy_row.accepted_at IS NULL AND EXISTS (SELECT 1 FROM research_dossier_events event
          WHERE event.version_id = copy_row.version_id AND event.event IN ('withdrawn', 'rejected', 'erased'))))) THEN
     RETURN QUERY SELECT 'not_decidable'::text, copy_row.state, copy_row.accepted_at IS NOT NULL;

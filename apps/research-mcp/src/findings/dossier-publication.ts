@@ -115,9 +115,10 @@ const TOPIC_KEY = /^[a-z0-9][a-z0-9._-]{0,199}$/u;
 
 /**
  * The public part of a stored dossier, field by field: whatever the stored dossier holds besides these fields never
- * reaches a page.
+ * reaches a page. Whether a semantic privacy reading passed it is read from the saved record's own stamp, never from
+ * anything said beside it (Codex's review of stage 2, finding 1).
  */
-export function publicDossierOf(stored: Stored, privacyRead: boolean): PublicDossier {
+export function publicDossierOf(stored: Stored): PublicDossier {
   const adds = new Set<string>(Array.isArray(stored.value?.adds) ? stored.value.adds : []);
   const topicKey: string = stored.topic.key;
   const related = [...new Set<string>((stored.topic.related ?? []) as string[])]
@@ -157,7 +158,7 @@ export function publicDossierOf(stored: Stored, privacyRead: boolean): PublicDos
       receipts_checked: Number(stamp.receipts_checked ?? 0),
       checks: [...(stamp.checks ?? [])],
       not_checked: [...(stamp.not_checked ?? [])],
-      privacy_reading: privacyRead,
+      privacy_reading: stamp.privacy_reading === "pass",
     },
   };
 }
@@ -327,7 +328,6 @@ export interface DossierPublicationRequest {
   stored: Record<string, unknown>;
   /** The AI's declarations the stored dossier keeps for this decision. */
   namesLivingPeople: boolean | undefined;
-  privacyRead: boolean;
   origin: Record<string, unknown>;
   at: Date;
 }
@@ -339,7 +339,7 @@ export async function publishResearchDossier(request: DossierPublicationRequest)
   }
   let dossier: PublicDossier;
   try {
-    dossier = publicDossierOf(request.stored, request.privacyRead);
+    dossier = publicDossierOf(request.stored);
   } catch {
     return { status: "not_published", reason: "not_publishable" };
   }
@@ -366,7 +366,10 @@ export async function publishResearchDossier(request: DossierPublicationRequest)
     conflicts.add(other.publicNumber);
     if (found.some(({ important }) => important)) importantConflict = true;
   }
+  const privacyRead = dossier.checked.privacy_reading;
   const reasons: ResearchDossierAutoHoldReason[] = [
+    // Nothing shows before a semantic privacy reading passed exactly what was saved (Codex's review, finding 1).
+    ...(privacyRead ? [] : ["privacy_reading_pending" as const]),
     ...(dossier.value.confidence === "high" ? [] : ["not_high_confidence" as const]),
     ...(request.namesLivingPeople === true ? ["names_living_people" as const]
       : request.namesLivingPeople === undefined ? ["living_people_undeclared" as const] : []),
@@ -386,7 +389,7 @@ export async function publishResearchDossier(request: DossierPublicationRequest)
       holdReasons: reasons,
       conflictsWith,
       origin: request.origin,
-      privacyRead: request.privacyRead,
+      privacyRead,
       at: request.at,
     });
   } catch {
@@ -407,6 +410,19 @@ export async function publishResearchDossier(request: DossierPublicationRequest)
   return { status: "not_published", public_id: published.publicNumber, reason: `copy_${published.state}` };
 }
 
+/** Each hold reason in plain words, for the AI's note and the owner's review. */
+export const HOLD_REASON_WORDS: Readonly<Record<string, string>> = {
+  privacy_reading_pending: "waiting for the privacy reading",
+  not_high_confidence: "the researching AI was not highly confident in it",
+  names_living_people: "a claim names a living person",
+  living_people_undeclared: "it did not say whether a claim names a living person",
+  important_conflict: "it conflicts with a shown dossier on an important finding",
+  owner_hold: "held back by the owner's review",
+};
+
+export const holdReasonWords = (reasons: readonly string[]) =>
+  reasons.map((reason) => HOLD_REASON_WORDS[reason] ?? reason.replaceAll("_", " ")).join("; ");
+
 /** What the AI is told of the publication, among the result's notes; undefined when there is nothing to act on. */
 export function dossierPublicationNote(publication: DossierPublication): string | undefined {
   if (publication.status === "not_published" && publication.reason === "sizes_missing") {
@@ -417,9 +433,14 @@ export function dossierPublicationNote(publication: DossierPublication): string 
         .join(" ")} Give them in a dossier sent with a final check already needed for this research; do not make ` +
       "another check solely for it.";
   }
+  if (publication.status === "held" && publication.hold_reasons?.includes("privacy_reading_pending") === true) {
+    return "Research dossier: saved, and its public copy is held " +
+      `(${holdReasonWords(publication.hold_reasons)}): nothing appears on the public Atlas before AskRigor's privacy ` +
+      "reading has passed it. Do not change or resend it to get past the check.";
+  }
   if (publication.status === "held") {
     return "Research dossier: saved, and held for AskRigor's check before it can appear on the public Atlas " +
-      `(${(publication.hold_reasons ?? []).join(", ")}). Do not change or resend it to get past the check.`;
+      `(${holdReasonWords(publication.hold_reasons ?? [])}). Do not change or resend it to get past the check.`;
   }
   return undefined;
 }
@@ -429,6 +450,10 @@ export function dossierPublicationSentence(publication: DossierPublication | und
   if (publication?.status === "shown") {
     return `It is also shown on AskRigor's public Atlas as ${publication.public_id}, written without you and marked ` +
       "\"Not checked by supervisors yet\".";
+  }
+  if (publication?.status === "held" && publication.hold_reasons?.includes("privacy_reading_pending") === true) {
+    return "It is not on AskRigor's public Atlas: a copy written without you is held, since nothing appears there " +
+      "before AskRigor's privacy reading has passed it.";
   }
   if (publication?.status === "held") {
     return "It waits for AskRigor's check before it can appear on AskRigor's public Atlas, written without you.";
