@@ -42,6 +42,10 @@ export type AtlasPublicationState = typeof ATLAS_PUBLICATION_STATES[number];
 /** Why a publication is held: the contact-details check's kinds, a card reference (ARF-0042) or a YouTube link. */
 export const ATLAS_PUBLICATION_HOLD_REASONS = [
   "email_address", "phone_number", "messaging_handle", "card_reference", "youtube_link",
+  // Codex's third review of 17 Nov 2026, finding 3: read, never written, by this compatibility build. The full release
+  // holds a finding that may name a living person for the owner's decision, and adds the reason to 0021's list; this
+  // build's 0021 keeps the five, so it reads the sixth only on a database that release migrated.
+  "living_person_review",
 ] as const;
 export type AtlasPublicationHoldReason = typeof ATLAS_PUBLICATION_HOLD_REASONS[number];
 /** Why a publication was withdrawn without a review. */

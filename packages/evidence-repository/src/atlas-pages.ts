@@ -43,10 +43,12 @@ import {
   type InMemoryAtlasReports,
 } from "./atlas-reports.js";
 import {
+  ATLAS_CHALLENGE_VERDICTS,
   atlasPublicationOrder,
   atlasPublishedFindingSchema,
   validChallengeMark,
   type AtlasChallengeMark,
+  type AtlasChallengeVerdict,
   type AtlasPublishedFinding,
   type InMemoryAtlasPublicationStore,
 } from "./atlas-publications.js";
@@ -96,7 +98,19 @@ export interface AtlasPagePublication {
    * it carries no challenge mark. Never who marked it.
    */
   challenge: AtlasPageChallenge | null;
+  /**
+   * Codex's third review of 17 Nov 2026, finding 3: how it reached the pages, as the full release records it once it has
+   * migrated the database (its migration 0041's shown_by): owner_action, quick_answer_test or automatic_showing; null
+   * when not recorded, as on a database that release hasn't migrated, or for a route this build doesn't know.
+   */
+  shownBy: AtlasPageRoute | null;
+  /** The quick-answer test's verdict, as the test's own showing recorded it (shown_test_verdict); null otherwise. */
+  shownTestVerdict: AtlasChallengeVerdict | null;
 }
+
+/** The routes the full release records (its migration 0041), as this build reads them. */
+export const ATLAS_PAGE_ROUTES = ["owner_action", "quick_answer_test", "automatic_showing"] as const;
+export type AtlasPageRoute = typeof ATLAS_PAGE_ROUTES[number];
 
 /** A publication's challenge mark, as the pages read it (migration 0030). */
 export type AtlasPageChallenge = AtlasChallengeMark;
@@ -298,6 +312,8 @@ function pagePublicationOf(row: {
   stateChangedAt: string;
   kept: boolean;
   challenge?: Partial<Record<keyof AtlasChallengeMark, unknown>> | null;
+  shownBy?: unknown;
+  shownTestVerdict?: unknown;
 }): AtlasPagePublication | undefined {
   const state = (ATLAS_PAGE_STATES as readonly string[]).includes(row.state) ? row.state as AtlasPageState : undefined;
   if (state === undefined || !PUBLICATION_NUMBER.test(row.publicationNumber)) return undefined;
@@ -314,6 +330,11 @@ function pagePublicationOf(row: {
     stateChangedAt: row.stateChangedAt,
     kept: row.kept,
     challenge: pageChallengeOf(row.challenge),
+    // Read only as the full release holds them; anything else reads as not recorded.
+    shownBy: (ATLAS_PAGE_ROUTES as readonly unknown[]).includes(row.shownBy) ? row.shownBy as AtlasPageRoute : null,
+    shownTestVerdict: row.shownBy === "quick_answer_test" &&
+      (ATLAS_CHALLENGE_VERDICTS as readonly unknown[]).includes(row.shownTestVerdict)
+      ? row.shownTestVerdict as AtlasChallengeVerdict : null,
   };
 }
 
@@ -412,7 +433,11 @@ const changeKindSchema = z.enum(ATLAS_PAGE_CHANGE_KINDS);
 // verdict too, never who marked it.
 const PAGE_PUBLICATION_COLUMNS = "listed.publication_number, listed.state, listed.atlas_number, listed.published_json, " +
   "listed.published_at, listed.state_changed_at, listed.kept_for_research_at IS NOT NULL AS kept, " +
-  "listed.challenge_usual_view, listed.challenge_source_url, listed.challenge_source_label, listed.challenge_verdict";
+  "listed.challenge_usual_view, listed.challenge_source_url, listed.challenge_source_label, listed.challenge_verdict, " +
+  // Codex's third review of 17 Nov 2026, finding 3: how it reached the pages, once the full release has migrated the
+  // database. Read by name from the row, so a database without those columns, which this build's migrations don't add,
+  // reads them as not recorded.
+  "to_jsonb(listed) ->> 'shown_by' AS shown_by, to_jsonb(listed) ->> 'shown_test_verdict' AS shown_test_verdict";
 
 function publicationsSql(order: "published" | "changed"): string {
   return `SELECT ${PAGE_PUBLICATION_COLUMNS}
@@ -566,6 +591,8 @@ function postgresReads(client: PoolClient): AtlasPageReads {
         challenge_source_url?: string | null;
         challenge_source_label?: string | null;
         challenge_verdict?: string | null;
+        shown_by?: string | null;
+        shown_test_verdict?: string | null;
       }>(publicationsSql(query.order), [
         query.states === undefined ? null : [...query.states],
         query.publicationNumbers === undefined ? null : [...query.publicationNumbers],
@@ -587,6 +614,8 @@ function postgresReads(client: PoolClient): AtlasPageReads {
           kept: row.kept === true,
           challenge: { usualView: row.challenge_usual_view ?? null, sourceUrl: row.challenge_source_url ?? null,
             sourceLabel: row.challenge_source_label ?? null, verdict: row.challenge_verdict ?? null },
+          shownBy: row.shown_by ?? null,
+          shownTestVerdict: row.shown_test_verdict ?? null,
         });
         return publication === undefined ? [] : [publication];
       });

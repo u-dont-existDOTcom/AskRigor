@@ -235,6 +235,15 @@ export const CHALLENGES_TITLE = "Findings that challenge the usual view";
  * challenges the usual view, whose stored verdict (headline or fail) means a quick AI answer may already give it.
  */
 export const QUICK_ANSWER_MISSES_IT = "A separate AI found that a quick AI answer misses it.";
+/**
+ * How findings reach the pages, as the home page says it (Codex's third review of 17 Nov 2026, finding 3): true
+ * whichever way a finding came, and when that isn't recorded, as for every finding this build's database holds until
+ * the full release records it.
+ */
+export const ATLAS_HOME_ROUTES = "Findings reach these pages in three ways: AskRigor’s owner publishes or shows them, a " +
+  "separate AI’s quick-answer test shows them, or they show automatically once they have passed AskRigor’s checks. Not " +
+  "every finding records which of these it was, older ones in particular, and a finding’s page says what that test " +
+  "found only when the test is recorded for it.";
 export const SHOWN_AS_A_CHALLENGE = "A quick AI answer may already give it; it’s shown because it challenges the usual view.";
 /** How AskRigor's comment maps work (comment-maps-page.ts); the maps themselves are not shown (owner answer 208b). */
 export const COMMENT_MAPS_PATH = "/atlas/comment-maps";
@@ -545,7 +554,7 @@ export function renderAtlasHome(model: AtlasHomeModel, reader?: AtlasPageReader)
 <h1>AskRigor Atlas</h1>
 <p class="lede">Findings from research done with AskRigor, written without the people who asked.</p>
 <div class="notice">
-<p>A finding reaches these pages once a separate AI finds that a quick AI answer misses it, or that it challenges the usual view, marked “${NOT_CHECKED_LABEL}” until AskRigor’s owner has reviewed it. A reviewed finding shows the wording the owner accepted, its Atlas number and the day it was checked; a rejected one leaves these pages.</p>
+<p>${ATLAS_HOME_ROUTES} A finding is marked “${NOT_CHECKED_LABEL}” until AskRigor’s owner has reviewed it. A reviewed finding shows the wording the owner accepted, its Atlas number and the day it was checked; a rejected one leaves these pages.</p>
 <p>How sure each finding is shows AskRigor’s rating, not a formal GRADE assessment. Rates and the numbers needed to treat or harm are worked out from each group’s counts. Nothing here is medical advice.</p>
 </div>
 ${ownerPicks(model.picks)}<section aria-labelledby="strongest-checked">
@@ -998,12 +1007,18 @@ ${topic.findings.map((entry) => {
  * What an unreviewed shown finding's status says of the quick-answer test (owner answer 240a): a finding shown because it
  * passed says a quick AI answer misses it; one shown because it challenges the usual view says so from its stored verdict
  * (the owner, 6 Nov 2026), and a headline or a fail means a quick AI answer may already give it. A finding kept for
- * research hasn't passed the test, so it says neither.
+ * research hasn't passed the test, so it says neither. Without a mark, it says the test found a quick AI answer misses it
+ * only when the full release recorded that the test's own showing showed it with a pass; a finding whose route isn't
+ * recorded, as every one on a database that release hasn't migrated, says nothing of the test.
  */
 function quickAnswerWords(finding: ShownFinding): string {
   if (finding.kept) return "";
-  if (finding.challenge !== null && finding.challenge.verdict !== "pass") return `${SHOWN_AS_A_CHALLENGE} `;
-  return `${QUICK_ANSWER_MISSES_IT} `;
+  if (finding.challenge !== null) {
+    return finding.challenge.verdict === "pass" ? `${QUICK_ANSWER_MISSES_IT} ` : `${SHOWN_AS_A_CHALLENGE} `;
+  }
+  // Codex's third review of 17 Nov 2026, finding 3: without a mark, only from the test's own recorded pass, never a test
+  // the record doesn't show.
+  return finding.shownBy === "quick_answer_test" && finding.shownTestVerdict === "pass" ? `${QUICK_ANSWER_MISSES_IT} ` : "";
 }
 
 /** The usual view a finding challenges, with its source's link, as a sentence. */

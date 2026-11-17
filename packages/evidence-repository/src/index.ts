@@ -482,6 +482,8 @@ export {
   type AtlasPageHomePick,
   type AtlasPagePlacement,
   type AtlasPagePublication,
+  ATLAS_PAGE_ROUTES,
+  type AtlasPageRoute,
   type AtlasPagePublicationQuery,
   type AtlasPageReads,
   type AtlasPageSibling,
@@ -612,4 +614,6 @@ export {
   type ResearchFrontierLookupInput,
   type ResearchFrontierSearchInput,
   type TopicLinkContributionReceipt,
+  LATER_RELEASE_MIGRATION_DIGESTS,
+  migrationReplayPlan,
 } from "./postgres.js";

@@ -353,11 +353,12 @@ describe("migration 0021", () => {
       const start = migration.indexOf(`ADD CONSTRAINT ${constraint} CHECK (`);
       return migration.slice(start, migration.indexOf(");", start));
     };
-    for (const reason of ATLAS_PUBLICATION_HOLD_REASONS) {
-      expect(listOf("atlas_publications_v1_held_check")).toContain(`"${reason}"`);
-    }
+    // Codex's third review of 17 Nov 2026, finding 3: this compatibility build reads a sixth reason, living_person_review,
+    // which the full release adds to 0021's list; its own 0021 keeps the five as released.
+    const written = ATLAS_PUBLICATION_HOLD_REASONS.filter((reason) => reason !== "living_person_review");
+    expect(written).toHaveLength(5);
     expect([...listOf("atlas_publications_v1_held_check").matchAll(/"([a-z_]+)"/gu)].map(([, reason]) => reason))
-      .toEqual([...ATLAS_PUBLICATION_HOLD_REASONS]);
+      .toEqual(written);
     expect([...listOf("atlas_publications_v1_withdrawn_reason_check").matchAll(/'([a-z_]+)'/gu)].map(([, reason]) => reason))
       .toEqual([...ATLAS_PUBLICATION_WITHDRAWN_REASONS]);
     const states = migration.slice(migration.indexOf("state text NOT NULL CHECK (state IN ("));

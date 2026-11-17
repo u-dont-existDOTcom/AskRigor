@@ -7,7 +7,9 @@ import type {
   AtlasFindingDirection,
   AtlasFindingKind,
   AtlasLabel,
+  AtlasChallengeVerdict,
   AtlasPageChallenge,
+  AtlasPageRoute,
   AtlasPageOwnComment,
   AtlasPageOwnVote,
   AtlasPageParticipation,
@@ -204,6 +206,13 @@ export interface ShownFinding {
    * publication's challenge mark; null for none, or for a mark whose texts a page would refuse.
    */
   challenge: ShownChallenge | null;
+  /**
+   * Codex's third review of 17 Nov 2026, finding 3: how it reached the pages, as the full release records it, and the
+   * quick-answer test's verdict when its own showing showed it; null when not recorded. Its page says the test found a
+   * quick AI answer misses it only for the test's route with the verdict pass, or from a challenge mark's verdict.
+   */
+  shownBy: AtlasPageRoute | null;
+  shownTestVerdict: AtlasChallengeVerdict | null;
 }
 
 /** A finding's challenge mark as its pages show it: never who marked it. */
@@ -512,6 +521,8 @@ function fromPublished(publication: AtlasPagePublication, published: AtlasPublis
     stateChangedAt: publication.stateChangedAt,
     kept: publication.kept,
     challenge: shownChallenge(publication),
+    shownBy: publication.shownBy,
+    shownTestVerdict: publication.shownTestVerdict,
     namedVideos: shownNamedVideos(published.named_videos),
     ...researchBehind(published, shownSource),
     aiReadings: published.ai_readings ?? null,
@@ -685,6 +696,8 @@ function fromCanonical(
     stateChangedAt: publication.stateChangedAt,
     kept: publication.kept,
     challenge: shownChallenge(publication),
+    shownBy: publication.shownBy,
+    shownTestVerdict: publication.shownTestVerdict,
     namedVideos: shownNamedVideos(content.research?.named_videos ?? publication.published?.named_videos),
     // Owner answers 252a and 255a: an accepted or edited finding shows the research behind it from its own version, or
     // from its publication's fields; both are erased with its F number's wording.

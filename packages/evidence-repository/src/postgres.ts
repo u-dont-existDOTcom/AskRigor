@@ -169,6 +169,53 @@ interface ExportedVersion {
   receipts: unknown[];
 }
 
+/**
+ * Codex's third review of 17 Nov 2026, finding 3: the digests a later release records for a migration this build carries
+ * in an earlier form. The release that holds a finding that may name a living person edits 0021 (its closed list of
+ * hold reasons takes living_person_review) and records the edited file's digest. This compatibility build keeps 0021 as
+ * released, and takes either digest.
+ */
+export const LATER_RELEASE_MIGRATION_DIGESTS: Readonly<Record<string, readonly string[]>> = {
+  "0021_atlas_publications": ["95b5d194c5f67e38e9be6d9cb7fcb5469672045ff5a7f22799f387303cd61b15"],
+};
+
+/**
+ * Whether migrate runs this build's migrations again (replay, as every build has), or leaves the database as a later
+ * release migrated it (keep_later_release): when it records a migration this build doesn't know, or a later digest of
+ * one it does. Running them again would put back this build's 0021, whose closed list of hold reasons is narrower, and
+ * the earlier forms of the functions the later release replaced. On such a database, each migration this build knows
+ * must be recorded with its file's digest or a later release's (LATER_RELEASE_MIGRATION_DIGESTS); anything else stops
+ * migrate, as before. recorded is undefined while the database has no schema_migrations yet.
+ */
+export function migrationReplayPlan(
+  known: ReadonlyArray<{ migrationId: string; sha256: string }>,
+  recorded: ReadonlyMap<string, string> | undefined,
+): "replay" | "keep_later_release" {
+  if (recorded === undefined) return "replay";
+  const knownIds = new Set(known.map(({ migrationId }) => migrationId));
+  const laterDigest = (migrationId: string, digest: string | undefined) => digest !== undefined &&
+    Object.hasOwn(LATER_RELEASE_MIGRATION_DIGESTS, migrationId) &&
+    LATER_RELEASE_MIGRATION_DIGESTS[migrationId]!.includes(digest);
+  const later = [...recorded.keys()].some((migrationId) => !knownIds.has(migrationId)) ||
+    known.some(({ migrationId }) => laterDigest(migrationId, recorded.get(migrationId)));
+  if (!later) {
+    // As before, only checked before anything runs: a recorded digest that isn't the file's stops migrate.
+    for (const { migrationId, sha256: digest } of known) {
+      const stored = recorded.get(migrationId);
+      if (stored !== undefined && stored !== digest) throw new Error(`MIGRATION_SHA256_MISMATCH migration=${migrationId}`);
+    }
+    return "replay";
+  }
+  for (const { migrationId, sha256: digest } of known) {
+    const stored = recorded.get(migrationId);
+    if (stored === undefined) throw new Error(`MIGRATION_NOT_RECORDED migration=${migrationId}`);
+    if (stored !== digest && !laterDigest(migrationId, stored)) {
+      throw new Error(`MIGRATION_SHA256_MISMATCH migration=${migrationId}`);
+    }
+  }
+  return "keep_later_release";
+}
+
 function assertSafeSchema(schema: string): string {
   if (!/^[a-z][a-z0-9_]{0,62}$/u.test(schema)) {
     throw new Error("INVALID_POSTGRES_SCHEMA");
@@ -238,7 +285,17 @@ export class PostgresEvidenceRepository {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
-      for (const migration of migrations) {
+      // Codex's third review of 17 Nov 2026, finding 3: on a database a later release migrated, this build checks the
+      // digests it knows and runs nothing again, so what that release widened stays (migrationReplayPlan).
+      const table = await client.query<{ name: string | null }>("SELECT to_regclass($1) AS name",
+        [`${this.schema}.schema_migrations`]);
+      const recorded = table.rows[0]?.name === null || table.rows[0] === undefined ? undefined : new Map(
+        (await client.query<{ migration_id: string; migration_sha256: string }>(
+          `SELECT migration_id, migration_sha256 FROM ${this.schema}.schema_migrations`)).rows
+          .map(({ migration_id: id, migration_sha256: digest }) => [id, digest]));
+      const plan = migrationReplayPlan(migrations.map(({ migrationId, sql }) => ({ migrationId, sha256: sha256(sql) })),
+        recorded);
+      for (const migration of plan === "replay" ? migrations : []) {
         const migrationSha256 = sha256(migration.sql);
         await client.query(migration.sql.replaceAll("__SCHEMA__", this.schema));
         const prior = await client.query<{ migration_sha256: string }>(
