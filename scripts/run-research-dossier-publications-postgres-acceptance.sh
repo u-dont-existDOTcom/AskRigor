@@ -32,7 +32,10 @@ docker run --detach --name "$container_name" \
 
 ready=false
 for _ in $(seq 1 45); do
-  if docker exec "$container_name" pg_isready \
+  # The image's entrypoint runs a temporary server for its own setup and then restarts; pg_isready alone can answer
+  # from the temporary one, so wait for the setup to finish first.
+  if docker logs "$container_name" 2>&1 | grep -q "PostgreSQL init process complete" &&
+    docker exec "$container_name" pg_isready \
     --username askrigor_migrator --dbname askrigor_living_evidence >/dev/null 2>&1; then
     ready=true
     break

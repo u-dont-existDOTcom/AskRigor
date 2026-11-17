@@ -2339,6 +2339,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "sharing_unavailable",
   "show_comment",
   "show_dossier",
+  "show_dossier_naming_living_person",
   "show_glance_row",
   "show_on_pages",
   "shown",

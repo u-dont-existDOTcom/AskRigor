@@ -60,6 +60,7 @@ export {
   type PublicDossierQuery,
   type ResearchDossierAutoHoldReason,
   type ResearchDossierDecisionInput,
+  type ResearchDossierLivingPersonDecisionInput,
   type ResearchDossierDecisionResult,
   type ResearchDossierHoldReason,
   type ResearchDossierPublicDecision,

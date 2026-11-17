@@ -129,6 +129,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       "list_research_dossier_publications(text, integer)": "askrigor_research_review",
       "inspect_research_dossier_publication(text)": "askrigor_research_review",
       "decide_research_dossier_publication(text, integer, text, text, timestamptz)": "askrigor_research_review",
+      "decide_research_dossier_living_person(text, integer, text, text, timestamptz)": "askrigor_research_review",
       "research_dossier_public_follow_private()": "none",
       "research_dossier_public_version_guard()": "none",
     };
@@ -288,6 +289,35 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     assert((await pages.listShown({ publicNumbers: [pending.publicNumber], limit: 1 })).length === 0,
       "PRIVACY_PENDING_ON_A_PAGE");
     checks.push("nothing_shows_without_a_privacy_reading_that_passed_the_saved_content");
+
+    // Codex's review, finding 2: a copy whose claim names a living person shows only on the owner's own decision, with
+    // his typed reason and who decided, made once; show and accept refuse it, and nothing forces it up.
+    const named = await account("named");
+    const n1 = await save(named.accountKey, "named", "named-1");
+    const namedCopy = await publisher.publish(copy(named.accountKey, n1, "named-1", "held", ["names_living_people"]));
+    assert(namedCopy.outcome === "published" && namedCopy.state === "held", "NAMED_NOT_HELD");
+    for (const decision of ["show", "accept"] as const) {
+      assert((await review.decide({ publicNumber: namedCopy.publicNumber, versionNumber: 1, decision, reason: "fine",
+        at: AT })).outcome === "not_decidable", `NAMED_${decision.toUpperCase()}N_ORDINARILY`);
+    }
+    await expectError(() => admin.query(`UPDATE ${SCHEMA}.research_dossier_public_versions SET state = 'shown',
+      hold_reasons = '{}' WHERE public_number = $1`, [namedCopy.publicNumber]), /check constraint/u, "NAMED_FORCED_SHOWN");
+    await expectError(() => reviewPool.query(`SELECT * FROM ${SCHEMA}.decide_research_dossier_living_person($1, 1,
+      'A public figure in office', 'auth0|synthetic-owner', now())`, [namedCopy.publicNumber]),
+    /RESEARCH_DOSSIER_REVIEW_INPUT_INVALID/u, "NAMED_DECIDER_NOT_A_DIGEST");
+    const namedDecision = { publicNumber: namedCopy.publicNumber, versionNumber: 1, reason: "A public figure in office",
+      decidedBy: `reviewer:${"0123456789abcdef"}`, at: AT };
+    const decidedNamed = await review.decideLivingPerson(namedDecision);
+    assert(decidedNamed.outcome === "decided" && decidedNamed.state === "shown", "NAMED_DECISION_WRONG");
+    const namedRow = (await review.inspect(namedCopy.publicNumber))[0]!;
+    assert(namedRow.namesLivingPerson && namedRow.livingPersonDecision?.by === "reviewer:0123456789abcdef" &&
+      namedRow.livingPersonDecision.reason === "A public figure in office", "NAMED_DECISION_NOT_RECORDED");
+    assert((await review.decideLivingPerson(namedDecision)).outcome === "not_decidable", "NAMED_DECIDED_TWICE");
+    await expectError(() => admin.query(`UPDATE ${SCHEMA}.research_dossier_public_versions SET living_person_reason = 'x'
+      WHERE public_number = $1`, [namedCopy.publicNumber]), /RESEARCH_DOSSIER_PUBLIC_VERSION_IMMUTABLE/u,
+    "NAMED_DECISION_CHANGED");
+    assert((await pages.listShown({ publicNumbers: [namedCopy.publicNumber], limit: 1 })).length === 1, "NAMED_NOT_SHOWN");
+    checks.push("a_named_living_person_shows_only_on_the_owners_recorded_decision");
 
     // Saving switched off refuses, under the account lock the private append uses.
     const fourth = await account("fourth");

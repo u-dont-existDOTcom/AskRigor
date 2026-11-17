@@ -107,6 +107,10 @@ export interface ResearchDossierPublicationRow {
   privacyRead: boolean;
   accepted: boolean;
   decidedAt: string;
+  /** A claim names a living person: the copy shows only on the owner's own decision (decideLivingPerson). */
+  namesLivingPerson: boolean;
+  /** That decision: who (the reviewer login's digest), when, and the reason typed; null until made. */
+  livingPersonDecision: { by: string; at: string; reason: string } | null;
 }
 
 export interface ResearchDossierPublicationDetail extends ResearchDossierPublicationRow {
@@ -128,11 +132,23 @@ export type ResearchDossierDecisionResult =
   | { outcome: "not_found" }
   | { outcome: "not_decidable"; state: ResearchDossierPublicState; accepted: boolean };
 
+/** The owner's own decision to show a copy whose claim names a living person (Codex's review of stage 2, finding 2). */
+export interface ResearchDossierLivingPersonDecisionInput {
+  publicNumber: string;
+  versionNumber: number;
+  /** The owner's typed reason, 1 to 200 characters. */
+  reason: string;
+  /** Who decided: the reviewer login's digest, reviewer: and 16 hex characters, never the login. */
+  decidedBy: string;
+  at: Date;
+}
+
 /** The review role's side: the owner's review, and AskRigor's check of held copies. */
 export interface ResearchDossierPublicationReviewStore {
   list(state: ResearchDossierPublicState | undefined, limit: number): Promise<ResearchDossierPublicationRow[]>;
   inspect(publicNumber: string): Promise<ResearchDossierPublicationDetail[]>;
   decide(input: ResearchDossierDecisionInput): Promise<ResearchDossierDecisionResult>;
+  decideLivingPerson(input: ResearchDossierLivingPersonDecisionInput): Promise<ResearchDossierDecisionResult>;
 }
 
 /** A shown copy, as the pages read it. */
@@ -209,6 +225,15 @@ function assertDecision(input: ResearchDossierDecisionInput): void {
   }
 }
 
+function assertLivingPersonDecision(input: ResearchDossierLivingPersonDecisionInput): void {
+  if (!PUBLIC_DOSSIER_NUMBER.test(input.publicNumber) || !Number.isInteger(input.versionNumber) ||
+    input.versionNumber < 1 || typeof input.reason !== "string" || input.reason !== input.reason.trim() ||
+    input.reason.length < 1 || input.reason.length > 200 || !/^reviewer:[0-9a-f]{16}$/u.test(input.decidedBy) ||
+    Number.isNaN(input.at.getTime())) {
+    throw new ResearchDossierPublicationError("INPUT_INVALID");
+  }
+}
+
 const iso = (value: Date | string) => value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 
 // PostgreSQL ---------------------------------------------------------------------------------------------------------
@@ -261,6 +286,10 @@ interface ReviewRow {
   privacy_read: boolean;
   accepted: boolean;
   decided_at: Date | string;
+  names_living_person: boolean;
+  living_person_decided_by: string | null;
+  living_person_decided_at: Date | string | null;
+  living_person_reason: string | null;
 }
 
 const reviewRowOf = (row: ReviewRow & { question?: string | null }): ResearchDossierPublicationRow => ({
@@ -276,6 +305,10 @@ const reviewRowOf = (row: ReviewRow & { question?: string | null }): ResearchDos
   privacyRead: row.privacy_read,
   accepted: row.accepted,
   decidedAt: iso(row.decided_at),
+  namesLivingPerson: row.names_living_person,
+  livingPersonDecision: row.living_person_decided_at === null || row.living_person_decided_by === null ||
+    row.living_person_reason === null ? null
+    : { by: row.living_person_decided_by, at: iso(row.living_person_decided_at), reason: row.living_person_reason },
 });
 
 /** The review role's side, on its own pool (the review runtime's, as forget_card's eraser). */
@@ -318,6 +351,23 @@ export class PostgresResearchDossierPublicationReview implements ResearchDossier
       `SELECT outcome, state, accepted FROM ${this.schema}.decide_research_dossier_publication(
          $1, $2, $3, $4, $5::timestamptz)`,
       [input.publicNumber, input.versionNumber, input.decision, input.reason, input.at.toISOString()],
+    );
+    const row = result.rows[0];
+    if (row === undefined) throw new Error("RESEARCH_DOSSIER_DECISION_RESULT_MISSING");
+    if (row.outcome === "not_found") return { outcome: "not_found" };
+    if ((row.outcome !== "decided" && row.outcome !== "not_decidable") || row.state === null || row.accepted === null) {
+      throw new Error("RESEARCH_DOSSIER_DECISION_RESULT_INVALID");
+    }
+    return { outcome: row.outcome, state: row.state, accepted: row.accepted };
+  }
+
+  async decideLivingPerson(input: ResearchDossierLivingPersonDecisionInput): Promise<ResearchDossierDecisionResult> {
+    assertLivingPersonDecision(input);
+    const result = await this.pool.query<{ outcome: string; state: ResearchDossierPublicState | null;
+      accepted: boolean | null }>(
+      `SELECT outcome, state, accepted FROM ${this.schema}.decide_research_dossier_living_person(
+         $1, $2, $3, $4, $5::timestamptz)`,
+      [input.publicNumber, input.versionNumber, input.reason, input.decidedBy, input.at.toISOString()],
     );
     const row = result.rows[0];
     if (row === undefined) throw new Error("RESEARCH_DOSSIER_DECISION_RESULT_MISSING");
@@ -408,6 +458,8 @@ interface MemoryCopy {
   conflictsWith: string[];
   origin: Record<string, unknown>;
   privacyRead: boolean;
+  namesLivingPerson: boolean;
+  livingPersonDecision: { by: string; at: Date; reason: string } | null;
   acceptedAt: Date | null;
   decidedAt: Date;
   events: Array<{ event: string; reason: string | null; at: Date }>;
@@ -465,6 +517,8 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       conflictsWith: [...input.conflictsWith],
       origin: structuredClone(input.origin),
       privacyRead: input.privacyRead,
+      namesLivingPerson: input.holdReasons.includes("names_living_people"),
+      livingPersonDecision: null,
       acceptedAt: null,
       decidedAt: input.at,
       events: [{ event: input.state, reason: input.state === "held" ? input.holdReasons.join(" ") : null, at: input.at }],
@@ -514,7 +568,7 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       (input.decision === "show" && copy.state !== "held" && copy.state !== "taken_down") ||
       (input.decision === "accept" && copy.state !== "shown" && copy.state !== "held" && copy.state !== "taken_down") ||
       ((input.decision === "show" || input.decision === "accept") && (copy.versionNumber !== newest || (!accepted && closed) ||
-        !copy.privacyRead));
+        !copy.privacyRead || (copy.namesLivingPerson && copy.livingPersonDecision === null)));
     if (refused) return { outcome: "not_decidable", state: copy.state, accepted };
     const next: ResearchDossierPublicState = input.decision === "hold" ? "held"
       : input.decision === "take_down" ? "taken_down" : "shown";
@@ -535,6 +589,32 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       decidedAt: input.at,
     });
     return { outcome: "decided", state: next, accepted: input.decision === "accept" || accepted };
+  }
+
+  async decideLivingPerson(input: ResearchDossierLivingPersonDecisionInput): Promise<ResearchDossierDecisionResult> {
+    assertLivingPersonDecision(input);
+    this.followPrivate();
+    const copies = [...this.copies.values()].filter((copy) => copy.publicNumber === input.publicNumber);
+    const copy = copies.find(({ versionNumber }) => versionNumber === input.versionNumber);
+    if (copy === undefined) return { outcome: "not_found" };
+    const newest = Math.max(...copies.map(({ versionNumber }) => versionNumber));
+    const closed = this.options.dossiers.versionFacts(copy.versionId)?.closed ?? true;
+    const accepted = copy.acceptedAt !== null;
+    if (!copy.namesLivingPerson || copy.livingPersonDecision !== null || (copy.state !== "held" &&
+      copy.state !== "taken_down") || copy.versionNumber !== newest || !copy.privacyRead || (!accepted && closed)) {
+      return { outcome: "not_decidable", state: copy.state, accepted };
+    }
+    for (const other of copies) {
+      if (other !== copy && other.state === "shown") {
+        Object.assign(other, { state: "superseded", decidedAt: input.at });
+        other.events.push({ event: "superseded", reason: null, at: input.at });
+      }
+    }
+    copy.events.push({ event: "living_person_decided", reason: input.reason, at: input.at },
+      { event: "shown", reason: input.reason, at: input.at });
+    Object.assign(copy, { state: "shown", holdReasons: [], decidedAt: input.at,
+      livingPersonDecision: { by: input.decidedBy, at: input.at, reason: input.reason } });
+    return { outcome: "decided", state: "shown", accepted };
   }
 
   async listShown(query: PublicDossierQuery): Promise<PublicDossierCopy[]> {
@@ -574,7 +654,7 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       if (facts === undefined || copy.acceptedAt !== null || copy.state === "erased") continue;
       if (facts.erased) {
         Object.assign(copy, { state: "erased", payload: null, payloadSha256: null, topicKey: null, relatedTopicKeys: [],
-          holdReasons: [], conflictsWith: [], origin: {}, decidedAt: at });
+          holdReasons: [], conflictsWith: [], origin: {}, livingPersonDecision: null, decidedAt: at });
         copy.events.push({ event: "erased", reason: "deletion_requested", at });
       } else if (facts.closed && (copy.state === "shown" || copy.state === "held")) {
         Object.assign(copy, { state: "taken_down", decidedAt: at });
@@ -612,6 +692,9 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       privacyRead: copy.privacyRead,
       accepted: copy.acceptedAt !== null,
       decidedAt: copy.decidedAt.toISOString(),
+      namesLivingPerson: copy.namesLivingPerson,
+      livingPersonDecision: copy.livingPersonDecision === null ? null : { by: copy.livingPersonDecision.by,
+        at: copy.livingPersonDecision.at.toISOString(), reason: copy.livingPersonDecision.reason },
     };
   }
 }

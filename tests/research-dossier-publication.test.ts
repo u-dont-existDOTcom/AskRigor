@@ -580,6 +580,49 @@ describe("the owner's dossier actions (runtime only)", () => {
   });
 });
 
+// Codex's review, finding 2: the owner's rule is that a claim about a named living person is published only on his
+// explicit decision, so the ordinary actions refuse such a copy and one separate action, with a typed reason, decides.
+describe("a copy held for naming a living person", () => {
+  it("is refused by show and accept, and shown only by the owner's separate decision, which records who and when",
+    async () => {
+      const { dossiers, publications, publication } = stores();
+      const outcome = await saveResearchDossier(dossiers, request({ publication,
+        value: dossier((value) => { value.names_living_people = true; }) }));
+      expect(outcome?.disposition?.publication).toMatchObject({ status: "held", hold_reasons: ["names_living_people"] });
+      const review = new AtlasDossierReview({ store: publications, now: () => NOW });
+      for (const action of ["show_dossier", "accept_dossier"] as const) {
+        const refused = await review.run({ action, dossier: "D-1001", reason: "looks fine" });
+        expect(refused.ok).toBe(false);
+        expect(refused.text).toContain("show_dossier_naming_living_person");
+      }
+      expect(await publications.listShown({ limit: 10 })).toEqual([]);
+      // The separate action needs a typed reason and the reviewer login.
+      expect((await review.run({ action: "show_dossier_naming_living_person", dossier: "D-1001",
+        reviewer: "auth0|synthetic-owner" })).ok).toBe(false);
+      expect((await review.run({ action: "show_dossier_naming_living_person", dossier: "D-1001",
+        reason: "The named person is a public figure speaking in office" })).ok).toBe(false);
+      const decided = await review.run({ action: "show_dossier_naming_living_person", dossier: "D-1001",
+        reason: "The named person is a public figure speaking in office", reviewer: "auth0|synthetic-owner" });
+      expect(decided.text).toBe("D-1001 version 1 is now shown, at /atlas/dossiers/D-1001, on your decision that " +
+        "its claim about a named living person may be published.");
+      expect(decided.dossiers?.items[0]).toMatchObject({ state: "shown", namesLivingPerson: true,
+        livingPersonDecision: { by: expect.stringMatching(/^reviewer:[0-9a-f]{16}$/u), on: "2026-11-17",
+          reason: "The named person is a public figure speaking in office" } });
+      expect(JSON.stringify(decided)).not.toContain("auth0|synthetic-owner");
+      expect((await publications.listShown({ limit: 10 })).map(({ publicNumber }) => publicNumber)).toEqual(["D-1001"]);
+      // Once decided, the ordinary actions apply to that copy; the decision is not made again.
+      expect((await review.run({ action: "accept_dossier", dossier: "D-1001" })).ok).toBe(true);
+      expect((await review.run({ action: "show_dossier_naming_living_person", dossier: "D-1001",
+        reason: "again", reviewer: "auth0|synthetic-owner" })).ok).toBe(false);
+      // It applies only to a copy held for naming a living person.
+      const other = stores();
+      await saveResearchDossier(other.dossiers, request({ publication: other.publication,
+        value: dossier((value) => { value.value.confidence = "low"; }) }));
+      expect((await new AtlasDossierReview({ store: other.publications, now: () => NOW }).run({
+        action: "show_dossier_naming_living_person", dossier: "D-1001", reason: "no", reviewer: "x" })).ok).toBe(false);
+    });
+});
+
 describe("the dossier's shape and migration 0040", () => {
   it("asks for the public declarations in the shape, without saying anything goes public", () => {
     const shape = researchDossierShape(true);

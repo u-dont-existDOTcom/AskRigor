@@ -144,6 +144,10 @@ GRANT EXECUTE ON FUNCTION living_evidence.inspect_research_dossier_publication(t
   TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.decide_research_dossier_publication(text, integer, text, text, timestamptz)
   TO askrigor_research_review;
+-- The owner's own decision to show a copy whose claim names a living person, with his typed reason (Codex's review of
+-- stage 2, finding 2).
+GRANT EXECUTE ON FUNCTION living_evidence.decide_research_dossier_living_person(text, integer, text, text, timestamptz)
+  TO askrigor_research_review;
 ALTER ROLE askrigor_research_review SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_review SET idle_in_transaction_session_timeout = '5s';
 ALTER ROLE askrigor_research_review SET search_path = living_evidence, pg_catalog;

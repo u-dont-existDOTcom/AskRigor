@@ -299,10 +299,11 @@ const LATER_INPUT_SHAPES = Object.freeze({
     ...challengeMarkInputShape,
     // AskRigor#477 stage 2: research dossiers on the public Atlas.
     dossier: dossierNumberInputSchema.optional()
-      .describe("With inspect_dossier, show_dossier, hold_dossier, take_down_dossier or accept_dossier: the dossier's " +
-        "public number, such as D-1001."),
+      .describe("With inspect_dossier, show_dossier, hold_dossier, take_down_dossier, accept_dossier or " +
+        "show_dossier_naming_living_person: the dossier's public number, such as D-1001."),
     dossierVersion: dossierVersionInputSchema.optional()
-      .describe("With show_dossier, hold_dossier, take_down_dossier or accept_dossier: the version; its newest by default."),
+      .describe("With show_dossier, hold_dossier, take_down_dossier, accept_dossier or " +
+        "show_dossier_naming_living_person: the version; its newest by default."),
     dossierState: dossierStateInputSchema.optional()
       .describe("With list_dossiers: shown, held (the check's queue, by default), superseded, taken_down or erased."),
   },

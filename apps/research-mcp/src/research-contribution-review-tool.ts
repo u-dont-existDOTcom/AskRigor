@@ -112,8 +112,10 @@ export const researchContributionReviewInputSchema = z.object({
     }
     // AskRigor#477 stage 2: the dossier inputs go only with the dossier actions.
     const dossierInputs = value as { dossier?: unknown; dossierVersion?: unknown; dossierState?: unknown };
-    const dossierTakes = { dossier: ["inspect_dossier", "show_dossier", "hold_dossier", "take_down_dossier", "accept_dossier"],
-      dossierVersion: ["show_dossier", "hold_dossier", "take_down_dossier", "accept_dossier"],
+    const dossierTakes = { dossier: ["inspect_dossier", "show_dossier", "hold_dossier", "take_down_dossier", "accept_dossier",
+      "show_dossier_naming_living_person"],
+      dossierVersion: ["show_dossier", "hold_dossier", "take_down_dossier", "accept_dossier",
+        "show_dossier_naming_living_person"],
       dossierState: ["list_dossiers"] } as const;
     for (const [field, actions] of Object.entries(dossierTakes)) {
       if (dossierInputs[field as keyof typeof dossierInputs] !== undefined && !(actions as readonly string[]).includes(value.action)) {

@@ -559,6 +559,8 @@ const FIELDS_BY_ACTION: Record<AtlasReviewAction | "edit_after", readonly AtlasF
   hold_dossier: ["reason"],
   take_down_dossier: ["reason"],
   accept_dossier: ["reason"],
+  // Codex's review of stage 2, finding 2: the owner's own decision on a named living person, with his reason.
+  show_dossier_naming_living_person: ["reason"],
 };
 
 /**
@@ -1259,6 +1261,7 @@ export class AtlasReview {
         case "hold_dossier":
         case "take_down_dossier":
         case "accept_dossier":
+        case "show_dossier_naming_living_person":
           return await this.dossierAction(request.action, request);
       }
     } catch (error) {
@@ -1367,6 +1370,7 @@ export class AtlasReview {
       ...(request.dossierVersion === undefined ? {} : { dossierVersion: request.dossierVersion }),
       ...(request.dossierState === undefined ? {} : { dossierState: request.dossierState }),
       ...(request.reason === undefined ? {} : { reason: request.reason }),
+      ...(request.reviewer === undefined ? {} : { reviewer: request.reviewer }),
     });
     return {
       ok: result.ok,

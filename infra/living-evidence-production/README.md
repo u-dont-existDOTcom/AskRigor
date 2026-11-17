@@ -543,10 +543,13 @@ yet released; 0039 is another branch's) adds the research dossiers' public copie
 (the notices whose yes covers a dossier on the public Atlas, empty), `research_dossier_publications` (a dossier's public
 number, D-1001 onward), `research_dossier_public_versions` (one copy per saved version: shown, held for AskRigor's check
 with its reasons, superseded, taken down or erased; its public content, topic, related topics, the dossiers it conflicts
-with, where its research ran and whether the privacy reading read it) and `research_dossier_public_events`
-(append-only), five functions and two views. The research-access role publishes and reads a topic's shown copies
-(`publish_research_dossier_version`, `research_dossier_topic_publications`); the review role lists, inspects and decides
-(`list_research_dossier_publications`, `inspect_research_dossier_publication`, `decide_research_dossier_publication`);
+with, where its research ran, whether the privacy reading passed its saved content, without which it never shows, and
+whether a claim names a living person, with the owner's recorded decision to show it) and
+`research_dossier_public_events` (append-only), six functions and two views. The research-access role publishes and
+reads a topic's shown copies (`publish_research_dossier_version`, `research_dossier_topic_publications`); the review role
+lists, inspects and decides (`list_research_dossier_publications`, `inspect_research_dossier_publication`,
+`decide_research_dossier_publication`, and `decide_research_dossier_living_person`, the owner's own decision with his
+reason, the only way a copy whose claim names a living person shows);
 the canonical reader reads only the views `research_dossier_public_pages` and `research_dossier_public_history`. A
 trigger on `research_dossier_events` takes a copy off the pages when its version is withdrawn or rejected, and erases it
 when its version is erased, unless the owner accepted it, so an earlier image's revocation and `forget_card` keep them in

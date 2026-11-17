@@ -176,5 +176,6 @@ export function announcingDossierReview(
     list: (state, limit) => store.list(state, limit),
     inspect: (publicNumber) => store.inspect(publicNumber),
     decide: (input) => announcing(signal, () => store.decide(input)),
+    decideLivingPerson: (input) => announcing(signal, () => store.decideLivingPerson(input)),
   };
 }

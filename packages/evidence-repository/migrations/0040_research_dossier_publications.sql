@@ -48,6 +48,13 @@ CREATE TABLE IF NOT EXISTS research_dossier_public_versions (
   -- Whether AskRigor's semantic privacy reading passed exactly the saved content; a copy without it never shows
   -- (Codex's review of stage 2, finding 1).
   privacy_read boolean NOT NULL,
+  -- A claim names a living person (the AI's declaration). Such a copy shows only on the owner's own decision, with
+  -- who decided, when and the reason he typed (Codex's review of stage 2, finding 2); nothing else clears it.
+  names_living_person boolean NOT NULL,
+  living_person_decided_by text CHECK (living_person_decided_by ~ '^reviewer:[0-9a-f]{16}$'),
+  living_person_decided_at timestamptz,
+  living_person_reason text CHECK (living_person_reason = btrim(living_person_reason)
+    AND length(living_person_reason) BETWEEN 1 AND 200),
   accepted_at timestamptz,
   decided_at timestamptz NOT NULL,
   created_at timestamptz NOT NULL,
@@ -57,6 +64,10 @@ CREATE TABLE IF NOT EXISTS research_dossier_public_versions (
   CHECK ((erased_at IS NULL) = (public_payload IS NOT NULL AND public_sha256 IS NOT NULL AND topic_key IS NOT NULL)),
   CHECK (state <> 'held' OR cardinality(hold_reasons) > 0),
   CHECK (state <> 'shown' OR privacy_read),
+  CHECK ((living_person_decided_at IS NULL) = (living_person_decided_by IS NULL)
+    AND (living_person_decided_at IS NULL) = (living_person_reason IS NULL)),
+  CHECK (living_person_decided_at IS NULL OR names_living_person),
+  CHECK (state <> 'shown' OR NOT names_living_person OR living_person_decided_at IS NOT NULL),
   CHECK (accepted_at IS NULL OR state IN ('shown', 'superseded', 'taken_down'))
 );
 
@@ -71,7 +82,8 @@ CREATE INDEX IF NOT EXISTS research_dossier_public_state_idx
 CREATE TABLE IF NOT EXISTS research_dossier_public_events (
   event_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   version_id uuid NOT NULL REFERENCES research_dossier_public_versions(version_id),
-  event text NOT NULL CHECK (event IN ('shown', 'held', 'superseded', 'taken_down', 'accepted', 'erased')),
+  event text NOT NULL CHECK (event IN ('shown', 'held', 'superseded', 'taken_down', 'accepted', 'erased',
+    'living_person_decided')),
   reason text CHECK (reason IS NULL OR (reason = btrim(reason) AND length(reason) BETWEEN 1 AND 200)),
   happened_at timestamptz NOT NULL
 );
@@ -88,7 +100,7 @@ COMMENT ON TABLE research_dossier_public_versions IS
 COMMENT ON COLUMN research_dossier_public_versions.origin IS
   'Where the research ran (owner answer 332a): the connector surface, whether the caller made the AI readings, and the runner''s own declaration. For the review only.';
 COMMENT ON TABLE research_dossier_public_events IS
-  'Append-only: shown, held, superseded, taken_down, accepted, erased.';
+  'Append-only: shown, held, superseded, taken_down, accepted, erased, living_person_decided (the owner''s decision to show a copy whose claim names a living person).';
 
 -- A copy's content changes only by erasure; its state, its hold reasons and its acceptance change by the functions
 -- below; it is never deleted.
@@ -102,7 +114,7 @@ BEGIN
   END IF;
   IF NEW.version_id <> OLD.version_id OR NEW.public_number <> OLD.public_number
      OR NEW.version_number <> OLD.version_number OR NEW.created_at <> OLD.created_at
-     OR NEW.privacy_read <> OLD.privacy_read THEN
+     OR NEW.privacy_read <> OLD.privacy_read OR NEW.names_living_person <> OLD.names_living_person THEN
     RAISE EXCEPTION 'RESEARCH_DOSSIER_PUBLIC_VERSION_IMMUTABLE' USING ERRCODE = '55000';
   END IF;
   IF OLD.erased_at IS NOT NULL THEN
@@ -110,7 +122,11 @@ BEGIN
   END IF;
   IF NEW.erased_at IS NULL AND (NEW.public_payload IS DISTINCT FROM OLD.public_payload
      OR NEW.public_sha256 IS DISTINCT FROM OLD.public_sha256 OR NEW.topic_key IS DISTINCT FROM OLD.topic_key
-     OR NEW.related_topic_keys IS DISTINCT FROM OLD.related_topic_keys) THEN
+     OR NEW.related_topic_keys IS DISTINCT FROM OLD.related_topic_keys
+     -- The owner's decision on a named living person is made once and never changed.
+     OR (OLD.living_person_decided_at IS NOT NULL AND (NEW.living_person_decided_at IS DISTINCT FROM
+       OLD.living_person_decided_at OR NEW.living_person_decided_by IS DISTINCT FROM OLD.living_person_decided_by
+       OR NEW.living_person_reason IS DISTINCT FROM OLD.living_person_reason))) THEN
     RAISE EXCEPTION 'RESEARCH_DOSSIER_PUBLIC_VERSION_IMMUTABLE' USING ERRCODE = '55000';
   END IF;
   RETURN NEW;
@@ -248,11 +264,11 @@ BEGIN
      AND (copy.state = 'held' OR (target_state = 'shown' AND copy.state = 'shown'));
 
   INSERT INTO research_dossier_public_versions (version_id, public_number, version_number, state, topic_key,
-    related_topic_keys, public_payload, public_sha256, hold_reasons, conflicts_with, origin, privacy_read, decided_at,
-    created_at)
+    related_topic_keys, public_payload, public_sha256, hold_reasons, conflicts_with, origin, privacy_read,
+    names_living_person, decided_at, created_at)
   VALUES (target_version_id, number_text, version_row.version_number, target_state, target_topic_key,
     target_related_topic_keys, target_payload, target_payload_sha256, target_hold_reasons, target_conflicts_with,
-    target_origin, target_privacy_read, change_time, change_time);
+    target_origin, target_privacy_read, 'names_living_people' = ANY(target_hold_reasons), change_time, change_time);
   INSERT INTO research_dossier_public_events (version_id, event, reason, happened_at)
   VALUES (target_version_id, target_state,
     CASE WHEN target_state = 'held' THEN array_to_string(target_hold_reasons, ' ') END, change_time);
@@ -288,7 +304,8 @@ REVOKE ALL ON FUNCTION research_dossier_topic_publications(text) FROM PUBLIC;
 CREATE OR REPLACE FUNCTION list_research_dossier_publications(target_state text, target_limit integer)
 RETURNS TABLE (public_number text, version_number integer, dossier_number text, state text, topic_key text,
   question text, hold_reasons text[], conflicts_with text[], origin jsonb, privacy_read boolean, accepted boolean,
-  decided_at timestamptz)
+  decided_at timestamptz, names_living_person boolean, living_person_decided_by text,
+  living_person_decided_at timestamptz, living_person_reason text)
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
@@ -303,7 +320,8 @@ BEGIN
   RETURN QUERY
   SELECT copy.public_number, copy.version_number, publication.dossier_number, copy.state, copy.topic_key,
     copy.public_payload ->> 'question', copy.hold_reasons, copy.conflicts_with, copy.origin, copy.privacy_read,
-    copy.accepted_at IS NOT NULL, copy.decided_at
+    copy.accepted_at IS NOT NULL, copy.decided_at, copy.names_living_person, copy.living_person_decided_by,
+    copy.living_person_decided_at, copy.living_person_reason
     FROM research_dossier_public_versions copy
     JOIN research_dossier_publications publication ON publication.public_number = copy.public_number
    WHERE (target_state IS NULL AND copy.state <> 'erased') OR copy.state = target_state
@@ -318,7 +336,8 @@ REVOKE ALL ON FUNCTION list_research_dossier_publications(text, integer) FROM PU
 CREATE OR REPLACE FUNCTION inspect_research_dossier_publication(target_public_number text)
 RETURNS TABLE (public_number text, version_number integer, dossier_number text, state text, topic_key text,
   related_topic_keys text[], public_payload jsonb, public_sha256 text, hold_reasons text[], conflicts_with text[],
-  origin jsonb, privacy_read boolean, accepted boolean, decided_at timestamptz)
+  origin jsonb, privacy_read boolean, accepted boolean, decided_at timestamptz, names_living_person boolean,
+  living_person_decided_by text, living_person_decided_at timestamptz, living_person_reason text)
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
@@ -326,7 +345,8 @@ SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
   SELECT copy.public_number, copy.version_number, publication.dossier_number, copy.state, copy.topic_key,
     copy.related_topic_keys, copy.public_payload, copy.public_sha256::text, copy.hold_reasons, copy.conflicts_with,
-    copy.origin, copy.privacy_read, copy.accepted_at IS NOT NULL, copy.decided_at
+    copy.origin, copy.privacy_read, copy.accepted_at IS NOT NULL, copy.decided_at, copy.names_living_person,
+    copy.living_person_decided_by, copy.living_person_decided_at, copy.living_person_reason
     FROM research_dossier_public_versions copy
     JOIN research_dossier_publications publication ON publication.public_number = copy.public_number
    WHERE copy.public_number = target_public_number
@@ -338,7 +358,8 @@ REVOKE ALL ON FUNCTION inspect_research_dossier_publication(text) FROM PUBLIC;
 -- The review's decision on one copy: show (a held or taken-down copy), hold (send a shown copy the owner has not
 -- accepted back for the check), take_down, or accept (it shows, checked by supervisors). Only the dossier's newest copy can be shown or accepted, and
 -- only while its private version is neither withdrawn, rejected nor erased and a privacy reading passed its saved
--- content; showing or accepting supersedes the dossier's other shown copy.
+-- content; showing or accepting supersedes the dossier's other shown copy. A copy whose claim names a living person is
+-- refused here until the owner's own decision (decide_research_dossier_living_person) has shown it.
 CREATE OR REPLACE FUNCTION decide_research_dossier_publication(
   target_public_number text,
   target_version_number integer,
@@ -383,6 +404,7 @@ BEGIN
      OR (target_decision = 'show' AND copy_row.state NOT IN ('held', 'taken_down'))
      OR (target_decision = 'accept' AND copy_row.state NOT IN ('shown', 'held', 'taken_down'))
      OR (target_decision IN ('show', 'accept') AND (copy_row.version_number <> newest OR NOT copy_row.privacy_read
+       OR (copy_row.names_living_person AND copy_row.living_person_decided_at IS NULL)
        OR (copy_row.accepted_at IS NULL AND EXISTS (SELECT 1 FROM research_dossier_events event
          WHERE event.version_id = copy_row.version_id AND event.event IN ('withdrawn', 'rejected', 'erased'))))) THEN
     RETURN QUERY SELECT 'not_decidable'::text, copy_row.state, copy_row.accepted_at IS NOT NULL;
@@ -421,6 +443,71 @@ $function$;
 
 REVOKE ALL ON FUNCTION decide_research_dossier_publication(text, integer, text, text, timestamptz) FROM PUBLIC;
 
+-- The owner's own decision to show a copy held because a claim names a living person (his standing rule: such claims
+-- are published only on his explicit decision; Codex's review of stage 2, finding 2). It needs his typed reason and
+-- records who decided (the reviewer login's digest) and when, once; nothing else clears the hold. Only the dossier's
+-- newest copy, held or taken down, whose private version is neither withdrawn, rejected nor erased and whose saved
+-- content a privacy reading passed; it shows the copy and supersedes the dossier's other shown copy.
+CREATE OR REPLACE FUNCTION decide_research_dossier_living_person(
+  target_public_number text,
+  target_version_number integer,
+  target_reason text,
+  target_decided_by text,
+  change_time timestamptz
+)
+RETURNS TABLE (outcome text, state text, accepted boolean)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+#variable_conflict use_column
+DECLARE
+  copy_row research_dossier_public_versions%ROWTYPE;
+  newest integer;
+BEGIN
+  IF target_public_number IS NULL OR target_public_number !~ '^D-[1-9][0-9]{3,}$'
+     OR target_version_number IS NULL OR target_version_number < 1
+     OR target_reason IS NULL OR target_reason <> btrim(target_reason) OR length(target_reason) NOT BETWEEN 1 AND 200
+     OR target_decided_by IS NULL OR target_decided_by !~ '^reviewer:[0-9a-f]{16}$'
+     OR change_time IS NULL THEN
+    RAISE EXCEPTION 'RESEARCH_DOSSIER_REVIEW_INPUT_INVALID';
+  END IF;
+  PERFORM 1 FROM research_dossier_publications publication
+   WHERE publication.public_number = target_public_number FOR UPDATE;
+  SELECT * INTO copy_row FROM research_dossier_public_versions copy
+   WHERE copy.public_number = target_public_number AND copy.version_number = target_version_number
+   FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT 'not_found'::text, NULL::text, NULL::boolean;
+    RETURN;
+  END IF;
+  SELECT max(copy.version_number) INTO newest FROM research_dossier_public_versions copy
+   WHERE copy.public_number = target_public_number;
+  IF NOT copy_row.names_living_person OR copy_row.living_person_decided_at IS NOT NULL
+     OR copy_row.state NOT IN ('held', 'taken_down') OR copy_row.version_number <> newest OR NOT copy_row.privacy_read
+     OR (copy_row.accepted_at IS NULL AND EXISTS (SELECT 1 FROM research_dossier_events event
+       WHERE event.version_id = copy_row.version_id AND event.event IN ('withdrawn', 'rejected', 'erased'))) THEN
+    RETURN QUERY SELECT 'not_decidable'::text, copy_row.state, copy_row.accepted_at IS NOT NULL;
+    RETURN;
+  END IF;
+  INSERT INTO research_dossier_public_events (version_id, event, reason, happened_at)
+  SELECT copy.version_id, 'superseded', NULL, change_time FROM research_dossier_public_versions copy
+   WHERE copy.public_number = target_public_number AND copy.state = 'shown' AND copy.version_id <> copy_row.version_id;
+  UPDATE research_dossier_public_versions copy SET state = 'superseded', decided_at = change_time
+   WHERE copy.public_number = target_public_number AND copy.state = 'shown' AND copy.version_id <> copy_row.version_id;
+  UPDATE research_dossier_public_versions copy
+     SET state = 'shown', hold_reasons = '{}', living_person_decided_by = target_decided_by,
+         living_person_decided_at = change_time, living_person_reason = target_reason, decided_at = change_time
+   WHERE copy.version_id = copy_row.version_id;
+  INSERT INTO research_dossier_public_events (version_id, event, reason, happened_at)
+  VALUES (copy_row.version_id, 'living_person_decided', target_reason, change_time),
+         (copy_row.version_id, 'shown', target_reason, change_time);
+  RETURN QUERY SELECT 'decided'::text, 'shown'::text, copy_row.accepted_at IS NOT NULL;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION decide_research_dossier_living_person(text, integer, text, text, timestamptz) FROM PUBLIC;
+
 -- The copy follows its private version, whatever image records the change: a withdrawn or rejected version's copy
 -- leaves the pages (taken down) unless the owner accepted it, and an erased version's copy is erased with it unless
 -- the owner accepted it; an accepted copy then keeps nothing of where the research ran.
@@ -445,7 +532,8 @@ BEGIN
      WHERE copy.version_id = NEW.version_id AND copy.erased_at IS NULL AND copy.accepted_at IS NULL;
     UPDATE research_dossier_public_versions copy
        SET state = 'erased', public_payload = NULL, public_sha256 = NULL, topic_key = NULL, related_topic_keys = '{}',
-           hold_reasons = '{}', conflicts_with = '{}', origin = '{}'::jsonb, erased_at = NEW.happened_at,
+           hold_reasons = '{}', conflicts_with = '{}', origin = '{}'::jsonb, living_person_decided_by = NULL,
+           living_person_decided_at = NULL, living_person_reason = NULL, erased_at = NEW.happened_at,
            decided_at = NEW.happened_at
      WHERE copy.version_id = NEW.version_id AND copy.erased_at IS NULL AND copy.accepted_at IS NULL;
     UPDATE research_dossier_public_versions copy SET origin = '{}'::jsonb
