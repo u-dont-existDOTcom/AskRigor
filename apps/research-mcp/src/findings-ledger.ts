@@ -42,8 +42,10 @@ const FINDINGS_LEDGER_MAX_INFLATED_BYTES = 256 * 1024;
 export const FINDINGS_LEDGER_MEMORY_MS = 2 * 60 * 60 * 1000;
 const FINDINGS_LEDGER_MEMORY_ENTRIES = 2_000;
 /**
- * The most findings a ledger may name. What one token carries is bounded by its size (FINDINGS_LEDGER_MAX_CHARACTERS),
- * which holds a few hundred whole records, or about a thousand short ones; this only bounds what a token is read for.
+ * The most findings a ledger may name. What one token carries is bounded by its size (FINDINGS_LEDGER_MAX_CHARACTERS):
+ * as measured on 17 Nov 2026, 195 open findings without dispute reasons that each quote twenty words no other finding
+ * uses, and 735 that each quote a sixteen-word sentence whose words mostly repeat from one finding to the next; fewer
+ * with reasons. This only bounds what a token is read for.
  */
 const MAX_ENTRIES = 2_000;
 const MAX_RESPONSES = 30;
@@ -219,10 +221,10 @@ export function issueFindingsLedger(payload: FindingsLedgerPayload, secret: stri
 /**
  * The token of a payload, within FINDINGS_LEDGER_MAX_CHARACTERS and, inflated, FINDINGS_LEDGER_MAX_INFLATED_BYTES
  * (Codex's re-review of 17 Nov 2026, finding 4: a token the verifier would refuse is never issued): open findings
- * first, then settled ones. What doesn't fit is made smaller in steps, each taken only when the one before is not
- * enough (Codex's review of 17 Nov 2026, finding 5, and its re-review, finding 3): settled findings are left out from
- * the end; then open findings from the end are kept as short records, with their id, disposition and reason but
- * nothing to match them through an edit; then short records are left out from the end. `beyond`, findings past
+ * first, then settled ones. What doesn't fit is left out in steps, each taken only when the one before is not enough
+ * (Codex's review of 17 Nov 2026, finding 5, and its re-review, finding 3): settled findings from the end, then open
+ * findings from the end. An open finding is carried whole or not at all: one carried without what matches it through
+ * an edit would be called fixed once edited (Codex's third review of 17 Nov 2026, finding 2). `beyond`, findings past
  * MAX_ENTRIES, are never carried. What is left out is returned, so the caller says what the token does not carry,
  * and the token keeps the most open findings a ledger of this research has left out at once (`o`).
  */
@@ -232,12 +234,12 @@ function issueWithin(payload: FindingsLedgerPayload, secret: string, beyond: rea
   const open = rest.e.filter(({ d }) => !SETTLED.has(d));
   const settled = rest.e.filter(({ d }) => SETTLED.has(d));
   const openBeyond = beyond.filter(({ d }) => !SETTLED.has(d));
-  const attempt = (full: number, short: number, settledKept: number) => {
-    const left = [...open.slice(short), ...openBeyond, ...settled.slice(settledKept),
+  const attempt = (openKept: number, settledKept: number) => {
+    const left = [...open.slice(openKept), ...openBeyond, ...settled.slice(settledKept),
       ...beyond.filter(({ d }) => SETTLED.has(d))];
-    const o = Math.min(Math.max(before ?? 0, open.length - short + openBeyond.length), 100_000);
-    const kept: FindingsLedgerPayload = { ...rest, e: [...open.slice(0, full), ...open.slice(full, short).map(shortEntry),
-      ...settled.slice(0, settledKept)], ...(o === 0 ? {} : { o }) };
+    const o = Math.min(Math.max(before ?? 0, open.length - openKept + openBeyond.length), 100_000);
+    const kept: FindingsLedgerPayload = { ...rest, e: [...open.slice(0, openKept), ...settled.slice(0, settledKept)],
+      ...(o === 0 ? {} : { o }) };
     const json = Buffer.from(JSON.stringify(kept));
     if (json.length > FINDINGS_LEDGER_MAX_INFLATED_BYTES) return undefined;
     const body = `fl1~${deflateRawSync(json).toString("base64url")}`;
@@ -253,10 +255,9 @@ function issueWithin(payload: FindingsLedgerPayload, secret: string, beyond: rea
     return tried(fits);
   };
   const all = open.length;
-  return attempt(all, all, settled.length) ??
-    (attempt(all, all, 0) === undefined ? undefined : most(0, settled.length, (count) => attempt(all, all, count))) ??
-    (attempt(0, all, 0) === undefined ? undefined : most(0, all, (count) => attempt(count, all, 0))) ??
-    (attempt(0, 0, 0) === undefined ? undefined : most(0, all, (count) => attempt(0, count, 0)));
+  return attempt(all, settled.length) ??
+    (attempt(all, 0) === undefined ? undefined : most(0, settled.length, (count) => attempt(all, count))) ??
+    (attempt(0, 0) === undefined ? undefined : most(0, all, (count) => attempt(count, 0)));
 }
 
 export type FindingsLedgerVerification =
@@ -463,20 +464,10 @@ function fingerprinted(secret: string, finding: ObservedFinding): Fingerprinted 
   };
 }
 
-/**
- * An open finding as a short record, when the ledger can't carry it whole (Codex's re-review of 17 Nov 2026, finding
- * 3): its id, disposition, reason and what it was about are kept, and a check that finds it again unchanged finds it;
- * its rule, sketch and identifiers, which only match it through an edit, are not.
- */
-function shortEntry({ id, f, d, n, l, k, s, c, w, g, x, u }: LedgerEntry): LedgerEntry {
-  return { id, f, d, n, l, ...(k === undefined ? {} : { k }), ...(s === undefined ? {} : { s }),
-    ...(c === undefined ? {} : { c }), ...(w === undefined ? {} : { w }), ...(g === undefined ? {} : { g }),
-    ...(x === undefined ? {} : { x }), ...(u === undefined ? {} : { u }) };
-}
 /** A settled finding as the ledger keeps it: no rule, sketch, identifiers, reason or items, which only an open one uses. */
-function settledEntry(entry: LedgerEntry): LedgerEntry {
-  const { w: _reason, g: _reasonDigest, u: _items, ...kept } = shortEntry(entry);
-  return kept;
+function settledEntry({ id, f, d, n, l, k, s, c, x }: LedgerEntry): LedgerEntry {
+  return { id, f, d, n, l, ...(k === undefined ? {} : { k }), ...(s === undefined ? {} : { s }),
+    ...(c === undefined ? {} : { c }), ...(x === undefined ? {} : { x }) };
 }
 function reasonDigest(secret: string, reason: string): string {
   return digest(secret, "reason", reason, 16);
