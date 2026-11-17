@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { inflateRawSync } from "node:zlib";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -25,7 +26,8 @@ const fixture = fileURLToPath(new globalThis.URL("./fixtures/reddit-reader-serve
 const clients: RedditReaderClient[] = [];
 const directories: string[] = [];
 const settings = { target: "synthetic@reader.invalid", keyFile: "/synthetic/key", knownHostsFile: "/synthetic/known-hosts" };
-async function fake(mode = "normal", options: { busyWaitMs?: number; deadlineMs?: number; idleMs?: number } = {}) {
+async function fake(mode = "normal", options: { busyWaitMs?: number; deadlineMs?: number; idleMs?: number;
+  continuationSecret?: string } = {}) {
   const directory = await mkdtemp(join(tmpdir(), "askrigor-reader-"));
   directories.push(directory);
   const log = join(directory, "calls.jsonl");
@@ -42,8 +44,8 @@ afterEach(async () => {
 });
 
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-/** What a more value carries. */
-const continuationOf = (more: string) => JSON.parse(Buffer.from(more, "base64url").toString("utf8"));
+/** What a more value carries: its payload, deflated, before the signature (Codex's review of 17 Nov 2026, finding 3). */
+const continuationOf = (more: string) => JSON.parse(inflateRawSync(Buffer.from(more.split(".")[0]!, "base64url")).toString("utf8"));
 async function untilStarted(records: () => Promise<{ event: string }[]>) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     if ((await records().catch(() => [])).some((record) => record.event === "start")) return;
@@ -229,7 +231,7 @@ describe("Reddit stdio reader", () => {
     const { client } = await fake("slow-continuation", { deadlineMs: 3_000 });
     const result = await client.readThread(URL);
     expect(result).toMatchObject({ access_state: "read", truncated: true, comments_read: 2 });
-    expect(JSON.parse(Buffer.from(result.more!, "base64url").toString("utf8"))).toMatchObject({ pages: ["page-1"] });
+    expect(continuationOf(result.more!)).toMatchObject({ pages: ["page-1"] });
   });
   it("resolves a short link's subreddit from the post before requesting comments", async () => {
     const { client, records } = await fake();
@@ -351,16 +353,56 @@ describe("Reddit stdio reader", () => {
     expect((await client.searchThreads({ query: "second" })).returned).toBe(7);
     expect((await records()).filter((record) => record.event === "boot")).toHaveLength(2);
   });
+  // Codex's review of 17 Nov 2026, finding 3: a more value's thread, pages and counts came back as the caller sent them,
+  // so an edited count (33 read of 30) read as complete. A more value is refused unless it is exactly as AskRigor gave it.
+  it("refuses an edited more value before any call to the host, and reads an unedited one", async () => {
+    const { client, records } = await fake("normal-of-fifteen");
+    const first = await client.readThread(URL);
+    const more = first.more!;
+    const started = async () => (await records()).filter((record) => record.event === "start").length;
+    const before = await started();
+    const edits: string[] = [];
+    // The counts edited in a more value of the form before this fix, and a signed one with any character changed.
+    const body = (() => { try { return JSON.parse(Buffer.from(more, "base64url").toString("utf8")); } catch { return undefined; } })();
+    if (body !== undefined) {
+      edits.push(Buffer.from(JSON.stringify({ ...body, r: 33 })).toString("base64url"));
+      edits.push(Buffer.from(JSON.stringify({ ...body, pages: [], replies: [] })).toString("base64url"));
+    }
+    edits.push(Buffer.from(JSON.stringify({ v: 1, id: "abc123", pages: ["page-4"], replies: [], r: 33, x: 0 })).toString("base64url"));
+    for (const at of [0, Math.floor(more.length / 2), more.length - 1]) {
+      edits.push(`${more.slice(0, at)}${more[at] === "A" ? "B" : "A"}${more.slice(at + 1)}`);
+    }
+    for (const edited of edits) {
+      expect(await client.readThread(URL, edited), edited.slice(0, 40)).toMatchObject({ access_state: "refused",
+        host_code: "CONTINUATION_NOT_VALID" });
+    }
+    // Server fix 8, test 3: a more value exactly as given, for another thread, is refused by name, never read as its.
+    expect(await client.readThread("https://www.reddit.com/r/example/comments/zzz999/", more)).toMatchObject({
+      access_state: "refused", host_code: "CONTINUATION_OTHER_THREAD" });
+    expect(await started()).toBe(before);
+    expect(await client.readThread(URL, more)).toMatchObject({ access_state: "read", comments_read: 13 });
+    // Another reader signs under another key: its more values are refused here (the server signs under one secret).
+    const { client: other } = await fake("normal-of-fifteen");
+    expect(await other.readThread(URL, more)).toMatchObject({ access_state: "refused", host_code: "CONTINUATION_NOT_VALID" });
+    // Under the server's secret, a more value stays good for a reader started after it was given, as after a restart.
+    const secret = "synthetic-continuation-secret-0123456789";
+    const { client: earlier } = await fake("normal-of-fifteen", { continuationSecret: secret });
+    const { client: after } = await fake("normal-of-fifteen", { continuationSecret: secret });
+    const given = (await earlier.readThread(URL)).more!;
+    expect(await after.readThread(URL, given)).toMatchObject({ access_state: "read", comments_read: 13 });
+  });
+
   it("rejects invalid links, continuations and search inputs before sending", async () => {
     const { client, log } = await fake();
     for (const url of ["http://www.reddit.com/r/synthetic/comments/abc123/", "https://reddit.com.invalid/r/synthetic/comments/abc123/", "https://reddit.com/user/synthetic"]) {
       expect((await client.readThread(url)).access_state).toBe("invalid");
     }
-    expect((await client.readThread(URL, "malformed")).access_state).toBe("invalid");
-    const wrongThread = Buffer.from(JSON.stringify({ v: 2, id: "other", pages: [], replies: [], t: [], u: [] })).toString("base64url");
-    // Server fix 8, test 3: another thread's more value is refused by name, never read as this thread's.
-    expect(await client.readThread(URL, wrongThread)).toMatchObject({ access_state: "refused",
-      host_code: "CONTINUATION_OTHER_THREAD" });
+    expect((await client.readThread(URL, "not a more value")).access_state).toBe("invalid");
+    // Codex's review of 17 Nov 2026, finding 3: a more value the reader did not sign is refused, whatever it holds.
+    const unsigned = Buffer.from(JSON.stringify({ v: 2, id: "other", pages: [], replies: [], t: [], u: [] })).toString("base64url");
+    for (const more of ["malformed", unsigned, `${unsigned}.${"A".repeat(43)}`]) {
+      expect(await client.readThread(URL, more)).toMatchObject({ access_state: "refused", host_code: "CONTINUATION_NOT_VALID" });
+    }
     expect((await client.searchThreads({ query: "a".repeat(501) })).access_state).toBe("invalid");
     await expect(readFile(log)).rejects.toMatchObject({ code: "ENOENT" });
   });

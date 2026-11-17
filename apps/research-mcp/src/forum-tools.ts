@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import { isDeidentifiedResearchTarget, researchTargetScreenRefusal } from "./actions/gemini-scout-route.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "./community-leads.js";
-import { CONTINUATION_OTHER_THREAD, redditReaderFromEnv } from "./reddit-reader-client.js";
+import { CONTINUATION_NOT_VALID, CONTINUATION_OTHER_THREAD, redditReaderFromEnv } from "./reddit-reader-client.js";
 import {
   comparableUrl, forumLinkDigest, forumPageDigest, forumReadLink, forumSiteDigest, forumThreadDigest, nextPageLink,
   pagePickedAfterFirst, sameSiteRedirect, sameThreadAtSite, signedSubreddit
@@ -91,6 +91,10 @@ const HOST_GUIDANCE: ReadonlyMap<string, string> = new Map([
   // Server fix 8, test 3: a more value is read only with the thread it came from.
   [CONTINUATION_OTHER_THREAD, "This more value continues another thread, so nothing was read: call read_forum_thread " +
     "with the url of the thread whose result gave it, or with this url alone to read this thread from its start."],
+  // Codex's review of 17 Nov 2026, finding 3: a more value is read only exactly as the reader gave it.
+  [CONTINUATION_NOT_VALID, "AskRigor couldn't confirm this more value as one its reader gave, unchanged, so nothing " +
+    "was read: pass the more value exactly as the last result gave it, or call read_forum_thread with this url alone " +
+    "to read this thread from its start."],
   // #412's run (5 Nov): all six searches answered this were for made-up names, while others minutes apart worked, and
   // one run then called the community's pages unretrievable. The host doesn't say which, so the guidance says both.
   ["WEBSITE_FORMAT_CHANGED", "The Reddit reader's host answered WEBSITE_FORMAT_CHANGED: it couldn't read Reddit's " +

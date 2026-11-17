@@ -128,6 +128,23 @@ describe("forum tools", () => {
       expect(content.limitations).toEqual([expect.stringContaining("This more value continues another thread")]);
     } finally { await reader.close(); }
   });
+  // Codex's review of 17 Nov 2026, finding 3: a more value changed in any part is refused, reading nothing.
+  it("refuses an edited more value, reading nothing and signing nothing", async () => {
+    const reader = fixtureReader("fifteen");
+    try {
+      const caller = await client({ redditReader: reader });
+      const first = await caller.callTool({ name: "read_forum_thread", arguments: { url: URL } });
+      const more = (first.structuredContent!.data as { more: string }).more;
+      const edited = `${more.slice(0, 5)}${more[5] === "A" ? "B" : "A"}${more.slice(6)}`;
+      const result = await caller.callTool({ name: "read_forum_thread", arguments: { url: URL, more: edited } });
+      const content = result.structuredContent as Record<string, unknown> & { limitations: string[] };
+      expect(content).toMatchObject({ access_status: "inaccessible", data: { access_state: "refused" } });
+      expect(content).not.toHaveProperty("research_receipt");
+      expect(content.limitations).toEqual(["AskRigor couldn't confirm this more value as one its reader gave, unchanged, " +
+        "so nothing was read: pass the more value exactly as the last result gave it, or call read_forum_thread with this " +
+        "url alone to read this thread from its start."]);
+    } finally { await reader.close(); }
+  });
   it.each(["read_forum_thread", "search_reddit_threads"])("returns visible enrollment guidance for %s even with the global guard enabled", async (name) => {
     account.mockResolvedValue(undefined);
     const caller = await client({ researchAccessRequired: true });
