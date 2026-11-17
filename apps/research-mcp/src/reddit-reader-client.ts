@@ -1,11 +1,14 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { isAbsolute } from "node:path";
+import { deflateRawSync, inflateRawSync } from "node:zlib";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { DEFAULT_INHERITED_ENV_VARS, StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { ErrorCode, McpError, type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { redditPostId } from "@askrigor/sources";
 import { z } from "zod";
+
+import { researchReceiptSecretFromEnv } from "./research-receipts.js";
 
 // A call ends within this, its wait for its turn included, so it answers before the strictest client limit the
 // repository records: Claude waits 60 seconds for a tool (docs/superpowers/plans/2026-09-26-instruction-optimization.md).
@@ -44,6 +47,14 @@ type FailureState = "not_found" | "invalid" | "unavailable" | "busy" | "not_avai
 export type RedditThreadTerminalReason = "site_limit" | "continuation_too_long";
 /** The code a more value from another thread is refused with: never read as this thread's. */
 export const CONTINUATION_OTHER_THREAD = "CONTINUATION_OTHER_THREAD";
+/**
+ * The code a more value is refused with when it is not exactly one this reader signed (Codex's review of 17 Nov 2026,
+ * finding 3): its thread, its pages and the comments it says were read are taken only as the reader gave them.
+ */
+export const CONTINUATION_NOT_VALID = "CONTINUATION_NOT_VALID";
+const CONTINUATION_DOMAIN = "askrigor:reddit-thread-continuation:v2";
+// What a signed more value's payload may inflate to; it holds at most the ids of the comments one reading read.
+const MAXIMUM_CONTINUATION_BYTES = 20_000_000;
 /**
  * The host's failure codes, taken from its browser reader's source, and the states they give. A code not listed stays
  * unavailable. Each result names its code (host_code), so the AI's note and a run's logs say what the host answered: on
@@ -152,7 +163,36 @@ export function redditReaderFromEnv(env: NodeJS.ProcessEnv = process.env): Reddi
   const keyFile = env.ASKRIGOR_REDDIT_READER_KEY_FILE;
   const knownHostsFile = env.ASKRIGOR_REDDIT_READER_KNOWN_HOSTS_FILE;
   if (!target?.trim() || !keyFile?.trim() || !knownHostsFile?.trim()) return undefined;
-  return createRedditReaderClient({ target, keyFile, knownHostsFile });
+  const continuationSecret = researchReceiptSecretFromEnv(env);
+  return createRedditReaderClient({ target, keyFile, knownHostsFile, ...(continuationSecret === undefined ? {} : { continuationSecret }) });
+}
+
+/**
+ * A more value as the reader gives it (Codex's review of 17 Nov 2026, finding 3): the whole continuation, its thread,
+ * its pages and reply continuations and the comments read so far, deflated, then signed under a key of its own, so a
+ * more value changed in any part is refused before the host is asked for anything.
+ */
+function signContinuation(state: z.output<typeof moreSchema>, key: Buffer): string {
+  const payload = deflateRawSync(Buffer.from(JSON.stringify(state), "utf8"), { level: 9 }).toString("base64url");
+  return `${payload}.${createHmac("sha256", key).update(payload).digest("base64url")}`;
+}
+
+/** The continuation a more value signed with this key carries, or undefined for one that is not exactly as signed. */
+function verifiedContinuation(more: string, key: Buffer): z.output<typeof moreSchema> | undefined {
+  const parts = more.split(".");
+  if (parts.length !== 2) return undefined;
+  const [payload, signature] = parts as [string, string];
+  const expected = createHmac("sha256", key).update(payload).digest();
+  const given = Buffer.from(signature, "base64url");
+  if (given.length !== expected.length || !timingSafeEqual(given, expected) ||
+    given.toString("base64url") !== signature) return undefined;
+  try {
+    const parsed = moreSchema.safeParse(JSON.parse(inflateRawSync(Buffer.from(payload, "base64url"),
+      { maxOutputLength: MAXIMUM_CONTINUATION_BYTES }).toString("utf8")));
+    return parsed.success ? parsed.data : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function createRedditReaderClient(options: {
@@ -160,9 +200,17 @@ export function createRedditReaderClient(options: {
   /** A local SDK server, never a shell, for hermetic transport tests. */
   command?: string; args?: string[];
   busyWaitMs?: number; deadlineMs?: number; idleMs?: number;
+  /**
+   * The secret more values are signed under (the research receipts' secret, under a key of its own), so one stays good
+   * across restarts. Without one, each reader signs under a random key of its own, and its more values are good only
+   * while it runs.
+   */
+  continuationSecret?: string;
 }): RedditReaderClient {
   if (!/^[A-Za-z0-9_-]+@[A-Za-z0-9.-]+$/u.test(options.target) ||
       !isAbsolute(options.keyFile) || !isAbsolute(options.knownHostsFile)) throw new ReaderError("invalid");
+  const continuationKey = createHmac("sha256", options.continuationSecret ?? randomBytes(32))
+    .update(CONTINUATION_DOMAIN).digest();
   const args = ["-T", "-F", "none", "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes", "-o", "ClearAllForwardings=yes",
     "-o", "StrictHostKeyChecking=yes", "-o", `UserKnownHostsFile=${options.knownHostsFile}`, "-o", "ConnectTimeout=10",
     "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3", "-i", options.keyFile, options.target];
@@ -286,9 +334,11 @@ export function createRedditReaderClient(options: {
         const link = normalizeThread(url);
         let pending: z.output<typeof moreSchema> | undefined;
         if (more !== undefined) {
-          if (more.length > MAXIMUM_MORE_LENGTH || !/^[A-Za-z0-9_-]+$/u.test(more)) throw new ReaderError("invalid");
-          try { pending = moreSchema.parse(JSON.parse(Buffer.from(more, "base64url").toString("utf8"))); }
-          catch { throw new ReaderError("invalid"); }
+          if (more.length > MAXIMUM_MORE_LENGTH || !/^[A-Za-z0-9_.-]+$/u.test(more)) throw new ReaderError("invalid");
+          // Codex's review of 17 Nov 2026, finding 3: only a more value exactly as this reader signed it is read, so its
+          // thread, pages and comments read are the reader's own; any other is refused before the host is asked.
+          pending = verifiedContinuation(more, continuationKey);
+          if (pending === undefined) throw new ReaderError("refused", undefined, CONTINUATION_NOT_VALID);
           // Server fix 8, test 3: another thread's more value is refused, never read as this thread's.
           if (pending.id !== link.id) throw new ReaderError("refused", undefined, CONTINUATION_OTHER_THREAD);
         }
@@ -361,7 +411,7 @@ export function createRedditReaderClient(options: {
           const read = withText.size;
           const withoutText = without.size;
           const remaining = { v: 2 as const, id: link.id, pages, replies, t: [...withText], u: [...without] };
-          let next = pages.length === 0 && replies.length === 0 ? undefined : Buffer.from(JSON.stringify(remaining)).toString("base64url");
+          let next = pages.length === 0 && replies.length === 0 ? undefined : signContinuation(remaining, continuationKey);
           let tooLong = false;
           // The rest too large for one more value: the comments read are kept, and the result says the reading ends here.
           if (next !== undefined && (next.length > MAXIMUM_MORE_LENGTH || !moreSchema.safeParse(remaining).success)) {
