@@ -2431,6 +2431,9 @@ const ATLAS_REPORT_REVIEW_FUNCTIONS = ["decide_atlas_report", "inspect_atlas_rep
 const ATLAS_GLANCE_FUNCTIONS = ["inspect_atlas_glance_rows", "propose_atlas_glance_row", "set_atlas_glance_row_state"] as const;
 // The owner, 6 Nov: migration 0030's two functions for findings that challenge the usual view.
 const ATLAS_CHALLENGE_FUNCTIONS = ["inspect_atlas_challenges", "mark_atlas_challenges"] as const;
+// Codex's third review of 17 Nov 2026, finding 1 (migration 0041): a later save's living-person yes.
+const ATLAS_LIVING_PERSON_FUNCTIONS = ["hold_atlas_publications_for_living_person",
+  "inspect_atlas_living_person_notes"] as const;
 const ATLAS_PARTICIPATION_FUNCTIONS = [
   "atlas_session_current", "delete_atlas_comment", "end_atlas_sessions", "forget_atlas_participant",
   "inspect_atlas_participant", "post_atlas_comment", "report_atlas_comment", "set_atlas_display_name", "set_atlas_vote",
@@ -4210,6 +4213,34 @@ export async function verifyAtlasPages(context: {
     assert(unknownRoute.includes("atlas_publications_v1_shown_by_check"), "ATLAS_UNKNOWN_ROUTE_STORED");
     checks.push("atlas_routes_stored_apart_by_the_review_functions_and_a_page_says_the_test_happened_only_from_the_record");
 
+    // Codex's third review of 17 Nov 2026, finding 1: a later save's living-person yes holds, through the review role,
+    // what the owner hasn't decided, and notes what he has, which stays as it is.
+    const laterCard = 7203;
+    const laterDigest = atlasHex("synthetic-pages-later-save-card");
+    const laterRows = await store.publish({ cardNumber: laterCard, cardSha256: laterDigest, publishedAt: tick(),
+      revive: false, findings: [
+        { ...unreviewedDraft(1, "LATER-AUTOMATIC claim."), shownBy: "automatic_showing" },
+        { ...unreviewedDraft(2, "LATER-OWNER claim."), shownBy: "owner_action" },
+        { findingNumber: 3, state: "held", atlasNumber: null, heldBecause: ["email_address"],
+          published: published("LATER-HELD claim.") },
+        { ...unreviewedDraft(4, "LATER-KEPT claim."), keptReason: "waiting for the quick-answer test (owner answer 240a)" },
+      ] });
+    const [laterAutomatic, laterOwner, laterHeld, laterKept] = laterRows.map(({ publicationNumber }) => publicationNumber);
+    const laterNumbers = [laterAutomatic!, laterOwner!, laterHeld!, laterKept!, accepted!];
+    const laterHolds = await store.holdForLivingPerson({ publicationNumbers: laterNumbers, at: tick() });
+    assert(isDeepStrictEqual(Object.fromEntries(laterHolds.map(({ publicationNumber, outcome }) => [publicationNumber, outcome])),
+      { [laterAutomatic!]: "held", [laterOwner!]: "noted", [laterHeld!]: "reason_added", [laterKept!]: "held",
+        [accepted!]: "noted" }), `LATER_SAVE_HOLD_OUTCOMES ${JSON.stringify(laterHolds)}`);
+    const laterHeldAfter = laterHolds.find(({ publicationNumber }) => publicationNumber === laterHeld)!;
+    assert(isDeepStrictEqual(laterHeldAfter.heldBecause, ["email_address", "living_person_review"]),
+      "LATER_SAVE_HOLD_REASONS_OUT_OF_ORDER");
+    assert(isDeepStrictEqual((await store.inspectLivingPersonNotes(laterNumbers)).map(({ publicationNumber }) =>
+      publicationNumber).sort(), [laterOwner!, accepted!].sort()), "LATER_SAVE_NOTES_MISMATCH");
+    assert((await loadAtlasFinding(source, laterAutomatic!)) === undefined &&
+      (await loadAtlasFinding(source, laterKept!)) === undefined &&
+      (await pageOf(laterOwner!)).includes("LATER-OWNER claim."), "LATER_SAVE_HOLD_PAGES_MISMATCH");
+    checks.push("a_later_saves_living_person_yes_holds_what_the_owner_has_not_decided_and_notes_what_he_has");
+
     // The owner's script for findings already on the pages: a dry run changes nothing; --apply holds them. It runs as
     // the one-shot admin, on its own connection.
     const scriptPool = new Pool({ connectionString: adminUrl, max: 1 });
@@ -5364,7 +5395,7 @@ export async function verifyAtlasStorage(context: {
       executable.rows.map(({ proname }) => proname).join() ===
         [...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
           ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS,
-          ...ATLAS_CHALLENGE_FUNCTIONS,
+          ...ATLAS_CHALLENGE_FUNCTIONS, ...ATLAS_LIVING_PERSON_FUNCTIONS,
           ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS, ...DOSSIER_REVIEW_FUNCTIONS].sort().join(),
       `ATLAS_REVIEW_ROLE_FUNCTIONS_MISMATCH ${executable.rows.map(({ proname }) => proname).join()}`,
     );

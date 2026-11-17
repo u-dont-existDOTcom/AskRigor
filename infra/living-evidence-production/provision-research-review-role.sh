@@ -132,6 +132,12 @@ GRANT EXECUTE ON FUNCTION living_evidence.mark_atlas_challenges(text[], text, te
   TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_challenges()
   TO askrigor_research_review;
+-- Codex's third review of 17 Nov 2026, finding 1 (migration 0041): a later save that says a finding may name a living
+-- person holds the card's matching publications the owner hasn't decided, and notes the ones he has.
+GRANT EXECUTE ON FUNCTION living_evidence.hold_atlas_publications_for_living_person(text[], timestamptz)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_living_person_notes(text[])
+  TO askrigor_research_review;
 -- AskRigor#477 stage 1 (migration 0037): forget_card erases the dossiers of the research thread it forgets, by its
 -- thread key alone (never by a card number, which several people's saves share).
 GRANT EXECUTE ON FUNCTION living_evidence.erase_research_dossiers(text, timestamptz)

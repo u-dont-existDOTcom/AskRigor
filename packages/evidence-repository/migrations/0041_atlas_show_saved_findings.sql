@@ -240,3 +240,110 @@ END
 $function$;
 
 REVOKE ALL ON FUNCTION keep_atlas_publications(text[], text[], boolean, text, timestamptz) FROM PUBLIC;
+
+-- Codex's third review of 17 Nov 2026, finding 1 (P0): a later save of the same question and claims lands on the open
+-- card (existing_card) and publishes nothing of its own, so a "yes" it carries, declared or the meaning judge's, left
+-- the first save's publication public. The save path now holds every publication of that card whose claim matches a
+-- finding the later save says names a living person, through hold_atlas_publications_for_living_person, unless the
+-- owner has decided it: accepted or edited, or shown by his own action (shown_by owner_action), which a save never
+-- undoes. Such a publication instead gets living_person_noted_at, which the owner's list_publications reads through
+-- inspect_atlas_living_person_notes. The review role runs both (provision-research-review-role.sh grants them).
+
+ALTER TABLE atlas_publications ADD COLUMN IF NOT EXISTS living_person_noted_at timestamptz;
+
+COMMENT ON COLUMN atlas_publications.living_person_noted_at IS
+  'When a later save of its card first said this finding may name a living person after the owner had decided it (accepted or edited, or shown by his own action): the save never undoes his decision, and his list_publications says so. NULL otherwise.';
+
+-- Holds each publication named that the owner hasn't decided for living_person_review, with no page: an unreviewed one
+-- with its texts, kept or not, becomes held; a held one gains the reason. One the owner decided (accepted, edited, or
+-- unreviewed and shown by his own action) stays as it is and is noted. A rejected or withdrawn one, or one whose texts
+-- are erased, has no page and stays as it is. Each row returned says which happened: held, reason_added,
+-- already_held, noted or unchanged. At most 100 numbers.
+CREATE OR REPLACE FUNCTION hold_atlas_publications_for_living_person(
+  target_publication_numbers text[],
+  hold_time timestamptz
+)
+RETURNS TABLE (held_publication_number text, held_state text, held_reasons jsonb, held_outcome text)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+DECLARE
+  target atlas_publications%ROWTYPE;
+  outcomes jsonb := '{}'::jsonb;
+  outcome text;
+BEGIN
+  IF target_publication_numbers IS NULL OR cardinality(target_publication_numbers) NOT BETWEEN 1 AND 100
+     OR EXISTS (SELECT 1 FROM unnest(target_publication_numbers) AS given(number)
+                 WHERE given.number IS NULL OR given.number !~ '^P-[1-9][0-9]{3,}$')
+     OR hold_time IS NULL
+  THEN
+    RAISE EXCEPTION 'ATLAS_PUBLICATION_INPUT_INVALID';
+  END IF;
+  FOR target IN
+    SELECT * FROM atlas_publications stored
+     WHERE stored.publication_number = ANY(target_publication_numbers)
+     ORDER BY substring(stored.publication_number FROM 3)::bigint
+     FOR UPDATE
+  LOOP
+    IF target.state IN ('accepted', 'edited') OR (target.state = 'unreviewed' AND target.shown_by = 'owner_action') THEN
+      UPDATE atlas_publications stored
+         SET living_person_noted_at = coalesce(stored.living_person_noted_at, hold_time)
+       WHERE stored.publication_number = target.publication_number;
+      outcome := 'noted';
+    ELSIF target.state = 'held' AND target.held_because ? 'living_person_review' THEN
+      outcome := 'already_held';
+    ELSIF target.state = 'held' THEN
+      -- living_person_review is the last of 0021's reasons, so adding it at the end keeps their order.
+      UPDATE atlas_publications stored
+         SET held_because = stored.held_because || '["living_person_review"]'::jsonb,
+             state_changed_at = greatest(hold_time, stored.state_changed_at)
+       WHERE stored.publication_number = target.publication_number;
+      outcome := 'reason_added';
+    ELSIF target.state = 'unreviewed' AND target.published_json IS NOT NULL THEN
+      UPDATE atlas_publications stored
+         SET state = 'held', held_because = '["living_person_review"]'::jsonb,
+             state_changed_at = greatest(hold_time, stored.state_changed_at)
+       WHERE stored.publication_number = target.publication_number;
+      outcome := 'held';
+    ELSE
+      outcome := 'unchanged';
+    END IF;
+    outcomes := outcomes || jsonb_build_object(target.publication_number, outcome);
+  END LOOP;
+  RETURN QUERY
+  SELECT stored.publication_number, stored.state, stored.held_because, outcomes ->> stored.publication_number
+    FROM atlas_publications stored
+   WHERE outcomes ? stored.publication_number
+   ORDER BY substring(stored.publication_number FROM 3)::bigint;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION hold_atlas_publications_for_living_person(text[], timestamptz) FROM PUBLIC;
+
+-- The publications named that a later save noted as possibly naming a living person after the owner had decided them,
+-- with when, for the owner's list_publications. At most 500 numbers.
+CREATE OR REPLACE FUNCTION inspect_atlas_living_person_notes(target_publication_numbers text[])
+RETURNS TABLE (noted_publication_number text, noted_at timestamptz)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+BEGIN
+  IF target_publication_numbers IS NULL OR cardinality(target_publication_numbers) > 500
+     OR EXISTS (SELECT 1 FROM unnest(target_publication_numbers) AS given(number)
+                 WHERE given.number IS NULL OR given.number !~ '^P-[1-9][0-9]{3,}$')
+  THEN
+    RAISE EXCEPTION 'ATLAS_PUBLICATION_INPUT_INVALID';
+  END IF;
+  RETURN QUERY
+  SELECT stored.publication_number, stored.living_person_noted_at
+    FROM atlas_publications stored
+   WHERE stored.publication_number = ANY(target_publication_numbers)
+     AND stored.living_person_noted_at IS NOT NULL
+   ORDER BY substring(stored.publication_number FROM 3)::bigint;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION inspect_atlas_living_person_notes(text[]) FROM PUBLIC;

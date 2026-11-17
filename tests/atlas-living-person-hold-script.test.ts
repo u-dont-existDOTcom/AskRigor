@@ -85,7 +85,10 @@ describe("holding named findings for the owner's decision on a living person", (
       "only says what it would do until run again with `--apply`.");
     for (const name of ["0021_atlas_publications", "0041_atlas_show_saved_findings"]) {
       const migration = await readFile(new URL(`../packages/evidence-repository/migrations/${name}.sql`, import.meta.url), "utf8");
-      expect(migration).not.toMatch(/UPDATE atlas_publications[^;]*living_person_review/u);
+      // Outside the functions it defines, which run only when called (0041's hold for a later save's yes).
+      const statements = migration.replace(/\$function\$[\s\S]*?\$function\$/gu, "");
+      expect(statements).not.toMatch(/UPDATE atlas_publications[^;]*living_person_review/u);
+      expect(statements).not.toMatch(/UPDATE atlas_publications/u);
     }
   });
 

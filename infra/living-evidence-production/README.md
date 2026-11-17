@@ -923,7 +923,17 @@ contributor's public card for the declaration even while saved findings don't
 show at once. No migration touches findings already on the pages; once the
 owner names some, the one-shot admin holds them for the same reason with
 `DATABASE_URL=… npx tsx scripts/atlas-hold-living-person-findings.mts P-1001 …`,
-which only says what it would do until run again with `--apply`. The recommended value is `enabled`; to turn it off,
+which only says what it would do until run again with `--apply`. A later save
+of the same question and claims lands on the open card (`existing_card`) and
+publishes nothing of its own; when it says a finding names a living person (its
+card declares it, or the meaning judge read it so), the save holds every
+publication of that card with the same claim, in any order, that the owner
+hasn't decided, through `hold_atlas_publications_for_living_person`. What the
+owner accepted, or showed by his own action, stays as he decided it, and
+`list_publications` says that a later save marks it
+(`inspect_atlas_living_person_notes`). Re-run
+`/usr/local/bin/provision-research-review-role` after this `migrate`, so the
+review role gets those two functions. The recommended value is `enabled`; to turn it off,
 remove the line and recreate `research-mcp`: findings already shown stay shown
 until the owner keeps them, and their pages still say nothing of the test. An
 earlier image's `migrate` puts back 0021's `publish_atlas_findings`, which

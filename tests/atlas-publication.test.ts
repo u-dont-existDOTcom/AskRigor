@@ -582,6 +582,61 @@ describe("publishing at the save", () => {
       .map(({ state, heldBecause }) => [state, heldBecause])).toEqual([["unreviewed", null], ["unreviewed", null]]);
   });
 
+  // Codex's third review of 17 Nov 2026, finding 1 (P0): a later save of the same question and claims is answered
+  // existing_card, and a "yes" it carried changed nothing, so the first save's publication stayed public. Now its yes,
+  // declared or the meaning judge's as the receipt signed, holds every matching publication the owner hasn't decided,
+  // matched by its claim whatever the claims' order; the owner's own decision stands, with a line for him instead.
+  it("holds the matching publications when a later save of an open card says a finding names a living person", async () => {
+    const clear = { ...VELMOR_CARD, findings: VELMOR_CARD.findings.map((finding) => ({ ...finding,
+      names_living_person: false })) };
+    // The same claims in the other order: the first save's finding 1 is the second save's finding 2.
+    const reordered = (signal: "declared" | "judged") => ({ ...clear, findings: [clear.findings[1]!,
+      { ...clear.findings[0]!, names_living_person: signal === "declared" }] });
+    const run = async (signal: "declared" | "judged", showOnPages: boolean, decide?: (store: AtlasPublicationStore) => Promise<void>) => {
+      const h = harness(undefined, undefined, { showOnPages });
+      await expect(h.save(clear, FREE, "1", { nlp: ["1", "2"] })).resolves.toMatchObject({ status: "saved" });
+      await h.service.publicationsSettled();
+      await decide?.(h.store);
+      await expect(h.save(reordered(signal), FREE, "2", { target: "ba9876543210", nlp: ["1"],
+        ...(signal === "judged" ? { nly: ["2"] } : {}) })).resolves.toMatchObject({ status: "existing_card",
+        card_id: "ARF-0042" });
+      await h.service.publicationsSettled();
+      const rows = (await h.store.inspect({})).sort((left, right) => left.findingNumber - right.findingNumber);
+      return { h, rows: rows.map(({ publicationNumber, state, heldBecause }) => [publicationNumber, state, heldBecause]) };
+    };
+    for (const showOnPages of [false, true]) {
+      for (const signal of ["declared", "judged"] as const) {
+        const { rows } = await run(signal, showOnPages);
+        expect(rows, `${signal}, showing ${showOnPages}`).toEqual([["P-1001", "held", ["living_person_review"]],
+          ["P-1002", "unreviewed", null]]);
+      }
+    }
+    // The owner's own decision is never undone by a later save: what he accepted, or showed by his own action, stays,
+    // and his list of publications says that a later save marks it.
+    const accepted = await run("declared", true, async (store) => {
+      await store.decide({ cardNumber: 42, findingNumber: 1, state: "accepted", atlasNumber: "F-1007",
+        decidedAt: NOW.toISOString() });
+    });
+    expect(accepted.rows).toEqual([["P-1001", "accepted", null], ["P-1002", "unreviewed", null]]);
+    expect(await accepted.h.store.inspectLivingPersonNotes(["P-1001", "P-1002"])).toEqual([
+      { publicationNumber: "P-1001", notedAt: NOW.toISOString() }]);
+    const shown = await run("judged", false, async (store) => {
+      await store.keep({ publicationNumbers: ["P-1001"], atlasNumbers: [], keep: false, reason: null,
+        at: NOW.toISOString() });
+    });
+    expect(shown.rows).toEqual([["P-1001", "unreviewed", null], ["P-1002", "unreviewed", null]]);
+    expect((await shown.h.store.inspectLivingPersonNotes(["P-1001"])).map(({ publicationNumber }) => publicationNumber))
+      .toEqual(["P-1001"]);
+    // A later save without a yes holds nothing.
+    const h = harness(undefined, undefined, { showOnPages: true });
+    await h.save(clear, FREE, "1", { nlp: ["1", "2"] });
+    await h.save({ ...clear, findings: [clear.findings[1]!, clear.findings[0]!] }, FREE, "2",
+      { target: "ba9876543210", nlp: ["1", "2"] });
+    await h.service.publicationsSettled();
+    expect((await h.store.inspect({})).map(({ state }) => state)).toEqual(["unreviewed", "unreviewed"]);
+    expect(await h.store.inspectLivingPersonNotes(["P-1001", "P-1002"])).toEqual([]);
+  });
+
   // The owner's answer to what a card that doesn't say means is still to come (question 346), so it is one setting,
   // ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN: keep (unset) treats such a finding as before; hold holds it as a yes; reader
   // lets the meaning judge's reading, already made in the final check's one call and signed (nly yes, nln no), decide,

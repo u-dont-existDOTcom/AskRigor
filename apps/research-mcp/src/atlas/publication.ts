@@ -1,11 +1,13 @@
 import {
   ATLAS_AI_READINGS_CALLER,
+  ATLAS_LIVING_PERSON_HOLDS_PER_CALL,
   ATLAS_NAMED_VIDEO_LINK,
   ATLAS_NAMED_VIDEOS_PER_FINDING,
   ATLAS_PUBLICATION_HOLD_REASONS,
   ATLAS_PUBLICATION_SCHEMA,
   ATLAS_PUBLICATION_SCHEMA_V2,
   ATLAS_PUBLICATION_SCHEMA_V3,
+  ATLAS_PUBLICATIONS_PER_INSPECT,
   ATLAS_PUBLISHED_RETRACTIONS,
   ATLAS_PUBLISHED_THREADS_PER_FINDING,
   ATLAS_THREAD_COMMUNITY,
@@ -27,7 +29,7 @@ import {
 } from "@askrigor/evidence-repository";
 
 import { containsCardReference } from "../findings/acceptance-checks.js";
-import { isYouTubeVideoId, topicKeyText, type StoredFinding } from "../findings/card.js";
+import { isYouTubeVideoId, normalizedFindingsText, topicKeyText, type StoredFinding } from "../findings/card.js";
 import { sourceIdKey } from "../findings/research-behind.js";
 import type {
   FindingsCardPublisher,
@@ -687,8 +689,44 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
         }
       }
     }
+    if (saved.kind === "existing") {
+      try {
+        await this.holdMatchingForLivingPerson(saved);
+      } catch (error) {
+        failure ??= error;
+      }
+    }
     if (failure !== undefined) throw failure;
   }
+
+  /**
+   * Codex's third review of 17 Nov 2026, finding 1 (P0): a later save of the same question and claims lands on the open
+   * card (existing_card) and publishes nothing of its own, so a "yes" it carries, its card's declaration or the meaning
+   * judge's reading as the receipt signed (namesLivingPerson), holds every publication of that card whose claim is the
+   * finding's, matched by the claim's text as the duplicate check reads it, whatever the claims' order. Whatever the
+   * settings: the owner's rule is that claims about named living people publish only on his explicit decision. What
+   * the owner decided (accepted or edited, or shown by his own action) stays as he decided it, and his list says that a
+   * later save marks it (hold_atlas_publications_for_living_person, migration 0041).
+   */
+  private async holdMatchingForLivingPerson(saved: SavedFindingsCard): Promise<void> {
+    const naming = new Set(saved.record.card.findings.flatMap((finding, index) =>
+      namesLivingPerson(saved, index + 1) ? [findingIdentity(finding.claim)] : []));
+    if (naming.size === 0) return;
+    const rows = await this.options.store.inspect({ cardNumbers: [saved.issueNumber], limit: ATLAS_PUBLICATIONS_PER_INSPECT });
+    const matching = rows.filter(({ published }) => published !== null && naming.has(findingIdentity(published.claim)))
+      .map(({ publicationNumber }) => publicationNumber);
+    for (let start = 0; start < matching.length; start += ATLAS_LIVING_PERSON_HOLDS_PER_CALL) {
+      await this.options.store.holdForLivingPerson({
+        publicationNumbers: matching.slice(start, start + ATLAS_LIVING_PERSON_HOLDS_PER_CALL),
+        at: this.now().toISOString(),
+      });
+    }
+  }
+}
+
+/** A finding's identity across saves of the same card: its claim as the duplicate check reads it (findingsCardFingerprint). */
+function findingIdentity(claim: string): string {
+  return normalizedFindingsText(withoutDirectionControls(claim));
 }
 
 /**

@@ -465,6 +465,13 @@ export {
   type AtlasPublishedRow,
   type AtlasPublishedSourceDetail,
   type AtlasPublishInput,
+  ATLAS_LIVING_PERSON_HOLD_OUTCOMES,
+  ATLAS_LIVING_PERSON_HOLDS_PER_CALL,
+  ATLAS_LIVING_PERSON_NOTES_PER_READ,
+  type AtlasLivingPersonHoldChange,
+  type AtlasLivingPersonHoldOutcome,
+  type AtlasLivingPersonHoldView,
+  type AtlasLivingPersonNote,
 } from "./atlas-publications.js";
 export {
   ATLAS_PAGE_CHANGE_KINDS,

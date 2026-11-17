@@ -420,6 +420,26 @@ describe("the publications through the owner's review", () => {
     expect(published.text).toContain("ARF-0043: finding 1 published as P-1003 (published, not checked by supervisors yet).");
   });
 
+  // Codex's third review of 17 Nov 2026, finding 1: a later save never undoes what the owner decided, so his list says
+  // instead that a later save marks the finding as possibly naming a living person.
+  it("tells the owner when a later save marks a finding he decided as possibly naming a living person", async () => {
+    const h = harness();
+    await h.save(VELMOR_CARD, FREE, {});
+    await h.publications.decide({ cardNumber: 42, findingNumber: 1, state: "accepted", atlasNumber: "F-1007",
+      decidedAt: "2026-11-04T09:00:00.000Z" });
+    expect((await h.publications.holdForLivingPerson({ publicationNumbers: ["P-1001", "P-1002"],
+      at: "2026-11-04T09:00:00.000Z" }))
+      .map(({ outcome }) => outcome)).toEqual(["noted", "held"]);
+    const listed = await h.call({ action: "list_publications" });
+    expect(listed.text).toContain("P-1001: a later save marks this finding as possibly naming a living person. It " +
+      "stays as you decided it; unpublish_finding takes it off the pages.");
+    expect(listed.text).not.toContain("P-1002: a later save");
+    // A store whose notes can't be read lists the rest and says so.
+    h.publications.inspectLivingPersonNotes = async () => { throw new Error("permission denied"); };
+    expect((await h.call({ action: "list_publications" })).text).toContain("Whether a later save marked any of " +
+      "these as possibly naming a living person could not be read just now.");
+  });
+
   // Codex's re-review of 17 Nov 2026, finding 4: publish_cards stored no route, and its page said the quick-answer test
   // had happened. The owner's publishing, and the publication an acceptance makes, are stored as the owner's action.
   it("stores what the owner publishes as the owner's action, and its page says nothing of the quick-answer test", async () => {

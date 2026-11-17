@@ -214,9 +214,21 @@ export class AtlasPublicationReview {
       waitingToPublish,
     };
     const scope = request.publicationState === undefined ? "" : ` ${request.publicationState}`;
+    // Codex's third review of 17 Nov 2026, finding 1: a later save never undoes the owner's decision, so his list says
+    // which of these a later save marks as possibly naming a living person (migration 0041).
+    let noted: Set<string> | null;
+    try {
+      noted = new Set((await this.deps.publications.inspectLivingPersonNotes(shown.map(({ publicationNumber }) =>
+        publicationNumber))).map(({ publicationNumber }) => publicationNumber));
+    } catch {
+      noted = null;
+    }
     const lines = [
       ...(shown.length === 0 ? [`No${scope} publication${before === undefined ? "" : " on this page"}.`]
-        : shown.map((row) => publicationLine(row))),
+        : shown.flatMap((row) => [publicationLine(row),
+          ...(noted?.has(row.publicationNumber) === true ? [livingPersonNoteLine(row.publicationNumber)] : [])])),
+      ...(noted === null && shown.length > 0 ? ["Whether a later save marked any of these as possibly naming a living " +
+        "person could not be read just now."] : []),
       ...(nextCursor === null ? [] : ["More publications: call list_publications with the nextCursor."]),
       ...(waitingToPublish === null
         ? ["The findings repository could not be read just now, so the cards whose publishing did not complete are " +
@@ -557,6 +569,12 @@ function publicationLine(row: AtlasPublicationView): string {
   return `${row.publicationNumber} (${publicFindingsCardId(row.cardNumber)} finding ${row.findingNumber}` +
     `${row.atlasNumber === null ? "" : `, ${row.atlasNumber}`}), ${STATE_WORDS[row.state]}${why}` +
     `${row.published === null ? " (its published fields are erased)" : `: ${clip(row.published.claim, 120)}`}`;
+}
+
+/** The line a publication the owner decided gets when a later save says it may name a living person. */
+export function livingPersonNoteLine(publicationNumber: string): string {
+  return `${publicationNumber}: a later save marks this finding as possibly naming a living person. It stays as you ` +
+    "decided it; unpublish_finding takes it off the pages.";
 }
 
 function leftOutWords(leftOut: ReadonlyArray<{ finding: number; reason: typeof FINDING_LEFT_OUT_REASONS[number] }>): string {

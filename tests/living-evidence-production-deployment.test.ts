@@ -34,6 +34,8 @@ const ATLAS_REPORT_REVIEW_FUNCTIONS = ["inspect_atlas_reports", "decide_atlas_re
 const ATLAS_GLANCE_FUNCTIONS = ["propose_atlas_glance_row", "set_atlas_glance_row_state", "inspect_atlas_glance_rows"];
 // The owner, 6 Nov: migration 0030's two functions for findings that challenge the usual view, for the review role.
 const ATLAS_CHALLENGE_FUNCTIONS = ["mark_atlas_challenges", "inspect_atlas_challenges"];
+// Codex's third review of 17 Nov 2026, finding 1 (migration 0041): a later save's living-person yes.
+const ATLAS_LIVING_PERSON_FUNCTIONS = ["hold_atlas_publications_for_living_person", "inspect_atlas_living_person_notes"];
 const ATLAS_PARTICIPATION_FUNCTIONS = [
   "inspect_atlas_participant", "set_atlas_display_name", "set_atlas_vote", "post_atlas_comment", "delete_atlas_comment",
   "report_atlas_comment", "end_atlas_sessions", "atlas_session_current", "forget_atlas_participant",
@@ -282,7 +284,7 @@ describe("production living-evidence deployment", () => {
     // six held YouTube findings functions (owner answer 173), migration 0021's six publication functions and migration
     // 0022's five moderation functions (decision 171), and since then 0024's, 0025's, 0026's, 0027's and 0030's, and
     // 0037's dossier erasure (AskRigor#477 stage 1).
-    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(37);
+    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(39);
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failure_code text");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failed_at timestamptz");
     expect(migration).toContain("(status = 'FAILED' AND completed_at IS NULL");
@@ -636,9 +638,9 @@ describe("production living-evidence deployment", () => {
     expect(granted.filter((name) => name!.includes("atlas")))
       .toEqual([...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
         ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS,
-        ...ATLAS_CHALLENGE_FUNCTIONS]);
+        ...ATLAS_CHALLENGE_FUNCTIONS, ...ATLAS_LIVING_PERSON_FUNCTIONS]);
     // With the three contribution functions, migration 0019's six (owner answer 173) and 0037's dossier erasure.
-    expect(granted).toHaveLength(37);
+    expect(granted).toHaveLength(39);
     // Each grant names the function's exact signature, as the migration's REVOKE does.
     const signature = (text: string, prefix: string) => {
       const start = text.indexOf(prefix) + prefix.length;
@@ -1334,12 +1336,19 @@ describe("migration 0041", () => {
     expect(migration).toContain("ADD CONSTRAINT atlas_publications_v1_shown_by_check CHECK (\n  shown_by IS NULL OR " +
       "shown_by IN ('owner_action', 'quick_answer_test', 'automatic_showing')\n);");
     expect(migration).not.toMatch(/CREATE TABLE|DROP FUNCTION|DROP COLUMN/u);
-    // publish_atlas_findings and keep_atlas_publications alone are replaced, each with its own arguments and result
-    // (0021's and 0024's), so their grants stand as they were.
+    // publish_atlas_findings and keep_atlas_publications are replaced, each with its own arguments and result (0021's
+    // and 0024's), so their grants stand as they were; the functions it adds are revoked from PUBLIC and granted to the
+    // review role alone, each by its exact signature.
     const kept = await read("packages/evidence-repository/migrations/0024_atlas_kept_for_research.sql");
     const functions = migration.split("CREATE OR REPLACE FUNCTION ").slice(1);
     expect(functions.map((chunk) => chunk.slice(0, chunk.indexOf("(")))).toEqual(["publish_atlas_findings",
-      "keep_atlas_publications"]);
+      "keep_atlas_publications", ...ATLAS_LIVING_PERSON_FUNCTIONS]);
+    for (const [name, args] of [["hold_atlas_publications_for_living_person", "text[], timestamptz"],
+      ["inspect_atlas_living_person_notes", "text[]"]] as const) {
+      expect(migration).toContain(`REVOKE ALL ON FUNCTION ${name}(${args}) FROM PUBLIC;`);
+      expect(review).toContain(`GRANT EXECUTE ON FUNCTION living_evidence.${name}(${args})\n  TO askrigor_research_review;`);
+    }
+    expect(migration.split("SECURITY DEFINER\nSET search_path = __SCHEMA__, pg_catalog, pg_temp")).toHaveLength(5);
     const header = (text: string, name: string) => {
       const start = text.indexOf(`CREATE OR REPLACE FUNCTION ${name}(`);
       return text.slice(start, text.indexOf("LANGUAGE plpgsql", start));
