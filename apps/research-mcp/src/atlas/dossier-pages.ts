@@ -113,8 +113,9 @@ export interface DossierRelatedTopic {
 export interface DossierDisagreementView {
   /** The form both findings are about; null when AskRigor's conflict check paired findings that name none. */
   form: string | null;
-  left: { publicNumber: string; claim: string };
-  right: { publicNumber: string; claim: string };
+  /** Each side's dossier, its finding's claim, and whether supervisors checked that dossier. */
+  left: { publicNumber: string; claim: string; accepted: boolean };
+  right: { publicNumber: string; claim: string; accepted: boolean };
   /**
    * kinds: opposite kinds of conclusion for one declared form (dossierDisagreements); check: findings AskRigor's
    * conflict check read as contradicting, kept with a copy the review showed or admitted (Codex's third review, P1).
@@ -203,8 +204,8 @@ function disagreementsAmong(dossiers: readonly ShownDossier[], known: readonly S
       if (left === undefined || right === undefined || listed.has(key)) continue;
       listed.add(key);
       views.push({ form: left.form ?? right.form ?? null, found: "check",
-        left: { publicNumber: mine.copy.publicNumber, claim: left.claim },
-        right: { publicNumber: theirs.copy.publicNumber, claim: right.claim } });
+        left: { publicNumber: mine.copy.publicNumber, claim: left.claim, accepted: mine.copy.accepted },
+        right: { publicNumber: theirs.copy.publicNumber, claim: right.claim, accepted: theirs.copy.accepted } });
     }
   }
   for (let left = 0; left < dossiers.length; left += 1) {
@@ -218,8 +219,10 @@ function disagreementsAmong(dossiers: readonly ShownDossier[], known: readonly S
         views.push({
           form: found.form,
           found: "kinds",
-          left: { publicNumber: a.copy.publicNumber, claim: a.dossier.findings.find(({ id }) => id === found.mine)!.claim },
-          right: { publicNumber: b.copy.publicNumber, claim: b.dossier.findings.find(({ id }) => id === found.theirs)!.claim },
+          left: { publicNumber: a.copy.publicNumber, claim: a.dossier.findings.find(({ id }) => id === found.mine)!.claim,
+            accepted: a.copy.accepted },
+          right: { publicNumber: b.copy.publicNumber, claim: b.dossier.findings.find(({ id }) => id === found.theirs)!.claim,
+            accepted: b.copy.accepted },
         });
       }
     }
@@ -605,7 +608,8 @@ function glanceItem(item: DossierRankItem, showDossier: boolean, compact = false
       : ""} <span class="dossier-claim">${finding.claim}</span>
 <span class="dossier-evidence">${KIND_WORDS[finding.kind] ?? finding.kind} · ${evidence.length === 0 ? "evidence not given"
     : evidence.join("; ")} · ${CERTAINTY_WORDS[finding.certainty] ?? finding.certainty}${finding.form === undefined ? ""
-    : html` · ${finding.form}`}${showDossier ? html` · <a href="${dossierPagePath(item.publicNumber)}">${item.publicNumber}</a>`
+    : html` · ${finding.form}`}${showDossier ? html` · <a href="${dossierPagePath(item.publicNumber)}">${item.publicNumber}</a>, ${
+      item.accepted ? "checked by supervisors" : NOT_CHECKED_LABEL.toLocaleLowerCase("en")}`
     : ""}</span></li>`;
   }
   const results = finding.rests_on.flatMap((reference) => dossier.results.filter(({ id }) => id === reference));
@@ -671,16 +675,25 @@ ${groups.map((group, index) => html`<section aria-labelledby="${idPrefix}-form-$
 ${left === 0 ? "" : html`<p class="meta">${more(left)}</p>`}`;
 }
 
-function disagreementList(disagreements: readonly DossierDisagreementView[]): SafeHtml | "" {
+/**
+ * Where dossiers disagree. The list draws on other dossiers than the page's own (Codex's third review, P1): any claim
+ * from a dossier supervisors have not checked keeps the list out of search snippets, and, on a checked dossier's own
+ * page (markUnchecked), that dossier is marked as not checked.
+ */
+function disagreementList(disagreements: readonly DossierDisagreementView[], markUnchecked = false): SafeHtml | "" {
   if (disagreements.length === 0) return "";
-  const entry = (item: DossierDisagreementView) => html`<li>${item.form === null ? "" : html`${item.form}: `}“${item.left.claim}” (<a href="${dossierPagePath(item.left.publicNumber)}">${item.left.publicNumber}</a>) and “${item.right.claim}” (<a href="${dossierPagePath(item.right.publicNumber)}">${item.right.publicNumber}</a>)</li>`;
+  const side = (one: DossierDisagreementView["left"]) => html`“${one.claim}” (<a href="${dossierPagePath(one.publicNumber)}">${one.publicNumber}</a>${
+    markUnchecked && !one.accepted ? html`, ${NOT_CHECKED_LABEL.toLocaleLowerCase("en")}` : ""})`;
+  const entry = (item: DossierDisagreementView) => html`<li>${item.form === null ? "" : html`${item.form}: `}${side(item.left)} and ${side(item.right)}</li>`;
+  const list = (items: readonly DossierDisagreementView[]) => html`<ul class="dossier-conflicts"${
+    items.some(({ left, right }) => !left.accepted || !right.accepted) ? html` data-nosnippet` : ""}>${items.map(entry)}</ul>`;
   const checked = disagreements.filter(({ found }) => found === "check");
   const kinds = disagreements.filter(({ found }) => found === "kinds");
   return html`<h3>Where dossiers disagree</h3>
 ${checked.length === 0 ? "" : html`<p class="meta">AskRigor’s conflict check read these findings as contradicting each other.</p>
-<ul class="dossier-conflicts">${checked.map(entry)}</ul>`}
+${list(checked)}`}
 ${kinds.length === 0 ? "" : html`<p class="meta">Two dossiers reached opposite kinds of conclusion for the same form. They may be about different outcomes or people; AskRigor checks such conflicts when they matter.</p>
-<ul class="dossier-conflicts">${kinds.map(entry)}</ul>`}`;
+${list(kinds)}`}`;
 }
 
 function relatedList(related: readonly DossierRelatedTopic[]): SafeHtml | "" {
@@ -698,8 +711,15 @@ function dossierSummary({ copy, dossier }: ShownDossier): SafeHtml {
     used === 1 ? "study" : "studies"} used, ${dossier.findings.length} ${dossier.findings.length === 1 ? "finding" : "findings"}</span></li>`;
 }
 
-/** Whether every dossier on a page is unreviewed: the page then stays out of search engines, its text out of snippets. */
-const unreviewed = (dossiers: readonly ShownDossier[]) => dossiers.some(({ copy }) => !copy.accepted);
+/**
+ * Whether a topic's dossier section draws on any dossier supervisors have not checked (Codex's third review, P1: an
+ * older, unaccepted dossier's finding led the glance while the dossiers listed below it were all accepted): its own
+ * page's dossiers, the main points at a glance, which are ranked across the whole topic, and both sides of where
+ * dossiers disagree. Then the section says "Not checked by supervisors yet" and keeps its text out of search snippets.
+ */
+const unreviewed = (model: DossierTopicModel) => model.dossiers.some(({ copy }) => !copy.accepted) ||
+  model.glance.some(({ accepted }) => !accepted) ||
+  model.disagreements.some(({ left, right }) => !left.accepted || !right.accepted);
 
 /**
  * The dossiers' part of a topic page: main points at a glance, all findings by form within their size, conflicts, this
@@ -709,10 +729,10 @@ export function dossierTopicSection(model: DossierTopicModel, size: DossierPageS
   const glance = model.glance;
   const pageOf = (page: number) => page === 1 ? topicPath(model.topicKey) : `${topicPath(model.topicKey)}?page=${page}`;
   const paged = model.page > 1 || model.more;
-  return html`<section class="dossier-section" aria-labelledby="dossiers-heading"${unreviewed(model.dossiers)
-    ? html` data-nosnippet` : ""}>
+  const unchecked = unreviewed(model);
+  return html`<section class="dossier-section" aria-labelledby="dossiers-heading"${unchecked ? html` data-nosnippet` : ""}>
 <h2 id="dossiers-heading">Research dossiers: main points at a glance</h2>
-${unreviewed(model.dossiers) ? statusBadge(false) : statusBadge(true)}
+${statusBadge(!unchecked)}
 <p class="meta">${DOSSIER_ORDER_LINE} Open a line for what it rests on.</p>
 ${model.glanceAcross.dossiers > model.dossiers.length ? html`<p class="meta">Ranked across ${model.glanceAcross.every
     ? "all" : "the newest"} ${model.glanceAcross.dossiers} dossiers on this topic.</p>` : ""}
@@ -804,7 +824,7 @@ ${model.ranked.length > DOSSIER_GLANCE_COUNT || model.forms.length > 1 ? html`<d
 ${formSections(model.forms, false, "dossier", size.findingBytes ?? DOSSIER_FINDING_BYTES, (count) =>
     `${count} more ${count === 1 ? "finding is" : "findings are"} not listed here, to keep the page a readable size.`)}
 </details>` : ""}
-${disagreementList(model.disagreements)}
+${disagreementList(model.disagreements, copy.accepted)}
 ${model.comparedAll || model.disagreements.length === 0 ? "" : html`<p class="meta">Compared with the newest ${TOPIC_COMPARED} dossiers on its topic.</p>`}
 ${checkedSection(dossier)}
 <details class="dossier-more"><summary>Every study (${studies.length})</summary>

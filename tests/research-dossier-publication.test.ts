@@ -1149,6 +1149,34 @@ describe("the dossier pages' reads, pages, size and cache", () => {
     }
   });
 
+  // Codex's third review, P1 (reproduced): an older, unaccepted dossier's finding led the glance while the twenty
+  // dossiers listed below it were accepted, and the section said "Checked by supervisors" without snippet protection.
+  it("takes its badge and snippet protection from every dossier a section draws on, the glance's included", async () => {
+    const { publications } = await many(24, () => "inositol-invented", (payload) => {
+      for (const finding of payload.findings) finding.importance = "context";
+      payload.value.adds = [];
+    });
+    const later = new Date(NOW.getTime() + 3_600_000);
+    for (let number = 1002; number <= 1025; number += 1) {
+      expect((await publications.decide({ publicNumber: `D-${number}`, versionNumber: 1, decision: "accept",
+        reason: null, at: later })).outcome).toBe("decided");
+    }
+    const { dossierTopicSection, loadDossierTopic } = await import("../apps/research-mcp/src/atlas/dossier-pages.js");
+    const model = (await loadDossierTopic(publications, "inositol-invented"))!;
+    // The twenty listed are accepted; D-1001, unaccepted, leads the glance with its decision-changing findings.
+    expect(model.dossiers.every(({ copy }) => copy.accepted)).toBe(true);
+    expect(model.glance[0]).toMatchObject({ publicNumber: "D-1001", accepted: false });
+    for (const size of [{}, { compact: true }]) {
+      const section = dossierTopicSection(model, size).value;
+      expect(section).toMatch(/^<section class="dossier-section" aria-labelledby="dossiers-heading" data-nosnippet>/u);
+      expect(section).toContain(`<p class="badge badge-unreviewed">${"Not checked by supervisors yet"}</p>`);
+      expect(section).not.toContain('<p class="badge badge-checked">Checked by supervisors</p>');
+    }
+    // Compact, each line still says whose it is and whether supervisors checked it.
+    expect(dossierTopicSection(model, { compact: true }).value).toContain('<a href="/atlas/dossiers/D-1001">D-1001</a>, ' +
+      "not checked by supervisors yet");
+  }, 60_000);
+
   it("gives sizes in people, animals or lab samples, as the study was", async () => {
     const { dossiers, publications, publication } = stores();
     // The lab study's abstract was read in this research, as its receipt says.
@@ -1388,6 +1416,22 @@ describe("the owner's show, compared first with the shown dossiers", () => {
           found: "check", form: "myo-inositol" })]);
       }
     });
+
+  // Codex's third review, P1: a section's badge and snippet protection come from every dossier it draws on. A checked
+  // dossier's own page quotes the unchecked one it disagrees with, marked so and kept out of snippets.
+  it("marks an unchecked dossier's claim on a checked dossier's page, and keeps it out of snippets", async () => {
+    const { dossiers, publications, publication } = stores();
+    await saveResearchDossier(dossiers, request({ publication, value: worsened }));
+    await saveResearchDossier(dossiers, request({ ...otherAccount, publication }));
+    const review = new AtlasDossierReview({ store: publications, now: () => NOW, conflictReader: pairing().reader });
+    expect((await review.run({ action: "show_dossier", dossier: "D-1001", reviewer: OWNER,
+      dossierOverrideConflicts: ["D-1002"] })).ok).toBe(true);
+    expect((await review.run({ action: "accept_dossier", dossier: "D-1002" })).ok).toBe(true);
+    const { loadDossierPage, renderDossierPage } = await import("../apps/research-mcp/src/atlas/dossier-pages.js");
+    const checked = renderDossierPage((await loadDossierPage(publications, "D-1002"))!);
+    expect(checked).toContain('<p class="badge badge-checked">Checked by supervisors</p>');
+    expect(checked).toMatch(/<ul class="dossier-conflicts" data-nosnippet><li>myo-inositol: “Myo-inositol 2 g a day worsened[^<]*” \(<a href="\/atlas\/dossiers\/D-1001">D-1001<\/a>, not checked by supervisors yet\) and “Myo-inositol 2 g a day improved[^<]*” \(<a href="\/atlas\/dossiers\/D-1002">D-1002<\/a>\)<\/li>/u);
+  });
 
   it("asks for an override when the comparison can't be made, and shows only what nothing contradicts", async () => {
     const { dossiers, publications, publication } = stores();
