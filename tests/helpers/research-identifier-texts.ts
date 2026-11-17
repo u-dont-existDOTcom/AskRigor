@@ -81,6 +81,9 @@ export const PHONE_NUMBERS_AND_CONTACTS_AMONG_IDENTIFIERS = [
   // Its second pass: four digits in parentheses that are no year, after an NCT number written with a space.
   "Call NCT 44207946 (0958).",
   "Call UMIN020794609- 58.",
+  // Its third pass: an identifier joined to an underscore, which the card's screen never set aside.
+  "Call _NCT44207946_.",
+  "Call _PMID 44207946_.",
   "Call PMID 2025550  199.",
   "PMID: 2025550 (199)",
   "Call jRCT0207946095-8.",

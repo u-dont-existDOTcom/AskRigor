@@ -1,4 +1,4 @@
-import { REGISTRY_END, REGISTRY_START, SEARCHED_REGISTRY_FORMATS } from "../registry-formats.js";
+import { SEARCHED_REGISTRY_FORMATS } from "../registry-formats.js";
 
 /**
  * Public research identifiers in their exact published shapes, which the privacy screens set aside before they read a
@@ -45,7 +45,11 @@ const NCT = String.raw`nct\d{8}`;
 const EU_CT_WITH_SUFFIX =
   String.raw`(?:eudract|ctis|eu[\s-]?ct|euctr)(?:[\s-]*(?:number|no\.?|nr\.?|id))?[\s:#-]*\d{4}-\d{6}-\d{2}-\d{2}`;
 const OTHER_REGISTRIES = [String.raw`irct\d{12,14}n\d{1,3}`, String.raw`jrct[a-z]\d{9}`];
-const bounded = (patterns: readonly string[]) => patterns.map((pattern) => `${REGISTRY_START}(?:${pattern})${REGISTRY_END}`);
+// An identifier stands on its own: no letter, digit or underscore against it, as the card's screen read one before
+// (Codex's third pass: "_NCT44207946_").
+const START = String.raw`(?<![\p{L}\p{N}_])`;
+const END = String.raw`(?![\p{L}\p{N}_])`;
+const bounded = (patterns: readonly string[]) => patterns.map((pattern) => `${START}(?:${pattern})${END}`);
 const SOURCE_IDENTIFIERS = new RegExp([DOI, ...bounded([PMID, PMCID, NCT])].join("|"), "giu");
 const RESEARCH_IDENTIFIERS = new RegExp([DOI, ...bounded([PMID, PMCID, EU_CT_WITH_SUFFIX,
   ...SEARCHED_REGISTRY_FORMATS.map(([, pattern]) => pattern), ...OTHER_REGISTRIES])].join("|"), "giu");
