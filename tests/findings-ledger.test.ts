@@ -1382,7 +1382,8 @@ describe("Codex's sixth review of 17 Nov 2026", () => {
     expect(chat(turns[0]!, { later_inputs: { finding_responses: [{ id, response: "disputed", reason }] } })
       .checkFindings.findings[0]).toMatchObject({ id, disposition: "disputed" });
     // As many other chats as the memory keeps for one account and target: the first chat's is kept apart from theirs.
-    for (const turn of turns.slice(1, -1)) expect(chat(turn).checkFindings.ledger).toBe("new");
+    const others = turns.slice(1, -1).map((turn) => chat(turn));
+    for (const other of others) expect(other.checkFindings.ledger).toBe("new");
     expect(memory.get(key, at)).toHaveLength(FINDINGS_LEDGER_LINEAGES);
     expect(chat(turns[0]!, {}, at + 1).checkFindings.findings[0]).toMatchObject({ id, disposition: "disputed" });
     expect(JSON.stringify(memory.get(key, at + 1))).not.toMatch(/guideline|Coffee|blood pressure/u);
@@ -1391,6 +1392,18 @@ describe("Codex's sixth review of 17 Nov 2026", () => {
     expect(memory.get(key, at + 2)).toHaveLength(FINDINGS_LEDGER_LINEAGES);
     expect(chat(turns[0]!, {}, at + 3).checkFindings.ledger).toBe("omitted");
     expect(chat(turns[1]!, {}, at + 4).checkFindings.ledger).toBe("new");
+    // Codex's seventh review of 17 Nov 2026, finding 1: the forgotten chat's ledger passed back is used as it is, and the
+    // result says AskRigor could not check whether it is the latest; a chat still remembered is not told so.
+    // The second other chat was pushed out by the last call; its ledger is passed back.
+    const pushedOut = verifyFindingsLedger(others[1]!.token, SECRET);
+    expect(pushedOut.ok).toBe(true);
+    expect(memory.get(key, at + 4)!.map(({ payload }) => payload.lin)).not.toContain(pushedOut.ok && pushedOut.payload.lin);
+    const forgotten = chat(turns[2]!, { later_inputs: { findings_ledger: others[1]!.token } }, at + 5);
+    expect(forgotten.checkFindings.ledger).toBe("continued");
+    expect(forgotten.notes).toContain(NOT_REMEMBERED);
+    const kept = chat(turns.at(-1)!, { later_inputs: { findings_ledger: forgotten.token } }, at + 6);
+    expect(kept.checkFindings.ledger).toBe("continued");
+    expect(kept.notes).not.toContain(NOT_REMEMBERED);
   });
 
   it("2: says up front how reading depth is held as the check holds it, and what the reader's panel lists", () => {
@@ -1447,6 +1460,86 @@ describe("Codex's sixth review of 17 Nov 2026", () => {
       const output = await run(withLedger(fixture(), { ...later, findings_ledger: "fl1~a~b" }));
       expect(output.check_findings!.ledger).toBe("rejected");
       expect(output.notes).toContain(unknown("synthetic_future_input", [...main, ...ledger]));
+    });
+  });
+});
+
+// Codex's seventh review of 17 Nov 2026 (re-review6.md), finding 1: the server's memory of a chat's ledgers is short (8
+// chats, two hours, this process). Without it, a ledger passed back is used as it is, and the result says so.
+const NOT_REMEMBERED = "AskRigor no longer remembers this chat's findings ledgers, so only the findings_ledger this call " +
+  "passed back was used, and AskRigor could not check whether it is the latest one.";
+describe("Codex's seventh review of 17 Nov 2026", () => {
+  const reason = "It restates the guideline the answer quotes.";
+  // Chats of one account and research target, each with a turn of its own, sharing one memory.
+  const chats = (memory = createFindingsLedgerMemory()) => {
+    const key = findingsLedgerMemoryKey(SECRET, "acct-a", "A research target");
+    return (turn: string, later: Record<string, unknown> = {}, now = NOW.getTime()) => {
+      const result = findingsLedger(params({ observed: [draftNote(WARNING)], turns: { call: turn },
+        raw: { later_inputs: later }, remembered: memory.get(key, now), now: new Date(now) }));
+      memory.update(key, () => result.remember, now);
+      return result;
+    };
+  };
+  const turn = (index: number) => index.toString(16).padStart(16, "0");
+
+  it("1: says so when a disputed chat's older ledger comes back after eight newer chats pushed that chat out", () => {
+    const chat = chats();
+    const at = NOW.getTime();
+    const first = chat(turn(0));
+    const id = first.checkFindings.findings[0]!.id;
+    const disputed = chat(turn(0), { findings_ledger: first.token,
+      finding_responses: [{ id, response: "disputed", reason }] }, at + 1);
+    expect(disputed.notes).not.toContain(NOT_REMEMBERED);
+    for (let index = 1; index <= FINDINGS_LEDGER_LINEAGES; index += 1) {
+      expect(chat(turn(index), {}, at + 1 + index).checkFindings.ledger).toBe("new");
+    }
+    // Neither a replay nor a refusal: the first ledger is used as it is, its finding open, and the result says why.
+    const back = chat(turn(0), { findings_ledger: first.token }, at + 20);
+    expect(back.checkFindings.ledger).toBe("continued");
+    expect(back.checkFindings.findings[0]).toMatchObject({ id, disposition: "open" });
+    expect(back.notes).toContain(NOT_REMEMBERED);
+    expect(back.notes.filter((text) => text === NOT_REMEMBERED)).toHaveLength(1);
+  });
+
+  it("1: says so when the chat's memory has expired after two hours", () => {
+    const chat = chats();
+    const at = NOW.getTime();
+    const first = chat(turn(0), {}, at);
+    const second = chat(turn(0), { findings_ledger: first.token }, at + 1_000);
+    expect(second.checkFindings.ledger).toBe("continued");
+    expect(second.notes).not.toContain(NOT_REMEMBERED);
+    const late = chat(turn(0), { findings_ledger: second.token }, at + 1_000 + FINDINGS_LEDGER_MEMORY_MS + 1);
+    expect(late.checkFindings.ledger).toBe("continued");
+    expect(late.notes).toContain(NOT_REMEMBERED);
+    // An older ledger of the same chat is used as it is too, not taken as a replay.
+    const older = chat(turn(0), { findings_ledger: first.token }, at + 2_000 + 2 * FINDINGS_LEDGER_MEMORY_MS);
+    expect(older.checkFindings.ledger).toBe("continued");
+    expect(older.notes).toContain(NOT_REMEMBERED);
+    // The rules having changed since, it is said with that note, not instead of it.
+    const changed = findingsLedger(params({ observed: [draftNote(WARNING)], raw: { later_inputs: {
+      findings_ledger: first.token } }, versions: { hrp: "20.6.44", universal: "20.5.40", build: "abc1234" } }));
+    expect(changed.checkFindings.ledger).toBe("versions_changed");
+    expect(changed.notes).toContain(NOT_REMEMBERED);
+  });
+
+  it("1: says so through the MCP tool when the server's memory is cold, as after a restart", async () => {
+    let issued: FinalizeResearchOutput | undefined;
+    await mcp(async (call) => {
+      const first = await call(fixture());
+      issued = await call(withLedger(continuing(first), { findings_ledger: first.findings_ledger }));
+      expect(issued.check_findings!.ledger).toBe("continued");
+      expect(issued.notes ?? []).not.toContain(NOT_REMEMBERED);
+    });
+    // Another server, its memory empty.
+    await mcp(async (call) => {
+      const restarted = await call(withLedger(fixture(), { findings_ledger: issued!.findings_ledger }));
+      expect(restarted.check_findings!.ledger).toBe("continued");
+      expect(warningFinding(restarted)).toMatchObject({ disposition: "open" });
+      expect(restarted.notes).toContain(NOT_REMEMBERED);
+      // The ledger it issued is remembered: the next call passing it back is not told so again.
+      const next = await call(withLedger(continuing(restarted), { findings_ledger: restarted.findings_ledger }));
+      expect(next.check_findings!.ledger).toBe("continued");
+      expect(next.notes ?? []).not.toContain(NOT_REMEMBERED);
     });
   });
 });

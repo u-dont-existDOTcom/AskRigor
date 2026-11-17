@@ -573,6 +573,9 @@ export function sketchSimilarity(left: readonly string[], right: readonly string
 
 const SETTLED: ReadonlySet<FindingDisposition> = new Set(["fixed", "withdrawn"]);
 
+/** Said when a ledger of this research is passed back but the server no longer remembers that chat's ledgers. */
+export const FINDINGS_LEDGER_NOT_REMEMBERED_NOTE = "AskRigor no longer remembers this chat's findings ledgers, so only " +
+  "the findings_ledger this call passed back was used, and AskRigor could not check whether it is the latest one.";
 export const FINDINGS_LEDGER_NOTE = "Each problem this check found has an id in check_findings, with its disposition. " +
   "Pass findings_ledger back as later_inputs.findings_ledger in this research's next finalize_research call. For a " +
   "finding you won't fix, give later_inputs.finding_responses [{\"id\": \"F-...\", \"response\": \"disputed\", " +
@@ -721,6 +724,9 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
       } else {
         state = "continued";
         previous = verified.payload;
+        // Codex's seventh review of 17 Nov 2026, finding 1: the memory of this chat's ledgers is gone (pushed out by
+        // newer chats, expired, or lost with a restart), so whether this ledger is the latest can't be checked.
+        if (remembered === undefined) notes.push(FINDINGS_LEDGER_NOT_REMEMBERED_NOTE);
       }
     }
   }
