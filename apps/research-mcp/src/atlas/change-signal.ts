@@ -184,6 +184,8 @@ export function announcingDossierReview(
     stateLivingPerson: (input) => announcing(signal, () => store.stateLivingPerson(input)),
     privacyPending: (limit) => store.privacyPending(limit),
     recordPrivacyReading: (input) => announcing(signal, () => store.recordPrivacyReading(input)),
+    admitAfterPrivacy: (input) => announcing(signal, () => store.admitAfterPrivacy(input)),
+    admissionPending: (limit) => store.admissionPending(limit),
     reviseImportance: (input) => announcing(signal, () => store.reviseImportance(input)),
   };
 }

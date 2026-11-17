@@ -173,6 +173,10 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       "research_dossier_show_check_invalid(text[], text, text[], boolean, text)": "none",
       "research_dossier_show_refusal(jsonb, text, integer, boolean, text[], text, text[], boolean, text)": "none",
       "research_dossier_conflict_partners(text[])": "none",
+      "admit_research_dossier_after_privacy(text, integer, text[], text, text[], boolean, timestamptz)":
+        "askrigor_research_review",
+      "list_research_dossier_admission_pending(integer)": "askrigor_research_review",
+      "research_dossier_admissible(living_evidence.research_dossier_public_versions)": "none",
       "revise_research_dossier_importance(text, integer, text, text, text, text, timestamptz)": "askrigor_research_review",
       "state_research_dossier_living_person(text, integer, text, text, timestamptz)": "askrigor_research_review",
       "list_research_dossier_privacy_pending(integer)": "askrigor_research_review",
@@ -535,6 +539,89 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       hold_reasons = '{}' WHERE public_number = $1`, [refusedCopy.publicNumber]), /check constraint/u,
     "REFUSED_CONTENT_FORCED_SHOWN");
     checks.push("a_privacy_reading_made_later_is_bound_to_its_content_and_a_refusal_is_final");
+
+    // Codex's third review, P1: a copy held only for the privacy reading shows by itself once a later reading passes
+    // it, if it otherwise qualifies, after fresh checks under the locks: never before a pass, nor one held for anything
+    // else, taken down by the owner, or whose account may no longer publish; an important conflict found now holds it
+    // for that instead, a check that could not be made leaves it waiting, and one made against another set is stale.
+    {
+      const admittee = await account("admittee");
+      const rival = await account("admittee-rival");
+      const topic = (label: string) => (value: Record<string, any>) => {
+        value.topic = { key: `admit-${label}`, name: `Admit ${label}`, other_names: [], related: [] };
+        value.forms = [`admit-form-${label}`];
+      };
+      const waiting = async (label: string, change: (value: Record<string, any>) => void = () => undefined,
+        owner = admittee) => {
+        const version = await save(owner.accountKey, `admit-${label}`, `admit-${label}`, null, (value) => {
+          topic(label)(value); delete value.stamp.privacy_reading; change(value); });
+        const held = await publisher.publish(await copy(owner.accountKey, version));
+        assert(held.outcome === "published" && held.state === "held" && held.holdReasons[0] === "privacy_reading_pending",
+          `ADMIT_${label.toUpperCase()}_NOT_HELD`);
+        return held.publicNumber;
+      };
+      const pass = async (publicNumber: string) => {
+        const sha = (await review.inspect(publicNumber))[0]!.payloadSha256!;
+        assert((await review.recordPrivacyReading({ publicNumber, versionNumber: 1, contentSha256: sha,
+          reading: { status: "pass" }, at: AT })).outcome === "recorded", `ADMIT_PASS_NOT_RECORDED_${publicNumber}`);
+      };
+      const read = async (publicNumber: string): Promise<ResearchDossierShowCheck> => ({ compared:
+        (await review.showCandidates(publicNumber, 1, null, 200)).map(conflictCandidateId), conflictCheck: "read",
+      conflictFindings: [], importantConflict: false, overrideBy: null });
+      const admit = async (publicNumber: string, check?: ResearchDossierShowCheck) =>
+        await review.admitAfterPrivacy({ publicNumber, versionNumber: 1, check: check ?? await read(publicNumber), at: AT });
+      const pendingNumbers = async () => (await review.admissionPending(50)).map(({ publicNumber }) => publicNumber);
+
+      const qualifies = await waiting("qualifies");
+      assert((await admit(qualifies)).outcome === "not_admissible", "ADMITTED_BEFORE_A_PASS");
+      await pass(qualifies);
+      assert((await pendingNumbers()).includes(qualifies), "QUALIFYING_COPY_NOT_PENDING_ADMISSION");
+      assert((await admit(qualifies)).outcome === "shown", "QUALIFYING_COPY_NOT_SHOWN");
+      const shownCopy = await pages.listShown({ publicNumbers: [qualifies], limit: 1 });
+      assert(shownCopy.length === 1 && !shownCopy[0]!.accepted, "ADMITTED_COPY_NOT_ON_THE_PAGES");
+      const admittedEvents = await admin.query<{ event: string; reason: string | null }>(`SELECT event, reason
+        FROM ${SCHEMA}.research_dossier_public_events WHERE public_number = $1 ORDER BY event_id`, [qualifies]);
+      assert(admittedEvents.rows.at(-1)?.event === "shown" && admittedEvents.rows.at(-1)?.reason === "privacy_reading_passed",
+        "ADMISSION_EVENT_MISSING");
+      assert(!(await pendingNumbers()).includes(qualifies), "SHOWN_COPY_STILL_PENDING");
+
+      const unsure = await waiting("unsure", moderate);
+      await pass(unsure);
+      const tookDown = await waiting("taken-down");
+      assert((await review.decide({ publicNumber: tookDown, versionNumber: 1, decision: "take_down",
+        reason: "The owner's own check", at: AT })).outcome === "decided", "ADMIT_TAKE_DOWN_WRONG");
+      await pass(tookDown);
+      const ineligible = await account("admittee-ineligible");
+      const saveOff = await waiting("saving-off", () => undefined, ineligible);
+      await pass(saveOff);
+      await service.setFindingsSave(ineligible.subject, false);
+      for (const [label, number] of [["UNSURE", unsure], ["TAKEN_DOWN", tookDown], ["SAVING_OFF", saveOff]] as const) {
+        assert((await admit(number)).outcome === "not_admissible", `ADMITTED_${label}`);
+        assert(!(await pendingNumbers()).includes(number), `PENDING_ADMISSION_${label}`);
+        assert((await pages.listShown({ publicNumbers: [number], limit: 1 })).length === 0, `SHOWN_${label}`);
+      }
+
+      // Another research's opposite finding shown on the same topic meanwhile.
+      const contested = await waiting("contested");
+      await pass(contested);
+      const rivalVersion = await save(rival.accountKey, "admit-rival", "admit-rival", null, topic("contested"));
+      const rivalCopy = await publisher.publish(await copy(rival.accountKey, rivalVersion));
+      assert(rivalCopy.outcome === "published" && rivalCopy.state === "shown", "ADMIT_RIVAL_NOT_SHOWN");
+      assert((await admit(contested, { compared: [], conflictCheck: "read", conflictFindings: [], importantConflict: false,
+        overrideBy: null })).outcome === "comparison_stale", "ADMITTED_AGAINST_ANOTHER_SET");
+      assert((await admit(contested, { compared: [], conflictCheck: "not_read", conflictFindings: [],
+        importantConflict: false, overrideBy: null })).outcome === "waiting", "ADMITTED_WITHOUT_A_COMPARISON");
+      assert((await pendingNumbers()).includes(contested), "WAITING_COPY_NOT_PENDING_ADMISSION");
+      const conflicted = await admit(contested, { ...(await read(contested)), importantConflict: true,
+        conflictFindings: [`f1:${rivalCopy.publicNumber}/1:f1`] });
+      assert(conflicted.outcome === "held" && conflicted.holdReasons.join() === "important_conflict",
+        `ADMITTED_OVER_AN_IMPORTANT_CONFLICT_${conflicted.outcome}`);
+      const contestedRow = (await review.inspect(contested))[0]!;
+      assert(contestedRow.state === "held" && contestedRow.conflictsWith.join() === rivalCopy.publicNumber,
+        "CONFLICT_HOLD_NOT_RECORDED");
+      assert(!(await pendingNumbers()).includes(contested), "CONFLICTED_COPY_STILL_PENDING");
+    }
+    checks.push("a_copy_held_only_for_the_privacy_reading_shows_by_itself_once_it_passes_after_fresh_checks");
 
     // Codex's review, finding 2: a copy whose claim names a living person shows only on the owner's own decision, with
     // his typed reason and who decided, made once; show and accept refuse it, and nothing forces it up.

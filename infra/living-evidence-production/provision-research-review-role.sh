@@ -164,6 +164,13 @@ GRANT EXECUTE ON FUNCTION living_evidence.list_research_dossier_privacy_pending(
 GRANT EXECUTE ON FUNCTION living_evidence.record_research_dossier_privacy_reading(
   text, integer, text, text, text, text, timestamptz
 ) TO askrigor_research_review;
+-- A copy held only for the privacy reading shows by itself once a later reading passes it, if it otherwise qualifies,
+-- after fresh conflict and eligibility checks; and the copies waiting for that (Codex's third review).
+GRANT EXECUTE ON FUNCTION living_evidence.admit_research_dossier_after_privacy(
+  text, integer, text[], text, text[], boolean, timestamptz
+) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.list_research_dossier_admission_pending(integer)
+  TO askrigor_research_review;
 -- A reviewed revision of an importance mark: a new version with the reviewer and reason, never an edit in place (Codex's
 -- review of stage 2, finding 7).
 GRANT EXECUTE ON FUNCTION living_evidence.revise_research_dossier_importance(

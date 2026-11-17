@@ -490,7 +490,10 @@ export interface AtlasReviewRequest {
    * never an input.
    */
   dossierPrivacyReader?: import("./dossier-privacy-reading.js").DossierPrivacyReader;
-  /** show_dossier, accept_dossier and show_dossier_naming_living_person: AskRigor's conflict reading; never an input. */
+  /**
+   * show_dossier, accept_dossier, show_dossier_naming_living_person and read_dossier_privacy: AskRigor's conflict
+   * reading; never an input.
+   */
   dossierConflictReader?: import("./dossier-conflict-reading.js").DossierConflictReader;
   /** The owner's override of the conflict check, from later_inputs.dossierOverrideConflicts. */
   dossierOverrideConflicts?: string[];
@@ -1415,10 +1418,12 @@ export class AtlasReview {
    * The server's reading of the dossier copies held waiting for the privacy reading, once the reader is available again
    * (Codex's re-review of stage 2); undefined when public dossiers are not configured here.
    */
-  async readPendingDossierPrivacy(reader: import("./dossier-privacy-reading.js").DossierPrivacyReader):
-    Promise<{ passed: number; refused: number; unavailable: number } | undefined> {
+  async readPendingDossierPrivacy(reader: import("./dossier-privacy-reading.js").DossierPrivacyReader,
+    conflictReader?: import("./dossier-conflict-reading.js").DossierConflictReader):
+    Promise<{ passed: number; refused: number; unavailable: number; shown: number } | undefined> {
     const store = this.deps.dossierPublications;
-    return store === undefined ? undefined : await readPendingDossierPrivacy(store, reader, { now: this.now });
+    return store === undefined ? undefined : await readPendingDossierPrivacy(store, reader, { now: this.now,
+      ...(conflictReader === undefined ? {} : { conflictReader }) });
   }
 
   private async glanceAction(action: AtlasGlanceAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {

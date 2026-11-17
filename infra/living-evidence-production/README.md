@@ -546,9 +546,9 @@ with its reasons, superseded, taken down or erased; its public content, topic, r
 with, where its research ran, whether the privacy reading passed its saved content, without which it never shows, and
 whether a claim names a living person, or that its AI did not say, with the owner's recorded statement and decision)
 and
-`research_dossier_public_events` (append-only), eleven role functions, three pure helpers that derive a copy from its
+`research_dossier_public_events` (append-only), thirteen role functions, three pure helpers that derive a copy from its
 private record, two internal functions for the conflict candidates, three for the comparison a show of a held copy is
-checked against, two that take the per-topic locks (automatic
+checked against, one for whether a copy held for the privacy reading alone may show by itself, two that take the per-topic locks (automatic
 publication and every review transition that changes what is shown take the same locks, in the same order), and two
 views. The research-access role publishes and reads a topic's shown copies
 (`publish_research_dossier_version`, which derives the public copy and why it is held from the saved private record and
@@ -565,7 +565,11 @@ owner's own statement, recorded once with who and when, on a copy whose AI did n
 without which the ordinary show refuses it, `list_research_dossier_privacy_pending` and
 `record_research_dossier_privacy_reading`, a privacy reading made later of a copy held waiting for one, bound to the
 digest of the content it read (a refusal is final for that content; a reader that could not read is kept apart as
-temporary), and `revise_research_dossier_importance`, a
+temporary), `admit_research_dossier_after_privacy` and `list_research_dossier_admission_pending`, which show by itself
+a copy held only for the privacy reading once a later reading passed it, if it otherwise qualifies, after fresh
+conflict and eligibility checks under the account's, the dossier's and the topic locks (never one the owner held or
+took down, nor one refused, withdrawn or ineligible; an important conflict found then holds it for that instead), and
+`revise_research_dossier_importance`, a
 reviewed revision of an importance mark as a new version, never an edit in place);
 the canonical reader reads only the views `research_dossier_public_pages`, `research_dossier_public_history`,
 `research_dossier_public_topics` (each shown topic once, for the topics list) and `research_dossier_public_changes` (a
@@ -578,7 +582,9 @@ dossier's copies from the private versions and the account and clearing their or
 `/usr/local/bin/provision-research-review-role`, before the image serves. While public dossiers, the owner's review and
 `ASKRIGOR_DOSSIER_PRIVACY_READING=on` are all set, each server reads up to five copies waiting for the privacy reading
 every half hour, on the planner's paid path (about USD 0.007 each at most), stopping at the first reading that could not
-be made; the owner's `read_dossier_privacy` reads one at once. Nothing is published until both
+be made; the owner's `read_dossier_privacy` reads one at once. A copy held for the reading alone that it passes is then
+compared with the shown dossiers it could contradict (one more conflict reading on the same path when any shows) and
+shown if it otherwise qualifies; one whose comparison could not be made is compared again on a later sweep. Nothing is published until both
 `ASKRIGOR_PUBLIC_DOSSIERS=enabled` (off by default; it also needs `ASKRIGOR_RESEARCH_DOSSIERS=enabled`) and the release of
 notice v7, on the owner's yes, which adds its version to `research_dossier_public_notices` and to
 `PUBLIC_DOSSIER_NOTICE_VERSIONS`. Read-only, as the migrator:

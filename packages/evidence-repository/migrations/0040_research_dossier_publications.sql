@@ -1355,6 +1355,179 @@ REVOKE ALL ON FUNCTION record_research_dossier_privacy_reading(
   text, integer, text, text, text, text, timestamptz
 ) FROM PUBLIC;
 
+-- Whether a copy held only for the privacy reading may now be shown by itself, as a copy saved with a passing reading
+-- would have been (Codex's third review, P1): held for that reason alone, the dossier's newest copy of its newest saved
+-- version, neither withdrawn, rejected nor erased nor detached, a later reading passed exactly its content, its
+-- researching AI highly confident and saying no claim names a living person, its content keeping the sizes rule and
+-- the pages' last check, and its account still one that may publish (active, free, saving on, its notice listed). A
+-- copy the owner held (owner_hold) or took down, one refused or withdrawn, or one held for anything else never is.
+CREATE OR REPLACE FUNCTION research_dossier_admissible(copy_row research_dossier_public_versions)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+  SELECT copy_row.state = 'held' AND copy_row.erased_at IS NULL AND copy_row.version_id IS NOT NULL
+    AND copy_row.hold_reasons = ARRAY['privacy_reading_pending']::text[]
+    AND NOT copy_row.privacy_read AND copy_row.privacy_reading_outcome IS NOT DISTINCT FROM 'passed'
+    AND copy_row.privacy_reading_sha256 IS NOT DISTINCT FROM copy_row.public_sha256
+    AND copy_row.names_living_person IS FALSE
+    AND copy_row.public_payload -> 'value' ->> 'confidence' IS NOT DISTINCT FROM 'high'
+    AND research_dossier_public_sizes_complete(copy_row.public_payload)
+    AND research_dossier_public_passes_page_guard(copy_row.public_payload)
+    AND copy_row.version_number = (SELECT max(other.version_number) FROM research_dossier_public_versions other
+      WHERE other.public_number = copy_row.public_number)
+    AND NOT EXISTS (SELECT 1 FROM research_dossier_events event
+      WHERE event.version_id = copy_row.version_id AND event.event IN ('withdrawn', 'rejected', 'erased'))
+    AND EXISTS (SELECT 1 FROM research_dossier_versions stored
+      JOIN research_dossiers dossier ON dossier.dossier_number = stored.dossier_number
+      JOIN research_use_accounts account ON account.account_key = dossier.account_key
+     WHERE stored.version_id = copy_row.version_id AND stored.erased_at IS NULL AND dossier.erased_at IS NULL
+       AND NOT EXISTS (SELECT 1 FROM research_dossier_versions newer
+         WHERE newer.dossier_number = stored.dossier_number AND newer.version_number > stored.version_number)
+       AND account.status = 'ACTIVE' AND account.mode IS NOT DISTINCT FROM 'FREE_CONTRIBUTOR'
+       AND account.findings_save IS TRUE
+       AND EXISTS (SELECT 1 FROM research_dossier_public_notices notice
+         WHERE notice.notice_version = account.notice_version));
+$function$;
+
+REVOKE ALL ON FUNCTION research_dossier_admissible(research_dossier_public_versions) FROM PUBLIC;
+
+-- The copies held only for the privacy reading that a later reading has passed and that may now show by themselves,
+-- waiting for the conflict check (the reader could not compare them when the reading passed), oldest pass first: the
+-- server compares and admits them on its sweep.
+CREATE OR REPLACE FUNCTION list_research_dossier_admission_pending(target_limit integer)
+RETURNS TABLE (public_number text, version_number integer, public_payload jsonb, public_sha256 text)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+#variable_conflict use_column
+BEGIN
+  IF target_limit IS NULL OR target_limit < 1 OR target_limit > 50 THEN
+    RAISE EXCEPTION 'RESEARCH_DOSSIER_REVIEW_INPUT_INVALID';
+  END IF;
+  RETURN QUERY
+  SELECT copy.public_number, copy.version_number, copy.public_payload, copy.public_sha256::text
+    FROM research_dossier_public_versions copy
+   WHERE copy.state = 'held' AND copy.hold_reasons = ARRAY['privacy_reading_pending']::text[]
+     AND copy.privacy_reading_outcome = 'passed' AND research_dossier_admissible(copy)
+   ORDER BY copy.privacy_reading_at, copy.public_number, copy.version_number
+   LIMIT target_limit;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION list_research_dossier_admission_pending(integer) FROM PUBLIC;
+
+-- Shows by itself a copy held only for the privacy reading once a later reading passed it, if it otherwise qualifies
+-- (research_dossier_admissible), after fresh checks made here (Codex's third review, P1): under its account's lock, its
+-- dossier's and the topic locks, in automatic publication's order, its account and the copy are checked again, and the
+-- server's conflict check must have been made against exactly the candidates listed again, its own dossier's shown copy
+-- among them as for automatic publication. No conflict on an important finding: shown, marked "Not checked by
+-- supervisors yet", superseding the dossier's shown copy, with the pairs read as contradicting kept for the pages. An
+-- important conflict: held for it instead, for the owner's review. A check that could not be made while any candidate
+-- shows: unchanged, waiting, and the server tries again.
+CREATE OR REPLACE FUNCTION admit_research_dossier_after_privacy(
+  target_public_number text,
+  target_version_number integer,
+  target_compared text[],
+  target_conflict_check text,
+  target_conflict_findings text[],
+  target_important_conflict boolean,
+  change_time timestamptz
+)
+RETURNS TABLE (outcome text, state text, hold_reasons text[])
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+#variable_conflict use_column
+DECLARE
+  copy_row research_dossier_public_versions%ROWTYPE;
+  owner_row record;
+  refusal text;
+BEGIN
+  IF target_public_number IS NULL OR target_public_number !~ '^D-[1-9][0-9]{3,}$'
+     OR target_version_number IS NULL OR target_version_number < 1
+     OR research_dossier_show_check_invalid(target_compared, target_conflict_check, target_conflict_findings,
+       target_important_conflict, NULL)
+     OR change_time IS NULL THEN
+    RAISE EXCEPTION 'RESEARCH_DOSSIER_REVIEW_INPUT_INVALID';
+  END IF;
+  SELECT dossier.account_key, dossier.dossier_number INTO owner_row
+    FROM research_dossier_public_versions copy
+    JOIN research_dossier_versions stored ON stored.version_id = copy.version_id
+    JOIN research_dossiers dossier ON dossier.dossier_number = stored.dossier_number
+   WHERE copy.public_number = target_public_number AND copy.version_number = target_version_number;
+  IF NOT FOUND THEN
+    SELECT * INTO copy_row FROM research_dossier_public_versions copy
+     WHERE copy.public_number = target_public_number AND copy.version_number = target_version_number;
+    IF NOT FOUND THEN
+      RETURN QUERY SELECT 'not_found'::text, NULL::text, NULL::text[];
+    ELSE
+      RETURN QUERY SELECT 'not_admissible'::text, copy_row.state, copy_row.hold_reasons;
+    END IF;
+    RETURN;
+  END IF;
+  -- Automatic publication's lock order: the account, the dossier, then the topics; then the review's, the dossier's
+  -- public number and the copy.
+  PERFORM 1 FROM research_use_accounts account WHERE account.account_key = owner_row.account_key FOR SHARE;
+  PERFORM 1 FROM research_dossiers dossier WHERE dossier.dossier_number = owner_row.dossier_number FOR UPDATE;
+  PERFORM research_dossier_lock_copy_topics(target_public_number, target_version_number);
+  PERFORM 1 FROM research_dossier_publications publication
+   WHERE publication.public_number = target_public_number FOR UPDATE;
+  SELECT * INTO copy_row FROM research_dossier_public_versions copy
+   WHERE copy.public_number = target_public_number AND copy.version_number = target_version_number
+   FOR UPDATE;
+  IF NOT research_dossier_admissible(copy_row) THEN
+    RETURN QUERY SELECT 'not_admissible'::text, copy_row.state, copy_row.hold_reasons;
+    RETURN;
+  END IF;
+  refusal := research_dossier_show_refusal(copy_row.public_payload, copy_row.public_number, copy_row.version_number,
+    true, target_compared, target_conflict_check, target_conflict_findings, target_important_conflict, NULL);
+  IF refusal = 'comparison_stale' THEN
+    RETURN QUERY SELECT 'comparison_stale'::text, copy_row.state, copy_row.hold_reasons;
+    RETURN;
+  END IF;
+  IF refusal = 'conflict_not_checked' THEN
+    RETURN QUERY SELECT 'waiting'::text, copy_row.state, copy_row.hold_reasons;
+    RETURN;
+  END IF;
+  IF refusal = 'conflict_found' THEN
+    UPDATE research_dossier_public_versions copy
+       SET hold_reasons = ARRAY['important_conflict']::text[],
+           conflicts_with = research_dossier_conflict_partners(target_conflict_findings),
+           conflict_findings = target_conflict_findings, decided_at = change_time
+     WHERE copy.public_number = copy_row.public_number AND copy.version_number = copy_row.version_number;
+    INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
+    VALUES (copy_row.public_number, copy_row.version_number, 'held', 'important_conflict', change_time);
+    RETURN QUERY SELECT 'held'::text, 'held'::text, ARRAY['important_conflict']::text[];
+    RETURN;
+  END IF;
+  INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
+  SELECT copy.public_number, copy.version_number, 'superseded', NULL, change_time FROM research_dossier_public_versions copy
+   WHERE copy.public_number = target_public_number AND copy.state = 'shown'
+     AND copy.version_number <> copy_row.version_number;
+  UPDATE research_dossier_public_versions copy SET state = 'superseded', decided_at = change_time
+   WHERE copy.public_number = target_public_number AND copy.state = 'shown'
+     AND copy.version_number <> copy_row.version_number;
+  UPDATE research_dossier_public_versions copy
+     SET state = 'shown', hold_reasons = '{}',
+         conflicts_with = research_dossier_conflict_partners(target_conflict_findings),
+         conflict_findings = target_conflict_findings, decided_at = change_time
+   WHERE copy.public_number = copy_row.public_number AND copy.version_number = copy_row.version_number;
+  INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
+  VALUES (copy_row.public_number, copy_row.version_number, 'shown', 'privacy_reading_passed', change_time);
+  RETURN QUERY SELECT 'shown'::text, 'shown'::text, '{}'::text[];
+END
+$function$;
+
+REVOKE ALL ON FUNCTION admit_research_dossier_after_privacy(
+  text, integer, text[], text, text[], boolean, timestamptz
+) FROM PUBLIC;
+
 -- A reviewed revision of one finding's importance mark (Codex's review of stage 2, finding 7): never an edit in place,
 -- but a new version of the dossier's newest copy, shown or held as it was, with the mark changed and everything else
 -- the same, who revised it (the reviewer login's digest) and the reason he typed; the copy it revises is superseded and

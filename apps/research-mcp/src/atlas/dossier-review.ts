@@ -16,6 +16,7 @@ import {
   type ResearchDossierPublicDecision,
   type ResearchDossierPublicState,
   type ResearchDossierPublicationReviewStore,
+  type ResearchDossierAdmissionResult,
   type ResearchDossierDecisionResult,
   type ResearchDossierPublicationDetail,
   type ResearchDossierPublicationRow,
@@ -60,7 +61,8 @@ import type { DossierPrivacyReader, DossierPrivacyReading } from "../findings/do
  * has AskRigor's privacy reading read its public content now, and the server reads the waiting copies itself once the
  * reader is available again (readPendingDossierPrivacy). Each reading is bound to the digest of the content it read.
  * A refusal is final for that content; a reading that could not be made is temporary, kept and worded apart. A pass
- * shows nothing by itself: it lets show_dossier and accept_dossier work.
+ * lets show_dossier and accept_dossier work, and a copy held for the privacy reading alone shows by itself if it
+ * otherwise qualifies, after fresh conflict and eligibility checks (Codex's third review, P1; admitAfterPrivacy).
  *
  * Before an action shows a copy not shown yet (show_dossier, accept_dossier, show_dossier_naming_living_person), it is
  * compared with the shown dossiers it could contradict, its own dossier's shown copy aside since the show replaces it
@@ -160,26 +162,91 @@ async function readPublicCopy(reader: DossierPrivacyReader, payload: Record<stri
   return reading;
 }
 
+/** What a copy's admission after its privacy reading found: the store's outcome, and the pairs it kept. */
+interface Admission {
+  result: ResearchDossierAdmissionResult;
+  comparison?: DossierComparison;
+  pairs: DossierFoundConflict[];
+}
+
+/**
+ * A copy held only for the privacy reading, once a later reading passed it (Codex's third review, P1: it stayed held):
+ * compared with the shown dossiers it could contradict, its own dossier's shown copy among them as for automatic
+ * publication, and shown by the store if it otherwise qualifies, which it checks again under the locks; compared again
+ * when those dossiers changed meanwhile, at most three times. A copy held for anything else, taken down, refused, not
+ * the newest or not what the reading passed is not compared, so nothing is paid for it.
+ */
+export async function admitAfterPrivacy(store: ResearchDossierPublicationReviewStore, publicNumber: string,
+  versionNumber: number, conflictReader: DossierConflictReader | undefined, now: () => Date): Promise<Admission> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const copies = await store.inspect(publicNumber);
+    const copy = copies.find((other) => other.versionNumber === versionNumber);
+    if (copy === undefined) return { result: { outcome: "not_found" }, pairs: [] };
+    const mine = copy.payload === null ? undefined : readPublicDossier(copy.payload);
+    if (copy.state !== "held" || copy.holdReasons.length !== 1 || copy.holdReasons[0] !== "privacy_reading_pending" ||
+      copy.laterPrivacyReading?.outcome !== "passed" || copy.namesLivingPerson !== false || mine === undefined ||
+      mine.value.confidence !== "high" || copy.versionNumber !== Math.max(...copies.map((other) => other.versionNumber))) {
+      return { result: { outcome: "not_admissible", state: copy.state }, pairs: [] };
+    }
+    const candidates: ResearchDossierTopicCopy[] = [];
+    for (;;) {
+      const last = candidates.at(-1);
+      const page = await store.showCandidates(publicNumber, versionNumber,
+        last === undefined ? null : { publicNumber: last.publicNumber, versionNumber: last.versionNumber },
+        CONFLICT_CANDIDATES_PER_PAGE);
+      candidates.push(...page);
+      if (page.length < CONFLICT_CANDIDATES_PER_PAGE) break;
+    }
+    const comparison: DossierComparison = candidates.length === 0 ? { status: "read", conflicts: new Map() }
+      : await compareWithShown(mine, candidates, conflictReader);
+    const pairs = comparison.status === "read" ? [...comparison.conflicts.values()].flat()
+      .sort((left, right) => Number(right.important) - Number(left.important)).slice(0, 50) : [];
+    const result = await store.admitAfterPrivacy({ publicNumber, versionNumber, at: now(), check: {
+      compared: candidates.map(conflictCandidateId), conflictCheck: comparison.status === "read" ? "read" : "not_read",
+      conflictFindings: pairs.map(conflictFindingId), importantConflict: pairs.some(({ important }) => important),
+      overrideBy: null } });
+    if (result.outcome !== "comparison_stale") return { result, comparison, pairs };
+  }
+  return { result: { outcome: "comparison_stale" }, pairs: [] };
+}
+
 /**
  * The server's reading of the copies waiting for one, once the reader is available again (Codex's re-review of stage 2,
  * P1): a few at a time, least recently tried first, each bound to the digest of the content read. It stops at the first
  * reading that could not be made, but for one too long to read, so a reader that is off or out of money for the day is
- * asked once a run.
+ * asked once a run. A copy held for the privacy reading alone that a reading passes shows by itself if it otherwise
+ * qualifies (admitAfterPrivacy); one passed earlier that waited for the conflict check is compared again, each once a
+ * run, until a comparison could not be made.
  */
 export async function readPendingDossierPrivacy(store: ResearchDossierPublicationReviewStore, reader: DossierPrivacyReader,
-  options: { now: () => Date; limit?: number }): Promise<{ passed: number; refused: number; unavailable: number }> {
-  const counts = { passed: 0, refused: 0, unavailable: 0 };
+  options: { now: () => Date; limit?: number; conflictReader?: DossierConflictReader }):
+  Promise<{ passed: number; refused: number; unavailable: number; shown: number }> {
+  const counts = { passed: 0, refused: 0, unavailable: 0, shown: 0 };
+  const tried = new Set<string>();
+  const admit = async (copy: { publicNumber: string; versionNumber: number }) => {
+    tried.add(conflictCandidateId(copy));
+    const admitted = await admitAfterPrivacy(store, copy.publicNumber, copy.versionNumber, options.conflictReader,
+      options.now);
+    if (admitted.result.outcome === "shown") counts.shown += 1;
+    return admitted.result.outcome;
+  };
   for (const copy of await store.privacyPending(options.limit ?? 5)) {
     const reading = await readPublicCopy(reader, copy.payload);
     const recorded = await store.recordPrivacyReading({ publicNumber: copy.publicNumber,
       versionNumber: copy.versionNumber, contentSha256: copy.payloadSha256, reading, at: options.now() });
     if (recorded.outcome !== "recorded") continue;
-    if (reading.status === "pass") counts.passed += 1;
-    else if (reading.status === "refuse") counts.refused += 1;
+    if (reading.status === "pass") {
+      counts.passed += 1;
+      await admit(copy);
+    } else if (reading.status === "refuse") counts.refused += 1;
     else {
       counts.unavailable += 1;
       if (reading.reason !== "too_long") break;
     }
+  }
+  for (const copy of await store.admissionPending(options.limit ?? 5)) {
+    if (tried.has(conflictCandidateId(copy))) continue;
+    if (await admit(copy) === "waiting") break;
   }
   return counts;
 }
@@ -385,6 +452,35 @@ const lineOf = (row: ResearchDossierPublicationRow) => `${row.publicNumber} vers
         : ` though it contradicts ${joinWords(row.conflictsWith)}`}`}; ${
     Object.keys(row.origin).length === 0 ? `where its research ran is ${originWords(row.origin)}`
       : `researched in ${originWords(row.origin)}`}`;
+
+/** What became of a copy held for the privacy reading once a reading passed it, after "passed its public content". */
+function admissionWords(dossier: string, admitted: Admission, state: string): string {
+  const { result, comparison, pairs } = admitted;
+  if (result.outcome === "shown") {
+    return `Nothing else held it, so it is now shown, at ${dossierPagePath(dossier)}, marked "Not checked by ` +
+      `supervisors yet".${pairs.length === 0 ? "" : ` AskRigor's conflict check found that it contradicts ${
+        joinWords(partnersOf(pairs))} on ${pairs.length === 1 ? "a background finding" : "background findings"}; the ` +
+      "pages list the disagreement."}`;
+  }
+  if (result.outcome === "held") {
+    const important = pairs.filter(({ important: weighty }) => weighty);
+    return `It is still held: AskRigor's conflict check found that it contradicts ${joinWords(partnersOf(important))} on ${
+      important.length === 1 ? "an important finding" : "important findings"}, so it waits for your review; ` +
+      "show_dossier tells you on what, and shows it only on your override.";
+  }
+  if (result.outcome === "waiting") {
+    return "It is still held, waiting for the conflict check, which could not compare it with the shown dossiers it " +
+      `could contradict just now (${comparison?.status === "unavailable"
+        ? CONFLICT_UNAVAILABLE_WORDS[comparison.reason] ?? "it could not be made" : "it could not be made"}); the ` +
+      "server tries again.";
+  }
+  if (result.outcome === "comparison_stale") {
+    return "It is still held: the shown dossiers it could contradict kept changing while it was compared; the server " +
+      "tries again.";
+  }
+  return `It is still ${result.outcome === "not_admissible" ? result.state.replace("_", " ") : state}; the privacy ` +
+    "reading no longer keeps show_dossier or accept_dossier from showing it.";
+}
 
 /** A show compared with the shown dossiers that kept changing: nothing was shown. */
 const stale = (dossier: string, version: number) => refused(`${dossier} version ${version} was not shown: the shown ` +
@@ -706,13 +802,15 @@ export class AtlasDossierReview {
     if (recorded.outcome === "not_found") return refused(`${dossier} has no version ${version}; nothing was changed.`);
     if (recorded.outcome === "not_readable") return notReadable();
     const state = recorded.state.replace("_", " ");
+    const admitted = reading.status === "pass"
+      ? await admitAfterPrivacy(this.deps.store, dossier, version, this.deps.conflictReader, this.deps.now) : undefined;
     const after = (await this.deps.store.inspect(dossier)).find(({ versionNumber }) => versionNumber === version);
     return {
       ok: true,
       outcome: "dossier_decided",
       text: reading.status === "pass"
-        ? `${dossier} version ${version}: AskRigor's privacy reading passed its public content, exactly as stored. It ` +
-          `is still ${state}; the privacy reading no longer keeps show_dossier or accept_dossier from showing it.`
+        ? `${dossier} version ${version}: AskRigor's privacy reading passed its public content, exactly as stored. ${
+          admissionWords(dossier, admitted!, state)}`
         : reading.status === "refuse"
           ? `${dossier} version ${version}: AskRigor's privacy reading found ${PRIVACY_REFUSAL_WORDS[reading.reason]}${
             reading.path === undefined ? "" : ` in ${reading.path}`}. That is final for this content: it can't be ` +

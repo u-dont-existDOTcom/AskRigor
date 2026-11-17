@@ -412,17 +412,20 @@ describe("a saved dossier's public copy (332a: the researching AI's own judgemen
 // the content read, on the owner's action and by the server when the reader is available again. A refusal is final for
 // that content; an unavailable reader or no money left today is temporary. Fakes stand in for every reading.
 describe("a privacy reading made later", () => {
-  /** A copy saved while the reading was off: held, waiting for the privacy reading. */
-  async function pending() {
+  /** A copy saved while the reading was off: held, waiting for the privacy reading (and for anything else changed). */
+  async function pending(change: (value: Record<string, any>) => void = () => undefined) {
     const { dossiers, publications, publication } = stores();
-    const outcome = await saveResearchDossier(dossiers, request({ publication, privacyReading: undefined }));
-    expect(outcome?.disposition?.publication).toMatchObject({ status: "held", hold_reasons: ["privacy_reading_pending"] });
+    const outcome = await saveResearchDossier(dossiers, request({ publication, privacyReading: undefined,
+      value: dossier(change) }));
+    expect(outcome?.disposition?.publication).toMatchObject({ status: "held",
+      hold_reasons: expect.arrayContaining(["privacy_reading_pending"]) });
     return { dossiers, publications };
   }
   const OWNER = "auth0|synthetic-owner";
 
   it("lets the owner's action read it, bound to the content read, after which the ordinary show works", async () => {
-    const { publications } = await pending();
+    // Not highly confident besides, so the pass leaves it held for the owner's check.
+    const { publications } = await pending((value) => { value.value.confidence = "moderate"; });
     const read: string[] = [];
     const reader = async (texts: ReadonlyArray<{ path: string; text: string }>) => {
       read.push(...texts.map(({ path }) => path));
@@ -496,17 +499,122 @@ describe("a privacy reading made later", () => {
     let calls = 0;
     const budgetGone = async () => { calls += 1; return { status: "unavailable" as const, reason: "daily_budget" as const }; };
     expect(await readPendingDossierPrivacy(publications, budgetGone, { now: () => NOW }))
-      .toEqual({ passed: 0, refused: 0, unavailable: 1 });
+      .toEqual({ passed: 0, refused: 0, unavailable: 1, shown: 0 });
     expect(calls).toBe(1);
     expect((await publications.privacyPending(10)).map(({ publicNumber }) => publicNumber)).toEqual(["D-1001"]);
+    // Held for the reading alone, and nothing shown it could contradict: the pass shows it (Codex's third review).
     expect(await readPendingDossierPrivacy(publications, async () => ({ status: "pass" as const }), { now: () => NOW }))
-      .toEqual({ passed: 1, refused: 0, unavailable: 0 });
+      .toEqual({ passed: 1, refused: 0, unavailable: 0, shown: 1 });
     expect(await publications.privacyPending(10)).toEqual([]);
-    // A pass shows nothing by itself: the owner's review decides.
-    expect(await publications.listShown({ limit: 10 })).toEqual([]);
-    expect((await publications.decide({ publicNumber: "D-1001", versionNumber: 1, decision: "show", reason: null,
-      at: NOW })).outcome).toBe("decided");
+    expect((await publications.listShown({ limit: 10 })).map(({ publicNumber }) => publicNumber)).toEqual(["D-1001"]);
   });
+});
+
+// Codex's third review, P1: a copy held only for the privacy reading stayed held once the reading passed it. It now
+// shows by itself if it otherwise qualifies, after fresh conflict and eligibility checks; never one the owner held or
+// took down, nor one refused, withdrawn or ineligible.
+describe("a copy held only for the privacy reading, once the reading passes", () => {
+  const OWNER = "auth0|synthetic-owner";
+  const passing = async () => ({ status: "pass" as const });
+  const otherAccount = { account: { mode: "FREE_CONTRIBUTOR" as const, accountKey: OTHER, findingsSave: true,
+    noticeVersion: RESEARCH_USE_NOTICE_VERSION } };
+  /** Saved while the privacy reading was off, so held for it alone; eligible says whether its account may publish. */
+  async function waiting(change: (value: Record<string, any>) => void = () => undefined) {
+    const eligibility = { open: true };
+    const dossiers = new InMemoryResearchDossierStore();
+    const publications = new InMemoryResearchDossierPublications({ dossiers, project: publicDossierOf, sizesComplete,
+      eligible: () => eligibility.open });
+    const publication = { publisher: publications, noticeCovering: COVERING, conflictReader: NO_CONFLICT };
+    const outcome = await saveResearchDossier(dossiers, request({ publication, privacyReading: undefined,
+      value: dossier(change) }));
+    return { dossiers, publications, publication, eligibility, held: outcome?.disposition?.publication };
+  }
+
+  it("shows by itself after fresh conflict and eligibility checks, on the owner's reading or the server's", async () => {
+    const owner = await waiting();
+    expect(owner.held).toMatchObject({ status: "held", hold_reasons: ["privacy_reading_pending"] });
+    const review = new AtlasDossierReview({ store: owner.publications, now: () => NOW, privacyReader: passing,
+      conflictReader: NO_CONFLICT });
+    expect((await review.run({ action: "read_dossier_privacy", dossier: "D-1001", reviewer: OWNER })).text)
+      .toBe("D-1001 version 1: AskRigor's privacy reading passed its public content, exactly as stored. Nothing else " +
+        "held it, so it is now shown, at /atlas/dossiers/D-1001, marked \"Not checked by supervisors yet\".");
+    expect((await owner.publications.listShown({ limit: 10 })).map(({ publicNumber }) => publicNumber))
+      .toEqual(["D-1001"]);
+    // The server's own reading does the same, and says how many it showed.
+    const server = await waiting();
+    const { readPendingDossierPrivacy } = await import("../apps/research-mcp/src/atlas/dossier-review.js");
+    expect(await readPendingDossierPrivacy(server.publications, passing, { now: () => NOW, conflictReader: NO_CONFLICT }))
+      .toEqual({ passed: 1, refused: 0, unavailable: 0, shown: 1 });
+    expect((await server.publications.listShown({ limit: 10 })).map(({ publicNumber }) => publicNumber))
+      .toEqual(["D-1001"]);
+  });
+
+  it("holds it instead for an important conflict found now, and waits while the comparison can't be made", async () => {
+    const { dossiers, publications, publication } = await waiting();
+    // Another research's dossier on the same topic, shown meanwhile, with the opposite finding.
+    await saveResearchDossier(dossiers, request({ ...otherAccount, publication, value: dossier((value) => {
+      value.findings[1] = { ...value.findings[1], kind: "harms",
+        claim: "Myo-inositol 2 g a day worsened fasting insulin against placebo over 12 weeks." }; }) }));
+    expect((await publications.listShown({ limit: 10 })).map(({ publicNumber }) => publicNumber)).toEqual(["D-1002"]);
+    const { readPendingDossierPrivacy } = await import("../apps/research-mcp/src/atlas/dossier-review.js");
+    // No comparison could be made: it stays held, waiting, and the server tries again.
+    const unavailable = async () => ({ status: "unavailable" as const, reason: "daily_budget" as const });
+    expect(await readPendingDossierPrivacy(publications, passing, { now: () => NOW, conflictReader: unavailable }))
+      .toEqual({ passed: 1, refused: 0, unavailable: 0, shown: 0 });
+    expect((await publications.inspect("D-1001"))[0]).toMatchObject({ state: "held",
+      holdReasons: ["privacy_reading_pending"], laterPrivacyReading: { outcome: "passed" } });
+    // Compared now, it contradicts the shown dossier on an important finding: held for that, for the owner's review.
+    const opposite = async (conflictRequest: any) => ({ status: "read" as const, conflicts: conflictRequest.shown
+      .map((shown: any) => ({ finding: "f2", dossier: shown.dossier, theirs: "f2" })) });
+    expect(await readPendingDossierPrivacy(publications, passing, { now: () => NOW, conflictReader: opposite }))
+      .toEqual({ passed: 0, refused: 0, unavailable: 0, shown: 0 });
+    expect((await publications.inspect("D-1001"))[0]).toMatchObject({ state: "held", holdReasons: ["important_conflict"],
+      conflictsWith: ["D-1002"] });
+    expect((await publications.listShown({ limit: 10 })).map(({ publicNumber }) => publicNumber)).toEqual(["D-1002"]);
+    expect((await new AtlasDossierReview({ store: publications, now: () => NOW }).run({ action: "list_dossiers" })).text)
+      .toContain("held for: it conflicts with a shown dossier on an important finding, conflicts with D-1002");
+  });
+
+  it("never shows by itself one held for anything else, taken down by the owner, refused, withdrawn or ineligible",
+    async () => {
+      const { readPendingDossierPrivacy } = await import("../apps/research-mcp/src/atlas/dossier-review.js");
+      const sweep = async (publications: InMemoryResearchDossierPublications,
+        reader: Parameters<typeof readPendingDossierPrivacy>[1] = passing) =>
+        await readPendingDossierPrivacy(publications, reader, { now: () => NOW, conflictReader: NO_CONFLICT });
+      // Not highly confident besides: the pass leaves it for the owner's check.
+      const unsure = await waiting((value) => { value.value.confidence = "moderate"; });
+      expect(unsure.held).toMatchObject({ hold_reasons: ["privacy_reading_pending", "not_high_confidence"] });
+      expect(await sweep(unsure.publications)).toMatchObject({ passed: 1, shown: 0 });
+      // Taken down by the owner while it waited.
+      const takenDown = await waiting();
+      await new AtlasDossierReview({ store: takenDown.publications, now: () => NOW }).run({
+        action: "take_down_dossier", dossier: "D-1001", reason: "the owner's own check" });
+      expect((await new AtlasDossierReview({ store: takenDown.publications, now: () => NOW, privacyReader: passing,
+        conflictReader: NO_CONFLICT }).run({ action: "read_dossier_privacy", dossier: "D-1001", reviewer: OWNER })).text)
+        .toBe("D-1001 version 1: AskRigor's privacy reading passed its public content, exactly as stored. It is still " +
+          "taken down; the privacy reading no longer keeps show_dossier or accept_dossier from showing it.");
+      // Refused by the reading.
+      const refusedCopy = await waiting();
+      expect(await sweep(refusedCopy.publications, async () => ({ status: "refuse" as const,
+        reason: "personal_health_story" as const }))).toMatchObject({ refused: 1, shown: 0 });
+      // Its research withdrawn: its contributor lost access.
+      const withdrawn = await waiting();
+      withdrawn.dossiers.revoke(ACCOUNT, NOW);
+      expect((await withdrawn.publications.inspect("D-1001"))[0]!.state).toBe("taken_down");
+      expect(await withdrawn.publications.recordPrivacyReading({ publicNumber: "D-1001", versionNumber: 1,
+        contentSha256: (await withdrawn.publications.inspect("D-1001"))[0]!.payloadSha256!, reading: { status: "pass" },
+        at: NOW })).toMatchObject({ outcome: "recorded" });
+      expect(await sweep(withdrawn.publications)).toMatchObject({ shown: 0 });
+      // Its account may no longer publish (saving switched off, or its notice no longer covers public dossiers).
+      const ineligible = await waiting();
+      ineligible.eligibility.open = false;
+      expect(await sweep(ineligible.publications)).toMatchObject({ passed: 1, shown: 0 });
+      for (const { publications } of [unsure, takenDown, refusedCopy, withdrawn, ineligible]) {
+        expect(await publications.listShown({ limit: 10 })).toEqual([]);
+      }
+      expect((await ineligible.publications.inspect("D-1001"))[0]).toMatchObject({ state: "held",
+        holdReasons: ["privacy_reading_pending"] });
+    });
 });
 
 describe("an accepted copy when its contributor loses access", () => {

@@ -281,8 +281,8 @@ describe("production living-evidence deployment", () => {
     // The three contribution functions, then migration 0017's five Atlas functions (Atlas phase 2), migration 0019's
     // six held YouTube findings functions (owner answer 173), migration 0021's six publication functions and migration
     // 0022's five moderation functions (decision 171), and since then 0024's, 0025's, 0026's, 0027's and 0030's, and
-    // 0037's dossier erasure (AskRigor#477 stage 1), and 0040's nine dossier publication functions (stage 2).
-    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(46);
+    // 0037's dossier erasure (AskRigor#477 stage 1), and 0040's eleven dossier publication functions (stage 2).
+    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(48);
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failure_code text");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failed_at timestamptz");
     expect(migration).toContain("(status = 'FAILED' AND completed_at IS NULL");
@@ -638,8 +638,8 @@ describe("production living-evidence deployment", () => {
         ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS,
         ...ATLAS_CHALLENGE_FUNCTIONS]);
     // With the three contribution functions, migration 0019's six (owner answer 173), 0037's dossier erasure and 0040's
-    // nine dossier publication functions (AskRigor#477 stage 2).
-    expect(granted).toHaveLength(46);
+    // eleven dossier publication functions (AskRigor#477 stage 2).
+    expect(granted).toHaveLength(48);
     // Each grant names the function's exact signature, as the migration's REVOKE does.
     const signature = (text: string, prefix: string) => {
       const start = text.indexOf(prefix) + prefix.length;
@@ -1242,7 +1242,7 @@ describe("production living-evidence deployment", () => {
     const signatures = (script: string) => [...script.matchAll(/GRANT EXECUTE ON FUNCTION living_evidence\.(\w+)\(([^)]*)\)/gu)]
       // 0040's publication functions (AskRigor#477 stage 2) have their own test.
       .filter(([, name]) => name!.includes("research_dossier") &&
-        !/publish|publication|living_person|conflict|importance|privacy|show/u.test(name!))
+        !/publish|publication|living_person|conflict|importance|privacy|show|admi/u.test(name!))
       .map(([, name, args]) => `${name}(${args!.replace(/\s+/gu, " ").trim()})`);
     expect(signatures(access)).toEqual([
       "append_research_dossier_version(text, text, text, text, text, jsonb, text, integer, jsonb, uuid, uuid, timestamptz)",

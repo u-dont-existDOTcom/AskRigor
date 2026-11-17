@@ -82,7 +82,7 @@ import {
   type TokenBucketLimiter,
   type TrustedClientIpHeader
 } from "./rate-limit.js";
-import { dossierPrivacyReaderOf, registerTools } from "./register-tools.js";
+import { dossierConflictReaderOf, dossierPrivacyReaderOf, registerTools } from "./register-tools.js";
 import {
   type RunningVersions,
   VERSION_PATH,
@@ -830,10 +830,14 @@ export function createAskRigorHttpServer(
   }
   // AskRigor#477 stage 2 (Codex's re-review): the dossier copies held waiting for the privacy reading are read by the
   // server once the reader is available again, while public dossiers, the owner's review and the reading are all on.
+  // One held for the reading alone that it passes shows by itself if it otherwise qualifies, after a fresh conflict
+  // check on the planner's path (Codex's third review).
   const dossierPrivacyReader = atlasReview === undefined || !publicDossiersEnabledFromEnv() ? undefined
     : dossierPrivacyReaderOf();
   if (atlasReview !== undefined && dossierPrivacyReader !== undefined) {
-    const privacySweep = startDossierPrivacySweep(() => atlasReview.readPendingDossierPrivacy(dossierPrivacyReader));
+    const dossierConflictReader = dossierConflictReaderOf();
+    const privacySweep = startDossierPrivacySweep(() => atlasReview.readPendingDossierPrivacy(dossierPrivacyReader,
+      dossierConflictReader));
     httpServer.once("close", () => clearInterval(privacySweep));
   }
   return httpServer;

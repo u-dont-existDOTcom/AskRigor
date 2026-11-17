@@ -277,6 +277,31 @@ export interface ResearchDossierPrivacyPending {
   payloadSha256: string;
 }
 
+/**
+ * A copy held only for the privacy reading, shown by itself once a later reading passed it, if it otherwise qualifies
+ * (Codex's third review, P1): the server's conflict check, made against its candidates (showCandidates, its own
+ * dossier's shown copy included, as for automatic publication), never with an override.
+ */
+export interface ResearchDossierAdmissionInput {
+  publicNumber: string;
+  versionNumber: number;
+  check: ResearchDossierShowCheck;
+  at: Date;
+}
+
+export type ResearchDossierAdmissionResult =
+  /** Shown, marked not checked by supervisors yet. */
+  | { outcome: "shown" }
+  /** Held instead for an important conflict found now, for the owner's review. */
+  | { outcome: "held"; holdReasons: ResearchDossierHoldReason[] }
+  /** The check could not be made while a candidate shows: unchanged, and the server tries again. */
+  | { outcome: "waiting" }
+  /** Held for anything else, taken down, refused, withdrawn, not the newest, or its account may not publish. */
+  | { outcome: "not_admissible"; state: ResearchDossierPublicState }
+  /** The shown candidates changed since the check: compare again. */
+  | { outcome: "comparison_stale" }
+  | { outcome: "not_found" };
+
 /** The owner's own statement on a copy whose AI did not say whether a claim names a living person. */
 export const RESEARCH_DOSSIER_LIVING_PERSON_STATEMENTS = ["names_no_living_person", "names_a_living_person"] as const;
 export type ResearchDossierLivingPersonStatement = typeof RESEARCH_DOSSIER_LIVING_PERSON_STATEMENTS[number];
@@ -336,6 +361,10 @@ export interface ResearchDossierPublicationReviewStore {
   /** Held copies waiting for a privacy reading, least recently tried first, 1 to 50. */
   privacyPending(limit: number): Promise<ResearchDossierPrivacyPending[]>;
   recordPrivacyReading(input: ResearchDossierPrivacyReadingInput): Promise<ResearchDossierPrivacyReadingResult>;
+  /** Shows a copy held only for the privacy reading that a later reading passed, if it otherwise qualifies. */
+  admitAfterPrivacy(input: ResearchDossierAdmissionInput): Promise<ResearchDossierAdmissionResult>;
+  /** Such copies that may show but wait for the conflict check, oldest pass first, 1 to 50. */
+  admissionPending(limit: number): Promise<ResearchDossierPrivacyPending[]>;
 }
 
 /** A shown copy, as the pages read it. */
@@ -572,6 +601,14 @@ function assertPrivacyReading(input: ResearchDossierPrivacyReadingInput): void {
 function privacyPassed(copy: { privacyRead: boolean; payloadSha256: string | null;
   laterPrivacy: { outcome: string; sha256: string } | null }): boolean {
   return copy.privacyRead || (copy.laterPrivacy?.outcome === "passed" && copy.laterPrivacy.sha256 === copy.payloadSha256);
+}
+
+function assertAdmission(input: ResearchDossierAdmissionInput): void {
+  if (!PUBLIC_DOSSIER_NUMBER.test(input.publicNumber) || !Number.isInteger(input.versionNumber) ||
+    input.versionNumber < 1 || showCheckInvalid(input.check) || input.check.overrideBy !== null ||
+    Number.isNaN(input.at.getTime())) {
+    throw new ResearchDossierPublicationError("INPUT_INVALID");
+  }
 }
 
 function assertImportanceRevision(input: ResearchDossierImportanceRevisionInput): void {
@@ -858,6 +895,37 @@ export class PostgresResearchDossierPublicationReview implements ResearchDossier
       throw new Error("RESEARCH_DOSSIER_PRIVACY_READING_RESULT_INVALID");
     }
     return { outcome: row.outcome, state: row.state };
+  }
+
+  async admitAfterPrivacy(input: ResearchDossierAdmissionInput): Promise<ResearchDossierAdmissionResult> {
+    assertAdmission(input);
+    const { check } = input;
+    const result = await this.pool.query<{ outcome: string; state: ResearchDossierPublicState | null;
+      hold_reasons: ResearchDossierHoldReason[] | null }>(
+      `SELECT outcome, state, hold_reasons FROM ${this.schema}.admit_research_dossier_after_privacy(
+         $1, $2, $3::text[], $4, $5::text[], $6, $7::timestamptz)`,
+      [input.publicNumber, input.versionNumber, [...check.compared], check.conflictCheck, [...check.conflictFindings],
+        check.importantConflict, input.at.toISOString()],
+    );
+    const row = result.rows[0];
+    if (row === undefined) throw new Error("RESEARCH_DOSSIER_ADMISSION_RESULT_MISSING");
+    if (row.outcome === "shown" || row.outcome === "waiting" || row.outcome === "comparison_stale" ||
+      row.outcome === "not_found") {
+      return { outcome: row.outcome };
+    }
+    if (row.outcome === "held" && row.hold_reasons !== null) return { outcome: "held", holdReasons: row.hold_reasons };
+    if (row.outcome === "not_admissible" && row.state !== null) return { outcome: "not_admissible", state: row.state };
+    throw new Error("RESEARCH_DOSSIER_ADMISSION_RESULT_INVALID");
+  }
+
+  async admissionPending(limit: number): Promise<ResearchDossierPrivacyPending[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50) throw new ResearchDossierPublicationError("INPUT_INVALID");
+    const result = await this.pool.query<{ public_number: string; version_number: number;
+      public_payload: Record<string, unknown>; public_sha256: string }>(
+      `SELECT public_number, version_number, public_payload, public_sha256
+         FROM ${this.schema}.list_research_dossier_admission_pending($1)`, [limit]);
+    return result.rows.map((row) => ({ publicNumber: row.public_number, versionNumber: row.version_number,
+      payload: row.public_payload, payloadSha256: row.public_sha256 }));
   }
 
   async stateLivingPerson(input: ResearchDossierLivingPersonStatementInput):
@@ -1342,6 +1410,60 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
         reason: copy.laterPrivacy.reason, at: input.at });
     }
     return { outcome: "recorded", state: copy.state };
+  }
+
+  /** Whether a copy held only for the privacy reading may now show by itself, as research_dossier_admissible. */
+  private async admissible(copy: MemoryCopy): Promise<boolean> {
+    if (copy.state !== "held" || copy.payload === null || copy.versionId === null ||
+      stableJson(copy.holdReasons) !== stableJson(["privacy_reading_pending"]) || copy.privacyRead ||
+      copy.laterPrivacy?.outcome !== "passed" || copy.laterPrivacy.sha256 !== copy.payloadSha256 ||
+      copy.namesLivingPerson !== false || (copy.payload.value as { confidence?: unknown } | undefined)?.confidence !== "high" ||
+      !this.options.sizesComplete(copy.payload) || !publicCopyPassesPageGuard(copy.payload) ||
+      copy.versionNumber !== this.nextVersion(copy.publicNumber) - 1) {
+      return false;
+    }
+    const facts = this.options.dossiers.versionFacts(copy.versionId);
+    return facts !== undefined && facts.accountKey !== null && facts.newest && !facts.closed && !facts.erased &&
+      !facts.accountRevoked && await (this.options.eligible?.(facts.accountKey) ?? true);
+  }
+
+  async admitAfterPrivacy(input: ResearchDossierAdmissionInput): Promise<ResearchDossierAdmissionResult> {
+    assertAdmission(input);
+    this.followPrivate();
+    const copy = this.copies.get(`${input.publicNumber}#${input.versionNumber}`);
+    if (copy === undefined) return { outcome: "not_found" };
+    if (!(await this.admissible(copy))) return { outcome: "not_admissible", state: copy.state };
+    const refusal = this.showRefusal(copy, true, input.check);
+    if (refusal === "comparison_stale") return { outcome: refusal };
+    if (refusal === "conflict_not_checked") return { outcome: "waiting" };
+    Object.assign(copy, { conflictsWith: conflictPartners(input.check.conflictFindings),
+      conflictFindings: [...input.check.conflictFindings], decidedAt: input.at });
+    if (refusal === "conflict_found") {
+      copy.holdReasons = ["important_conflict"];
+      copy.events.push({ event: "held", reason: "important_conflict", at: input.at });
+      return { outcome: "held", holdReasons: ["important_conflict"] };
+    }
+    for (const other of this.copies.values()) {
+      if (other !== copy && other.publicNumber === copy.publicNumber && other.state === "shown") {
+        Object.assign(other, { state: "superseded", decidedAt: input.at });
+        other.events.push({ event: "superseded", reason: null, at: input.at });
+      }
+    }
+    Object.assign(copy, { state: "shown", holdReasons: [] });
+    copy.events.push({ event: "shown", reason: "privacy_reading_passed", at: input.at });
+    return { outcome: "shown" };
+  }
+
+  async admissionPending(limit: number): Promise<ResearchDossierPrivacyPending[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50) throw new ResearchDossierPublicationError("INPUT_INVALID");
+    this.followPrivate();
+    const waiting: MemoryCopy[] = [];
+    for (const copy of this.copies.values()) if (await this.admissible(copy)) waiting.push(copy);
+    return waiting.sort((left, right) => left.laterPrivacy!.at.getTime() - right.laterPrivacy!.at.getTime() ||
+      left.publicNumber.localeCompare(right.publicNumber) || left.versionNumber - right.versionNumber)
+      .slice(0, limit)
+      .map((copy) => ({ publicNumber: copy.publicNumber, versionNumber: copy.versionNumber,
+        payload: structuredClone(copy.payload!), payloadSha256: copy.payloadSha256! }));
   }
 
   async stateLivingPerson(input: ResearchDossierLivingPersonStatementInput):

@@ -375,7 +375,8 @@ export function createResearchContributionReviewHandler(
         : undefined;
       // Codex's third review: the conflict reading a show of a held copy is compared with, never an input.
       const dossierConflictReader = parsed.action === "show_dossier" || parsed.action === "accept_dossier" ||
-        parsed.action === "show_dossier_naming_living_person" ? options.atlas.dossierConflictReader?.() : undefined;
+        parsed.action === "show_dossier_naming_living_person" || parsed.action === "read_dossier_privacy"
+        ? options.atlas.dossierConflictReader?.() : undefined;
       return atlasToolResult(await options.atlas.review.run(
         { ...parsed, action: parsed.action, ...(typeof reviewer === "string" ? { reviewer } : {}),
           ...(dossierPrivacyReader === undefined ? {} : { dossierPrivacyReader }),
