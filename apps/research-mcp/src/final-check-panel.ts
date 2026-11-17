@@ -212,9 +212,9 @@ function renderFinalCheck(doc, structuredContent) {
       appendText("p", FINDINGS_LEAD, open);
       const list = doc.createElement("ul");
       for (const entry of findings.slice(0, 20)) {
-        const how = entry.disposition === "disputed"
-          ? "Disputed by the AI" + (typeof entry.reason === "string" && entry.reason !== "" ? ": " + entry.reason : "")
-          : "Not fixed";
+        const how = entry.disposition !== "disputed" ? "Not fixed"
+          : typeof entry.reason === "string" && entry.reason !== "" ? "Disputed by the AI: " + entry.reason
+            : "Disputed by the AI. Its reason isn't available for this check.";
         appendText("li", how + " (" + entry.id + "). " + entry.text, list);
       }
       if (findings.length > 20) appendText("li", "And " + (findings.length - 20) + " more.", list);

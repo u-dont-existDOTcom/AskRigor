@@ -832,11 +832,14 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
         "in full in this call"}, so ${one ? "it is" : "they are"} neither fixed nor withdrawn until a check that looks ` +
         `for ${one ? "it" : "them"} again.`}`);
   }
+  // Codex's third review of 17 Nov 2026, finding 4: true whether the ledger was left out, did not verify, or was an
+  // older one without that reason.
   if (reasonLost.length > 0) {
     const one = reasonLost.length === 1;
-    notes.push(`${joinIds(reasonLost)} ${one ? "is" : "are"} still disputed, but ${one ? "its reason was" : "their " +
-      "reasons were"} in a findings_ledger that wasn't passed back. Give the reason${one ? "" : "s"} again in ` +
-      "later_inputs.finding_responses so the reader sees " + (one ? "it." : "them."));
+    notes.push(`${joinIds(reasonLost)} ${one ? "is" : "are"} still disputed, but ${one ? "its reason isn't" : "their " +
+      "reasons aren't"} available for this check. AskRigor doesn't keep a reason's words, and no findings_ledger this ` +
+      `call passed back that AskRigor could verify has ${one ? "it" : "them"}. Give the reason${one ? "" : "s"} again ` +
+      "in later_inputs.finding_responses so the reader sees " + (one ? "it." : "them."));
   }
   for (const id of responses.keys()) {
     if (!answered.has(id)) {

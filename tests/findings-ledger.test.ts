@@ -402,13 +402,13 @@ describe("the review of 17 Nov 2026", () => {
     expect(disputed.checkFindings.findings[0]).toMatchObject({ id, disposition: "disputed", reason });
     memory.update(key, () => disputed.remember, at);
     // The first ledger again with the same draft but without the reply: not a retry, so the dispute recorded since stays.
-    // Its reason was in the ledger left out, and the server keeps only its digest (the re-review of 17 Nov 2026,
-    // finding 6), so the result says so.
+    // The ledger passed back is older than the reason, and the server keeps only its digest (the re-review of 17 Nov
+    // 2026, finding 6), so the result says the reason isn't available.
     const rolledBack = findingsLedger(params({ observed: [draftNote(WARNING)], draft: "Draft one.",
       raw: { later_inputs: { findings_ledger: first.token } }, remembered: memory.get(key, at) }));
     expect(rolledBack.checkFindings.ledger).toBe("replayed");
     expect(rolledBack.checkFindings.findings[0]).toMatchObject({ id, disposition: "disputed" });
-    expect(rolledBack.notes.join(" ")).toContain(`${id} is still disputed, but its reason was in a findings_ledger`);
+    expect(rolledBack.notes.join(" ")).toContain(`${id} is still disputed, but its reason isn't available for this check.`);
     // The same request sent again is a retry: the same ledger, token for token.
     const retried = findingsLedger(params({ observed: [draftNote(WARNING)], draft: "Draft one.", raw: disputing,
       remembered: memory.get(key, at), now: new Date(at + 5_000) }));
@@ -684,13 +684,14 @@ describe("the re-review of 17 Nov 2026", () => {
     expect(disputed.finding).toMatchObject({ id, disposition: "disputed", reason });
     // The server's memory keeps the reason's digest, not its words.
     expect(JSON.stringify(memory.get(key, at))).not.toMatch(/guideline|wording/u);
-    // The ledger left out: the finding is still disputed, and the result says where its reason was.
+    // The ledger left out: the finding is still disputed, and the result says its reason isn't available.
     const omitted = call({});
     expect(omitted.result.checkFindings.ledger).toBe("omitted");
     expect(omitted.finding).toMatchObject({ id, disposition: "disputed" });
     expect(omitted.finding.reason).toBeUndefined();
-    expect(omitted.result.notes).toContain(`${id} is still disputed, but its reason was in a findings_ledger that ` +
-      "wasn't passed back. Give the reason again in later_inputs.finding_responses so the reader sees it.");
+    expect(omitted.result.notes).toContain(`${id} is still disputed, but its reason isn't available for this check. ` +
+      "AskRigor doesn't keep a reason's words, and no findings_ledger this call passed back that AskRigor could verify " +
+      "has it. Give the reason again in later_inputs.finding_responses so the reader sees it.");
     // An older ledger whose reason matches the one remembered gives it back.
     const restored = call({ later_inputs: { findings_ledger: disputed.result.token } });
     expect(restored.result.checkFindings.ledger).toBe("replayed");
@@ -860,6 +861,38 @@ describe("the third review of 17 Nov 2026", () => {
       "or a claim that rested on it, may still be there.");
     expect(byId(gone, otherBad.id)).toMatchObject({ disposition: "not_rechecked" });
   });
+
+  it("4: says a dispute's reason isn't available, whether the ledger was left out or did not verify", () => {
+    const memory = createFindingsLedgerMemory();
+    const key = findingsLedgerMemoryKey(SECRET, "acct-a", "A research target");
+    const at = NOW.getTime();
+    const call = (raw: Record<string, unknown>) => {
+      const result = findingsLedger(params({ observed: [draftNote(WARNING)], raw, remembered: memory.get(key, at) }));
+      memory.update(key, () => result.remember, at);
+      return result;
+    };
+    const first = call({});
+    const id = first.checkFindings.findings[0]!.id;
+    const reason = "The sentence reports a guideline's wording, not a claim of this answer.";
+    const disputed = call({ later_inputs: { findings_ledger: first.token,
+      finding_responses: [{ id, response: "disputed", reason }] } });
+    const said = `${id} is still disputed, but its reason isn't available for this check. AskRigor doesn't keep a ` +
+      "reason's words, and no findings_ledger this call passed back that AskRigor could verify has it. Give the reason " +
+      "again in later_inputs.finding_responses so the reader sees it.";
+    // The reason sent, but in a token whose signature is refused.
+    const token = disputed.token!;
+    const altered = `${token.slice(0, -2)}${token.endsWith("AA") ? "BB" : "AA"}`;
+    const refused = call({ later_inputs: { findings_ledger: altered } });
+    expect(refused.checkFindings.ledger).toBe("rejected");
+    expect(refused.checkFindings.findings[0]).toMatchObject({ id, disposition: "disputed" });
+    expect(refused.checkFindings.findings[0]!.reason).toBeUndefined();
+    expect(refused.notes).toContain(said);
+    // The ledger left out.
+    const omitted = call({});
+    expect(omitted.checkFindings.ledger).toBe("omitted");
+    expect(omitted.notes).toContain(said);
+    expect([...refused.notes, ...omitted.notes].join(" ")).not.toContain("wasn't passed back");
+  });
 });
 
 // The panel's harness, as in final-check-panel.test.ts.
@@ -935,6 +968,15 @@ describe("the panel", () => {
       .textContent).not.toContain("not checked again");
     expect(render({ status: "ready", check_findings: { ledger: "continued", revision: 2, findings: unchecked.slice(2) } })
       .textContent).not.toContain("not checked again");
+  });
+
+  it("says plainly when a dispute's reason isn't available for this check", () => {
+    const root = render({ status: "ready", check_findings: { ledger: "omitted", revision: 2, findings: [
+      { id: "F-0000000009", text: "Give the absolute numbers.", disposition: "disputed", reader: true, first_revision: 1,
+        last_revision: 2 }] } });
+    expect(root.all("li").map(({ textContent }) => textContent)).toEqual([
+      "Disputed by the AI. Its reason isn't available for this check. (F-0000000009). Give the absolute numbers.",
+    ]);
   });
 
   it("lists at most twenty, and says how many more", () => {
