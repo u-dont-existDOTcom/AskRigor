@@ -546,9 +546,11 @@ with its reasons, superseded, taken down or erased; its public content, topic, r
 with, where its research ran, whether the privacy reading passed its saved content, without which it never shows, and
 whether a claim names a living person, with the owner's recorded decision to show it) and
 `research_dossier_public_events` (append-only), six role functions, three pure helpers that derive a copy from its
-private record, and two views. The research-access role publishes and reads a topic's shown copies
+private record, two internal functions for the conflict candidates, and two views. The research-access role publishes and reads a topic's shown copies
 (`publish_research_dossier_version`, which derives the public copy and why it is held from the saved private record and
-refuses anything else, and `research_dossier_topic_publications`); the review role
+refuses anything else, and admits copies one topic at a time against the conflict check's candidates, and
+`research_dossier_conflict_candidates`, every shown copy on the topic, a linked topic or under another name, a page at a
+time); the review role
 lists, inspects and decides (`list_research_dossier_publications`, `inspect_research_dossier_publication`,
 `decide_research_dossier_publication`, and `decide_research_dossier_living_person`, the owner's own decision with his
 reason, the only way a copy whose claim names a living person shows);

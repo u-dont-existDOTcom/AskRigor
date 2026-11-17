@@ -163,7 +163,8 @@ export function announcingDossierPublisher(
 ): ResearchDossierPublisher {
   return {
     publish: (input) => announcing(signal, () => publisher.publish(input)),
-    topicCopies: (topicKey) => publisher.topicCopies(topicKey),
+    conflictCandidates: (accountKey, versionId, after, limit) =>
+      publisher.conflictCandidates(accountKey, versionId, after, limit),
   };
 }
 

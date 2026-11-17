@@ -23,6 +23,7 @@ import { findingsQuestionKey, findingsThreadKey } from "./service.js";
 import {
   dossierPublicationNote, dossierPublicationSentence, publishResearchDossier,
 } from "./dossier-publication.js";
+import type { DossierConflictReader } from "./dossier-conflict-reading.js";
 
 /**
  * AskRigor#477, stage 1 (owner answer 329a, 16 November 2026): a research run's dossier, saved privately for the
@@ -870,7 +871,9 @@ export interface ResearchDossierSaveRequest {
    * AskRigor#477 stage 2, behind ASKRIGOR_PUBLIC_DOSSIERS=enabled (off by default): a saved dossier's public copy,
    * shown or held for AskRigor's check, for an account whose notice covers public dossiers (dossier-publication.ts).
    */
-  publication?: { publisher: ResearchDossierPublisher; noticeCovering?: readonly string[] };
+  publication?: { publisher: ResearchDossierPublisher; noticeCovering?: readonly string[];
+    /** AskRigor's paid conflict reading, on the planner's path while it is on (dossier-conflict-reading.ts). */
+    conflictReader?: DossierConflictReader };
   now?: () => Date;
   newVersionId?: () => string;
 }
@@ -1125,6 +1128,7 @@ export async function saveResearchDossier(
     accountKey: account.accountKey,
     noticeVersion: account.noticeVersion,
     ...(request.publication.noticeCovering === undefined ? {} : { noticeCovering: request.publication.noticeCovering }),
+    ...(request.publication.conflictReader === undefined ? {} : { conflictReader: request.publication.conflictReader }),
     versionId: appended.versionId,
     dossierNumber: appended.dossierNumber,
     stored: read.payload,

@@ -317,6 +317,7 @@ import {
   DOSSIER_PRIVACY_READING_LIMITS,
   type DossierPrivacyReader,
 } from "./findings/dossier-privacy-reading.js";
+import { DOSSIER_CONFLICT_READING_LIMITS, readDossierConflicts } from "./findings/dossier-conflict-reading.js";
 import {
   researchDossierAllowed,
   researchDossierFromCall,
@@ -2915,6 +2916,13 @@ function defineResearchOperations(
           ...(options.researchDossierPublisher === undefined ? {} : { publication: {
             publisher: options.researchDossierPublisher,
             ...(options.publicDossierNotices === undefined ? {} : { noticeCovering: options.publicDossierNotices }),
+            // Codex's review of stage 2, finding 3: the meaning-based conflict check on the planner's own paid path,
+            // made only here, while public dossiers are on; with the planner off a copy with candidates is held.
+            conflictReader: async (conflictRequest) => {
+              const call = configuredPlanner(options).readDossierConflicts;
+              return call === undefined ? { status: "unavailable", reason: "off" }
+                : await readDossierConflicts(conflictRequest, call);
+            },
           } }),
           secret,
           versions: {
@@ -2926,7 +2934,9 @@ function defineResearchOperations(
           },
         }).catch((): ResearchDossierSaveOutcome => ({ disposition: { status: "unavailable", reason: "store_unavailable" } })),
         (options.findingsSaveDeadlineMilliseconds ?? FINDINGS_SAVE_DEADLINE_MILLISECONDS) +
-          (privacyReading === undefined ? 0 : DOSSIER_PRIVACY_READING_LIMITS.timeoutMs),
+          (privacyReading === undefined ? 0 : DOSSIER_PRIVACY_READING_LIMITS.timeoutMs) +
+          // Stage 2: one conflict comparison's wait, while public dossiers are on.
+          (options.researchDossierPublisher === undefined ? 0 : DOSSIER_CONFLICT_READING_LIMITS.timeoutMs),
         { disposition: { status: "unconfirmed", reason: "not_confirmed_in_time" } } as ResearchDossierSaveOutcome);
         if (outcome !== undefined) {
           if (outcome.disposition !== undefined) result.research_dossier = outcome.disposition;

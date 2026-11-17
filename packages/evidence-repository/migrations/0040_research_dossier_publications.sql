@@ -45,10 +45,14 @@ CREATE TABLE IF NOT EXISTS research_dossier_public_versions (
   state text NOT NULL CHECK (state IN ('shown', 'held', 'superseded', 'taken_down', 'erased')),
   topic_key text CHECK (topic_key IS NULL OR topic_key ~ '^[a-z0-9][a-z0-9._-]{0,199}$'),
   related_topic_keys text[] NOT NULL DEFAULT '{}' CHECK (cardinality(related_topic_keys) <= 10),
+  -- The topic's key and names, its other names and the forms, lower-cased: where another dossier may meet it under
+  -- another name, for the conflict check's candidates (Codex's review of stage 2, finding 3).
+  topic_names text[] NOT NULL DEFAULT '{}' CHECK (cardinality(topic_names) <= 30),
   public_payload jsonb CHECK (public_payload IS NULL OR jsonb_typeof(public_payload) = 'object'),
   public_sha256 char(64) CHECK (public_sha256 IS NULL OR public_sha256 ~ '^[a-f0-9]{64}$'),
   hold_reasons text[] NOT NULL DEFAULT '{}' CHECK (hold_reasons <@ ARRAY['not_high_confidence', 'names_living_people',
-    'living_people_undeclared', 'important_conflict', 'owner_hold', 'privacy_reading_pending']::text[]),
+    'living_people_undeclared', 'important_conflict', 'owner_hold', 'privacy_reading_pending',
+    'conflict_check_pending']::text[]),
   conflicts_with text[] NOT NULL DEFAULT '{}' CHECK (cardinality(conflicts_with) <= 50),
   -- Where the research ran (332a: the plugin, ChatGPT or the runner), for the review only; never on a page.
   origin jsonb NOT NULL CHECK (jsonb_typeof(origin) = 'object'),
@@ -85,6 +89,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS research_dossier_public_one_shown
   ON research_dossier_public_versions (public_number) WHERE state = 'shown';
 CREATE INDEX IF NOT EXISTS research_dossier_public_topic_idx
   ON research_dossier_public_versions (topic_key) WHERE state IN ('shown', 'held');
+CREATE INDEX IF NOT EXISTS research_dossier_public_names_idx
+  ON research_dossier_public_versions USING gin (topic_names) WHERE state = 'shown';
+CREATE INDEX IF NOT EXISTS research_dossier_public_related_idx
+  ON research_dossier_public_versions USING gin (related_topic_keys) WHERE state = 'shown';
 CREATE INDEX IF NOT EXISTS research_dossier_public_state_idx
   ON research_dossier_public_versions (state, decided_at);
 
@@ -139,6 +147,7 @@ BEGIN
   IF NEW.erased_at IS NULL AND (NEW.public_payload IS DISTINCT FROM OLD.public_payload
      OR NEW.public_sha256 IS DISTINCT FROM OLD.public_sha256 OR NEW.topic_key IS DISTINCT FROM OLD.topic_key
      OR NEW.related_topic_keys IS DISTINCT FROM OLD.related_topic_keys
+     OR NEW.topic_names IS DISTINCT FROM OLD.topic_names
      -- The owner's decision on a named living person is made once and never changed.
      OR (OLD.living_person_decided_at IS NOT NULL AND (NEW.living_person_decided_at IS DISTINCT FROM
        OLD.living_person_decided_at OR NEW.living_person_decided_by IS DISTINCT FROM OLD.living_person_decided_by
@@ -274,6 +283,96 @@ $function$;
 
 REVOKE ALL ON FUNCTION research_dossier_public_sizes_complete(jsonb) FROM PUBLIC;
 
+-- A public part's key, names, other names and forms, trimmed and lower-cased, each once: where another dossier may meet
+-- it under another name (research_dossier_public_versions.topic_names).
+CREATE OR REPLACE FUNCTION research_dossier_topic_names(projection jsonb)
+RETURNS text[]
+LANGUAGE sql
+IMMUTABLE
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+  SELECT coalesce(array_agg(DISTINCT name ORDER BY name), '{}'::text[]) FROM (
+    SELECT lower(btrim(projection -> 'topic' ->> 'key')) AS name
+    UNION ALL SELECT lower(btrim(projection -> 'topic' ->> 'name'))
+    UNION ALL SELECT lower(btrim(other)) FROM jsonb_array_elements_text(projection -> 'topic' -> 'other_names') AS other
+    UNION ALL SELECT lower(btrim(form)) FROM jsonb_array_elements_text(projection -> 'forms') AS form
+  ) AS names
+   WHERE name IS NOT NULL AND name <> '';
+$function$;
+
+REVOKE ALL ON FUNCTION research_dossier_topic_names(jsonb) FROM PUBLIC;
+
+-- The conflict check's candidates for a new public part (Codex's review of stage 2, finding 3): every shown copy on the
+-- same topic or a linked one (either names the other among its related topics), or that meets it under another name
+-- (a shared name, other name or form), the dossier's own earlier copy included, with no cap. Ordered by public number.
+CREATE OR REPLACE FUNCTION research_dossier_conflict_matches(projection jsonb)
+RETURNS TABLE (public_number text, version_number integer, topic_key text, public_payload jsonb)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+  WITH target AS (
+    SELECT projection -> 'topic' ->> 'key' AS topic,
+           ARRAY(SELECT jsonb_array_elements_text(projection -> 'topic' -> 'related')) AS related,
+           research_dossier_topic_names(projection) AS names
+  )
+  SELECT copy.public_number, copy.version_number, copy.topic_key, copy.public_payload
+    FROM research_dossier_public_versions copy, target
+   WHERE copy.state = 'shown' AND copy.erased_at IS NULL
+     AND (copy.topic_key = target.topic OR copy.topic_key = ANY(target.related)
+       OR target.topic = ANY(copy.related_topic_keys) OR copy.topic_names && target.names)
+   ORDER BY length(copy.public_number), copy.public_number, copy.version_number;
+$function$;
+
+REVOKE ALL ON FUNCTION research_dossier_conflict_matches(jsonb) FROM PUBLIC;
+
+-- The candidates for one of the account's own saved versions, a page at a time after a public number and version:
+-- the research-access role pages through all of them before its conflict check.
+CREATE OR REPLACE FUNCTION research_dossier_conflict_candidates(
+  target_account_key text,
+  target_version_id uuid,
+  after_public_number text,
+  after_version_number integer,
+  target_limit integer
+)
+RETURNS TABLE (public_number text, version_number integer, topic_key text, public_payload jsonb)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+#variable_conflict use_column
+DECLARE
+  stored jsonb;
+BEGIN
+  IF target_account_key IS NULL OR target_account_key !~ '^[a-f0-9]{64}$' OR target_version_id IS NULL
+     OR target_limit IS NULL OR target_limit < 1 OR target_limit > 200
+     OR (after_public_number IS NULL) <> (after_version_number IS NULL)
+     OR (after_public_number IS NOT NULL AND after_public_number !~ '^D-[1-9][0-9]{3,}$') THEN
+    RAISE EXCEPTION 'RESEARCH_DOSSIER_PUBLISH_INPUT_INVALID';
+  END IF;
+  SELECT version.payload_json INTO stored
+    FROM research_dossier_versions version
+    JOIN research_dossiers dossier ON dossier.dossier_number = version.dossier_number
+   WHERE version.version_id = target_version_id AND dossier.account_key = target_account_key
+     AND version.erased_at IS NULL;
+  IF NOT FOUND THEN
+    RETURN;
+  END IF;
+  RETURN QUERY
+  SELECT match.public_number, match.version_number, match.topic_key, match.public_payload
+    FROM research_dossier_conflict_matches(research_dossier_public_projection(stored)) AS match
+   WHERE after_public_number IS NULL
+      OR (length(match.public_number), match.public_number, match.version_number)
+         > (length(after_public_number), after_public_number, after_version_number)
+   ORDER BY length(match.public_number), match.public_number, match.version_number
+   LIMIT target_limit;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION research_dossier_conflict_candidates(text, uuid, text, integer, integer) FROM PUBLIC;
+
 -- Writes one public copy of a saved version, already in its final state: shown, or held with its reasons. Only for an
 -- active free contributor with card saving on whose accepted notice research_dossier_public_notices lists, checked
 -- under the same account lock as the private append (0037), so a revocation, a change of mode or the saving switch
@@ -287,11 +386,19 @@ REVOKE ALL ON FUNCTION research_dossier_public_sizes_complete(jsonb) FROM PUBLIC
 -- living person are all derived here from the private record. The payload the server checked must be exactly that
 -- derivation, and must keep the sizes rule, or nothing is written (payload_refused). Why it is held is derived too:
 -- waiting for the privacy reading, not highly confident, names a living person or did not say; only the conflict
--- check's result comes from the server, which made it.
+-- check's result comes from the server, which made it with AskRigor's paid reader.
+--
+-- Admission is serialized per topic (Codex's review of stage 2, finding 4): it takes one lock for each of its topic's
+-- key, names, other names, forms and related topics, in a fixed order, so two copies that could be each other's
+-- candidates are admitted one at a time; under them it lists the candidates again, and a conflict check made against
+-- any other set is refused (comparison_stale), so the server compares again. A check the reader could not make holds
+-- the copy, waiting for the conflict check, whenever any shown copy is a candidate.
 CREATE OR REPLACE FUNCTION publish_research_dossier_version(
   target_account_key text,
   target_version_id uuid,
   target_payload jsonb,
+  target_compared text[],
+  target_conflict_check text,
   target_conflicts_with text[],
   target_important_conflict boolean,
   change_time timestamptz
@@ -314,10 +421,19 @@ DECLARE
   next_state text;
   topic text;
   related text[];
+  names text[];
+  lock_key integer;
+  candidates text[];
+  pending boolean;
 BEGIN
   IF target_account_key IS NULL OR target_account_key !~ '^[a-f0-9]{64}$'
      OR target_version_id IS NULL OR change_time IS NULL
      OR target_payload IS NULL OR jsonb_typeof(target_payload) <> 'object'
+     OR target_compared IS NULL
+     OR EXISTS (SELECT 1 FROM unnest(target_compared) AS compared WHERE compared IS NULL
+       OR compared !~ '^D-[1-9][0-9]{3,}/[1-9][0-9]*$')
+     OR target_conflict_check IS NULL OR target_conflict_check NOT IN ('read', 'not_read')
+     OR (target_conflict_check = 'not_read' AND (target_important_conflict OR cardinality(target_conflicts_with) > 0))
      OR target_conflicts_with IS NULL OR cardinality(target_conflicts_with) > 50
      OR EXISTS (SELECT 1 FROM unnest(target_conflicts_with) AS other WHERE other IS NULL
        OR other !~ '^D-[1-9][0-9]{3,}$')
@@ -377,13 +493,33 @@ BEGIN
     RETURN;
   END IF;
   related := ARRAY(SELECT jsonb_array_elements_text(projection -> 'topic' -> 'related'));
+  names := research_dossier_topic_names(projection);
+
+  -- One lock per topic key and name, in a fixed order; then the comparison set, which must be the one compared.
+  FOR lock_key IN
+    SELECT DISTINCT hashtext('research_dossier_topic:' || key) FROM unnest(names || related) AS key ORDER BY 1
+  LOOP
+    PERFORM pg_advisory_xact_lock(477002, lock_key);
+  END LOOP;
+  candidates := ARRAY(SELECT candidate FROM (SELECT match.public_number || '/' || match.version_number AS candidate
+    FROM research_dossier_conflict_matches(projection) AS match) AS listed ORDER BY candidate COLLATE "C");
+  IF target_conflict_check = 'read' AND (candidates IS DISTINCT FROM
+       ARRAY(SELECT compared FROM unnest(target_compared) AS compared ORDER BY compared COLLATE "C")
+     OR EXISTS (SELECT 1 FROM unnest(target_conflicts_with) AS other
+       WHERE NOT EXISTS (SELECT 1 FROM unnest(candidates) AS candidate WHERE split_part(candidate, '/', 1) = other))) THEN
+    RETURN QUERY SELECT 'comparison_stale'::text, NULL::text, NULL::text, NULL::text[];
+    RETURN;
+  END IF;
+  pending := target_conflict_check = 'not_read' AND cardinality(candidates) > 0;
+
   reasons := ARRAY(SELECT reason FROM unnest(ARRAY[
       CASE WHEN NOT (projection -> 'checked' -> 'privacy_reading' = 'true'::jsonb) THEN 'privacy_reading_pending' END,
       CASE WHEN projection -> 'value' ->> 'confidence' IS DISTINCT FROM 'high' THEN 'not_high_confidence' END,
       CASE WHEN version_row.payload_json -> 'names_living_people' = 'true'::jsonb THEN 'names_living_people'
         WHEN jsonb_typeof(version_row.payload_json -> 'names_living_people') IS DISTINCT FROM 'boolean'
           THEN 'living_people_undeclared' END,
-      CASE WHEN target_important_conflict THEN 'important_conflict' END]) AS reason WHERE reason IS NOT NULL);
+      CASE WHEN target_important_conflict THEN 'important_conflict' END,
+      CASE WHEN pending THEN 'conflict_check_pending' END]) AS reason WHERE reason IS NOT NULL);
   next_state := CASE WHEN cardinality(reasons) = 0 THEN 'shown' ELSE 'held' END;
 
   SELECT publication.public_number INTO number_text
@@ -407,9 +543,9 @@ BEGIN
      AND (copy.state = 'held' OR (next_state = 'shown' AND copy.state = 'shown'));
 
   INSERT INTO research_dossier_public_versions (version_id, public_number, version_number, state, topic_key,
-    related_topic_keys, public_payload, public_sha256, hold_reasons, conflicts_with, origin, privacy_read,
+    related_topic_keys, topic_names, public_payload, public_sha256, hold_reasons, conflicts_with, origin, privacy_read,
     names_living_person, decided_at, created_at)
-  VALUES (target_version_id, number_text, version_row.version_number, next_state, topic, related, projection,
+  VALUES (target_version_id, number_text, version_row.version_number, next_state, topic, related, names, projection,
     encode(sha256(convert_to(projection::text, 'UTF8')), 'hex'), reasons, target_conflicts_with,
     CASE WHEN jsonb_typeof(stamp -> 'origin') = 'object' THEN stamp -> 'origin' ELSE '{}'::jsonb END,
     projection -> 'checked' -> 'privacy_reading' = 'true'::jsonb,
@@ -422,25 +558,9 @@ BEGIN
 END
 $function$;
 
-REVOKE ALL ON FUNCTION publish_research_dossier_version(text, uuid, jsonb, text[], boolean, timestamptz) FROM PUBLIC;
-
--- The copies shown on a topic, for the conflict check of a new one (332a): their public numbers, dossiers and payloads.
-CREATE OR REPLACE FUNCTION research_dossier_topic_publications(target_topic_key text)
-RETURNS TABLE (public_number text, version_number integer, dossier_number text, public_payload jsonb)
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog, pg_temp
-AS $function$
-  SELECT copy.public_number, copy.version_number, publication.dossier_number, copy.public_payload
-    FROM research_dossier_public_versions copy
-    JOIN research_dossier_publications publication ON publication.public_number = copy.public_number
-   WHERE copy.topic_key = target_topic_key AND copy.state = 'shown' AND copy.erased_at IS NULL
-   ORDER BY copy.public_number
-   LIMIT 200;
-$function$;
-
-REVOKE ALL ON FUNCTION research_dossier_topic_publications(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION publish_research_dossier_version(
+  text, uuid, jsonb, text[], text, text[], boolean, timestamptz
+) FROM PUBLIC;
 
 -- The review's list (the owner's, and AskRigor's check of held copies): newest decision first, in a state or every
 -- state but erased. No account key; the question and the topic from the copy.
@@ -678,8 +798,9 @@ BEGIN
      WHERE copy.version_id = NEW.version_id AND copy.erased_at IS NULL AND copy.accepted_at IS NULL;
     UPDATE research_dossier_public_versions copy
        SET state = 'erased', public_payload = NULL, public_sha256 = NULL, topic_key = NULL, related_topic_keys = '{}',
-           hold_reasons = '{}', conflicts_with = '{}', origin = '{}'::jsonb, living_person_decided_by = NULL,
-           living_person_decided_at = NULL, living_person_reason = NULL, erased_at = NEW.happened_at,
+           topic_names = '{}', hold_reasons = '{}', conflicts_with = '{}', origin = '{}'::jsonb,
+           living_person_decided_by = NULL, living_person_decided_at = NULL, living_person_reason = NULL,
+           erased_at = NEW.happened_at,
            decided_at = NEW.happened_at
      WHERE copy.version_id = NEW.version_id AND copy.erased_at IS NULL AND copy.accepted_at IS NULL;
     UPDATE research_dossier_public_versions copy SET origin = '{}'::jsonb
@@ -739,8 +860,9 @@ BEGIN
      WHERE copy.public_number = target_number AND copy.accepted_at IS NULL AND copy.erased_at IS NULL;
     UPDATE research_dossier_public_versions copy
        SET state = 'erased', public_payload = NULL, public_sha256 = NULL, topic_key = NULL, related_topic_keys = '{}',
-           hold_reasons = '{}', conflicts_with = '{}', origin = '{}'::jsonb, living_person_decided_by = NULL,
-           living_person_decided_at = NULL, living_person_reason = NULL, erased_at = change_time,
+           topic_names = '{}', hold_reasons = '{}', conflicts_with = '{}', origin = '{}'::jsonb,
+           living_person_decided_by = NULL, living_person_decided_at = NULL, living_person_reason = NULL,
+           erased_at = change_time,
            decided_at = change_time, version_id = NULL, detached_at = change_time
      WHERE copy.public_number = target_number AND copy.accepted_at IS NULL AND copy.erased_at IS NULL;
     INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)

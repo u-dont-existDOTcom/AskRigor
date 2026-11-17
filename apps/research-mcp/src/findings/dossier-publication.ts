@@ -1,10 +1,13 @@
 import {
+  CONFLICT_CANDIDATES_PER_PAGE,
+  conflictCandidateId,
   publicDossierNoticeCovered,
   type ResearchDossierPublisher,
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
 import { rowPassesPageGuard } from "../atlas/page-guard.js";
+import type { DossierConflictReader, DossierConflictReading, DossierConflictSide } from "./dossier-conflict-reading.js";
 
 /**
  * AskRigor#477, stage 2 (owner answers 331a, 332a and 333a, 16 November 2026): a saved research dossier on the public
@@ -19,12 +22,15 @@ import { rowPassesPageGuard } from "../atlas/page-guard.js";
  * group sizes (the owner's standing rule for anything public), or it is not published. What was checked and how deeply
  * goes with it, from the server's own stamp.
  *
- * The conflict check is exact and reads only what the AIs declared: two dossiers on one topic conflict when a finding of
- * each, for the same declared form, says the opposite of the other (helps against measured no difference, or harms
- * against measured no difference). It is deliberately broad, since it cannot read which outcome or people a finding is
- * about; a conflict holds the new dossier only when either finding is decision-changing or important (the owner's
- * refinement of 332a: "if it's important or confidence not strong, re-checked by our system"). Stage 3, where the
- * researching AI reads earlier dossiers, replaces it with that AI's own declared check.
+ * The conflict check (Codex's review of stage 2, findings 3 and 4) has two steps. The publisher lists every shown copy on
+ * the same topic or a linked one, or meeting it under another name or form, the dossier's own earlier copy included, all
+ * of them a page at a time; AskRigor's own paid reader, on the research planner's path, compares the findings for
+ * meaning, a benefit against a harm on the same outcome included (dossier-conflict-reading.ts). A conflict holds the new
+ * dossier when either finding is decision-changing or important (the owner's refinement of 332a: "if it's important or
+ * confidence not strong, re-checked by our system"); a comparison that could not be made holds it, waiting for the
+ * conflict check. The publisher admits copies one topic at a time and refuses a comparison made against any other set
+ * of candidates than the one it lists again, so a copy shown meanwhile is compared too. The pages' own list of where
+ * dossiers disagree (dossierDisagreements) stays the exact one, by declared kinds and forms.
  */
 
 export const PUBLIC_DOSSIER_SCHEMA = "askrigor.public-dossier.v1" as const;
@@ -321,7 +327,24 @@ export interface DossierPublicationRequest {
    * the publisher derives it again from the saved record and refuses anything else (Codex's review, finding 10).
    */
   stored: Record<string, unknown>;
+  /**
+   * AskRigor's paid conflict reading on the planner's path (dossier-conflict-reading.ts); without it a copy with shown
+   * candidates is held, waiting for the conflict check.
+   */
+  conflictReader?: DossierConflictReader;
   at: Date;
+}
+
+/** A public dossier as the conflict reader is given it: its topic, names, forms and findings, nothing else. */
+export function conflictSideOf(dossier: PublicDossier): DossierConflictSide {
+  return {
+    topic: dossier.topic.name,
+    other_names: [...dossier.topic.other_names],
+    forms: [...dossier.forms],
+    findings: dossier.findings.map((finding) => ({ id: finding.id, claim: finding.claim, kind: finding.kind,
+      applies_to: finding.applies_to, ...(finding.form === undefined ? {} : { form: finding.form }),
+      importance: finding.importance })),
+  };
 }
 
 /** Publishes a saved dossier's public part, shown or held, or says why not; it never throws. */
@@ -341,44 +364,93 @@ export async function publishResearchDossier(request: DossierPublicationRequest)
   if (!rowPassesPageGuard(dossier)) {
     return { status: "not_published", reason: "page_guard", problems: [{ path: "research_dossier", rule: "page_guard" }] };
   }
-  let others: Awaited<ReturnType<ResearchDossierPublisher["topicCopies"]>>;
-  try {
-    others = await request.publisher.topicCopies(dossier.topic.key);
-  } catch {
-    return { status: "unconfirmed", reason: "store_unavailable" };
+  // Codex's review of stage 2, findings 3 and 4: every shown copy on the same or a linked topic, or under another name,
+  // the dossier's own earlier copy included, all of them; compared for meaning by AskRigor's paid reader; admitted by
+  // the publisher one topic at a time against the set compared, which it lists again. A set that changed meanwhile is
+  // compared again (only its new copies), at most twice; then the copy is held, waiting for the conflict check.
+  const mine = new Map(dossier.findings.map((finding) => [finding.id, finding]));
+  const compared = new Map<string, { conflicts: Array<{ theirs: string; important: boolean }> }>();
+  const candidatesOf = async () => {
+    const all: Awaited<ReturnType<ResearchDossierPublisher["conflictCandidates"]>> = [];
+    for (;;) {
+      const last = all.at(-1);
+      const page = await request.publisher.conflictCandidates(request.accountKey, request.versionId,
+        last === undefined ? null : { publicNumber: last.publicNumber, versionNumber: last.versionNumber },
+        CONFLICT_CANDIDATES_PER_PAGE);
+      all.push(...page);
+      if (page.length < CONFLICT_CANDIDATES_PER_PAGE) return all;
+    }
+  };
+  /** Compares the candidates not compared yet; false when the reader could not compare them all. */
+  const compare = async (candidates: Awaited<ReturnType<typeof candidatesOf>>): Promise<boolean> => {
+    const fresh = candidates.filter((candidate) => !compared.has(conflictCandidateId(candidate)));
+    if (fresh.length === 0) return true;
+    if (request.conflictReader === undefined) return false;
+    const shown: Array<{ id: string; dossier: PublicDossier; publicNumber: string }> = [];
+    for (const candidate of fresh) {
+      const theirs = readPublicDossier(candidate.payload);
+      if (theirs === undefined) return false;
+      shown.push({ id: conflictCandidateId(candidate), dossier: theirs, publicNumber: candidate.publicNumber });
+    }
+    let reading: DossierConflictReading;
+    try {
+      reading = await request.conflictReader({ dossier: conflictSideOf(dossier),
+        shown: shown.map(({ dossier: theirs, publicNumber }) => ({ dossier: publicNumber, ...conflictSideOf(theirs) })) });
+    } catch {
+      return false;
+    }
+    if (reading.status !== "read") return false;
+    for (const { id, dossier: theirs, publicNumber } of shown) {
+      const findings = new Map(theirs.findings.map((finding) => [finding.id, finding]));
+      compared.set(id, { conflicts: reading.conflicts.filter((conflict) => conflict.dossier === publicNumber)
+        .flatMap((conflict) => {
+          const left = mine.get(conflict.finding);
+          const right = findings.get(conflict.theirs);
+          return left === undefined || right === undefined ? [] : [{ theirs: publicNumber,
+            important: left.importance !== "context" || right.importance !== "context" }];
+        }) });
+    }
+    return true;
+  };
+  let published: Awaited<ReturnType<ResearchDossierPublisher["publish"]>> | undefined;
+  let found: Array<{ theirs: string; important: boolean }> = [];
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    let candidates: Awaited<ReturnType<typeof candidatesOf>>;
+    try {
+      candidates = await candidatesOf();
+    } catch {
+      return { status: "unconfirmed", reason: "store_unavailable" };
+    }
+    // After three comparisons against a set that kept changing, the copy is held for the check instead.
+    const read = attempt < 3 && await compare(candidates);
+    found = read ? candidates.flatMap((candidate) => compared.get(conflictCandidateId(candidate))!.conflicts) : [];
+    // Whether it shows, and why it is held, the publisher derives from the saved record (Codex's review, findings 1, 2
+    // and 10): waiting for the privacy reading, not highly confident, names a living person or did not say; this
+    // check's conflicts are the one thing it is told.
+    try {
+      published = await request.publisher.publish({
+        accountKey: request.accountKey,
+        versionId: request.versionId,
+        payload: dossier as unknown as Record<string, unknown>,
+        compared: read ? candidates.map(conflictCandidateId) : [],
+        conflictCheck: read ? "read" : "not_read",
+        conflictsWith: [...new Set(found.map(({ theirs }) => theirs))].sort().slice(0, 50),
+        importantConflict: found.some(({ important }) => important),
+        at: request.at,
+      });
+    } catch {
+      return { status: "unconfirmed", reason: "write_not_confirmed" };
+    }
+    if (published.outcome !== "comparison_stale") break;
   }
-  const conflicts = new Set<string>();
-  let importantConflict = false;
-  for (const other of others) {
-    if (other.dossierNumber === request.dossierNumber) continue;
-    const theirs = readPublicDossier(other.payload);
-    if (theirs === undefined) continue;
-    const found = dossierDisagreements(dossier, theirs);
-    if (found.length === 0) continue;
-    conflicts.add(other.publicNumber);
-    if (found.some(({ important }) => important)) importantConflict = true;
-  }
-  const conflictsWith = [...conflicts].sort().slice(0, 50);
-  // Whether it shows, and why it is held, the publisher derives from the saved record (Codex's review, findings 1, 2
-  // and 10): waiting for the privacy reading, not highly confident, names a living person or did not say; this check's
-  // conflicts are the one thing it is told.
-  let published: Awaited<ReturnType<ResearchDossierPublisher["publish"]>>;
-  try {
-    published = await request.publisher.publish({
-      accountKey: request.accountKey,
-      versionId: request.versionId,
-      payload: dossier as unknown as Record<string, unknown>,
-      conflictsWith,
-      importantConflict,
-      at: request.at,
-    });
-  } catch {
+  if (published === undefined || published.outcome === "comparison_stale") {
     return { status: "unconfirmed", reason: "write_not_confirmed" };
   }
   if (published.outcome === "account_refused") return { status: "not_published", reason: "account_not_eligible" };
   if (published.outcome === "version_refused") return { status: "not_published", reason: "version_not_publishable" };
   if (published.outcome === "payload_refused") return { status: "not_published", reason: "not_publishable" };
   const reasons = published.holdReasons;
+  const conflictsWith = [...new Set(found.map(({ theirs }) => theirs))].sort().slice(0, 50);
   const page = dossierPagePath(published.publicNumber);
   if (published.state === "shown") {
     return { status: "shown", public_id: published.publicNumber, page,
@@ -399,6 +471,7 @@ export const HOLD_REASON_WORDS: Readonly<Record<string, string>> = {
   names_living_people: "a claim names a living person",
   living_people_undeclared: "it did not say whether a claim names a living person",
   important_conflict: "it conflicts with a shown dossier on an important finding",
+  conflict_check_pending: "waiting for the conflict check",
   owner_hold: "held back by the owner's review",
 };
 

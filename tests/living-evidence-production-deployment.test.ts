@@ -1241,7 +1241,7 @@ describe("production living-evidence deployment", () => {
     // The access role appends, finds the newest version and reads back; the review role erases; no table right.
     const signatures = (script: string) => [...script.matchAll(/GRANT EXECUTE ON FUNCTION living_evidence\.(\w+)\(([^)]*)\)/gu)]
       // 0040's publication functions (AskRigor#477 stage 2) have their own test.
-      .filter(([, name]) => name!.includes("research_dossier") && !/publish|publication|living_person/u.test(name!))
+      .filter(([, name]) => name!.includes("research_dossier") && !/publish|publication|living_person|conflict/u.test(name!))
       .map(([, name, args]) => `${name}(${args!.replace(/\s+/gu, " ").trim()})`);
     expect(signatures(access)).toEqual([
       "append_research_dossier_version(text, text, text, text, text, jsonb, text, integer, jsonb, uuid, uuid, timestamptz)",

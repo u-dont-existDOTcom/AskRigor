@@ -13,6 +13,7 @@ import {
   PostgresResearchDossierStore,
   RESEARCH_USE_NOTICE_VERSION,
   ResearchContributorAccessService,
+  conflictCandidateId,
   deterministicUuid,
   stableJson,
   type ResearchDossierPublishInput,
@@ -124,8 +125,11 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     const executes = async (role: string, signature: string) => (await admin.query<{ allowed: boolean }>(
       "SELECT has_function_privilege($1, $2, 'EXECUTE') AS allowed", [role, `${SCHEMA}.${signature}`])).rows[0]!.allowed;
     const grants: Record<string, string> = {
-      "publish_research_dossier_version(text, uuid, jsonb, text[], boolean, timestamptz)": "askrigor_research_access",
-      "research_dossier_topic_publications(text)": "askrigor_research_access",
+      "publish_research_dossier_version(text, uuid, jsonb, text[], text, text[], boolean, timestamptz)":
+        "askrigor_research_access",
+      "research_dossier_conflict_candidates(text, uuid, text, integer, integer)": "askrigor_research_access",
+      "research_dossier_conflict_matches(jsonb)": "none",
+      "research_dossier_topic_names(jsonb)": "none",
       "list_research_dossier_publications(text, integer)": "askrigor_research_review",
       "inspect_research_dossier_publication(text)": "askrigor_research_review",
       "decide_research_dossier_publication(text, integer, text, text, timestamptz)": "askrigor_research_review",
@@ -223,17 +227,30 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       savedPayloads.set(appended.versionId, payload);
       return appended.versionId;
     };
-    // The copy the server sends: the saved record's public part as publicDossierOf makes it, and the conflict check.
-    const copy = (accountKey: string, versionId: string,
-      conflict: { conflictsWith?: string[]; importantConflict?: boolean } = {}): ResearchDossierPublishInput => ({
+    // Every conflict candidate of a saved version, a page at a time, as the server pages through them.
+    const candidatesOf = async (accountKey: string, versionId: string) => {
+      const all: Awaited<ReturnType<typeof publisher.conflictCandidates>> = [];
+      for (;;) {
+        const last = all.at(-1);
+        const page = await publisher.conflictCandidates(accountKey, versionId,
+          last === undefined ? null : { publicNumber: last.publicNumber, versionNumber: last.versionNumber }, 200);
+        all.push(...page);
+        if (page.length < 200) return all;
+      }
+    };
+    // The copy the server sends: the saved record's public part as publicDossierOf makes it, and a conflict check made
+    // against every candidate (here finding none unless told).
+    const copy = async (accountKey: string, versionId: string,
+      conflict: { conflictsWith?: string[]; importantConflict?: boolean } = {}): Promise<ResearchDossierPublishInput> => ({
       accountKey, versionId, payload: publicDossierOf(savedPayloads.get(versionId)!) as unknown as Record<string, unknown>,
+      compared: (await candidatesOf(accountKey, versionId)).map(conflictCandidateId), conflictCheck: "read",
       conflictsWith: conflict.conflictsWith ?? [], importantConflict: conflict.importantConflict ?? false, at: AT });
     const moderate = (value: Record<string, any>) => { value.value.confidence = "moderate"; };
 
     // No notice covers public dossiers until v7's release adds it: an active v6 account publishes nothing.
     const first = await account("first");
     const v1 = await save(first.accountKey, "one", "one-1");
-    assert((await publisher.publish(copy(first.accountKey, v1))).outcome === "account_refused",
+    assert((await publisher.publish(await copy(first.accountKey, v1))).outcome === "account_refused",
       "PUBLISHED_WITHOUT_A_COVERING_NOTICE");
     assert((await pages.listShown({ limit: 10 })).length === 0, "PAGE_SHOWS_WITHOUT_A_COVERING_NOTICE");
     checks.push("nothing_published_while_no_notice_covers_public_dossiers");
@@ -241,10 +258,10 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     // Here only, v6 stands in for the notice v7 that the release would add.
     await admin.query(`INSERT INTO ${SCHEMA}.research_dossier_public_notices (notice_version, added_at) VALUES ($1, $2)`,
       [RESEARCH_USE_NOTICE_VERSION, AT]);
-    const published = await publisher.publish(copy(first.accountKey, v1));
+    const published = await publisher.publish(await copy(first.accountKey, v1));
     assert(published.outcome === "published" && published.state === "shown" && /^D-1\d{3,}$/u.test(published.publicNumber),
       "FIRST_PUBLISH_WRONG");
-    const replay = await publisher.publish(copy(first.accountKey, v1));
+    const replay = await publisher.publish(await copy(first.accountKey, v1));
     assert(replay.outcome === "replayed" && replay.publicNumber === published.publicNumber, "PUBLISH_REPLAY_WRONG");
     const shown = await pages.listShown({ topicKeys: ["synthetic-topic"], limit: 10 });
     assert(shown.length === 1 && shown[0]!.publicNumber === published.publicNumber && !shown[0]!.accepted &&
@@ -252,7 +269,8 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     const readerColumns = await readerPool.query(`SELECT * FROM ${SCHEMA}.research_dossier_public_pages LIMIT 1`);
     assert(readerColumns.fields.every(({ name }) => !/origin|account|dossier_number|privacy|hold/u.test(name)),
       "READER_VIEW_EXPOSES_PRIVATE_COLUMNS");
-    assert((await publisher.topicCopies("synthetic-topic")).length === 1, "TOPIC_COPIES_WRONG");
+    assert((await candidatesOf(first.accountKey, v1)).map(conflictCandidateId).join() === `${published.publicNumber}/1`,
+      "OWN_EARLIER_COPY_NOT_A_CANDIDATE");
     checks.push("a_covered_account_publishes_once_and_the_reader_sees_only_public_columns");
 
     // Codex's review, finding 10: the publish function takes nothing on trust. Its own projection of the private record
@@ -274,13 +292,13 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       assert(await projected(variant), `PROJECTION_DIFFERS_${index}`);
     }
     const d1 = await save(deriving.accountKey, "deriving-main", "deriving-main");
-    const honest = copy(deriving.accountKey, d1);
+    const honest = await copy(deriving.accountKey, d1);
     const tampered = await publisher.publish({ ...honest, payload: { ...honest.payload,
       question: "A question the record never held" } });
     assert(tampered.outcome === "payload_refused", "TAMPERED_PAYLOAD_ACCEPTED");
     const unsized = await save(deriving.accountKey, "deriving-unsized", "deriving-unsized", null, (value) => {
       value.results[1].comparator = "baseline"; });
-    assert((await publisher.publish(copy(deriving.accountKey, unsized))).outcome === "payload_refused",
+    assert((await publisher.publish(await copy(deriving.accountKey, unsized))).outcome === "payload_refused",
       "UNSIZED_COMPARISON_ACCEPTED");
     const derived = await publisher.publish(honest);
     assert(derived.outcome === "published" && derived.state === "shown" && derived.holdReasons.length === 0,
@@ -296,7 +314,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
 
     // A held newer version leaves the shown one on the pages; the check shows it, which supersedes the older.
     const v2 = await save(first.accountKey, "one", "one-2", v1, moderate);
-    const held = await publisher.publish(copy(first.accountKey, v2));
+    const held = await publisher.publish(await copy(first.accountKey, v2));
     assert(held.outcome === "published" && held.state === "held", "HELD_PUBLISH_WRONG");
     assert((await pages.listShown({ publicNumbers: [published.publicNumber], limit: 10 }))[0]?.versionNumber === 1,
       "HELD_VERSION_REPLACED_SHOWN");
@@ -316,7 +334,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     // Only the newest version publishes; a decision on an older copy that would show it is refused.
     const v3 = await save(first.accountKey, "one", "one-3", v2);
     await save(first.accountKey, "one", "one-4", v3);
-    assert((await publisher.publish(copy(first.accountKey, v3))).outcome === "version_refused",
+    assert((await publisher.publish(await copy(first.accountKey, v3))).outcome === "version_refused",
       "OLDER_VERSION_PUBLISHED");
     assert((await review.decide({ publicNumber: published.publicNumber, versionNumber: 1, decision: "show", reason: null,
       at: AT })).outcome === "not_decidable", "OLDER_COPY_SHOWN");
@@ -335,7 +353,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     // Revocation (the 0037 trigger withdraws the pending private version) takes its unaccepted copy off the pages.
     const second = await account("second");
     const s1 = await save(second.accountKey, "two", "two-1");
-    const secondCopy = await publisher.publish(copy(second.accountKey, s1));
+    const secondCopy = await publisher.publish(await copy(second.accountKey, s1));
     assert(secondCopy.outcome === "published", "SECOND_PUBLISH_WRONG");
     assert((await pages.listShown({ publicNumbers: [secondCopy.publicNumber], limit: 1 })).length === 1, "SECOND_NOT_SHOWN");
     await service.revoke(second.subject);
@@ -353,14 +371,14 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     // leaves the pages even when the owner had reviewed its private version (which revocation does not withdraw).
     const leaving = await account("leaving");
     const l1 = await save(leaving.accountKey, "leaving", "leaving-1");
-    const leavingCopy = await publisher.publish(copy(leaving.accountKey, l1));
+    const leavingCopy = await publisher.publish(await copy(leaving.accountKey, l1));
     assert(leavingCopy.outcome === "published", "LEAVING_PUBLISH_WRONG");
     assert((await review.decide({ publicNumber: leavingCopy.publicNumber, versionNumber: 1, decision: "accept",
       reason: null, at: AT })).outcome === "decided", "LEAVING_ACCEPT_WRONG");
     const l2 = await save(leaving.accountKey, "leaving", "leaving-2", l1, moderate);
-    await publisher.publish(copy(leaving.accountKey, l2));
+    await publisher.publish(await copy(leaving.accountKey, l2));
     const b1 = await save(leaving.accountKey, "leaving-b", "leaving-b-1");
-    const reviewedCopy = await publisher.publish(copy(leaving.accountKey, b1));
+    const reviewedCopy = await publisher.publish(await copy(leaving.accountKey, b1));
     assert(reviewedCopy.outcome === "published", "REVIEWED_PUBLISH_WRONG");
     await admin.query(`INSERT INTO ${SCHEMA}.research_dossier_events (version_id, event, reason, happened_at)
       VALUES ($1, 'accepted', NULL, $2)`, [b1, AT]);
@@ -387,7 +405,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     // stays, written without the person, and keeps nothing of where its research ran.
     const third = await account("third");
     const t1 = await save(third.accountKey, "three", "three-1");
-    const thirdCopy = await publisher.publish(copy(third.accountKey, t1));
+    const thirdCopy = await publisher.publish(await copy(third.accountKey, t1));
     assert(thirdCopy.outcome === "published", "THIRD_PUBLISH_WRONG");
     assert(await eraser.eraseThread({ threadKey: hex("thread:three"), at: AT }) === 1, "THIRD_NOT_ERASED");
     const erased = await review.inspect(thirdCopy.publicNumber);
@@ -408,7 +426,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     // database refuses a shown copy without one, and the review can neither show nor accept a copy held for it.
     const unread = await account("unread");
     const u1 = await save(unread.accountKey, "unread", "unread-1", null, (value) => { delete value.stamp.privacy_reading; });
-    const pending = await publisher.publish(copy(unread.accountKey, u1));
+    const pending = await publisher.publish(await copy(unread.accountKey, u1));
     assert(pending.outcome === "published" && pending.state === "held" &&
       pending.holdReasons.join() === "privacy_reading_pending", "PRIVACY_PENDING_NOT_HELD");
     for (const decision of ["show", "accept"] as const) {
@@ -426,7 +444,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     // his typed reason and who decided, made once; show and accept refuse it, and nothing forces it up.
     const named = await account("named");
     const n1 = await save(named.accountKey, "named", "named-1", null, (value) => { value.names_living_people = true; });
-    const namedCopy = await publisher.publish(copy(named.accountKey, n1));
+    const namedCopy = await publisher.publish(await copy(named.accountKey, n1));
     assert(namedCopy.outcome === "published" && namedCopy.state === "held", "NAMED_NOT_HELD");
     for (const decision of ["show", "accept"] as const) {
       assert((await review.decide({ publicNumber: namedCopy.publicNumber, versionNumber: 1, decision, reason: "fine",
@@ -451,18 +469,98 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     assert((await pages.listShown({ publicNumbers: [namedCopy.publicNumber], limit: 1 })).length === 1, "NAMED_NOT_SHOWN");
     checks.push("a_named_living_person_shows_only_on_the_owners_recorded_decision");
 
+    // Codex's review, finding 3: the candidates are every shown copy on the topic, a linked topic or under another name,
+    // with no cap of 200: the server pages through them all.
+    const crowd = await account("crowd");
+    const crowded = (value: Record<string, any>) => {
+      value.topic = { key: "crowded-topic", name: "Crowded topic", other_names: [], related: [] };
+      // A form of its own: a shared form makes another topic's copies candidates too.
+      value.forms = ["crowded-form"];
+    };
+    for (let index = 0; index < 203; index += 1) {
+      const version = await save(crowd.accountKey, `crowd-${index}`, `crowd-${index}`, null, crowded);
+      const shown = await publisher.publish(await copy(crowd.accountKey, version));
+      assert(shown.outcome === "published" && shown.state === "shown", `CROWD_${index}_NOT_SHOWN`);
+    }
+    const aliased = await save(crowd.accountKey, "crowd-alias", "crowd-alias", null, (value) => {
+      value.topic = { key: "alias-topic", name: "Another name", other_names: ["Crowded Topic"], related: [] };
+      value.forms = ["alias-form"]; });
+    assert((await publisher.publish(await copy(crowd.accountKey, aliased))).outcome === "published", "ALIAS_NOT_SHOWN");
+    const linked = await save(crowd.accountKey, "crowd-linked", "crowd-linked", null, (value) => {
+      value.topic = { key: "linked-topic", name: "Linked", other_names: [], related: ["crowded-topic"] };
+      value.forms = ["linked-form"]; });
+    assert((await publisher.publish(await copy(crowd.accountKey, linked))).outcome === "published", "LINKED_NOT_SHOWN");
+    const apart = await save(crowd.accountKey, "crowd-apart", "crowd-apart", null, (value) => {
+      value.topic = { key: "apart-topic", name: "Apart", other_names: [], related: [] }; value.forms = ["apart-form"]; });
+    assert((await publisher.publish(await copy(crowd.accountKey, apart))).outcome === "published", "APART_NOT_SHOWN");
+    const newcomer = await save(crowd.accountKey, "crowd-new", "crowd-new", null, crowded);
+    const firstPage = await publisher.conflictCandidates(crowd.accountKey, newcomer, null, 200);
+    const everyCandidate = await candidatesOf(crowd.accountKey, newcomer);
+    assert(firstPage.length === 200 && everyCandidate.length === 205 &&
+      new Set(everyCandidate.map(conflictCandidateId)).size === 205, `CANDIDATES_CAPPED_${everyCandidate.length}`);
+    assert(everyCandidate.every(({ topicKey }) => topicKey !== "apart-topic"), "UNRELATED_TOPIC_A_CANDIDATE");
+    checks.push("conflict_candidates_are_every_shown_copy_on_linked_topics_and_names_without_a_cap");
+
+    // Codex's review, finding 4: admission is serialized per topic and checked against the set compared. A check made
+    // before another copy was shown is refused as stale; a publication holding the topic's lock makes the next one wait,
+    // which then finds its comparison stale; a check the reader could not make holds the copy.
+    const racer = await account("racer");
+    const late = await save(racer.accountKey, "racer-late", "racer-late", null, crowded);
+    const lateCheck = await copy(racer.accountKey, late);
+    const meanwhile = await save(racer.accountKey, "racer-meanwhile", "racer-meanwhile", null, crowded);
+    assert((await publisher.publish(await copy(racer.accountKey, meanwhile))).outcome === "published", "MEANWHILE_NOT_SHOWN");
+    assert((await publisher.publish(lateCheck)).outcome === "comparison_stale", "STALE_COMPARISON_ACCEPTED");
+    const blocker = await save(racer.accountKey, "racer-blocker", "racer-blocker", null, crowded);
+    const blockerCheck = await copy(racer.accountKey, blocker);
+    const waiting = await save(racer.accountKey, "racer-waiting", "racer-waiting", null, crowded);
+    const waitingCheck = await copy(racer.accountKey, waiting);
+    const holder = await access.connect();
+    let settled = false;
+    let waited: Awaited<ReturnType<typeof publisher.publish>> | undefined;
+    try {
+      await holder.query("BEGIN");
+      const held = await holder.query<{ outcome: string }>(`SELECT outcome FROM ${SCHEMA}.publish_research_dossier_version(
+        $1, $2::uuid, $3::jsonb, $4::text[], 'read', '{}'::text[], false, $5::timestamptz)`,
+      [racer.accountKey, blocker, JSON.stringify(blockerCheck.payload), [...blockerCheck.compared], AT.toISOString()]);
+      assert(held.rows[0]?.outcome === "published", "BLOCKER_NOT_PUBLISHED");
+      const pending = publisher.publish(waitingCheck).then((result) => { settled = true; waited = result; });
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      assert(!settled, "SECOND_ADMISSION_DID_NOT_WAIT_FOR_THE_TOPIC");
+      await holder.query("COMMIT");
+      await pending;
+    } finally {
+      holder.release();
+    }
+    assert(waited?.outcome === "comparison_stale", "WAITING_ADMISSION_NOT_STALE");
+    const notRead = await publisher.publish({ ...(await copy(racer.accountKey, waiting)), compared: [],
+      conflictCheck: "not_read" });
+    assert(notRead.outcome === "published" && notRead.state === "held" &&
+      notRead.holdReasons.join() === "conflict_check_pending", "UNREAD_CHECK_NOT_HELD");
+    const conflicting = await save(racer.accountKey, "racer-conflict", "racer-conflict", null, crowded);
+    const conflictCheck = await copy(racer.accountKey, conflicting);
+    const other = conflictCheck.compared[0]!.split("/")[0]!;
+    const importantConflict = await publisher.publish({ ...conflictCheck, conflictsWith: [other], importantConflict: true });
+    assert(importantConflict.outcome === "published" && importantConflict.holdReasons.join() === "important_conflict",
+      "IMPORTANT_CONFLICT_NOT_HELD");
+    checks.push("admission_is_serialized_per_topic_and_rechecks_the_comparison_set");
+
     // Saving switched off refuses, under the account lock the private append uses.
     const fourth = await account("fourth");
     const f1 = await save(fourth.accountKey, "four", "four-1");
     await service.setFindingsSave(fourth.subject, false);
-    assert((await publisher.publish(copy(fourth.accountKey, f1))).outcome === "account_refused",
+    assert((await publisher.publish(await copy(fourth.accountKey, f1))).outcome === "account_refused",
       "PUBLISHED_WITH_SAVING_OFF");
     checks.push("saving_off_publishes_nothing");
 
     // Malformed input is refused whole; a copy's content never changes and nothing is deleted.
     await expectError(() => access.query(`SELECT * FROM ${SCHEMA}.publish_research_dossier_version($1, $2::uuid,
-      '{}'::jsonb, '{}'::text[], true, now())`, [first.accountKey, deterministicUuid("publication-acceptance:none")]),
+      '{}'::jsonb, '{}'::text[], 'read', '{}'::text[], true, now())`, [first.accountKey,
+      deterministicUuid("publication-acceptance:none")]),
     /RESEARCH_DOSSIER_PUBLISH_INPUT_INVALID/u, "IMPORTANT_CONFLICT_WITHOUT_A_DOSSIER_ACCEPTED");
+    await expectError(() => access.query(`SELECT * FROM ${SCHEMA}.publish_research_dossier_version($1, $2::uuid,
+      '{}'::jsonb, '{}'::text[], 'not_read', ARRAY['D-1001'], false, now())`, [first.accountKey,
+      deterministicUuid("publication-acceptance:none")]),
+    /RESEARCH_DOSSIER_PUBLISH_INPUT_INVALID/u, "CONFLICTS_WITHOUT_A_READING_ACCEPTED");
     await expectError(() => admin.query(`UPDATE ${SCHEMA}.research_dossier_public_versions SET public_payload = '{}'::jsonb
       WHERE erased_at IS NULL`), /RESEARCH_DOSSIER_PUBLIC_VERSION_IMMUTABLE/u, "PAYLOAD_CHANGED");
     await expectError(() => admin.query(`DELETE FROM ${SCHEMA}.research_dossier_public_versions`),

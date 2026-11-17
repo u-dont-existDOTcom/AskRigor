@@ -144,6 +144,7 @@ function dossier(change: (value: Record<string, any>) => void = () => undefined)
 }
 
 const PRIVACY_PASS = async () => ({ status: "pass" as const });
+const NO_CONFLICT = async () => ({ status: "read" as const, conflicts: [] });
 
 let sequence = 0;
 function request(overrides: Partial<ResearchDossierSaveRequest> & { value?: Record<string, any> } = {}):
@@ -192,7 +193,9 @@ const sizesComplete = (payload: Record<string, unknown>) => {
 function stores() {
   const dossiers = new InMemoryResearchDossierStore();
   const publications = new InMemoryResearchDossierPublications({ dossiers, project: publicDossierOf, sizesComplete });
-  return { dossiers, publications, publication: { publisher: publications, noticeCovering: COVERING } };
+  // A fake of AskRigor's conflict reading that finds no conflict; no model is called in these tests.
+  return { dossiers, publications, publication: { publisher: publications, noticeCovering: COVERING,
+    conflictReader: NO_CONFLICT } };
 }
 
 describe("a saved dossier's public copy (332a: the researching AI's own judgement decides)", () => {
@@ -368,27 +371,14 @@ describe("a saved dossier's public copy (332a: the researching AI's own judgemen
       .toMatchObject({ status: "insufficient", problems: [{ path: "results[0].group_sizes", rule: "group_sizes_mismatch" }] });
   });
 
-  it("holds a dossier that contradicts a shown one on an important finding, and only notes a background conflict", async () => {
-    const { dossiers, publications, publication } = stores();
-    await saveResearchDossier(dossiers, request({ publication }));
-    const contradicting = (importance: string) => dossier((value) => {
-      value.question = `Does myo-inositol help fasting insulin (${importance})?`;
-      value.findings[1] = { ...value.findings[1], kind: "no_difference", importance,
-        claim: "Myo-inositol did not change fasting insulin in a second trial." };
-    });
-    const other = { account: { mode: "FREE_CONTRIBUTOR" as const, accountKey: OTHER, findingsSave: true,
-      noticeVersion: RESEARCH_USE_NOTICE_VERSION } };
-    const important = await saveResearchDossier(dossiers, request({ ...other, publication,
-      value: contradicting("important") }));
-    expect(important?.disposition.publication).toEqual({ status: "held", public_id: "D-1002",
-      hold_reasons: ["important_conflict"], conflicts_with: ["D-1001"] });
-    // f2 of the first dossier is important, so the comparison sees an important conflict either way; a conflict on two
-    // background findings shows, with the conflict recorded.
-    const first = readPublicDossier((await publications.listShown({ limit: 10 }))[0]!.payload)!;
+  it("lists, for the pages, where two shown dossiers reach opposite kinds of conclusion for one form", () => {
+    const first = publicDossierOf(storedOf(dossier()));
+    const second = { findings: first.findings.map((finding) => finding.id === "f2"
+      ? { ...finding, kind: "no_difference" } : finding) };
     const background = (finding: PublicDossierFinding) => ({ ...finding, importance: "context" as const });
     expect(dossierDisagreements({ findings: first.findings.map(background) },
-      { findings: readPublicDossier((await publications.inspect("D-1002"))[0]!.payload)!.findings.map(background) }))
-      .toEqual([{ form: "myo-inositol", mine: "f2", theirs: "f2", important: false }]);
+      { findings: second.findings.map(background) })).toEqual([{ form: "myo-inositol", mine: "f2", theirs: "f2",
+      important: false }]);
     // Forms apart: a no-difference finding on another form is no conflict.
     expect(dossierDisagreements(first, { findings: [{ ...first.findings[1]!, form: "D-chiro-inositol",
       kind: "no_difference" }] })).toEqual([]);
@@ -454,7 +444,8 @@ describe("the publisher's own derivation", () => {
   }
   const claimed = (versionId: string, payload: unknown) => ({ accountKey: ACCOUNT, versionId, payload,
     topicKey: "inositol-invented", relatedTopicKeys: [], payloadSha256: "a".repeat(64), state: "shown", holdReasons: [],
-    conflictsWith: [], importantConflict: false, origin: { surface: "/mcp" }, privacyRead: true, at: NOW }) as never;
+    compared: [], conflictCheck: "read", conflictsWith: [], importantConflict: false, origin: { surface: "/mcp" },
+    privacyRead: true, at: NOW }) as never;
 
   it("refuses a payload that is not exactly the saved record's public part", async () => {
     const { publications, versionId, honest } = await saved();
@@ -662,6 +653,113 @@ describe("the owner's dossier actions (runtime only)", () => {
   });
 });
 
+// Codex's review, findings 3 and 4: conflicts are found widely (every shown copy on the same or a linked topic, across
+// forms and aliases, the dossier's own earlier copy included, all of them), compared for meaning by AskRigor's own paid
+// reader (a fake here), and admitted one topic at a time against a comparison set checked again before the insert.
+describe("conflicts with shown dossiers", () => {
+  type Conflict = { finding: string; dossier: string; theirs: string };
+  function fakeReader(report: (request: any) => Conflict[]) {
+    const asked: any[] = [];
+    return { asked, reader: async (request: any) => { asked.push(request); return { status: "read" as const,
+      conflicts: report(request) }; } };
+  }
+  const other = { account: { mode: "FREE_CONTRIBUTOR" as const, accountKey: OTHER, findingsSave: true,
+    noticeVersion: RESEARCH_USE_NOTICE_VERSION } };
+  /** Another dossier on a linked topic, under another name, whose myo-inositol finding is a harm on the same outcome. */
+  const harmOnLinkedTopic = dossier((value) => {
+    value.question = "Does myo-inositol worsen fasting insulin?";
+    value.topic = { key: "myo-inositol-invented", name: "Myo-inositol (invented)", other_names: [],
+      related: ["inositol-invented"] };
+    value.findings[1] = { ...value.findings[1], kind: "harms",
+      claim: "Myo-inositol 2 g a day worsened fasting insulin against placebo over 12 weeks." };
+  });
+
+  it("holds a benefit against a harm on the same outcome, found on a linked topic and read for meaning", async () => {
+    const { dossiers, publications } = stores();
+    const quiet = fakeReader(() => []);
+    expect((await saveResearchDossier(dossiers, request({ publication: { publisher: publications,
+      noticeCovering: COVERING, conflictReader: quiet.reader } })))?.disposition?.publication?.status).toBe("shown");
+    // Nothing was shown yet, so nothing was read and nothing paid for.
+    expect(quiet.asked).toEqual([]);
+    const { asked, reader } = fakeReader((request) => request.shown.flatMap((shown: any) =>
+      shown.findings.filter((finding: any) => finding.id === "f2").map(() => ({ finding: "f2", dossier: shown.dossier,
+        theirs: "f2" }))));
+    const outcome = await saveResearchDossier(dossiers, request({ ...other, value: harmOnLinkedTopic,
+      publication: { publisher: publications, noticeCovering: COVERING, conflictReader: reader } }));
+    expect(outcome?.disposition?.publication).toEqual({ status: "held", public_id: "D-1002",
+      hold_reasons: ["important_conflict"], conflicts_with: ["D-1001"] });
+    expect(outcome?.note).toContain("it conflicts with a shown dossier on an important finding");
+    // The reader saw both findings with their forms, people and importance, and nothing private.
+    expect(asked[0].dossier.findings).toContainEqual(expect.objectContaining({ id: "f2", kind: "harms",
+      form: "myo-inositol", applies_to: "Adults with a metabolic syndrome", importance: "important" }));
+    expect(asked[0].shown.map(({ dossier: number }: any) => number)).toEqual(["D-1001"]);
+    expect(JSON.stringify(asked)).not.toMatch(/ARD-|origin|\/mcp/u);
+  });
+
+  it("compares a new version with the dossier's own earlier shown copy", async () => {
+    const { dossiers, publications, publication } = stores();
+    await saveResearchDossier(dossiers, request({ publication }));
+    const { asked, reader } = fakeReader(() => [{ finding: "f2", dossier: "D-1001", theirs: "f2" }]);
+    const reversed = dossier((value) => {
+      value.findings[1] = { ...value.findings[1], kind: "no_difference",
+        claim: "Myo-inositol did not change fasting insulin once a larger trial was counted." };
+    });
+    const outcome = await saveResearchDossier(dossiers, request({ value: reversed,
+      publication: { ...publication, conflictReader: reader } }));
+    expect(outcome?.disposition).toMatchObject({ version: 2, publication: { status: "held", public_id: "D-1001",
+      hold_reasons: ["important_conflict"], conflicts_with: ["D-1001"] } });
+    expect(asked[0].shown.map(({ dossier: number }: any) => number)).toEqual(["D-1001"]);
+    // The first version stays shown until its successor is checked.
+    expect((await publications.listShown({ limit: 10 })).map(({ versionNumber }) => versionNumber)).toEqual([1]);
+  });
+
+  it("holds a copy waiting for the conflict check when the reader can't read or isn't there", async () => {
+    for (const conflictReader of [undefined,
+      async () => ({ status: "unavailable" as const, reason: "daily_budget" as const })]) {
+      const { dossiers, publications, publication } = stores();
+      await saveResearchDossier(dossiers, request({ publication }));
+      const outcome = await saveResearchDossier(dossiers, request({ ...other, value: dossier((value) => {
+        value.question = "Which inositol forms were measured for fasting insulin?"; }),
+        publication: { publisher: publications, noticeCovering: COVERING,
+          ...(conflictReader === undefined ? {} : { conflictReader }) } }));
+      expect(outcome?.disposition?.publication).toEqual({ status: "held", public_id: "D-1002",
+        hold_reasons: ["conflict_check_pending"] });
+      expect(outcome?.note).toContain("waiting for the conflict check");
+      expect((await publications.listShown({ limit: 10 })).map(({ publicNumber }) => publicNumber)).toEqual(["D-1001"]);
+    }
+  });
+
+  it("checks the comparison again before the insert, so a dossier shown meanwhile is compared too", async () => {
+    const { dossiers, publications } = stores();
+    let meanwhile = false;
+    // Another research's dossier is shown between this one's comparison and its insert.
+    const racing = {
+      conflictCandidates: (...args: unknown[]) => (publications.conflictCandidates as any)(...args),
+      topicCopies: (...args: unknown[]) => (publications as any).topicCopies(...args),
+      publish: async (input: any) => {
+        if (!meanwhile) {
+          meanwhile = true;
+          await saveResearchDossier(dossiers, request({ publication: { publisher: publications, noticeCovering: COVERING,
+            conflictReader: async () => ({ status: "read" as const, conflicts: [] }) } }));
+        }
+        return await publications.publish(input);
+      },
+    };
+    const { asked, reader } = fakeReader((request) => request.shown.map((shown: any) => ({ finding: "f2",
+      dossier: shown.dossier, theirs: "f2" })));
+    const outcome = await saveResearchDossier(dossiers, request({ ...other, value: dossier((value) => {
+      value.question = "Did myo-inositol change fasting insulin in a second trial?";
+      value.findings[1] = { ...value.findings[1], kind: "no_difference",
+        claim: "Myo-inositol did not change fasting insulin in a second trial." };
+    }), publication: { publisher: racing as never, noticeCovering: COVERING, conflictReader: reader } }));
+    // The other dossier took the first public number when it was shown meanwhile; this one is compared with it.
+    expect(outcome?.disposition?.publication).toEqual({ status: "held", public_id: "D-1002",
+      hold_reasons: ["important_conflict"], conflicts_with: ["D-1001"] });
+    expect(asked.at(-1).shown.map(({ dossier: number }: any) => number)).toEqual(["D-1001"]);
+    expect((await publications.listShown({ limit: 10 })).map(({ publicNumber }) => publicNumber)).toEqual(["D-1001"]);
+  });
+});
+
 // Codex's review, finding 2: the owner's rule is that a claim about a named living person is published only on his
 // explicit decision, so the ordinary actions refuse such a copy and one separate action, with a typed reason, decides.
 describe("a copy held for naming a living person", () => {
@@ -733,7 +831,8 @@ describe("the dossier's shape and migration 0040", () => {
       name: chunk.slice(0, chunk.indexOf("(")), header: chunk.slice(0, chunk.indexOf("AS $")) }));
     // The pure helpers that derive a copy from its private record (Codex's review, finding 10) read no table: they run
     // only inside the definer functions, as their owner.
-    const pure = ["research_dossier_pick", "research_dossier_public_projection", "research_dossier_public_sizes_complete"];
+    const pure = ["research_dossier_pick", "research_dossier_public_projection", "research_dossier_public_sizes_complete",
+      "research_dossier_topic_names"];
     for (const { name, header } of functions) {
       expect(migration).toMatch(new RegExp(`REVOKE ALL ON FUNCTION ${name}\\([^;]*\\) FROM PUBLIC;`, "u"));
       if (pure.includes(name)) expect(header).toMatch(/IMMUTABLE/u);

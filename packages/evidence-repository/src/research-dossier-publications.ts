@@ -24,7 +24,7 @@ export type ResearchDossierPublicState = typeof RESEARCH_DOSSIER_PUBLIC_STATES[n
  */
 export const RESEARCH_DOSSIER_HOLD_REASONS = [
   "not_high_confidence", "names_living_people", "living_people_undeclared", "important_conflict", "owner_hold",
-  "privacy_reading_pending",
+  "privacy_reading_pending", "conflict_check_pending",
 ] as const;
 export type ResearchDossierHoldReason = typeof RESEARCH_DOSSIER_HOLD_REASONS[number];
 export type ResearchDossierAutoHoldReason = Exclude<ResearchDossierHoldReason, "owner_hold">;
@@ -62,6 +62,14 @@ export interface ResearchDossierPublishInput {
   versionId: string;
   /** The public part as the server made and checked it; anything but the store's own derivation is refused. */
   payload: Record<string, unknown>;
+  /**
+   * The conflict check's candidates it compared, as D-1001/2 (public number and version): all of them, from
+   * conflictCandidates. The store lists them again under its topic locks and refuses a check made against any other
+   * set (comparison_stale). Ignored when the check was not read.
+   */
+  compared: readonly string[];
+  /** read: AskRigor's reader compared the copy with every candidate; not_read: it could not, and the copy is held. */
+  conflictCheck: "read" | "not_read";
   /** The shown dossiers it conflicts with, by public number: the server's conflict check, which it made. */
   conflictsWith: readonly string[];
   /** A conflict on an important finding (either finding decision-changing or important): the copy is held for it. */
@@ -69,29 +77,43 @@ export interface ResearchDossierPublishInput {
   at: Date;
 }
 
+/** A candidate for the conflict check, as D-1001/2. */
+export const conflictCandidateId = (copy: { publicNumber: string; versionNumber: number }) =>
+  `${copy.publicNumber}/${copy.versionNumber}`;
+
 export type ResearchDossierPublishResult =
   | { outcome: "published" | "replayed"; publicNumber: string; state: ResearchDossierPublicState;
     holdReasons: ResearchDossierHoldReason[] }
   /** The payload is not exactly the saved record's public part, or a comparison lacks its group sizes. */
   | { outcome: "payload_refused" }
+  /** The candidates changed since the conflict check: compare again. */
+  | { outcome: "comparison_stale" }
   /** The account may not publish now: not an active free contributor with saving on whose notice covers it. */
   | { outcome: "account_refused" }
   /** Not the newest version of one of the account's dossiers, or withdrawn, rejected or erased. */
   | { outcome: "version_refused" };
 
-/** A shown copy on a topic, for the conflict check of a new one. */
+/** A shown copy that is a candidate for the conflict check of a new one. */
 export interface ResearchDossierTopicCopy {
   publicNumber: string;
   versionNumber: number;
-  /** null for a detached copy (its contributor lost access). */
-  dossierNumber: string | null;
+  topicKey: string;
   payload: Record<string, unknown>;
 }
+
+/** At most this many candidates a page; the server pages through all of them. */
+export const CONFLICT_CANDIDATES_PER_PAGE = 200;
 
 /** The research-access role's side. */
 export interface ResearchDossierPublisher {
   publish(input: ResearchDossierPublishInput): Promise<ResearchDossierPublishResult>;
-  topicCopies(topicKey: string): Promise<ResearchDossierTopicCopy[]>;
+  /**
+   * The conflict check's candidates for one of the account's saved versions (Codex's review of stage 2, finding 3):
+   * every shown copy on its topic or a linked one, or meeting it under another name, its own dossier's earlier copy
+   * included, a page at a time after the last one given.
+   */
+  conflictCandidates(accountKey: string, versionId: string, after: { publicNumber: string; versionNumber: number } | null,
+    limit: number): Promise<ResearchDossierTopicCopy[]>;
 }
 
 export interface ResearchDossierPublicationRow {
@@ -198,6 +220,9 @@ export class ResearchDossierPublicationError extends Error {
 function assertPublishInput(input: ResearchDossierPublishInput): void {
   if (!HEX_64.test(input.accountKey) || !UUID.test(input.versionId) || input.payload === null ||
     typeof input.payload !== "object" || Array.isArray(input.payload) || typeof input.importantConflict !== "boolean" ||
+    !input.compared.every((id) => /^D-[1-9][0-9]{3,}\/[1-9][0-9]*$/u.test(id)) ||
+    (input.conflictCheck !== "read" && input.conflictCheck !== "not_read") ||
+    (input.conflictCheck === "not_read" && (input.importantConflict || input.conflictsWith.length > 0)) ||
     input.conflictsWith.length > 50 || !input.conflictsWith.every((number) => PUBLIC_DOSSIER_NUMBER.test(number)) ||
     (input.importantConflict && input.conflictsWith.length === 0) ||
     !(input.at instanceof Date) || Number.isNaN(input.at.getTime())) {
@@ -211,8 +236,8 @@ function assertPublishInput(input: ResearchDossierPublishInput): void {
  * the server's conflict check.
  */
 export function researchDossierAdmission(stored: Record<string, unknown>, projection: Record<string, unknown>,
-  importantConflict: boolean): { state: "shown" | "held"; holdReasons: ResearchDossierAutoHoldReason[];
-    privacyRead: boolean; namesLivingPerson: boolean } {
+  importantConflict: boolean, conflictCheckPending = false): { state: "shown" | "held";
+    holdReasons: ResearchDossierAutoHoldReason[]; privacyRead: boolean; namesLivingPerson: boolean } {
   const checked = projection.checked as { privacy_reading?: unknown } | undefined;
   const value = projection.value as { confidence?: unknown } | undefined;
   const privacyRead = checked?.privacy_reading === true;
@@ -223,9 +248,34 @@ export function researchDossierAdmission(stored: Record<string, unknown>, projec
     ...(named === true ? ["names_living_people" as const] : typeof named === "boolean" ? []
       : ["living_people_undeclared" as const]),
     ...(importantConflict ? ["important_conflict" as const] : []),
+    ...(conflictCheckPending ? ["conflict_check_pending" as const] : []),
   ];
   return { state: holdReasons.length === 0 ? "shown" : "held", holdReasons, privacyRead, namesLivingPerson: named === true };
 }
+
+/** A public part's key, names, other names and forms, trimmed and lower-cased, as research_dossier_topic_names. */
+export function researchDossierTopicNames(projection: Record<string, unknown>): string[] {
+  const topic = (projection.topic ?? {}) as { key?: unknown; name?: unknown; other_names?: unknown };
+  const forms = Array.isArray(projection.forms) ? projection.forms : [];
+  const others = Array.isArray(topic.other_names) ? topic.other_names : [];
+  return [...new Set([topic.key, topic.name, ...others, ...forms].filter((name): name is string => typeof name === "string")
+    .map((name) => name.trim().toLowerCase()).filter((name) => name !== ""))].sort();
+}
+
+/** Whether a shown copy is a conflict candidate for a public part, as research_dossier_conflict_matches. */
+function conflictMatch(projection: Record<string, unknown>, copy: { topicKey: string | null; relatedTopicKeys: string[];
+  topicNames: string[] }): boolean {
+  const topic = (projection.topic ?? {}) as { key?: unknown; related?: unknown };
+  const related = Array.isArray(topic.related) ? topic.related : [];
+  const names = new Set(researchDossierTopicNames(projection));
+  return copy.topicKey !== null && (copy.topicKey === topic.key || related.includes(copy.topicKey) ||
+    copy.relatedTopicKeys.includes(String(topic.key)) || copy.topicNames.some((name) => names.has(name)));
+}
+
+const candidateOrder = (left: { publicNumber: string; versionNumber: number },
+  right: { publicNumber: string; versionNumber: number }) =>
+  left.publicNumber.length - right.publicNumber.length || (left.publicNumber < right.publicNumber ? -1
+    : left.publicNumber > right.publicNumber ? 1 : 0) || left.versionNumber - right.versionNumber;
 
 function assertQuery(query: PublicDossierQuery): void {
   if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > PUBLIC_DOSSIERS_PER_READ ||
@@ -266,13 +316,14 @@ export class PostgresResearchDossierPublisher implements ResearchDossierPublishe
     const result = await this.pool.query<{ outcome: string; public_number: string | null; state: string | null;
       hold_reasons: string[] | null }>(
       `SELECT outcome, public_number, state, hold_reasons FROM ${this.schema}.publish_research_dossier_version(
-         $1, $2::uuid, $3::jsonb, $4::text[], $5, $6::timestamptz)`,
-      [input.accountKey, input.versionId, JSON.stringify(input.payload), [...input.conflictsWith],
-        input.importantConflict, input.at.toISOString()],
+         $1, $2::uuid, $3::jsonb, $4::text[], $5, $6::text[], $7, $8::timestamptz)`,
+      [input.accountKey, input.versionId, JSON.stringify(input.payload), [...input.compared], input.conflictCheck,
+        [...input.conflictsWith], input.importantConflict, input.at.toISOString()],
     );
     const row = result.rows[0];
     if (row === undefined) throw new Error("RESEARCH_DOSSIER_PUBLISH_RESULT_MISSING");
-    if (row.outcome === "account_refused" || row.outcome === "version_refused" || row.outcome === "payload_refused") {
+    if (row.outcome === "account_refused" || row.outcome === "version_refused" || row.outcome === "payload_refused" ||
+      row.outcome === "comparison_stale") {
       return { outcome: row.outcome };
     }
     if ((row.outcome !== "published" && row.outcome !== "replayed") || row.public_number === null ||
@@ -284,16 +335,20 @@ export class PostgresResearchDossierPublisher implements ResearchDossierPublishe
       holdReasons: row.hold_reasons as ResearchDossierHoldReason[] };
   }
 
-  async topicCopies(topicKey: string): Promise<ResearchDossierTopicCopy[]> {
-    if (!TOPIC_KEY.test(topicKey)) throw new ResearchDossierPublicationError("INPUT_INVALID");
-    const result = await this.pool.query<{ public_number: string; version_number: number; dossier_number: string | null;
+  async conflictCandidates(accountKey: string, versionId: string,
+    after: { publicNumber: string; versionNumber: number } | null, limit: number): Promise<ResearchDossierTopicCopy[]> {
+    if (!HEX_64.test(accountKey) || !UUID.test(versionId) || !Number.isInteger(limit) || limit < 1 ||
+      limit > CONFLICT_CANDIDATES_PER_PAGE || (after !== null && !PUBLIC_DOSSIER_NUMBER.test(after.publicNumber))) {
+      throw new ResearchDossierPublicationError("INPUT_INVALID");
+    }
+    const result = await this.pool.query<{ public_number: string; version_number: number; topic_key: string;
       public_payload: Record<string, unknown> }>(
-      `SELECT public_number, version_number, dossier_number, public_payload
-         FROM ${this.schema}.research_dossier_topic_publications($1)`,
-      [topicKey],
+      `SELECT public_number, version_number, topic_key, public_payload
+         FROM ${this.schema}.research_dossier_conflict_candidates($1, $2::uuid, $3, $4, $5)`,
+      [accountKey, versionId, after?.publicNumber ?? null, after?.versionNumber ?? null, limit],
     );
     return result.rows.map((row) => ({ publicNumber: row.public_number, versionNumber: row.version_number,
-      dossierNumber: row.dossier_number, payload: row.public_payload }));
+      topicKey: row.topic_key, payload: row.public_payload }));
   }
 }
 
@@ -476,6 +531,7 @@ interface MemoryCopy {
   state: ResearchDossierPublicState;
   topicKey: string | null;
   relatedTopicKeys: string[];
+  topicNames: string[];
   payload: Record<string, unknown> | null;
   payloadSha256: string | null;
   holdReasons: ResearchDossierHoldReason[];
@@ -539,7 +595,14 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       !TOPIC_KEY.test(topic.key) || !this.options.sizesComplete(projection)) {
       return { outcome: "payload_refused" };
     }
-    const admission = researchDossierAdmission(facts.payload, projection, input.importantConflict);
+    // Admitted one at a time, as the database's topic locks do; the candidates listed again must be those compared.
+    const candidates = this.matches(projection).map(conflictCandidateId).sort();
+    if (input.conflictCheck === "read" && (stableJson(candidates) !== stableJson([...input.compared].sort()) ||
+      !input.conflictsWith.every((number) => candidates.some((id) => id.startsWith(`${number}/`))))) {
+      return { outcome: "comparison_stale" };
+    }
+    const admission = researchDossierAdmission(facts.payload, projection, input.importantConflict,
+      input.conflictCheck === "not_read" && candidates.length > 0);
     const stamp = (facts.payload.stamp ?? {}) as { origin?: unknown };
     const origin = stamp.origin !== null && typeof stamp.origin === "object" && !Array.isArray(stamp.origin)
       ? structuredClone(stamp.origin as Record<string, unknown>) : {};
@@ -563,6 +626,7 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       state: admission.state,
       topicKey: topic.key,
       relatedTopicKeys: Array.isArray(topic.related) ? topic.related.map(String) : [],
+      topicNames: researchDossierTopicNames(projection),
       payload: projection,
       payloadSha256: sha256(stableJson(projection)),
       holdReasons: [...admission.holdReasons],
@@ -579,13 +643,24 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
     return { outcome: "published", publicNumber, state: admission.state, holdReasons: [...admission.holdReasons] };
   }
 
-  async topicCopies(topicKey: string): Promise<ResearchDossierTopicCopy[]> {
+  async conflictCandidates(accountKey: string, versionId: string,
+    after: { publicNumber: string; versionNumber: number } | null, limit: number): Promise<ResearchDossierTopicCopy[]> {
+    this.followPrivate();
+    const facts = this.options.dossiers.versionFacts(versionId);
+    if (facts === undefined || facts.accountKey !== accountKey || facts.payload === null) return [];
+    return this.matches(this.options.project(facts.payload))
+      .filter((copy) => after === null || candidateOrder(copy, after) > 0)
+      .slice(0, limit)
+      .map((copy) => ({ publicNumber: copy.publicNumber, versionNumber: copy.versionNumber, topicKey: copy.topicKey!,
+        payload: structuredClone(copy.payload!) }));
+  }
+
+  /** The shown copies that are conflict candidates for a public part, in the database's order. */
+  private matches(projection: Record<string, unknown>): MemoryCopy[] {
     this.followPrivate();
     return [...this.copies.values()]
-      .filter((copy) => copy.topicKey === topicKey && copy.state === "shown" && copy.payload !== null)
-      .sort((left, right) => left.publicNumber.localeCompare(right.publicNumber))
-      .map((copy) => ({ publicNumber: copy.publicNumber, versionNumber: copy.versionNumber,
-        dossierNumber: copy.dossierNumber, payload: structuredClone(copy.payload!) }));
+      .filter((copy) => copy.state === "shown" && copy.payload !== null && conflictMatch(projection, copy))
+      .sort(candidateOrder);
   }
 
   async list(state: ResearchDossierPublicState | undefined, limit: number): Promise<ResearchDossierPublicationRow[]> {
@@ -722,8 +797,8 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
         if (copy.acceptedAt === null && copy.state !== "erased") {
           copy.events.push({ event: "erased", reason: "contributor_access_revoked", at });
           Object.assign(copy, { state: "erased", payload: null, payloadSha256: null, topicKey: null, relatedTopicKeys: [],
-            holdReasons: [], conflictsWith: [], origin: {}, livingPersonDecision: null, decidedAt: at, versionId: null,
-            dossierNumber: null });
+            topicNames: [], holdReasons: [], conflictsWith: [], origin: {}, livingPersonDecision: null, decidedAt: at,
+            versionId: null, dossierNumber: null });
         } else if (copy.versionId !== null && copy.state !== "erased") {
           copy.events.push({ event: "detached", reason: "contributor_access_revoked", at });
           Object.assign(copy, { versionId: null, dossierNumber: null, origin: {} });
@@ -736,7 +811,7 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       if (facts === undefined || copy.acceptedAt !== null || copy.state === "erased") continue;
       if (facts.erased) {
         Object.assign(copy, { state: "erased", payload: null, payloadSha256: null, topicKey: null, relatedTopicKeys: [],
-          holdReasons: [], conflictsWith: [], origin: {}, livingPersonDecision: null, decidedAt: at });
+          topicNames: [], holdReasons: [], conflictsWith: [], origin: {}, livingPersonDecision: null, decidedAt: at });
         copy.events.push({ event: "erased", reason: "deletion_requested", at });
       } else if (facts.closed && (copy.state === "shown" || copy.state === "held")) {
         Object.assign(copy, { state: "taken_down", decidedAt: at });
