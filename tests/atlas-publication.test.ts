@@ -439,10 +439,11 @@ describe("publishing at the save", () => {
       expect.objectContaining({ publicationNumber: "P-1001", state: "unreviewed", reason: QUICK_ANSWER_TEST_WAITING }),
       expect.objectContaining({ publicationNumber: "P-1002", state: "unreviewed", reason: QUICK_ANSWER_TEST_WAITING }),
     ]);
-    await h.store.keep({ publicationNumbers: ["P-1001"], atlasNumbers: [], keep: false, reason: null, at: NOW.toISOString() });
+    await h.store.keep({ publicationNumbers: ["P-1001"], atlasNumbers: [], keep: false, reason: null, at: NOW.toISOString(),
+      route: { by: "owner_action" } });
     expect((await h.store.inspectKept()).map(({ publicationNumber }) => publicationNumber)).toEqual(["P-1002"]);
     // With the setting off, nothing says it was shown at once (Codex's review of 17 Nov 2026, finding 4): the one still
-    // kept has no route, and the one shown again without the test's recorded pass was shown by the owner's action.
+    // kept has no route, and the one the owner's showing showed again, saying so, was shown by the owner's action.
     const store = h.store as InMemoryAtlasPublicationStore;
     expect([store.shownByOf("P-1001"), store.shownByOf("P-1002")]).toEqual(["owner_action", null]);
   });
@@ -622,7 +623,7 @@ describe("publishing at the save", () => {
       { publicationNumber: "P-1001", notedAt: NOW.toISOString() }]);
     const shown = await run("judged", false, async (store) => {
       await store.keep({ publicationNumbers: ["P-1001"], atlasNumbers: [], keep: false, reason: null,
-        at: NOW.toISOString() });
+        at: NOW.toISOString(), route: { by: "owner_action" } });
     });
     expect(shown.rows).toEqual([["P-1001", "unreviewed", null], ["P-1002", "unreviewed", null]]);
     expect((await shown.h.store.inspectLivingPersonNotes(["P-1001"])).map(({ publicationNumber }) => publicationNumber))

@@ -470,6 +470,25 @@ describe("through review_research_contribution", () => {
     const refused = await call({ action: "mark_challenge", later_inputs: { ...later, items: [kept] } }, other);
     expect(refused.isError).toBe(true);
     expect((await store.inspectChallenges()).map(({ publicationNumber }) => publicationNumber)).toEqual([shown]);
+    // Codex's third review of 17 Nov 2026, finding 2: the quick-answer test's show_on_pages says so, with its verdict,
+    // and that is what is recorded; a show_on_pages that doesn't is recorded as the owner's. The verdict goes with
+    // show_on_pages and mark_challenge only, and the mark's other inputs with mark_challenge only.
+    for (const [action, field] of [["keep_for_research", "quick_answer_verdict"], ["show_on_pages", "usual_view"]] as const) {
+      const wrong = await call({ action, ...(action === "keep_for_research" ? { reason: "owner answer 240a" } : {}),
+        later_inputs: { items: [kept], [field]: field === "usual_view" ? MARK.usualView : "pass" } });
+      expect(wrong.isError, action).toBe(true);
+      expect(JSON.stringify(wrong.content)).toContain(`${action} does not take ${field}`);
+    }
+    const tested = await call({ action: "show_on_pages", later_inputs: { items: [kept], quick_answer_verdict: "pass" } });
+    expect(tested.structuredContent).toMatchObject({ ok: true, outcome: "shown_on_pages" });
+    expect(JSON.stringify(tested.content)).toContain("Each is recorded as shown by the quick-answer test, with its " +
+      "verdict: pass.");
+    expect([store.shownByOf(kept), store.testVerdictOf(kept)]).toEqual(["quick_answer_test", "pass"]);
+    await call({ action: "keep_for_research", reason: "owner answer 240a", later_inputs: { items: [kept] } });
+    const byOwner = await call({ action: "show_on_pages", later_inputs: { items: [kept] } });
+    expect(JSON.stringify(byOwner.content)).toContain("Each is recorded as shown by the owner's action, not by the " +
+      "quick-answer test; the test's own show_on_pages gives later_inputs.quick_answer_verdict.");
+    expect([store.shownByOf(kept), store.testVerdictOf(kept)]).toEqual(["owner_action", null]);
   });
 });
 

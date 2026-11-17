@@ -235,6 +235,15 @@ export const CHALLENGES_TITLE = "Findings that challenge the usual view";
  * challenges the usual view, whose stored verdict (headline or fail) means a quick AI answer may already give it.
  */
 export const QUICK_ANSWER_MISSES_IT = "A separate AI found that a quick AI answer misses it.";
+/**
+ * How findings reach the pages, as the home page says it (Codex's re-review of 17 Nov 2026, finding 4, and its third
+ * review, finding 2): true whichever way a finding came, and when that isn't recorded, as for findings shown before
+ * AskRigor recorded it, or shown again by an earlier image.
+ */
+export const ATLAS_HOME_ROUTES = "Findings reach these pages in three ways: AskRigor’s owner publishes or shows them, a " +
+  "separate AI’s quick-answer test shows them, or they show automatically once they have passed AskRigor’s checks. Not " +
+  "every finding records which of these it was, older ones in particular, and a finding’s page says what that test " +
+  "found only when the test is recorded for it.";
 export const SHOWN_AS_A_CHALLENGE = "A quick AI answer may already give it; it’s shown because it challenges the usual view.";
 /** How AskRigor's comment maps work (comment-maps-page.ts); the maps themselves are not shown (owner answer 208b). */
 export const COMMENT_MAPS_PATH = "/atlas/comment-maps";
@@ -545,7 +554,7 @@ export function renderAtlasHome(model: AtlasHomeModel, reader?: AtlasPageReader)
 <h1>AskRigor Atlas</h1>
 <p class="lede">Findings from research done with AskRigor, written without the people who asked.</p>
 <div class="notice">
-<p>Each finding here was published by AskRigor’s owner, shown after a separate AI’s quick-answer test, or shown automatically once it passed AskRigor’s checks. A finding’s page says what that test found only when the test is recorded for it. A finding is marked “${NOT_CHECKED_LABEL}” until AskRigor’s owner has reviewed it. A reviewed finding shows the wording the owner accepted, its Atlas number and the day it was checked; a rejected one leaves these pages.</p>
+<p>${ATLAS_HOME_ROUTES} A finding is marked “${NOT_CHECKED_LABEL}” until AskRigor’s owner has reviewed it. A reviewed finding shows the wording the owner accepted, its Atlas number and the day it was checked; a rejected one leaves these pages.</p>
 <p>How sure each finding is shows AskRigor’s rating, not a formal GRADE assessment. Rates and the numbers needed to treat or harm are worked out from each group’s counts. Nothing here is medical advice.</p>
 </div>
 ${ownerPicks(model.picks)}<section aria-labelledby="strongest-checked">
@@ -999,16 +1008,17 @@ ${topic.findings.map((entry) => {
  * passed says a quick AI answer misses it; one shown because it challenges the usual view says so from its stored verdict
  * (the owner, 6 Nov 2026), and a headline or a fail means a quick AI answer may already give it. A finding kept for
  * research hasn't passed the test, so it says neither. Without a mark, it says the test found a quick AI answer misses
- * it only when its publication records that the test showed it (shown_by quick_answer_test, migration 0041): one the
- * owner published or showed, one the save showed at once, and one whose route isn't recorded say nothing of the test,
- * whatever the settings are now (Codex's review of 17 Nov 2026, finding 4, and its re-review).
+ * it only when its publication records that the test's own showing showed it with the verdict pass (shown_by
+ * quick_answer_test and shown_test_verdict pass, migration 0041): one the owner published or showed, one the save showed
+ * at once, one the test showed with another verdict, and one whose route isn't recorded say nothing of the test,
+ * whatever the settings are now (Codex's review of 17 Nov 2026, finding 4, its re-review and its third review).
  */
 function quickAnswerWords(finding: ShownFinding): string {
   if (finding.kept) return "";
   if (finding.challenge !== null) {
     return finding.challenge.verdict === "pass" ? `${QUICK_ANSWER_MISSES_IT} ` : `${SHOWN_AS_A_CHALLENGE} `;
   }
-  return finding.shownBy === "quick_answer_test" ? `${QUICK_ANSWER_MISSES_IT} ` : "";
+  return finding.shownBy === "quick_answer_test" && finding.shownTestVerdict === "pass" ? `${QUICK_ANSWER_MISSES_IT} ` : "";
 }
 
 /** The usual view a finding challenges, with its source's link, as a sentence. */

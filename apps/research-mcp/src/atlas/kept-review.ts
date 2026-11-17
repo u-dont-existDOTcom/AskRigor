@@ -1,6 +1,7 @@
 import {
   ATLAS_KEEP_NUMBERS_PER_CALL,
   AtlasPublicationError,
+  type AtlasChallengeVerdict,
   type AtlasKeptView,
   type AtlasPublicationStore,
 } from "@askrigor/evidence-repository";
@@ -16,6 +17,12 @@ import { z } from "zod";
  * home page, search, map or sitemap shows it; an unpublished card comes back that way. show_on_pages shows them again;
  * list_kept lists them with their reasons. Held, rejected, forgotten, set-aside and replaced publications can't be
  * kept: they stay out of the lookup as before.
+ *
+ * Codex's third review of 17 Nov 2026, finding 2: show_on_pages records how it shows each kept one, at that moment:
+ * the quick-answer test's own show_on_pages gives later_inputs.quick_answer_verdict (docs/atlas-quick-answer-test.md,
+ * step 5), recorded as the test's route with that verdict; any other is recorded as the owner's action. Nothing is
+ * read from the reason it was kept for. The owner and the scheduled test use the same review login, so the verdict is
+ * what tells them apart.
  */
 
 export const ATLAS_KEEP_ACTIONS = ["keep_for_research", "show_on_pages", "list_kept"] as const;
@@ -47,6 +54,8 @@ export interface AtlasKeepRequest {
   atlasNumber?: string;
   items?: string[];
   reason?: string;
+  /** show_on_pages: the quick-answer test's verdict, which only the test's own showing gives. */
+  quick_answer_verdict?: AtlasChallengeVerdict;
 }
 
 export interface AtlasKeepResult {
@@ -91,12 +100,16 @@ export class AtlasKeptReview {
       return refused("keep_for_research needs reason: the owner's private reason, such as \"owner answer 229a\".");
     }
     if (!keep && reason !== undefined) return refused("show_on_pages takes no reason.");
+    const verdict = request.quick_answer_verdict;
+    if (keep && verdict !== undefined) return refused("keep_for_research takes no quick_answer_verdict.");
     let views: AtlasKeptView[];
     try {
       views = await this.deps.publications.keep({
         publicationNumbers: numbers.filter((number) => number.startsWith("P-")),
         atlasNumbers: numbers.filter((number) => number.startsWith("F-")),
         keep, reason: keep ? reason! : null, at: this.deps.now().toISOString(),
+        ...(keep ? {} : { route: verdict === undefined ? { by: "owner_action" as const }
+          : { by: "quick_answer_test" as const, verdict } }),
       });
     } catch (error) {
       if (error instanceof AtlasPublicationError && error.code === "NOT_KEEPABLE") {
@@ -115,7 +128,10 @@ export class AtlasKeptReview {
       outcome: keep ? "kept_for_research" : "shown_on_pages",
       text: `${views.length} publication(s) ${keep ? "kept for AskRigor's research: each stays in the research lookup " +
         "and keeps its page, and no list, topic, search, map or sitemap shows it" : "shown on the pages again"}. ` +
-        `${lines.join("; ")}.${missing.length === 0 ? "" : ` Not found: ${missing.join(", ")}.`}`,
+        `${lines.join("; ")}.${missing.length === 0 ? "" : ` Not found: ${missing.join(", ")}.`}` +
+        (keep ? "" : verdict === undefined ? " Each is recorded as shown by the owner's action, not by the quick-answer " +
+          "test; the test's own show_on_pages gives later_inputs.quick_answer_verdict."
+          : ` Each is recorded as shown by the quick-answer test, with its verdict: ${verdict}.`),
       kept: { items: views.map(itemOf) },
     };
   }

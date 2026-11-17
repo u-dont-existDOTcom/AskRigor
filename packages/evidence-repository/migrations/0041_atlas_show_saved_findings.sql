@@ -1,13 +1,17 @@
 SET search_path TO __SCHEMA__, public;
 
--- Codex's re-review of 17 Nov 2026, finding 4: the owner's publish_cards stored no route either, and its page said the
--- quick-answer test had happened. Four routes are stored apart: owner_action, written by publish_atlas_findings from a
--- draft the owner publishes (publish_cards, a decision's publication), and by keep_atlas_publications when it shows a
--- kept finding again; quick_answer_test, written by keep_atlas_publications only when the finding it shows again was
--- kept with the quick-answer test's own pass reason (docs/atlas-quick-answer-test.md, step 5); automatic_showing, as
--- below; and NULL, not recorded. The pages say the test happened only for quick_answer_test, or from a challenge mark.
--- keep_atlas_publications keeps 0024's shape, so its grant stands. This migration is unreleased, so it is edited in
--- place.
+-- Codex's re-review of 17 Nov 2026, finding 4, and its third review, finding 2: the owner's publish_cards stored no
+-- route either, and its page said the quick-answer test had happened. Four routes are stored apart, each written by the
+-- action that shows the finding, at that moment, and none read from a reason's text: owner_action, written by
+-- publish_atlas_findings from a draft the owner publishes (publish_cards, a decision's publication), and by
+-- show_atlas_publications for a show_on_pages that doesn't say the test showed it; quick_answer_test, written by
+-- show_atlas_publications only for the quick-answer test's own show_on_pages, which gives its verdict
+-- (shown_test_verdict: pass, headline or fail; docs/atlas-quick-answer-test.md, step 5); automatic_showing, as below;
+-- and NULL, not recorded: every publication from before this migration, and one shown again by 0024's
+-- keep_atlas_publications, which an earlier image calls and which says nothing of who showed it. The pages say the
+-- test found a quick AI answer misses a finding only for quick_answer_test with the verdict pass, or from a challenge
+-- mark. keep_atlas_publications keeps 0024's shape, so its grant stands; show_atlas_publications is new, and the review
+-- role is granted it. This migration is unreleased, so it is edited in place.
 --
 -- Codex's review of 17 Nov 2026, finding 4. With ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS=enabled (the owner, 17 Nov 2026)
 -- the save shows a finding on the pages at once, unreviewed, instead of keeping it for AskRigor's research until the
@@ -34,7 +38,20 @@ ALTER TABLE atlas_publications ADD CONSTRAINT atlas_publications_v1_shown_by_che
 );
 
 COMMENT ON COLUMN atlas_publications.shown_by IS
-  'How the publication reached the pages: owner_action when the owner published it (publish_cards, a decision) or showed it again after it was kept; quick_answer_test when it was shown again after the quick-answer test kept it with its pass; automatic_showing when the save published it while saved findings show at once (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS); NULL when not recorded: a publication from before this migration, one an earlier image published, or one still kept since its save. Its page says the quick-answer test happened only for quick_answer_test, or from a challenge mark''s stored verdict.';
+  'How the publication reached the pages, as the action that showed it said: owner_action when the owner published it (publish_cards, a decision) or a show_on_pages showed it again without saying the quick-answer test did; quick_answer_test when the quick-answer test''s own show_on_pages showed it again, with its verdict (shown_test_verdict); automatic_showing when the save published it while saved findings show at once (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS); NULL when not recorded: a publication from before this migration, one an earlier image published or showed again, or one still kept since its save. Its page says the quick-answer test found a quick AI answer misses it only for quick_answer_test with the verdict pass, or from a challenge mark''s stored verdict.';
+
+-- Codex's third review of 17 Nov 2026, finding 2: the quick-answer test's verdict, written with its route by the
+-- test's own show_on_pages, and only with that route.
+ALTER TABLE atlas_publications ADD COLUMN IF NOT EXISTS shown_test_verdict text;
+
+ALTER TABLE atlas_publications DROP CONSTRAINT IF EXISTS atlas_publications_v1_shown_test_verdict_check;
+ALTER TABLE atlas_publications ADD CONSTRAINT atlas_publications_v1_shown_test_verdict_check CHECK (
+  (shown_by IS NOT DISTINCT FROM 'quick_answer_test') = (shown_test_verdict IS NOT NULL)
+  AND (shown_test_verdict IS NULL OR shown_test_verdict IN ('pass', 'headline', 'fail'))
+);
+
+COMMENT ON COLUMN atlas_publications.shown_test_verdict IS
+  'The quick-answer test''s verdict when its own show_on_pages showed the publication (shown_by quick_answer_test): pass, headline or fail; NULL for every other route.';
 
 -- Publishes a card's findings: a new row for each finding without one for this card digest, each taking the next
 -- public number, with how it reached the pages (shown_by) and the reason it is kept off them for the owner when its
@@ -145,6 +162,7 @@ BEGIN
              owner_reason = NULL,
              card_number = target_card_number,
              shown_by = coalesce(draft_shown_by #>> '{}', stored.shown_by),
+             shown_test_verdict = CASE WHEN draft_shown_by IS NULL THEN stored.shown_test_verdict ELSE NULL END,
              state_changed_at = greatest(publish_time, stored.state_changed_at)
        WHERE stored.publication_number = existing.publication_number;
       outcomes := outcomes || jsonb_build_object(draft_number::text, 'revived');
@@ -168,9 +186,10 @@ $function$;
 REVOKE ALL ON FUNCTION publish_atlas_findings(integer, text, jsonb, timestamptz, boolean) FROM PUBLIC;
 
 -- Keeps the publications named for research only, with the owner's private reason, or with keep false shows them on the
--- pages again: 0024's function, which showing again now also records how a kept publication reached the pages
--- (shown_by): quick_answer_test when the quick-answer test kept it with its own pass reason, owner_action otherwise.
--- Showing one that isn't kept changes nothing of it. Its shape is migration 0024's.
+-- pages again: 0024's function, which an earlier image calls to show a finding and which says nothing of who showed
+-- it, so showing a kept publication again through it records no route (NULL, not recorded) and no test verdict. This
+-- release's own show_on_pages shows through show_atlas_publications, which records them. Showing one that isn't kept
+-- changes nothing of it. Its shape is migration 0024's.
 CREATE OR REPLACE FUNCTION keep_atlas_publications(
   target_publication_numbers text[],
   target_atlas_numbers text[],
@@ -218,15 +237,9 @@ BEGIN
       ELSE
         RAISE EXCEPTION 'ATLAS_PUBLICATION_NOT_KEEPABLE';
       END IF;
-    ELSE
+    ELSIF target.kept_for_research_at IS NOT NULL THEN
       UPDATE atlas_publications stored
-         SET kept_for_research_at = NULL, kept_reason = NULL,
-             shown_by = CASE
-               WHEN target.kept_for_research_at IS NULL THEN stored.shown_by
-               WHEN target.kept_reason = 'owner answer 240a: quick-answer test, passed'
-                 OR target.kept_reason LIKE 'owner answer 240a: quick-answer test, passed,%' THEN 'quick_answer_test'
-               ELSE 'owner_action'
-             END
+         SET kept_for_research_at = NULL, kept_reason = NULL, shown_by = NULL, shown_test_verdict = NULL
        WHERE stored.publication_number = target.publication_number;
     END IF;
   END LOOP;
@@ -347,3 +360,59 @@ END
 $function$;
 
 REVOKE ALL ON FUNCTION inspect_atlas_living_person_notes(text[]) FROM PUBLIC;
+
+-- Codex's third review of 17 Nov 2026, finding 2: shows the publications named on the pages again, by P number or by F
+-- number, recording how, as the action says at that moment: owner_action, or quick_answer_test with the test's verdict
+-- (pass, headline or fail), which only the quick-answer test's own show_on_pages gives. Nothing is read from the reason
+-- it was kept for. A publication that isn't kept changes in nothing. At most 100 numbers, as keep_atlas_publications.
+CREATE OR REPLACE FUNCTION show_atlas_publications(
+  target_publication_numbers text[],
+  target_atlas_numbers text[],
+  shown_route text,
+  test_verdict text,
+  change_time timestamptz
+)
+RETURNS TABLE (kept_publication_number text, kept_state text, kept_atlas_number text, kept boolean)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+DECLARE
+  target atlas_publications%ROWTYPE;
+BEGIN
+  IF target_publication_numbers IS NULL OR target_atlas_numbers IS NULL
+     OR cardinality(target_publication_numbers) + cardinality(target_atlas_numbers) NOT BETWEEN 1 AND 100
+     OR EXISTS (SELECT 1 FROM unnest(target_publication_numbers) AS given(number)
+                 WHERE given.number IS NULL OR given.number !~ '^P-[1-9][0-9]{3,}$')
+     OR EXISTS (SELECT 1 FROM unnest(target_atlas_numbers) AS given(number)
+                 WHERE given.number IS NULL OR given.number !~ '^F-[1-9][0-9]{3,}$')
+     OR shown_route IS NULL OR shown_route NOT IN ('owner_action', 'quick_answer_test')
+     OR (shown_route = 'quick_answer_test') <> (test_verdict IS NOT NULL)
+     OR (test_verdict IS NOT NULL AND test_verdict NOT IN ('pass', 'headline', 'fail'))
+     OR change_time IS NULL
+  THEN
+    RAISE EXCEPTION 'ATLAS_PUBLICATION_INPUT_INVALID';
+  END IF;
+  FOR target IN
+    SELECT * FROM atlas_publications stored
+     WHERE stored.publication_number = ANY(target_publication_numbers)
+        OR stored.atlas_number = ANY(target_atlas_numbers)
+     ORDER BY substring(stored.publication_number FROM 3)::bigint
+     FOR UPDATE
+  LOOP
+    IF target.kept_for_research_at IS NOT NULL THEN
+      UPDATE atlas_publications stored
+         SET kept_for_research_at = NULL, kept_reason = NULL, shown_by = shown_route, shown_test_verdict = test_verdict
+       WHERE stored.publication_number = target.publication_number;
+    END IF;
+  END LOOP;
+  RETURN QUERY
+  SELECT stored.publication_number, stored.state, stored.atlas_number, stored.kept_for_research_at IS NOT NULL
+    FROM atlas_publications stored
+   WHERE stored.publication_number = ANY(target_publication_numbers)
+      OR stored.atlas_number = ANY(target_atlas_numbers)
+   ORDER BY substring(stored.publication_number FROM 3)::bigint;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION show_atlas_publications(text[], text[], text, text, timestamptz) FROM PUBLIC;

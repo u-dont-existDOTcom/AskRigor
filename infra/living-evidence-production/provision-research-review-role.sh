@@ -138,6 +138,9 @@ GRANT EXECUTE ON FUNCTION living_evidence.hold_atlas_publications_for_living_per
   TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_living_person_notes(text[])
   TO askrigor_research_review;
+-- Codex's third review of 17 Nov 2026, finding 2 (migration 0041): show_on_pages records how it showed a finding.
+GRANT EXECUTE ON FUNCTION living_evidence.show_atlas_publications(text[], text[], text, text, timestamptz)
+  TO askrigor_research_review;
 -- AskRigor#477 stage 1 (migration 0037): forget_card erases the dossiers of the research thread it forgets, by its
 -- thread key alone (never by a card number, which several people's saves share).
 GRANT EXECUTE ON FUNCTION living_evidence.erase_research_dossiers(text, timestamptz)

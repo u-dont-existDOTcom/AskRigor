@@ -36,6 +36,8 @@ const ATLAS_GLANCE_FUNCTIONS = ["propose_atlas_glance_row", "set_atlas_glance_ro
 const ATLAS_CHALLENGE_FUNCTIONS = ["mark_atlas_challenges", "inspect_atlas_challenges"];
 // Codex's third review of 17 Nov 2026, finding 1 (migration 0041): a later save's living-person yes.
 const ATLAS_LIVING_PERSON_FUNCTIONS = ["hold_atlas_publications_for_living_person", "inspect_atlas_living_person_notes"];
+// Its finding 2 (migration 0041): show_on_pages records how it shows a finding.
+const ATLAS_SHOW_FUNCTIONS = ["show_atlas_publications"];
 const ATLAS_PARTICIPATION_FUNCTIONS = [
   "inspect_atlas_participant", "set_atlas_display_name", "set_atlas_vote", "post_atlas_comment", "delete_atlas_comment",
   "report_atlas_comment", "end_atlas_sessions", "atlas_session_current", "forget_atlas_participant",
@@ -284,7 +286,7 @@ describe("production living-evidence deployment", () => {
     // six held YouTube findings functions (owner answer 173), migration 0021's six publication functions and migration
     // 0022's five moderation functions (decision 171), and since then 0024's, 0025's, 0026's, 0027's and 0030's, and
     // 0037's dossier erasure (AskRigor#477 stage 1).
-    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(39);
+    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(40);
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failure_code text");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failed_at timestamptz");
     expect(migration).toContain("(status = 'FAILED' AND completed_at IS NULL");
@@ -638,9 +640,9 @@ describe("production living-evidence deployment", () => {
     expect(granted.filter((name) => name!.includes("atlas")))
       .toEqual([...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
         ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS,
-        ...ATLAS_CHALLENGE_FUNCTIONS, ...ATLAS_LIVING_PERSON_FUNCTIONS]);
+        ...ATLAS_CHALLENGE_FUNCTIONS, ...ATLAS_LIVING_PERSON_FUNCTIONS, ...ATLAS_SHOW_FUNCTIONS]);
     // With the three contribution functions, migration 0019's six (owner answer 173) and 0037's dossier erasure.
-    expect(granted).toHaveLength(39);
+    expect(granted).toHaveLength(40);
     // Each grant names the function's exact signature, as the migration's REVOKE does.
     const signature = (text: string, prefix: string) => {
       const start = text.indexOf(prefix) + prefix.length;
@@ -1342,13 +1344,14 @@ describe("migration 0041", () => {
     const kept = await read("packages/evidence-repository/migrations/0024_atlas_kept_for_research.sql");
     const functions = migration.split("CREATE OR REPLACE FUNCTION ").slice(1);
     expect(functions.map((chunk) => chunk.slice(0, chunk.indexOf("(")))).toEqual(["publish_atlas_findings",
-      "keep_atlas_publications", ...ATLAS_LIVING_PERSON_FUNCTIONS]);
+      "keep_atlas_publications", ...ATLAS_LIVING_PERSON_FUNCTIONS, ...ATLAS_SHOW_FUNCTIONS]);
     for (const [name, args] of [["hold_atlas_publications_for_living_person", "text[], timestamptz"],
-      ["inspect_atlas_living_person_notes", "text[]"]] as const) {
+      ["inspect_atlas_living_person_notes", "text[]"],
+      ["show_atlas_publications", "text[], text[], text, text, timestamptz"]] as const) {
       expect(migration).toContain(`REVOKE ALL ON FUNCTION ${name}(${args}) FROM PUBLIC;`);
       expect(review).toContain(`GRANT EXECUTE ON FUNCTION living_evidence.${name}(${args})\n  TO askrigor_research_review;`);
     }
-    expect(migration.split("SECURITY DEFINER\nSET search_path = __SCHEMA__, pg_catalog, pg_temp")).toHaveLength(5);
+    expect(migration.split("SECURITY DEFINER\nSET search_path = __SCHEMA__, pg_catalog, pg_temp")).toHaveLength(6);
     const header = (text: string, name: string) => {
       const start = text.indexOf(`CREATE OR REPLACE FUNCTION ${name}(`);
       return text.slice(start, text.indexOf("LANGUAGE plpgsql", start));
@@ -1369,9 +1372,16 @@ describe("migration 0041", () => {
     const revive = migration.slice(migration.indexOf("ELSIF revive_withdrawn"), migration.indexOf("outcomes := outcomes || jsonb_build_object(draft_number::text, 'revived')"));
     expect(revive).toContain("shown_by = coalesce(draft_shown_by #>> '{}', stored.shown_by),");
     expect(revive).not.toMatch(/kept_/u);
-    // Showing a kept finding again records who showed it: the test, from its own pass reason, or the owner.
-    expect(migration).toContain("WHEN target.kept_reason = 'owner answer 240a: quick-answer test, passed'\n" +
-      "                 OR target.kept_reason LIKE 'owner answer 240a: quick-answer test, passed,%' THEN 'quick_answer_test'");
+    // Codex's third review of 17 Nov 2026, finding 2: the route is written by the showing that says it, with the test's
+    // verdict only for the test's own route; nothing is read from a kept reason's text, and 0024's showing, which an
+    // earlier image calls, records none.
+    expect(migration).not.toMatch(/kept_reason (?:=|LIKE) 'owner answer 240a/u);
+    expect(migration).toContain("SET kept_for_research_at = NULL, kept_reason = NULL, shown_by = NULL, shown_test_verdict = NULL");
+    expect(migration).toContain("SET kept_for_research_at = NULL, kept_reason = NULL, shown_by = shown_route, shown_test_verdict = test_verdict");
+    expect(migration).toContain("OR (shown_route = 'quick_answer_test') <> (test_verdict IS NOT NULL)");
+    expect(migration).toContain("ADD CONSTRAINT atlas_publications_v1_shown_test_verdict_check CHECK (\n" +
+      "  (shown_by IS NOT DISTINCT FROM 'quick_answer_test') = (shown_test_verdict IS NOT NULL)\n" +
+      "  AND (shown_test_verdict IS NULL OR shown_test_verdict IN ('pass', 'headline', 'fail'))\n);");
     // Finding 1: a finding kept for the owner is kept in the same write, by 0024's columns, only when unreviewed.
     expect(migration).toContain("held_because, published_at, state_changed_at, shown_by, kept_for_research_at, kept_reason)");
     expect(migration).toContain("draft_shown_by #>> '{}', CASE WHEN draft_kept IS NULL THEN NULL ELSE publish_time END, draft_kept #>> '{}')");
@@ -1381,7 +1391,7 @@ describe("migration 0041", () => {
     // The pages read it.
     const pages = await read("packages/evidence-repository/src/atlas-pages.ts");
     const columns = pages.slice(pages.indexOf("const PAGE_PUBLICATION_COLUMNS"), pages.indexOf("function publicationsSql"));
-    expect(columns).toContain("listed.shown_by");
+    expect(columns).toContain("listed.shown_by, listed.shown_test_verdict");
   });
 });
 
@@ -1410,13 +1420,17 @@ describe("migration 0021's admitted edit", () => {
   // and runs 0041's new fields, 0021's edit and the hold script against a real database.
   it("has the PostgreSQL acceptance read and run the routes, the kept reason, the hold and 0021's edit", async () => {
     const acceptance = await read("scripts/research-contributor-access-postgres-acceptance.mts");
-    expect(acceptance).toContain('"atlasNumber,challenge,kept,publicationNumber,published,publishedAt,shownBy,state,stateChangedAt"');
+    expect(acceptance).toContain('"atlasNumber,challenge,kept,publicationNumber,published,publishedAt,shownBy,shownTestVerdict,state,stateChangedAt"');
     for (const check of [
       "migration_0021_admits_only_its_verified_edit_takes_living_person_review_and_replays_unchanged",
       "earlier_image_or_unknown_0021_digest_stops_migrate_and_changes_nothing",
       "atlas_routes_stored_apart_by_the_review_functions_and_a_page_says_the_test_happened_only_from_the_record",
+      "a_later_saves_living_person_yes_holds_what_the_owner_has_not_decided_and_notes_what_he_has",
       "hold_script_dry_run_changes_nothing_and_apply_holds_only_unreviewed_findings_for_living_person_review",
     ]) expect(acceptance).toContain(`checks.push("${check}")`);
+    // Codex's third review of 17 Nov 2026, finding 2: the routes are written by the showing that says them.
+    expect(acceptance).toContain('route: { by: "quick_answer_test", verdict: "pass" } });');
+    expect(acceptance).toContain("ATLAS_RECORDED_ROUTES_MISMATCH");
     expect(acceptance).toContain("await verifyLivingPersonHoldMigration({ adminUrl, schema: SCHEMA, checks });");
   });
 

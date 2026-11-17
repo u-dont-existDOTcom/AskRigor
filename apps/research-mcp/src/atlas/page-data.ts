@@ -7,6 +7,7 @@ import type {
   AtlasFindingDirection,
   AtlasFindingKind,
   AtlasLabel,
+  AtlasChallengeVerdict,
   AtlasPageChallenge,
   AtlasPageOwnComment,
   AtlasPageOwnVote,
@@ -211,6 +212,11 @@ export interface ShownFinding {
    * says the quick-answer test happened only for quick_answer_test, or from a challenge mark's stored verdict.
    */
   shownBy: AtlasPublicationRoute | null;
+  /**
+   * Codex's third review of 17 Nov 2026, finding 2: the quick-answer test's verdict when its own showing showed it
+   * (shownBy quick_answer_test); null otherwise. The page says a quick AI answer misses it only for pass.
+   */
+  shownTestVerdict: AtlasChallengeVerdict | null;
 }
 
 /** A finding's challenge mark as its pages show it: never who marked it. */
@@ -520,6 +526,7 @@ function fromPublished(publication: AtlasPagePublication, published: AtlasPublis
     kept: publication.kept,
     challenge: shownChallenge(publication),
     shownBy: publication.shownBy,
+    shownTestVerdict: publication.shownTestVerdict,
     namedVideos: shownNamedVideos(published.named_videos),
     ...researchBehind(published, shownSource),
     aiReadings: published.ai_readings ?? null,
@@ -694,6 +701,7 @@ function fromCanonical(
     kept: publication.kept,
     challenge: shownChallenge(publication),
     shownBy: publication.shownBy,
+    shownTestVerdict: publication.shownTestVerdict,
     namedVideos: shownNamedVideos(content.research?.named_videos ?? publication.published?.named_videos),
     // Owner answers 252a and 255a: an accepted or edited finding shows the research behind it from its own version, or
     // from its publication's fields; both are erased with its F number's wording.

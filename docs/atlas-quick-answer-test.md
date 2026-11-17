@@ -42,8 +42,9 @@ API money. It needs no review from the owner.
      the finding reads on its own. A passing mention in a list isn't the same as giving the point.
    - **Headline:** true and not in the quick answer, but it wouldn't change an important decision.
    - **Fail:** the quick answer already gives the finding's useful point, or offers something better.
-5. A pass goes to `show_on_pages` once its card carries the whole picture (below). Until AskRigor can store that, a
-   pass goes to `keep_for_research` with the reason `owner answer 240a: quick-answer test, passed, waiting for the whole
+5. A pass goes to `show_on_pages`, with `later_inputs.quick_answer_verdict` `pass`, once its card carries the whole
+   picture (below); the verdict is what records that the test showed it, since the owner and this task use the same
+   review login. Until AskRigor can store that, a pass goes to `keep_for_research` with the reason `owner answer 240a: quick-answer test, passed, waiting for the whole
    picture`, so it isn't tested twice and can be shown once its card is complete. A headline or a fail goes to
    `keep_for_research` with the reason `owner answer 240a: quick-answer test, headline` or
    `owner answer 240a: quick-answer test, failed`, so it isn't tested twice.
@@ -84,8 +85,8 @@ and fail, which it neither changes nor depends on:
    is kept as a browser opens it.
 4. Marking shows nothing: showing is still `show_on_pages`. Whether the daily task shows a marked finding right away is
    the owner's to decide (question 272), so the method fits either answer:
-   - if the owner says marked findings are shown right away, a marked finding goes to `show_on_pages` whatever its
-     verdict, instead of step 5's `keep_for_research`;
+   - if the owner says marked findings are shown right away, a marked finding goes to `show_on_pages`, with its
+     verdict in `later_inputs.quick_answer_verdict`, whatever its verdict, instead of step 5's `keep_for_research`;
    - otherwise it goes to `keep_for_research` as step 5 says, with `, challenges the usual view` added at the end of
      its reason (`owner answer 240a: quick-answer test, failed, challenges the usual view`), and waits for the owner;
      `list_challenges` lists every marked finding, kept or shown, with its usual view, source and verdict.
@@ -101,11 +102,13 @@ stored verdict, that a separate AI found a quick AI answer misses it (a pass), o
 give it and that it's shown because it challenges the usual view (a headline or a fail), and its box says the same. A
 finding kept for research is on no list, the section page included, and its page, its box too, says nothing of the
 quick-answer test. Without a mark, an unreviewed finding's page says a separate AI found a quick AI answer misses it only
-when its publication records that the test showed it: `show_on_pages` of a finding kept with step 5's pass reason,
-`owner answer 240a: quick-answer test, passed` alone or followed by a comma, stores the route `quick_answer_test`, and
-any other `show_on_pages`, the owner's `publish_cards` and a decision's publication store `owner_action` (migration
-0041; Codex's re-review of 17 Nov 2026, finding 4). A finding whose route isn't recorded, as every one from before 0041,
-says nothing of the test. These pages are kept out of
+when its publication records that the test showed it with a pass. The action that shows a finding records how, at that
+moment, and nothing is read from the reason it was kept for (migration 0041; Codex's re-review of 17 Nov 2026, finding
+4, and its third review, finding 2): `show_on_pages` with `later_inputs.quick_answer_verdict` stores the route
+`quick_answer_test` with that verdict, and any other `show_on_pages`, the owner's `publish_cards` and a decision's
+publication store `owner_action`. The page says the test found a quick AI answer misses it only for the verdict `pass`.
+A finding whose route isn't recorded, as every one from before 0041 and one an earlier image showed again, says nothing
+of the test. These pages are kept out of
 search engines like every page of an unreviewed finding. The pages show no one's login and no YouTube comment data.
 
 Limits: the usual view is one helper's answer from two searches, so it can miss a newer or a regional guideline; its

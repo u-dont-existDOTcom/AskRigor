@@ -1282,6 +1282,8 @@ export class AtlasReview {
       ...(request.atlasNumber === undefined ? {} : { atlasNumber: request.atlasNumber }),
       ...(request.items === undefined ? {} : { items: request.items }),
       ...(request.reason === undefined ? {} : { reason: request.reason }),
+      // Codex's third review of 17 Nov 2026, finding 2: the quick-answer test's show_on_pages says so, with its verdict.
+      ...(request.quick_answer_verdict === undefined ? {} : { quick_answer_verdict: request.quick_answer_verdict }),
     });
     return {
       ok: result.ok,
