@@ -573,7 +573,8 @@ describe("production living-evidence deployment", () => {
       '"0028_research_use_notice_v5",\n      "0029_atlas_research_behind",\n      "0030_atlas_challenges",\n      ' +
       '"0031_research_notice_acceptance",\n      "0032_research_call_record",\n      "0033_research_steering",\n      ' +
       '"0034_research_call_record_plan_next",\n      "0035_research_menu_learning",\n      ' +
-      '"0036_research_use_notice_v6",\n      "0037_research_dossiers",\n    ]');
+      '"0036_research_use_notice_v6",\n      "0037_research_dossiers",\n      ' +
+      '"0038_research_proposal_idempotency_index",\n    ]');
     // append_only_guard on exactly the eight canonical tables; the two private review tables are not among them.
     const guarded = migration.slice(migration.indexOf("FOREACH table_name IN ARRAY ARRAY["));
     expect([...guarded.slice(0, guarded.indexOf("] LOOP")).matchAll(/'([a-z_]+)'/gu)].map(([, table]) => table))
@@ -943,13 +944,14 @@ describe("production living-evidence deployment", () => {
     // people's reports (owner answer 229a), 0027, a problem's rows at a glance, 0028, notice version 5 (owner answer
     // 253a), 0029, the research behind each finding (owner answers 254a and 255a), and 0030, the findings that challenge
     // the usual view (the owner, 6 November 2026). After the account migrations 0031 to 0035 comes 0036, notice
-    // version 6 (owner answer 307b), and last 0037, the private research dossiers (AskRigor#477 stage 1).
-    expect(order.slice(-17)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
+    // version 6 (owner answer 307b), then 0037, the private research dossiers (AskRigor#477 stage 1), and last 0038,
+    // the index for the proposal lookup by idempotency key.
+    expect(order.slice(-18)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
       "0023_research_findings_save_switch", "0024_atlas_kept_for_research", "0025_atlas_placements", "0026_atlas_reports",
       "0027_atlas_glance_rows", "0028_research_use_notice_v5", "0029_atlas_research_behind", "0030_atlas_challenges",
       "0031_research_notice_acceptance", "0032_research_call_record",
       "0033_research_steering", "0034_research_call_record_plan_next", "0035_research_menu_learning",
-      "0036_research_use_notice_v6", "0037_research_dossiers"]);
+      "0036_research_use_notice_v6", "0037_research_dossiers", "0038_research_proposal_idempotency_index"]);
     // One table and its sequence, safe to run again; the reason lists replaced on every run.
     expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS atlas_publication_number_seq AS bigint START WITH 1001");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS atlas_publications (");
@@ -1122,11 +1124,11 @@ describe("production living-evidence deployment", () => {
     const review = await read("infra/living-evidence-production/provision-research-review-role.sh");
     const gaps = await read("infra/living-evidence-production/provision-evidence-gap-role.sh");
     const reader = await read("infra/living-evidence-production/init-reader.sh");
-    // Right after 0034 in the migrate list; only 0036, notice version 6 (owner answer 307b), follows it.
+    // Right after 0034 in the migrate list; only 0036 (notice version 6, owner answer 307b), 0037 and 0038 follow it.
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
-    expect(order.slice(-4)).toEqual(["0034_research_call_record_plan_next", "0035_research_menu_learning",
-      "0036_research_use_notice_v6", "0037_research_dossiers"]);
+    expect(order.slice(-5)).toEqual(["0034_research_call_record_plan_next", "0035_research_menu_learning",
+      "0036_research_use_notice_v6", "0037_research_dossiers", "0038_research_proposal_idempotency_index"]);
     // Safe to run again: the columns, the table and the index come once, and every check is added by its name only
     // when it is missing.
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS learn_menu_choices boolean NOT NULL DEFAULT false");
@@ -1183,7 +1185,7 @@ describe("production living-evidence deployment", () => {
     const runbook = await read("infra/living-evidence-production/README.md");
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
-    expect(order.at(-1)).toBe("0037_research_dossiers");
+    expect(order.slice(-2)).toEqual(["0037_research_dossiers", "0038_research_proposal_idempotency_index"]);
     // Additive: new objects only, each made once; nothing existing is dropped or altered but one trigger it owns.
     expect(migration).not.toMatch(/DROP (?!TRIGGER IF EXISTS)|ALTER TABLE|CREATE TABLE (?!IF NOT EXISTS)/u);
     expect([...migration.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)/gu)].map(([, name]) => name)).toEqual([
@@ -1274,6 +1276,41 @@ describe("production living-evidence deployment", () => {
     expect(hazards).toContain("the\n   trigger also fires when a revoked account is revoked again at a new time");
     expect(runbook).toContain("SELECT count(*) FROM living_evidence.research_dossier_versions");
     expect(runbook).toContain("ASKRIGOR_RESEARCH_DOSSIERS=enabled");
+  });
+
+  // 16 Nov 2026: nine server-built analyses' lookups by idempotency key, each reading every proposal's payload, all hit
+  // the research-access role's five-second statement timeout. The index answers that lookup.
+  it("ships migration 0038's index for the proposal lookup by idempotency key, an index only, matching the lookup", async () => {
+    const migration = await read("packages/evidence-repository/migrations/0038_research_proposal_idempotency_index.sql");
+    const repository = await read("packages/evidence-repository/src/postgres.ts");
+    const store = await read("packages/evidence-repository/src/research-contributor-access.ts");
+    const contracts = await read("packages/evidence-repository/src/contracts.ts");
+    const runbook = await read("infra/living-evidence-production/README.md");
+    const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
+    const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
+    expect(order.at(-1)).toBe("0038_research_proposal_idempotency_index");
+    // One index, made once; no table, row, constraint, trigger, function or grant, and not CONCURRENTLY, which migrate()'s
+    // single transaction cannot run.
+    const statements = migration.replace(/--[^\n]*\n/gu, "").split(";").map((part) => part.trim()).filter(Boolean);
+    expect(statements).toEqual(["SET search_path TO __SCHEMA__, public",
+      "CREATE INDEX IF NOT EXISTS research_contribution_proposals_idempotency_idx\n" +
+      "  ON research_contribution_proposals (account_key, proposal_kind, (payload_json ->> 'idempotencyKey'))\n" +
+      "  WHERE status IN ('PENDING_REVIEW', 'ACCEPTED', 'REJECTED')"]);
+    // The index's columns, expression and predicate are the lookup's own, so the planner can answer it from the index.
+    const lookup = store.slice(store.lastIndexOf("async findOwnProposalByIdempotencyKey("));
+    expect(lookup.slice(0, lookup.indexOf("return result"))).toContain(
+      "WHERE account_key = $1 AND proposal_kind = $2\n" +
+      "          AND payload_json ->> 'idempotencyKey' = $3\n" +
+      "          AND status IN ('PENDING_REVIEW', 'ACCEPTED', 'REJECTED')");
+    // Every proposal kind's key is at most 200 characters, far within a B-tree entry, so no insert can fail on it.
+    expect(contracts.match(/idempotencyKey: z\.string\(\)\.regex\(\/\^\[a-zA-Z0-9\]\[a-zA-Z0-9\._:-\]\{0,199\}\$\/u\)/gu))
+      .toHaveLength(3);
+    // The runbook gives the lock, what an earlier image does with the index, the rollback and read-only checks.
+    const section = runbook.slice(runbook.indexOf("Migration `0038_research_proposal_idempotency_index`"));
+    expect(section).toContain("SHARE lock");
+    expect(section).toContain("Leave the index in place on a rollback");
+    expect(section).toContain("SELECT count(*), pg_size_pretty(pg_total_relation_size('living_evidence.research_contribution_proposals'))");
+    expect(section).toContain("research_contribution_proposals_idempotency_idx");
   });
 });
 

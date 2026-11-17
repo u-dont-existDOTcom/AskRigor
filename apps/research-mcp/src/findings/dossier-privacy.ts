@@ -1,4 +1,6 @@
-import { holdsYouTubeReference, screenFindingsText } from "./card.js";
+import { FINDINGS_PRIVACY_PROBLEMS, holdsYouTubeReference, screenFindingsText } from "./card.js";
+import { withoutResearchIdentifierDigits, withoutResearchIdentifiers } from "./research-identifiers.js";
+import type { PrivacyScreenReasonCode } from "../lessons/privacy-screen.js";
 
 /**
  * The research dossier's privacy screen (AskRigor#477 stage 1; Codex's reviews of 16 Nov 2026, finding 2 and the second
@@ -10,35 +12,65 @@ import { holdsYouTubeReference, screenFindingsText } from "./card.js";
  * letters shaped like Latin ones, text in capitals), refuses words in scripts it cannot read and words that mix scripts,
  * and keeps the findings card's own screen (contacts, identifiers, English health narratives) and its YouTube check.
  * Ordinary research phrasing passes: an author before "et al." or "and colleagues", numerals such as phase I or I², and
- * patients' relatives in a study's report. What it cannot see (a narrative with none of these markers, another
- * Latin-script language) the owner's review still has to catch; the tests hold it to a list of realistic leaks and of
- * research sentences that must pass. No model reads it: the owner has not decided on a model call here.
+ * patients' relatives in a study's report, and so do public research identifiers in their exact published shapes (a
+ * DOI, "PMID" and its number, a PMCID, a trial registry number with its prefix: research-identifiers.ts), whose digits
+ * the phone rules do not read as a phone number (the first real dossier, 16 Nov 2026, was refused for good over
+ * ACTRN12620000032954); their words are read as every word is. What it cannot see (a narrative with none of these
+ * markers, another Latin-script language) the owner's review still has to catch; the tests hold it to a list of
+ * realistic leaks and of research sentences that must pass. No model reads it: the owner has not decided on a model
+ * call here.
  *
  * Returns the rule a text breaks, or undefined.
  */
-export function dossierPrivacyRule(text: string): string | undefined {
+export function dossierPrivacyRule(text: string): DossierPrivacyRule | undefined {
   const value = folded(text);
   // Look-alike letters read as the Latin ones they imitate, for every word rule (Codex's final check: a Greek Α in a
   // name, a Cyrillic І for "I").
   const plain = lookAlikeFree(value);
-  return screenFindingsText(value) ?? (holdsYouTubeReference(value) || /youtu\.?be/iu.test(value) ? "youtube_reference"
-    : CONTACT.some((pattern) => pattern.test(value)) ? "contact_details"
+  // The card's screen reads the text with each research identifier set aside, trial registry numbers included, and the
+  // phone rule reads it with their digits left out; a phone number beside one, or after a registry's prefix with
+  // another count of digits, stays. The other contact rules read the text as written, so a street number written onto
+  // a DOI is still read.
+  const numbers = withoutResearchIdentifierDigits(value);
+  return screenFindingsText(withoutResearchIdentifiers(value, "SOURCE")) ??
+    (holdsYouTubeReference(value) || /youtu\.?be/iu.test(value) ? "youtube_reference"
+    : PHONE.test(numbers) || CONTACT.some((pattern) => pattern.test(value)) ? "contact_details"
     : UNSCREENED_SCRIPT.test(value) ? "unscreened_script"
     : mixesScripts(value) ? "mixed_script"
     : identityRule(plain) ?? lexicalRule(plain));
 }
+
+/** The rules the dossier's privacy screen refuses a text by: the findings card's screen's, then its own. */
+export type DossierPrivacyRule = PrivacyScreenReasonCode | "youtube_reference" | "contact_details" | "unscreened_script" |
+  "mixed_script" | "date_of_birth" | "location_detail" | "personal_name" | "first_person" | "personal_relation";
+
+/** What each of those rules saw, for the dossier's problems (dossier.ts), in the card problems' words where they share one. */
+export const DOSSIER_PRIVACY_PROBLEMS: Readonly<Record<DossierPrivacyRule, string>> = {
+  ...Object.fromEntries(Object.entries(FINDINGS_PRIVACY_PROBLEMS).filter(([rule]) => rule !== "not_a_source_identifier")) as
+    Record<PrivacyScreenReasonCode, string>,
+  youtube_reference: "a YouTube link or name",
+  contact_details: "a link, a handle, an email address, a phone number, a street address or a postal code",
+  unscreened_script: "words in a script the screen cannot read (it reads Latin and Greek letters)",
+  mixed_script: "a word mixing Latin letters with another script's",
+  date_of_birth: "a date of birth",
+  location_detail: "where someone lives",
+  personal_name: "a particular person's name",
+  first_person: "a person's own voice (I, my, or we did something with a treatment)",
+  personal_relation: "a particular person's relative, carer or home",
+};
 
 // Characters that show nothing (zero-width spaces and joiners, direction marks, the soft hyphen) are dropped, and every
 // compatibility form (full-width Ｍｙ, ligatures, ² as 2) becomes its plain letter.
 const INVISIBLE = /[­͏؜ᅟᅠ឴឵᠋-᠏​-‏‪-‮⁠-⁯ㅤ︀-️﻿ﾠ]/gu;
 const folded = (text: string) => text.replace(INVISIBLE, "").normalize("NFKC").replace(INVISIBLE, "");
 
-// Links, handles, e-mail, phone numbers (nine digits or more), street addresses and postal codes.
+// Phone numbers (nine digits or more), read without the digits of research identifiers in their published shapes.
+const PHONE = /\+?\d(?:[\s().-]*\d){8,}/u;
+// Links, handles, e-mail, street addresses and postal codes.
 const CONTACT: readonly RegExp[] = [
   /https?:\/\/|www\.|\b[\w.+-]+@[\w-]+\.\w/iu,
   /(?:^|[\s(])@[\p{L}\p{N}_.]{2,}/u,
   /(?:^|[^\p{L}])u\/[\p{L}\p{N}_-]{3,}/u,
-  /\+?\d(?:[\s().-]*\d){8,}/u,
   /\b\d{1,5}[a-z]?,?\s+(?:rue|avenue|av\.?|boulevard|bd|street|st\.?|road|rd\.?|lane|drive|calle|avenida|straße|strasse|rua|via|piazza|allée|chemin|place)\b/iu,
   /\b(?:post ?code|zip ?code|postal code|code postal|código postal|postleitzahl)\b/iu,
   /\b[A-Z]{2} \d{5}(?:-\d{4})?\b/u,
@@ -155,7 +187,7 @@ function authorAt(words: readonly Word[], index: number): boolean {
       /^(?:colleagues|coworkers|co-workers|colaboradores|collaborateurs|kollegen|colleghi|coautores|coauthors)$/u.test(next[1] ?? ""));
 }
 
-function identityRule(text: string): string | undefined {
+function identityRule(text: string): "date_of_birth" | "location_detail" | "personal_name" | undefined {
   if (BIRTH_DATE.test(text)) return "date_of_birth";
   for (const pattern of BORN_ON) {
     for (const match of text.matchAll(pattern)) {
@@ -304,7 +336,7 @@ function distributedAt(words: readonly Word[], index: number): boolean {
 const isCapitals = (word: string) => word.length >= 2 && word === word.toUpperCase() && word !== word.toLowerCase();
 const personal = (word: string | undefined) => word !== undefined && (PERSONAL_SINGULAR.has(word) || PERSONAL_PLURAL.has(word));
 
-function lexicalRule(original: string): string | undefined {
+function lexicalRule(original: string): "first_person" | "personal_relation" | undefined {
   // A text mostly in capitals is read as if it were in lower case: there, capitals are no abbreviation.
   const text = shouted(original) ? original.toLowerCase() : original;
   // "1" standing for "I" at a sentence's start, before a verb only a person's own account uses so.

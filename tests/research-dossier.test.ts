@@ -466,6 +466,98 @@ describe("a research dossier's record and its checks", () => {
   });
 });
 
+// The first real dossier (16 Nov 2026): its AI met a shape failure on value.adds it read as "the format of its ids", then
+// 13 form_not_listed and 17 form_mismatch problems, by path and rule only, and could not tell what either asked.
+describe("problems the AI can act on: the ids' and the forms' rules, said in the shape and explained with each problem", () => {
+  const FORM_NOT_LISTED = "once forms lists any, a study's or a finding's form must be one of them, written the same " +
+    "way (capitals aside): add it to forms, or write it as listed";
+  const FORM_MISMATCH = "a finding's form must be the form of every study it rests on, directly or through a result: " +
+    "when its studies' forms differ, leave the finding's form out";
+
+  it("says the ids' format and the forms' rules in the shape the AI is given", () => {
+    expect(RESEARCH_DOSSIER_SHAPE).toContain("adds, the ids of up to 8 findings that save the most work");
+    expect(RESEARCH_DOSSIER_SHAPE).toContain("Ids: each search, study, result and finding has its own, a lower-case " +
+      "letter then up to 31 lower-case letters, digits, - or _ (s1, f2); adds, rests_on, study and search give these ids " +
+      "exactly.");
+    expect(RESEARCH_DOSSIER_SHAPE).toContain("Forms: list each form in forms; once it lists any, a study's form and a " +
+      "finding's form, when given, are each one of them, written the same way; a finding's form is also the form of " +
+      "every study it rests on that gives one, directly or through a result, so a finding across studies of different " +
+      "forms leaves its form out.");
+    expect(RESEARCH_DOSSIER_SHAPE).toContain("cite a paper or a trial by its DOI, PMID with its number (PMID 12345678), " +
+      "PMCID or registry number with the registry's prefix (NCT01234567, ACTRN12620000032954, EudraCT 2010-012345-12), " +
+      "with punctuation, not a bare space, before a number that follows it");
+  });
+
+  it("explains form_not_listed and form_mismatch once each, and a dossier corrected as they say is saved", async () => {
+    // As the first real dossier wrote them: a form listed under one name and written under another.
+    const named = (dossier: Record<string, any>) => {
+      dossier.studies[0].form = "Myo-inositol powder";
+      dossier.findings[1].form = "inositol";
+    };
+    const refused = await saveResearchDossier(new InMemoryResearchDossierStore(), withDossier(named));
+    expect(refused?.disposition).toEqual({ status: "insufficient", reason: "checks_failed",
+      problems: [
+        { path: "studies[0].form", rule: "form_not_listed" },
+        { path: "findings[1].form", rule: "form_not_listed" },
+        { path: "findings[1].rests_on[0]", rule: "form_mismatch" },
+      ],
+      explanations: { form_not_listed: FORM_NOT_LISTED, form_mismatch: FORM_MISMATCH } });
+    expect(refused?.note).toBe("Research dossier not saved, nothing of it was stored. form_not_listed at " +
+      `studies[0].form, findings[1].form: ${FORM_NOT_LISTED}. form_mismatch at findings[1].rests_on[0]: ` +
+      `${FORM_MISMATCH}. Correct them and send it again only with a final check already needed for this research; do ` +
+      "not make another check solely to repair it.");
+    // Done as the explanations say: the study's form added to forms, the finding's form left out.
+    const corrected = await saveResearchDossier(new InMemoryResearchDossierStore(), withDossier((dossier) => {
+      named(dossier);
+      dossier.forms.push("Myo-inositol powder");
+      delete dossier.findings[1].form;
+    }));
+    expect(corrected?.disposition.status).toBe("saved");
+  });
+
+  it("explains the ids' format with a shape problem, as adds met it, and never echoes the value", async () => {
+    const refused = await saveResearchDossier(new InMemoryResearchDossierStore(), withDossier((dossier) => {
+      dossier.value.adds = ["F1", "finding three"];
+    }));
+    expect(refused?.disposition).toMatchObject({ status: "insufficient",
+      problems: [{ path: "value.adds[0]", rule: "shape" }, { path: "value.adds[1]", rule: "shape" }] });
+    expect(refused?.disposition.explanations?.shape).toContain("an id, and each reference to one in adds, rests_on, " +
+      "study or search, is a lower-case letter then up to 31 lower-case letters, digits, - or _");
+    expect(JSON.stringify(refused)).not.toContain("finding three");
+    const corrected = await saveResearchDossier(new InMemoryResearchDossierStore(), withDossier((dossier) => {
+      dossier.value.adds = ["f1", "f3"];
+    }));
+    expect(corrected?.disposition.status).toBe("saved");
+  });
+
+  it("explains every rule the checks name, once, however many problems break it", async () => {
+    const outcome = await saveResearchDossier(new InMemoryResearchDossierStore(), withDossier((dossier) => {
+      dossier.findings[0].rests_on = ["r9", "community"];
+      dossier.value.adds = ["f9"];
+      dossier.results[0].id = "s1";
+      dossier.results[0].figure.nnt = 7;
+      dossier.results[1].calculation.from = [6.2, 5];
+      dossier.results[2].figure.option_events = 101;
+      delete dossier.results[3].provenance;
+      delete dossier.studies[5].decision_reason;
+      dossier.studies[2].identifiers = ["not an identifier"];
+      dossier.searches[1].query = "a search not run";
+      dossier.coverage.conflicts = { status: "not_researched" };
+      dossier.coverage.people_reports = { status: "entries" };
+      dossier.studies[3].form = "phytate";
+      dossier.open_trails = ["I take it daily"];
+    }));
+    const disposition = outcome!.disposition!;
+    const rules = [...new Set(disposition.problems!.map(({ rule }) => rule))];
+    expect(rules.length).toBeGreaterThan(12);
+    expect(Object.keys(disposition.explanations!).sort()).toEqual([...rules].sort());
+    for (const rule of rules) {
+      expect(disposition.explanations![rule], rule).toMatch(/^[a-z].{20,}$/u);
+      expect(outcome!.note!.split(`${rule} at `).length - 1, rule).toBe(1);
+    }
+  });
+});
+
 describe("finalize_research saves the dossier of a free contributor's research", () => {
   const IDENTITY_SECRET = new TextEncoder().encode("synthetic-research-identity-secret-with-at-least-thirty-two-bytes");
   const QUOTE = "The liver clears this drug within a few hours.";

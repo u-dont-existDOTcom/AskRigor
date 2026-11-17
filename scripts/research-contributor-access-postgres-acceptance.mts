@@ -492,6 +492,8 @@ async function verify(
     await verifyMenuLearning({ admin, restricted, store, checks });
     // AskRigor#477 stage 1 (owner answer 329a): the private research dossiers (0037).
     await verifyResearchDossiers({ admin, restricted, service, reviewUrl, readerUrl, checks });
+    // 16 Nov 2026: the index for the proposal lookup by idempotency key (0038).
+    await verifyProposalIdempotencyIndex({ admin, store, service, checks });
 
     // Owner answer 143a: a paid private account files only this research's map, and only under the user's yes to the
     // answer's offer. The database stores that finalization receipt's SHA-256, never the receipt, and takes it once;
@@ -1157,6 +1159,133 @@ async function verifyNoticeAcceptance(context: {
   );
   assert(JSON.stringify(after.rows) === JSON.stringify(before.rows), "MIGRATION_0031_RERUN_CHANGED_ROWS");
   checks.push("notice_acceptance_recorded_by_person_or_owner_standing_instruction_cleared_when_stale");
+}
+
+/**
+ * Migration 0038 (16 Nov 2026): the index for the research-access role's lookup of an account's own proposal by its
+ * idempotency key (findOwnProposalByIdempotencyKey), which every server-built analysis runs before it is filed; nine of
+ * them, without it, were cancelled by the role's statement timeout. Applied once and safe to run again; among thousands of
+ * one account's proposals (written in a transaction that is rolled back, so no other check sees them) the lookup's own
+ * query is answered from the index; an earlier image's migrate, every migration but 0038 in one transaction as
+ * migrate() runs them, leaves it in place; and the store's lookup still finds a filed proposal by its key.
+ */
+async function verifyProposalIdempotencyIndex(context: {
+  admin: Pool;
+  store: PostgresResearchContributorAccessStore;
+  service: ResearchContributorAccessService;
+  checks: string[];
+}): Promise<void> {
+  const { admin, store, service, checks } = context;
+  const index = "research_contribution_proposals_idempotency_idx";
+  const applied = await admin.query(`SELECT migration_id FROM ${SCHEMA}.schema_migrations
+    WHERE migration_id = '0038_research_proposal_idempotency_index'`);
+  assert(applied.rowCount === 1, "MIGRATION_0038_NOT_APPLIED");
+  const definition = async () => (await admin.query<{ indexdef: string }>(
+    "SELECT indexdef FROM pg_indexes WHERE schemaname = $1 AND indexname = $2", [SCHEMA, index])).rows
+    .map(({ indexdef }) => indexdef);
+  const original = await definition();
+  assert(original.length === 1 &&
+    original[0]!.includes("(account_key, proposal_kind, ((payload_json ->> 'idempotencyKey'::text)))") &&
+    original[0]!.includes("WHERE (status = ANY (ARRAY['PENDING_REVIEW'::text, 'ACCEPTED'::text, 'REJECTED'::text]))"),
+  "PROPOSAL_IDEMPOTENCY_INDEX_DEFINITION");
+  const migrationsDirectory = resolve("packages/evidence-repository/migrations");
+  const migration = (await readFile(resolve(migrationsDirectory, "0038_research_proposal_idempotency_index.sql"), "utf8"))
+    .replaceAll("__SCHEMA__", SCHEMA);
+  await admin.query(migration);
+  await admin.query(migration);
+  assert(isDeepStrictEqual(await definition(), original), "PROPOSAL_IDEMPOTENCY_INDEX_NOT_IDEMPOTENT");
+  checks.push("proposal_idempotency_index_0038_applied_and_safe_to_run_again");
+
+  // The lookup's own query, as the store sends it, among 3,000 proposals of one free contributor.
+  const subject = "auth0|synthetic-postgres-idempotency-index-user";
+  await service.acceptFreeContributor(subject, FREE_AGREEMENT);
+  const accountKey = service.accountKeyForSubject(subject);
+  const source = await readFile(resolve("packages/evidence-repository/src/research-contributor-access.ts"), "utf8");
+  const lookupSource = source.slice(source.lastIndexOf("async findOwnProposalByIdempotencyKey("));
+  const lookupSql = /`(SELECT \$\{PROPOSAL_COLUMNS\}[\s\S]*?LIMIT 1)`/u.exec(lookupSource)?.[1]
+    ?.replace("${PROPOSAL_COLUMNS}", "proposal_id").replace("${this.schema}", SCHEMA);
+  assert(lookupSql?.includes("payload_json ->> 'idempotencyKey' = $3") === true, "PROPOSAL_LOOKUP_SQL_NOT_FOUND");
+  const client = await admin.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `INSERT INTO ${SCHEMA}.research_contribution_proposals
+        (proposal_id, account_key, proposal_kind, payload_sha256, payload_json, privacy_boundary_json, partial, status,
+         created_at)
+       SELECT gen_random_uuid(), $1, 'SOURCE_ANALYSIS', encode(sha256(convert_to('idempotency-index:' || n, 'UTF8')), 'hex'),
+              jsonb_build_object('idempotencyKey', 'study-audit:synthetic-' || n, 'analysis', repeat(md5(n::text), 60)),
+              '{}'::jsonb, false, 'PENDING_REVIEW', now() - make_interval(mins => n)
+         FROM generate_series(1, 3000) AS n`,
+      [accountKey],
+    );
+    await client.query(`ANALYZE ${SCHEMA}.research_contribution_proposals`);
+    const plan = JSON.stringify((await client.query(`EXPLAIN (FORMAT JSON) ${lookupSql}`,
+      [accountKey, "SOURCE_ANALYSIS", "study-audit:not-filed-yet"])).rows);
+    assert(plan.includes(`"Index Name":"${index}"`), "PROPOSAL_LOOKUP_DOES_NOT_USE_INDEX");
+    assert(!plan.includes('"Node Type":"Seq Scan"'), "PROPOSAL_LOOKUP_SCANS_THE_TABLE");
+    const found = await client.query<{ proposal_id: string }>(lookupSql!, [accountKey, "SOURCE_ANALYSIS",
+      "study-audit:synthetic-1234"]);
+    assert(found.rowCount === 1, "PROPOSAL_LOOKUP_THROUGH_INDEX_MISSED_ITS_ROW");
+  } finally {
+    await client.query("ROLLBACK");
+    client.release();
+  }
+  checks.push("proposal_lookup_by_idempotency_key_answered_from_the_0038_index");
+
+  // An earlier image (bc71b90e and before) runs its own migrations, every one but 0038, in one transaction, and checks
+  // each one's recorded digest: the index stays, unchanged.
+  const earlier = (await readdir(migrationsDirectory))
+    .filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/u.test(name) && !name.endsWith("_down.sql") &&
+      name !== "0038_research_proposal_idempotency_index.sql")
+    .sort();
+  assert(earlier.at(-1) === "0037_research_dossiers.sql", "EARLIER_IMAGE_MIGRATION_LIST");
+  const migrator = await admin.connect();
+  try {
+    await migrator.query("BEGIN");
+    for (const name of earlier) {
+      const sql = await readFile(resolve(migrationsDirectory, name), "utf8");
+      await migrator.query(sql.replaceAll("__SCHEMA__", SCHEMA));
+      const recorded = await migrator.query<{ migration_sha256: string }>(
+        `SELECT migration_sha256 FROM ${SCHEMA}.schema_migrations WHERE migration_id = $1`, [name.replace(/\.sql$/u, "")]);
+      assert(recorded.rows[0]?.migration_sha256 === createHash("sha256").update(sql).digest("hex"),
+        `EARLIER_IMAGE_MIGRATION_DIGEST_${name}`);
+    }
+    await migrator.query("COMMIT");
+  } catch (error) {
+    await migrator.query("ROLLBACK");
+    throw error;
+  } finally {
+    migrator.release();
+  }
+  assert(isDeepStrictEqual(await definition(), original), "EARLIER_IMAGE_MIGRATE_CHANGED_THE_INDEX");
+  // The store, as the research-access role, files a proposal and its own lookup finds it by its key, the same code an
+  // earlier image runs (research-contributor-access.ts is unchanged by 0038).
+  const prepared = prepareResearchContributionProposal("SOURCE_ANALYSIS", livingEvidenceFixture("idempotency-index-store"));
+  const key = prepared.payload.idempotencyKey;
+  const proposalId = deterministicUuid("idempotency-index:filed-through-the-store");
+  const inserted = await store.insertProposal({
+    proposalId,
+    accountKey,
+    proposalKind: "SOURCE_ANALYSIS",
+    payloadSha256: prepared.payloadSha256,
+    payload: prepared.payload,
+    privacyBoundary: PRIVACY_BOUNDARY,
+    partial: prepared.partial,
+    status: "PENDING_REVIEW",
+    createdAt: NOW,
+    reviewedAt: null,
+    reviewReason: null,
+    supersedesProposalId: null,
+    consentReceiptSha256: null,
+  });
+  assert(inserted.status === "inserted", "STORE_INSERT_WITH_INDEX_FAILED");
+  const record = await store.findOwnProposalByIdempotencyKey(accountKey, "SOURCE_ANALYSIS", key);
+  assert(record?.proposalId === proposalId, "STORE_LOOKUP_MISSED_ITS_PROPOSAL");
+  assert(await store.findOwnProposalByIdempotencyKey(accountKey, "SOURCE_ANALYSIS", "study-audit:never-filed") === null,
+    "STORE_LOOKUP_FOUND_AN_UNFILED_KEY");
+  // Gone again, so no later check counts it.
+  await admin.query(`DELETE FROM ${SCHEMA}.research_contribution_proposals WHERE proposal_id = $1`, [proposalId]);
+  checks.push("earlier_image_migrate_keeps_the_0038_index_and_the_store_lookup_still_finds_by_key");
 }
 
 const PROMOTION_SUBJECT = "auth0|synthetic-postgres-promotion-user";
