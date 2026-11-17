@@ -2124,6 +2124,8 @@ function defineResearchOperations(
       askrigorHolds: ASKRIGOR_HOLDS,
       // AskRigor#477 stage 1: plan_research asks for the research dossier where one can be saved.
       ...(options.researchDossiers === undefined ? {} : { researchDossiers: true }),
+      // AskRigor#477 stage 2: stage 2's declarations in the shape only while public dossiers are on.
+      ...(options.researchDossierPublisher === undefined ? {} : { publicDossiers: true }),
       ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
       ...(sharing === undefined ? {} : { sharedAnswers: { ...sharing, versions: async () =>

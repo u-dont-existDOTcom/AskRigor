@@ -59,7 +59,7 @@ import { NAMED_VIDEOS_SIGNED, namedVideoIdsIn, researchMapSavedLine } from "./fi
 import {
   RESEARCH_DOSSIER_GUARDS,
   RESEARCH_DOSSIER_REQUEST,
-  RESEARCH_DOSSIER_SHAPE,
+  researchDossierShape,
   researchDossierAllowed,
 } from "./findings/dossier.js";
 import {
@@ -577,6 +577,11 @@ export interface ResearchContributorToolOptions {
   askrigorHolds?: AskRigorHoldsOptions;
   /** AskRigor#477 stage 1: research dossiers are saved (ASKRIGOR_RESEARCH_DOSSIERS), so plan_research may ask for one. */
   researchDossiers?: boolean;
+  /**
+   * AskRigor#477 stage 2: public dossiers are on (ASKRIGOR_PUBLIC_DOSSIERS), so the dossier's shape asks for stage 2's
+   * declarations too; otherwise it is stage 1's as released.
+   */
+  publicDossiers?: boolean;
 }
 
 export interface ResearchMapOptions {
@@ -1108,7 +1113,8 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         const learning = devAccount && options.researchPlanner?.()?.enabled === true
           ? { log: options.log ?? defaultLog } : undefined;
         return await planResearchAction(options.service, auth.subject, parsed.researchMenu!, options.plainAnswer,
-          options.menuDigestSecret?.(), devAccount, learning, options.researchDossiers === true, findingsSaveOff(parsed));
+          options.menuDigestSecret?.(), devAccount, learning, options.researchDossiers === true, findingsSaveOff(parsed),
+          options.publicDossiers === true);
       }
       if (parsed.action === "set_plain_answer_note") {
         return await setPlainAnswerNote(options.service, auth.subject, parsed.plainAnswerNote!, options.plainAnswer);
@@ -1786,6 +1792,8 @@ async function planResearchAction(
   // findings_save "off", which asks for none.
   dossiers = false,
   callSavingOff = false,
+  // AskRigor#477 stage 2: public dossiers are on, so the shape asks for stage 2's declarations.
+  publicDossiers = false,
 ): Promise<CallToolResult> {
   const account = await service.activeAccount(subject);
   const accountKey = service.accountKeyForSubject(subject);
@@ -1863,7 +1871,8 @@ async function planResearchAction(
   return {
     content: [{ type: "text", text },
       ...(dossierRequest
-        ? [{ type: "text" as const, text: `${RESEARCH_DOSSIER_REQUEST} ${RESEARCH_DOSSIER_SHAPE} ${RESEARCH_DOSSIER_GUARDS}` }]
+        ? [{ type: "text" as const, text: `${RESEARCH_DOSSIER_REQUEST} ${researchDossierShape(publicDossiers)} ` +
+          RESEARCH_DOSSIER_GUARDS }]
         : [])],
     structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
       ok: true,
@@ -1872,7 +1881,7 @@ async function planResearchAction(
       next_step: planNextStep(result, learnMode),
       ...(youDecide === undefined ? {} : { you_decide_later_inputs: youDecide }),
       ...(dossierRequest ? { research_dossier_request: { instruction: RESEARCH_DOSSIER_REQUEST,
-        shape: RESEARCH_DOSSIER_SHAPE, guards: RESEARCH_DOSSIER_GUARDS } } : {}),
+        shape: researchDossierShape(publicDossiers), guards: RESEARCH_DOSSIER_GUARDS } } : {}),
     }),
   };
 }

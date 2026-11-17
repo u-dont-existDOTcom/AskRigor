@@ -37,6 +37,8 @@ import { createJwtOAuthResourceServer } from "../apps/research-mcp/src/oauth-res
 import {
   RESEARCH_DOSSIER_SHAPE,
   researchDossierLine,
+  researchDossierReminder,
+  researchDossierShape,
   saveResearchDossier,
   type ResearchDossierSaveRequest,
 } from "../apps/research-mcp/src/findings/dossier.js";
@@ -165,6 +167,18 @@ function request(overrides: Partial<ResearchDossierSaveRequest> & { value?: Reco
   };
 }
 
+/** The fixture as stage 1 (released under notice 6) takes it: none of stage 2's declarations. */
+function stage1Dossier(change: (value: Record<string, any>) => void = () => undefined): Record<string, any> {
+  return dossier((value) => {
+    delete value.value.confidence;
+    delete value.names_living_people;
+    delete value.topic.related;
+    for (const study of value.studies) delete study.participants;
+    for (const result of value.results) delete result.group_sizes;
+    change(value);
+  });
+}
+
 function stores() {
   const dossiers = new InMemoryResearchDossierStore();
   const publications = new InMemoryResearchDossierPublications({ dossiers });
@@ -180,9 +194,33 @@ describe("a saved dossier's public copy (332a: the researching AI's own judgemen
     expect(RESEARCH_USE_NOTICE_VERSION).toBe("free-contributor-v6-2026-11-15");
   });
 
+  // Codex's review, finding 6: with the setting off, stage 1 stays exactly as released under notice 6.
+  it("keeps stage 1 as released while public dossiers are off: no stage 2 field, no connector record, no new guidance",
+    async () => {
+      const { dossiers } = stores();
+      const refused = await saveResearchDossier(dossiers, request());
+      expect(refused?.disposition).toMatchObject({ status: "insufficient", reason: "checks_failed" });
+      // Each unknown key is refused where it stands, as released stage 1 refuses any key it does not know.
+      expect(refused?.disposition?.problems).toEqual([{ path: "value", rule: "shape" }, { path: "topic", rule: "shape" },
+        { path: "studies[1]", rule: "shape" }, { path: "studies[3]", rule: "shape" }, { path: "studies[4]", rule: "shape" },
+        { path: "research_dossier", rule: "shape" }]);
+      const saved = await saveResearchDossier(dossiers, request({ value: stage1Dossier() }));
+      expect(saved?.disposition?.status).toBe("saved");
+      const [version] = dossiers.snapshot();
+      const stored = await dossiers.readVersion(ACCOUNT, version!.versionId);
+      expect(Object.keys((stored!.payload as { stamp: Record<string, unknown> }).stamp)).not.toContain("origin");
+      expect(stored!.payload).not.toHaveProperty("names_living_people");
+      for (const text of [RESEARCH_DOSSIER_SHAPE, researchDossierShape(false)]) {
+        expect(text).not.toMatch(/confidence|names_living_people|group_sizes|participants|topic\.related|runner/u);
+      }
+      expect(researchDossierShape(true)).toContain("value.confidence (high, moderate or low");
+      expect(researchDossierReminder(false)).not.toMatch(/confidence|names_living_people|group_sizes/u);
+      expect(researchDossierReminder(true)).toContain("names_living_people");
+    });
+
   it("publishes nothing without a publisher, and nothing for a notice that does not cover public dossiers", async () => {
     const { dossiers, publications } = stores();
-    const off = await saveResearchDossier(dossiers, request());
+    const off = await saveResearchDossier(dossiers, request({ value: stage1Dossier() }));
     expect(off?.disposition.status).toBe("saved");
     expect(off?.disposition.publication).toBeUndefined();
     expect(researchDossierLine(off!.disposition)).toContain("it is not public.");
@@ -489,11 +527,12 @@ describe("the owner's dossier actions (runtime only)", () => {
 
 describe("the dossier's shape and migration 0040", () => {
   it("asks for the public declarations in the shape, without saying anything goes public", () => {
-    expect(RESEARCH_DOSSIER_SHAPE).toContain("value.confidence (high, moderate or low");
-    expect(RESEARCH_DOSSIER_SHAPE).toContain("names_living_people (true when any text makes a claim about a named living person");
-    expect(RESEARCH_DOSSIER_SHAPE).toContain("each comparing result's group_sizes ({option, comparator}");
+    const shape = researchDossierShape(true);
+    expect(shape).toContain("value.confidence (high, moderate or low");
+    expect(shape).toContain("names_living_people (true when any text makes a claim about a named living person");
+    expect(shape).toContain("each comparing result's group_sizes ({option, comparator}");
     // Under notice v6 a dossier is private; the shape asks for what a page would need without promising a page.
-    expect(RESEARCH_DOSSIER_SHAPE).not.toMatch(/Atlas|published|shown on/u);
+    expect(shape).not.toMatch(/Atlas|published|shown on/u);
   });
 
   it("ships a migration that publishes nothing until a notice is listed, and gives the reader only two views", async () => {
