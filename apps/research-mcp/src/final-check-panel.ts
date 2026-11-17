@@ -65,7 +65,8 @@ export function inlineFinalCheckAppBundle(bundle: string): string {
 // Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026; owner answer 338a: "every other break is shown to the reader"): with
 // the findings ledger on, under a passing check one closed line opens the problems the check found that the answer
 // leaves open, each with its id: not fixed, or disputed with the AI's reason. Problems about the call itself are left
-// out; at most 20 are listed.
+// out; at most 20 are listed. Below it, one line counts the earlier problems this check did not look for again, so the
+// reader sees they were not shown as fixed (Codex's re-review of 17 Nov 2026), even when none is listed above.
 export const FINAL_CHECK_PANEL_RENDER_SOURCE = String.raw`
 const COMPLETE_CHECKS_TIP = ${JSON.stringify(COMPLETE_CHECKS_TIP)};
 const CHECK_SCOPE = ${JSON.stringify(FINAL_CHECK_PANEL_SCOPE)};
@@ -200,10 +201,12 @@ function renderFinalCheck(doc, structuredContent) {
       for (const limit of strings(result.limits)) appendText("li", limit, list);
       checked.appendChild(list);
     }
-    const findings = result.check_findings && typeof result.check_findings === "object" &&
+    const listed = result.check_findings && typeof result.check_findings === "object" &&
       Array.isArray(result.check_findings.findings) ? result.check_findings.findings.filter((entry) => entry &&
-        entry.reader === true && typeof entry.id === "string" && typeof entry.text === "string" &&
-        (entry.disposition === "open" || entry.disposition === "unresolved" || entry.disposition === "disputed")) : [];
+        entry.reader === true && typeof entry.id === "string") : [];
+    const findings = listed.filter((entry) => typeof entry.text === "string" &&
+      (entry.disposition === "open" || entry.disposition === "unresolved" || entry.disposition === "disputed"));
+    const unchecked = listed.filter((entry) => entry.disposition === "not_rechecked").length;
     if (findings.length > 0) {
       const open = fold("Problems AskRigor's check found that this answer leaves open (" + findings.length + ")");
       appendText("p", FINDINGS_LEAD, open);
@@ -216,6 +219,10 @@ function renderFinalCheck(doc, structuredContent) {
       }
       if (findings.length > 20) appendText("li", "And " + (findings.length - 20) + " more.", list);
       open.appendChild(list);
+    }
+    if (unchecked > 0) {
+      appendText("p", unchecked === 1 ? "1 earlier finding was not checked again."
+        : unchecked + " earlier findings were not checked again.");
     }
   }
   if (result.status === "stopped") {

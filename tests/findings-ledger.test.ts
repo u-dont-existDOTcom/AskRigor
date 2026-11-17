@@ -715,6 +715,27 @@ describe("the panel", () => {
       .textContent).not.toContain(OPENING);
   });
 
+  it("counts the earlier findings the reader could see that were not checked again, with or without open ones", () => {
+    const unchecked = [
+      { id: "F-0000000006", disposition: "not_rechecked", reader: true, first_revision: 1, last_revision: 1 },
+      { id: "F-0000000007", disposition: "not_rechecked", reader: true, first_revision: 1, last_revision: 1 },
+      { id: "F-0000000008", disposition: "not_rechecked", reader: false, first_revision: 1, last_revision: 1 },
+    ];
+    const both = render({ status: "ready", check_findings: { ledger: "continued", revision: 2,
+      findings: [...findings, ...unchecked] } });
+    expect(both.textContent).toContain(`${OPENING} (2)`);
+    expect(both.all("p").map(({ textContent }) => textContent)).toContain("2 earlier findings were not checked again.");
+    // With no open finding, the line is still shown.
+    const alone = render({ status: "ready_with_limits", limits: [], check_findings: { ledger: "continued", revision: 2,
+      findings: unchecked.slice(1) } });
+    expect(alone.textContent).not.toContain(OPENING);
+    expect(alone.all("p").map(({ textContent }) => textContent)).toContain("1 earlier finding was not checked again.");
+    expect(render({ status: "not_ready", check_findings: { ledger: "continued", revision: 2, findings: unchecked } })
+      .textContent).not.toContain("not checked again");
+    expect(render({ status: "ready", check_findings: { ledger: "continued", revision: 2, findings: unchecked.slice(2) } })
+      .textContent).not.toContain("not checked again");
+  });
+
   it("lists at most twenty, and says how many more", () => {
     const many = Array.from({ length: 23 }, (_, index) => ({ ...findings[0]!, id: `F-${String(index).padStart(10, "0")}` }));
     const root = render({ status: "ready_with_limits", limits: [], check_findings: { ledger: "new", revision: 1,
