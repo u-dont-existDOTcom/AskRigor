@@ -320,7 +320,8 @@ describe("publishing at the save", () => {
   const CONTEXT = (account?: FindingsSaveAccount): FindingsSaveContext =>
     ({ surface: "/mcp/claude", toolCatalogSha256: "c".repeat(64), ...(account === undefined ? {} : { account }) });
 
-  function harness(store: AtlasPublicationStore = new InMemoryAtlasPublicationStore(), sourceTitles?: AtlasSourceTitleLookup) {
+  function harness(store: AtlasPublicationStore = new InMemoryAtlasPublicationStore(), sourceTitles?: AtlasSourceTitleLookup,
+    publisher: { showOnPages?: boolean } = {}) {
     const github = new FakeGitHub();
     const service = new FindingsSaveService({
       receiptSecret: () => SECRET,
@@ -334,7 +335,8 @@ describe("publishing at the save", () => {
       version: "0.1.0",
       build: "0123abc",
       now: () => NOW,
-      publisher: new AtlasCardPublisher({ store, now: () => NOW, ...(sourceTitles === undefined ? {} : { sourceTitles }) }),
+      publisher: new AtlasCardPublisher({ store, now: () => NOW, ...(sourceTitles === undefined ? {} : { sourceTitles }),
+        ...publisher }),
     });
     const save = (card: object, account: FindingsSaveAccount | undefined, thread = "1", receiptClaims: object = {}) => {
       const parsed = findingsCardSchema.parse(card);
@@ -431,6 +433,37 @@ describe("publishing at the save", () => {
     ]);
     await h.store.keep({ publicationNumbers: ["P-1001"], atlasNumbers: [], keep: false, reason: null, at: NOW.toISOString() });
     expect((await h.store.inspectKept()).map(({ publicationNumber }) => publicationNumber)).toEqual(["P-1002"]);
+  });
+
+  it("shows a saved finding at once, unreviewed, while saved findings show on the pages (the owner, 17 Nov 2026)", async () => {
+    const h = harness(undefined, undefined, { showOnPages: true });
+    let kept = 0;
+    const keep = h.store.keep.bind(h.store);
+    h.store.keep = async (input) => { kept += 1; return await keep(input); };
+    await expect(h.save(VELMOR_CARD, FREE)).resolves.toMatchObject({ status: "saved", card_id: "ARF-0042" });
+    await h.service.publicationsSettled();
+    expect((await h.store.inspect({})).map(({ publicationNumber, state }) => [publicationNumber, state]))
+      .toEqual([["P-1002", "unreviewed"], ["P-1001", "unreviewed"]]);
+    expect(await h.store.inspectKept()).toEqual([]);
+    expect(kept).toBe(0);
+    // The owner's own actions are as before: keep_for_research keeps it, and show_on_pages shows it again.
+    await h.store.keep({ publicationNumbers: ["P-1001"], atlasNumbers: [], keep: true, reason: "owner's choice",
+      at: NOW.toISOString() });
+    expect((await h.store.inspectKept()).map(({ publicationNumber }) => publicationNumber)).toEqual(["P-1001"]);
+  });
+
+  it("still holds what is held, and publishes nothing of a paid private card, while saved findings show", async () => {
+    const reference = { ...VELMOR_CARD, findings: [{ ...VELMOR_CARD.findings[0]!, why_not_usual: "As ARF-0142 also found." }] };
+    const held = harness(undefined, undefined, { showOnPages: true });
+    await held.save(reference, FREE);
+    await held.service.publicationsSettled();
+    expect((await held.store.inspect({})).map(({ state, heldBecause }) => [state, heldBecause]))
+      .toEqual([["held", ["card_reference"]]]);
+    expect(await held.store.inspectKept()).toEqual([]);
+    const paid = harness(undefined, undefined, { showOnPages: true });
+    await expect(paid.save(VELMOR_CARD, { mode: "PAID_PRIVATE", noticeVersion: null })).resolves.toMatchObject({ status: "saved" });
+    await paid.service.publicationsSettled();
+    expect(await paid.store.inspect({})).toEqual([]);
   });
 
   it("keeps nothing that is held, and a failed keep changes nothing about the save", async () => {
