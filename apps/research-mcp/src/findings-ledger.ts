@@ -38,7 +38,7 @@ export const FINDINGS_LEDGER_MEMORY_MS = 2 * 60 * 60 * 1000;
 const FINDINGS_LEDGER_MEMORY_ENTRIES = 2_000;
 /**
  * The most findings a ledger may name. What one token carries is bounded by its size (FINDINGS_LEDGER_MAX_CHARACTERS),
- * which holds a few hundred; this only bounds what a token is read for.
+ * which holds a few hundred whole records, or about a thousand short ones; this only bounds what a token is read for.
  */
 const MAX_ENTRIES = 2_000;
 const MAX_RESPONSES = 30;
@@ -136,7 +136,8 @@ const payloadSchema = z.object({
   d: z.union([hex(16), z.literal("")]),
   at: z.iso.datetime(),
   e: z.array(entrySchema).max(MAX_ENTRIES),
-  // Codex's review of 17 Nov 2026, finding 5: how many open findings of this check the token could not carry.
+  // Codex's review of 17 Nov 2026, finding 5, and its re-review, finding 3: the most open findings a ledger of this
+  // research has had to leave out at once, kept by every ledger after it.
   o: z.number().int().min(1).max(100_000).optional()
 }).strict()
   // Codex's review of 17 Nov 2026, finding 4: one id names one finding, so a response addresses exactly one.
@@ -197,34 +198,43 @@ export function issueFindingsLedger(payload: FindingsLedgerPayload, secret: stri
 }
 
 /**
- * The token of a payload, within FINDINGS_LEDGER_MAX_CHARACTERS: open findings first, then settled ones, the newest
- * first. What doesn't fit is left out from the end, settled findings before any open one, and returned, so the caller
- * says what the token does not carry (Codex's review of 17 Nov 2026, finding 5).
+ * The token of a payload, within FINDINGS_LEDGER_MAX_CHARACTERS: open findings first, then settled ones. What doesn't
+ * fit is made smaller in steps, each taken only when the one before is not enough (Codex's review of 17 Nov 2026,
+ * finding 5, and its re-review, finding 3): settled findings are left out from the end; then open findings from the
+ * end are kept as short records, with their id, disposition and reason but nothing to match them through an edit;
+ * then short records are left out from the end. `beyond`, findings past MAX_ENTRIES, are never carried. What is left
+ * out is returned, so the caller says what the token does not carry, and the token keeps the most open findings a
+ * ledger of this research has left out at once (`o`).
  */
-function issueWithin(payload: FindingsLedgerPayload, secret: string):
+function issueWithin(payload: FindingsLedgerPayload, secret: string, beyond: readonly LedgerEntry[] = []):
   { token: string; payload: FindingsLedgerPayload; left: LedgerEntry[] } | undefined {
-  const checked = payloadSchema.parse(payload);
-  const ordered = [...checked.e.filter(({ d }) => !SETTLED.has(d)), ...checked.e.filter(({ d }) => SETTLED.has(d))];
-  const attempt = (count: number) => {
-    const left = ordered.slice(count);
-    const { o: before, ...rest } = checked;
-    const o = (before ?? 0) + left.filter(({ d }) => !SETTLED.has(d)).length;
-    const kept: FindingsLedgerPayload = { ...rest, e: ordered.slice(0, count),
-      ...(o === 0 ? {} : { o: Math.min(o, 100_000) }) };
+  const { o: before, ...rest } = payloadSchema.parse(payload);
+  const open = rest.e.filter(({ d }) => !SETTLED.has(d));
+  const settled = rest.e.filter(({ d }) => SETTLED.has(d));
+  const openBeyond = beyond.filter(({ d }) => !SETTLED.has(d));
+  const attempt = (full: number, short: number, settledKept: number) => {
+    const left = [...open.slice(short), ...openBeyond, ...settled.slice(settledKept),
+      ...beyond.filter(({ d }) => SETTLED.has(d))];
+    const o = Math.min(Math.max(before ?? 0, open.length - short + openBeyond.length), 100_000);
+    const kept: FindingsLedgerPayload = { ...rest, e: [...open.slice(0, full), ...open.slice(full, short).map(shortEntry),
+      ...settled.slice(0, settledKept)], ...(o === 0 ? {} : { o }) };
     const body = `fl1~${deflateRawSync(Buffer.from(JSON.stringify(kept))).toString("base64url")}`;
     const token = `${body}~${mac(body, secret).toString("base64url")}`;
     return token.length <= FINDINGS_LEDGER_MAX_CHARACTERS ? { token, payload: kept, left } : undefined;
   };
-  const all = attempt(ordered.length);
-  if (all !== undefined) return all;
-  // The most entries that fit, found in a few tries rather than one per entry left out.
-  let fits = 0;
-  let over = ordered.length;
-  while (over - fits > 1) {
-    const middle = Math.floor((fits + over) / 2);
-    if (attempt(middle) !== undefined) fits = middle; else over = middle;
-  }
-  return attempt(fits);
+  // The most of something that fits, found in a few tries rather than one per entry left out; `fits` fits.
+  const most = (fits: number, over: number, tried: (count: number) => ReturnType<typeof attempt>) => {
+    while (over - fits > 1) {
+      const middle = Math.floor((fits + over) / 2);
+      if (tried(middle) !== undefined) fits = middle; else over = middle;
+    }
+    return tried(fits);
+  };
+  const all = open.length;
+  return attempt(all, all, settled.length) ??
+    (attempt(all, all, 0) === undefined ? undefined : most(0, settled.length, (count) => attempt(all, all, count))) ??
+    (attempt(0, all, 0) === undefined ? undefined : most(0, all, (count) => attempt(count, all, 0))) ??
+    (attempt(0, 0, 0) === undefined ? undefined : most(0, all, (count) => attempt(0, count, 0)));
 }
 
 export type FindingsLedgerVerification =
@@ -430,10 +440,20 @@ function fingerprinted(secret: string, finding: ObservedFinding): Fingerprinted 
   };
 }
 
-/** A settled finding as the ledger keeps it: no rule, sketch, identifiers or reason, which only an open one uses. */
-function settledEntry({ id, f, d, n, l, k, s, c, x }: LedgerEntry): LedgerEntry {
+/**
+ * An open finding as a short record, when the ledger can't carry it whole (Codex's re-review of 17 Nov 2026, finding
+ * 3): its id, disposition, reason and what it was about are kept, and a check that finds it again unchanged finds it;
+ * its rule, sketch and identifiers, which only match it through an edit, are not.
+ */
+function shortEntry({ id, f, d, n, l, k, s, c, w, x, u }: LedgerEntry): LedgerEntry {
   return { id, f, d, n, l, ...(k === undefined ? {} : { k }), ...(s === undefined ? {} : { s }),
-    ...(c === undefined ? {} : { c }), ...(x === undefined ? {} : { x }) };
+    ...(c === undefined ? {} : { c }), ...(w === undefined ? {} : { w }), ...(x === undefined ? {} : { x }),
+    ...(u === undefined ? {} : { u }) };
+}
+/** A settled finding as the ledger keeps it: no rule, sketch, identifiers, reason or items, which only an open one uses. */
+function settledEntry(entry: LedgerEntry): LedgerEntry {
+  const { w: _reason, u: _items, ...kept } = shortEntry(entry);
+  return kept;
 }
 
 /** How much two findings' inserted words overlap, from their sketches (the smallest word digests of each). */
@@ -723,9 +743,11 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
       notes.push(`later_inputs.finding_responses names ${id}, which is not a finding of this research's ledger.`);
     }
   }
+  // Codex's re-review of 17 Nov 2026, finding 3: said at every check after a ledger left open findings out, not only
+  // the next, since what they were is lost.
   if (previous?.o !== undefined) {
-    notes.push(`The findings_ledger this check continued from could not carry ${previous.o} open findings of the ` +
-      "check before it; any of them found again here is listed as open, with no reply or disposition it had.");
+    notes.push(`An earlier findings_ledger of this research could not carry ${previous.o} open findings, so this ` +
+      "ledger may lack their dispositions: a check that finds one again lists it as open.");
   }
   // Every finding of this check is listed in check_findings, so each is addressable by its id; the token carries as
   // many as fit, open ones first, and says how many open ones it leaves out (Codex's review, finding 5).
@@ -734,17 +756,16 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     rev: Math.min(revision, 10_000), d: draftDigest || previous?.d || "",
     // A retry is given the ledger it was given the first time, token for token.
     at: retry && remembered !== undefined ? remembered.payload.at : now.toISOString(),
-    e: entries.slice(0, MAX_ENTRIES)
-  }, secret);
+    e: entries.slice(0, MAX_ENTRIES), ...(previous?.o === undefined ? {} : { o: previous.o })
+  }, secret, entries.slice(MAX_ENTRIES));
   const leftOpen = (issued?.left ?? entries).filter(({ d }) => !SETTLED.has(d)).map(({ id }) => id);
   const leftSettled = (issued?.left ?? entries).length - leftOpen.length;
   if (leftOpen.length > 0) {
     const open = entries.filter(({ d }) => !SETTLED.has(d)).length;
     notes.push(`The findings_ledger carries ${open - leftOpen.length} of this research's ${open} open findings, all ` +
-      `it can hold; the other ${leftOpen.length} (${joinIds(leftOpen.slice(0, 20))}` +
+      `it can hold. The other ${leftOpen.length} (${joinIds(leftOpen.slice(0, 20))}` +
       `${leftOpen.length > 20 ? ` and ${leftOpen.length - 20} more` : ""}) are listed in check_findings but not ` +
-      "carried, so a reply to one of them, or its disposition, reaches the next check only if that check finds it " +
-      "again unchanged.");
+      "carried: a check that finds one again lists it as open, without its disposition.");
   }
   if (leftSettled > 0) {
     notes.push(`The findings_ledger no longer carries ${leftSettled} finding${leftSettled === 1 ? "" : "s"} settled ` +

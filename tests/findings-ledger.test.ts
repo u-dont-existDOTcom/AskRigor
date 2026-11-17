@@ -485,19 +485,20 @@ describe("the review of 17 Nov 2026", () => {
     expect(entriesOf(result.token)).toHaveLength(65);
     const text = findingsLedgerGuidance(result.checkFindings, result.token);
     for (const { id } of result.checkFindings.findings) expect(text).toContain(`- ${id} `);
-    // More than one token can hold: all listed, the token carries as many as fit, and the rest are named.
-    // Each with as many distinct words as a real note, so each record carries a full sketch.
-    const many = Array.from({ length: 400 }, (_, index) => note(`Distinct finding ${Array.from({ length: 20 }, (_, word) =>
+    // More than one token can hold, even as short records (the re-review of 17 Nov 2026, finding 3): all listed, the
+    // token carries as many as fit, and the rest are named. Each with as many distinct words as a real note, so each
+    // record carries a full sketch.
+    const many = Array.from({ length: 1_500 }, (_, index) => note(`Distinct finding ${Array.from({ length: 20 }, (_, word) =>
       `w${((index + 1) * (word + 7_919) * 104_729).toString(36)}`).join(" ")}`));
     const big = findingsLedger(params({ observed: many }));
-    expect(big.checkFindings.findings).toHaveLength(400);
+    expect(big.checkFindings.findings).toHaveLength(1_500);
     expect(big.token!.length).toBeLessThanOrEqual(24_000);
     const carried = entriesOf(big.token);
     expect(carried.length).toBeGreaterThan(60);
-    expect(carried.length).toBeLessThan(400);
+    expect(carried.length).toBeLessThan(1_500);
     const left = big.checkFindings.findings.filter(({ id }) => !carried.some((entry) => entry.id === id));
     const said = big.notes.join(" ");
-    expect(said).toContain(`carries ${carried.length} of this research's 400 open findings`);
+    expect(said).toContain(`carries ${carried.length} of this research's 1500 open findings`);
     expect(said).toContain(left[0]!.id);
     // The next check, continuing from that ledger, says the ledger it was given was incomplete.
     const next = findingsLedger(params({ observed: many.slice(0, 10), raw: { later_inputs: { findings_ledger: big.token } } }));
@@ -612,6 +613,42 @@ describe("the re-review of 17 Nov 2026", () => {
     const again = findingsLedger(params({ observed: [draftNote(WARNING)],
       raw: { later_inputs: { findings_ledger: skipped.token } } }));
     expect(again.checkFindings.findings[0]).toMatchObject({ id, disposition: "disputed", reason });
+  });
+
+  // Each with as many distinct words as a real note, so each record carries a full sketch.
+  const distinct = (count: number) => Array.from({ length: count }, (_, index) => note(`Distinct finding ${Array.from(
+    { length: 20 }, (_, word) => `w${((index + 1) * (word + 7_919) * 104_729).toString(36)}`).join(" ")}`));
+  const entriesOf = (token: string | undefined) => {
+    const verified = verifyFindingsLedger(token, SECRET);
+    return verified.ok ? verified.payload.e : [];
+  };
+
+  it("3: carries every open finding of a large check, and keeps saying so when a ledger could not", () => {
+    const memory = createFindingsLedgerMemory();
+    const key = findingsLedgerMemoryKey(SECRET, "acct-a", "A research target");
+    const at = NOW.getTime();
+    const many = distinct(400);
+    const big = findingsLedger(params({ observed: many }));
+    memory.update(key, () => big.remember, at);
+    expect(big.token!.length).toBeLessThanOrEqual(24_000);
+    expect(entriesOf(big.token)).toHaveLength(400);
+    // A dispute of the last finding listed, then the same check again: the dispute stays.
+    const last = big.checkFindings.findings.at(-1)!.id;
+    const reason = "The note restates the guideline the answer quotes.";
+    const disputed = findingsLedger(params({ observed: many, remembered: memory.get(key, at), raw: { later_inputs: {
+      findings_ledger: big.token, finding_responses: [{ id: last, response: "disputed", reason }] } } }));
+    memory.update(key, () => disputed.remember, at);
+    expect(disputed.checkFindings.findings.find(({ id }) => id === last)).toMatchObject({ disposition: "disputed", reason });
+    const unchanged = findingsLedger(params({ observed: many, remembered: memory.get(key, at),
+      raw: { later_inputs: { findings_ledger: disputed.token } } }));
+    expect(unchanged.checkFindings.findings.find(({ id }) => id === last)).toMatchObject({ disposition: "disputed", reason });
+    // More than even the short records hold: what was left out is said at every later check, not only the next.
+    const huge = findingsLedger(params({ observed: distinct(1_500) }));
+    const left = 1_500 - entriesOf(huge.token).length;
+    expect(left).toBeGreaterThan(0);
+    const next = findingsLedger(params({ observed: distinct(10), raw: { later_inputs: { findings_ledger: huge.token } } }));
+    const after = findingsLedger(params({ observed: [], raw: { later_inputs: { findings_ledger: next.token } } }));
+    for (const result of [next, after]) expect(result.notes.join(" ")).toContain(`could not carry ${left} open findings`);
   });
 });
 
