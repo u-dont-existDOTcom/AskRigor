@@ -148,6 +148,10 @@ GRANT EXECUTE ON FUNCTION living_evidence.decide_research_dossier_publication(te
 -- stage 2, finding 2).
 GRANT EXECUTE ON FUNCTION living_evidence.decide_research_dossier_living_person(text, integer, text, text, timestamptz)
   TO askrigor_research_review;
+-- The owner's own statement, for a copy whose AI did not say, of whether a claim names a living person ("didn't say"
+-- is not "no"; Codex's re-review of stage 2).
+GRANT EXECUTE ON FUNCTION living_evidence.state_research_dossier_living_person(text, integer, text, text, timestamptz)
+  TO askrigor_research_review;
 -- A reviewed revision of an importance mark: a new version with the reviewer and reason, never an edit in place (Codex's
 -- review of stage 2, finding 7).
 GRANT EXECUTE ON FUNCTION living_evidence.revise_research_dossier_importance(

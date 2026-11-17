@@ -19,8 +19,8 @@ import { reportVerdictSchema } from "./atlas/report-review.js";
 import { atlasReportShareSchema, reportNumberSchema } from "./atlas/report-door.js";
 import { glanceRowIdSchema, glanceRowInputSchema } from "./atlas/glance-review.js";
 import { challengeMarkInputShape } from "./atlas/challenge-review.js";
-import { dossierFindingInputSchema, dossierImportanceInputSchema, dossierNumberInputSchema, dossierStateInputSchema,
-  dossierVersionInputSchema } from "./atlas/dossier-review.js";
+import { dossierFindingInputSchema, dossierImportanceInputSchema, dossierLivingPersonInputSchema, dossierNumberInputSchema,
+  dossierStateInputSchema, dossierVersionInputSchema } from "./atlas/dossier-review.js";
 import { claimCoverageSchema } from "./claim-coverage.js";
 import { ASKED_LIMIT, framingSchema, researchMenuSchema, researchSteeringInputSchema } from "./research-steering.js";
 
@@ -301,10 +301,12 @@ const LATER_INPUT_SHAPES = Object.freeze({
     // AskRigor#477 stage 2: research dossiers on the public Atlas.
     dossier: dossierNumberInputSchema.optional()
       .describe("With inspect_dossier, show_dossier, hold_dossier, take_down_dossier, accept_dossier, " +
-        "show_dossier_naming_living_person or revise_dossier_importance: the dossier's public number, such as D-1001."),
+        "show_dossier_naming_living_person, revise_dossier_importance or state_dossier_living_person: the dossier's " +
+        "public number, such as D-1001."),
     dossierVersion: dossierVersionInputSchema.optional()
       .describe("With show_dossier, hold_dossier, take_down_dossier, accept_dossier, " +
-        "show_dossier_naming_living_person or revise_dossier_importance: the version; its newest by default."),
+        "show_dossier_naming_living_person, revise_dossier_importance or state_dossier_living_person: the version; its " +
+        "newest by default."),
     dossierState: dossierStateInputSchema.optional()
       .describe("With list_dossiers: shown, held (the check's queue, by default), superseded, taken_down or erased."),
     dossierFinding: dossierFindingInputSchema.optional()
@@ -312,6 +314,10 @@ const LATER_INPUT_SHAPES = Object.freeze({
     dossierImportance: dossierImportanceInputSchema.optional()
       .describe("With revise_dossier_importance: the finding's new mark, decision_changing, important or context; a " +
         "new version of the copy gets it, with your reason."),
+    dossierLivingPerson: dossierLivingPersonInputSchema.optional()
+      .describe("With state_dossier_living_person: your own statement for a copy whose researching AI did not say " +
+        "whether a claim names a living person, names_no_living_person or names_a_living_person; recorded once, with " +
+        "who and when."),
   },
 } satisfies Record<string, z.ZodRawShape>);
 

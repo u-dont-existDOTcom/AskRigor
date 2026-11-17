@@ -977,6 +977,83 @@ describe("a copy held for naming a living person", () => {
       expect((await new AtlasDossierReview({ store: other.publications, now: () => NOW }).run({
         action: "show_dossier_naming_living_person", dossier: "D-1001", reason: "no", reviewer: "x" })).ok).toBe(false);
     });
+
+  // Codex's re-review of stage 2, P0: "didn't say" is not "no". A copy whose AI did not say whether a claim names a
+  // living person is refused by the ordinary show and accept; only the owner's own recorded statement resolves it.
+  it("refuses a copy whose AI didn't say until the owner states it himself, and records who stated what and when",
+    async () => {
+      const undeclared = dossier((value) => { delete value.names_living_people; });
+      const { dossiers, publications, publication } = stores();
+      const outcome = await saveResearchDossier(dossiers, request({ publication, value: undeclared }));
+      expect(outcome?.disposition?.publication).toMatchObject({ status: "held",
+        hold_reasons: ["living_people_undeclared"] });
+      // The store refuses the ordinary show itself, whatever the action in front of it checks.
+      for (const decision of ["show", "accept"] as const) {
+        expect(await publications.decide({ publicNumber: "D-1001", versionNumber: 1, decision, reason: null, at: NOW }))
+          .toMatchObject({ outcome: "not_decidable" });
+      }
+      const review = new AtlasDossierReview({ store: publications, now: () => NOW });
+      for (const action of ["show_dossier", "accept_dossier"] as const) {
+        const refused = await review.run({ action, dossier: "D-1001" });
+        expect(refused.ok).toBe(false);
+        expect(refused.text).toBe(`D-1001 version 1 can't be shown by ${action}: its researching AI did not say ` +
+          "whether a claim names a living person. State it yourself first: state_dossier_living_person, with " +
+          "later_inputs.dossierLivingPerson names_no_living_person or names_a_living_person. Nothing was changed.");
+      }
+      // Nothing says a person is named, so the separate decision does not apply either.
+      expect((await review.run({ action: "show_dossier_naming_living_person", dossier: "D-1001",
+        reason: "A public figure", reviewer: "auth0|synthetic-owner" })).ok).toBe(false);
+      expect(await publications.listShown({ limit: 10 })).toEqual([]);
+      // The statement needs the owner's words and his login.
+      expect((await review.run({ action: "state_dossier_living_person", dossier: "D-1001",
+        reviewer: "auth0|synthetic-owner" })).ok).toBe(false);
+      expect((await review.run({ action: "state_dossier_living_person", dossier: "D-1001",
+        dossierLivingPerson: "names_no_living_person" })).ok).toBe(false);
+      const stated = await review.run({ action: "state_dossier_living_person", dossier: "D-1001",
+        dossierLivingPerson: "names_no_living_person", reviewer: "auth0|synthetic-owner" });
+      expect(stated.text).toBe("D-1001 version 1: your statement that no claim in it names a living person is " +
+        "recorded, with who made it and when. It is still held; that question no longer keeps show_dossier or " +
+        "accept_dossier from showing it.");
+      expect(stated.dossiers?.items[0]).toMatchObject({ state: "held", namesLivingPerson: null,
+        livingPersonStatement: { statement: "names_no_living_person",
+          by: expect.stringMatching(/^reviewer:[0-9a-f]{16}$/u), on: "2026-11-17" } });
+      expect(JSON.stringify(stated)).not.toContain("auth0|synthetic-owner");
+      expect((await review.run({ action: "list_dossiers" })).text).toContain("held for: its researching AI did not " +
+        "say whether a claim names a living person; you stated on 2026-11-17 that no claim in it names a living person");
+      // Made once.
+      expect((await review.run({ action: "state_dossier_living_person", dossier: "D-1001",
+        dossierLivingPerson: "names_a_living_person", reviewer: "auth0|synthetic-owner" })).ok).toBe(false);
+      expect((await review.run({ action: "show_dossier", dossier: "D-1001" })).text)
+        .toBe("D-1001 version 1 is now shown, at /atlas/dossiers/D-1001.");
+
+      // Stated as naming a living person, only the separate decision with a typed reason shows it.
+      const named = stores();
+      await saveResearchDossier(named.dossiers, request({ publication: named.publication, value: undeclared }));
+      const namedReview = new AtlasDossierReview({ store: named.publications, now: () => NOW });
+      expect((await namedReview.run({ action: "state_dossier_living_person", dossier: "D-1001",
+        dossierLivingPerson: "names_a_living_person", reviewer: "auth0|synthetic-owner" })).text)
+        .toBe("D-1001 version 1: your statement that a claim in it names a living person is recorded, with who made " +
+          "it and when. It is still held; only show_dossier_naming_living_person, with your reason, can show it.");
+      for (const action of ["show_dossier", "accept_dossier"] as const) {
+        const refused = await namedReview.run({ action, dossier: "D-1001" });
+        expect(refused.ok).toBe(false);
+        expect(refused.text).toContain("show_dossier_naming_living_person");
+      }
+      expect(await named.publications.decide({ publicNumber: "D-1001", versionNumber: 1, decision: "show", reason: null,
+        at: NOW })).toMatchObject({ outcome: "not_decidable" });
+      expect((await namedReview.run({ action: "show_dossier_naming_living_person", dossier: "D-1001",
+        reason: "The named person is a public figure speaking in office", reviewer: "auth0|synthetic-owner" })).ok)
+        .toBe(true);
+      expect((await named.publications.listShown({ limit: 10 })).map(({ publicNumber }) => publicNumber))
+        .toEqual(["D-1001"]);
+      // A copy whose AI did say takes no statement.
+      const declared = stores();
+      await saveResearchDossier(declared.dossiers, request({ publication: declared.publication,
+        value: dossier((value) => { value.names_living_people = true; }) }));
+      expect((await new AtlasDossierReview({ store: declared.publications, now: () => NOW }).run({
+        action: "state_dossier_living_person", dossier: "D-1001", dossierLivingPerson: "names_no_living_person",
+        reviewer: "auth0|synthetic-owner" })).ok).toBe(false);
+    });
 });
 
 describe("the dossier's shape and migration 0040", () => {

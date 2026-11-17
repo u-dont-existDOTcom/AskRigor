@@ -112,13 +112,13 @@ export const researchContributionReviewInputSchema = z.object({
     }
     // AskRigor#477 stage 2: the dossier inputs go only with the dossier actions.
     const dossierInputs = value as { dossier?: unknown; dossierVersion?: unknown; dossierState?: unknown;
-      dossierFinding?: unknown; dossierImportance?: unknown };
+      dossierFinding?: unknown; dossierImportance?: unknown; dossierLivingPerson?: unknown };
     const dossierTakes = { dossier: ["inspect_dossier", "show_dossier", "hold_dossier", "take_down_dossier", "accept_dossier",
-      "show_dossier_naming_living_person", "revise_dossier_importance"],
+      "show_dossier_naming_living_person", "revise_dossier_importance", "state_dossier_living_person"],
       dossierVersion: ["show_dossier", "hold_dossier", "take_down_dossier", "accept_dossier",
-        "show_dossier_naming_living_person", "revise_dossier_importance"],
+        "show_dossier_naming_living_person", "revise_dossier_importance", "state_dossier_living_person"],
       dossierState: ["list_dossiers"], dossierFinding: ["revise_dossier_importance"],
-      dossierImportance: ["revise_dossier_importance"] } as const;
+      dossierImportance: ["revise_dossier_importance"], dossierLivingPerson: ["state_dossier_living_person"] } as const;
     for (const [field, actions] of Object.entries(dossierTakes)) {
       if (dossierInputs[field as keyof typeof dossierInputs] !== undefined && !(actions as readonly string[]).includes(value.action)) {
         context.addIssue({ code: "custom", message: `${value.action} does not take ${field}` });

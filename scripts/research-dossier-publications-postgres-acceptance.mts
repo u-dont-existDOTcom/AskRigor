@@ -137,6 +137,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       "decide_research_dossier_publication(text, integer, text, text, timestamptz)": "askrigor_research_review",
       "decide_research_dossier_living_person(text, integer, text, text, timestamptz)": "askrigor_research_review",
       "revise_research_dossier_importance(text, integer, text, text, text, text, timestamptz)": "askrigor_research_review",
+      "state_research_dossier_living_person(text, integer, text, text, timestamptz)": "askrigor_research_review",
       "research_dossier_public_follow_private()": "none",
       "research_dossier_public_on_revocation()": "none",
       "research_dossier_public_changed()": "none",
@@ -473,6 +474,54 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     "NAMED_DECISION_CHANGED");
     assert((await pages.listShown({ publicNumbers: [namedCopy.publicNumber], limit: 1 })).length === 1, "NAMED_NOT_SHOWN");
     checks.push("a_named_living_person_shows_only_on_the_owners_recorded_decision");
+
+    // Codex's re-review, P0 (his probe: living_people_undeclared, then the ordinary show): "didn't say" is not "no". A
+    // copy whose AI did not say is refused by show and accept, and nothing forces it up; only the owner's own statement,
+    // recorded once with who and when, resolves it: "names no living person" lets the ordinary show work, "names a
+    // living person" leaves only the separate decision with a typed reason.
+    const silent = await account("silent");
+    const silentVersion = await save(silent.accountKey, "silent", "silent-1", null,
+      (value) => { delete value.names_living_people; });
+    const silentCopy = await publisher.publish(await copy(silent.accountKey, silentVersion));
+    assert(silentCopy.outcome === "published" && silentCopy.state === "held" &&
+      silentCopy.holdReasons.join() === "living_people_undeclared", "UNDECLARED_NOT_HELD");
+    for (const decision of ["show", "accept"] as const) {
+      assert((await review.decide({ publicNumber: silentCopy.publicNumber, versionNumber: 1, decision, reason: null,
+        at: AT })).outcome === "not_decidable", `UNDECLARED_${decision.toUpperCase()}N_ORDINARILY`);
+    }
+    await expectError(() => admin.query(`UPDATE ${SCHEMA}.research_dossier_public_versions SET state = 'shown',
+      hold_reasons = '{}' WHERE public_number = $1`, [silentCopy.publicNumber]), /check constraint/u,
+    "UNDECLARED_FORCED_SHOWN");
+    assert((await review.decideLivingPerson({ publicNumber: silentCopy.publicNumber, versionNumber: 1,
+      reason: "A public figure", decidedBy: "reviewer:0123456789abcdef", at: AT })).outcome === "not_decidable",
+    "UNDECLARED_DECIDED_AS_NAMING");
+    const statement = { publicNumber: silentCopy.publicNumber, versionNumber: 1,
+      statement: "names_no_living_person" as const, statedBy: "reviewer:00112233445566ff", at: AT };
+    assert((await review.stateLivingPerson(statement)).outcome === "stated", "UNDECLARED_STATEMENT_NOT_RECORDED");
+    const statedRow = (await review.inspect(silentCopy.publicNumber))[0]!;
+    assert(statedRow.namesLivingPerson === null && statedRow.livingPersonStatement?.statement === "names_no_living_person" &&
+      statedRow.livingPersonStatement.by === "reviewer:00112233445566ff", "UNDECLARED_STATEMENT_WRONG");
+    assert((await review.stateLivingPerson({ ...statement, statement: "names_a_living_person" })).outcome ===
+      "not_decidable", "UNDECLARED_STATED_TWICE");
+    await expectError(() => admin.query(`UPDATE ${SCHEMA}.research_dossier_public_versions
+      SET living_person_statement = 'names_a_living_person' WHERE public_number = $1`, [silentCopy.publicNumber]),
+    /RESEARCH_DOSSIER_PUBLIC_VERSION_IMMUTABLE/u, "UNDECLARED_STATEMENT_CHANGED");
+    assert((await review.decide({ publicNumber: silentCopy.publicNumber, versionNumber: 1, decision: "show", reason: null,
+      at: AT })).outcome === "decided", "STATED_NONE_NOT_SHOWN");
+    const silentTwo = await save(silent.accountKey, "silent-two", "silent-two-1", null,
+      (value) => { delete value.names_living_people; });
+    const silentNamed = await publisher.publish(await copy(silent.accountKey, silentTwo));
+    assert(silentNamed.outcome === "published" && silentNamed.state === "held", "UNDECLARED_TWO_NOT_HELD");
+    assert((await review.stateLivingPerson({ ...statement, publicNumber: silentNamed.publicNumber,
+      statement: "names_a_living_person" })).outcome === "stated", "NAMING_STATEMENT_NOT_RECORDED");
+    assert((await review.decide({ publicNumber: silentNamed.publicNumber, versionNumber: 1, decision: "show", reason: null,
+      at: AT })).outcome === "not_decidable", "STATED_NAMING_SHOWN_ORDINARILY");
+    assert((await review.decideLivingPerson({ publicNumber: silentNamed.publicNumber, versionNumber: 1,
+      reason: "A public figure in office", decidedBy: "reviewer:0123456789abcdef", at: AT })).outcome === "decided",
+    "STATED_NAMING_NOT_DECIDED");
+    assert((await review.stateLivingPerson({ ...statement, publicNumber: namedCopy.publicNumber })).outcome ===
+      "not_decidable", "DECLARED_COPY_TOOK_A_STATEMENT");
+    checks.push("an_undeclared_living_person_shows_only_after_the_owners_recorded_statement");
 
     // Codex's review, finding 3: the candidates are every shown copy on the topic, a linked topic or under another name,
     // with no cap of 200: the server pages through them all.

@@ -2,7 +2,9 @@ import { createHash } from "node:crypto";
 
 import {
   PUBLIC_DOSSIER_NUMBER,
+  RESEARCH_DOSSIER_LIVING_PERSON_STATEMENTS,
   RESEARCH_DOSSIER_PUBLIC_STATES,
+  type ResearchDossierLivingPersonStatement,
   type ResearchDossierPublicDecision,
   type ResearchDossierPublicState,
   type ResearchDossierPublicationReviewStore,
@@ -26,11 +28,16 @@ import { dossierPagePath, holdReasonWords } from "../findings/dossier-publicatio
  * reason, alone shows it, and records who decided (the reviewer login's digest) and when (Codex's review of stage 2,
  * finding 2). revise_dossier_importance changes one finding's importance mark the only way it changes: a new version of
  * the copy with the reviewer and his reason recorded, the old version kept as it was (finding 7).
+ *
+ * "Didn't say" is not "no" (Codex's re-review of stage 2, P0): a copy whose researching AI did not say whether a claim
+ * names a living person is refused by show_dossier and accept_dossier until the owner states it himself with
+ * state_dossier_living_person, recorded once with who and when: names_no_living_person, after which the ordinary show
+ * works, or names_a_living_person, after which only show_dossier_naming_living_person can show it.
  */
 
 export const ATLAS_DOSSIER_ACTIONS = [
   "list_dossiers", "inspect_dossier", "show_dossier", "hold_dossier", "take_down_dossier", "accept_dossier",
-  "show_dossier_naming_living_person", "revise_dossier_importance",
+  "show_dossier_naming_living_person", "revise_dossier_importance", "state_dossier_living_person",
 ] as const;
 export type AtlasDossierAction = typeof ATLAS_DOSSIER_ACTIONS[number];
 export const ATLAS_DOSSIER_OUTCOMES = ["dossiers_listed", "dossier_inspected", "dossier_decided"] as const;
@@ -42,13 +49,15 @@ export const dossierVersionInputSchema = z.number().int().min(1);
 export const dossierStateInputSchema = z.enum(RESEARCH_DOSSIER_PUBLIC_STATES);
 export const dossierFindingInputSchema = z.string().trim().regex(/^[a-z][a-z0-9_-]{0,31}$/u);
 export const dossierImportanceInputSchema = z.enum(["decision_changing", "important", "context"]);
+export const dossierLivingPersonInputSchema = z.enum(RESEARCH_DOSSIER_LIVING_PERSON_STATEMENTS);
 
 const IMPORTANCE_WORDS: Readonly<Record<string, string>> = {
   decision_changing: "could change a decision", important: "important", context: "background",
 };
 
 const DECISIONS: Readonly<Record<Exclude<AtlasDossierAction, "list_dossiers" | "inspect_dossier" |
-  "show_dossier_naming_living_person" | "revise_dossier_importance">, ResearchDossierPublicDecision>> = {
+  "show_dossier_naming_living_person" | "revise_dossier_importance" | "state_dossier_living_person">,
+  ResearchDossierPublicDecision>> = {
   show_dossier: "show", hold_dossier: "hold", take_down_dossier: "take_down", accept_dossier: "accept",
 };
 const LIST_LIMIT = 50;
@@ -59,13 +68,21 @@ const SURFACE_WORDS: Readonly<Record<string, string>> = {
   "/mcp/gemini": "Gemini",
 };
 
+/** The owner's statement on a copy whose AI did not say, in words. */
+const STATEMENT_WORDS: Readonly<Record<ResearchDossierLivingPersonStatement, string>> = {
+  names_no_living_person: "no claim in it names a living person",
+  names_a_living_person: "a claim in it names a living person",
+};
+
 /**
- * Who decided on a named living person, or revised an importance mark: the reviewer login as 16 hex characters of a
- * domain-separated SHA-256, never the login.
+ * Who decided on a named living person, stated whether a claim names one, or revised an importance mark: the reviewer
+ * login as 16 hex characters of a domain-separated SHA-256, never the login.
  */
-export function livingPersonDecider(reviewer: string, purpose: "living_person" | "importance" = "living_person"): string {
+export function livingPersonDecider(reviewer: string,
+  purpose: "living_person" | "importance" | "living_person_statement" = "living_person"): string {
   const domain = purpose === "living_person" ? "askrigor:dossier-living-person-decision:v1\0"
-    : "askrigor:dossier-importance-revision:v1\0";
+    : purpose === "living_person_statement" ? "askrigor:dossier-living-person-statement:v1\0"
+      : "askrigor:dossier-importance-revision:v1\0";
   return `reviewer:${createHash("sha256").update(domain, "utf8").update(reviewer, "utf8").digest("hex").slice(0, 16)}`;
 }
 
@@ -91,7 +108,11 @@ export const atlasDossiersSchema = z.object({
     conflictsWith: z.array(z.string()),
     origin: z.string(),
     privacyRead: z.boolean(),
-    namesLivingPerson: z.boolean(),
+    namesLivingPerson: z.boolean().nullable().describe("Whether a claim names a living person, as the researching AI " +
+      "declared it; null when it did not say, which only the owner's own statement resolves."),
+    livingPersonStatement: z.object({ statement: z.enum(RESEARCH_DOSSIER_LIVING_PERSON_STATEMENTS), by: z.string(),
+      on: z.string() }).strict().nullable().describe("The owner's statement, for a copy whose researching AI did not " +
+      "say, of whether a claim names a living person: what, the reviewer login's digest and the day."),
     livingPersonDecision: z.object({ by: z.string(), on: z.string(), reason: z.string() }).strict().nullable()
       .describe("The owner's decision to show a copy whose claim names a living person: the reviewer login's digest, " +
         "the day and the reason typed."),
@@ -117,6 +138,8 @@ export interface AtlasDossierRequest {
   /** revise_dossier_importance: the finding's id, and the mark it gets. */
   dossierFinding?: string;
   dossierImportance?: "decision_changing" | "important" | "context";
+  /** state_dossier_living_person: the owner's own statement. */
+  dossierLivingPerson?: ResearchDossierLivingPersonStatement;
 }
 
 export interface AtlasDossierResult {
@@ -142,6 +165,8 @@ function itemOf(row: ResearchDossierPublicationRow, content?: Record<string, unk
     origin: originWords(row.origin),
     privacyRead: row.privacyRead,
     namesLivingPerson: row.namesLivingPerson,
+    livingPersonStatement: row.livingPersonStatement === null ? null : { statement: row.livingPersonStatement.statement,
+      by: row.livingPersonStatement.by, on: row.livingPersonStatement.at.slice(0, 10) },
     livingPersonDecision: row.livingPersonDecision === null ? null : { by: row.livingPersonDecision.by,
       on: row.livingPersonDecision.at.slice(0, 10), reason: row.livingPersonDecision.reason },
     revision: row.revision === null ? null : { ...row.revision },
@@ -156,6 +181,8 @@ const lineOf = (row: ResearchDossierPublicationRow) => `${row.publicNumber} vers
   `${row.dossierNumber === null ? "" : ` (${row.dossierNumber})`}, ${row.state}${row.accepted ? ", checked by supervisors"
     : ""}${row.topicKey === null ? ""
     : `, topic ${row.topicKey}`}${row.holdReasons.length === 0 ? "" : `, held for: ${holdReasonWords(row.holdReasons)}`}${
+    row.livingPersonStatement === null ? "" : `; you stated on ${row.livingPersonStatement.at.slice(0, 10)} that ${
+      STATEMENT_WORDS[row.livingPersonStatement.statement]}`}${
     row.conflictsWith.length === 0 ? "" : `, conflicts with ${row.conflictsWith.join(", ")}`}; ${
     Object.keys(row.origin).length === 0 ? `where its research ran is ${originWords(row.origin)}`
       : `researched in ${originWords(row.origin)}`}`;
@@ -196,8 +223,10 @@ export class AtlasDossierReview {
     }
     if (request.action === "show_dossier_naming_living_person") return await this.livingPerson(request, copies);
     if (request.action === "revise_dossier_importance") return await this.reviseImportance(request, copies);
-    if (request.dossierFinding !== undefined || request.dossierImportance !== undefined) {
-      return refused(`${request.action} does not take dossierFinding or dossierImportance.`);
+    if (request.action === "state_dossier_living_person") return await this.stateLivingPerson(request, copies);
+    if (request.dossierFinding !== undefined || request.dossierImportance !== undefined ||
+      request.dossierLivingPerson !== undefined) {
+      return refused(`${request.action} does not take dossierFinding, dossierImportance or dossierLivingPerson.`);
     }
     const decision = DECISIONS[request.action];
     const reason = request.reason?.trim();
@@ -207,11 +236,19 @@ export class AtlasDossierReview {
     if (reason !== undefined && reason.length > 200) return refused("reason is at most 200 characters here.");
     const version = request.dossierVersion ?? Math.max(...copies.map(({ versionNumber }) => versionNumber));
     const target = copies.find(({ versionNumber }) => versionNumber === version);
-    if ((decision === "show" || decision === "accept") && target?.namesLivingPerson === true &&
-      target.livingPersonDecision === null) {
-      return refused(`${request.dossier} version ${version} is held because a claim names a living person, so ` +
-        `${request.action} can't show it. Only your own decision can: show_dossier_naming_living_person, with your ` +
-        "reason. Nothing was changed.");
+    // A named living person, by the AI's declaration or the owner's statement: only his separate decision shows it.
+    if ((decision === "show" || decision === "accept") && target !== undefined && target.livingPersonDecision === null &&
+      (target.namesLivingPerson === true || target.livingPersonStatement?.statement === "names_a_living_person")) {
+      return refused(`${request.dossier} version ${version} can't be shown by ${request.action}: a claim in it names a ` +
+        `living person${target.namesLivingPerson === true ? "" : ", as you stated"}. Only your own decision can show ` +
+        "it: show_dossier_naming_living_person, with your reason. Nothing was changed.");
+    }
+    // "Didn't say" is not "no": the owner states it himself first.
+    if ((decision === "show" || decision === "accept") && target !== undefined && target.livingPersonDecision === null &&
+      target.namesLivingPerson === null && target.livingPersonStatement === null) {
+      return refused(`${request.dossier} version ${version} can't be shown by ${request.action}: its researching AI ` +
+        "did not say whether a claim names a living person. State it yourself first: state_dossier_living_person, " +
+        "with later_inputs.dossierLivingPerson names_no_living_person or names_a_living_person. Nothing was changed.");
     }
     const decided = await this.deps.store.decide({ publicNumber: request.dossier, versionNumber: version, decision,
       reason: reason === undefined || reason.length === 0 ? null : reason, at: this.deps.now() });
@@ -274,6 +311,47 @@ export class AtlasDossierReview {
     };
   }
 
+  /**
+   * The owner's own statement on a copy whose researching AI did not say whether a claim names a living person,
+   * recorded once with who made it and when; it shows nothing itself.
+   */
+  private async stateLivingPerson(request: AtlasDossierRequest, copies: readonly ResearchDossierPublicationRow[]):
+    Promise<AtlasDossierResult> {
+    const dossier = request.dossier!;
+    if (request.dossierFinding !== undefined || request.dossierImportance !== undefined || request.reason !== undefined) {
+      return refused("state_dossier_living_person takes only later_inputs.dossier, dossierVersion and " +
+        "dossierLivingPerson. Nothing was changed.");
+    }
+    if (request.dossierLivingPerson === undefined) {
+      return refused("state_dossier_living_person needs later_inputs.dossierLivingPerson, your own statement: " +
+        "names_no_living_person or names_a_living_person. Nothing was changed.");
+    }
+    if (request.reviewer === undefined || request.reviewer === "") {
+      return refused("state_dossier_living_person needs the reviewer login that states it; nothing was changed.");
+    }
+    const version = request.dossierVersion ?? Math.max(...copies.map(({ versionNumber }) => versionNumber));
+    const stated = await this.deps.store.stateLivingPerson({ publicNumber: dossier, versionNumber: version,
+      statement: request.dossierLivingPerson, statedBy: livingPersonDecider(request.reviewer, "living_person_statement"),
+      at: this.deps.now() });
+    if (stated.outcome === "not_found") return refused(`${dossier} has no version ${version}; nothing was changed.`);
+    if (stated.outcome === "not_decidable") {
+      return refused(`${dossier} version ${version} is ${stated.state.replace("_", " ")}, so state_dossier_living_person ` +
+        "can't apply to it (only the newest copy, held or taken down, whose researching AI did not say whether a claim " +
+        "names a living person and that has no statement yet); nothing was changed.");
+    }
+    const after = (await this.deps.store.inspect(dossier)).find(({ versionNumber }) => versionNumber === version);
+    return {
+      ok: true,
+      outcome: "dossier_decided",
+      text: `${dossier} version ${version}: your statement that ${STATEMENT_WORDS[request.dossierLivingPerson]} is ` +
+        `recorded, with who made it and when. It is still ${stated.state.replace("_", " ")}; ${
+          request.dossierLivingPerson === "names_no_living_person"
+            ? "that question no longer keeps show_dossier or accept_dossier from showing it."
+            : "only show_dossier_naming_living_person, with your reason, can show it."}`,
+      ...(after === undefined ? {} : { dossiers: { items: [itemOf(after)] } }),
+    };
+  }
+
   /** The owner's own decision to show a copy whose claim names a living person: his typed reason, and who he is. */
   private async livingPerson(request: AtlasDossierRequest, copies: readonly ResearchDossierPublicationRow[]):
     Promise<AtlasDossierResult> {
@@ -293,8 +371,8 @@ export class AtlasDossierReview {
     if (decided.outcome === "not_found") return refused(`${dossier} has no version ${version}; nothing was changed.`);
     if (decided.outcome === "not_decidable") {
       return refused(`${dossier} version ${version} is ${decided.state}${decided.accepted ? " and accepted" : ""}, so ` +
-        "show_dossier_naming_living_person can't apply to it (only the newest copy, held or taken down because a claim " +
-        "names a living person and not yet decided, whose research was not withdrawn, rejected or deleted and that a " +
+        "show_dossier_naming_living_person can't apply to it (only the newest copy, held or taken down, whose claim " +
+        "names a living person by its AI's declaration or your statement and not yet decided, whose research was not withdrawn, rejected or deleted and that a " +
         "privacy reading has passed); nothing was changed.");
     }
     const after = (await this.deps.store.inspect(dossier)).find(({ versionNumber }) => versionNumber === version);

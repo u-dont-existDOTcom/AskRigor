@@ -471,7 +471,7 @@ export const HOLD_REASON_WORDS: Readonly<Record<string, string>> = {
   privacy_reading_pending: "waiting for the privacy reading",
   not_high_confidence: "the researching AI was not highly confident in it",
   names_living_people: "a claim names a living person",
-  living_people_undeclared: "it did not say whether a claim names a living person",
+  living_people_undeclared: "its researching AI did not say whether a claim names a living person",
   important_conflict: "it conflicts with a shown dossier on an important finding",
   conflict_check_pending: "waiting for the conflict check",
   owner_hold: "held back by the owner's review",

@@ -178,6 +178,8 @@ export function announcingDossierReview(
     inspect: (publicNumber) => store.inspect(publicNumber),
     decide: (input) => announcing(signal, () => store.decide(input)),
     decideLivingPerson: (input) => announcing(signal, () => store.decideLivingPerson(input)),
+    // A statement shows nothing by itself, but it is a write to the copies, which the pages' number follows too.
+    stateLivingPerson: (input) => announcing(signal, () => store.stateLivingPerson(input)),
     reviseImportance: (input) => announcing(signal, () => store.reviseImportance(input)),
   };
 }

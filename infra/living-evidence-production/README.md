@@ -544,8 +544,9 @@ yet released; 0039 is another branch's) adds the research dossiers' public copie
 number, D-1001 onward), `research_dossier_public_versions` (one copy per saved version: shown, held for AskRigor's check
 with its reasons, superseded, taken down or erased; its public content, topic, related topics, the dossiers it conflicts
 with, where its research ran, whether the privacy reading passed its saved content, without which it never shows, and
-whether a claim names a living person, with the owner's recorded decision to show it) and
-`research_dossier_public_events` (append-only), seven role functions, three pure helpers that derive a copy from its
+whether a claim names a living person, or that its AI did not say, with the owner's recorded statement and decision)
+and
+`research_dossier_public_events` (append-only), eight role functions, three pure helpers that derive a copy from its
 private record, two internal functions for the conflict candidates, and two views. The research-access role publishes and reads a topic's shown copies
 (`publish_research_dossier_version`, which derives the public copy and why it is held from the saved private record and
 refuses anything else, and admits copies one topic at a time against the conflict check's candidates, and
@@ -553,7 +554,9 @@ refuses anything else, and admits copies one topic at a time against the conflic
 time); the review role
 lists, inspects and decides (`list_research_dossier_publications`, `inspect_research_dossier_publication`,
 `decide_research_dossier_publication`, `decide_research_dossier_living_person`, the owner's own decision with his
-reason, the only way a copy whose claim names a living person shows, and `revise_research_dossier_importance`, a
+reason, the only way a copy whose claim names a living person shows, `state_research_dossier_living_person`, the
+owner's own statement, recorded once with who and when, on a copy whose AI did not say whether a claim names one,
+without which the ordinary show refuses it, and `revise_research_dossier_importance`, a
 reviewed revision of an importance mark as a new version, never an edit in place);
 the canonical reader reads only the views `research_dossier_public_pages`, `research_dossier_public_history`,
 `research_dossier_public_topics` (each shown topic once, for the topics list) and `research_dossier_public_changes` (a
