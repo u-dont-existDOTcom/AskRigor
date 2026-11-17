@@ -61,6 +61,17 @@ for (const name of ["search_reddit", "get_reddit_thread", "get_reddit_comments",
       const page = name === "get_reddit_comments" ? 0 : Number(input.page_token.split("-")[1]);
       result = comments(Array.from({ length: input.limit }, (_, index) => comment(`${page}-${index}`, undefined, "x")), `page-${page + 1}`);
     }
+    // Server fix 8 (17 Nov 2026): a thread of 15 comments, 6 a call (each comment long enough that six pass the reader's
+    // per-call text limit), and the coconut run's thread, where the host returned 6 of 15 and offered nothing more.
+    if (mode === "fifteen" || mode === "six-of-fifteen") {
+      const long = (id) => comment(id, undefined, `${id} `.repeat(6_000));
+      const ids = (from, to) => Array.from({ length: to - from + 1 }, (_, index) => long(`c${from + index}`));
+      if (name === "get_reddit_thread") result = { source: "reddit", post: { ...post, comment_count: 15 } };
+      if (name === "get_reddit_comments") result = comments(ids(1, 6), mode === "fifteen" ? "page-1" : null);
+      if (name === "expand_reddit_comments") {
+        result = input.page_token === "page-1" ? comments(ids(7, 12), "page-2") : comments(ids(13, 15), null);
+      }
+    }
     if (mode === "malformed") result = { invalid: true };
     record({ event: "end", name, at: Date.now() });
     return mode === "text" ? { content: [{ type: "text", text: JSON.stringify(result) }] }

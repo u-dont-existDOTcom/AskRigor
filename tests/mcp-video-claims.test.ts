@@ -330,6 +330,61 @@ describe("extract_youtube_video_claims", () => {
     expect(done.receipt).toEqual({ video: VIDEO, mode: "moment", n: 0 });
   });
 
+  // Server fix 8 (Codex's red team of 17 Nov 2026, from the coconut run): an empty reading is not a reading.
+  it("marks a moment reading partial, with its window and the video's duration (test 6)", async () => {
+    const { deps } = dependencies();
+    deps.advance.mockResolvedValueOnce({
+      kind: "complete", interaction_id: "interaction-1", model: "gemini-3.6-flash", usage: {},
+      report: { mode: "moment", moment: { start: "04:10", end: "04:40", speaker: "guest", said: "Two grams.", shown: "A chart" } }
+    });
+    const done = await extractYoutubeVideoClaims({ video: VIDEO, at: "4:10" }, deps);
+    expect(done.result.structuredContent).toMatchObject({ status: "complete", mode: "moment", coverage: "partial",
+      video: { duration: "15:00" }, moment: { start: "04:10", end: "04:40" } });
+    expect(text(done)).toContain("from 04:10 to 04:40 of a 15:00 video: part of the video only, not the whole.");
+    expect(done.receipt).toEqual({ video: VIDEO, mode: "moment", n: 0 });
+  });
+
+  it("reports a whole-video reading with speech and no claim as empty, never complete, with its reason (test 4)", async () => {
+    const { deps, charge } = dependencies({ getVideo: vi.fn(async () => videoEnvelope({ duration: "PT3M36S" })) as never });
+    deps.advance.mockResolvedValueOnce(complete({ ...REPORT, claims: [] }));
+    const done = await extractYoutubeVideoClaims({ video: VIDEO }, deps);
+    expect(done.result.isError).not.toBe(true);
+    const output = done.result.structuredContent as Record<string, unknown>;
+    expect(output).toMatchObject({ status: "empty", mode: "claims", coverage: "whole_video", empty_reason: "no_claims_listed",
+      spoken_language: "en", claims: [], video: { duration: "03:36" } });
+    expect(output).not.toHaveProperty("speech");
+    expect(text(done)).toMatch(/^Gemini read the whole video \(00:00 to 03:36\) and listed no health claim \(status empty: an empty reading, not a reading of what the video says\)/u);
+    expect(text(done)).toContain("never say the video makes no claim, or what it says, from this result");
+    // Test 7: its receipt keeps n=0 and says why; the reading ran, so the daily limit counted it.
+    expect(done.receipt).toEqual({ video: VIDEO, mode: "claims", n: 0, empty: "no_claims_listed" });
+    expect(charge).toHaveBeenCalledWith(216);
+    // The output check takes it, though the published schema is as it was.
+    const tool = RESEARCH_OPERATIONS.find(({ name }) => name === "extract_youtube_video_claims")!;
+    expect(tool.outputSchema.safeParse(output).success).toBe(true);
+  });
+
+  it("says a video Gemini heard nobody speak in has no speech, and no statement (test 5)", async () => {
+    for (const language of ["zxx", ""]) {
+      const { deps } = dependencies();
+      deps.advance.mockResolvedValueOnce(complete({ ...REPORT, spoken_language: language, claims: [], sponsorships: [],
+        on_screen_citations: [] }));
+      const done = await extractYoutubeVideoClaims({ video: VIDEO }, deps);
+      expect(done.result.structuredContent, language).toMatchObject({ status: "empty", coverage: "whole_video",
+        empty_reason: "no_speech", speech: "none", claims: [] });
+      expect(text(done), language).toMatch(/^Gemini read the whole video \(00:00 to 15:00\) and heard nobody speak/u);
+      expect(done.receipt, language).toEqual({ video: VIDEO, mode: "claims", n: 0, empty: "no_speech" });
+    }
+  });
+
+  it("keeps a reading that listed claims complete, covering the whole video", async () => {
+    const { deps } = dependencies();
+    deps.advance.mockResolvedValueOnce(complete());
+    const done = await extractYoutubeVideoClaims({ video: VIDEO }, deps);
+    expect(done.result.structuredContent).toMatchObject({ status: "complete", coverage: "whole_video" });
+    expect(done.result.structuredContent).not.toHaveProperty("empty_reason");
+    expect(done.receipt).toEqual({ video: VIDEO, mode: "claims", n: 2 });
+  });
+
   it("deletes the stored reading of an expired or refused continuation", async () => {
     const state = {
       request: { mode: "claims" as const, video_id: VIDEO },

@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import { isDeidentifiedResearchTarget, researchTargetScreenRefusal } from "./actions/gemini-scout-route.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "./community-leads.js";
-import { redditReaderFromEnv } from "./reddit-reader-client.js";
+import { CONTINUATION_OTHER_THREAD, redditReaderFromEnv } from "./reddit-reader-client.js";
 import {
   comparableUrl, forumLinkDigest, forumPageDigest, forumReadLink, forumSiteDigest, forumThreadDigest, nextPageLink,
   pagePickedAfterFirst, sameSiteRedirect, sameThreadAtSite, signedSubreddit
@@ -37,6 +37,27 @@ const NO_NEXT_PAGE_LINK = "This page marks or links a page after it, but none th
   "so AskRigor counts the thread as part read.";
 const PAGES_AFTER_UNKNOWN = "This page links more later pages than the reader lists, none of them known as this " +
   "thread's, so whether a page follows it is unknown and AskRigor counts the thread as part read.";
+/**
+ * Server fix 8, C1 (Codex's red team of 17 Nov 2026): a thread read part-way carries either a way on that this tool's
+ * input takes (more, with the same url, on Reddit; next_page as the url on a forum) or one of these terminal reasons,
+ * with pagination.exhausted true. Before, a Reddit read of 6 of 15 comments came back truncated, not exhausted, with
+ * neither.
+ */
+export const FORUM_TERMINAL_REASONS = ["site_limit", "continuation_too_long", "size_limit", "next_page_not_followable",
+  "pages_after_unknown"] as const;
+export type ForumTerminalReason = typeof FORUM_TERMINAL_REASONS[number];
+const SIZE_LIMIT = "This page was cut at the reader's size limit and no page follows it that the reader can follow, so " +
+  "the rest of it can't be read here: AskRigor counts the thread as part read.";
+const CUT_PAGE = "This page was cut at the reader's size limit: its next page goes on from the page after it, so the " +
+  "end of this one stays unread.";
+const CONTINUATION_TOO_LONG = "The rest of this thread is too large to go on in one more value, so the reading ends " +
+  "here and AskRigor counts the thread as part read.";
+/** What a Reddit read that ended short of the thread's count says, with its counts. */
+const siteLimit = (count: number | undefined, read: number, withoutText: number) => count === undefined
+  ? "Reddit's reader host offered no way to read further, so AskRigor counts the thread as part read."
+  : `Reddit counts ${count} comment(s) in this thread; the reader read ${read} with text and ${withoutText} without, ` +
+    "and its host offered no way to read the rest, so AskRigor counts the thread as part read. Comments Reddit still " +
+    "counts but no longer shows, removed or deleted, are one known cause; whether they are the cause here is unknown.";
 // The longest link read_forum_thread takes, so the longest next page it can give back to itself.
 const READ_URL_MAX_CHARACTERS = 2_048;
 // What stopped the reader at a forum page, on the site's side, which a forum_page_unread receipt signs (the owner
@@ -67,6 +88,9 @@ const HOST_GUIDANCE: ReadonlyMap<string, string> = new Map([
   // more request it refuses.
   ["ACCESS_DENIED", `Reddit's network security blocked AskRigor's Reddit reader${STOPPED_GUIDANCE}`],
   ["NOT_PUBLIC", "Reddit shows this as a private community, which AskRigor's Reddit reader doesn't read: leave it out."],
+  // Server fix 8, test 3: a more value is read only with the thread it came from.
+  [CONTINUATION_OTHER_THREAD, "This more value continues another thread, so nothing was read: call read_forum_thread " +
+    "with the url of the thread whose result gave it, or with this url alone to read this thread from its start."],
   // #412's run (5 Nov): all six searches answered this were for made-up names, while others minutes apart worked, and
   // one run then called the community's pages unretrievable. The host doesn't say which, so the guidance says both.
   ["WEBSITE_FORMAT_CHANGED", "The Reddit reader's host answered WEBSITE_FORMAT_CHANGED: it couldn't read Reddit's " +
@@ -106,6 +130,11 @@ const readData = z.object({
   comments_without_text: z.number().optional(), page_text: z.string().optional(), truncated: z.boolean().optional(),
   next_page: z.string().optional(), more: z.string().optional()
 }).strict();
+// Owner answer 189a: the published output stays as it was; the result also carries, as the open published schema
+// allows, this call's own count (which its receipt signs as n) and, for a thread read part-way with no way on, why.
+const readDataRuntime = readData.extend({
+  comments_read_this_call: z.number().optional(), terminal_reason: z.enum(FORUM_TERMINAL_REASONS).optional()
+}).strict();
 const searchInput = z.object({
   query: z.string().trim().min(1).max(500), subreddit: z.string().regex(/^[A-Za-z0-9_]{2,21}$/u).optional(),
   sort: z.enum(["relevance", "hot", "top", "new", "comments"]).optional(),
@@ -123,6 +152,7 @@ const envelope = <T extends z.ZodType>(data: T) => z.object({
   access_status: z.enum(["complete", "partial", "inaccessible"]), limitations: z.array(z.string()), data,
   research_receipt: z.string().optional()
 }).strict();
+const readOutput = envelope(readDataRuntime).meta(z.toJSONSchema(envelope(readData), { target: "draft-7" }));
 
 export function registerForumTools(
   registrar: Pick<McpServer, "registerTool">,
@@ -132,7 +162,7 @@ export function registerForumTools(
 ): void {
   const reader = options.redditReader ?? redditReaderFromEnv();
   // unfinished: a read its receipt signs as reaching no end of the thread (e 0), whatever the result has to go on with.
-  const result = (kind: "forum_thread" | "forum_search", data: z.output<typeof readData> | z.output<typeof searchData>,
+  const result = (kind: "forum_thread" | "forum_search", data: z.output<typeof readDataRuntime> | z.output<typeof searchData>,
     guidance: string, note = "", signed?: string, unfinished = false): CallToolResult => {
     const readable = data.access_state === "read" || data.access_state === "searched";
     const url = "url" in data ? data.url : undefined;
@@ -144,21 +174,22 @@ export function registerForumTools(
       sourceIdentity: url === undefined ? {} : { canonical_url: url, ...("title" in data ? { title: data.title } : {}) },
       accessStatus: readable ? partial ? "partial" : "complete" : "inaccessible",
       returned: "returned" in data ? data.returned : readable ? 1 : 0,
-      pagination: { exhausted: !partial, ...(next ? { next_cursor: next } : {}) },
+      // Server fix 8, C1: not exhausted only while a way on is given; a part-way read without one says why instead.
+      pagination: { exhausted: !next, ...(next ? { next_cursor: next } : {}) },
       limitations: note ? [note] : [], data
     }), ...(signed === undefined ? {} : { research_receipt: signed }) };
     const summary = kind === "forum_search"
       ? `Reddit search returned ${"returned" in data ? data.returned : 0} thread(s)` +
         ("returned" in data && data.access_state === "searched" ? `, ${searchPage(data.after)}` : "")
       : "page_text" in data ? `Forum page reading returned ${data.page_text?.length ?? 0} character(s)`
-        : `Forum thread reading returned ${"comments_read" in data ? data.comments_read ?? 0 : 0} comment(s)`;
+        : threadSummary(data as z.output<typeof readDataRuntime>);
     return successfulToolResult(`${summary}; access status ${data.access_state}.` +
       (note ? ` ${note}` : "") + (signed === undefined ? "" : `\nresearch_receipt: ${signed}`) + `\n${guidance}`, content);
   };
   registrar.registerTool("read_forum_thread", {
     description: "First choice for reading a forum thread: one public forum page, or a Reddit thread with its comments and replies, with explicit access and continuation states. Sites that refuse stay refused; usernames are left out of Reddit results, and person marks one commenter in a thread.",
     inputSchema: z.object({ url: z.string().url().max(READ_URL_MAX_CHARACTERS), more: z.string().min(1).max(1_000_000).optional() }).strict(),
-    outputSchema: envelope(readData), annotations
+    outputSchema: readOutput, annotations
   }, async ({ url, more }, extra) => {
     let host: string;
     try { host = new URL(url).hostname.toLowerCase(); } catch { host = ""; }
@@ -179,7 +210,7 @@ export function registerForumTools(
         later_page_links_cut: laterPageLinksCut, ...fields } = read.fields as typeof read.fields &
         { page_before?: boolean; page_after?: boolean; later_page_links?: string[]; later_page_links_cut?: boolean };
       const login = fields.access_state === "login_required";
-      const data = readData.parse({ ...base, ...fields, ...(login ? { access_state: "blocked" } : {}) });
+      const data = readDataRuntime.parse({ ...base, ...fields, ...(login ? { access_state: "blocked" } : {}) });
       // A page linking a later page of its own thread (the same comparable link, picking a page after the first) is a
       // page of several, whatever its pager looks like, in any language (MyBB's, vBulletin 3's, phpBB 3.0's pagers carry
       // no rel tags; the review of #421). A single-page thread links no later page of itself.
@@ -196,9 +227,24 @@ export function registerForumTools(
         ? nextPageLink(data.url, (laterPageLinks ?? []).filter((link) => link.length <= READ_URL_MAX_CHARACTERS)) : undefined;
       if (linked !== undefined) data.next_page = linked;
       const unfinished = Boolean(data.more || data.next_page || pageAfter === true || pagedHere || pagesUnknown || data.truncated);
-      // A page after this one that the result has no link for, said in its limitations and its text.
-      const unlinked = data.more || data.next_page ? "" : pagesUnknown ? PAGES_AFTER_UNKNOWN
-        : pageAfter === true || pagedHere ? NO_NEXT_PAGE_LINK : "";
+      // Server fix 8, C1: a part-way read has a way on (more or next_page) or a terminal reason, said in its limitations
+      // and its text: a page after this one that the result has no link for, a page cut at the reader's size limit, or
+      // a Reddit read its host ended short of the thread's count.
+      const cutPage = !reddit && data.truncated === true;
+      const wayOn = Boolean(data.more || data.next_page);
+      const terminal: ForumTerminalReason | undefined = data.access_state !== "read" || wayOn || !unfinished ? undefined
+        : reddit ? data.terminal_reason ?? "site_limit"
+        : pagesUnknown ? "pages_after_unknown" : pageAfter === true || pagedHere ? "next_page_not_followable" : "size_limit";
+      if (data.access_state === "read") {
+        data.truncated = unfinished;
+        if (terminal === undefined) delete data.terminal_reason;
+        else data.terminal_reason = terminal;
+      }
+      const unlinked = terminal === "pages_after_unknown" ? PAGES_AFTER_UNKNOWN
+        : terminal === "next_page_not_followable" ? NO_NEXT_PAGE_LINK : terminal === "size_limit" ? SIZE_LIMIT
+        : terminal === "continuation_too_long" ? CONTINUATION_TOO_LONG
+        : terminal === "site_limit" ? siteLimit(data.thread_comment_count, data.comments_read ?? 0, data.comments_without_text ?? 0)
+        : cutPage && wayOn ? CUT_PAGE : "";
       // A Reddit read also signs the subreddit the reader returned (`c`), the only source of the community and link the
       // Atlas publishes for it (the review of 5 November, finding 1); a post on a person's profile signs u_ alone.
       const subreddit = reddit ? signedSubreddit(data.community) : undefined;
@@ -214,7 +260,8 @@ export function registerForumTools(
       const requestedThread = forumThreadDigest(url);
       const readLink = reddit ? undefined : forumReadLink(data.url);
       const signed = data.access_state === "read" ? receipt("forum_thread_read", {
-        u: readThread, n: reddit ? data.comments_read ?? 0 : data.page_text?.length ?? 0,
+        // This call's comments (comments_read_this_call), as the final check sums each part of a reading once.
+        u: readThread, n: reddit ? data.comments_read_this_call ?? data.comments_read ?? 0 : data.page_text?.length ?? 0,
         v: reddit ? "reddit" : "page",
         ...(subreddit === undefined ? {} : { c: subreddit }),
         ...(reddit && more !== undefined ? { m: digest(more) } : {}),
@@ -298,6 +345,21 @@ export function registerForumTools(
       return result("forum_search", { ...empty, access_state: "unavailable" }, SEARCH_GUIDANCE);
     }
   });
+}
+
+/**
+ * What a thread read says first (server fix 8, C1): this call's comments, and, for a Reddit thread, how many of the
+ * thread's comments the whole reading has read, with Reddit's count.
+ */
+function threadSummary(data: z.output<typeof readDataRuntime>): string {
+  const here = data.comments_read_this_call ?? data.comments_read ?? 0;
+  if (data.thread_comment_count === undefined || data.comments_read === undefined) {
+    return `Forum thread reading returned ${here} comment(s)`;
+  }
+  const without = data.comments_without_text ?? 0;
+  return `Forum thread reading returned ${here} comment(s) in this call; this reading has read ${data.comments_read} ` +
+    `with text${without === 0 ? "" : ` and ${without} without`} of the ${data.thread_comment_count} Reddit counts` +
+    (data.terminal_reason === undefined ? "" : `, and ends here (${data.terminal_reason})`);
 }
 
 /** What a search's page says about the threads there are: a page with more after it is not a total. */

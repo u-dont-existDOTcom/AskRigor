@@ -34,7 +34,16 @@ const TIME = ["hour", "day", "week", "month", "year", "all"] as const;
 // Every call this process sends the host, sessions alike, in order: the first runs and the rest wait their turn.
 let readerTurn = Promise.resolve();
 const line: object[] = [];
-type FailureState = "not_found" | "invalid" | "unavailable" | "busy" | "not_available" | "blocked";
+type FailureState = "not_found" | "invalid" | "unavailable" | "busy" | "not_available" | "blocked" | "refused";
+/**
+ * Why a thread read part-way has no way on (server fix 8, C1, 17 Nov 2026: a read returned 6 of 15 comments, truncated,
+ * with nothing the tool accepts to read further). site_limit: the reader's host returned fewer comments than Reddit
+ * counts, or a page it had already returned, and offered nothing more; continuation_too_long: the rest is too large for
+ * one more value.
+ */
+export type RedditThreadTerminalReason = "site_limit" | "continuation_too_long";
+/** The code a more value from another thread is refused with: never read as this thread's. */
+export const CONTINUATION_OTHER_THREAD = "CONTINUATION_OTHER_THREAD";
 /**
  * The host's failure codes, taken from its browser reader's source, and the states they give. A code not listed stays
  * unavailable. Each result names its code (host_code), so the AI's note and a run's logs say what the host answered: on
@@ -69,7 +78,16 @@ export interface RedditReaderComment {
 export interface RedditThreadResult {
   access_state: "read" | FailureState; url: string; community?: string; title?: string; created?: string | number;
   post_text?: string; comments?: RedditReaderComment[]; thread_comment_count?: number;
-  comments_read?: number; comments_without_text?: number; truncated?: boolean; more?: string;
+  /**
+   * Comments with text read in this reading so far: this call's and every earlier call's whose more value led here.
+   * comments_without_text likewise, apart; comments_read_this_call is this call's alone, which its receipt signs (n).
+   */
+  comments_read?: number; comments_without_text?: number; comments_read_this_call?: number;
+  /**
+   * True whenever the reading stopped before the end: a more value follows, or the comments read with and without text
+   * fall short of Reddit's count, or the host returned a page twice. With no more value, terminal_reason says why.
+   */
+  truncated?: boolean; more?: string; terminal_reason?: RedditThreadTerminalReason;
   /** With busy: about how long the calls ahead of it should take. */
   retry_after_seconds?: number;
   /** With a failure the host reported: its code, never its message. */
@@ -121,7 +139,10 @@ const searchSchema = z.object({
   source: z.string(), posts: z.array(z.object({ id: z.string(), name: z.string(), subreddit: z.string(), title: z.string(), url: z.string().url() })),
   next_page_token: token.nullable(), account_session_verified: z.boolean(), scope: z.unknown()
 });
-const moreSchema = z.object({ v: z.literal(1), id: z.string(), pages: z.array(token).max(1_000), replies: z.array(z.string()).max(10_000) });
+// r and x: the comments read with and without text in the reading's earlier calls (server fix 8, C1), so each result
+// counts the whole reading. A more value from before them counts from this call.
+const moreSchema = z.object({ v: z.literal(1), id: z.string(), pages: z.array(token).max(1_000), replies: z.array(z.string()).max(10_000),
+  r: z.number().int().nonnegative().max(10_000_000).optional(), x: z.number().int().nonnegative().max(10_000_000).optional() });
 
 export function redditReaderFromEnv(env: NodeJS.ProcessEnv = process.env): RedditReaderClient | undefined {
   const target = env.ASKRIGOR_REDDIT_READER_SSH_TARGET;
@@ -265,7 +286,8 @@ export function createRedditReaderClient(options: {
           if (more.length > MAXIMUM_MORE_LENGTH || !/^[A-Za-z0-9_-]+$/u.test(more)) throw new ReaderError("invalid");
           try { pending = moreSchema.parse(JSON.parse(Buffer.from(more, "base64url").toString("utf8"))); }
           catch { throw new ReaderError("invalid"); }
-          if (pending.id !== link.id) throw new ReaderError("invalid");
+          // Server fix 8, test 3: another thread's more value is refused, never read as this thread's.
+          if (pending.id !== link.id) throw new ReaderError("refused", undefined, CONTINUATION_OTHER_THREAD);
         }
         return await queued(async (signal, end): Promise<RedditThreadResult> => {
           const { post } = await call("get_reddit_thread", { thread: link.url }, postSchema, signal, end);
@@ -317,17 +339,30 @@ export function createRedditReaderClient(options: {
             }
           }
           const values = [...comments.values()];
-          const remaining = { v: 1, id: link.id, pages, replies };
-          const next = pages.length === 0 && replies.length === 0 ? undefined : Buffer.from(JSON.stringify(remaining)).toString("base64url");
-          if (next !== undefined && (next.length > MAXIMUM_MORE_LENGTH || !moreSchema.safeParse(remaining).success)) throw new ReaderError("unavailable");
+          // Server fix 8, C1: the counts cover the whole reading, this call's and the earlier calls' its more value
+          // carried; pages and reply continuations are separate parts of the thread, so no comment comes back in two
+          // calls, as the final check's sum of each part's receipt (n) assumes too.
+          const readHere = values.filter((comment) => comment.text !== null && comment.text.length > 0).length;
+          const read = (pending?.r ?? 0) + readHere;
+          const withoutText = (pending?.x ?? 0) + values.length - readHere;
+          const remaining = { v: 1 as const, id: link.id, pages, replies, r: read, x: withoutText };
+          let next = pages.length === 0 && replies.length === 0 ? undefined : Buffer.from(JSON.stringify(remaining)).toString("base64url");
+          let tooLong = false;
+          // The rest too large for one more value: the comments read are kept, and the result says the reading ends here.
+          if (next !== undefined && (next.length > MAXIMUM_MORE_LENGTH || !moreSchema.safeParse(remaining).success)) {
+            next = undefined;
+            tooLong = true;
+          }
+          // The far side reports all_comments_collected false even when it returned every comment, so the reading is
+          // compared with the thread's own count: a comment without text (removed or deleted) was returned, and counts.
+          const short = read + withoutText < post.comment_count;
+          const truncated = incomplete || tooLong || next !== undefined || short;
+          const terminal: RedditThreadTerminalReason | undefined = next !== undefined || !truncated ? undefined
+            : tooLong ? "continuation_too_long" : "site_limit";
           return { access_state: "read", url: canonical, community: post.subreddit.toLowerCase(), title: post.title, created: post.created,
             post_text: post.body, comments: values, thread_comment_count: post.comment_count,
-            comments_read: values.filter((comment) => comment.text !== null && comment.text.length > 0).length,
-            comments_without_text: values.filter((comment) => comment.text === null || comment.text.length === 0).length,
-            // The far side reports all_comments_collected false even when it returned every comment, so a first read is
-            // compared with the thread's own count.
-            truncated: incomplete || next !== undefined || (pending === undefined && values.length < post.comment_count),
-            ...(next === undefined ? {} : { more: next }) };
+            comments_read: read, comments_without_text: withoutText, comments_read_this_call: readHere, truncated,
+            ...(next === undefined ? {} : { more: next }), ...(terminal === undefined ? {} : { terminal_reason: terminal }) };
         });
       } catch (error) { return { ...failure(error), url }; }
     }
