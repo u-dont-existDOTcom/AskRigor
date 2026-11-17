@@ -143,11 +143,25 @@ const publishedVideoClaimsOutputSchema = z.object({
 // AskRigor#431: each claim's id, the video's ID and its place in the list ("<video>#3"), which the extraction's
 // receipt (video and n) fixes exactly, so finalize_research can account for every claim (later_inputs.claim_coverage).
 const publishedVideoClaimSchema = publishedVideoClaimsOutputSchema.shape.claims.unwrap().element;
+/**
+ * Server fix 8, C2 (Codex's red team of 17 Nov 2026: a 3 min 36 s video read whole came back complete with no claim and
+ * n=0): why a whole-video reading listed nothing. no_speech, Gemini heard nobody speak (spoken_language zxx or none);
+ * no_claims_listed, Gemini heard speech and listed no health claim, which is not a reading of what the video says: it
+ * lists health claims only, and may have missed some.
+ */
+export const VIDEO_EMPTY_REASONS = ["no_speech", "no_claims_listed"] as const;
 // Owner answer 189a: the published output stays open for these later fields, without changing tools/list.
 export const extractYoutubeVideoClaimsOutputSchema = publishedVideoClaimsOutputSchema.extend({
+  // Server fix 8: an empty whole-video reading is "empty", never "complete" (C2).
+  status: z.enum(["pending", "complete", "empty"]),
   claims: z.array(publishedVideoClaimSchema.extend({ id: z.string().regex(VIDEO_CLAIM_ID) })).optional(),
   sponsorships: z.array(geminiVideoRelationshipSchema.extend({ link: z.string().optional() })).optional(),
-  caveats: z.array(geminiVideoCaveatSchema.extend({ link: z.string(), time_outside_video: z.literal(true).optional() })).optional()
+  caveats: z.array(geminiVideoCaveatSchema.extend({ link: z.string(), time_outside_video: z.literal(true).optional() })).optional(),
+  // Server fix 8: how much of the video a finished reading covers: the whole video, or one moment's window (C3).
+  coverage: z.enum(["whole_video", "partial"]).optional(),
+  empty_reason: z.enum(VIDEO_EMPTY_REASONS).optional(),
+  // C2: a video in which Gemini heard nobody speak says so.
+  speech: z.literal("none").optional()
 }).meta(z.toJSONSchema(publishedVideoClaimsOutputSchema, { target: "draft-7" }));
 type Output = z.output<typeof extractYoutubeVideoClaimsOutputSchema>;
 
@@ -169,7 +183,8 @@ const DELETION_RETRY =
 /** What the MCP tool hands back: its result, and the claims to sign when it completed or ended without reading. */
 export interface VideoClaimsToolOutcome {
   result: CallToolResult;
-  receipt?: { video: string; mode: "claims" | "moment"; n: number };
+  /** empty: why a whole-video reading listed nothing (server fix 8, C2); n stays 0. */
+  receipt?: { video: string; mode: "claims" | "moment"; n: number; empty?: typeof VIDEO_EMPTY_REASONS[number] };
   // AskRigor#359: a call that ended without reading a video whose ID it had, with its refusal's code, so the final
   // check can tell a video that was read from one whose title and description were all the answer had.
   unread?: { video: string; code: string };
@@ -438,16 +453,23 @@ function completedResult(
 ): ToolEnding {
   const videoId = pass.request.video_id;
   const duration = pass.video.duration_seconds;
+  // Server fix 8, C2: a whole-video reading that listed no claim is empty, with its reason, never complete.
+  const empty = report.mode === "claims" && report.claims.claims.length === 0
+    ? emptyReason(report.claims.spoken_language) : undefined;
   const output: Output = report.mode === "claims"
     ? extractYoutubeVideoClaimsOutputSchema.parse({
-        status: "complete",
+        status: empty === undefined ? "complete" : "empty",
         ...passFields(pass, usage),
+        coverage: "whole_video",
+        ...(empty === undefined ? {} : { empty_reason: empty, ...(empty === "no_speech" ? { speech: "none" } : {}) }),
         ...claimsFields(report.claims, videoId, duration),
         source_note: SOURCE_NOTE
       })
     : extractYoutubeVideoClaimsOutputSchema.parse({
         status: "complete",
         ...passFields(pass, usage),
+        // C3: a moment is part of the video, never the whole: its window, with the video's duration beside it.
+        coverage: "partial",
         moment: momentFields(report.moment, videoId, duration),
         source_note: SOURCE_NOTE
       });
@@ -457,16 +479,38 @@ function completedResult(
   const claims = output.claims?.length ?? 0;
   return {
     result: successfulToolResult(
-      report.mode === "claims"
-        ? `Gemini listed ${claims} health claim(s) in the video` +
+      report.mode === "moment"
+        ? `Gemini reported what is said and shown at ${output.at}, from ${output.moment!.start} to ${output.moment!.end} ` +
+          `of a ${output.video.duration} video: part of the video only, not the whole. Give the quote with its link.`
+        : empty !== undefined ? emptyReadingText(empty, output, duration)
+        : `Gemini listed ${claims} health claim(s) in the video` +
           (output.more_claims_not_listed === true ? ", and the video makes more it did not list" : "") +
           ". These are what the video says, as Gemini heard it: check each material claim with the other tools, " +
-          "and give each one's quote with its link." + claimCoverageGuidance(videoId, claims)
-        : `Gemini reported what is said and shown at ${output.at}. Give the quote with its link.`,
+          "and give each one's quote with its link." + claimCoverageGuidance(videoId, claims),
       output
     ),
-    receipt: { video: videoId, mode: report.mode, n: claims }
+    receipt: { video: videoId, mode: report.mode, n: claims, ...(empty === undefined ? {} : { empty }) }
   };
+}
+
+/** Why a whole-video reading listed no claim (server fix 8, C2): nobody spoke, or speech with no claim listed. */
+function emptyReason(spokenLanguage: string): typeof VIDEO_EMPTY_REASONS[number] {
+  const language = spokenLanguage.trim().toLowerCase();
+  return language === "" || language === "zxx" ? "no_speech" : "no_claims_listed";
+}
+
+/** What an empty whole-video reading says first: what was tried, what came back, and what it is not. */
+function emptyReadingText(reason: typeof VIDEO_EMPTY_REASONS[number], output: Output, duration: number): string {
+  const covered = `the whole video (${formatVideoTime(0)} to ${formatVideoTime(duration)})`;
+  return reason === "no_speech"
+    ? `Gemini read ${covered} and heard nobody speak, so it listed no health claim (status empty, speech none). ` +
+      "Say the video was read and held no spoken claim; what is shown on screen is in on_screen_citations and " +
+      "sponsorships, when there is any."
+    : `Gemini read ${covered} and listed no health claim (status empty: an empty reading, not a reading of what the ` +
+      `video says). It heard speech in ${output.spoken_language}, so it lists health claims only and may have missed ` +
+      "some: never say the video makes no claim, or what it says, from this result. For what a moment says, call " +
+      `${EXTRACT_YOUTUBE_VIDEO_CLAIMS} again with the video and at (MM:SS); its description, from get_youtube_video, ` +
+      "may say what the video covers.";
 }
 
 /**
