@@ -133,15 +133,23 @@ export function dossierRankItems(dossiers: ReadonlyArray<{ publicNumber: string;
  * The form and the people a finding is about, as declared, or undefined when either is not given: then it matches
  * nothing (Codex's review of stage 2, finding 7).
  */
-const identityOf = (item: DossierRankItem): string | undefined => {
+const identityOf = (item: Pick<DossierRankItem, "finding">): string | undefined => {
   const form = item.finding.form?.trim().toLocaleLowerCase("en");
   const people = item.finding.population_key?.trim().toLocaleLowerCase("en");
   return form === undefined || form === "" || people === undefined || people === "" ? undefined
     : JSON.stringify([form, people]);
 };
 
-/** The findings in the order of rule 333a. */
-export function rankDossierFindings(items: readonly DossierRankItem[]): DossierRankItem[] {
+/** What the ranking reads of a finding: never its dossier's other parts, so a topic's every finding can be ranked. */
+export type DossierRankKey = Pick<DossierRankItem, "publicNumber" | "finding" | "evidence" | "shownAt" | "place">;
+
+/**
+ * The findings in the order of rule 333a. Rule 3 in one pass (Codex's re-review of stage 2: a topic's every finding is
+ * ranked now, so the order cannot cost the cube of their number): after the sort, each "not known" finding that a known
+ * finding of its form and people follows moves to just after the last of them; those that move after the same known
+ * finding go in the reverse of their order, as moving each in turn, the first first, puts them; nothing else moves.
+ */
+export function rankDossierFindings<T extends DossierRankKey>(items: readonly T[]): T[] {
   const sorted = [...items].sort((left, right) =>
     IMPORTANCE[left.finding.importance] - IMPORTANCE[right.finding.importance] ||
     Number(right.finding.hard_to_find) - Number(left.finding.hard_to_find) ||
@@ -150,27 +158,20 @@ export function rankDossierFindings(items: readonly DossierRankItem[]): DossierR
     Date.parse(right.shownAt) - Date.parse(left.shownAt) ||
     left.publicNumber.localeCompare(right.publicNumber) ||
     left.place - right.place);
-  // Rule 3: each "not known" finding moves after the last known finding of its form and people; nothing else moves.
-  let moved = true;
-  for (let guard = 0; moved && guard < sorted.length * sorted.length + 1; guard += 1) {
-    moved = false;
-    for (let index = 0; index < sorted.length; index += 1) {
-      const item = sorted[index]!;
-      if (item.finding.kind !== "not_known") continue;
-      const identity = identityOf(item);
-      if (identity === undefined) continue;
-      let last = -1;
-      for (let later = index + 1; later < sorted.length; later += 1) {
-        const other = sorted[later]!;
-        if (KNOWN.has(other.finding.kind) && identityOf(other) === identity) last = later;
-      }
-      if (last > index) {
-        sorted.splice(index, 1);
-        sorted.splice(last, 0, item);
-        moved = true;
-        break;
-      }
-    }
-  }
-  return sorted;
+  const lastKnown = new Map<string, number>();
+  sorted.forEach((item, index) => {
+    const identity = KNOWN.has(item.finding.kind) ? identityOf(item) : undefined;
+    if (identity !== undefined) lastKnown.set(identity, index);
+  });
+  const following = new Map<number, T[]>();
+  const moved = new Set<number>();
+  sorted.forEach((item, index) => {
+    if (item.finding.kind !== "not_known") return;
+    const identity = identityOf(item);
+    const last = identity === undefined ? undefined : lastKnown.get(identity);
+    if (last === undefined || last < index) return;
+    moved.add(index);
+    following.set(last, [item, ...following.get(last) ?? []]);
+  });
+  return sorted.flatMap((item, index) => moved.has(index) ? [] : [item, ...following.get(index) ?? []]);
 }

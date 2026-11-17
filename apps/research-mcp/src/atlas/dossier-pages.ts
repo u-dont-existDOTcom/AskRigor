@@ -1,7 +1,9 @@
-import type {
-  PublicDossierCopy,
-  PublicDossierHistoryEntry,
-  PublicDossierPageSource,
+import {
+  PUBLIC_DOSSIERS_MAX_OFFSET,
+  PUBLIC_DOSSIERS_PER_READ,
+  type PublicDossierCopy,
+  type PublicDossierHistoryEntry,
+  type PublicDossierPageSource,
 } from "@askrigor/evidence-repository";
 
 import {
@@ -23,6 +25,7 @@ import {
   studyPeople,
   type DossierEvidencePart,
   type DossierRankItem,
+  type DossierRankKey,
 } from "./dossier-ranking.js";
 import { NOT_CHECKED_LABEL } from "./page-data.js";
 import { rowPassesPageGuard } from "./page-guard.js";
@@ -87,6 +90,14 @@ export interface DossierTopicModel {
   /** Whether older dossiers follow on the next page. */
   more: boolean;
   dossiers: ShownDossier[];
+  /**
+   * The main points at a glance: the first findings of every shown dossier on the topic in the order of rule 333a, not
+   * of this page's alone (Codex's re-review of stage 2), the same on every page.
+   */
+  glance: DossierRankItem[];
+  /** How many shown dossiers the glance was ranked across, and whether that is every one on the topic. */
+  glanceAcross: { dossiers: number; every: boolean };
+  /** This page's findings, ranked, for the list of every finding by form. */
   ranked: DossierRankItem[];
   forms: Array<{ form: string | null; findings: DossierRankItem[] }>;
   disagreements: DossierDisagreementView[];
@@ -181,6 +192,50 @@ async function relatedTopics(source: PublicDossierPageSource, topicKey: string, 
   return related.sort((left, right) => left.label.localeCompare(right.label, "en")).slice(0, 20);
 }
 
+/**
+ * The main points at a glance across every shown dossier on a topic (Codex's re-review of stage 2, P1: the newest
+ * twenty alone hid an older decision-changing finding): every copy read a read at a time, each finding kept only as the
+ * ranking reads it, ranked by rule 333a, and the dossiers of the first DOSSIER_GLANCE_COUNT read again whole by their
+ * numbers, for what each line opens onto.
+ */
+async function topicGlance(source: PublicDossierPageSource, topicKey: string):
+  Promise<{ glance: DossierRankItem[]; dossiers: number; every: boolean }> {
+  const keys: DossierRankKey[] = [];
+  const seen = new Set<string>();
+  let every = true;
+  for (let offset = 0; ; offset += PUBLIC_DOSSIERS_PER_READ) {
+    if (offset > PUBLIC_DOSSIERS_MAX_OFFSET) {
+      every = false;
+      break;
+    }
+    const read = await source.listShown({ topicKeys: [topicKey], limit: PUBLIC_DOSSIERS_PER_READ, offset });
+    for (const copy of read) {
+      const shown = seen.has(copy.publicNumber) ? undefined : shownOf(copy);
+      if (shown === undefined) continue;
+      seen.add(copy.publicNumber);
+      // Only what the ranking reads is kept: a finding and its evidence, never the dossier's other parts.
+      keys.push(...dossierRankItems([{ publicNumber: copy.publicNumber, dossier: shown.dossier, shownAt: copy.shownAt,
+        accepted: copy.accepted }]).map(({ publicNumber, finding, evidence, shownAt, place }) =>
+        ({ publicNumber, finding, evidence, shownAt, place })));
+    }
+    if (read.length < PUBLIC_DOSSIERS_PER_READ) break;
+  }
+  const first = rankDossierFindings(keys).slice(0, DOSSIER_GLANCE_COUNT);
+  const numbers = [...new Set(first.map(({ publicNumber }) => publicNumber))];
+  const whole = new Map((numbers.length === 0 ? [] : await source.listShown({ publicNumbers: numbers,
+    limit: numbers.length })).flatMap((copy) => {
+    const shown = shownOf(copy);
+    return shown === undefined ? [] : [[copy.publicNumber, shown] as const];
+  }));
+  const glance = first.flatMap((key) => {
+    const shown = whole.get(key.publicNumber);
+    const finding = shown?.dossier.findings[key.place];
+    return shown === undefined || finding?.id !== key.finding.id ? [] : [{ ...key, dossier: shown.dossier, finding,
+      accepted: shown.copy.accepted }];
+  });
+  return { glance, dossiers: seen.size, every };
+}
+
 /** One page of a topic's shown dossiers, ranked, read by the topic's key; undefined when none shows there. */
 export async function loadDossierTopic(source: PublicDossierPageSource, topicKey: string,
   cardTopicLabel: (key: string) => Promise<string | undefined> = async () => undefined, page = 1):
@@ -192,6 +247,7 @@ export async function loadDossierTopic(source: PublicDossierPageSource, topicKey
   if (dossiers.length === 0) return undefined;
   const ranked = rankDossierFindings(dossierRankItems(dossiers.map(({ copy, dossier }) =>
     ({ publicNumber: copy.publicNumber, dossier, shownAt: copy.shownAt, accepted: copy.accepted }))));
+  const across = await topicGlance(source, topicKey);
   const newest = dossiers[0]!.dossier;
   const forms = [...new Map(dossiers.flatMap(({ dossier }) => dossier.forms)
     .map((form) => [form.toLocaleLowerCase("en"), form])).values()];
@@ -202,6 +258,8 @@ export async function loadDossierTopic(source: PublicDossierPageSource, topicKey
     page,
     more: read.length > DOSSIERS_PER_TOPIC_PAGE,
     dossiers,
+    glance: across.glance,
+    glanceAcross: { dossiers: across.dossiers, every: across.every },
     ranked,
     forms: byForm(ranked, forms),
     disagreements: disagreementsAmong(dossiers),
@@ -496,7 +554,7 @@ const unreviewed = (dossiers: readonly ShownDossier[]) => dossiers.some(({ copy 
  * page's dossiers with links to the newer and older ones, and related topics.
  */
 export function dossierTopicSection(model: DossierTopicModel, size: { findingBytes?: number } = {}): SafeHtml {
-  const glance = model.ranked.slice(0, DOSSIER_GLANCE_COUNT);
+  const glance = model.glance;
   const pageOf = (page: number) => page === 1 ? topicPath(model.topicKey) : `${topicPath(model.topicKey)}?page=${page}`;
   const paged = model.page > 1 || model.more;
   return html`<section class="dossier-section" aria-labelledby="dossiers-heading"${unreviewed(model.dossiers)
@@ -504,8 +562,10 @@ export function dossierTopicSection(model: DossierTopicModel, size: { findingByt
 <h2 id="dossiers-heading">Research dossiers: main points at a glance</h2>
 ${unreviewed(model.dossiers) ? statusBadge(false) : statusBadge(true)}
 <p class="meta">${DOSSIER_ORDER_LINE} Open a line for what it rests on.</p>
+${model.glanceAcross.dossiers > model.dossiers.length ? html`<p class="meta">Ranked across ${model.glanceAcross.every
+    ? "all" : "the newest"} ${model.glanceAcross.dossiers} dossiers on this topic.</p>` : ""}
 ${glanceList(glance, true)}
-${model.ranked.length > glance.length || model.forms.length > 1 ? html`<details class="dossier-more">
+${model.ranked.length > glance.length || model.forms.length > 1 || paged ? html`<details class="dossier-more">
 <summary>All ${model.ranked.length} findings${paged ? " of the dossiers on this page" : ""}, by form</summary>
 ${formSections(model.forms, true, "topic", size.findingBytes ?? DOSSIER_FINDING_BYTES, (count) =>
     `${count} more ${count === 1 ? "finding is" : "findings are"} in the dossiers below, each on its own page.`)}

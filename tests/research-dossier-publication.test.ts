@@ -626,6 +626,60 @@ describe("the ranking rule (owner answer 333a)", () => {
 
   // Codex's review, finding 7: rule 3 is for the same form and the same people, as the AI declared them; an identity
   // not given never matches.
+  // Codex's re-review of stage 2: a topic's every finding is ranked now, so rule 3 runs in one pass; it gives exactly
+  // the order the step-by-step moves gave, which this test keeps as its reference.
+  it("orders exactly as rule 3's step-by-step moves did, in one pass", () => {
+    const IMPORTANCE: Record<string, number> = { decision_changing: 0, important: 1, context: 2 };
+    const CERTAINTY: Record<string, number> = { high: 0, moderate: 1, low: 2, very_low: 3 };
+    const KNOWN = new Set(["helps", "harms", "no_difference", "mixed"]);
+    type Item = Parameters<typeof rankDossierFindings>[0][number];
+    const identity = (item: Item) => item.finding.form === undefined || item.finding.population_key === undefined
+      ? undefined : JSON.stringify([item.finding.form.trim().toLowerCase(), item.finding.population_key.trim().toLowerCase()]);
+    const stepwise = (items: readonly Item[]) => {
+      const sorted = [...items].sort((left, right) =>
+        IMPORTANCE[left.finding.importance]! - IMPORTANCE[right.finding.importance]! ||
+        Number(right.finding.hard_to_find) - Number(left.finding.hard_to_find) ||
+        right.evidence.strength - left.evidence.strength ||
+        (CERTAINTY[left.finding.certainty] ?? 4) - (CERTAINTY[right.finding.certainty] ?? 4) ||
+        Date.parse(right.shownAt) - Date.parse(left.shownAt) || left.publicNumber.localeCompare(right.publicNumber) ||
+        left.place - right.place);
+      for (let moved = true; moved;) {
+        moved = false;
+        for (let index = 0; index < sorted.length && !moved; index += 1) {
+          const item = sorted[index]!;
+          const own = item.finding.kind === "not_known" ? identity(item) : undefined;
+          if (own === undefined) continue;
+          let last = -1;
+          for (let later = index + 1; later < sorted.length; later += 1) {
+            if (KNOWN.has(sorted[later]!.finding.kind) && identity(sorted[later]!) === own) last = later;
+          }
+          if (last > index) {
+            sorted.splice(index, 1);
+            sorted.splice(last, 0, item);
+            moved = true;
+          }
+        }
+      }
+      return sorted;
+    };
+    let seed = 477;
+    const random = () => (seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648) / 2_147_483_648;
+    const pick = <T,>(values: readonly T[]) => values[Math.floor(random() * values.length)]!;
+    for (let round = 0; round < 400; round += 1) {
+      const items = Array.from({ length: 1 + Math.floor(random() * 30) }, (_, place): Item => ({
+        publicNumber: pick(["D-1001", "D-1002", "D-1003"]), place, shownAt: pick([NOW.toISOString(), "2026-11-16T00:00:00Z"]),
+        evidence: { parts: [], strength: pick([0, 2, 6]) },
+        finding: { id: `f${place}`, claim: "Invented.", certainty: pick(["high", "low"]), applies_to: "Adults",
+          kind: pick(["not_known", "not_known", "helps", "harms", "no_difference", "mixed", "correction"]),
+          ...(random() < 0.8 ? { form: pick(["myo", "MYO ", "chiro"]) } : {}),
+          ...(random() < 0.8 ? { population_key: pick(["adults", "men"]) } : {}),
+          rests_on: ["q1"], what_would_change_it: "A trial.", importance: pick(["decision_changing", "important", "context"]),
+          hard_to_find: random() < 0.3 } as never,
+      }));
+      expect(rankDossierFindings(items)).toEqual(stepwise(items));
+    }
+  });
+
   it("compares the declared people as well as the form, and never matches a form or people not given", () => {
     // A decision-changing unknown about children stays above a background known effect in adults.
     expect(ranked([
@@ -812,7 +866,8 @@ describe("the dossier pages' reads, pages, size and cache", () => {
    * D-1001 saved and shown as usual, then many more shown copies of its saved record, each a dossier of its own on the
    * topic given, written straight into the stores (as the publish function would) so the test stays quick.
    */
-  async function many(count: number, topicOf: (index: number) => string) {
+  async function many(count: number, topicOf: (index: number) => string,
+    change: (payload: Record<string, any>) => void = () => undefined) {
     const { dossiers, publications, publication } = stores();
     await saveResearchDossier(dossiers, request({ publication }));
     const [first] = dossiers.snapshot();
@@ -823,6 +878,7 @@ describe("the dossier pages' reads, pages, size and cache", () => {
       payload.question = `Synthetic question ${index}: what do inositol forms do?`;
       payload.topic = { key, name: `Topic ${key}`, other_names: [], related: [] };
       payload.forms = [`form-${key}`];
+      change(payload);
       const hex = createHash("sha256").update(`many:${index}`).digest("hex");
       const versionId = deterministicUuid(`many:${index}`);
       // Each a second later than the one before, so D-1001 is the oldest.
@@ -870,6 +926,36 @@ describe("the dossier pages' reads, pages, size and cache", () => {
     expect(Buffer.byteLength(section, "utf8")).toBeLessThan(80_000);
     expect(section).toMatch(/\d+ more findings are in the dossiers below, each on its own page\./u);
   }, 60_000);
+
+  // Codex's re-review of stage 2, P1: his probe hid an older decision-changing finding behind twenty background
+  // dossiers. The main points at a glance are ranked across every shown dossier on the topic (rule 333a); only the list
+  // of dossiers below them comes a page at a time.
+  it("ranks the main points at a glance across every shown dossier on the topic, and pages only the list below",
+    async () => {
+      const { publications } = await many(25, () => "inositol-invented", (payload) => {
+        for (const finding of payload.findings) finding.importance = "context";
+        payload.value.adds = [];
+      });
+      const base = await serve(handler(publications));
+      const glanceOf = (body: string) => {
+        const start = body.indexOf('<ol class="dossier-glance">');
+        return body.slice(start, body.indexOf("</ol>", start));
+      };
+      const first = (await get(base, "/atlas/topics/inositol-invented")).body;
+      const second = (await get(base, "/atlas/topics/inositol-invented?page=2")).body;
+      for (const body of [first, second]) {
+        const glance = glanceOf(body);
+        // D-1001, the oldest, holds the decision-changing findings; they lead on every page of the topic.
+        expect(glance.indexOf('<li class="dossier-finding dossier-decision_changing">')).toBe(glance.indexOf("<li"));
+        expect(glance).toContain("High-dose scyllo-inositol came with more serious infections");
+        expect(glance).toContain('From research dossier <a href="/atlas/dossiers/D-1001">D-1001</a>');
+        expect(body).toContain("Ranked across all 26 dossiers on this topic.");
+      }
+      // The list below is what pages: the newest twenty first, D-1001 on the second page.
+      const listOf = (body: string) => body.slice(body.indexOf('<ul class="dossier-list">'));
+      expect(listOf(first)).not.toContain('href="/atlas/dossiers/D-1001"');
+      expect(listOf(second)).toContain('href="/atlas/dossiers/D-1001"');
+    }, 60_000);
 
   it("drops every server's cached dossier pages when the research is withdrawn, also in another process", async () => {
     const { dossiers, publications, publication } = stores();
