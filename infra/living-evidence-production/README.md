@@ -547,7 +547,9 @@ with, where its research ran, whether the privacy reading passed its saved conte
 whether a claim names a living person, or that its AI did not say, with the owner's recorded statement and decision)
 and
 `research_dossier_public_events` (append-only), eight role functions, three pure helpers that derive a copy from its
-private record, two internal functions for the conflict candidates, and two views. The research-access role publishes and reads a topic's shown copies
+private record, two internal functions for the conflict candidates, two that take the per-topic locks (automatic
+publication and every review transition that changes what is shown take the same locks, in the same order), and two
+views. The research-access role publishes and reads a topic's shown copies
 (`publish_research_dossier_version`, which derives the public copy and why it is held from the saved private record and
 refuses anything else, and admits copies one topic at a time against the conflict check's candidates, and
 `research_dossier_conflict_candidates`, every shown copy on the topic, a linked topic or under another name, a page at a

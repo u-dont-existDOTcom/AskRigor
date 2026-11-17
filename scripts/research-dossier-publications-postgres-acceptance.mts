@@ -132,6 +132,8 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       "research_dossier_conflict_candidates(text, uuid, text, integer, integer)": "askrigor_research_access",
       "research_dossier_conflict_matches(jsonb)": "none",
       "research_dossier_topic_names(jsonb)": "none",
+      "research_dossier_lock_topics(text[])": "none",
+      "research_dossier_lock_copy_topics(text, integer)": "none",
       "list_research_dossier_publications(text, integer)": "askrigor_research_review",
       "inspect_research_dossier_publication(text)": "askrigor_research_review",
       "decide_research_dossier_publication(text, integer, text, text, timestamptz)": "askrigor_research_review",
@@ -597,6 +599,94 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     assert(importantConflict.outcome === "published" && importantConflict.holdReasons.join() === "important_conflict",
       "IMPORTANT_CONFLICT_NOT_HELD");
     checks.push("admission_is_serialized_per_topic_and_rechecks_the_comparison_set");
+
+    // Codex's re-review, P0 (his race: a review's show committed while an automatic publication waited, and both copies
+    // showed though the publication's comparison held neither). A review's show now holds the topic's locks: the
+    // publication waits for it, then finds its comparison stale and compares again. The other way round, each review
+    // transition that changes what is shown (show, accept, hold, take down, the living-person decision, a revised mark)
+    // waits while a publication holds the topic.
+    const reviewer = await account("review-race");
+    const raced = (value: Record<string, any>) => {
+      value.topic = { key: "review-race-topic", name: "Review race", other_names: [], related: [] };
+      value.forms = ["review-race-form"];
+    };
+    const heldForReview = await save(reviewer.accountKey, "race-held", "race-held", null,
+      (value) => { raced(value); moderate(value); });
+    const reviewHeld = await publisher.publish(await copy(reviewer.accountKey, heldForReview));
+    assert(reviewHeld.outcome === "published" && reviewHeld.state === "held", "RACE_HELD_NOT_HELD");
+    const automatic = await save(reviewer.accountKey, "race-automatic", "race-automatic", null, raced);
+    const automaticCheck = await copy(reviewer.accountKey, automatic);
+    assert(automaticCheck.compared.length === 0, "RACE_TOPIC_NOT_EMPTY");
+    const reviewing = await reviewPool.connect();
+    let admitted: Awaited<ReturnType<typeof publisher.publish>> | undefined;
+    let admittedSettled = false;
+    try {
+      await reviewing.query("BEGIN");
+      const shownByReview = await reviewing.query<{ outcome: string; state: string }>(`SELECT outcome, state
+        FROM ${SCHEMA}.decide_research_dossier_publication($1, 1, 'show', NULL, $2::timestamptz)`,
+      [reviewHeld.publicNumber, AT.toISOString()]);
+      assert(shownByReview.rows[0]?.outcome === "decided" && shownByReview.rows[0].state === "shown",
+        "RACE_REVIEW_SHOW_WRONG");
+      const waiting = publisher.publish(automaticCheck).then((result) => { admittedSettled = true; admitted = result; });
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      assert(!admittedSettled, "PUBLICATION_DID_NOT_WAIT_FOR_THE_REVIEWS_SHOW");
+      await reviewing.query("COMMIT");
+      await waiting;
+    } finally {
+      reviewing.release();
+    }
+    assert(admitted?.outcome === "comparison_stale", `PUBLICATION_ADMITTED_BESIDE_THE_REVIEWS_SHOW_${admitted?.outcome}`);
+    const recompared = await publisher.publish(await copy(reviewer.accountKey, automatic));
+    assert(recompared.outcome === "published" &&
+      (await candidatesOf(reviewer.accountKey, automatic)).some(({ publicNumber }) => publicNumber === reviewHeld.publicNumber),
+    "RECOMPARISON_WITHOUT_THE_REVIEWED_COPY");
+    // Each transition that changes what is shown waits while a publication holds the topic's locks.
+    const shownCopy = async (label: string, change: (value: Record<string, any>) => void = () => undefined) => {
+      const version = await save(reviewer.accountKey, label, label, null, (value) => { raced(value); change(value); });
+      const result = await publisher.publish(await copy(reviewer.accountKey, version));
+      assert(result.outcome === "published", `RACE_${label.toUpperCase()}_NOT_PUBLISHED`);
+      return result.publicNumber;
+    };
+    const transitions: Array<[string, () => Promise<unknown>]> = [];
+    const toShow = await shownCopy("race-to-show", moderate);
+    transitions.push(["show", () => review.decide({ publicNumber: toShow, versionNumber: 1, decision: "show", reason: null,
+      at: AT })]);
+    const toAccept = await shownCopy("race-to-accept", moderate);
+    transitions.push(["accept", () => review.decide({ publicNumber: toAccept, versionNumber: 1, decision: "accept",
+      reason: null, at: AT })]);
+    const toHold = await shownCopy("race-to-hold");
+    transitions.push(["hold", () => review.decide({ publicNumber: toHold, versionNumber: 1, decision: "hold",
+      reason: "A misread figure", at: AT })]);
+    const toTakeDown = await shownCopy("race-to-take-down");
+    transitions.push(["take_down", () => review.decide({ publicNumber: toTakeDown, versionNumber: 1, decision: "take_down",
+      reason: "A misread figure", at: AT })]);
+    const toName = await shownCopy("race-to-name", (value) => { value.names_living_people = true; });
+    transitions.push(["living_person", () => review.decideLivingPerson({ publicNumber: toName, versionNumber: 1,
+      reason: "A public figure in office", decidedBy: "reviewer:0123456789abcdef", at: AT })]);
+    const toRevise = await shownCopy("race-to-revise");
+    transitions.push(["revise", () => review.reviseImportance({ publicNumber: toRevise, versionNumber: 1, findingId: "f1",
+      importance: "decision_changing", reason: "It changes a decision", revisedBy: "reviewer:fedcba9876543210", at: AT })]);
+    for (const [name, transition] of transitions) {
+      const blocking = await save(reviewer.accountKey, `race-blocking-${name}`, `race-blocking-${name}`, null, raced);
+      const blockingCheck = await copy(reviewer.accountKey, blocking);
+      const holding = await access.connect();
+      let settled = false;
+      try {
+        await holding.query("BEGIN");
+        const held = await holding.query<{ outcome: string }>(`SELECT outcome FROM ${SCHEMA}.publish_research_dossier_version(
+          $1, $2::uuid, $3::jsonb, $4::text[], 'read', '{}'::text[], false, $5::timestamptz)`,
+        [reviewer.accountKey, blocking, JSON.stringify(blockingCheck.payload), [...blockingCheck.compared], AT.toISOString()]);
+        assert(held.rows[0]?.outcome === "published", `RACE_BLOCKER_${name.toUpperCase()}_NOT_PUBLISHED`);
+        const waiting = transition().then(() => { settled = true; });
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        assert(!settled, `REVIEW_${name.toUpperCase()}_DID_NOT_WAIT_FOR_THE_TOPIC`);
+        await holding.query("COMMIT");
+        await waiting;
+      } finally {
+        holding.release();
+      }
+    }
+    checks.push("every_review_transition_that_changes_what_is_shown_takes_the_topic_locks");
 
     // Codex's review, finding 7: an importance mark changes only by a new, reviewed version: the old one is kept as it
     // was, the new one records who revised it and why, and a dossier's later copy is numbered after it.

@@ -438,6 +438,51 @@ $function$;
 
 REVOKE ALL ON FUNCTION research_dossier_conflict_candidates(text, uuid, text, integer, integer) FROM PUBLIC;
 
+-- The per-topic locks (Codex's review of stage 2, finding 4, and his re-review, P0): one transaction-level lock for each
+-- topic key, name, other name, form and related topic given, taken in one fixed order (by the lock number), so two
+-- writers whose copies could be each other's conflict candidates go one at a time and never wait on each other in a
+-- circle. Automatic publication takes them for its new copy; every review transition that changes what is shown takes
+-- them for its copies through research_dossier_lock_copy_topics. The only place the locks are taken.
+CREATE OR REPLACE FUNCTION research_dossier_lock_topics(keys text[])
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+DECLARE
+  lock_key integer;
+BEGIN
+  FOR lock_key IN
+    SELECT DISTINCT hashtext('research_dossier_topic:' || key) FROM unnest(keys) AS key WHERE key IS NOT NULL ORDER BY 1
+  LOOP
+    PERFORM pg_advisory_xact_lock(477002, lock_key);
+  END LOOP;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION research_dossier_lock_topics(text[]) FROM PUBLIC;
+
+-- A review transition's topic locks (Codex's re-review of stage 2, P0: a review's show committed while an automatic
+-- publication waited, and both showed though neither was compared with the other): the same locks automatic
+-- publication takes for a copy, for the copy decided and for its dossier's shown copy, which a show supersedes, taken
+-- before the transition locks or writes any row. A copy's topics never change (an erasure empties them, and an erased
+-- copy is decided no further), so they are read before the locks.
+CREATE OR REPLACE FUNCTION research_dossier_lock_copy_topics(target_public_number text, target_version_number integer)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+BEGIN
+  PERFORM research_dossier_lock_topics(ARRAY(
+    SELECT key FROM research_dossier_public_versions copy, unnest(copy.topic_names || copy.related_topic_keys) AS key
+     WHERE copy.public_number = target_public_number
+       AND (copy.version_number = target_version_number OR copy.state = 'shown')));
+END
+$function$;
+
+REVOKE ALL ON FUNCTION research_dossier_lock_copy_topics(text, integer) FROM PUBLIC;
+
 -- Writes one public copy of a saved version, already in its final state: shown, or held with its reasons. Only for an
 -- active free contributor with card saving on whose accepted notice research_dossier_public_notices lists, checked
 -- under the same account lock as the private append (0037), so a revocation, a change of mode or the saving switch
@@ -454,7 +499,8 @@ REVOKE ALL ON FUNCTION research_dossier_conflict_candidates(text, uuid, text, in
 -- check's result comes from the server, which made it with AskRigor's paid reader.
 --
 -- Admission is serialized per topic (Codex's review of stage 2, finding 4): it takes one lock for each of its topic's
--- key, names, other names, forms and related topics, in a fixed order, so two copies that could be each other's
+-- key, names, other names, forms and related topics, in a fixed order (research_dossier_lock_topics), as every review
+-- transition that changes what is shown takes them too (his re-review, P0), so two copies that could be each other's
 -- candidates are admitted one at a time; under them it lists the candidates again, and a conflict check made against
 -- any other set is refused (comparison_stale), so the server compares again. A check the reader could not make holds
 -- the copy, waiting for the conflict check, whenever any shown copy is a candidate.
@@ -488,7 +534,6 @@ DECLARE
   topic text;
   related text[];
   names text[];
-  lock_key integer;
   candidates text[];
   pending boolean;
 BEGIN
@@ -563,11 +608,7 @@ BEGIN
   names := research_dossier_topic_names(projection);
 
   -- One lock per topic key and name, in a fixed order; then the comparison set, which must be the one compared.
-  FOR lock_key IN
-    SELECT DISTINCT hashtext('research_dossier_topic:' || key) FROM unnest(names || related) AS key ORDER BY 1
-  LOOP
-    PERFORM pg_advisory_xact_lock(477002, lock_key);
-  END LOOP;
+  PERFORM research_dossier_lock_topics(names || related);
   candidates := ARRAY(SELECT candidate FROM (SELECT match.public_number || '/' || match.version_number AS candidate
     FROM research_dossier_conflict_matches(projection) AS match) AS listed ORDER BY candidate COLLATE "C");
   IF target_conflict_check = 'read' AND (candidates IS DISTINCT FROM
@@ -728,7 +769,8 @@ BEGIN
      OR change_time IS NULL THEN
     RAISE EXCEPTION 'RESEARCH_DOSSIER_REVIEW_INPUT_INVALID';
   END IF;
-  -- One decision on a dossier at a time.
+  -- The topic's locks, as automatic publication takes them, before any row; then one decision on a dossier at a time.
+  PERFORM research_dossier_lock_copy_topics(target_public_number, target_version_number);
   PERFORM 1 FROM research_dossier_publications publication
    WHERE publication.public_number = target_public_number FOR UPDATE;
   SELECT * INTO copy_row FROM research_dossier_public_versions copy
@@ -819,6 +861,8 @@ BEGIN
      OR change_time IS NULL THEN
     RAISE EXCEPTION 'RESEARCH_DOSSIER_REVIEW_INPUT_INVALID';
   END IF;
+  -- The topic's locks, as automatic publication takes them, before any row (Codex's re-review of stage 2, P0).
+  PERFORM research_dossier_lock_copy_topics(target_public_number, target_version_number);
   PERFORM 1 FROM research_dossier_publications publication
    WHERE publication.public_number = target_public_number FOR UPDATE;
   SELECT * INTO copy_row FROM research_dossier_public_versions copy
@@ -951,6 +995,8 @@ BEGIN
      OR change_time IS NULL THEN
     RAISE EXCEPTION 'RESEARCH_DOSSIER_REVIEW_INPUT_INVALID';
   END IF;
+  -- The topic's locks, as automatic publication takes them, before any row (Codex's re-review of stage 2, P0).
+  PERFORM research_dossier_lock_copy_topics(target_public_number, target_version_number);
   PERFORM 1 FROM research_dossier_publications publication
    WHERE publication.public_number = target_public_number FOR UPDATE;
   SELECT * INTO copy_row FROM research_dossier_public_versions copy

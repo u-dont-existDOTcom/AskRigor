@@ -1099,6 +1099,34 @@ describe("the dossier's shape and migration 0040", () => {
       migration.indexOf("COMMENT ON VIEW"));
     expect(views.split("FROM")[0]).not.toMatch(/origin|account|dossier_number|hold_reasons|privacy_read/u);
   });
+
+  // Codex's re-review of stage 2, P0: every transition that changes what is shown takes the per-topic locks automatic
+  // publication takes, through the one helper that takes them in one sorted order; a review takes them before it locks
+  // or writes any row, so it never holds a row a waiting publication needs. Its PostgreSQL race is in the acceptance.
+  it("takes automatic publication's topic locks, in the same order, in every transition that changes what is shown",
+    async () => {
+      const migration = await readFile(new URL(
+        "../packages/evidence-repository/migrations/0040_research_dossier_publications.sql", import.meta.url), "utf8");
+      const body = (name: string) => {
+        const start = migration.indexOf(`CREATE OR REPLACE FUNCTION ${name}(`);
+        return migration.slice(migration.indexOf("BEGIN", start), migration.indexOf("$function$;", start));
+      };
+      expect(migration.match(/pg_advisory_xact_lock\(/gu)).toHaveLength(1);
+      expect(body("research_dossier_lock_topics")).toContain("ORDER BY 1");
+      expect(body("publish_research_dossier_version")).toContain("PERFORM research_dossier_lock_topics(names || related);");
+      // A review's copies' keys are the same columns publication derives them into: names, then related topics.
+      expect(body("research_dossier_lock_copy_topics")).toContain("PERFORM research_dossier_lock_topics(ARRAY(");
+      expect(body("research_dossier_lock_copy_topics")).toContain("unnest(copy.topic_names || copy.related_topic_keys)");
+      for (const name of ["decide_research_dossier_publication", "decide_research_dossier_living_person",
+        "revise_research_dossier_importance"]) {
+        const text = body(name);
+        const locked = text.indexOf("PERFORM research_dossier_lock_copy_topics(target_public_number, target_version_number);");
+        expect(locked, name).toBeGreaterThan(0);
+        for (const write of [" FOR UPDATE", "UPDATE research_dossier_public_versions", "INSERT INTO research_dossier_public"]) {
+          expect(text.indexOf(write), `${name}: ${write}`).toBeGreaterThan(locked);
+        }
+      }
+    });
 });
 
 // Through the tool, over HTTP with the owner's reviewer login: runtime actions with their inputs in later_inputs, so the
