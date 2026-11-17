@@ -14,10 +14,11 @@ SET search_path TO __SCHEMA__, public;
 -- quick-answer test shows it (owner answer 240a). Its page then says nothing of the test, but the pages knew only the
 -- setting, so turning it off made such a page say again that a separate AI had found a quick AI answer misses it. How a
 -- publication reached the pages is now stored with it: shown_by is 'automatic_showing' when the save published it under
--- that setting rather than keeping it for the quick-answer test, so the test never showed it, and NULL otherwise, as
--- for every publication before this migration: kept for the quick-answer test until the test (or the owner) showed it,
--- or published by the owner. publish_atlas_findings writes it from a draft's shownBy, which only an unreviewed draft may
--- carry; publishing a withdrawn finding again leaves it as it was. The reader reads the column for the pages.
+-- that setting rather than keeping it for the quick-answer test, so the test never showed it; the other routes are as
+-- above, and NULL is not recorded, as for every publication before this migration. publish_atlas_findings writes it
+-- from a draft's shownBy (automatic_showing only for an unreviewed draft, owner_action only for one that shows);
+-- publishing a withdrawn finding again takes the draft's route when it gives one and otherwise leaves it as it was. The
+-- reader reads the column for the pages.
 --
 -- Codex's review of 17 Nov 2026, finding 1 (P0): under that setting, a finding whose card doesn't declare, as the final
 -- check signed, that it names no living person is kept off the pages for the owner's decision. So that a keep that

@@ -1397,6 +1397,20 @@ describe("migration 0021's admitted edit", () => {
     expect(readme).toContain("(`living_person_review`), with no page, until the owner decides, whatever the\nsetting.");
   });
 
+  // Codex's re-review of 17 Nov 2026, finding 4 and its P2: the PostgreSQL acceptance reads the route the pages read,
+  // and runs 0041's new fields, 0021's edit and the hold script against a real database.
+  it("has the PostgreSQL acceptance read and run the routes, the kept reason, the hold and 0021's edit", async () => {
+    const acceptance = await read("scripts/research-contributor-access-postgres-acceptance.mts");
+    expect(acceptance).toContain('"atlasNumber,challenge,kept,publicationNumber,published,publishedAt,shownBy,state,stateChangedAt"');
+    for (const check of [
+      "migration_0021_admits_only_its_verified_edit_takes_living_person_review_and_replays_unchanged",
+      "earlier_image_or_unknown_0021_digest_stops_migrate_and_changes_nothing",
+      "atlas_routes_stored_apart_by_the_review_functions_and_a_page_says_the_test_happened_only_from_the_record",
+      "hold_script_dry_run_changes_nothing_and_apply_holds_only_unreviewed_findings_for_living_person_review",
+    ]) expect(acceptance).toContain(`checks.push("${check}")`);
+    expect(acceptance).toContain("await verifyLivingPersonHoldMigration({ adminUrl, schema: SCHEMA, checks });");
+  });
+
   // Codex's re-review of 17 Nov 2026, finding 4: an earlier image reads its pages from the setting, not the route, and
   // with the setting off would say the quick-answer test happened for a finding shown at once.
   it("says how a rollback image's pages stay true about the quick-answer test", async () => {
