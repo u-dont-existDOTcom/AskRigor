@@ -36,7 +36,10 @@ for (const name of ["search_reddit", "get_reddit_thread", "get_reddit_comments",
       url: `https://www.reddit.com/r/synthetic/comments/abc${index}/` })), next_page_token: "synthetic-after",
       account_session_verified: true, scope: "synthetic" };
     else if (name === "get_reddit_thread") result = { source: "reddit", post: mode === "all-returned-false" ? { ...post, comment_count: 3 }
-      : mode === "repeated-page" ? { ...post, comment_count: 2 } : post };
+      : mode === "repeated-page" ? { ...post, comment_count: 2 }
+      // Codex's review of 17 Nov 2026, finding 2: the normal thread counted 15, so a reading that counts its repeated
+      // comment twice looks complete.
+      : mode === "normal-of-fifteen" ? { ...post, comment_count: 15 } : post };
     else if (name === "get_reddit_comments") result = comments([
       comment("op", "synthetic-original-author"), comment("other"), comment("collapsed", null, null)
     ], "page-1", Array.from({ length: 6 }, (_, index) => ({ comment_id: `reply-${index + 1}`, author: "synthetic-other-author" })));

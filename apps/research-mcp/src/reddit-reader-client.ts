@@ -79,8 +79,9 @@ export interface RedditThreadResult {
   access_state: "read" | FailureState; url: string; community?: string; title?: string; created?: string | number;
   post_text?: string; comments?: RedditReaderComment[]; thread_comment_count?: number;
   /**
-   * Comments with text read in this reading so far: this call's and every earlier call's whose more value led here.
-   * comments_without_text likewise, apart; comments_read_this_call is this call's alone, which its receipt signs (n).
+   * Distinct comments with text read in this reading so far: this call's and every earlier call's whose more value led
+   * here, each once. comments_without_text likewise, apart; comments_read_this_call is this call's alone, the comments
+   * with text the reading had not returned before, which its receipt signs (n).
    */
   comments_read?: number; comments_without_text?: number; comments_read_this_call?: number;
   /**
@@ -139,10 +140,12 @@ const searchSchema = z.object({
   source: z.string(), posts: z.array(z.object({ id: z.string(), name: z.string(), subreddit: z.string(), title: z.string(), url: z.string().url() })),
   next_page_token: token.nullable(), account_session_verified: z.boolean(), scope: z.unknown()
 });
-// r and x: the comments read with and without text in the reading's earlier calls (server fix 8, C1), so each result
-// counts the whole reading. A more value from before them counts from this call.
-const moreSchema = z.object({ v: z.literal(1), id: z.string(), pages: z.array(token).max(1_000), replies: z.array(z.string()).max(10_000),
-  r: z.number().int().nonnegative().max(10_000_000).optional(), x: z.number().int().nonnegative().max(10_000_000).optional() });
+// t and u: the distinct comments the reading's earlier calls returned, by id, with text (t) and without (u), so each
+// result counts the whole reading from them and a comment the host returns again is never counted twice (Codex's review
+// of 17 Nov 2026, finding 2: counts alone, r and x, added a repeated comment to both calls' totals).
+const commentId = z.string().min(1).max(100);
+const moreSchema = z.object({ v: z.literal(2), id: z.string(), pages: z.array(token).max(1_000), replies: z.array(z.string()).max(10_000),
+  t: z.array(commentId).max(1_000_000), u: z.array(commentId).max(1_000_000) });
 
 export function redditReaderFromEnv(env: NodeJS.ProcessEnv = process.env): RedditReaderClient | undefined {
   const target = env.ASKRIGOR_REDDIT_READER_SSH_TARGET;
@@ -338,14 +341,26 @@ export function createRedditReaderClient(options: {
               throw error;
             }
           }
-          const values = [...comments.values()];
-          // Server fix 8, C1: the counts cover the whole reading, this call's and the earlier calls' its more value
-          // carried; pages and reply continuations are separate parts of the thread, so no comment comes back in two
-          // calls, as the final check's sum of each part's receipt (n) assumes too.
-          const readHere = values.filter((comment) => comment.text !== null && comment.text.length > 0).length;
-          const read = (pending?.r ?? 0) + readHere;
-          const withoutText = (pending?.x ?? 0) + values.length - readHere;
-          const remaining = { v: 1 as const, id: link.id, pages, replies, r: read, x: withoutText };
+          // Server fix 8, C1, and Codex's review of 17 Nov 2026, finding 2: every count comes from the distinct comments
+          // the whole reading returned, this call's and the earlier calls' its more value carried. The host returns a
+          // comment again on a later page, so this call gives only the comments the reading had not returned before (one
+          // that comes back with text where it had none counts now), and its count, which its receipt signs as n, sums
+          // with the earlier calls' to the reading's, as the final check's sum of each part's n assumes.
+          const withText = new Set(pending?.t ?? []);
+          const without = new Set((pending?.u ?? []).filter((id) => !withText.has(id)));
+          const hasText = (comment: RedditReaderComment) => comment.text !== null && comment.text.length > 0;
+          const values = [...comments.values()].filter((comment) =>
+            !withText.has(comment.id) && (hasText(comment) || !without.has(comment.id)));
+          for (const comment of values) {
+            if (hasText(comment)) {
+              withText.add(comment.id);
+              without.delete(comment.id);
+            } else without.add(comment.id);
+          }
+          const readHere = values.filter(hasText).length;
+          const read = withText.size;
+          const withoutText = without.size;
+          const remaining = { v: 2 as const, id: link.id, pages, replies, t: [...withText], u: [...without] };
           let next = pages.length === 0 && replies.length === 0 ? undefined : Buffer.from(JSON.stringify(remaining)).toString("base64url");
           let tooLong = false;
           // The rest too large for one more value: the comments read are kept, and the result says the reading ends here.

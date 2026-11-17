@@ -42,6 +42,8 @@ afterEach(async () => {
 });
 
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+/** What a more value carries. */
+const continuationOf = (more: string) => JSON.parse(Buffer.from(more, "base64url").toString("utf8"));
 async function untilStarted(records: () => Promise<{ event: string }[]>) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     if ((await records().catch(() => [])).some((record) => record.event === "start")) return;
@@ -93,10 +95,12 @@ describe("Reddit stdio reader", () => {
     expect(result.comments?.find((comment) => comment.id === "op")).toMatchObject({ is_original_poster: true });
     expect(result.comments?.find((comment) => comment.id === "collapsed")).not.toHaveProperty("person");
     expect(JSON.stringify(result)).not.toMatch(/synthetic-original-author|synthetic-other-author|relationship_verified|thread_id|"author"|"name"/u);
-    const continuation = JSON.parse(Buffer.from(result.more!, "base64url").toString("utf8"));
-    // Server fix 8, C1: the more value also carries the counts read so far, with text (r) and without (x).
-    expect(Object.keys(continuation).sort()).toEqual(["id", "pages", "r", "replies", "v", "x"]);
-    expect(continuation).toMatchObject({ r: 10, x: 1 });
+    const continuation = continuationOf(result.more!);
+    // Codex's review of 17 Nov 2026, finding 2: the more value carries the distinct comments read so far, by id, with
+    // text (t) and without (u), so a comment returned again is counted once.
+    expect(Object.keys(continuation).sort()).toEqual(["id", "pages", "replies", "t", "u", "v"]);
+    expect(continuation.t).toHaveLength(10);
+    expect(continuation.u).toEqual(["collapsed"]);
     expect(JSON.stringify(continuation)).not.toMatch(/synthetic-original-author|synthetic-other-author|"author"/u);
     const calls = (await records()).filter((record) => record.event === "start");
     expect(calls[0].input).toEqual({ thread: "https://www.reddit.com/r/synthetic/comments/abc123/" });
@@ -104,14 +108,30 @@ describe("Reddit stdio reader", () => {
     expect(calls.filter((record) => record.name === "expand_reddit_comments")).toHaveLength(3);
     expect(calls.filter((record) => record.name === "get_reddit_replies")).toHaveLength(5);
     const resumed = await client.readThread(URL, result.more);
-    // The whole reading's counts, and this call's apart; 15 of Reddit's 30, with no way on, so it says why.
-    expect(resumed).toMatchObject({ access_state: "read", comments_read: 14, comments_without_text: 1,
-      comments_read_this_call: 4, truncated: true, terminal_reason: "site_limit" });
+    // The whole reading's counts, and this call's apart; 14 distinct of Reddit's 30, with no way on, so it says why.
+    // "other" came back on each page: it was read in the first call, so it is neither counted nor returned again.
+    expect(resumed).toMatchObject({ access_state: "read", comments_read: 13, comments_without_text: 1,
+      comments_read_this_call: 3, truncated: true, terminal_reason: "site_limit" });
     expect(resumed.more).toBeUndefined();
-    expect(resumed.comments?.map((comment) => comment.id)).toEqual(["page4", "other", "page5", "reply-6"]);
+    expect(resumed.comments?.map((comment) => comment.id)).toEqual(["page4", "page5", "reply-6"]);
     expect(resumed.comments?.every((comment) => comment.person === author)).toBe(true);
     expect((await records()).filter((record) => record.event === "boot")).toHaveLength(1);
   });
+  // Codex's review of 17 Nov 2026, finding 2: "other" comes back on every page, so a resumed reading counted it again,
+  // and 14 distinct comments read as 15 of Reddit's 15, complete. The distinct comments are kept across more values.
+  it("counts each distinct comment once across more values, so a repeated one never makes a reading look complete", async () => {
+    const { client } = await fake("normal-of-fifteen");
+    const first = await client.readThread(URL);
+    expect(first).toMatchObject({ access_state: "read", thread_comment_count: 15, comments_read: 10, comments_without_text: 1,
+      comments_read_this_call: 10, truncated: true });
+    const resumed = await client.readThread(URL, first.more);
+    expect(resumed).toMatchObject({ access_state: "read", thread_comment_count: 15, comments_read: 13,
+      comments_without_text: 1, comments_read_this_call: 3, truncated: true, terminal_reason: "site_limit" });
+    // This call's comments are the ones the reading had not returned before, as its count says.
+    expect(resumed.comments?.map(({ id }) => id)).toEqual(["page4", "page5", "reply-6"]);
+    expect(resumed.more).toBeUndefined();
+  });
+
   it("normalizes uppercase subreddit paths", async () => {
     const { client, records } = await fake();
     expect((await client.readThread("https://www.reddit.com/R/SYNTHETIC/comments/ABC123/")).access_state).toBe("read");
@@ -153,8 +173,8 @@ describe("Reddit stdio reader", () => {
     const result = await client.readThread(URL);
     expect(result).toMatchObject({ access_state: "read", truncated: true });
     expect(result.comments!.reduce((count, comment) => count + (comment.text?.length ?? 0), 0)).toBeGreaterThan(100_000);
-    const pending = JSON.parse(Buffer.from(result.more!, "base64url").toString("utf8"));
-    expect(Object.keys(pending).sort()).toEqual(["id", "pages", "r", "replies", "v", "x"]);
+    const pending = continuationOf(result.more!);
+    expect(Object.keys(pending).sort()).toEqual(["id", "pages", "replies", "t", "u", "v"]);
     expect(result).not.toHaveProperty("terminal_reason");
     expect(pending.pages[0]).toBe(pendingPage);
     expect(pending.replies[0]).toBe(pendingReply);
@@ -163,19 +183,23 @@ describe("Reddit stdio reader", () => {
     expect(calls.filter((record) => record.name === "expand_reddit_comments")).toHaveLength(expansions);
     expect(calls.filter((record) => record.name === "get_reddit_replies")).toHaveLength(replies);
   });
-  it("keeps continuation state independent of the number of comments already read", async () => {
+  // Codex's review of 17 Nov 2026, finding 2: the continuation keeps every distinct comment read, so it grows with the
+  // reading, and each call's count adds up to the reading's.
+  it("keeps every distinct comment read in its continuation, so each call's count sums to the reading's", async () => {
     const { client } = await fake("many-comments");
     let more: string | undefined;
+    let summed = 0;
     for (let turn = 0; turn < 8; turn += 1) {
       const result = await client.readThread(URL, more);
       expect(result.access_state).toBe("read");
       expect(result.comments!.length).toBeGreaterThanOrEqual(1_500);
+      summed += result.comments_read_this_call!;
+      expect(result.comments_read).toBe(summed);
       more = result.more!;
-      const pending = JSON.parse(Buffer.from(more, "base64url").toString("utf8"));
-      // No comment ids: only the two counts (server fix 8, C1), which grow by digits, not by comments.
-      expect(Object.keys(pending).sort()).toEqual(["id", "pages", "r", "replies", "v", "x"]);
-      expect(pending.r).toBe(result.comments_read);
-      expect(more.length).toBeLessThan(120);
+      const pending = continuationOf(more);
+      expect(Object.keys(pending).sort()).toEqual(["id", "pages", "replies", "t", "u", "v"]);
+      expect(pending.t).toHaveLength(result.comments_read!);
+      expect(new Set(pending.t).size).toBe(pending.t.length);
     }
   });
   it("counts a thread of 15 read 6 a call across its more values, and ends complete (server fix 8, test 1)", async () => {
@@ -333,7 +357,7 @@ describe("Reddit stdio reader", () => {
       expect((await client.readThread(url)).access_state).toBe("invalid");
     }
     expect((await client.readThread(URL, "malformed")).access_state).toBe("invalid");
-    const wrongThread = Buffer.from(JSON.stringify({ v: 1, id: "other", pages: [], replies: [], seen: [] })).toString("base64url");
+    const wrongThread = Buffer.from(JSON.stringify({ v: 2, id: "other", pages: [], replies: [], t: [], u: [] })).toString("base64url");
     // Server fix 8, test 3: another thread's more value is refused by name, never read as this thread's.
     expect(await client.readThread(URL, wrongThread)).toMatchObject({ access_state: "refused",
       host_code: "CONTINUATION_OTHER_THREAD" });
