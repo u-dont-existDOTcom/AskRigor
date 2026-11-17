@@ -20,7 +20,7 @@ import { atlasReportShareSchema, reportNumberSchema } from "./atlas/report-door.
 import { glanceRowIdSchema, glanceRowInputSchema } from "./atlas/glance-review.js";
 import { challengeMarkInputShape } from "./atlas/challenge-review.js";
 import { dossierFindingInputSchema, dossierImportanceInputSchema, dossierLivingPersonInputSchema, dossierNumberInputSchema,
-  dossierStateInputSchema, dossierVersionInputSchema } from "./atlas/dossier-review.js";
+  dossierOverrideConflictsInputSchema, dossierStateInputSchema, dossierVersionInputSchema } from "./atlas/dossier-review.js";
 import { claimCoverageSchema } from "./claim-coverage.js";
 import { ASKED_LIMIT, framingSchema, researchMenuSchema, researchSteeringInputSchema } from "./research-steering.js";
 
@@ -318,6 +318,10 @@ const LATER_INPUT_SHAPES = Object.freeze({
       .describe("With state_dossier_living_person: your own statement for a copy whose researching AI did not say " +
         "whether a claim names a living person, names_no_living_person or names_a_living_person; recorded once, with " +
         "who and when."),
+    dossierOverrideConflicts: dossierOverrideConflictsInputSchema.optional()
+      .describe("With show_dossier, accept_dossier or show_dossier_naming_living_person: the shown dossiers, such as " +
+        "D-1002, that AskRigor's conflict check found the copy contradicts on an important finding, or could not compare " +
+        "it with; naming them all shows it anyway, recorded with who and when."),
   },
 } satisfies Record<string, z.ZodRawShape>);
 

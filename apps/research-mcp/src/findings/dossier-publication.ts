@@ -349,6 +349,60 @@ export function conflictSideOf(dossier: PublicDossier): DossierConflictSide {
   };
 }
 
+/** A shown copy a dossier is compared with: its public number, version and public content. */
+export interface DossierShownCandidate { publicNumber: string; versionNumber: number; payload: Record<string, unknown> }
+
+/** A pair of findings read as contradicting: this dossier's, the shown copy's, and whether either is important. */
+export interface DossierFoundConflict {
+  finding: string;
+  publicNumber: string;
+  versionNumber: number;
+  theirs: string;
+  important: boolean;
+}
+
+export type DossierComparison =
+  /** Every candidate compared: its pairs of contradicting findings by its id (conflictCandidateId), none for most. */
+  | { status: "read"; conflicts: Map<string, DossierFoundConflict[]> }
+  | { status: "unavailable"; reason: Extract<DossierConflictReading, { status: "unavailable" }>["reason"] };
+
+/**
+ * Compares a public dossier with shown copies for meaning, with AskRigor's paid reader (dossier-conflict-reading.ts):
+ * every pair of findings it reads as contradicting, each important when either finding is decision-changing or
+ * important; or why it could not compare them all (no reader, a shown copy it could not read, a reading not made).
+ */
+export async function compareWithShown(mine: PublicDossier, candidates: readonly DossierShownCandidate[],
+  reader: DossierConflictReader | undefined): Promise<DossierComparison> {
+  if (reader === undefined) return { status: "unavailable", reason: "off" };
+  const shown: Array<{ id: string; dossier: PublicDossier; publicNumber: string; versionNumber: number }> = [];
+  for (const candidate of candidates) {
+    const theirs = readPublicDossier(candidate.payload);
+    if (theirs === undefined) return { status: "unavailable", reason: "unreadable" };
+    shown.push({ id: conflictCandidateId(candidate), dossier: theirs, publicNumber: candidate.publicNumber,
+      versionNumber: candidate.versionNumber });
+  }
+  let reading: DossierConflictReading;
+  try {
+    reading = await reader({ dossier: conflictSideOf(mine),
+      shown: shown.map(({ dossier: theirs, publicNumber }) => ({ dossier: publicNumber, ...conflictSideOf(theirs) })) });
+  } catch {
+    return { status: "unavailable", reason: "error" };
+  }
+  if (reading.status !== "read") return reading;
+  const own = new Map(mine.findings.map((finding) => [finding.id, finding]));
+  const conflicts = new Map<string, DossierFoundConflict[]>();
+  for (const { id, dossier: theirs, publicNumber, versionNumber } of shown) {
+    const findings = new Map(theirs.findings.map((finding) => [finding.id, finding]));
+    conflicts.set(id, reading.conflicts.filter((conflict) => conflict.dossier === publicNumber).flatMap((conflict) => {
+      const left = own.get(conflict.finding);
+      const right = findings.get(conflict.theirs);
+      return left === undefined || right === undefined ? [] : [{ finding: left.id, publicNumber, versionNumber,
+        theirs: right.id, important: left.importance !== "context" || right.importance !== "context" }];
+    }));
+  }
+  return { status: "read", conflicts };
+}
+
 /** Publishes a saved dossier's public part, shown or held, or says why not; it never throws. */
 export async function publishResearchDossier(request: DossierPublicationRequest): Promise<DossierPublication> {
   if (!publicDossierNoticeCovered(request.noticeVersion, request.noticeCovering)) {
@@ -370,7 +424,6 @@ export async function publishResearchDossier(request: DossierPublicationRequest)
   // the dossier's own earlier copy included, all of them; compared for meaning by AskRigor's paid reader; admitted by
   // the publisher one topic at a time against the set compared, which it lists again. A set that changed meanwhile is
   // compared again (only its new copies), at most twice; then the copy is held, waiting for the conflict check.
-  const mine = new Map(dossier.findings.map((finding) => [finding.id, finding]));
   const compared = new Map<string, { conflicts: Array<{ theirs: string; important: boolean }> }>();
   const candidatesOf = async () => {
     const all: Awaited<ReturnType<ResearchDossierPublisher["conflictCandidates"]>> = [];
@@ -387,30 +440,10 @@ export async function publishResearchDossier(request: DossierPublicationRequest)
   const compare = async (candidates: Awaited<ReturnType<typeof candidatesOf>>): Promise<boolean> => {
     const fresh = candidates.filter((candidate) => !compared.has(conflictCandidateId(candidate)));
     if (fresh.length === 0) return true;
-    if (request.conflictReader === undefined) return false;
-    const shown: Array<{ id: string; dossier: PublicDossier; publicNumber: string }> = [];
-    for (const candidate of fresh) {
-      const theirs = readPublicDossier(candidate.payload);
-      if (theirs === undefined) return false;
-      shown.push({ id: conflictCandidateId(candidate), dossier: theirs, publicNumber: candidate.publicNumber });
-    }
-    let reading: DossierConflictReading;
-    try {
-      reading = await request.conflictReader({ dossier: conflictSideOf(dossier),
-        shown: shown.map(({ dossier: theirs, publicNumber }) => ({ dossier: publicNumber, ...conflictSideOf(theirs) })) });
-    } catch {
-      return false;
-    }
+    const reading = await compareWithShown(dossier, fresh, request.conflictReader);
     if (reading.status !== "read") return false;
-    for (const { id, dossier: theirs, publicNumber } of shown) {
-      const findings = new Map(theirs.findings.map((finding) => [finding.id, finding]));
-      compared.set(id, { conflicts: reading.conflicts.filter((conflict) => conflict.dossier === publicNumber)
-        .flatMap((conflict) => {
-          const left = mine.get(conflict.finding);
-          const right = findings.get(conflict.theirs);
-          return left === undefined || right === undefined ? [] : [{ theirs: publicNumber,
-            important: left.importance !== "context" || right.importance !== "context" }];
-        }) });
+    for (const [id, conflicts] of reading.conflicts) {
+      compared.set(id, { conflicts: conflicts.map(({ publicNumber, important }) => ({ theirs: publicNumber, important })) });
     }
     return true;
   };

@@ -40,6 +40,7 @@ import { atlasGlanceSchema } from "./atlas/glance-review.js";
 import { atlasPublicationsSchema } from "./atlas/publication-review.js";
 import { laterInputShape } from "./later-inputs.js";
 import { CASE_REVIEW_SCOPE } from "./oauth-resource-server.js";
+import type { DossierConflictReader } from "./findings/dossier-conflict-reading.js";
 import type { DossierPrivacyReader } from "./findings/dossier-privacy-reading.js";
 import type { ResearchOperationExtra } from "./research-operation.js";
 import type { SharedAnswerVault } from "./shared-answers.js";
@@ -113,7 +114,8 @@ export const researchContributionReviewInputSchema = z.object({
     }
     // AskRigor#477 stage 2: the dossier inputs go only with the dossier actions.
     const dossierInputs = value as { dossier?: unknown; dossierVersion?: unknown; dossierState?: unknown;
-      dossierFinding?: unknown; dossierImportance?: unknown; dossierLivingPerson?: unknown };
+      dossierFinding?: unknown; dossierImportance?: unknown; dossierLivingPerson?: unknown;
+      dossierOverrideConflicts?: unknown };
     const dossierTakes = { dossier: ["inspect_dossier", "show_dossier", "hold_dossier", "take_down_dossier", "accept_dossier",
       "show_dossier_naming_living_person", "revise_dossier_importance", "state_dossier_living_person",
       "read_dossier_privacy"],
@@ -121,7 +123,8 @@ export const researchContributionReviewInputSchema = z.object({
         "show_dossier_naming_living_person", "revise_dossier_importance", "state_dossier_living_person",
         "read_dossier_privacy"],
       dossierState: ["list_dossiers"], dossierFinding: ["revise_dossier_importance"],
-      dossierImportance: ["revise_dossier_importance"], dossierLivingPerson: ["state_dossier_living_person"] } as const;
+      dossierImportance: ["revise_dossier_importance"], dossierLivingPerson: ["state_dossier_living_person"],
+      dossierOverrideConflicts: ["show_dossier", "accept_dossier", "show_dossier_naming_living_person"] } as const;
     for (const [field, actions] of Object.entries(dossierTakes)) {
       if (dossierInputs[field as keyof typeof dossierInputs] !== undefined && !(actions as readonly string[]).includes(value.action)) {
         context.addIssue({ code: "custom", message: `${value.action} does not take ${field}` });
@@ -331,6 +334,8 @@ export interface ResearchContributionReviewToolOptions {
     providers: () => AtlasProviderConfig;
     /** AskRigor's privacy reading for read_dossier_privacy, while it is on; undefined otherwise. */
     dossierPrivacyReader?: () => DossierPrivacyReader | undefined;
+    /** AskRigor's conflict reading for the dossier actions that show a copy (Codex's third review, P1). */
+    dossierConflictReader?: () => DossierConflictReader | undefined;
   };
   /** The shared questions and answers (owner answer 200a); undefined when the server keeps none. */
   sharedAnswers?: SharedAnswerVault;
@@ -368,9 +373,13 @@ export function createResearchContributionReviewHandler(
       // AskRigor#477 stage 2 (Codex's re-review): the privacy reading a held dossier copy may get later, never an input.
       const dossierPrivacyReader = parsed.action === "read_dossier_privacy" ? options.atlas.dossierPrivacyReader?.()
         : undefined;
+      // Codex's third review: the conflict reading a show of a held copy is compared with, never an input.
+      const dossierConflictReader = parsed.action === "show_dossier" || parsed.action === "accept_dossier" ||
+        parsed.action === "show_dossier_naming_living_person" ? options.atlas.dossierConflictReader?.() : undefined;
       return atlasToolResult(await options.atlas.review.run(
         { ...parsed, action: parsed.action, ...(typeof reviewer === "string" ? { reviewer } : {}),
-          ...(dossierPrivacyReader === undefined ? {} : { dossierPrivacyReader }) } as AtlasReviewRequest,
+          ...(dossierPrivacyReader === undefined ? {} : { dossierPrivacyReader }),
+          ...(dossierConflictReader === undefined ? {} : { dossierConflictReader }) } as AtlasReviewRequest,
         options.atlas.providers(),
       ));
     }

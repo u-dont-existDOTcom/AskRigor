@@ -56,6 +56,9 @@ export {
   RESEARCH_DOSSIER_PRIVACY_REFUSALS,
   RESEARCH_DOSSIER_PRIVACY_UNAVAILABLE,
   conflictCandidateId,
+  conflictFindingId,
+  NO_SHOW_CHECK,
+  readConflictFinding,
   researchDossierTopicNames,
   RESEARCH_DOSSIER_PUBLIC_DECISIONS,
   RESEARCH_DOSSIER_PUBLIC_STATES,
@@ -92,6 +95,7 @@ export {
   type ResearchDossierPublishInput,
   type ResearchDossierPublishResult,
   type ResearchDossierPublisher,
+  type ResearchDossierShowCheck,
   type ResearchDossierTopicCopy,
 } from "./research-dossier-publications.js";
 export {

@@ -62,6 +62,17 @@ CREATE TABLE IF NOT EXISTS research_dossier_public_versions (
     'living_people_undeclared', 'important_conflict', 'owner_hold', 'privacy_reading_pending',
     'conflict_check_pending']::text[]),
   conflicts_with text[] NOT NULL DEFAULT '{}' CHECK (cardinality(conflicts_with) <= 50),
+  -- The pairs of findings the conflict check read as contradicting, when the owner's review showed the copy or it was
+  -- admitted after a later privacy reading (Codex's third review, P1): its finding, the shown copy (D-1001/2) and that
+  -- copy's finding, as f2:D-1001/2:f3. The pages list them.
+  conflict_findings text[] NOT NULL DEFAULT '{}' CHECK (cardinality(conflict_findings) <= 50
+    AND array_position(conflict_findings, NULL) IS NULL
+    AND array_to_string(conflict_findings, ' ')
+      ~ '^([a-z][a-z0-9_-]{0,31}:D-[1-9][0-9]{3,}/[1-9][0-9]*:[a-z][a-z0-9_-]{0,31}( |$))*$'),
+  -- The owner's override, when his review showed the copy though the check found an important conflict, or could not
+  -- compare it: who (the reviewer login's digest) and when; each override is also an event.
+  conflict_override_by text CHECK (conflict_override_by ~ '^reviewer:[0-9a-f]{16}$'),
+  conflict_override_at timestamptz,
   -- Where the research ran (332a: the plugin, ChatGPT or the runner), for the review only; never on a page.
   origin jsonb NOT NULL CHECK (jsonb_typeof(origin) = 'object'),
   -- Whether AskRigor's semantic privacy reading passed exactly the saved content; a copy without it never shows
@@ -116,6 +127,7 @@ CREATE TABLE IF NOT EXISTS research_dossier_public_versions (
   CHECK (privacy_reading_path IS NULL OR privacy_reading_reason IS NOT NULL),
   CHECK (privacy_reading_outcome IS NULL OR NOT privacy_read),
   CHECK ((privacy_unavailable_reason IS NULL) = (privacy_unavailable_at IS NULL)),
+  CHECK ((conflict_override_by IS NULL) = (conflict_override_at IS NULL)),
   -- Shown only once a privacy reading passed its content: when it was saved, or later, bound to exactly this content.
   CHECK (state <> 'shown' OR privacy_read OR (privacy_reading_outcome IS NOT DISTINCT FROM 'passed'
     AND privacy_reading_sha256 IS NOT DISTINCT FROM public_sha256)),
@@ -154,7 +166,7 @@ CREATE TABLE IF NOT EXISTS research_dossier_public_events (
   version_number integer NOT NULL,
   event text NOT NULL CHECK (event IN ('shown', 'held', 'superseded', 'taken_down', 'accepted', 'erased',
     'living_person_decided', 'living_person_stated', 'detached', 'revised', 'privacy_reading_passed',
-    'privacy_reading_refused')),
+    'privacy_reading_refused', 'conflict_overridden')),
   reason text CHECK (reason IS NULL OR (reason = btrim(reason) AND length(reason) BETWEEN 1 AND 200)),
   happened_at timestamptz NOT NULL,
   FOREIGN KEY (public_number, version_number)
@@ -183,7 +195,7 @@ COMMENT ON COLUMN research_dossier_public_versions.origin IS
 COMMENT ON TABLE research_dossier_public_generation IS
   'AskRigor#477 stage 2: one row, its number raised by every write to research_dossier_public_versions, so every server drops its cached dossier pages.';
 COMMENT ON TABLE research_dossier_public_events IS
-  'Append-only: shown, held, superseded, taken_down, accepted, erased, living_person_decided (the owner''s decision to show a copy whose claim names a living person), living_person_stated (the owner''s statement, for a copy whose AI did not say, of whether a claim names a living person), privacy_reading_passed and privacy_reading_refused (a privacy reading made later, bound to the content read), detached (its contributor lost access), revised (a reviewed revision of an importance mark, on the new version).';
+  'Append-only: shown, held, superseded, taken_down, accepted, erased, living_person_decided (the owner''s decision to show a copy whose claim names a living person), living_person_stated (the owner''s statement, for a copy whose AI did not say, of whether a claim names a living person), privacy_reading_passed and privacy_reading_refused (a privacy reading made later, bound to the content read), detached (its contributor lost access), revised (a reviewed revision of an importance mark, on the new version), conflict_overridden (the owner showed it though the conflict check found an important conflict or could not compare it; who and over which dossiers).';
 
 -- A copy's content changes only by erasure; its state, its hold reasons and its acceptance change by the functions
 -- below; it is never deleted.
@@ -540,6 +552,148 @@ $function$;
 
 REVOKE ALL ON FUNCTION research_dossier_lock_copy_topics(text, integer) FROM PUBLIC;
 
+-- The shown copies a held or taken-down copy is compared with before the owner's review shows it, or before it is
+-- admitted after a later privacy reading (Codex's third review, P1): the conflict check's candidates for its public
+-- content, as for automatic publication, its own dossier's shown copy among them, a page at a time after a public number
+-- and version.
+CREATE OR REPLACE FUNCTION research_dossier_show_candidates(
+  target_public_number text,
+  target_version_number integer,
+  after_public_number text,
+  after_version_number integer,
+  target_limit integer
+)
+RETURNS TABLE (public_number text, version_number integer, topic_key text, public_payload jsonb)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+#variable_conflict use_column
+DECLARE
+  stored jsonb;
+BEGIN
+  IF target_public_number IS NULL OR target_public_number !~ '^D-[1-9][0-9]{3,}$'
+     OR target_version_number IS NULL OR target_version_number < 1
+     OR target_limit IS NULL OR target_limit < 1 OR target_limit > 200
+     OR (after_public_number IS NULL) <> (after_version_number IS NULL)
+     OR (after_public_number IS NOT NULL AND after_public_number !~ '^D-[1-9][0-9]{3,}$') THEN
+    RAISE EXCEPTION 'RESEARCH_DOSSIER_REVIEW_INPUT_INVALID';
+  END IF;
+  SELECT copy.public_payload INTO stored FROM research_dossier_public_versions copy
+   WHERE copy.public_number = target_public_number AND copy.version_number = target_version_number
+     AND copy.erased_at IS NULL;
+  IF NOT FOUND THEN
+    RETURN;
+  END IF;
+  RETURN QUERY
+  SELECT match.public_number, match.version_number, match.topic_key, match.public_payload
+    FROM research_dossier_conflict_matches(stored) AS match
+   WHERE NOT (match.public_number = target_public_number AND match.version_number = target_version_number)
+     AND (after_public_number IS NULL
+       OR (length(match.public_number), match.public_number, match.version_number)
+          > (length(after_public_number), after_public_number, after_version_number))
+   ORDER BY length(match.public_number), match.public_number, match.version_number
+   LIMIT target_limit;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION research_dossier_show_candidates(text, integer, text, integer, integer) FROM PUBLIC;
+
+-- Whether the conflict check a show is given is malformed: the candidates compared (D-1001/2), read or not read, the
+-- pairs of findings it read as contradicting (f2:D-1001/2:f3, none when not read), whether any is important, and the
+-- owner's override (the reviewer login's digest) or NULL.
+CREATE OR REPLACE FUNCTION research_dossier_show_check_invalid(
+  target_compared text[],
+  target_conflict_check text,
+  target_conflict_findings text[],
+  target_important_conflict boolean,
+  target_override_by text
+)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+  SELECT target_compared IS NULL
+    OR EXISTS (SELECT 1 FROM unnest(target_compared) AS compared WHERE compared IS NULL
+      OR compared !~ '^D-[1-9][0-9]{3,}/[1-9][0-9]*$')
+    OR target_conflict_check IS NULL OR target_conflict_check NOT IN ('read', 'not_read')
+    OR target_conflict_findings IS NULL OR cardinality(target_conflict_findings) > 50
+    OR EXISTS (SELECT 1 FROM unnest(target_conflict_findings) AS kept WHERE kept IS NULL
+      OR kept !~ '^[a-z][a-z0-9_-]{0,31}:D-[1-9][0-9]{3,}/[1-9][0-9]*:[a-z][a-z0-9_-]{0,31}$')
+    OR target_important_conflict IS NULL
+    OR (target_important_conflict AND cardinality(target_conflict_findings) = 0)
+    OR (target_conflict_check = 'not_read' AND (target_important_conflict OR cardinality(target_conflict_findings) > 0))
+    OR (target_override_by IS NOT NULL AND target_override_by !~ '^reviewer:[0-9a-f]{16}$');
+$function$;
+
+REVOKE ALL ON FUNCTION research_dossier_show_check_invalid(text[], text, text[], boolean, text) FROM PUBLIC;
+
+-- Whether a held or taken-down copy may show now (Codex's third review, P1), under the topic locks its caller holds: the
+-- conflict check must have been made against exactly the candidates listed here again, or it is stale
+-- (comparison_stale); its own dossier's shown copy counts only for an automatic admission (with_own), since the owner's
+-- show replaces it. An important conflict (conflict_found), or a check that could not be made while any candidate
+-- shows (conflict_not_checked), keeps it off the pages without the owner's override; with it, overridden. NULL when
+-- nothing stands in the way.
+CREATE OR REPLACE FUNCTION research_dossier_show_refusal(
+  target_payload jsonb,
+  target_public_number text,
+  target_version_number integer,
+  with_own boolean,
+  target_compared text[],
+  target_conflict_check text,
+  target_conflict_findings text[],
+  target_important_conflict boolean,
+  target_override_by text
+)
+RETURNS text
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+DECLARE
+  candidates text[];
+BEGIN
+  candidates := ARRAY(SELECT candidate FROM (SELECT match.public_number || '/' || match.version_number AS candidate
+      FROM research_dossier_conflict_matches(target_payload) AS match
+     WHERE NOT (match.public_number = target_public_number AND match.version_number = target_version_number)
+       AND (with_own OR match.public_number <> target_public_number)) AS listed
+    ORDER BY candidate COLLATE "C");
+  IF target_conflict_check = 'read' AND (candidates IS DISTINCT FROM
+       ARRAY(SELECT compared FROM unnest(target_compared) AS compared ORDER BY compared COLLATE "C")
+     OR EXISTS (SELECT 1 FROM unnest(target_conflict_findings) AS kept
+       WHERE NOT split_part(kept, ':', 2) = ANY(candidates))) THEN
+    RETURN 'comparison_stale';
+  END IF;
+  IF (target_conflict_check = 'not_read' AND cardinality(candidates) > 0) OR target_important_conflict THEN
+    IF target_override_by IS NULL THEN
+      RETURN CASE WHEN target_conflict_check = 'not_read' THEN 'conflict_not_checked' ELSE 'conflict_found' END;
+    END IF;
+    RETURN 'overridden';
+  END IF;
+  RETURN NULL;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION research_dossier_show_refusal(
+  jsonb, text, integer, boolean, text[], text, text[], boolean, text
+) FROM PUBLIC;
+
+-- The shown dossiers a copy's pairs of contradicting findings name, by public number, once each, in order.
+CREATE OR REPLACE FUNCTION research_dossier_conflict_partners(target_conflict_findings text[])
+RETURNS text[]
+LANGUAGE sql
+IMMUTABLE
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+  SELECT ARRAY(SELECT DISTINCT split_part(split_part(kept, ':', 2), '/', 1) COLLATE "C" AS partner
+    FROM unnest(target_conflict_findings) AS kept ORDER BY 1);
+$function$;
+
+REVOKE ALL ON FUNCTION research_dossier_conflict_partners(text[]) FROM PUBLIC;
+
 -- Writes one public copy of a saved version, already in its final state: shown, or held with its reasons. Only for an
 -- active free contributor with card saving on whose accepted notice research_dossier_public_notices lists, checked
 -- under the same account lock as the private append (0037), so a revocation, a change of mode or the saving switch
@@ -743,7 +897,8 @@ RETURNS TABLE (public_number text, version_number integer, dossier_number text, 
   living_person_decided_at timestamptz, living_person_reason text, revision_of integer, revised_by text,
   revision_reason text, living_person_statement text, living_person_stated_by text, living_person_stated_at timestamptz,
   privacy_reading_outcome text, privacy_reading_reason text, privacy_reading_path text, privacy_reading_at timestamptz,
-  privacy_unavailable_reason text, privacy_unavailable_at timestamptz)
+  privacy_unavailable_reason text, privacy_unavailable_at timestamptz, conflict_findings text[],
+  conflict_override_by text, conflict_override_at timestamptz)
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
@@ -762,7 +917,8 @@ BEGIN
     copy.living_person_decided_at, copy.living_person_reason, copy.revision_of, copy.revised_by, copy.revision_reason,
     copy.living_person_statement, copy.living_person_stated_by, copy.living_person_stated_at,
     copy.privacy_reading_outcome, copy.privacy_reading_reason, copy.privacy_reading_path, copy.privacy_reading_at,
-    copy.privacy_unavailable_reason, copy.privacy_unavailable_at
+    copy.privacy_unavailable_reason, copy.privacy_unavailable_at, copy.conflict_findings, copy.conflict_override_by,
+    copy.conflict_override_at
     FROM research_dossier_public_versions copy
     JOIN research_dossier_publications publication ON publication.public_number = copy.public_number
    WHERE (target_state IS NULL AND copy.state <> 'erased') OR copy.state = target_state
@@ -782,7 +938,8 @@ RETURNS TABLE (public_number text, version_number integer, dossier_number text, 
   revised_by text, revision_reason text, living_person_statement text, living_person_stated_by text,
   living_person_stated_at timestamptz, privacy_reading_outcome text, privacy_reading_reason text,
   privacy_reading_path text, privacy_reading_at timestamptz, privacy_unavailable_reason text,
-  privacy_unavailable_at timestamptz)
+  privacy_unavailable_at timestamptz, conflict_findings text[], conflict_override_by text,
+  conflict_override_at timestamptz)
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
@@ -794,7 +951,8 @@ AS $function$
     copy.living_person_decided_by, copy.living_person_decided_at, copy.living_person_reason, copy.revision_of,
     copy.revised_by, copy.revision_reason, copy.living_person_statement, copy.living_person_stated_by,
     copy.living_person_stated_at, copy.privacy_reading_outcome, copy.privacy_reading_reason, copy.privacy_reading_path,
-    copy.privacy_reading_at, copy.privacy_unavailable_reason, copy.privacy_unavailable_at
+    copy.privacy_reading_at, copy.privacy_unavailable_reason, copy.privacy_unavailable_at, copy.conflict_findings,
+    copy.conflict_override_by, copy.conflict_override_at
     FROM research_dossier_public_versions copy
     JOIN research_dossier_publications publication ON publication.public_number = copy.public_number
    WHERE copy.public_number = target_public_number
@@ -811,11 +969,23 @@ REVOKE ALL ON FUNCTION inspect_research_dossier_publication(text) FROM PUBLIC;
 -- refused here until the owner's own decision (decide_research_dossier_living_person) has shown it, and so is one whose
 -- AI did not say until the owner has stated that no claim names one (state_research_dossier_living_person; Codex's
 -- re-review of stage 2, P0: "didn't say" is not "no").
+--
+-- A show of a held or taken-down copy (show, or accept) is compared first with the shown dossiers (Codex's third review,
+-- P1: his reversed probe showed a copy held while nothing was shown beside one shown after it, though neither was
+-- compared with the other): the server's conflict check, made against exactly the candidates listed again under the
+-- topic locks (the copy's own dossier's shown copy aside, since the show replaces it), or the show is refused as stale.
+-- An important conflict, or a check that could not be made while a candidate shows, shows nothing without the owner's
+-- override, recorded with who and when; the pairs of findings found contradicting are kept for the pages to list.
 CREATE OR REPLACE FUNCTION decide_research_dossier_publication(
   target_public_number text,
   target_version_number integer,
   target_decision text,
   target_reason text,
+  target_compared text[],
+  target_conflict_check text,
+  target_conflict_findings text[],
+  target_important_conflict boolean,
+  target_override_by text,
   change_time timestamptz
 )
 RETURNS TABLE (outcome text, state text, accepted boolean)
@@ -828,11 +998,14 @@ DECLARE
   copy_row research_dossier_public_versions%ROWTYPE;
   newest integer;
   next_state text;
+  refusal text;
 BEGIN
   IF target_public_number IS NULL OR target_public_number !~ '^D-[1-9][0-9]{3,}$'
      OR target_version_number IS NULL OR target_version_number < 1
      OR target_decision IS NULL OR target_decision NOT IN ('show', 'hold', 'take_down', 'accept')
      OR (target_reason IS NOT NULL AND (target_reason <> btrim(target_reason) OR length(target_reason) NOT BETWEEN 1 AND 200))
+     OR research_dossier_show_check_invalid(target_compared, target_conflict_check, target_conflict_findings,
+       target_important_conflict, target_override_by)
      OR change_time IS NULL THEN
     RAISE EXCEPTION 'RESEARCH_DOSSIER_REVIEW_INPUT_INVALID';
   END IF;
@@ -868,6 +1041,29 @@ BEGIN
   END IF;
 
   next_state := CASE target_decision WHEN 'hold' THEN 'held' WHEN 'take_down' THEN 'taken_down' ELSE 'shown' END;
+  -- A copy that is not shown yet is compared with the shown dossiers before it is.
+  IF next_state = 'shown' AND copy_row.state <> 'shown' THEN
+    refusal := research_dossier_show_refusal(copy_row.public_payload, copy_row.public_number, copy_row.version_number,
+      false, target_compared, target_conflict_check, target_conflict_findings, target_important_conflict,
+      target_override_by);
+    IF refusal IN ('comparison_stale', 'conflict_found', 'conflict_not_checked') THEN
+      RETURN QUERY SELECT refusal, copy_row.state, copy_row.accepted_at IS NOT NULL;
+      RETURN;
+    END IF;
+    UPDATE research_dossier_public_versions copy
+       SET conflicts_with = research_dossier_conflict_partners(target_conflict_findings),
+           conflict_findings = target_conflict_findings,
+           conflict_override_by = CASE WHEN refusal = 'overridden' THEN target_override_by END,
+           conflict_override_at = CASE WHEN refusal = 'overridden' THEN change_time END
+     WHERE copy.public_number = copy_row.public_number AND copy.version_number = copy_row.version_number;
+    IF refusal = 'overridden' THEN
+      INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
+      VALUES (copy_row.public_number, copy_row.version_number, 'conflict_overridden',
+        rtrim(left(target_override_by || CASE WHEN target_conflict_check = 'read'
+          THEN ' over ' || array_to_string(research_dossier_conflict_partners(target_conflict_findings), ' ')
+          ELSE ' without the conflict check' END, 200)), change_time);
+    END IF;
+  END IF;
   IF next_state = 'shown' THEN
     INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
     SELECT copy.public_number, copy.version_number, 'superseded', NULL, change_time FROM research_dossier_public_versions copy
@@ -898,19 +1094,27 @@ BEGIN
 END
 $function$;
 
-REVOKE ALL ON FUNCTION decide_research_dossier_publication(text, integer, text, text, timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION decide_research_dossier_publication(
+  text, integer, text, text, text[], text, text[], boolean, text, timestamptz
+) FROM PUBLIC;
 
 -- The owner's own decision to show a copy held because a claim names a living person (his standing rule: such claims
 -- are published only on his explicit decision; Codex's review of stage 2, finding 2), by its AI's declaration or, when
 -- the AI did not say, by his own statement (state_research_dossier_living_person). It needs his typed reason and
 -- records who decided (the reviewer login's digest) and when, once; nothing else clears the hold. Only the dossier's
 -- newest copy, held or taken down, whose private version is neither withdrawn, rejected nor erased and whose saved
--- content a privacy reading passed; it shows the copy and supersedes the dossier's other shown copy.
+-- content a privacy reading passed; it shows the copy and supersedes the dossier's other shown copy. It is compared first
+-- with the shown dossiers, as the ordinary show is (Codex's third review, P1).
 CREATE OR REPLACE FUNCTION decide_research_dossier_living_person(
   target_public_number text,
   target_version_number integer,
   target_reason text,
   target_decided_by text,
+  target_compared text[],
+  target_conflict_check text,
+  target_conflict_findings text[],
+  target_important_conflict boolean,
+  target_override_by text,
   change_time timestamptz
 )
 RETURNS TABLE (outcome text, state text, accepted boolean)
@@ -922,11 +1126,14 @@ AS $function$
 DECLARE
   copy_row research_dossier_public_versions%ROWTYPE;
   newest integer;
+  refusal text;
 BEGIN
   IF target_public_number IS NULL OR target_public_number !~ '^D-[1-9][0-9]{3,}$'
      OR target_version_number IS NULL OR target_version_number < 1
      OR target_reason IS NULL OR target_reason <> btrim(target_reason) OR length(target_reason) NOT BETWEEN 1 AND 200
      OR target_decided_by IS NULL OR target_decided_by !~ '^reviewer:[0-9a-f]{16}$'
+     OR research_dossier_show_check_invalid(target_compared, target_conflict_check, target_conflict_findings,
+       target_important_conflict, target_override_by)
      OR change_time IS NULL THEN
     RAISE EXCEPTION 'RESEARCH_DOSSIER_REVIEW_INPUT_INVALID';
   END IF;
@@ -954,6 +1161,20 @@ BEGIN
     RETURN QUERY SELECT 'not_decidable'::text, copy_row.state, copy_row.accepted_at IS NOT NULL;
     RETURN;
   END IF;
+  refusal := research_dossier_show_refusal(copy_row.public_payload, copy_row.public_number, copy_row.version_number,
+    false, target_compared, target_conflict_check, target_conflict_findings, target_important_conflict,
+    target_override_by);
+  IF refusal IN ('comparison_stale', 'conflict_found', 'conflict_not_checked') THEN
+    RETURN QUERY SELECT refusal, copy_row.state, copy_row.accepted_at IS NOT NULL;
+    RETURN;
+  END IF;
+  IF refusal = 'overridden' THEN
+    INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
+    VALUES (copy_row.public_number, copy_row.version_number, 'conflict_overridden',
+      rtrim(left(target_override_by || CASE WHEN target_conflict_check = 'read'
+        THEN ' over ' || array_to_string(research_dossier_conflict_partners(target_conflict_findings), ' ')
+        ELSE ' without the conflict check' END, 200)), change_time);
+  END IF;
   INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
   SELECT copy.public_number, copy.version_number, 'superseded', NULL, change_time FROM research_dossier_public_versions copy
    WHERE copy.public_number = target_public_number AND copy.state = 'shown'
@@ -962,7 +1183,11 @@ BEGIN
    WHERE copy.public_number = target_public_number AND copy.state = 'shown'
      AND copy.version_number <> copy_row.version_number;
   UPDATE research_dossier_public_versions copy
-     SET state = 'shown', hold_reasons = '{}', living_person_decided_by = target_decided_by,
+     SET conflicts_with = research_dossier_conflict_partners(target_conflict_findings),
+         conflict_findings = target_conflict_findings,
+         conflict_override_by = CASE WHEN refusal = 'overridden' THEN target_override_by END,
+         conflict_override_at = CASE WHEN refusal = 'overridden' THEN change_time END,
+         state = 'shown', hold_reasons = '{}', living_person_decided_by = target_decided_by,
          living_person_decided_at = change_time, living_person_reason = target_reason, decided_at = change_time
    WHERE copy.public_number = copy_row.public_number AND copy.version_number = copy_row.version_number;
   INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
@@ -972,7 +1197,9 @@ BEGIN
 END
 $function$;
 
-REVOKE ALL ON FUNCTION decide_research_dossier_living_person(text, integer, text, text, timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION decide_research_dossier_living_person(
+  text, integer, text, text, text[], text, text[], boolean, text, timestamptz
+) FROM PUBLIC;
 
 -- "Didn't say" is not "no" (Codex's re-review of stage 2, P0): the owner's own statement on a copy whose AI did not say
 -- whether a claim names a living person, made once and recorded with who made it (the reviewer login's digest) and
@@ -1191,7 +1418,8 @@ BEGIN
    WHERE copy.public_number = copy_row.public_number AND copy.version_number = copy_row.version_number;
   INSERT INTO research_dossier_public_versions (public_number, version_number, version_id, detached_at, revision_of,
     revised_by, revision_reason, state, topic_key, related_topic_keys, topic_names, public_payload, public_sha256,
-    hold_reasons, conflicts_with, origin, privacy_read, names_living_person, living_person_statement,
+    hold_reasons, conflicts_with, conflict_findings, conflict_override_by, conflict_override_at, origin, privacy_read,
+    names_living_person, living_person_statement,
     living_person_stated_by, living_person_stated_at, living_person_decided_by,
     living_person_decided_at, living_person_reason, privacy_reading_outcome, privacy_reading_sha256,
     privacy_reading_reason, privacy_reading_path, privacy_reading_at, privacy_unavailable_reason, privacy_unavailable_at,
@@ -1199,7 +1427,8 @@ BEGIN
   VALUES (copy_row.public_number, newest + 1, copy_row.version_id, copy_row.detached_at, copy_row.version_number,
     target_revised_by, target_reason, copy_row.state, copy_row.topic_key, copy_row.related_topic_keys,
     copy_row.topic_names, revised, encode(sha256(convert_to(revised::text, 'UTF8')), 'hex'), copy_row.hold_reasons,
-    copy_row.conflicts_with, copy_row.origin, copy_row.privacy_read, copy_row.names_living_person,
+    copy_row.conflicts_with, copy_row.conflict_findings, copy_row.conflict_override_by, copy_row.conflict_override_at,
+    copy_row.origin, copy_row.privacy_read, copy_row.names_living_person,
     copy_row.living_person_statement, copy_row.living_person_stated_by, copy_row.living_person_stated_at,
     copy_row.living_person_decided_by, copy_row.living_person_decided_at, copy_row.living_person_reason,
     -- A revised mark changes one of three fixed words and no text, so a later reading carries to the new version,
@@ -1244,7 +1473,8 @@ BEGIN
      WHERE copy.version_id = NEW.version_id AND copy.erased_at IS NULL AND copy.accepted_at IS NULL;
     UPDATE research_dossier_public_versions copy
        SET state = 'erased', public_payload = NULL, public_sha256 = NULL, topic_key = NULL, related_topic_keys = '{}',
-           topic_names = '{}', hold_reasons = '{}', conflicts_with = '{}', origin = '{}'::jsonb,
+           topic_names = '{}', hold_reasons = '{}', conflicts_with = '{}', conflict_findings = '{}',
+           conflict_override_by = NULL, conflict_override_at = NULL, origin = '{}'::jsonb,
            living_person_decided_by = NULL, living_person_decided_at = NULL, living_person_reason = NULL,
            living_person_statement = NULL, living_person_stated_by = NULL, living_person_stated_at = NULL,
            privacy_reading_outcome = NULL, privacy_reading_sha256 = NULL, privacy_reading_reason = NULL,
@@ -1310,7 +1540,8 @@ BEGIN
      WHERE copy.public_number = target_number AND copy.accepted_at IS NULL AND copy.erased_at IS NULL;
     UPDATE research_dossier_public_versions copy
        SET state = 'erased', public_payload = NULL, public_sha256 = NULL, topic_key = NULL, related_topic_keys = '{}',
-           topic_names = '{}', hold_reasons = '{}', conflicts_with = '{}', origin = '{}'::jsonb,
+           topic_names = '{}', hold_reasons = '{}', conflicts_with = '{}', conflict_findings = '{}',
+           conflict_override_by = NULL, conflict_override_at = NULL, origin = '{}'::jsonb,
            living_person_decided_by = NULL, living_person_decided_at = NULL, living_person_reason = NULL,
            living_person_statement = NULL, living_person_stated_by = NULL, living_person_stated_at = NULL,
            privacy_reading_outcome = NULL, privacy_reading_sha256 = NULL, privacy_reading_reason = NULL,
@@ -1347,7 +1578,8 @@ CREATE TRIGGER research_dossier_public_on_revocation
 -- trigger had not run; an accepted copy shows as the owner accepted it.
 CREATE OR REPLACE VIEW research_dossier_public_pages WITH (security_barrier = true) AS
 SELECT copy.public_number, copy.version_number, copy.topic_key, copy.related_topic_keys, copy.public_payload,
-  copy.public_sha256, copy.accepted_at IS NOT NULL AS accepted, copy.decided_at AS shown_at, copy.conflicts_with
+  copy.public_sha256, copy.accepted_at IS NOT NULL AS accepted, copy.decided_at AS shown_at, copy.conflicts_with,
+  copy.conflict_findings
   FROM research_dossier_public_versions copy
  WHERE copy.state = 'shown' AND copy.erased_at IS NULL
    AND (copy.accepted_at IS NOT NULL OR (copy.version_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM research_dossier_events event

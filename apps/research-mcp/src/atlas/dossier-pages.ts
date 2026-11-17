@@ -1,6 +1,7 @@
 import {
   PUBLIC_DOSSIERS_MAX_OFFSET,
   PUBLIC_DOSSIERS_PER_READ,
+  readConflictFinding,
   type PublicDossierCopy,
   type PublicDossierHistoryEntry,
   type PublicDossierPageSource,
@@ -110,9 +111,15 @@ export interface DossierRelatedTopic {
 }
 
 export interface DossierDisagreementView {
-  form: string;
+  /** The form both findings are about; null when AskRigor's conflict check paired findings that name none. */
+  form: string | null;
   left: { publicNumber: string; claim: string };
   right: { publicNumber: string; claim: string };
+  /**
+   * kinds: opposite kinds of conclusion for one declared form (dossierDisagreements); check: findings AskRigor's
+   * conflict check read as contradicting, kept with a copy the review showed or admitted (Codex's third review, P1).
+   */
+  found: "kinds" | "check";
 }
 
 export interface DossierTopicModel {
@@ -172,15 +179,45 @@ function byForm(ranked: readonly DossierRankItem[], forms: readonly string[]): D
     .sort((left, right) => Number(left.form === null) - Number(right.form === null));
 }
 
-function disagreementsAmong(dossiers: readonly ShownDossier[]): DossierDisagreementView[] {
+/**
+ * Where dossiers disagree: the pairs of findings AskRigor's conflict check read as contradicting, kept with a copy the
+ * review showed or admitted, where either copy is among those given and the other still shows as it was compared
+ * (among known); then where two of those given reach opposite kinds of conclusion for one form. Each pair once.
+ */
+function disagreementsAmong(dossiers: readonly ShownDossier[], known: readonly ShownDossier[] = dossiers):
+  DossierDisagreementView[] {
   const views: DossierDisagreementView[] = [];
+  const listed = new Set<string>();
+  const pairKey = (one: string, other: string) => [one, other].sort().join(" ");
+  const given = new Set(dossiers.map(({ copy }) => copy.publicNumber));
+  const byNumber = new Map(known.map((shown) => [shown.copy.publicNumber, shown]));
+  for (const mine of byNumber.values()) {
+    for (const kept of mine.copy.conflictFindings) {
+      const pair = readConflictFinding(kept);
+      const theirs = pair === undefined ? undefined : byNumber.get(pair.publicNumber);
+      if (pair === undefined || theirs === undefined || theirs.copy.versionNumber !== pair.versionNumber ||
+        (!given.has(mine.copy.publicNumber) && !given.has(theirs.copy.publicNumber))) continue;
+      const left = mine.dossier.findings.find(({ id }) => id === pair.finding);
+      const right = theirs.dossier.findings.find(({ id }) => id === pair.theirs);
+      const key = pairKey(`${mine.copy.publicNumber}:${pair.finding}`, `${theirs.copy.publicNumber}:${pair.theirs}`);
+      if (left === undefined || right === undefined || listed.has(key)) continue;
+      listed.add(key);
+      views.push({ form: left.form ?? right.form ?? null, found: "check",
+        left: { publicNumber: mine.copy.publicNumber, claim: left.claim },
+        right: { publicNumber: theirs.copy.publicNumber, claim: right.claim } });
+    }
+  }
   for (let left = 0; left < dossiers.length; left += 1) {
     for (let right = left + 1; right < dossiers.length; right += 1) {
       const a = dossiers[left]!;
       const b = dossiers[right]!;
       for (const found of dossierDisagreements(a.dossier, b.dossier)) {
+        const key = pairKey(`${a.copy.publicNumber}:${found.mine}`, `${b.copy.publicNumber}:${found.theirs}`);
+        if (listed.has(key)) continue;
+        listed.add(key);
         views.push({
           form: found.form,
+          found: "kinds",
           left: { publicNumber: a.copy.publicNumber, claim: a.dossier.findings.find(({ id }) => id === found.mine)!.claim },
           right: { publicNumber: b.copy.publicNumber, claim: b.dossier.findings.find(({ id }) => id === found.theirs)!.claim },
         });
@@ -188,6 +225,30 @@ function disagreementsAmong(dossiers: readonly ShownDossier[]): DossierDisagreem
     }
   }
   return views.slice(0, 50);
+}
+
+/**
+ * The shown dossiers the conflict check paired with those given, either way, beyond them: those their kept pairs name,
+ * and those whose kept pairs name one of them, a bounded read each.
+ */
+async function conflictPartnersOf(source: PublicDossierPageSource, dossiers: readonly ShownDossier[]):
+  Promise<ShownDossier[]> {
+  const numbers = new Set(dossiers.map(({ copy }) => copy.publicNumber));
+  if (numbers.size === 0) return [];
+  const named = [...new Set(dossiers.flatMap(({ copy }) => copy.conflictFindings.flatMap((kept) =>
+    readConflictFinding(kept)?.publicNumber ?? [])))].filter((number) => !numbers.has(number))
+    .slice(0, PUBLIC_DOSSIERS_PER_READ);
+  const read = [
+    ...await source.listShown({ conflictsWith: [...numbers], limit: PUBLIC_DOSSIERS_PER_READ }),
+    ...named.length === 0 ? [] : await source.listShown({ publicNumbers: named, limit: named.length }),
+  ];
+  const partners = new Map<string, ShownDossier>();
+  for (const copy of read) {
+    if (numbers.has(copy.publicNumber) || partners.has(copy.publicNumber)) continue;
+    const shown = shownOf(copy);
+    if (shown !== undefined) partners.set(copy.publicNumber, shown);
+  }
+  return [...partners.values()];
 }
 
 /**
@@ -296,7 +357,7 @@ export async function loadDossierTopic(source: PublicDossierPageSource, topicKey
     glanceAcross: { dossiers: across.dossiers, every: across.every },
     ranked,
     forms: byForm(ranked, forms),
-    disagreements: disagreementsAmong(dossiers),
+    disagreements: disagreementsAmong(dossiers, [...dossiers, ...await conflictPartnersOf(source, dossiers)]),
     related: await relatedTopics(source, topicKey, dossiers, cardTopicLabel),
   };
 }
@@ -317,7 +378,9 @@ export async function loadDossierPage(source: PublicDossierPageSource, publicNum
     ranked,
     forms: byForm(ranked, shown.dossier.forms),
     history: await source.history([publicNumber]),
-    disagreements: disagreementsAmong([shown, ...onTopic])
+    disagreements: disagreementsAmong([shown, ...onTopic], [shown, ...onTopic,
+      ...(await conflictPartnersOf(source, [shown])).filter(({ copy }) => !onTopic.some((other) =>
+        other.copy.publicNumber === copy.publicNumber))])
       .filter(({ left, right }) => left.publicNumber === publicNumber || right.publicNumber === publicNumber),
     comparedAll: read.length < TOPIC_COMPARED,
     related: await relatedTopics(source, shown.copy.topicKey, [shown], cardTopicLabel),
@@ -610,9 +673,14 @@ ${left === 0 ? "" : html`<p class="meta">${more(left)}</p>`}`;
 
 function disagreementList(disagreements: readonly DossierDisagreementView[]): SafeHtml | "" {
   if (disagreements.length === 0) return "";
+  const entry = (item: DossierDisagreementView) => html`<li>${item.form === null ? "" : html`${item.form}: `}“${item.left.claim}” (<a href="${dossierPagePath(item.left.publicNumber)}">${item.left.publicNumber}</a>) and “${item.right.claim}” (<a href="${dossierPagePath(item.right.publicNumber)}">${item.right.publicNumber}</a>)</li>`;
+  const checked = disagreements.filter(({ found }) => found === "check");
+  const kinds = disagreements.filter(({ found }) => found === "kinds");
   return html`<h3>Where dossiers disagree</h3>
-<p class="meta">Two dossiers reached opposite kinds of conclusion for the same form. They may be about different outcomes or people; AskRigor checks such conflicts when they matter.</p>
-<ul class="dossier-conflicts">${disagreements.map((entry) => html`<li>${entry.form}: “${entry.left.claim}” (<a href="${dossierPagePath(entry.left.publicNumber)}">${entry.left.publicNumber}</a>) and “${entry.right.claim}” (<a href="${dossierPagePath(entry.right.publicNumber)}">${entry.right.publicNumber}</a>)</li>`)}</ul>`;
+${checked.length === 0 ? "" : html`<p class="meta">AskRigor’s conflict check read these findings as contradicting each other.</p>
+<ul class="dossier-conflicts">${checked.map(entry)}</ul>`}
+${kinds.length === 0 ? "" : html`<p class="meta">Two dossiers reached opposite kinds of conclusion for the same form. They may be about different outcomes or people; AskRigor checks such conflicts when they matter.</p>
+<ul class="dossier-conflicts">${kinds.map(entry)}</ul>`}`;
 }
 
 function relatedList(related: readonly DossierRelatedTopic[]): SafeHtml | "" {

@@ -317,7 +317,11 @@ import {
   DOSSIER_PRIVACY_READING_LIMITS,
   type DossierPrivacyReader,
 } from "./findings/dossier-privacy-reading.js";
-import { DOSSIER_CONFLICT_READING_LIMITS, deadlineConflictReader } from "./findings/dossier-conflict-reading.js";
+import {
+  DOSSIER_CONFLICT_READING_LIMITS,
+  deadlineConflictReader,
+  type DossierConflictReader,
+} from "./findings/dossier-conflict-reading.js";
 import {
   researchDossierAllowed,
   researchDossierFromCall,
@@ -2199,6 +2203,9 @@ function defineResearchOperations(
         // AskRigor#477 stage 2 (Codex's re-review): a held dossier copy's privacy reading, made later on the owner's
         // action, on the planner's own path and only while the reading is on.
         dossierPrivacyReader: () => dossierPrivacyReaderOf(options),
+        // Codex's third review: a show of a held dossier copy is compared first with the shown dossiers, on the
+        // planner's own paid path, as automatic publication is; a planner that is off answers that the reading is off.
+        dossierConflictReader: () => dossierConflictReaderOf(options),
       },
       ...(sharing === undefined ? {} : { sharedAnswers: sharing.vault }),
     }),
@@ -3204,6 +3211,17 @@ export function dossierPrivacyReaderOf(options: Pick<RegisterToolsOptions, "doss
   if (!(options.dossierPrivacyReading ?? dossierPrivacyReadingFromEnv())) return undefined;
   return async (texts) => await configuredPlanner(options as RegisterToolsOptions).readDossierPrivacy?.(texts) ??
     { status: "unavailable", reason: "off" };
+}
+
+/**
+ * AskRigor's conflict reading for an owner's show or a later admission of a dossier copy (Codex's third review, P1), on
+ * the research planner's own path with its own day's cap, each comparison within four calls' waits.
+ */
+export function dossierConflictReaderOf(options: Pick<RegisterToolsOptions, "researchPlanner" | "meaningJudge"> = {}):
+  DossierConflictReader {
+  return async (conflictRequest) => await deadlineConflictReader(
+    configuredPlanner(options as RegisterToolsOptions).readDossierConflicts,
+    Date.now() + 4 * DOSSIER_CONFLICT_READING_LIMITS.timeoutMs)(conflictRequest);
 }
 
 /**

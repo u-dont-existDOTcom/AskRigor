@@ -546,8 +546,9 @@ with its reasons, superseded, taken down or erased; its public content, topic, r
 with, where its research ran, whether the privacy reading passed its saved content, without which it never shows, and
 whether a claim names a living person, or that its AI did not say, with the owner's recorded statement and decision)
 and
-`research_dossier_public_events` (append-only), ten role functions, three pure helpers that derive a copy from its
-private record, two internal functions for the conflict candidates, two that take the per-topic locks (automatic
+`research_dossier_public_events` (append-only), eleven role functions, three pure helpers that derive a copy from its
+private record, two internal functions for the conflict candidates, three for the comparison a show of a held copy is
+checked against, two that take the per-topic locks (automatic
 publication and every review transition that changes what is shown take the same locks, in the same order), and two
 views. The research-access role publishes and reads a topic's shown copies
 (`publish_research_dossier_version`, which derives the public copy and why it is held from the saved private record and
@@ -556,7 +557,10 @@ refuses anything else, and any copy the pages' last check would leave out, and a
 time); the review role
 lists, inspects and decides (`list_research_dossier_publications`, `inspect_research_dossier_publication`,
 `decide_research_dossier_publication`, `decide_research_dossier_living_person`, the owner's own decision with his
-reason, the only way a copy whose claim names a living person shows, `state_research_dossier_living_person`, the
+reason, the only way a copy whose claim names a living person shows, each comparing a held or taken-down copy with the
+shown dossiers before it shows it (`research_dossier_show_candidates` lists them; the function lists them again under the
+topic locks and refuses a show compared with any other set, and an important conflict, or a comparison that could not be
+made, shows nothing without the owner's override, kept with who and when and the pairs of findings for the pages), `state_research_dossier_living_person`, the
 owner's own statement, recorded once with who and when, on a copy whose AI did not say whether a claim names one,
 without which the ordinary show refuses it, `list_research_dossier_privacy_pending` and
 `record_research_dossier_privacy_reading`, a privacy reading made later of a copy held waiting for one, bound to the

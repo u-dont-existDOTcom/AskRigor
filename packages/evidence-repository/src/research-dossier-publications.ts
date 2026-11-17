@@ -95,6 +95,41 @@ export type ResearchDossierPublishResult =
   /** Not the newest version of one of the account's dossiers, or withdrawn, rejected or erased. */
   | { outcome: "version_refused" };
 
+/**
+ * A pair of findings the conflict check read as contradicting, as the store keeps it: this copy's finding, the shown
+ * copy (D-1001/2) and that copy's finding, f2:D-1001/2:f3 (Codex's third review, P1).
+ */
+export const conflictFindingId = (pair: { finding: string; publicNumber: string; versionNumber: number; theirs: string }) =>
+  `${pair.finding}:${pair.publicNumber}/${pair.versionNumber}:${pair.theirs}`;
+const CONFLICT_FINDING = /^([a-z][a-z0-9_-]{0,31}):(D-[1-9][0-9]{3,})\/([1-9][0-9]*):([a-z][a-z0-9_-]{0,31})$/u;
+/** A kept pair read back, or undefined when it is not one. */
+export function readConflictFinding(id: string):
+  { finding: string; publicNumber: string; versionNumber: number; theirs: string } | undefined {
+  const match = CONFLICT_FINDING.exec(id);
+  return match === null ? undefined
+    : { finding: match[1]!, publicNumber: match[2]!, versionNumber: Number(match[3]), theirs: match[4]! };
+}
+
+/**
+ * The conflict check an owner's show of a held or taken-down copy is given (Codex's third review, P1), and a later
+ * automatic admission too: the candidates compared (D-1001/2) from showCandidates, the copy's own dossier's shown copy
+ * aside for the owner's show; read, or not read when the reader could not compare them all; the pairs of findings read
+ * as contradicting (conflictFindingId); whether any is important (either finding decision-changing or important); and
+ * the owner's override, the reviewer login's digest, or null. The store lists the candidates again under the topic
+ * locks and refuses a check made against any other set.
+ */
+export interface ResearchDossierShowCheck {
+  compared: readonly string[];
+  conflictCheck: "read" | "not_read";
+  conflictFindings: readonly string[];
+  importantConflict: boolean;
+  overrideBy: string | null;
+}
+
+/** No comparison: what a decision that shows nothing new is given. */
+export const NO_SHOW_CHECK: ResearchDossierShowCheck = Object.freeze({ compared: [], conflictCheck: "read",
+  conflictFindings: [], importantConflict: false, overrideBy: null });
+
 /** A shown copy that is a candidate for the conflict check of a new one. */
 export interface ResearchDossierTopicCopy {
   publicNumber: string;
@@ -153,6 +188,10 @@ export interface ResearchDossierPublicationRow {
   livingPersonDecision: { by: string; at: string; reason: string } | null;
   /** A reviewed revision of an importance mark: the version it revises, who (digest) and why; null for a published copy. */
   revision: { of: number; by: string; reason: string | null } | null;
+  /** The pairs of findings the conflict check read as contradicting when it was shown by the review or admitted later. */
+  conflictFindings: string[];
+  /** The owner's override, when his review showed it over an important conflict or without the comparison: who, when. */
+  conflictOverride: { by: string; at: string } | null;
 }
 
 export interface ResearchDossierPublicationDetail extends ResearchDossierPublicationRow {
@@ -166,13 +205,19 @@ export interface ResearchDossierDecisionInput {
   versionNumber: number;
   decision: ResearchDossierPublicDecision;
   reason: string | null;
+  /** The conflict check, for a show of a copy not shown yet; none (NO_SHOW_CHECK) by default. */
+  check?: ResearchDossierShowCheck;
   at: Date;
 }
 
 export type ResearchDossierDecisionResult =
   | { outcome: "decided"; state: ResearchDossierPublicState; accepted: boolean }
   | { outcome: "not_found" }
-  | { outcome: "not_decidable"; state: ResearchDossierPublicState; accepted: boolean };
+  | { outcome: "not_decidable"; state: ResearchDossierPublicState; accepted: boolean }
+  /** The shown candidates changed since the check, or no check was made: compare again. */
+  | { outcome: "comparison_stale" }
+  /** An important conflict, or no comparison while a candidate shows, and no override: nothing was changed. */
+  | { outcome: "conflict_found" | "conflict_not_checked"; state: ResearchDossierPublicState; accepted: boolean };
 
 /** The owner's own decision to show a copy whose claim names a living person (Codex's review of stage 2, finding 2). */
 export interface ResearchDossierLivingPersonDecisionInput {
@@ -182,6 +227,8 @@ export interface ResearchDossierLivingPersonDecisionInput {
   reason: string;
   /** Who decided: the reviewer login's digest, reviewer: and 16 hex characters, never the login. */
   decidedBy: string;
+  /** The conflict check, as for the ordinary show; none (NO_SHOW_CHECK) by default. */
+  check?: ResearchDossierShowCheck;
   at: Date;
 }
 
@@ -280,6 +327,12 @@ export interface ResearchDossierPublicationReviewStore {
   decideLivingPerson(input: ResearchDossierLivingPersonDecisionInput): Promise<ResearchDossierDecisionResult>;
   stateLivingPerson(input: ResearchDossierLivingPersonStatementInput): Promise<ResearchDossierLivingPersonStatementResult>;
   reviseImportance(input: ResearchDossierImportanceRevisionInput): Promise<ResearchDossierImportanceRevisionResult>;
+  /**
+   * The shown copies a held or taken-down copy is compared with before it shows (Codex's third review, P1): its
+   * conflict check's candidates, its own dossier's shown copy among them, a page at a time.
+   */
+  showCandidates(publicNumber: string, versionNumber: number, after: { publicNumber: string; versionNumber: number } | null,
+    limit: number): Promise<ResearchDossierTopicCopy[]>;
   /** Held copies waiting for a privacy reading, least recently tried first, 1 to 50. */
   privacyPending(limit: number): Promise<ResearchDossierPrivacyPending[]>;
   recordPrivacyReading(input: ResearchDossierPrivacyReadingInput): Promise<ResearchDossierPrivacyReadingResult>;
@@ -297,6 +350,8 @@ export interface PublicDossierCopy {
   accepted: boolean;
   shownAt: string;
   conflictsWith: string[];
+  /** The pairs of findings the conflict check read as contradicting (conflictFindingId), for the pages to list. */
+  conflictFindings: string[];
 }
 
 export interface PublicDossierHistoryEntry {
@@ -316,6 +371,8 @@ export interface PublicDossierHistoryEntry {
 export interface PublicDossierQuery {
   topicKeys?: readonly string[];
   publicNumbers?: readonly string[];
+  /** Only the copies that the conflict check found contradicting one of these dossiers (by their conflictsWith). */
+  conflictsWith?: readonly string[];
   /** 1 to PUBLIC_DOSSIERS_PER_READ. */
   limit: number;
   /** How many to pass over first, for a later page; 0 to PUBLIC_DOSSIERS_MAX_OFFSET. */
@@ -461,16 +518,31 @@ function assertQuery(query: PublicDossierQuery): void {
     (query.offset !== undefined && (!Number.isInteger(query.offset) || query.offset < 0 ||
       query.offset > PUBLIC_DOSSIERS_MAX_OFFSET)) ||
     (query.topicKeys !== undefined && !query.topicKeys.every((key) => TOPIC_KEY.test(key))) ||
-    (query.publicNumbers !== undefined && !query.publicNumbers.every((number) => PUBLIC_DOSSIER_NUMBER.test(number)))) {
+    (query.publicNumbers !== undefined && !query.publicNumbers.every((number) => PUBLIC_DOSSIER_NUMBER.test(number))) ||
+    (query.conflictsWith !== undefined && !query.conflictsWith.every((number) => PUBLIC_DOSSIER_NUMBER.test(number)))) {
     throw new ResearchDossierPublicationError("INPUT_INVALID");
   }
 }
+
+/** Whether a show's conflict check is malformed, as research_dossier_show_check_invalid reads it. */
+function showCheckInvalid(check: ResearchDossierShowCheck): boolean {
+  return !Array.isArray(check.compared) || !check.compared.every((id) => /^D-[1-9][0-9]{3,}\/[1-9][0-9]*$/u.test(id)) ||
+    (check.conflictCheck !== "read" && check.conflictCheck !== "not_read") || !Array.isArray(check.conflictFindings) ||
+    check.conflictFindings.length > 50 || !check.conflictFindings.every((id) => readConflictFinding(id) !== undefined) ||
+    typeof check.importantConflict !== "boolean" || (check.importantConflict && check.conflictFindings.length === 0) ||
+    (check.conflictCheck === "not_read" && (check.importantConflict || check.conflictFindings.length > 0)) ||
+    (check.overrideBy !== null && !/^reviewer:[0-9a-f]{16}$/u.test(check.overrideBy));
+}
+
+/** The shown dossiers a copy's pairs name, by public number, once each, in order. */
+const conflictPartners = (pairs: readonly string[]) =>
+  [...new Set(pairs.map((pair) => readConflictFinding(pair)!.publicNumber))].sort();
 
 function assertDecision(input: ResearchDossierDecisionInput): void {
   if (!PUBLIC_DOSSIER_NUMBER.test(input.publicNumber) || !Number.isInteger(input.versionNumber) ||
     input.versionNumber < 1 || !(RESEARCH_DOSSIER_PUBLIC_DECISIONS as readonly string[]).includes(input.decision) ||
     (input.reason !== null && (input.reason !== input.reason.trim() || input.reason.length < 1 || input.reason.length > 200)) ||
-    Number.isNaN(input.at.getTime())) {
+    showCheckInvalid(input.check ?? NO_SHOW_CHECK) || Number.isNaN(input.at.getTime())) {
     throw new ResearchDossierPublicationError("INPUT_INVALID");
   }
 }
@@ -516,7 +588,7 @@ function assertLivingPersonDecision(input: ResearchDossierLivingPersonDecisionIn
   if (!PUBLIC_DOSSIER_NUMBER.test(input.publicNumber) || !Number.isInteger(input.versionNumber) ||
     input.versionNumber < 1 || typeof input.reason !== "string" || input.reason !== input.reason.trim() ||
     input.reason.length < 1 || input.reason.length > 200 || !/^reviewer:[0-9a-f]{16}$/u.test(input.decidedBy) ||
-    Number.isNaN(input.at.getTime())) {
+    showCheckInvalid(input.check ?? NO_SHOW_CHECK) || Number.isNaN(input.at.getTime())) {
     throw new ResearchDossierPublicationError("INPUT_INVALID");
   }
 }
@@ -609,6 +681,9 @@ interface ReviewRow {
   revision_of: number | null;
   revised_by: string | null;
   revision_reason: string | null;
+  conflict_findings: string[];
+  conflict_override_by: string | null;
+  conflict_override_at: Date | string | null;
 }
 
 const reviewRowOf = (row: ReviewRow & { question?: string | null }): ResearchDossierPublicationRow => ({
@@ -638,7 +713,27 @@ const reviewRowOf = (row: ReviewRow & { question?: string | null }): ResearchDos
     : { by: row.living_person_decided_by, at: iso(row.living_person_decided_at), reason: row.living_person_reason },
   revision: row.revision_of === null || row.revised_by === null ? null
     : { of: row.revision_of, by: row.revised_by, reason: row.revision_reason },
+  conflictFindings: row.conflict_findings,
+  conflictOverride: row.conflict_override_by === null || row.conflict_override_at === null ? null
+    : { by: row.conflict_override_by, at: iso(row.conflict_override_at) },
 });
+
+/** A decision's outcome row, read back. */
+function decisionOf(row: { outcome: string; state: ResearchDossierPublicState | null; accepted: boolean | null } | undefined):
+  ResearchDossierDecisionResult {
+  if (row === undefined) throw new Error("RESEARCH_DOSSIER_DECISION_RESULT_MISSING");
+  if (row.outcome === "not_found") return { outcome: "not_found" };
+  if (row.outcome === "comparison_stale") return { outcome: "comparison_stale" };
+  if ((row.outcome !== "decided" && row.outcome !== "not_decidable" && row.outcome !== "conflict_found" &&
+    row.outcome !== "conflict_not_checked") || row.state === null || row.accepted === null) {
+    throw new Error("RESEARCH_DOSSIER_DECISION_RESULT_INVALID");
+  }
+  return { outcome: row.outcome, state: row.state, accepted: row.accepted };
+}
+
+/** A show's conflict check as the decision functions take it, after their own inputs and before the time. */
+const checkParameters = (check: ResearchDossierShowCheck = NO_SHOW_CHECK) => [[...check.compared], check.conflictCheck,
+  [...check.conflictFindings], check.importantConflict, check.overrideBy];
 
 /** The review role's side, on its own pool (the review runtime's, as forget_card's eraser). */
 export class PostgresResearchDossierPublicationReview implements ResearchDossierPublicationReviewStore {
@@ -678,16 +773,28 @@ export class PostgresResearchDossierPublicationReview implements ResearchDossier
     const result = await this.pool.query<{ outcome: string; state: ResearchDossierPublicState | null;
       accepted: boolean | null }>(
       `SELECT outcome, state, accepted FROM ${this.schema}.decide_research_dossier_publication(
-         $1, $2, $3, $4, $5::timestamptz)`,
-      [input.publicNumber, input.versionNumber, input.decision, input.reason, input.at.toISOString()],
+         $1, $2, $3, $4, $5::text[], $6, $7::text[], $8, $9, $10::timestamptz)`,
+      [input.publicNumber, input.versionNumber, input.decision, input.reason, ...checkParameters(input.check),
+        input.at.toISOString()],
     );
-    const row = result.rows[0];
-    if (row === undefined) throw new Error("RESEARCH_DOSSIER_DECISION_RESULT_MISSING");
-    if (row.outcome === "not_found") return { outcome: "not_found" };
-    if ((row.outcome !== "decided" && row.outcome !== "not_decidable") || row.state === null || row.accepted === null) {
-      throw new Error("RESEARCH_DOSSIER_DECISION_RESULT_INVALID");
+    return decisionOf(result.rows[0]);
+  }
+
+  async showCandidates(publicNumber: string, versionNumber: number,
+    after: { publicNumber: string; versionNumber: number } | null, limit: number): Promise<ResearchDossierTopicCopy[]> {
+    if (!PUBLIC_DOSSIER_NUMBER.test(publicNumber) || !Number.isInteger(versionNumber) || versionNumber < 1 ||
+      !Number.isInteger(limit) || limit < 1 || limit > CONFLICT_CANDIDATES_PER_PAGE ||
+      (after !== null && !PUBLIC_DOSSIER_NUMBER.test(after.publicNumber))) {
+      throw new ResearchDossierPublicationError("INPUT_INVALID");
     }
-    return { outcome: row.outcome, state: row.state, accepted: row.accepted };
+    const result = await this.pool.query<{ public_number: string; version_number: number; topic_key: string;
+      public_payload: Record<string, unknown> }>(
+      `SELECT public_number, version_number, topic_key, public_payload
+         FROM ${this.schema}.research_dossier_show_candidates($1, $2, $3, $4, $5)`,
+      [publicNumber, versionNumber, after?.publicNumber ?? null, after?.versionNumber ?? null, limit],
+    );
+    return result.rows.map((row) => ({ publicNumber: row.public_number, versionNumber: row.version_number,
+      topicKey: row.topic_key, payload: row.public_payload }));
   }
 
   async reviseImportance(input: ResearchDossierImportanceRevisionInput): Promise<ResearchDossierImportanceRevisionResult> {
@@ -716,16 +823,11 @@ export class PostgresResearchDossierPublicationReview implements ResearchDossier
     const result = await this.pool.query<{ outcome: string; state: ResearchDossierPublicState | null;
       accepted: boolean | null }>(
       `SELECT outcome, state, accepted FROM ${this.schema}.decide_research_dossier_living_person(
-         $1, $2, $3, $4, $5::timestamptz)`,
-      [input.publicNumber, input.versionNumber, input.reason, input.decidedBy, input.at.toISOString()],
+         $1, $2, $3, $4, $5::text[], $6, $7::text[], $8, $9, $10::timestamptz)`,
+      [input.publicNumber, input.versionNumber, input.reason, input.decidedBy, ...checkParameters(input.check),
+        input.at.toISOString()],
     );
-    const row = result.rows[0];
-    if (row === undefined) throw new Error("RESEARCH_DOSSIER_DECISION_RESULT_MISSING");
-    if (row.outcome === "not_found") return { outcome: "not_found" };
-    if ((row.outcome !== "decided" && row.outcome !== "not_decidable") || row.state === null || row.accepted === null) {
-      throw new Error("RESEARCH_DOSSIER_DECISION_RESULT_INVALID");
-    }
-    return { outcome: row.outcome, state: row.state, accepted: row.accepted };
+    return decisionOf(result.rows[0]);
   }
 
   async privacyPending(limit: number): Promise<ResearchDossierPrivacyPending[]> {
@@ -795,16 +897,18 @@ export class PostgresPublicDossierPageSource implements PublicDossierPageSource 
     assertQuery(query);
     const result = await this.pool.query<{ public_number: string; version_number: number; topic_key: string;
       related_topic_keys: string[]; public_payload: Record<string, unknown>; public_sha256: string; accepted: boolean;
-      shown_at: Date | string; conflicts_with: string[] }>(
+      shown_at: Date | string; conflicts_with: string[]; conflict_findings: string[] }>(
       `SELECT public_number, version_number, topic_key, related_topic_keys, public_payload, public_sha256, accepted,
-              shown_at, conflicts_with
+              shown_at, conflicts_with, conflict_findings
          FROM ${this.schema}.research_dossier_public_pages
         WHERE ($1::text[] IS NULL OR topic_key = ANY($1::text[]))
           AND ($2::text[] IS NULL OR public_number = ANY($2::text[]))
+          AND ($5::text[] IS NULL OR conflicts_with && $5::text[])
         ORDER BY shown_at DESC, public_number
         LIMIT $3 OFFSET $4`,
       [query.topicKeys === undefined ? null : [...query.topicKeys],
-        query.publicNumbers === undefined ? null : [...query.publicNumbers], query.limit, query.offset ?? 0],
+        query.publicNumbers === undefined ? null : [...query.publicNumbers], query.limit, query.offset ?? 0,
+        query.conflictsWith === undefined ? null : [...query.conflictsWith]],
     );
     return result.rows.map((row) => ({
       publicNumber: row.public_number,
@@ -816,6 +920,7 @@ export class PostgresPublicDossierPageSource implements PublicDossierPageSource 
       accepted: row.accepted,
       shownAt: iso(row.shown_at),
       conflictsWith: row.conflicts_with,
+      conflictFindings: row.conflict_findings,
     }));
   }
 
@@ -874,6 +979,8 @@ interface MemoryCopy {
   payloadSha256: string | null;
   holdReasons: ResearchDossierHoldReason[];
   conflictsWith: string[];
+  conflictFindings: string[];
+  conflictOverride: { by: string; at: Date } | null;
   origin: Record<string, unknown>;
   privacyRead: boolean;
   laterPrivacy: { outcome: "passed" | "refused"; sha256: string; reason: ResearchDossierPrivacyRefusal | null;
@@ -984,6 +1091,8 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       payloadSha256: sha256(stableJson(projection)),
       holdReasons: [...admission.holdReasons],
       conflictsWith: [...input.conflictsWith],
+      conflictFindings: [],
+      conflictOverride: null,
       origin,
       privacyRead: admission.privacyRead,
       laterPrivacy: null,
@@ -1011,6 +1120,51 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       .slice(0, limit)
       .map((copy) => ({ publicNumber: copy.publicNumber, versionNumber: copy.versionNumber, topicKey: copy.topicKey!,
         payload: structuredClone(copy.payload!) }));
+  }
+
+  async showCandidates(publicNumber: string, versionNumber: number,
+    after: { publicNumber: string; versionNumber: number } | null, limit: number): Promise<ResearchDossierTopicCopy[]> {
+    this.followPrivate();
+    const copy = this.copies.get(`${publicNumber}#${versionNumber}`);
+    if (copy === undefined || copy.payload === null) return [];
+    return this.matches(copy.payload)
+      .filter((other) => other !== copy && (after === null || candidateOrder(other, after) > 0))
+      .slice(0, limit)
+      .map((other) => ({ publicNumber: other.publicNumber, versionNumber: other.versionNumber, topicKey: other.topicKey!,
+        payload: structuredClone(other.payload!) }));
+  }
+
+  /**
+   * Whether a copy may show now, as research_dossier_show_refusal: stale unless compared with exactly the candidates,
+   * its own dossier's shown copy counted only for an automatic admission; then a conflict or no comparison needs an
+   * override.
+   */
+  private showRefusal(copy: MemoryCopy, withOwn: boolean, check: ResearchDossierShowCheck):
+    "comparison_stale" | "conflict_found" | "conflict_not_checked" | "overridden" | null {
+    const candidates = this.matches(copy.payload!)
+      .filter((other) => other !== copy && (withOwn || other.publicNumber !== copy.publicNumber))
+      .map(conflictCandidateId).sort();
+    if (check.conflictCheck === "read" && (stableJson(candidates) !== stableJson([...check.compared].sort()) ||
+      !check.conflictFindings.every((pair) => candidates.includes(pair.split(":")[1]!)))) {
+      return "comparison_stale";
+    }
+    if ((check.conflictCheck === "not_read" && candidates.length > 0) || check.importantConflict) {
+      if (check.overrideBy === null) return check.conflictCheck === "not_read" ? "conflict_not_checked" : "conflict_found";
+      return "overridden";
+    }
+    return null;
+  }
+
+  /** What a show records of its conflict check: the pairs, the dossiers they name, and an override with its event. */
+  private recordShowCheck(copy: MemoryCopy, check: ResearchDossierShowCheck, refusal: "overridden" | null, at: Date): void {
+    Object.assign(copy, { conflictsWith: conflictPartners(check.conflictFindings),
+      conflictFindings: [...check.conflictFindings],
+      conflictOverride: refusal === "overridden" ? { by: check.overrideBy!, at } : null });
+    if (refusal === "overridden") {
+      copy.events.push({ event: "conflict_overridden", reason: `${check.overrideBy} ${check.conflictCheck === "read"
+        ? `over ${conflictPartners(check.conflictFindings).join(" ")}` : "without the conflict check"}`.slice(0, 200).trimEnd(),
+      at });
+    }
   }
 
   /** The shown copies that are conflict candidates for a public part, in the database's order. */
@@ -1058,6 +1212,16 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
     if (refused) return { outcome: "not_decidable", state: copy.state, accepted };
     const next: ResearchDossierPublicState = input.decision === "hold" ? "held"
       : input.decision === "take_down" ? "taken_down" : "shown";
+    // A copy not shown yet is compared with the shown dossiers before it is (Codex's third review, P1).
+    if (next === "shown" && copy.state !== "shown") {
+      const check = input.check ?? NO_SHOW_CHECK;
+      const refusal = this.showRefusal(copy, false, check);
+      if (refusal === "comparison_stale") return { outcome: refusal };
+      if (refusal === "conflict_found" || refusal === "conflict_not_checked") {
+        return { outcome: refusal, state: copy.state, accepted };
+      }
+      this.recordShowCheck(copy, check, refusal, input.at);
+    }
     if (next === "shown") {
       for (const other of copies) {
         if (other !== copy && other.state === "shown") {
@@ -1124,6 +1288,13 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       copy.state !== "taken_down") || copy.versionNumber !== newest || !privacyPassed(copy) || (!accepted && closed)) {
       return { outcome: "not_decidable", state: copy.state, accepted };
     }
+    const check = input.check ?? NO_SHOW_CHECK;
+    const refusal = this.showRefusal(copy, false, check);
+    if (refusal === "comparison_stale") return { outcome: refusal };
+    if (refusal === "conflict_found" || refusal === "conflict_not_checked") {
+      return { outcome: refusal, state: copy.state, accepted };
+    }
+    this.recordShowCheck(copy, check, refusal, input.at);
     for (const other of copies) {
       if (other !== copy && other.state === "shown") {
         Object.assign(other, { state: "superseded", decidedAt: input.at });
@@ -1197,7 +1368,8 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
     return [...this.copies.values()]
       .filter((copy) => this.shows(copy) &&
         (query.topicKeys === undefined || query.topicKeys.includes(copy.topicKey!)) &&
-        (query.publicNumbers === undefined || query.publicNumbers.includes(copy.publicNumber)))
+        (query.publicNumbers === undefined || query.publicNumbers.includes(copy.publicNumber)) &&
+        (query.conflictsWith === undefined || copy.conflictsWith.some((number) => query.conflictsWith!.includes(number))))
       .sort((left, right) => right.decidedAt.getTime() - left.decidedAt.getTime() ||
         left.publicNumber.localeCompare(right.publicNumber))
       .slice(query.offset ?? 0, (query.offset ?? 0) + query.limit)
@@ -1206,6 +1378,7 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
         relatedTopicKeys: [...copy.relatedTopicKeys], payload: structuredClone(copy.payload!),
         payloadSha256: copy.payloadSha256!, accepted: copy.acceptedAt !== null, shownAt: copy.decidedAt.toISOString(),
         conflictsWith: [...copy.conflictsWith],
+        conflictFindings: [...copy.conflictFindings],
       }));
   }
 
@@ -1268,7 +1441,8 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
         if (copy.acceptedAt === null && copy.state !== "erased") {
           copy.events.push({ event: "erased", reason: "contributor_access_revoked", at });
           Object.assign(copy, { state: "erased", payload: null, payloadSha256: null, topicKey: null, relatedTopicKeys: [],
-            topicNames: [], holdReasons: [], conflictsWith: [], origin: {}, livingPersonDecision: null,
+            topicNames: [], holdReasons: [], conflictsWith: [], conflictFindings: [], conflictOverride: null, origin: {},
+            livingPersonDecision: null,
             livingPersonStatement: null, laterPrivacy: null, privacyUnavailable: null, decidedAt: at,
             versionId: null, dossierNumber: null,
             revision: copy.revision === null ? null : { ...copy.revision, reason: null } });
@@ -1284,7 +1458,8 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       if (facts === undefined || copy.acceptedAt !== null || copy.state === "erased") continue;
       if (facts.erased) {
         Object.assign(copy, { state: "erased", payload: null, payloadSha256: null, topicKey: null, relatedTopicKeys: [],
-          topicNames: [], holdReasons: [], conflictsWith: [], origin: {}, livingPersonDecision: null,
+          topicNames: [], holdReasons: [], conflictsWith: [], conflictFindings: [], conflictOverride: null, origin: {},
+          livingPersonDecision: null,
           livingPersonStatement: null, laterPrivacy: null, privacyUnavailable: null, decidedAt: at,
           revision: copy.revision === null ? null : { ...copy.revision, reason: null } });
         copy.events.push({ event: "erased", reason: "deletion_requested", at });
@@ -1339,6 +1514,9 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       livingPersonDecision: copy.livingPersonDecision === null ? null : { by: copy.livingPersonDecision.by,
         at: copy.livingPersonDecision.at.toISOString(), reason: copy.livingPersonDecision.reason },
       revision: copy.revision === null ? null : { ...copy.revision },
+      conflictFindings: [...copy.conflictFindings],
+      conflictOverride: copy.conflictOverride === null ? null
+        : { by: copy.conflictOverride.by, at: copy.conflictOverride.at.toISOString() },
     };
   }
 }

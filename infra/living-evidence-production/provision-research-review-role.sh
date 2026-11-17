@@ -142,11 +142,16 @@ GRANT EXECUTE ON FUNCTION living_evidence.list_research_dossier_publications(tex
   TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.inspect_research_dossier_publication(text)
   TO askrigor_research_review;
-GRANT EXECUTE ON FUNCTION living_evidence.decide_research_dossier_publication(text, integer, text, text, timestamptz)
-  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.decide_research_dossier_publication(
+  text, integer, text, text, text[], text, text[], boolean, text, timestamptz
+) TO askrigor_research_review;
 -- The owner's own decision to show a copy whose claim names a living person, with his typed reason (Codex's review of
 -- stage 2, finding 2).
-GRANT EXECUTE ON FUNCTION living_evidence.decide_research_dossier_living_person(text, integer, text, text, timestamptz)
+GRANT EXECUTE ON FUNCTION living_evidence.decide_research_dossier_living_person(
+  text, integer, text, text, text[], text, text[], boolean, text, timestamptz
+) TO askrigor_research_review;
+-- The shown dossiers a copy is compared with before the review shows it (Codex's third review, P1).
+GRANT EXECUTE ON FUNCTION living_evidence.research_dossier_show_candidates(text, integer, text, integer, integer)
   TO askrigor_research_review;
 -- The owner's own statement, for a copy whose AI did not say, of whether a claim names a living person ("didn't say"
 -- is not "no"; Codex's re-review of stage 2).

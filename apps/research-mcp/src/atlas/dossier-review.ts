@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 
 import {
+  CONFLICT_CANDIDATES_PER_PAGE,
+  conflictCandidateId,
+  conflictFindingId,
   PUBLIC_DOSSIER_NUMBER,
   RESEARCH_DOSSIER_LIVING_PERSON_STATEMENTS,
   RESEARCH_DOSSIER_PRIVACY_REFUSALS,
@@ -13,13 +16,24 @@ import {
   type ResearchDossierPublicDecision,
   type ResearchDossierPublicState,
   type ResearchDossierPublicationReviewStore,
+  type ResearchDossierDecisionResult,
   type ResearchDossierPublicationDetail,
   type ResearchDossierPublicationRow,
+  type ResearchDossierShowCheck,
+  type ResearchDossierTopicCopy,
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
 import { publicDossierReadingTexts } from "../findings/dossier.js";
-import { dossierPagePath, HOLD_REASON_WORDS } from "../findings/dossier-publication.js";
+import type { DossierConflictReader } from "../findings/dossier-conflict-reading.js";
+import {
+  compareWithShown,
+  dossierPagePath,
+  HOLD_REASON_WORDS,
+  readPublicDossier,
+  type DossierComparison,
+  type DossierFoundConflict,
+} from "../findings/dossier-publication.js";
 import type { DossierPrivacyReader, DossierPrivacyReading } from "../findings/dossier-privacy-reading.js";
 
 /**
@@ -47,6 +61,15 @@ import type { DossierPrivacyReader, DossierPrivacyReading } from "../findings/do
  * reader is available again (readPendingDossierPrivacy). Each reading is bound to the digest of the content it read.
  * A refusal is final for that content; a reading that could not be made is temporary, kept and worded apart. A pass
  * shows nothing by itself: it lets show_dossier and accept_dossier work.
+ *
+ * Before an action shows a copy not shown yet (show_dossier, accept_dossier, show_dossier_naming_living_person), it is
+ * compared with the shown dossiers it could contradict, its own dossier's shown copy aside since the show replaces it
+ * (Codex's third review, P1: his reversed probe showed a copy held while nothing was shown beside one shown after it,
+ * neither compared with the other). The comparison is AskRigor's paid conflict reading, and the store lists the
+ * candidates again under the topic locks and refuses a show compared with any other set. An important conflict shows
+ * nothing: the owner is told which dossier it contradicts and on what, and shows it only by repeating the action with
+ * later_inputs.dossierOverrideConflicts naming those dossiers, recorded with who and when; the pages then list the
+ * disagreement. A comparison that could not be made while any dossier could conflict asks for the same override.
  */
 
 export const ATLAS_DOSSIER_ACTIONS = [
@@ -60,6 +83,8 @@ export type AtlasDossierOutcome = typeof ATLAS_DOSSIER_OUTCOMES[number];
 
 /** later_inputs on the dossier actions. */
 export const dossierNumberInputSchema = z.string().trim().toUpperCase().regex(PUBLIC_DOSSIER_NUMBER);
+/** The shown dossiers an override names, which the conflict check found a copy contradicts or could not compare. */
+export const dossierOverrideConflictsInputSchema = z.array(dossierNumberInputSchema).min(1).max(50);
 export const dossierVersionInputSchema = z.number().int().min(1);
 export const dossierStateInputSchema = z.enum(RESEARCH_DOSSIER_PUBLIC_STATES);
 export const dossierFindingInputSchema = z.string().trim().regex(/^[a-z][a-z0-9_-]{0,31}$/u);
@@ -69,6 +94,24 @@ export const dossierLivingPersonInputSchema = z.enum(RESEARCH_DOSSIER_LIVING_PER
 const IMPORTANCE_WORDS: Readonly<Record<string, string>> = {
   decision_changing: "could change a decision", important: "important", context: "background",
 };
+
+/** Why the conflict check could not compare a copy, in words: temporary, never a finding about the content. */
+const CONFLICT_UNAVAILABLE_WORDS: Readonly<Record<string, string>> = {
+  off: "the conflict check is switched off on this server", too_long: "the dossiers are too long for one comparison",
+  daily_budget: "the day's money for readings was used up", timeout: "the comparison took too long",
+  error: "it failed with an error", refusal: "the model declined to compare them",
+  unreadable: "its answer could not be read",
+};
+/** The most shown dossiers an override can name. */
+const OVERRIDE_LIMIT = 50;
+/** The most pairs of findings a refusal spells out. */
+const PAIRS_SPELLED = 5;
+
+/** Names joined as a reader says them: A, B and C. */
+const joinWords = (words: readonly string[]) => words.length <= 1 ? words.join("")
+  : `${words.slice(0, -1).join(", ")} and ${words.at(-1)}`;
+/** A quoted claim ends its sentence: a full stop only when it has none of its own. */
+const closing = (text: string) => /[.!?]$/u.test(text) ? "" : ".";
 
 const DECISIONS: Readonly<Record<Exclude<AtlasDossierAction, "list_dossiers" | "inspect_dossier" |
   "show_dossier_naming_living_person" | "revise_dossier_importance" | "state_dossier_living_person" |
@@ -189,10 +232,11 @@ const STATEMENT_WORDS: Readonly<Record<ResearchDossierLivingPersonStatement, str
  * login as 16 hex characters of a domain-separated SHA-256, never the login.
  */
 export function livingPersonDecider(reviewer: string,
-  purpose: "living_person" | "importance" | "living_person_statement" = "living_person"): string {
+  purpose: "living_person" | "importance" | "living_person_statement" | "conflict_override" = "living_person"): string {
   const domain = purpose === "living_person" ? "askrigor:dossier-living-person-decision:v1\0"
     : purpose === "living_person_statement" ? "askrigor:dossier-living-person-statement:v1\0"
-      : "askrigor:dossier-importance-revision:v1\0";
+      : purpose === "conflict_override" ? "askrigor:dossier-conflict-override:v1\0"
+        : "askrigor:dossier-importance-revision:v1\0";
   return `reviewer:${createHash("sha256").update(domain, "utf8").update(reviewer, "utf8").digest("hex").slice(0, 16)}`;
 }
 
@@ -235,6 +279,12 @@ export const atlasDossiersSchema = z.object({
     revision: z.object({ of: z.number().int(), by: z.string(), reason: z.string().nullable() }).strict().nullable()
       .describe("A reviewed revision of an importance mark: the version it revises, the reviewer login's digest and the " +
         "reason typed."),
+    conflictFindings: z.array(z.string()).describe("The pairs of findings AskRigor's conflict check read as " +
+      "contradicting when the review showed it, as f2:D-1001/1:f3 (its finding, the shown copy, that copy's finding); " +
+      "the pages list them."),
+    conflictOverride: z.object({ by: z.string(), on: z.string() }).strict().nullable().describe("The owner's override, " +
+      "when the review showed it though the conflict check found an important conflict or could not compare it: the " +
+      "reviewer login's digest and the day."),
     accepted: z.boolean(),
     decidedOn: z.string(),
     page: z.string().nullable(),
@@ -256,6 +306,8 @@ export interface AtlasDossierRequest {
   dossierImportance?: "decision_changing" | "important" | "context";
   /** state_dossier_living_person: the owner's own statement. */
   dossierLivingPerson?: ResearchDossierLivingPersonStatement;
+  /** A show over the conflict check: the shown dossiers it contradicts, or could not be compared with, named. */
+  dossierOverrideConflicts?: string[];
 }
 
 export interface AtlasDossierReviewDependencies {
@@ -263,6 +315,20 @@ export interface AtlasDossierReviewDependencies {
   now: () => Date;
   /** AskRigor's privacy reading, while it is on (ASKRIGOR_DOSSIER_PRIVACY_READING); read_dossier_privacy needs it. */
   privacyReader?: DossierPrivacyReader;
+  /** AskRigor's conflict reading, on the planner's path; without it a show with any candidate needs an override. */
+  conflictReader?: DossierConflictReader;
+}
+
+/** A show's comparison: the check the store is given, and what it found, for the owner's words. */
+interface PreparedShow {
+  check: ResearchDossierShowCheck;
+  comparison: DossierComparison;
+  /** The shown dossiers it could contradict, by public number, once each. */
+  candidates: string[];
+  /** The important pairs, with both claims; the dossiers they name. */
+  important: Array<DossierFoundConflict & { claim: string; theirClaim: string }>;
+  /** Every pair it records, with whether it is important. */
+  pairs: DossierFoundConflict[];
 }
 
 export interface AtlasDossierResult {
@@ -297,6 +363,9 @@ function itemOf(row: ResearchDossierPublicationRow, content?: Record<string, unk
     livingPersonDecision: row.livingPersonDecision === null ? null : { by: row.livingPersonDecision.by,
       on: row.livingPersonDecision.at.slice(0, 10), reason: row.livingPersonDecision.reason },
     revision: row.revision === null ? null : { ...row.revision },
+    conflictFindings: [...row.conflictFindings],
+    conflictOverride: row.conflictOverride === null ? null
+      : { by: row.conflictOverride.by, on: dayOf(row.conflictOverride.at) },
     accepted: row.accepted,
     decidedOn: row.decidedAt.slice(0, 10),
     page: row.state === "shown" ? dossierPagePath(row.publicNumber) : null,
@@ -310,9 +379,56 @@ const lineOf = (row: ResearchDossierPublicationRow) => `${row.publicNumber} vers
     : `, topic ${row.topicKey}`}${row.holdReasons.length === 0 ? "" : `, held for: ${heldForWords(row)}`}${
     row.livingPersonStatement === null ? "" : `; you stated on ${row.livingPersonStatement.at.slice(0, 10)} that ${
       STATEMENT_WORDS[row.livingPersonStatement.statement]}`}${
-    row.conflictsWith.length === 0 ? "" : `, conflicts with ${row.conflictsWith.join(", ")}`}; ${
+    row.conflictsWith.length === 0 ? "" : `, conflicts with ${row.conflictsWith.join(", ")}`}${
+    row.conflictOverride === null ? "" : `; shown on your override on ${dayOf(row.conflictOverride.at)}${
+      row.conflictsWith.length === 0 ? " without a conflict comparison"
+        : ` though it contradicts ${joinWords(row.conflictsWith)}`}`}; ${
     Object.keys(row.origin).length === 0 ? `where its research ran is ${originWords(row.origin)}`
       : `researched in ${originWords(row.origin)}`}`;
+
+/** A show compared with the shown dossiers that kept changing: nothing was shown. */
+const stale = (dossier: string, version: number) => refused(`${dossier} version ${version} was not shown: the shown ` +
+  "dossiers it could contradict kept changing while it was compared. Nothing was changed; try again.");
+
+/** Whether a privacy reading passed a copy's content: when it was saved, or later, bound to it (as the store reads it). */
+const privacyPassed = (copy: ResearchDossierPublicationRow) => copy.privacyRead ||
+  copy.laterPrivacyReading?.outcome === "passed";
+
+/** Whether nothing about a named living person keeps a copy from the ordinary show (as the store reads it). */
+const livingPersonClear = (copy: ResearchDossierPublicationRow) => copy.livingPersonDecision !== null ||
+  copy.namesLivingPerson === false ||
+  (copy.namesLivingPerson === null && copy.livingPersonStatement?.statement === "names_no_living_person");
+
+/** The shown dossiers a show's pairs name, once each. */
+const partnersOf = (pairs: readonly DossierFoundConflict[]) => [...new Set(pairs.map(({ publicNumber }) => publicNumber))];
+
+/** What a shown copy's comparison adds to "is now shown, at …": its override, or the background conflicts found. */
+function shownWords(prepared: PreparedShow): string {
+  if (prepared.check.overrideBy !== null) {
+    return prepared.comparison.status === "read"
+      ? `, on your override: it contradicts ${joinWords(partnersOf(prepared.important))} on ${
+        prepared.important.length === 1 ? "an important finding" : "important findings"}, and the pages list the ` +
+        "disagreement."
+      : `, on your override, without a conflict comparison with ${joinWords(prepared.candidates)}.`;
+  }
+  return prepared.pairs.length === 0 ? "." : `. AskRigor's conflict check found that it contradicts ${
+    joinWords(partnersOf(prepared.pairs))} on ${prepared.pairs.length === 1 ? "a background finding"
+    : "background findings"}; the pages list the disagreement.`;
+}
+
+/** The same, as a sentence after another decision's words. */
+function shownSentence(prepared: PreparedShow): string {
+  if (prepared.check.overrideBy !== null) {
+    return prepared.comparison.status === "read"
+      ? ` It is shown on your override too: it contradicts ${joinWords(partnersOf(prepared.important))} on ${
+        prepared.important.length === 1 ? "an important finding" : "important findings"}, and the pages list the ` +
+        "disagreement."
+      : ` It is shown on your override too, without a conflict comparison with ${joinWords(prepared.candidates)}.`;
+  }
+  return prepared.pairs.length === 0 ? "" : ` AskRigor's conflict check found that it contradicts ${
+    joinWords(partnersOf(prepared.pairs))} on ${prepared.pairs.length === 1 ? "a background finding"
+    : "background findings"}; the pages list the disagreement.`;
+}
 
 export class AtlasDossierReview {
   constructor(private readonly deps: AtlasDossierReviewDependencies) {}
@@ -335,6 +451,10 @@ export class AtlasDossierReview {
     }
     if (request.dossier === undefined) return refused(`${request.action} needs later_inputs.dossier, such as D-1001.`);
     if (request.dossierState !== undefined) return refused(`${request.action} does not take dossierState.`);
+    if (request.dossierOverrideConflicts !== undefined && request.action !== "show_dossier" &&
+      request.action !== "accept_dossier" && request.action !== "show_dossier_naming_living_person") {
+      return refused(`${request.action} does not take dossierOverrideConflicts.`);
+    }
     const copies = await this.deps.store.inspect(request.dossier);
     if (copies.length === 0) return refused(`No research dossier ${request.dossier} exists; nothing was changed.`);
     if (request.action === "inspect_dossier") {
@@ -378,9 +498,19 @@ export class AtlasDossierReview {
         "did not say whether a claim names a living person. State it yourself first: state_dossier_living_person, " +
         "with later_inputs.dossierLivingPerson names_no_living_person or names_a_living_person. Nothing was changed.");
     }
-    const decided = await this.deps.store.decide({ publicNumber: request.dossier, versionNumber: version, decision,
-      reason: reason === undefined || reason.length === 0 ? null : reason, at: this.deps.now() });
+    const showing = await this.compareAndDecide(request, version, decision === "show" || decision === "accept"
+      ? (copy, copies) => copy.versionNumber === Math.max(...copies.map(({ versionNumber }) => versionNumber)) &&
+        privacyPassed(copy) && livingPersonClear(copy) : undefined,
+    (check) => this.deps.store.decide({ publicNumber: request.dossier!, versionNumber: version, decision,
+      reason: reason === undefined || reason.length === 0 ? null : reason, ...(check === undefined ? {} : { check }),
+      at: this.deps.now() }));
+    if ("refusal" in showing) return showing.refusal;
+    const { decided, prepared } = showing;
     if (decided.outcome === "not_found") return refused(`${request.dossier} has no version ${version}; nothing was changed.`);
+    if (decided.outcome === "conflict_found" || decided.outcome === "conflict_not_checked") {
+      return this.conflictRefusal(request.action, request.dossier, version, prepared!, decided.outcome);
+    }
+    if (decided.outcome === "comparison_stale") return stale(request.dossier, version);
     if (decided.outcome === "not_decidable") {
       return refused(`${request.dossier} version ${version} is ${decided.state}${decided.accepted ? " and accepted" : ""}, ` +
         `so ${request.action} can't apply to it (a copy that isn't its dossier's newest, whose research was ` +
@@ -392,9 +522,109 @@ export class AtlasDossierReview {
       ok: true,
       outcome: "dossier_decided",
       text: `${request.dossier} version ${version} is now ${decided.state}${decided.accepted ? ", checked by supervisors"
-        : ""}${decided.state === "shown" ? `, at ${dossierPagePath(request.dossier)}` : ", off the pages"}.`,
+        : ""}${decided.state === "shown" ? `, at ${dossierPagePath(request.dossier)}` : ", off the pages"}${
+        prepared === undefined || decided.state !== "shown" ? "." : shownWords(prepared)}`,
       ...(after === undefined ? {} : { dossiers: { items: [itemOf(after)] } }),
     };
+  }
+
+  /**
+   * A decision that may show a copy not shown yet: compared first with the shown dossiers it could contradict, then
+   * decided with that comparison, which the store checks under the topic locks; compared again when the shown
+   * dossiers changed meanwhile, at most three times. mayShow says whether the store could show the copy at all, so no
+   * comparison is paid for one it would refuse; undefined for a decision that shows nothing.
+   */
+  private async compareAndDecide(request: AtlasDossierRequest, version: number,
+    mayShow: ((copy: ResearchDossierPublicationDetail, copies: readonly ResearchDossierPublicationDetail[]) => boolean) |
+      undefined,
+    decide: (check: ResearchDossierShowCheck | undefined) => Promise<ResearchDossierDecisionResult>):
+    Promise<{ decided: ResearchDossierDecisionResult; prepared?: PreparedShow } | { refusal: AtlasDossierResult }> {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const copies = await this.deps.store.inspect(request.dossier!);
+      const copy = copies.find(({ versionNumber }) => versionNumber === version);
+      let prepared: PreparedShow | undefined;
+      if (mayShow !== undefined && copy !== undefined && (copy.state === "held" || copy.state === "taken_down") &&
+        copy.payload !== null && mayShow(copy, copies)) {
+        const made = await this.prepareShow(request, copy);
+        if ("refusal" in made) return made;
+        prepared = made;
+      }
+      const decided = await decide(prepared?.check);
+      if (decided.outcome !== "comparison_stale") return { decided, ...(prepared === undefined ? {} : { prepared }) };
+    }
+    return { refusal: stale(request.dossier!, version) };
+  }
+
+  /** The comparison of a copy about to show with the shown dossiers it could contradict, its own dossier's aside. */
+  private async prepareShow(request: AtlasDossierRequest, copy: ResearchDossierPublicationDetail):
+    Promise<PreparedShow | { refusal: AtlasDossierResult }> {
+    const listed: ResearchDossierTopicCopy[] = [];
+    for (;;) {
+      const last = listed.at(-1);
+      const page = await this.deps.store.showCandidates(copy.publicNumber, copy.versionNumber,
+        last === undefined ? null : { publicNumber: last.publicNumber, versionNumber: last.versionNumber },
+        CONFLICT_CANDIDATES_PER_PAGE);
+      listed.push(...page);
+      if (page.length < CONFLICT_CANDIDATES_PER_PAGE) break;
+    }
+    const candidates = listed.filter(({ publicNumber }) => publicNumber !== copy.publicNumber);
+    const numbers = [...new Set(candidates.map(({ publicNumber }) => publicNumber))];
+    const mine = copy.payload === null ? undefined : readPublicDossier(copy.payload);
+    const comparison: DossierComparison = candidates.length === 0 ? { status: "read", conflicts: new Map() }
+      : mine === undefined ? { status: "unavailable", reason: "unreadable" }
+        : await compareWithShown(mine, candidates, this.deps.conflictReader);
+    const pairs = comparison.status === "read" ? [...comparison.conflicts.values()].flat()
+      .sort((left, right) => Number(right.important) - Number(left.important)).slice(0, 50) : [];
+    const claims = new Map(candidates.map((candidate) => [conflictCandidateId(candidate),
+      readPublicDossier(candidate.payload)]));
+    const important = pairs.filter(({ important: weighty }) => weighty).map((pair) => ({ ...pair,
+      claim: mine?.findings.find(({ id }) => id === pair.finding)?.claim ?? "",
+      theirClaim: claims.get(conflictCandidateId(pair))?.findings.find(({ id }) => id === pair.theirs)?.claim ?? "" }));
+    const needed = comparison.status === "read" ? [...new Set(important.map(({ publicNumber }) => publicNumber))] : numbers;
+    const override = request.dossierOverrideConflicts;
+    const covered = needed.length > 0 && needed.length <= OVERRIDE_LIMIT && override !== undefined &&
+      needed.every((number) => override.includes(number));
+    if (covered && (request.reviewer === undefined || request.reviewer === "")) {
+      return { refusal: refused(`${request.action} with dossierOverrideConflicts needs the reviewer login that ` +
+        "overrides; nothing was changed.") };
+    }
+    return {
+      check: { compared: candidates.map(conflictCandidateId), conflictCheck: comparison.status === "read" ? "read" : "not_read",
+        conflictFindings: pairs.map(conflictFindingId), importantConflict: important.length > 0,
+        overrideBy: covered ? livingPersonDecider(request.reviewer!, "conflict_override") : null },
+      comparison, candidates: numbers, important, pairs,
+    };
+  }
+
+  /** Why a show was refused for a conflict, with which dossier it contradicts and on what, and how to override it. */
+  private conflictRefusal(action: AtlasDossierAction, dossier: string, version: number, prepared: PreparedShow,
+    outcome: "conflict_found" | "conflict_not_checked"): AtlasDossierResult {
+    if (outcome === "conflict_found") {
+      const partners = [...new Set(prepared.important.map(({ publicNumber }) => publicNumber))];
+      const spelled = prepared.important.slice(0, PAIRS_SPELLED).map((pair) => `Its finding ${pair.finding}, ` +
+        `“${pair.claim}”, contradicts ${pair.publicNumber}'s finding ${pair.theirs}, “${pair.theirClaim}”${
+          closing(pair.theirClaim)}`).join(" ");
+      const more = prepared.important.length - PAIRS_SPELLED;
+      return refused(`${dossier} version ${version} was not shown: AskRigor's conflict check found that it contradicts ${
+        partners.length === 1 ? "a shown dossier" : "shown dossiers"} on ${prepared.important.length === 1
+        ? "an important finding" : "important findings"}. ${spelled}${more > 0 ? ` It contradicts them on ${more} more ` +
+        `important ${more === 1 ? "pair" : "pairs"} of findings too.` : ""} To show it anyway, beside ${
+        partners.length === 1 ? "it" : "them"}, repeat ${action} with later_inputs.dossierOverrideConflicts ${
+        JSON.stringify(partners)}; your override is recorded with who made it and when, and the pages then list the ` +
+        "disagreement. Nothing was changed.");
+    }
+    const numbers = prepared.candidates;
+    const reason = prepared.comparison.status === "unavailable"
+      ? CONFLICT_UNAVAILABLE_WORDS[prepared.comparison.reason] ?? "it could not be made" : "it could not be made";
+    if (numbers.length > OVERRIDE_LIMIT) {
+      return refused(`${dossier} version ${version} was not shown: AskRigor's conflict check could not compare it with ` +
+        `the ${numbers.length} shown dossiers it could contradict just now: ${reason}. With more than ${OVERRIDE_LIMIT} ` +
+        "of them, it can't be shown without that comparison; try again when the check can be made. Nothing was changed.");
+    }
+    return refused(`${dossier} version ${version} was not shown: AskRigor's conflict check could not compare it with the ` +
+      `shown ${numbers.length === 1 ? "dossier" : "dossiers"} it could contradict (${joinWords(numbers)}) just now: ${
+        reason}. To show it without that comparison, repeat ${action} with later_inputs.dossierOverrideConflicts ${
+        JSON.stringify(numbers)}; your override is recorded with who made it and when. Nothing was changed.`);
   }
 
   /** A reviewed revision of one importance mark: a new version, never an edit in place. */
@@ -549,9 +779,20 @@ export class AtlasDossierReview {
       return refused("show_dossier_naming_living_person needs the reviewer login that decides; nothing was changed.");
     }
     const version = request.dossierVersion ?? Math.max(...copies.map(({ versionNumber }) => versionNumber));
-    const decided = await this.deps.store.decideLivingPerson({ publicNumber: dossier, versionNumber: version, reason,
-      decidedBy: livingPersonDecider(request.reviewer), at: this.deps.now() });
+    const decidedBy = livingPersonDecider(request.reviewer);
+    const showing = await this.compareAndDecide(request, version, (copy, all) =>
+      copy.versionNumber === Math.max(...all.map(({ versionNumber }) => versionNumber)) && privacyPassed(copy) &&
+      copy.livingPersonDecision === null &&
+      (copy.namesLivingPerson === true || copy.livingPersonStatement?.statement === "names_a_living_person"),
+    (check) => this.deps.store.decideLivingPerson({ publicNumber: dossier, versionNumber: version, reason, decidedBy,
+      ...(check === undefined ? {} : { check }), at: this.deps.now() }));
+    if ("refusal" in showing) return showing.refusal;
+    const { decided, prepared } = showing;
     if (decided.outcome === "not_found") return refused(`${dossier} has no version ${version}; nothing was changed.`);
+    if (decided.outcome === "conflict_found" || decided.outcome === "conflict_not_checked") {
+      return this.conflictRefusal(request.action, dossier, version, prepared!, decided.outcome);
+    }
+    if (decided.outcome === "comparison_stale") return stale(dossier, version);
     if (decided.outcome === "not_decidable") {
       return refused(`${dossier} version ${version} is ${decided.state}${decided.accepted ? " and accepted" : ""}, so ` +
         "show_dossier_naming_living_person can't apply to it (only the newest copy, held or taken down, whose claim " +
@@ -563,7 +804,7 @@ export class AtlasDossierReview {
       ok: true,
       outcome: "dossier_decided",
       text: `${dossier} version ${version} is now shown, at ${dossierPagePath(dossier)}, on your decision that its ` +
-        "claim about a named living person may be published.",
+        `claim about a named living person may be published.${prepared === undefined ? "" : shownSentence(prepared)}`,
       ...(after === undefined ? {} : { dossiers: { items: [itemOf(after)] } }),
     };
   }

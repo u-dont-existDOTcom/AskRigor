@@ -1206,6 +1206,107 @@ describe("conflicts with shown dossiers", () => {
   });
 });
 
+// Codex's third review, P1 (his reversed probe): a copy held while nothing was shown, then an opposite one shown at once
+// beside it, and the owner's show put up both though neither was compared with the other. An owner's action that shows
+// a copy now compares it first with the shown dossiers, under the topic locks; an important conflict shows nothing
+// until he repeats the action with an override naming the dossier, recorded with who and when.
+describe("the owner's show, compared first with the shown dossiers", () => {
+  const OWNER = "auth0|synthetic-owner";
+  const otherAccount = { account: { mode: "FREE_CONTRIBUTOR" as const, accountKey: OTHER, findingsSave: true,
+    noticeVersion: RESEARCH_USE_NOTICE_VERSION } };
+  /** Codex's held copy: not highly confident, its myo-inositol finding a harm on the outcome the other's helps. */
+  const worsened = dossier((value) => {
+    value.value.confidence = "moderate";
+    value.findings[1] = { ...value.findings[1], kind: "harms",
+      claim: "Myo-inositol 2 g a day worsened fasting insulin against placebo over 12 weeks." };
+  });
+  /** A fake of AskRigor's conflict reading that pairs each shown dossier's f2 with this one's f2; no model is called. */
+  function pairing() {
+    const asked: any[] = [];
+    return { asked, reader: async (conflictRequest: any) => {
+      asked.push(conflictRequest);
+      return { status: "read" as const, conflicts: conflictRequest.shown.map((shown: any) => ({ finding: "f2",
+        dossier: shown.dossier, theirs: "f2" })) };
+    } };
+  }
+
+  it("reproduces Codex's reversed probe: the held copy shows only on a recorded override, and the pages list it",
+    async () => {
+      const { dossiers, publications, publication } = stores();
+      expect((await saveResearchDossier(dossiers, request({ publication, value: worsened })))?.disposition?.publication)
+        .toMatchObject({ status: "held", public_id: "D-1001", hold_reasons: ["not_high_confidence"] });
+      // The opposite finding is shown at once: the held copy was no candidate for its check.
+      expect((await saveResearchDossier(dossiers, request({ ...otherAccount, publication })))?.disposition?.publication)
+        .toMatchObject({ status: "shown", public_id: "D-1002" });
+      // Codex's own call, a show made without comparing it with the shown dossiers, is refused by the store.
+      expect(await publications.decide({ publicNumber: "D-1001", versionNumber: 1, decision: "show", reason: null,
+        at: NOW })).toEqual({ outcome: "comparison_stale" });
+      const { asked, reader } = pairing();
+      const review = new AtlasDossierReview({ store: publications, now: () => NOW, conflictReader: reader });
+      const refused = await review.run({ action: "show_dossier", dossier: "D-1001", reviewer: OWNER });
+      expect(refused.ok).toBe(false);
+      expect(refused.text).toBe("D-1001 version 1 was not shown: AskRigor's conflict check found that it contradicts " +
+        "a shown dossier on an important finding. Its finding f2, “Myo-inositol 2 g a day worsened fasting insulin " +
+        "against placebo over 12 weeks.”, contradicts D-1002's finding f2, “Myo-inositol 2 g a day improved fasting " +
+        "insulin against placebo over 12 weeks.” To show it anyway, beside it, repeat show_dossier with " +
+        "later_inputs.dossierOverrideConflicts [\"D-1002\"]; your override is recorded with who made it and when, and " +
+        "the pages then list the disagreement. Nothing was changed.");
+      expect(asked[0].shown.map(({ dossier: number }: any) => number)).toEqual(["D-1002"]);
+      expect((await publications.listShown({ limit: 10 })).map(({ publicNumber }) => publicNumber)).toEqual(["D-1002"]);
+      // An override that does not name the dossier it contradicts changes nothing either.
+      expect((await review.run({ action: "show_dossier", dossier: "D-1001", reviewer: OWNER,
+        dossierOverrideConflicts: ["D-1009"] })).ok).toBe(false);
+      expect((await review.run({ action: "show_dossier", dossier: "D-1001",
+        dossierOverrideConflicts: ["D-1002"] })).ok).toBe(false);
+      expect((await publications.listShown({ limit: 10 })).map(({ publicNumber }) => publicNumber)).toEqual(["D-1002"]);
+      const shown = await review.run({ action: "show_dossier", dossier: "D-1001", reviewer: OWNER,
+        dossierOverrideConflicts: ["D-1002"] });
+      expect(shown.text).toBe("D-1001 version 1 is now shown, at /atlas/dossiers/D-1001, on your override: it " +
+        "contradicts D-1002 on an important finding, and the pages list the disagreement.");
+      expect(shown.dossiers?.items[0]).toMatchObject({ state: "shown", conflictsWith: ["D-1002"],
+        conflictOverride: { by: expect.stringMatching(/^reviewer:[0-9a-f]{16}$/u), on: "2026-11-17" } });
+      expect(JSON.stringify(shown)).not.toContain(OWNER);
+      expect((await review.run({ action: "inspect_dossier", dossier: "D-1001" })).text).toContain("shown on your " +
+        "override on 2026-11-17 though it contradicts D-1002");
+      // The pages list the disagreement: on the topic and on each dossier's own page.
+      const { dossierTopicSection, loadDossierPage, loadDossierTopic } =
+        await import("../apps/research-mcp/src/atlas/dossier-pages.js");
+      const section = dossierTopicSection((await loadDossierTopic(publications, "inositol-invented"))!).value;
+      expect(section).toContain("<h3>Where dossiers disagree</h3>");
+      expect(section).toContain("AskRigor’s conflict check read these findings as contradicting each other.");
+      expect(section).toMatch(/worsened fasting insulin[^<]*” \(<a href="\/atlas\/dossiers\/D-1001">D-1001<\/a>\) and “Myo-inositol 2 g a day improved/u);
+      for (const number of ["D-1001", "D-1002"]) {
+        expect((await loadDossierPage(publications, number))!.disagreements).toEqual([expect.objectContaining({
+          found: "check", form: "myo-inositol" })]);
+      }
+    });
+
+  it("asks for an override when the comparison can't be made, and shows only what nothing contradicts", async () => {
+    const { dossiers, publications, publication } = stores();
+    await saveResearchDossier(dossiers, request({ publication, value: worsened }));
+    await saveResearchDossier(dossiers, request({ ...otherAccount, publication }));
+    // With the conflict reading off on this server, nothing is shown without the owner's override.
+    const off = new AtlasDossierReview({ store: publications, now: () => NOW });
+    expect((await off.run({ action: "accept_dossier", dossier: "D-1001", reviewer: OWNER })).text).toBe("D-1001 " +
+      "version 1 was not shown: AskRigor's conflict check could not compare it with the shown dossier it could " +
+      "contradict (D-1002) just now: the conflict check is switched off on this server. To show it without that " +
+      "comparison, repeat accept_dossier with later_inputs.dossierOverrideConflicts [\"D-1002\"]; your override is " +
+      "recorded with who made it and when. Nothing was changed.");
+    expect((await publications.listShown({ limit: 10 })).map(({ publicNumber }) => publicNumber)).toEqual(["D-1002"]);
+    expect((await off.run({ action: "accept_dossier", dossier: "D-1001", reviewer: OWNER,
+      dossierOverrideConflicts: ["D-1002"] })).text).toBe("D-1001 version 1 is now shown, checked by supervisors, at " +
+      "/atlas/dossiers/D-1001, on your override, without a conflict comparison with D-1002.");
+    // A copy the check finds nothing against shows as before, and needs no override.
+    const quiet = stores();
+    await saveResearchDossier(quiet.dossiers, request({ publication: quiet.publication, value: worsened }));
+    await saveResearchDossier(quiet.dossiers, request({ ...otherAccount, publication: quiet.publication }));
+    const none = new AtlasDossierReview({ store: quiet.publications, now: () => NOW,
+      conflictReader: async () => ({ status: "read" as const, conflicts: [] }) });
+    expect((await none.run({ action: "show_dossier", dossier: "D-1001" })).text)
+      .toBe("D-1001 version 1 is now shown, at /atlas/dossiers/D-1001.");
+  });
+});
+
 // Codex's review, finding 2: the owner's rule is that a claim about a named living person is published only on his
 // explicit decision, so the ordinary actions refuse such a copy and one separate action, with a typed reason, decides.
 describe("a copy held for naming a living person", () => {
@@ -1358,7 +1459,8 @@ describe("the dossier's shape and migration 0040", () => {
     // The pure helpers that derive a copy from its private record (Codex's review, finding 10) read no table: they run
     // only inside the definer functions, as their owner.
     const pure = ["research_dossier_pick", "research_dossier_public_projection", "research_dossier_public_sizes_complete",
-      "research_dossier_topic_names", "research_dossier_public_passes_page_guard"];
+      "research_dossier_topic_names", "research_dossier_public_passes_page_guard", "research_dossier_show_check_invalid",
+      "research_dossier_conflict_partners"];
     for (const { name, header } of functions) {
       expect(migration).toMatch(new RegExp(`REVOKE ALL ON FUNCTION ${name}\\([^;]*\\) FROM PUBLIC;`, "u"));
       if (pure.includes(name)) expect(header).toMatch(/IMMUTABLE/u);

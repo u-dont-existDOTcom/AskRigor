@@ -490,6 +490,10 @@ export interface AtlasReviewRequest {
    * never an input.
    */
   dossierPrivacyReader?: import("./dossier-privacy-reading.js").DossierPrivacyReader;
+  /** show_dossier, accept_dossier and show_dossier_naming_living_person: AskRigor's conflict reading; never an input. */
+  dossierConflictReader?: import("./dossier-conflict-reading.js").DossierConflictReader;
+  /** The owner's override of the conflict check, from later_inputs.dossierOverrideConflicts. */
+  dossierOverrideConflicts?: string[];
   /** mark_challenge (the owner, 6 Nov 2026): the usual view, its source and the quick-answer verdict, from later_inputs. */
   usual_view?: AtlasChallengeRequest["usual_view"];
   usual_view_source_url?: AtlasChallengeRequest["usual_view_source_url"];
@@ -1384,7 +1388,8 @@ export class AtlasReview {
         "(ASKRIGOR_PUBLIC_DOSSIERS, the review database). Nothing was changed.");
     }
     const result = await new AtlasDossierReview({ store, now: this.now,
-      ...(request.dossierPrivacyReader === undefined ? {} : { privacyReader: request.dossierPrivacyReader }) }).run({
+      ...(request.dossierPrivacyReader === undefined ? {} : { privacyReader: request.dossierPrivacyReader }),
+      ...(request.dossierConflictReader === undefined ? {} : { conflictReader: request.dossierConflictReader }) }).run({
       action,
       ...(request.dossier === undefined ? {} : { dossier: request.dossier }),
       ...(request.dossierVersion === undefined ? {} : { dossierVersion: request.dossierVersion }),
@@ -1394,6 +1399,8 @@ export class AtlasReview {
       ...(request.dossierFinding === undefined ? {} : { dossierFinding: request.dossierFinding }),
       ...(request.dossierImportance === undefined ? {} : { dossierImportance: request.dossierImportance }),
       ...(request.dossierLivingPerson === undefined ? {} : { dossierLivingPerson: request.dossierLivingPerson }),
+      ...(request.dossierOverrideConflicts === undefined ? {}
+        : { dossierOverrideConflicts: request.dossierOverrideConflicts }),
     });
     return {
       ok: result.ok,

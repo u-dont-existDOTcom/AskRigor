@@ -176,6 +176,8 @@ export function announcingDossierReview(
   return {
     list: (state, limit) => store.list(state, limit),
     inspect: (publicNumber) => store.inspect(publicNumber),
+    showCandidates: (publicNumber, versionNumber, after, limit) =>
+      store.showCandidates(publicNumber, versionNumber, after, limit),
     decide: (input) => announcing(signal, () => store.decide(input)),
     decideLivingPerson: (input) => announcing(signal, () => store.decideLivingPerson(input)),
     // A statement shows nothing by itself, but it is a write to the copies, which the pages' number follows too.

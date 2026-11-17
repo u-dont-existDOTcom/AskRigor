@@ -17,6 +17,7 @@ import {
   deterministicUuid,
   stableJson,
   type ResearchDossierPublishInput,
+  type ResearchDossierShowCheck,
 } from "../packages/evidence-repository/src/index.js";
 import { rowPassesPageGuard } from "../apps/research-mcp/src/atlas/page-guard.js";
 import { publicDossierOf } from "../apps/research-mcp/src/findings/dossier-publication.js";
@@ -102,6 +103,27 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
   const dossiers = new PostgresResearchDossierStore(access, SCHEMA);
   const publisher = new PostgresResearchDossierPublisher(access, SCHEMA);
   const review = new PostgresResearchDossierPublicationReview({ connectionString: reviewUrl, schema: SCHEMA });
+  // The owner's review as the server makes it (Codex's third review, P1): a show of a copy not shown yet is compared
+  // first with every shown dossier it could contradict, its own dossier's aside, here finding no conflict unless a check
+  // is given. plainDecide is the store's own call, with no comparison.
+  const plainDecide = review.decide.bind(review);
+  const plainDecideLivingPerson = review.decideLivingPerson.bind(review);
+  const noConflict = async (publicNumber: string, versionNumber: number): Promise<ResearchDossierShowCheck> => {
+    const all: Awaited<ReturnType<typeof review.showCandidates>> = [];
+    for (;;) {
+      const last = all.at(-1);
+      const page = await review.showCandidates(publicNumber, versionNumber,
+        last === undefined ? null : { publicNumber: last.publicNumber, versionNumber: last.versionNumber }, 200);
+      all.push(...page);
+      if (page.length < 200) break;
+    }
+    return { compared: all.filter((candidate) => candidate.publicNumber !== publicNumber).map(conflictCandidateId),
+      conflictCheck: "read", conflictFindings: [], importantConflict: false, overrideBy: null };
+  };
+  review.decide = async (input) => await plainDecide({ ...input,
+    check: input.check ?? await noConflict(input.publicNumber, input.versionNumber) });
+  review.decideLivingPerson = async (input) => await plainDecideLivingPerson({ ...input,
+    check: input.check ?? await noConflict(input.publicNumber, input.versionNumber) });
   const eraser = new PostgresResearchDossierEraser({ connectionString: reviewUrl, schema: SCHEMA });
   const pages = new PostgresPublicDossierPageSource({ connectionString: readerUrl, schema: SCHEMA });
   try {
@@ -143,8 +165,14 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       "research_dossier_lock_copy_topics(text, integer)": "none",
       "list_research_dossier_publications(text, integer)": "askrigor_research_review",
       "inspect_research_dossier_publication(text)": "askrigor_research_review",
-      "decide_research_dossier_publication(text, integer, text, text, timestamptz)": "askrigor_research_review",
-      "decide_research_dossier_living_person(text, integer, text, text, timestamptz)": "askrigor_research_review",
+      "decide_research_dossier_publication(text, integer, text, text, text[], text, text[], boolean, text, timestamptz)":
+        "askrigor_research_review",
+      "decide_research_dossier_living_person(text, integer, text, text, text[], text, text[], boolean, text, timestamptz)":
+        "askrigor_research_review",
+      "research_dossier_show_candidates(text, integer, text, integer, integer)": "askrigor_research_review",
+      "research_dossier_show_check_invalid(text[], text, text[], boolean, text)": "none",
+      "research_dossier_show_refusal(jsonb, text, integer, boolean, text[], text, text[], boolean, text)": "none",
+      "research_dossier_conflict_partners(text[])": "none",
       "revise_research_dossier_importance(text, integer, text, text, text, text, timestamptz)": "askrigor_research_review",
       "state_research_dossier_living_person(text, integer, text, text, timestamptz)": "askrigor_research_review",
       "list_research_dossier_privacy_pending(integer)": "askrigor_research_review",
@@ -521,7 +549,8 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     await expectError(() => admin.query(`UPDATE ${SCHEMA}.research_dossier_public_versions SET state = 'shown',
       hold_reasons = '{}' WHERE public_number = $1`, [namedCopy.publicNumber]), /check constraint/u, "NAMED_FORCED_SHOWN");
     await expectError(() => reviewPool.query(`SELECT * FROM ${SCHEMA}.decide_research_dossier_living_person($1, 1,
-      'A public figure in office', 'auth0|synthetic-owner', now())`, [namedCopy.publicNumber]),
+      'A public figure in office', 'auth0|synthetic-owner', '{}'::text[], 'read', '{}'::text[], false, NULL, now())`,
+    [namedCopy.publicNumber]),
     /RESEARCH_DOSSIER_REVIEW_INPUT_INVALID/u, "NAMED_DECIDER_NOT_A_DIGEST");
     const namedDecision = { publicNumber: namedCopy.publicNumber, versionNumber: 1, reason: "A public figure in office",
       decidedBy: `reviewer:${"0123456789abcdef"}`, at: AT };
@@ -683,7 +712,8 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     try {
       await reviewing.query("BEGIN");
       const shownByReview = await reviewing.query<{ outcome: string; state: string }>(`SELECT outcome, state
-        FROM ${SCHEMA}.decide_research_dossier_publication($1, 1, 'show', NULL, $2::timestamptz)`,
+        FROM ${SCHEMA}.decide_research_dossier_publication($1, 1, 'show', NULL, '{}'::text[], 'read', '{}'::text[], false,
+          NULL, $2::timestamptz)`,
       [reviewHeld.publicNumber, AT.toISOString()]);
       assert(shownByReview.rows[0]?.outcome === "decided" && shownByReview.rows[0].state === "shown",
         "RACE_REVIEW_SHOW_WRONG");
@@ -747,6 +777,78 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       }
     }
     checks.push("every_review_transition_that_changes_what_is_shown_takes_the_topic_locks");
+
+    // Codex's third review, P1 (his reversed probe): a copy held while nothing showed on its topic, then an opposite one
+    // shown at once; the owner's show put up both though neither had been compared with the other. His own call, a show
+    // with no comparison, is now refused as stale; compared with the shown dossier, an important conflict shows nothing;
+    // the owner's override shows it and is recorded with who and when; the reader's view keeps the pairs, and the pages
+    // list the disagreement on the topic and on both dossiers' pages.
+    {
+      const late = await account("third-review-late");
+      const configure = (value: Record<string, any>) => {
+        value.topic = { key: "third-review-late", name: "Late review", other_names: [], related: [] };
+        value.forms = ["third-review-form"];
+      };
+      const heldVersion = await save(late.accountKey, "third-held", "third-held", null, (value) => {
+        configure(value); moderate(value); value.findings[0].claim = "The treatment increases mortality."; });
+      const heldInput = await copy(late.accountKey, heldVersion);
+      const heldCopy = await publisher.publish(heldInput);
+      assert(heldCopy.outcome === "published" && heldCopy.state === "held" && heldInput.compared.length === 0,
+        "PROBE_HELD_WRONG");
+      const autoVersion = await save(late.accountKey, "third-auto", "third-auto", null, (value) => {
+        configure(value); value.findings[0].claim = "The treatment reduces mortality."; });
+      const autoInput = await copy(late.accountKey, autoVersion);
+      const autoCopy = await publisher.publish(autoInput);
+      assert(autoCopy.outcome === "published" && autoCopy.state === "shown" && autoInput.compared.length === 0,
+        "PROBE_AUTOMATIC_NOT_SHOWN");
+      const showHeld = { publicNumber: heldCopy.publicNumber, versionNumber: 1, decision: "show" as const, reason: null,
+        at: AT };
+      assert((await plainDecide(showHeld)).outcome === "comparison_stale", "PROBE_SHOWN_WITHOUT_A_COMPARISON");
+      const candidates = (await review.showCandidates(heldCopy.publicNumber, 1, null, 200)).map(conflictCandidateId);
+      assert(candidates.join() === `${autoCopy.publicNumber}/1`, `PROBE_CANDIDATES_WRONG_${candidates.join()}`);
+      const conflict: ResearchDossierShowCheck = { compared: candidates, conflictCheck: "read",
+        conflictFindings: [`f1:${autoCopy.publicNumber}/1:f1`], importantConflict: true, overrideBy: null };
+      const found = await review.decide({ ...showHeld, check: conflict });
+      assert(found.outcome === "conflict_found" && found.state === "held", `PROBE_CONFLICT_SHOWN_${found.outcome}`);
+      assert((await review.decideLivingPerson({ publicNumber: heldCopy.publicNumber, versionNumber: 1, reason: "x",
+        decidedBy: "reviewer:0011223344556677", check: conflict, at: AT })).outcome === "not_decidable",
+      "PROBE_LIVING_PERSON_PATH_OPEN");
+      assert((await pages.listShown({ topicKeys: ["third-review-late"], limit: 10 })).length === 1,
+        "PROBE_BOTH_SHOWN_WITHOUT_AN_OVERRIDE");
+      // The same comparison without the automatic copy is stale; one that could not be made needs the override too.
+      assert((await review.decide({ ...showHeld, check: { ...conflict, compared: [], conflictFindings: [],
+        importantConflict: false } })).outcome === "comparison_stale", "PROBE_PARTIAL_COMPARISON_ACCEPTED");
+      assert((await review.decide({ ...showHeld, check: { compared: [], conflictCheck: "not_read", conflictFindings: [],
+        importantConflict: false, overrideBy: null } })).outcome === "conflict_not_checked", "PROBE_UNREAD_CHECK_SHOWN");
+      const overrideBy = "reviewer:0011223344556677";
+      const overridden = await review.decide({ ...showHeld, check: { ...conflict, overrideBy } });
+      assert(overridden.outcome === "decided" && overridden.state === "shown", `PROBE_OVERRIDE_NOT_SHOWN_${overridden.outcome}`);
+      const row = (await review.inspect(heldCopy.publicNumber))[0]!;
+      assert(row.conflictOverride?.by === overrideBy && row.conflictOverride.at === AT.toISOString() &&
+        row.conflictsWith.join() === autoCopy.publicNumber && row.conflictFindings.join() === conflict.conflictFindings[0],
+      "PROBE_OVERRIDE_NOT_RECORDED");
+      const events = await admin.query<{ event: string; reason: string | null }>(`SELECT event, reason
+        FROM ${SCHEMA}.research_dossier_public_events WHERE public_number = $1 ORDER BY event_id`, [heldCopy.publicNumber]);
+      assert(events.rows.some(({ event, reason }) => event === "conflict_overridden" &&
+        reason === `${overrideBy} over ${autoCopy.publicNumber}`), "PROBE_OVERRIDE_EVENT_MISSING");
+      const shownNow = await pages.listShown({ topicKeys: ["third-review-late"], limit: 10 });
+      assert(shownNow.length === 2 && shownNow.find(({ publicNumber }) => publicNumber === heldCopy.publicNumber)
+        ?.conflictFindings.join() === conflict.conflictFindings[0], "PROBE_READER_MISSES_THE_PAIR");
+      assert((await pages.listShown({ conflictsWith: [autoCopy.publicNumber], limit: 10 })).map(({ publicNumber }) =>
+        publicNumber).join() === heldCopy.publicNumber, "PROBE_REVERSE_LOOKUP_WRONG");
+      const topicModel = await loadDossierTopic(pages, "third-review-late");
+      assert(topicModel?.disagreements.some(({ found, left, right }) => found === "check" &&
+        left.claim === "The treatment increases mortality." && right.claim === "The treatment reduces mortality.") === true,
+      "PROBE_TOPIC_PAGE_MISSES_THE_DISAGREEMENT");
+      for (const number of [heldCopy.publicNumber, autoCopy.publicNumber]) {
+        assert((await loadDossierPage(pages, number))?.disagreements.some(({ found }) => found === "check") === true,
+          `PROBE_DOSSIER_PAGE_${number}_MISSES_THE_DISAGREEMENT`);
+      }
+      await expectError(() => admin.query(`UPDATE ${SCHEMA}.research_dossier_public_versions
+        SET conflict_findings = '{nonsense}' WHERE public_number = $1`, [heldCopy.publicNumber]), /./u,
+      "PROBE_PAIRS_REWRITTEN");
+    }
+    checks.push("an_owners_show_is_compared_first_and_shows_a_conflict_only_on_a_recorded_override");
 
     // Codex's review, finding 7: an importance mark changes only by a new, reviewed version: the old one is kept as it
     // was, the new one records who revised it and why, and a dossier's later copy is numbered after it.
