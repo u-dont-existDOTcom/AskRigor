@@ -20,7 +20,8 @@ import { NEXT_STEP_KINDS, type NextStepKind } from "./next-step-kinds.js";
  * signed token alone carries it.
  *
  * Off unless ASKRIGOR_FINDINGS_LEDGER is "on". It adds a record of what the check found and never changes what the check
- * finds, stops or holds: the six stops stay six, and no claim is held in this stage.
+ * finds or stops: the six stops stay six. Holding a claim (owner answer 338a) waits for the owner's answer on how it fits
+ * with the six stops, and is not built here.
  */
 
 export const FINDINGS_LEDGER_RULES_VERSION = "2026-11-17.1";
@@ -565,11 +566,12 @@ export function findingsLedgerGuidance(checkFindings: CheckFindings | undefined,
 }
 
 /**
- * What can stop or hold an answer, told to the AI when it plans the research (the owner's note on question 338: "tell
- * the AI threads first 'these are the things which will block your answer' rather than telling them after they fail").
- * The six stops in their actual scope, apart from the five claim holds, which are not active in this stage.
+ * What can stop an answer, told to the AI when it plans the research (the owner's note on question 338: "tell the AI
+ * threads first 'these are the things which will block your answer' rather than telling them after they fail"). Only
+ * the six whole-answer stops that exist today, in their actual scope. The five claim holds are left out until the owner
+ * answers how they fit with these stops (owner question 1 of 17 Nov 2026; a question pauses the work that depends on it).
  */
-export const WHAT_HOLDS_STOPS = Object.freeze([
+export const WHAT_STOPS = Object.freeze([
   { rule: "source_provenance", scope: "a key source with no AskRigor receipt for this research, or a link that leads elsewhere" },
   { rule: "read_depth", scope: "a declared reading deeper than the receipts show, or a cited key source without the " +
     "answer's words on how it was read" },
@@ -579,26 +581,17 @@ export const WHAT_HOLDS_STOPS = Object.freeze([
   { rule: "plain_answer_comparison", scope: "for an account that registered a plain answer, a claim of it left out of " +
     "the comparison, or a change not backed by the research" }
 ] as const);
-export const WHAT_HOLDS_HOLDS = Object.freeze([
-  "support that doesn't exist", "materially wrong figures", "unsafe personal treatment instructions",
-  "an unresolved serious contraindication", "delayed emergency action"
-] as const);
-export const WHAT_HOLDS_TEXT = "What can stop or hold this answer at finalize_research. Six checks stop the whole " +
-  "answer until it is fixed, each only in its own scope: " +
-  WHAT_HOLDS_STOPS.map(({ scope }, index) => `${index + 1}. ${scope}`).join("; ") + ". Five serious failures will " +
-  "hold back one statement and deliver the rest of the answer; they are not active yet: " +
-  WHAT_HOLDS_HOLDS.join(", ") + ". Everything else the check finds is a note with an id: fix it, or dispute it in " +
-  "later_inputs.finding_responses with a reason the reader will see. Open and disputed findings are listed to the " +
-  "reader under the checked answer.";
-export const whatHoldsSchema = z.object({
+export const WHAT_STOPS_TEXT = "What can stop this answer at finalize_research. Six checks stop the whole answer " +
+  "until it is fixed, each only in its own scope: " +
+  WHAT_STOPS.map(({ scope }, index) => `${index + 1}. ${scope}`).join("; ") + ". Nothing else stops it: everything " +
+  "else the check finds is a note with an id. Fix it, or dispute it in later_inputs.finding_responses with a reason " +
+  "the reader will see. Open and disputed findings are listed to the reader under the checked answer.";
+export const whatStopsSchema = z.object({
   text: z.string(),
-  stops: z.array(z.object({ rule: z.string(), scope: z.string() }).strict()),
-  holds: z.array(z.string()),
-  holds_active: z.boolean()
+  stops: z.array(z.object({ rule: z.string(), scope: z.string() }).strict())
 }).strict();
-export function whatHolds(): z.output<typeof whatHoldsSchema> {
-  return { text: WHAT_HOLDS_TEXT, stops: WHAT_HOLDS_STOPS.map((stop) => ({ ...stop })), holds: [...WHAT_HOLDS_HOLDS],
-    holds_active: false };
+export function whatStops(): z.output<typeof whatStopsSchema> {
+  return { text: WHAT_STOPS_TEXT, stops: WHAT_STOPS.map((stop) => ({ ...stop })) };
 }
 
 /** The panel's lead above the findings an answer leaves open. */

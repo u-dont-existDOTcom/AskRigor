@@ -987,7 +987,7 @@ export interface RegisterToolsOptions {
   findingsLibrary?: boolean;
   /**
    * Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026): whether the final check keeps a findings ledger and plan_research
-   * says what can stop or hold an answer; defaults to ASKRIGOR_FINDINGS_LEDGER=on. Its memory of the last ledger issued
+   * says what can stop an answer; defaults to ASKRIGOR_FINDINGS_LEDGER=on. Its memory of the last ledger issued
    * for each account and research target is this process's, unless replaced for tests.
    */
   findingsLedger?: boolean;
@@ -2127,7 +2127,7 @@ function defineResearchOperations(
       askrigorHolds: ASKRIGOR_HOLDS,
       // AskRigor#477 stage 1: plan_research asks for the research dossier where one can be saved.
       ...(options.researchDossiers === undefined ? {} : { researchDossiers: true }),
-      // Enforcing HRP, stage 1: plan_research says what can stop or hold an answer while the findings ledger is on.
+      // Enforcing HRP, stage 1: plan_research says what can stop an answer while the findings ledger is on.
       findingsLedger: () => options.findingsLedger ?? findingsLedgerEnabledFromEnv(),
       ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.

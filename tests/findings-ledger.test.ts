@@ -5,9 +5,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { rule } from "../apps/research-mcp/src/check-rules.js";
 import { FINAL_CHECK_PANEL_RENDER_SOURCE } from "../apps/research-mcp/src/final-check-panel.js";
 import {
-  FINAL_CHECK_PANEL_FINDINGS_LEAD, FINDINGS_LEDGER_NOTE, WHAT_HOLDS_HOLDS, WHAT_HOLDS_STOPS, WHAT_HOLDS_TEXT,
+  FINAL_CHECK_PANEL_FINDINGS_LEAD, FINDINGS_LEDGER_NOTE, WHAT_STOPS, WHAT_STOPS_TEXT,
   createFindingsLedgerMemory, findingsLedger, findingsLedgerEnabledFromEnv, findingsLedgerGuidance,
-  findingsLedgerMemoryKey, issueFindingsLedger, sketchSimilarity, verifyFindingsLedger, whatHolds,
+  findingsLedgerMemoryKey, issueFindingsLedger, sketchSimilarity, verifyFindingsLedger, whatStops,
   type FindingsLedgerParams, type ObservedFinding,
 } from "../apps/research-mcp/src/findings-ledger.js";
 import { laterInputNames } from "../apps/research-mcp/src/later-inputs.js";
@@ -21,8 +21,9 @@ import { withSourceReading } from "./helpers/source-reading.js";
 
 // Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026, after Codex's red team): every problem the final check reports is a
 // record with an id carried through edits, bound to account, target, draft and versions, with omission and replay
-// detection and dispositions; plan_research says up front what can stop or hold an answer; the panel shows the reader
-// what the answer leaves open. All behind ASKRIGOR_FINDINGS_LEDGER, off by default.
+// detection and dispositions; plan_research says up front which six checks can stop an answer; the panel shows the
+// reader what the answer leaves open. All behind ASKRIGOR_FINDINGS_LEDGER, off by default. Claim holds wait for the
+// owner's answer to question 1 of 17 Nov 2026 and are not named.
 
 const SECRET = "findings-ledger-test-secret-0123456789abcdef0123";
 const NOW = new Date("2026-11-17T18:00:00.000Z");
@@ -411,15 +412,16 @@ describe("the panel", () => {
   });
 });
 
-describe("what can stop or hold an answer, said up front", () => {
-  it("names the six stops in their scope, apart from the five holds, which are not active yet", () => {
-    expect(WHAT_HOLDS_STOPS.map(({ rule: name }) => name)).toEqual([...FINAL_CHECK_BLOCKING_RULES]);
-    expect(WHAT_HOLDS_HOLDS).toHaveLength(5);
-    expect(WHAT_HOLDS_TEXT).toContain("Six checks stop the whole answer");
-    expect(WHAT_HOLDS_TEXT).toContain("they are not active yet");
-    for (const hold of WHAT_HOLDS_HOLDS) expect(WHAT_HOLDS_TEXT).toContain(hold);
-    expect(whatHolds()).toMatchObject({ holds_active: false, text: WHAT_HOLDS_TEXT });
-    expect(WHAT_HOLDS_TEXT.length).toBeLessThan(1_500);
+describe("what can stop an answer, said up front", () => {
+  it("names only the six whole-answer stops that exist today, each in its scope", () => {
+    expect(WHAT_STOPS.map(({ rule: name }) => name)).toEqual([...FINAL_CHECK_BLOCKING_RULES]);
+    expect(WHAT_STOPS_TEXT).toContain("Six checks stop the whole answer");
+    for (const { scope } of WHAT_STOPS) expect(WHAT_STOPS_TEXT).toContain(scope);
+    expect(WHAT_STOPS_TEXT).toContain("Nothing else stops it");
+    // Claim holds wait for the owner's answer on how they fit with the six stops.
+    expect(WHAT_STOPS_TEXT).not.toMatch(/\bhold/u);
+    expect(whatStops()).toEqual({ text: WHAT_STOPS_TEXT, stops: WHAT_STOPS.map((stop) => ({ ...stop })) });
+    expect(WHAT_STOPS_TEXT.length).toBeLessThan(1_200);
   });
 });
 

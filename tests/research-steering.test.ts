@@ -20,7 +20,7 @@ import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type JWK } from
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { RESEARCH_USE_SCOPE, createJwtOAuthResourceServer } from "../apps/research-mcp/src/oauth-resource-server.js";
-import { WHAT_HOLDS_TEXT } from "../apps/research-mcp/src/findings-ledger.js";
+import { WHAT_STOPS_TEXT } from "../apps/research-mcp/src/findings-ledger.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 import {
   ASSUMED_ANSWER_FIRST,
@@ -3439,8 +3439,8 @@ describe("the person's go-ahead before the menu (AskRigor#467)", () => {
 });
 
 // Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026; the owner's note on question 338: tell the AI first what will
-// block its answer): while the findings ledger is on, plan_research names the six stops and the five holds.
-describe("what can stop or hold an answer, said when the research is planned", () => {
+// block its answer): while the findings ledger is on, plan_research names the six whole-answer stops.
+describe("what can stop an answer, said when the research is planned", () => {
   it("adds the list to plan_research's result only while the findings ledger is on", async () => {
     vi.stubEnv("ASKRIGOR_FINDINGS_LEDGER", "");
     const { service, connect } = await start();
@@ -3449,13 +3449,13 @@ describe("what can stop or hold an answer, said when the research is planned", (
     const plan = () => manage({ action: "plan_research", later_inputs: { researchMenu: menu() } });
     const off = await plan();
     expect(off.isError).not.toBe(true);
-    expect(text(off)).not.toContain(WHAT_HOLDS_TEXT);
-    expect(off.structuredContent).not.toHaveProperty("what_holds");
+    expect(text(off)).not.toContain(WHAT_STOPS_TEXT);
+    expect(off.structuredContent).not.toHaveProperty("what_stops");
     vi.stubEnv("ASKRIGOR_FINDINGS_LEDGER", "on");
     const on = await plan();
     expect(on.isError).not.toBe(true);
-    expect(text(on)).toContain(WHAT_HOLDS_TEXT);
-    expect(on.structuredContent).toMatchObject({ what_holds: { holds_active: false, text: WHAT_HOLDS_TEXT } });
+    expect(text(on)).toContain(WHAT_STOPS_TEXT);
+    expect(on.structuredContent).toMatchObject({ what_stops: { text: WHAT_STOPS_TEXT } });
     expect((on.structuredContent as { researchMenu: unknown }).researchMenu)
       .toEqual((off.structuredContent as { researchMenu: unknown }).researchMenu);
   });
