@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { rule } from "../apps/research-mcp/src/check-rules.js";
 import { FINAL_CHECK_PANEL_RENDER_SOURCE } from "../apps/research-mcp/src/final-check-panel.js";
 import {
-  FINAL_CHECK_PANEL_FINDINGS_LEAD, FINDINGS_LEDGER_NOTE, WHAT_STOPS, WHAT_STOPS_TEXT,
+  FINAL_CHECK_PANEL_FINDINGS_LEAD, FINDINGS_LEDGER_MEMORY_MS, FINDINGS_LEDGER_NOTE, WHAT_STOPS, WHAT_STOPS_TEXT,
   createFindingsLedgerMemory, findingsLedger, findingsLedgerEnabledFromEnv, findingsLedgerGuidance,
   findingsLedgerMemoryKey, issueFindingsLedger, sketchSimilarity, verifyFindingsLedger, whatStops,
   type FindingsLedgerParams, type ObservedFinding,
@@ -13,7 +13,7 @@ import {
 import { laterInputNames } from "../apps/research-mcp/src/later-inputs.js";
 import {
   FINAL_CHECK_BLOCKING_RULES, SECOND_READING_LEFT_TO_CALLER, communitySkipCaveat,
-  finalizeResearch as finalizeResearchUnwrapped,
+  finalizeResearch as finalizeResearchUnwrapped, finalizeResearchOutputSchema,
   type FinalizeResearchInput, type FinalizeResearchOptions, type FinalizeResearchOutput,
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
@@ -507,6 +507,43 @@ describe("the review of 17 Nov 2026", () => {
       raw: { later_inputs: { findings_ledger: big.token } } }));
     expect(settledLedger.checkFindings.findings.filter(({ disposition }) => disposition === "fixed")).toHaveLength(
       carried.length);
+  });
+
+  it("6: sweeps what it remembers after two hours, keeps no reason it no longer needs, and says the token is readable", () => {
+    const memory = createFindingsLedgerMemory();
+    const key = (target: string) => findingsLedgerMemoryKey(SECRET, "acct-a", target);
+    const at = NOW.getTime();
+    const one = findingsLedger(params({ target: "One target", observed: [draftNote(WARNING)] }));
+    memory.update(key("One target"), () => one.remember, at);
+    // A later call for another target sweeps the first, never fetched again, once its two hours are over.
+    const two = findingsLedger(params({ target: "Another target", observed: [draftNote(WARNING)] }));
+    memory.update(key("Another target"), () => two.remember, at + FINDINGS_LEDGER_MEMORY_MS + 1);
+    expect(memory.size()).toBe(1);
+    // With no call at all, a timer sweeps it.
+    vi.useFakeTimers();
+    try {
+      const idle = createFindingsLedgerMemory();
+      idle.update(key("One target"), () => one.remember);
+      vi.advanceTimersByTime(FINDINGS_LEDGER_MEMORY_MS + 2_000);
+      expect(idle.size()).toBe(0);
+    } finally { vi.useRealTimers(); }
+    // A dispute's reason is kept while the finding is disputed, and dropped, from the token and the memory, once it
+    // is settled; the memory holds no words of the findings or the answer.
+    const id = one.checkFindings.findings[0]!.id;
+    const reason = "A reason that only a disputed finding needs.";
+    const disputed = findingsLedger(params({ target: "One target", observed: [draftNote(WARNING)], raw: { later_inputs: {
+      findings_ledger: one.token, finding_responses: [{ id, response: "disputed", reason }] } } }));
+    expect(JSON.stringify(disputed.remember)).toContain(reason);
+    const fixed = findingsLedger(params({ target: "One target", observed: [], draft: "The fixed draft.",
+      raw: { later_inputs: { findings_ledger: disputed.token } } }));
+    expect(JSON.stringify(fixed.remember)).not.toContain(reason);
+    const settled = verifyFindingsLedger(fixed.token, SECRET);
+    expect(JSON.stringify(settled.ok ? settled.payload : {})).not.toContain(reason);
+    expect(JSON.stringify(disputed.remember)).not.toMatch(/Coffee|blood pressure|A draft/u);
+    // What the token carries, and that whoever holds it can read it, is said where the result describes it.
+    const described = finalizeResearchOutputSchema.shape.findings_ledger.description!;
+    expect(described).toContain("not encrypted");
+    expect(described).toContain("dispute reasons");
   });
 });
 

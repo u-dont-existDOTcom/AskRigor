@@ -14,10 +14,17 @@ import { NEXT_STEP_KINDS, type NextStepKind } from "./next-step-kinds.js";
  *
  * The ledger travels with the AI as a signed token (later_inputs.findings_ledger), domain-separated from research
  * receipts, carried state and round tokens, and bound to the account, the research target, the checked draft and the
- * running versions. It holds no words of the answer: digests, ids, dispositions and the writer's dispute reasons. The
- * server keeps, per process and for two hours, the last ledger it issued for an account and research target, digests
- * only, so a call that leaves the ledger out, or passes an older one, is detected; across processes or restarts the
- * signed token alone carries it.
+ * running versions. Signed, not encrypted: it is deflated JSON in base64url, so whoever holds the token can read what it
+ * carries, with no account. That is the findings' ids; keyed digests of the account, the research target, the draft,
+ * the versions and each finding's rule, words and cited identifiers; each finding's kind, stop rule and disposition and
+ * the part of the check that found it; sequence and revision numbers; the time it was issued; and, for a finding still
+ * disputed, the writer's reason, which the reader is shown anyway. It holds no words of the answer or of the findings.
+ * The server keeps, per process and for two hours at most (swept when they pass, whether or not the ledger is asked for
+ * again), the last ledger it issued for an account and research target, so a call that leaves the ledger out, or passes
+ * an older one, is detected: the same digests, numbers and dispositions, the digests of that token, its parent and the
+ * request that issued it, and the reasons of findings still disputed, the only words it keeps, so a dispute survives a
+ * ledger left out. Across processes or restarts the signed token alone carries it (Codex's review of 17 Nov 2026,
+ * finding 6).
  *
  * Off unless ASKRIGOR_FINDINGS_LEDGER is "on". It adds a record of what the check found and never changes what the check
  * finds or stops: the six stops stay six. Holding a claim (owner answer 338a) waits for the owner's answer on how it fits
@@ -236,7 +243,10 @@ function tokenDigest(token: string): string {
   return createHash("sha256").update(token).digest("hex").slice(0, 16);
 }
 
-/** The last ledger the server issued for an account and research target: digests only. */
+/**
+ * The last ledger the server issued for an account and research target: its payload (digests, numbers, dispositions,
+ * and the reasons of findings still disputed) and digests of tokens and the request; no token itself.
+ */
 export interface RememberedLedger {
   payload: FindingsLedgerPayload;
   /** The digest of that token, and of the token it was issued from (absent for a new ledger). */
@@ -260,10 +270,32 @@ export interface FindingsLedgerMemory {
    */
   update(key: string, next: (remembered: RememberedLedger | undefined) => Omit<RememberedLedger, "at"> | undefined,
     now?: number): void;
+  /** How many ledgers it holds. */
+  size(): number;
 }
 
+/**
+ * Codex's review of 17 Nov 2026, finding 6: no ledger is kept past its two hours. Each update sweeps every expired one,
+ * and while any is kept a timer, which never keeps the process alive, sweeps when the oldest expires, so a ledger never
+ * asked for again goes too.
+ */
 export function createFindingsLedgerMemory(): FindingsLedgerMemory {
   const kept = new Map<string, RememberedLedger>();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const sweep = (now: number) => {
+    for (const [memoryKey, { at }] of kept) if (now - at > FINDINGS_LEDGER_MEMORY_MS) kept.delete(memoryKey);
+  };
+  const schedule = () => {
+    if (timer !== undefined || kept.size === 0) return;
+    let oldest = Infinity;
+    for (const { at } of kept.values()) oldest = Math.min(oldest, at);
+    timer = setTimeout(() => {
+      timer = undefined;
+      sweep(Date.now());
+      schedule();
+    }, Math.max(1_000, oldest + FINDINGS_LEDGER_MEMORY_MS + 1 - Date.now()));
+    timer.unref?.();
+  };
   const get = (memoryKey: string, now: number) => {
     const found = kept.get(memoryKey);
     if (found === undefined) return undefined;
@@ -275,11 +307,17 @@ export function createFindingsLedgerMemory(): FindingsLedgerMemory {
       return get(memoryKey, now);
     },
     update(memoryKey, next, now = Date.now()) {
+      sweep(now);
       const record = next(get(memoryKey, now));
-      if (record === undefined) return;
-      kept.delete(memoryKey);
-      if (kept.size >= FINDINGS_LEDGER_MEMORY_ENTRIES) kept.delete(kept.keys().next().value!);
-      kept.set(memoryKey, { ...record, at: now });
+      if (record !== undefined) {
+        kept.delete(memoryKey);
+        if (kept.size >= FINDINGS_LEDGER_MEMORY_ENTRIES) kept.delete(kept.keys().next().value!);
+        kept.set(memoryKey, { ...record, at: now });
+      }
+      schedule();
+    },
+    size() {
+      return kept.size;
     }
   };
 }

@@ -1829,7 +1829,9 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
       "disputed (with the reason the reader sees) or not_rechecked. Records only: it stops and holds nothing."),
   findings_ledger: z.string().optional()
     .describe("The signed ledger of this research's findings, to pass back as later_inputs.findings_ledger in its " +
-      "next finalize_research call."),
+      "next finalize_research call. Signed, not encrypted: whoever holds it can read what it carries, the findings' " +
+      "ids, digests, kinds and dispositions, revision numbers, and the dispute reasons of findings still disputed; no " +
+      "words of the answer or of the findings."),
 });
 
 export const finalizeResearchPublishedOutputSchema = finalizeResearchRetainedOutputSchema.omit({ research_plan: true, notes: true })
