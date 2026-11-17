@@ -386,6 +386,29 @@ describe("the review of 17 Nov 2026", () => {
     expect(gone.check_findings!.findings).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: warning.id, disposition: "fixed" })]));
   });
+
+  it("4: never gives two findings one id, and signs no ledger that does", () => {
+    const first = findingsLedger(params({ observed: [draftNote(WARNING)], draft: "Draft one." }));
+    const id = first.checkFindings.findings[0]!.id;
+    // A edited into B keeps A's id; then A and B both appear: B keeps the id, and A, whose own first id that is, gets
+    // another.
+    const edited = findingsLedger(params({ observed: [draftNote(EDITED)], draft: "Draft two.",
+      raw: { later_inputs: { findings_ledger: first.token } } }));
+    expect(edited.checkFindings.findings[0]!.id).toBe(id);
+    const both = findingsLedger(params({ observed: [draftNote(WARNING), draftNote(EDITED)], draft: "Draft three.",
+      raw: { later_inputs: { findings_ledger: edited.token } } }));
+    const ids = both.checkFindings.findings.map((finding) => finding.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(both.checkFindings.findings.find(({ text }) => text?.includes("some adults"))!.id).toBe(id);
+    const signed = verifyFindingsLedger(both.token, SECRET);
+    const entries = signed.ok ? signed.payload.e : [];
+    expect(new Set(entries.map((entry) => entry.id)).size).toBe(entries.length);
+    // A payload giving two findings one id is refused, so no token is issued for it.
+    const payload = verifyFindingsLedger(edited.token, SECRET);
+    const one = payload.ok ? payload.payload : (undefined as never);
+    expect(() => issueFindingsLedger({ ...one, e: [one.e[0]!, { ...one.e[0]!, f: "0123456789abcdef" }] }, SECRET))
+      .toThrow();
+  });
 });
 
 // The panel's harness, as in final-check-panel.test.ts.

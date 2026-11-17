@@ -113,7 +113,9 @@ const payloadSchema = z.object({
   d: z.union([hex(16), z.literal("")]),
   at: z.iso.datetime(),
   e: z.array(entrySchema).max(MAX_ENTRIES)
-}).strict();
+}).strict()
+  // Codex's review of 17 Nov 2026, finding 4: one id names one finding, so a response addresses exactly one.
+  .refine(({ e }) => new Set(e.map(({ id }) => id)).size === e.length, { message: "Two findings have one id." });
 export type FindingsLedgerPayload = z.output<typeof payloadSchema>;
 
 export const checkFindingSchema = z.object({
@@ -479,9 +481,19 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   const findings: CheckFindings["findings"] = [];
   const entries: LedgerEntry[] = [];
   const answered = new Set<string>();
+  // A new finding's id is made from what it first was; every id the ledger holds is taken, so one carried through an
+  // edit keeps its id and the finding first made with it, seen again, gets another (Codex's review, finding 4).
+  const taken = new Set(prior.map(({ id }) => id));
+  const newId = (fingerprint: string): string => {
+    for (let attempt = 0; ; attempt += 1) {
+      const id = `F-${digest(secret, "id", `${account}\u0000${target}\u0000${fingerprint}` +
+        (attempt === 0 ? "" : `\u0000${attempt}`), 10)}`;
+      if (!taken.has(id)) { taken.add(id); return id; }
+    }
+  };
   for (const finding of observed) {
     const before = matches.get(finding);
-    const id = before?.id ?? `F-${digest(secret, "id", `${account}\u0000${target}\u0000${finding.f}`, 10)}`;
+    const id = before?.id ?? newId(finding.f);
     const response = responses.get(id);
     if (response !== undefined) answered.add(id);
     let disposition: FindingDisposition = "open";
