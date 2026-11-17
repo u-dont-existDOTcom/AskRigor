@@ -892,12 +892,17 @@ Migration `0041_atlas_show_saved_findings` stores that with the publication
 (`shown_by` is `automatic_showing`), and such a finding's page says what the
 quick-answer test found only from a challenge mark's stored verdict, whether
 the setting is still on or not. It also stores the owner's publishing
-(`owner_action`: `publish_cards`, a decision's publication, or a
-`show_on_pages` that doesn't say the test showed it) and the quick-answer
-test's showing (`quick_answer_test`: its own `show_on_pages`, which gives
-`later_inputs.quick_answer_verdict`, stored in `shown_test_verdict`) apart,
-each written by the action that shows the finding, at that moment; nothing is
-read from the reason a finding was kept for. A publication from before 0041 has
+(`owner_action`: `publish_cards`, a decision's publication, or his own
+`show_on_pages`) and the quick-answer test's showing (`quick_answer_test`: its
+own `show_on_pages`, with `later_inputs.quick_answer_verdict`, stored in
+`shown_test_verdict`) apart, each written by the action that shows the finding,
+at that moment; nothing is read from the reason a finding was kept for. The
+owner and the scheduled test share one review login, so every `show_on_pages`
+says who acts in `later_inputs.shown_by` (`owner`, or `quick_answer_test` with
+its verdict), and one that doesn't is refused; the owner's own publishing or
+showing is also stored as his decision (`owner_decision`, `owner_decided_at`),
+which no later showing replaces (Codex's fourth review of 17 Nov 2026). The
+scheduled test's instructions must say `shown_by` `quick_answer_test`. A publication from before 0041 has
 no route, nor has one an earlier image shows again through
 `keep_atlas_publications`, and a page says the test found a quick AI answer
 misses a finding only for `quick_answer_test` with the verdict `pass` or from a

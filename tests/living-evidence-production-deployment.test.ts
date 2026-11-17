@@ -1389,15 +1389,25 @@ describe("migration 0041", () => {
     expect(migration).not.toMatch(/kept_reason (?:=|LIKE) 'owner answer 240a/u);
     expect(migration).toContain("SET kept_for_research_at = NULL, kept_reason = NULL, shown_by = NULL, shown_test_verdict = NULL");
     expect(migration).toContain("SET kept_for_research_at = NULL, kept_reason = NULL, shown_by = shown_route, shown_test_verdict = test_verdict");
+    // Codex's fourth review of 17 Nov 2026 (P1s): the owner's decision is stored apart, by his own showing or
+    // publishing only, and the hold reads it, never the route, which a later showing replaces.
+    expect(migration).toContain("ADD CONSTRAINT atlas_publications_v1_owner_decision_check CHECK (\n" +
+      "  (owner_decision IS NULL) = (owner_decided_at IS NULL)\n" +
+      "  AND (owner_decision IS NULL OR owner_decision IN ('published', 'shown'))\n);");
+    expect(migration).toContain("owner_decision = CASE WHEN shown_route = 'owner_action' THEN 'shown' ELSE " +
+      "stored.owner_decision END,");
+    expect(migration).toContain("IF target.state IN ('accepted', 'edited') OR (target.state = 'unreviewed' AND " +
+      "target.owner_decided_at IS NOT NULL) THEN");
+    expect(migration).not.toContain("target.shown_by = 'owner_action'");
     expect(migration).toContain("OR (shown_route = 'quick_answer_test') <> (test_verdict IS NOT NULL)");
     expect(migration).toContain("ADD CONSTRAINT atlas_publications_v1_shown_test_verdict_check CHECK (\n" +
       "  (shown_by IS NOT DISTINCT FROM 'quick_answer_test') = (shown_test_verdict IS NOT NULL)\n" +
       "  AND (shown_test_verdict IS NULL OR shown_test_verdict IN ('pass', 'headline', 'fail'))\n);");
     // Finding 1: a finding kept for the owner is kept in the same write, by 0024's columns, only when unreviewed.
     expect(migration).toContain("held_because, published_at, state_changed_at, shown_by, kept_for_research_at, kept_reason, " +
-      "claim_key)");
+      "claim_key,\n         owner_decision, owner_decided_at)");
     expect(migration).toContain("draft_shown_by #>> '{}', CASE WHEN draft_kept IS NULL THEN NULL ELSE publish_time END, " +
-      "draft_kept #>> '{}',\n         draft_claim_key)");
+      "draft_kept #>> '{}',\n         draft_claim_key,");
     // Codex's fourth review of 17 Nov 2026 (P0s): the publishing reads a save's stored reading under its row's lock,
     // taken in the keys' order before any row is written, and a stored yes holds the draft whatever it says.
     expect(migration).toContain("ON CONFLICT (card_number, claim_key) DO UPDATE\n       SET reading = CASE WHEN " +

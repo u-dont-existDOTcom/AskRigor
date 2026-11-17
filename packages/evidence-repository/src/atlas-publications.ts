@@ -316,11 +316,22 @@ export type AtlasPublicationRoute = typeof ATLAS_PUBLICATION_ROUTES[number];
 
 /**
  * How a show_on_pages shows a kept publication again (migration 0041's show_atlas_publications): by the owner's action,
- * or by the quick-answer test, which gives its verdict.
+ * or by the quick-answer test, which gives its verdict. Codex's fourth review of 17 Nov 2026 (P1s): the showing says
+ * which; the owner's is stored as his decision too, apart from the route, and no later showing replaces it.
  */
 export type AtlasShowRoute =
   | { by: "owner_action" }
   | { by: "quick_answer_test"; verdict: AtlasChallengeVerdict };
+
+/**
+ * What the owner decided of a publication, stored apart from how it last reached the pages (migration 0041's
+ * owner_decision and owner_decided_at): published, his publish_cards or a decision of his published it; shown, his own
+ * show_on_pages showed it again. A later save that says it names a living person never undoes it.
+ */
+export interface AtlasOwnerDecision {
+  decision: "published" | "shown";
+  decidedAt: string;
+}
 
 export interface AtlasPublishInput {
   /** The card's issue number, for moderation; never in the published fields. */
@@ -748,6 +759,8 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
   // quick-answer test's verdict with its route (shown_test_verdict).
   private readonly routes = new Map<string, AtlasPublicationRoute>();
   private readonly testVerdicts = new Map<string, AtlasChallengeVerdict>();
+  // What the owner decided of each, by his own action (migration 0041's owner_decision and owner_decided_at).
+  private readonly ownerDecisions = new Map<string, AtlasOwnerDecision>();
 
   // Migration 0041's atlas_living_person_readings, by card number and claim key, and each publication's claim_key.
   private readonly livingPersonReadings = new Map<string, AtlasLivingPersonReading>();
@@ -789,6 +802,7 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
       if (existing === undefined) {
         const publicationNumber = `P-${this.nextNumber++}`;
         if (draft.shownBy !== undefined) this.routes.set(publicationNumber, draft.shownBy);
+        if (draft.shownBy === "owner_action") this.ownerDecisions.set(publicationNumber, { decision: "published", decidedAt: at });
         if (draft.livingPerson !== undefined) this.claimKeys.set(publicationNumber, draft.livingPerson.claimKey);
         if (draft.keptReason !== undefined) this.kept.set(publicationNumber, { reason: draft.keptReason, at });
         this.rows.push({
@@ -827,6 +841,9 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
         } else if (draft.shownBy !== undefined) {
           this.routes.set(existing.publicationNumber, draft.shownBy);
           this.testVerdicts.delete(existing.publicationNumber);
+          if (draft.shownBy === "owner_action") {
+            this.ownerDecisions.set(existing.publicationNumber, { decision: "published", decidedAt: at });
+          }
         }
         if (draft.livingPerson !== undefined) this.claimKeys.set(existing.publicationNumber, draft.livingPerson.claimKey);
         outcomes.set(draft.findingNumber, "revived");
@@ -955,6 +972,7 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
           else this.routes.set(row.publicationNumber, change.route.by);
           if (change.route?.by === "quick_answer_test") this.testVerdicts.set(row.publicationNumber, change.route.verdict);
           else this.testVerdicts.delete(row.publicationNumber);
+          if (change.route?.by === "owner_action") this.ownerDecisions.set(row.publicationNumber, { decision: "shown", decidedAt: at });
         }
         this.kept.delete(row.publicationNumber);
         continue;
@@ -962,6 +980,7 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
       if (unpublished(row)) {
         Object.assign(row, { state: "unreviewed", withdrawnBecause: null, ownerReason: null,
           stateChangedAt: at > row.stateChangedAt ? at : row.stateChangedAt });
+        this.ownerDecisions.delete(row.publicationNumber);
       }
       this.kept.set(row.publicationNumber, { reason: change.reason!, at });
     }
@@ -1028,7 +1047,7 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
     return targets.map((row) => {
       let outcome: AtlasLivingPersonHoldOutcome;
       if (row.state === "accepted" || row.state === "edited" ||
-        (row.state === "unreviewed" && this.routes.get(row.publicationNumber) === "owner_action")) {
+        (row.state === "unreviewed" && this.ownerDecisions.has(row.publicationNumber))) {
         if (!this.livingPersonNotes.has(row.publicationNumber)) this.livingPersonNotes.set(row.publicationNumber, at);
         outcome = "noted";
       } else if (row.state === "held" && row.heldBecause?.includes("living_person_review") === true) {
@@ -1059,6 +1078,12 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
   /** How a publication reached the pages, for the in-memory pages: null for one not recorded (migration 0041). */
   shownByOf(publicationNumber: string): AtlasPublicationRoute | null {
     return this.routes.get(publicationNumber) ?? null;
+  }
+
+  /** What the owner decided of a publication by his own action, for tests: null when he hasn't (migration 0041). */
+  ownerDecisionOf(publicationNumber: string): AtlasOwnerDecision | null {
+    const decision = this.ownerDecisions.get(publicationNumber);
+    return decision === undefined ? null : { ...decision };
   }
 
   /** The quick-answer test's verdict when its own showing showed the publication, for the in-memory pages. */

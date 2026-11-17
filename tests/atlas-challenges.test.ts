@@ -479,15 +479,17 @@ describe("through review_research_contribution", () => {
       expect(wrong.isError, action).toBe(true);
       expect(JSON.stringify(wrong.content)).toContain(`${action} does not take ${field}`);
     }
-    const tested = await call({ action: "show_on_pages", later_inputs: { items: [kept], quick_answer_verdict: "pass" } });
+    const tested = await call({ action: "show_on_pages", later_inputs: { items: [kept], shown_by: "quick_answer_test",
+      quick_answer_verdict: "pass" } });
     expect(tested.structuredContent).toMatchObject({ ok: true, outcome: "shown_on_pages" });
     expect(JSON.stringify(tested.content)).toContain("Each is recorded as shown by the quick-answer test, with its " +
       "verdict: pass.");
     expect([store.shownByOf(kept), store.testVerdictOf(kept)]).toEqual(["quick_answer_test", "pass"]);
     await call({ action: "keep_for_research", reason: "owner answer 240a", later_inputs: { items: [kept] } });
-    const byOwner = await call({ action: "show_on_pages", later_inputs: { items: [kept] } });
-    expect(JSON.stringify(byOwner.content)).toContain("Each is recorded as shown by the owner's action, not by the " +
-      "quick-answer test; the test's own show_on_pages gives later_inputs.quick_answer_verdict.");
+    // Codex's fourth review of 17 Nov 2026 (P1): a showing says who acts, the owner too.
+    const byOwner = await call({ action: "show_on_pages", later_inputs: { items: [kept], shown_by: "owner" } });
+    expect(JSON.stringify(byOwner.content)).toContain("Each is recorded as shown by AskRigor's owner, his decision, " +
+      "which a later save never undoes.");
     expect([store.shownByOf(kept), store.testVerdictOf(kept)]).toEqual(["owner_action", null]);
   });
 });

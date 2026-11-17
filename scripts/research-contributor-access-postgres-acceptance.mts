@@ -4453,17 +4453,17 @@ async function verifyLivingPersonEnforced(context: {
   checks.push("a_duplicate_saves_yes_holds_a_publishing_paused_before_it_with_saved_findings_shown_at_once_or_not");
 
   // The same race inside the database: each waits for the other's transaction at the reading's row, whichever is first.
+  const draft = (claim: string, claimKey: string, findingNumber = 1): AtlasPublicationDraft => ({ findingNumber,
+    state: "unreviewed", atlasNumber: null, heldBecause: null,
+    livingPerson: { claimKey, reading: "no", holdNotSaid: false }, published: {
+      schema: ATLAS_PUBLICATION_SCHEMA, topic: { key: "pages-topic", label: "A topic only the pages check uses" },
+      claim, certainty: "low", applies_to: "Adults with an invented condition", kind: null, subject: null,
+      subject_type: null, direction: null, numbers: null, searches: null, sources: ["10.0000/synthetic-pages"],
+      why_not_usual: "Quick answers miss it.", what_would_change_it: "A trial.", verified_bases: [],
+      saved_on: "2026-11-06", askrigor_version: "0.1.0" } });
   const lockPool = new Pool({ connectionString: reviewUrl, max: 1 });
   const lockClient = await lockPool.connect();
   try {
-    const living = (claimKey: string, reading: "yes" | "no") => ({ claimKey, reading, holdNotSaid: false });
-    const draft = (claim: string, claimKey: string): AtlasPublicationDraft => ({ findingNumber: 1, state: "unreviewed",
-      atlasNumber: null, heldBecause: null, livingPerson: living(claimKey, "no"), published: {
-        schema: ATLAS_PUBLICATION_SCHEMA, topic: { key: "pages-topic", label: "A topic only the pages check uses" },
-        claim, certainty: "low", applies_to: "Adults with an invented condition", kind: null, subject: null,
-        subject_type: null, direction: null, numbers: null, searches: null, sources: ["10.0000/synthetic-pages"],
-        why_not_usual: "Quick answers miss it.", what_would_change_it: "A trial.", verified_bases: [],
-        saved_on: "2026-11-06", askrigor_version: "0.1.0" } });
     // The publishing first, its transaction open: the yes waits for it, then holds what it published.
     const publishingFirst = livingPersonClaimKey("LOCK-PUBLISHING-FIRST claim.");
     await lockClient.query("BEGIN");
@@ -4498,6 +4498,53 @@ async function verifyLivingPersonEnforced(context: {
     await lockPool.end();
   }
   checks.push("the_living_person_yes_and_the_publishing_wait_for_each_other_at_the_readings_lock");
+
+  // Codex's fourth review of 17 Nov 2026 (P1s): the owner shows a finding, it is kept, the quick-answer test shows it,
+  // and a later save says it names a living person. The owner's decision is stored apart from the latest showing, which
+  // the test's replaced, and stands; a finding only the test showed is held.
+  {
+    const ownerKey = livingPersonClaimKey("SEQUENCE-OWNER claim.");
+    const testKey = livingPersonClaimKey("SEQUENCE-TEST claim.");
+    const WAITING = "waiting for the quick-answer test (owner answer 240a)";
+    const sequenced = await store.publish({ cardNumber: 7212, cardSha256: atlasHex("sequence-card"), publishedAt: tick(),
+      revive: false, findings: [{ ...draft("SEQUENCE-OWNER claim.", ownerKey), keptReason: WAITING },
+        { ...draft("SEQUENCE-TEST claim.", testKey, 2), keptReason: WAITING }] });
+    const [ownerShown, testShown] = sequenced.map(({ publicationNumber }) => publicationNumber);
+    const shownAt = tick();
+    await store.keep({ publicationNumbers: [ownerShown!], atlasNumbers: [], keep: false, reason: null, at: shownAt,
+      route: { by: "owner_action" } });
+    await store.keep({ publicationNumbers: [ownerShown!], atlasNumbers: [], keep: true, at: tick(),
+      reason: "owner answer 240a: quick-answer test, passed, waiting for the whole picture" });
+    await store.keep({ publicationNumbers: [ownerShown!, testShown!], atlasNumbers: [], keep: false, reason: null, at: tick(),
+      route: { by: "quick_answer_test", verdict: "pass" } });
+    const sequenceAdmin = new Pool({ connectionString: adminUrl, max: 1 });
+    try {
+      const stored = (await sequenceAdmin.query<{ publication_number: string; shown_by: string; shown_test_verdict: string;
+        owner_decision: string | null; owner_decided_at: Date | null }>(`SELECT publication_number, shown_by,
+        shown_test_verdict, owner_decision, owner_decided_at FROM ${schema}.atlas_publications
+        WHERE publication_number = ANY($1::text[]) ORDER BY publication_number`, [[ownerShown, testShown]])).rows
+        .map((row) => [row.publication_number, row.shown_by, row.shown_test_verdict, row.owner_decision,
+          row.owner_decided_at?.toISOString() ?? null]);
+      assert(isDeepStrictEqual(stored, [[ownerShown, "quick_answer_test", "pass", "shown", shownAt],
+        [testShown, "quick_answer_test", "pass", null, null]]), `SEQUENCE_OWNER_DECISION_MISMATCH ${JSON.stringify(stored)}`);
+      // The owner decision is held to its values, and to its time.
+      for (const [decision, at] of [["kept", shownAt], ["shown", null], [null, shownAt]] as const) {
+        const refused = await sequenceAdmin.query(`UPDATE ${schema}.atlas_publications SET owner_decision = $2,
+          owner_decided_at = $3::timestamptz WHERE publication_number = $1`, [testShown, decision, at])
+          .then(() => "", (error: Error) => error.message);
+        assert(refused.includes("atlas_publications_v1_owner_decision_check"), `OWNER_DECISION_STORED ${decision} ${at}`);
+      }
+    } finally {
+      await sequenceAdmin.end();
+    }
+    const later = await store.recordLivingPerson({ cardNumber: 7212, publicationNumbers: [], at: tick(),
+      readings: [{ claimKey: ownerKey, reading: "yes" }, { claimKey: testKey, reading: "yes" }] });
+    assert(isDeepStrictEqual(later.map(({ publicationNumber, outcome }) => [publicationNumber, outcome]),
+      [[ownerShown, "noted"], [testShown, "held"]]), `SEQUENCE_LATER_YES ${JSON.stringify(later)}`);
+    assert((await loadAtlasFinding(source, ownerShown!)) !== undefined &&
+      (await loadAtlasFinding(source, testShown!)) === undefined, "SEQUENCE_PAGES_MISMATCH");
+  }
+  checks.push("the_owners_decision_to_show_stands_after_the_tests_showing_and_a_later_saves_yes");
 
   // Permission denied: the review role can't run record_atlas_living_person (a provisioning step skipped).
   const admin = new Pool({ connectionString: adminUrl, max: 1 });

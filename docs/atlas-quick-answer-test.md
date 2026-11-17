@@ -42,9 +42,10 @@ API money. It needs no review from the owner.
      the finding reads on its own. A passing mention in a list isn't the same as giving the point.
    - **Headline:** true and not in the quick answer, but it wouldn't change an important decision.
    - **Fail:** the quick answer already gives the finding's useful point, or offers something better.
-5. A pass goes to `show_on_pages`, with `later_inputs.quick_answer_verdict` `pass`, once its card carries the whole
-   picture (below); the verdict is what records that the test showed it, since the owner and this task use the same
-   review login. Until AskRigor can store that, a pass goes to `keep_for_research` with the reason `owner answer 240a: quick-answer test, passed, waiting for the whole
+5. A pass goes to `show_on_pages`, with `later_inputs.shown_by` `quick_answer_test` and
+   `later_inputs.quick_answer_verdict` `pass`, once its card carries the whole picture (below). The owner and this task
+   use the same review login, so every `show_on_pages` says who acts: the test as here, the owner with `shown_by`
+   `owner`; one that doesn't say is refused and changes nothing (Codex's fourth review of 17 November 2026). Until AskRigor can store that, a pass goes to `keep_for_research` with the reason `owner answer 240a: quick-answer test, passed, waiting for the whole
    picture`, so it isn't tested twice and can be shown once its card is complete. A headline or a fail goes to
    `keep_for_research` with the reason `owner answer 240a: quick-answer test, headline` or
    `owner answer 240a: quick-answer test, failed`, so it isn't tested twice.
@@ -85,8 +86,9 @@ and fail, which it neither changes nor depends on:
    is kept as a browser opens it.
 4. Marking shows nothing: showing is still `show_on_pages`. Whether the daily task shows a marked finding right away is
    the owner's to decide (question 272), so the method fits either answer:
-   - if the owner says marked findings are shown right away, a marked finding goes to `show_on_pages`, with its
-     verdict in `later_inputs.quick_answer_verdict`, whatever its verdict, instead of step 5's `keep_for_research`;
+   - if the owner says marked findings are shown right away, a marked finding goes to `show_on_pages`, with
+     `later_inputs.shown_by` `quick_answer_test` and its verdict in `later_inputs.quick_answer_verdict`, whatever its
+     verdict, instead of step 5's `keep_for_research`;
    - otherwise it goes to `keep_for_research` as step 5 says, with `, challenges the usual view` added at the end of
      its reason (`owner answer 240a: quick-answer test, failed, challenges the usual view`), and waits for the owner;
      `list_challenges` lists every marked finding, kept or shown, with its usual view, source and verdict.
@@ -104,9 +106,11 @@ finding kept for research is on no list, the section page included, and its page
 quick-answer test. Without a mark, an unreviewed finding's page says a separate AI found a quick AI answer misses it only
 when its publication records that the test showed it with a pass. The action that shows a finding records how, at that
 moment, and nothing is read from the reason it was kept for (migration 0041; Codex's re-review of 17 Nov 2026, finding
-4, and its third review, finding 2): `show_on_pages` with `later_inputs.quick_answer_verdict` stores the route
-`quick_answer_test` with that verdict, and any other `show_on_pages`, the owner's `publish_cards` and a decision's
-publication store `owner_action`. The page says the test found a quick AI answer misses it only for the verdict `pass`.
+4, and its third review, finding 2): `show_on_pages` with `later_inputs.shown_by` `quick_answer_test` stores the route
+`quick_answer_test` with its verdict, and the owner's (`shown_by` `owner`), his `publish_cards` and a decision's
+publication store `owner_action`. The owner's own showing or publishing is also stored as his decision, apart from the
+route, and no later showing replaces it: a later save that says the finding names a living person then leaves it as he
+decided and adds a line to his `list_publications`, while one only the test showed is held (Codex's fourth review). The page says the test found a quick AI answer misses it only for the verdict `pass`.
 A finding whose route isn't recorded, as every one from before 0041 and one an earlier image showed again, says nothing
 of the test. These pages are kept out of
 search engines like every page of an unreviewed finding. The pages show no one's login and no YouTube comment data.

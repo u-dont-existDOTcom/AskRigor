@@ -56,7 +56,8 @@ export const challengeMarkInputShape = {
     .describe("With mark_challenge: the words the pages show for that source, such as the guideline's name and year."),
   quick_answer_verdict: z.enum(ATLAS_CHALLENGE_VERDICTS).optional()
     .describe("With mark_challenge: the quick-answer test's verdict for the finding: pass, headline or fail. With " +
-      "show_on_pages: given only by the quick-answer test, which records that the test showed it, with that verdict."),
+      "show_on_pages: given only by the quick-answer test, with shown_by quick_answer_test, which records that the test " +
+      "showed it, with that verdict."),
 };
 
 export const atlasChallengesSchema = z.object({

@@ -4,8 +4,9 @@ SET search_path TO __SCHEMA__, public;
 -- route either, and its page said the quick-answer test had happened. Four routes are stored apart, each written by the
 -- action that shows the finding, at that moment, and none read from a reason's text: owner_action, written by
 -- publish_atlas_findings from a draft the owner publishes (publish_cards, a decision's publication), and by
--- show_atlas_publications for a show_on_pages that doesn't say the test showed it; quick_answer_test, written by
--- show_atlas_publications only for the quick-answer test's own show_on_pages, which gives its verdict
+-- show_atlas_publications for the owner's own show_on_pages, which says so (shown_by owner, Codex's fourth review of 17
+-- Nov 2026); quick_answer_test, written by show_atlas_publications only for the quick-answer test's own show_on_pages,
+-- which says so and gives its verdict
 -- (shown_test_verdict: pass, headline or fail; docs/atlas-quick-answer-test.md, step 5); automatic_showing, as below;
 -- and NULL, not recorded: every publication from before this migration, and one shown again by 0024's
 -- keep_atlas_publications, which an earlier image calls and which says nothing of who showed it. The pages say the
@@ -38,7 +39,7 @@ ALTER TABLE atlas_publications ADD CONSTRAINT atlas_publications_v1_shown_by_che
 );
 
 COMMENT ON COLUMN atlas_publications.shown_by IS
-  'How the publication reached the pages, as the action that showed it said: owner_action when the owner published it (publish_cards, a decision) or a show_on_pages showed it again without saying the quick-answer test did; quick_answer_test when the quick-answer test''s own show_on_pages showed it again, with its verdict (shown_test_verdict); automatic_showing when the save published it while saved findings show at once (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS); NULL when not recorded: a publication from before this migration, one an earlier image published or showed again, or one still kept since its save. Its page says the quick-answer test found a quick AI answer misses it only for quick_answer_test with the verdict pass, or from a challenge mark''s stored verdict.';
+  'How the publication reached the pages, as the action that showed it said: owner_action when the owner published it (publish_cards, a decision) or his own show_on_pages, saying so, showed it again (his decision is also stored apart, owner_decision); quick_answer_test when the quick-answer test''s own show_on_pages showed it again, with its verdict (shown_test_verdict); automatic_showing when the save published it while saved findings show at once (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS); NULL when not recorded: a publication from before this migration, one an earlier image published or showed again, or one still kept since its save. Its page says the quick-answer test found a quick AI answer misses it only for quick_answer_test with the verdict pass, or from a challenge mark''s stored verdict.';
 
 -- Codex's third review of 17 Nov 2026, finding 2: the quick-answer test's verdict, written with its route by the
 -- test's own show_on_pages, and only with that route.
@@ -52,6 +53,27 @@ ALTER TABLE atlas_publications ADD CONSTRAINT atlas_publications_v1_shown_test_v
 
 COMMENT ON COLUMN atlas_publications.shown_test_verdict IS
   'The quick-answer test''s verdict when its own show_on_pages showed the publication (shown_by quick_answer_test): pass, headline or fail; NULL for every other route.';
+
+-- Codex's fourth review of 17 Nov 2026 (P1s): the owner and the scheduled quick-answer test use one review login, so who
+-- shows a finding is said by the showing, never assumed, and the owner's decision is stored apart from shown_by, which
+-- the latest showing replaces: owner_decision, what he decided (published: his publish_cards or a decision of his
+-- published it; shown: his own show_on_pages showed it again), and owner_decided_at, when. No showing of the test's, no
+-- keeping and no save changes them; a later save that says the finding names a living person never undoes his
+-- decision. Keeping a finding he unpublished brings it back without it. NULL when he hasn't decided it this way, as for
+-- every publication before this migration.
+ALTER TABLE atlas_publications ADD COLUMN IF NOT EXISTS owner_decision text;
+ALTER TABLE atlas_publications ADD COLUMN IF NOT EXISTS owner_decided_at timestamptz;
+
+ALTER TABLE atlas_publications DROP CONSTRAINT IF EXISTS atlas_publications_v1_owner_decision_check;
+ALTER TABLE atlas_publications ADD CONSTRAINT atlas_publications_v1_owner_decision_check CHECK (
+  (owner_decision IS NULL) = (owner_decided_at IS NULL)
+  AND (owner_decision IS NULL OR owner_decision IN ('published', 'shown'))
+);
+
+COMMENT ON COLUMN atlas_publications.owner_decision IS
+  'What AskRigor''s owner decided of the publication, as his own action said: published (publish_cards, or a decision of his published it) or shown (his own show_on_pages showed it again). Never written by the quick-answer test''s showing, a keeping or a save. NULL when he hasn''t.';
+COMMENT ON COLUMN atlas_publications.owner_decided_at IS
+  'When the owner made the decision owner_decision records; NULL with it.';
 
 -- Publishes a card's findings: a new row for each finding without one for this card digest, each taking the next
 -- public number, with how it reached the pages (shown_by) and the reason it is kept off them for the owner when its
@@ -190,12 +212,15 @@ BEGIN
     IF NOT FOUND THEN
       INSERT INTO atlas_publications
         (publication_number, card_number, card_sha256, finding_number, published_json, state, atlas_number,
-         held_because, published_at, state_changed_at, shown_by, kept_for_research_at, kept_reason, claim_key)
+         held_because, published_at, state_changed_at, shown_by, kept_for_research_at, kept_reason, claim_key,
+         owner_decision, owner_decided_at)
       VALUES
         ('P-' || nextval('atlas_publication_number_seq')::text, target_card_number, target_card_sha256,
          draft_number::smallint, draft -> 'published', draft_state, draft_atlas, draft_held, publish_time, publish_time,
          draft_shown_by #>> '{}', CASE WHEN draft_kept IS NULL THEN NULL ELSE publish_time END, draft_kept #>> '{}',
-         draft_claim_key)
+         draft_claim_key,
+         CASE WHEN draft_shown_by = '"owner_action"'::jsonb THEN 'published' END,
+         CASE WHEN draft_shown_by = '"owner_action"'::jsonb THEN publish_time END)
       ON CONFLICT (card_sha256, finding_number) WHERE card_sha256 IS NOT NULL DO NOTHING;
       outcomes := outcomes || jsonb_build_object(draft_number::text, CASE WHEN FOUND THEN 'published' ELSE 'existing' END);
     ELSIF revive_withdrawn AND existing.state = 'withdrawn'
@@ -213,6 +238,10 @@ BEGIN
              shown_test_verdict = CASE WHEN draft_state = 'held' OR draft_shown_by IS NOT NULL THEN NULL
                                        ELSE stored.shown_test_verdict END,
              claim_key = coalesce(draft_claim_key, stored.claim_key),
+             owner_decision = CASE WHEN draft_shown_by = '"owner_action"'::jsonb THEN 'published'
+                                   ELSE stored.owner_decision END,
+             owner_decided_at = CASE WHEN draft_shown_by = '"owner_action"'::jsonb THEN publish_time
+                                     ELSE stored.owner_decided_at END,
              state_changed_at = greatest(publish_time, stored.state_changed_at)
        WHERE stored.publication_number = existing.publication_number;
       outcomes := outcomes || jsonb_build_object(draft_number::text, 'revived');
@@ -277,6 +306,7 @@ BEGIN
          AND target.published_json IS NOT NULL THEN
         UPDATE atlas_publications stored
            SET state = 'unreviewed', withdrawn_because = NULL, owner_reason = NULL,
+               owner_decision = NULL, owner_decided_at = NULL,
                kept_for_research_at = change_time, kept_reason = reason,
                state_changed_at = greatest(change_time, stored.state_changed_at)
          WHERE stored.publication_number = target.publication_number;
@@ -382,8 +412,8 @@ CREATE TRIGGER atlas_publications_claim_key_forgotten
 -- for each yes it gives, every publication of the card with that claim, by its stored claim_key, or among the numbers
 -- given (at most 500: the card's publications from before claim keys were stored that the server matched by their
 -- claim), that the owner hasn't decided, for living_person_review, with no page: an unreviewed one with its texts, kept
--- or not, becomes held; a held one gains the reason. One the owner decided (accepted, edited, or unreviewed and shown by
--- his own action) stays as it is and is noted. A rejected or withdrawn one, or one whose texts are erased, has no page
+-- or not, becomes held; a held one gains the reason. One the owner decided (accepted, edited, or unreviewed with his
+-- decision stored, owner_decided_at, whatever showed it since) stays as it is and is noted. A rejected or withdrawn one, or one whose texts are erased, has no page
 -- and stays as it is. All in one transaction: the readings' rows are locked, in their keys' order, before any
 -- publication. Each row returned says which happened: held, reason_added, already_held, noted or unchanged.
 CREATE OR REPLACE FUNCTION record_atlas_living_person(
@@ -443,7 +473,7 @@ BEGIN
      ORDER BY substring(stored.publication_number FROM 3)::bigint
      FOR UPDATE
   LOOP
-    IF target.state IN ('accepted', 'edited') OR (target.state = 'unreviewed' AND target.shown_by = 'owner_action') THEN
+    IF target.state IN ('accepted', 'edited') OR (target.state = 'unreviewed' AND target.owner_decided_at IS NOT NULL) THEN
       UPDATE atlas_publications stored
          SET living_person_noted_at = coalesce(stored.living_person_noted_at, record_time)
        WHERE stored.publication_number = target.publication_number;
@@ -509,6 +539,8 @@ REVOKE ALL ON FUNCTION inspect_atlas_living_person_notes(text[]) FROM PUBLIC;
 -- number, recording how, as the action says at that moment: owner_action, or quick_answer_test with the test's verdict
 -- (pass, headline or fail), which only the quick-answer test's own show_on_pages gives. Nothing is read from the reason
 -- it was kept for. A publication that isn't kept changes in nothing. At most 100 numbers, as keep_atlas_publications.
+-- Codex's fourth review (P1s): the owner's showing stores his decision (owner_decision shown, with when), which the
+-- test's showing leaves as it was.
 CREATE OR REPLACE FUNCTION show_atlas_publications(
   target_publication_numbers text[],
   target_atlas_numbers text[],
@@ -546,7 +578,9 @@ BEGIN
   LOOP
     IF target.kept_for_research_at IS NOT NULL THEN
       UPDATE atlas_publications stored
-         SET kept_for_research_at = NULL, kept_reason = NULL, shown_by = shown_route, shown_test_verdict = test_verdict
+         SET kept_for_research_at = NULL, kept_reason = NULL, shown_by = shown_route, shown_test_verdict = test_verdict,
+             owner_decision = CASE WHEN shown_route = 'owner_action' THEN 'shown' ELSE stored.owner_decision END,
+             owner_decided_at = CASE WHEN shown_route = 'owner_action' THEN change_time ELSE stored.owner_decided_at END
        WHERE stored.publication_number = target.publication_number;
     END IF;
   END LOOP;

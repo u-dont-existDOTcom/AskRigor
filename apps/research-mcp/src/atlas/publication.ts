@@ -583,7 +583,7 @@ export const QUICK_ANSWER_TEST_WAITING = "waiting for the quick-answer test (own
  * The kept reason a saved finding carries, while saved findings show at once, when its card doesn't declare, as the
  * final check's receipt signed, that it names no living person (Codex's review of 17 Nov 2026, finding 1). The owner's
  * rule: claims about named living people publish only on his explicit decision, so it waits for the owner's
- * show_on_pages, and the quick-answer test, which reads only its own reason, leaves it alone.
+ * show_on_pages (shown_by owner), and the quick-answer test, which reads only its own reason, leaves it alone.
  */
 export const LIVING_PERSON_WAITING = "waiting for the owner's decision: it may name a living person";
 
@@ -812,8 +812,9 @@ export function livingPersonReading(
 
 /**
  * A draft held for the owner's decision because it may name a living person (living_person_review), with any reason it
- * is held for already, or the draft as it is. Only the save path, never an action of the owner's, holds for it: the
- * owner's rule is that such claims publish only on his explicit decision.
+ * is held for already, or the draft as it is: the save path's own reading (the owner's rule is that such claims
+ * publish only on his explicit decision). The database holds such a finding on every path from what a save stored for
+ * the card (Codex's fourth review of 17 Nov 2026), and only the owner's accept or edit shows it.
  */
 export function withLivingPersonHold(draft: AtlasPublicationDraft, holds: boolean): AtlasPublicationDraft {
   if (!holds || draft.state === "accepted" || draft.state === "edited") return draft;

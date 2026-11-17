@@ -33,6 +33,7 @@ import {
   createResearchContributionReviewHandler,
   researchContributionReviewInputSchema,
   researchContributionReviewOutputSchema,
+  researchContributionReviewRuntimeOutputSchema,
 } from "../apps/research-mcp/src/research-contribution-review-tool.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { LOW_DOSE_CARD, VELMOR_CARD } from "./helpers/atlas-scenario.js";
@@ -144,7 +145,10 @@ function harness(options: {
     later: (minutes: number) => { instant += minutes * 60_000; },
     async call(input: Record<string, unknown>, auth: unknown = owner()): Promise<Reply> {
       const result = await handler(input, auth as never);
-      const structured = researchContributionReviewOutputSchema.parse(result.structuredContent) as Record<string, any>;
+      // The runtime-only actions (keep_for_research, show_on_pages) answer in the runtime's own fields.
+      const runtime = ["keep_for_research", "show_on_pages", "list_kept"].includes(String(input.action));
+      const structured = (runtime ? researchContributionReviewRuntimeOutputSchema : researchContributionReviewOutputSchema)
+        .parse(result.structuredContent) as Record<string, any>;
       expect(structured.canonicalEvidenceChangedByThisCall).toBe(false);
       return {
         isError: result.isError === true,
@@ -442,6 +446,74 @@ describe("the publications through the owner's review", () => {
     h.publications.inspectLivingPersonNotes = async () => { throw new Error("permission denied"); };
     expect((await h.call({ action: "list_publications" })).text).toContain("Whether a later save marked any of " +
       "these as possibly naming a living person could not be read just now.");
+  });
+
+  // Codex's fourth review of 17 Nov 2026 (P1s): the owner and the scheduled quick-answer test share one review login, so
+  // a showing that didn't say who acted was taken for the owner's, and a later showing replaced his. Each showing now
+  // says who acts, and the owner's decision is kept apart from the latest showing. Codex's sequence: the owner shows a
+  // finding, it is kept, the test shows it, and a later save says it names a living person.
+  it("keeps the owner's decision to show a finding when the test shows it later and a later save says yes", async () => {
+    const h = harness();
+    const clear = { ...VELMOR_CARD, findings: VELMOR_CARD.findings.map((finding) => ({ ...finding,
+      names_living_person: false })) };
+    await h.save(clear, FREE, { nlp: ["1", "2"] });
+    expect((await h.publications.inspectKept()).map(({ publicationNumber }) => publicationNumber)).toEqual(["P-1001", "P-1002"]);
+    // A showing that doesn't say who acts is refused, and changes nothing.
+    const unsaid = await h.call({ action: "show_on_pages", items: ["P-1001"] });
+    expect(unsaid.isError).toBe(true);
+    expect(unsaid.text).toBe("show_on_pages needs later_inputs.shown_by: owner when AskRigor's owner shows them, or " +
+      "quick_answer_test, with later_inputs.quick_answer_verdict, when the quick-answer test does. Nothing was changed.");
+    expect(h.publications.isKept("P-1001")).toBe(true);
+    // The owner shows P-1001.
+    const owner = await h.call({ action: "show_on_pages", items: ["P-1001"], shown_by: "owner" });
+    expect(owner.text).toContain("Each is recorded as shown by AskRigor's owner, his decision, which a later save never " +
+      "undoes.");
+    expect(h.publications.ownerDecisionOf("P-1001")).toEqual({ decision: "shown", decidedAt: "2026-11-04T09:00:00.000Z" });
+    // It is kept again, and the test shows it with its verdict, and shows P-1002 too.
+    h.later(5);
+    await h.call({ action: "keep_for_research", reason: "owner answer 240a: quick-answer test, passed, waiting for the " +
+      "whole picture", items: ["P-1001"] });
+    const tested = await h.call({ action: "show_on_pages", items: ["P-1001", "P-1002"],
+      shown_by: "quick_answer_test", quick_answer_verdict: "pass" });
+    expect(tested.text).toContain("Each is recorded as shown by the quick-answer test, with its verdict: pass.");
+    expect([h.publications.shownByOf("P-1001"), h.publications.testVerdictOf("P-1001")]).toEqual(["quick_answer_test", "pass"]);
+    // The owner's decision is stored apart, and the test's showing didn't replace it.
+    expect(h.publications.ownerDecisionOf("P-1001")).toEqual({ decision: "shown", decidedAt: "2026-11-04T09:00:00.000Z" });
+    expect(h.publications.ownerDecisionOf("P-1002")).toBeNull();
+    // A later save says both name a living person: the owner's decision stands, with a line on his list; the one only
+    // the test showed is held.
+    const yes = await h.save({ ...clear, findings: clear.findings.map((finding) => ({ ...finding,
+      names_living_person: true })) }, FREE, {});
+    expect(yes).toMatchObject({ status: "existing_card", card_id: "ARF-0042" });
+    expect((await h.publications.inspect({ cardNumbers: [42] })).map(({ publicationNumber, state }) =>
+      [publicationNumber, state]).sort()).toEqual([["P-1001", "unreviewed"], ["P-1002", "held"]]);
+    const listed = await h.call({ action: "list_publications" });
+    expect(listed.text).toContain("P-1001: a later save marks this finding as possibly naming a living person. It " +
+      "stays as you decided it; unpublish_finding takes it off the pages.");
+    expect(listed.text).not.toContain("P-1002: a later save");
+  });
+
+  it("refuses a showing that says who acts wrongly, and keeps who shows a finding to the showing itself", async () => {
+    const h = harness();
+    await h.save(VELMOR_CARD, FREE);
+    for (const [laterInputs, text] of [
+      [{ shown_by: "owner", quick_answer_verdict: "pass" }, "show_on_pages by the owner takes no " +
+        "quick_answer_verdict: only the quick-answer test gives one. Nothing was changed."],
+      [{ shown_by: "quick_answer_test" }, "show_on_pages by the quick-answer test needs " +
+        "later_inputs.quick_answer_verdict: pass, headline or fail. Nothing was changed."],
+      [{ quick_answer_verdict: "pass" }, "show_on_pages needs later_inputs.shown_by: owner when AskRigor's owner " +
+        "shows them, or quick_answer_test, with later_inputs.quick_answer_verdict, when the quick-answer test does. " +
+        "Nothing was changed."],
+    ] as const) {
+      const refused = await h.call({ action: "show_on_pages", items: ["P-1001"], ...laterInputs });
+      expect(refused.isError, JSON.stringify(laterInputs)).toBe(true);
+      expect(refused.text).toBe(text);
+    }
+    expect(h.publications.isKept("P-1001")).toBe(true);
+    const wrongAction = await h.call({ action: "keep_for_research", reason: "owner answer 240a",
+      items: ["P-1001"], shown_by: "owner" });
+    expect(wrongAction.isError).toBe(true);
+    expect(wrongAction.text).toContain("keep_for_research does not take shown_by");
   });
 
   // Codex's re-review of 17 Nov 2026, finding 4: publish_cards stored no route, and its page said the quick-answer test

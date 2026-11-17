@@ -99,6 +99,7 @@ import {
   AtlasKeptReview,
   type AtlasKeepAction,
   type AtlasKept,
+  type AtlasKeepRequest,
 } from "../atlas/kept-review.js";
 import {
   ATLAS_CHALLENGE_ACTIONS,
@@ -471,6 +472,8 @@ export interface AtlasReviewRequest {
   usual_view_source_url?: AtlasChallengeRequest["usual_view_source_url"];
   usual_view_source_label?: AtlasChallengeRequest["usual_view_source_label"];
   quick_answer_verdict?: AtlasChallengeRequest["quick_answer_verdict"];
+  /** show_on_pages: who shows them, from later_inputs.shown_by (Codex's fourth review of 17 Nov 2026). */
+  shown_by?: AtlasKeepRequest["shown_by"];
   /** The reviewer login that made the call, set by the tool after its owner check; never an input. */
   reviewer?: string;
 }
@@ -1284,6 +1287,8 @@ export class AtlasReview {
       ...(request.reason === undefined ? {} : { reason: request.reason }),
       // Codex's third review of 17 Nov 2026, finding 2: the quick-answer test's show_on_pages says so, with its verdict.
       ...(request.quick_answer_verdict === undefined ? {} : { quick_answer_verdict: request.quick_answer_verdict }),
+      // Its fourth review (P1s): and every show_on_pages says who acts.
+      ...(request.shown_by === undefined ? {} : { shown_by: request.shown_by }),
     });
     return {
       ok: result.ok,

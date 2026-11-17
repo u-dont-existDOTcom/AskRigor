@@ -2220,7 +2220,10 @@ describe("findings kept for AskRigor's research only (owner answers 229a and 231
     // Listed with its private reason, then shown again.
     expect((await review.run({ action: "list_kept" })).kept!.items.map(({ reason }) => reason))
       .toEqual(["owner answer 231a", "owner answer 231a"]);
+    // Codex's fourth review of 17 Nov 2026 (P1): a showing says who acts.
     expect(await review.run({ action: "show_on_pages", items: [shown.effect, numbers.lowDose] }))
+      .toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    expect(await review.run({ action: "show_on_pages", items: [shown.effect, numbers.lowDose], shown_by: "owner" }))
       .toMatchObject({ ok: true, outcome: "shown_on_pages" });
     expect(numbersOf((await loadAtlasFindings(source)).findings)).toContain(shown.effect);
   });
