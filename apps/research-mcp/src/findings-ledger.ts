@@ -539,6 +539,11 @@ export interface FindingsLedgerResult {
   checkFindings: CheckFindings;
   token: string | undefined;
   notes: string[];
+  /**
+   * Those of `notes` that say what a ledger could not carry, given at every check of a turn, never once in it: a
+   * disposition left out is lost at any check (Codex's fourth review of 17 Nov 2026, finding 2).
+   */
+  retention: string[];
   /** What the server's memory keeps of the ledger issued, for FindingsLedgerMemory.update; none when none was. */
   remember: Omit<RememberedLedger, "at"> | undefined;
 }
@@ -870,9 +875,11 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     }
   }
   // Codex's re-review of 17 Nov 2026, finding 3: said at every check after a ledger left open findings out, not only
-  // the next, since what they were is lost.
+  // the next, since what they were is lost; and at every check of a turn too (its fourth review, finding 2), as each of
+  // what a ledger could not carry is.
+  const retention: string[] = [];
   if (previous?.o !== undefined) {
-    notes.push(`An earlier findings_ledger of this research could not carry ${previous.o} open findings, so this ` +
+    retention.push(`An earlier findings_ledger of this research could not carry ${previous.o} open findings, so this ` +
       "ledger may lack their dispositions: a check that finds one again lists it as open.");
   }
   // Every finding of this check is listed in check_findings, so each is addressable by its id; the token carries as
@@ -888,20 +895,23 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   const leftSettled = (issued?.left ?? entries).length - leftOpen.length;
   if (leftOpen.length > 0) {
     const open = entries.filter(({ d }) => !SETTLED.has(d)).length;
-    notes.push(`The findings_ledger carries ${open - leftOpen.length} of this research's ${open} open findings, all ` +
-      `it can hold. The other ${leftOpen.length} (${joinIds(leftOpen.slice(0, 20))}` +
+    retention.push(`The findings_ledger carries ${open - leftOpen.length} of this research's ${open} open findings, ` +
+      `all it can hold. The other ${leftOpen.length} (${joinIds(leftOpen.slice(0, 20))}` +
       `${leftOpen.length > 20 ? ` and ${leftOpen.length - 20} more` : ""}) are listed in check_findings but not ` +
       "carried: a check that finds one again lists it as open, without its disposition.");
   }
   if (leftSettled > 0) {
-    notes.push(`The findings_ledger no longer carries ${leftSettled} finding${leftSettled === 1 ? "" : "s"} settled ` +
-      "earlier (fixed or withdrawn), the oldest first, to stay within its size; one found again is listed as open.");
+    retention.push(`The findings_ledger no longer carries ${leftSettled} finding${leftSettled === 1 ? "" : "s"} ` +
+      "settled earlier (fixed or withdrawn), the oldest first, to stay within its size; one found again is listed as " +
+      "open.");
   }
+  notes.push(...retention);
   if (observed.length > 0 || responses.size > 0) notes.push(FINDINGS_LEDGER_NOTE);
   return {
     checkFindings: { ledger: state, revision: issued?.payload.rev ?? Math.min(revision, 10_000), findings },
     token: issued?.token,
     notes,
+    retention,
     remember: issued === undefined ? undefined : { payload: forMemory(issued.payload, secret),
       token: tokenDigest(issued.token),
       ...(typeof given === "string" && given !== "" ? { parent: tokenDigest(given) } : {}), request }

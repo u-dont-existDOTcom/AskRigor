@@ -5252,7 +5252,9 @@ export function settleFindingsLedger(result: FinalizeResearchOutput, settle: {
   else result.findings_ledger = ledger.token;
   const notes = [...result.notes ?? []];
   const { turn } = source;
-  const fresh = turn === undefined ? ledger.notes : ledger.notes.filter((note) => !turn.given.has(noteDigest(note)));
+  // What a ledger could not carry is said at every check of a turn (Codex's fourth review of 17 Nov 2026, finding 2).
+  const fresh = turn === undefined ? ledger.notes
+    : ledger.notes.filter((note) => ledger.retention.includes(note) || !turn.given.has(noteDigest(note)));
   if (turn !== undefined) {
     // The line that stands for the notes not repeated counts the ledger's too.
     const left = ledger.notes.length - fresh.length;

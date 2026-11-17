@@ -13,7 +13,7 @@ import {
 import { laterInputNames } from "../apps/research-mcp/src/later-inputs.js";
 import {
   FINAL_CHECK_BLOCKING_RULES, SECOND_READING_LEFT_TO_CALLER, communitySkipCaveat,
-  finalizeResearch as finalizeResearchUnwrapped, finalizeResearchOutputSchema,
+  finalizeResearch as finalizeResearchUnwrapped, finalizeResearchOutputSchema, settleFindingsLedger,
   type FinalizeResearchInput, type FinalizeResearchOptions, type FinalizeResearchOutput,
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
@@ -941,6 +941,48 @@ describe("the third review of 17 Nov 2026", () => {
     expect(omitted.notes).toContain(said);
     expect([...refused.notes, ...omitted.notes].join(" ")).not.toContain("wasn't passed back");
   });
+});
+
+describe("the fourth review of 17 Nov 2026", () => {
+  it("2: says at each check of a turn what a ledger could not carry, through the deferred settlement path", () => {
+    // About 400 findings, given after the check as a caller's own notes are: more than a token carries.
+    const late = Array.from({ length: 400 }, (_, index) => draftNote(Array.from({ length: 20 }, (_, word) =>
+      `w${((index + 1) * (word + 7_919) * 104_729).toString(36)}`).join(" ")));
+    const deferred = { ...options(WARNING), findingsLedger: { account: "acct-a", deferred: true } };
+    const call = (previous?: FinalizeResearchOutput, responses?: unknown[]) => {
+      const result = finalizeResearch(previous === undefined ? fixture() : withLedger({ ...fixture(),
+        carried_state: previous.carry_forward, round_token: previous.round_token }, {
+        findings_ledger: previous.findings_ledger,
+        ...(responses === undefined ? {} : { finding_responses: responses }) }), deferred);
+      settleFindingsLedger(result, { late });
+      return result;
+    };
+    const carried = (output: FinalizeResearchOutput) => {
+      const verified = verifyFindingsLedger(output.findings_ledger, SECRET);
+      return new Set(verified.ok ? verified.payload.e.map(({ id }) => id) : []);
+    };
+    const first = call();
+    expect((first.notes ?? []).join(" ")).toContain("are listed in check_findings but not carried");
+    const leftOut = first.check_findings!.findings.filter(({ id }) => !carried(first).has(id)).map(({ id }) => id);
+    expect(leftOut.length).toBeGreaterThan(100);
+    // A finding the token left out, disputed in the next call of the same turn.
+    const target = leftOut.at(-1)!;
+    const reason = "The note restates the guideline the answer quotes.";
+    let previous = call(first, [{ id: target, response: "disputed", reason }]);
+    expect(previous.check_findings!.ledger).toBe("continued");
+    expect(previous.check_findings!.findings.find(({ id }) => id === target)).toMatchObject({ disposition: "disputed",
+      reason });
+    // Each later continuation of the turn says again that dispositions may be lost, while the dispute is.
+    for (let continuation = 0; continuation < 4; continuation += 1) {
+      const next = call(previous);
+      expect(next.check_findings!.ledger).toBe("continued");
+      expect(next.check_findings!.findings.find(({ id }) => id === target)).toMatchObject({ disposition: "open" });
+      const said = (next.notes ?? []).join(" ");
+      expect(said).toContain("An earlier findings_ledger of this research could not carry");
+      expect(said).toContain("are listed in check_findings but not carried");
+      previous = next;
+    }
+  }, 30_000);
 });
 
 // The panel's harness, as in final-check-panel.test.ts.
