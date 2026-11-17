@@ -3877,11 +3877,16 @@ describe("findings card at the final gate", () => {
       "waits for AskRigor's owner to decide.");
     expect(livingPersonNote({ showing: false, unknown: "hold" })).toBe(`${waiting} ${middle} A finding that says true, ` +
       "or nothing, waits for AskRigor's owner to decide.");
+    // Codex's third review of 17 Nov 2026, finding 5: under reader, a finding that says nothing shows at once after the
+    // reader's no, so the opening says so too.
+    const shownAtOnceUnderReader = "AskRigor shows a saved finding on its public Atlas at once only when the finding " +
+      "says it names no living person, or says nothing and AskRigor's own reader finds that it names no one living.";
     for (const showing of [true, false]) {
-      expect(livingPersonNote({ showing, unknown: "reader" })).toBe(`${showing ? shownAtOnce : waiting} ${middle} A finding ` +
-        "that says true waits for AskRigor's owner to decide, and so does one that says nothing unless AskRigor's own " +
-        "reader finds that it names no one living.");
+      expect(livingPersonNote({ showing, unknown: "reader" })).toBe(`${showing ? shownAtOnceUnderReader : waiting} ` +
+        `${middle} A finding that says true waits for AskRigor's owner to decide, and so does one that says nothing ` +
+        "unless AskRigor's own reader finds that it names no one living.");
     }
+    expect(livingPersonNote({ showing: true, unknown: "reader" })).not.toContain(shownAtOnce);
     // The note alone, as ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION=on gives it: nothing signed, the judge not asked.
     const asked = check({ livingPersonNote: { showing: false, unknown: "keep" } });
     expect(asked.notes).toContainEqual(livingPersonNote({ showing: false, unknown: "keep" }));

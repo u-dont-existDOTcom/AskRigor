@@ -5137,9 +5137,13 @@ export interface LivingPersonNoteMode {
  * With saved findings shown at once and nothing else set, it is LIVING_PERSON_NOTE.
  */
 export function livingPersonNote(mode: LivingPersonNoteMode): string {
-  const opening = mode.showing ? "AskRigor shows a saved finding on its public Atlas at once only when the finding says " +
-    "it names no living person." : "AskRigor holds a saved finding that says it names a living person off its public " +
-    "Atlas until its owner decides.";
+  // Codex's third review of 17 Nov 2026, finding 5: under reader, a finding that says nothing shows at once after the
+  // meaning judge's no, so the opening says that too.
+  const opening = !mode.showing ? "AskRigor holds a saved finding that says it names a living person off its public " +
+    "Atlas until its owner decides."
+    : mode.unknown === "reader" ? "AskRigor shows a saved finding on its public Atlas at once only when the finding says " +
+      "it names no living person, or says nothing and AskRigor's own reader finds that it names no one living."
+    : "AskRigor shows a saved finding on its public Atlas at once only when the finding says it names no living person.";
   const ending = mode.unknown === "reader" ? "A finding that says true waits for AskRigor's owner to decide, and so does " +
     "one that says nothing unless AskRigor's own reader finds that it names no one living."
     : mode.showing || mode.unknown === "hold" ? "A finding that says true, or nothing, waits for AskRigor's owner to decide."
