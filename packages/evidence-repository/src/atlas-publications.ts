@@ -34,14 +34,20 @@ export const ATLAS_PUBLICATION_SCHEMA = "askrigor.atlas-publication.v1";
  * gives it, with its F number; edited: accepted with the owner's wording, or corrected after (the pages show the Atlas
  * finding its F number names, in its latest version); rejected: the owner rejected it and it leaves the pages;
  * withdrawn: it left the pages without a review (its card was deleted, set aside or replaced, or the owner unpublished
- * it); held: its text holds what the pages never show (contact details, a card reference or a YouTube link), so it waits
- * for the owner.
+ * it); held: its text holds what the pages never show (contact details, a card reference or a YouTube link), or it may
+ * name a living person (Codex's re-review of 17 Nov 2026, finding 1), so it waits for the owner, with no page.
  */
 export const ATLAS_PUBLICATION_STATES = ["unreviewed", "accepted", "edited", "rejected", "withdrawn", "held"] as const;
 export type AtlasPublicationState = typeof ATLAS_PUBLICATION_STATES[number];
-/** Why a publication is held: the contact-details check's kinds, a card reference (ARF-0042) or a YouTube link. */
+/**
+ * Why a publication is held: the contact-details check's kinds, a card reference (ARF-0042) or a YouTube link in its
+ * texts; or living_person_review, a finding the save would publish whose card declares that it names a living person,
+ * or that the meaning judge read as naming one (Codex's re-review of 17 Nov 2026, finding 1: claims about named living
+ * people publish only on the owner's explicit decision). In step with migration 0021's closed list, which replaces
+ * itself on every start, so a reason is added there and nowhere later.
+ */
 export const ATLAS_PUBLICATION_HOLD_REASONS = [
-  "email_address", "phone_number", "messaging_handle", "card_reference", "youtube_link",
+  "email_address", "phone_number", "messaging_handle", "card_reference", "youtube_link", "living_person_review",
 ] as const;
 export type AtlasPublicationHoldReason = typeof ATLAS_PUBLICATION_HOLD_REASONS[number];
 /** Why a publication was withdrawn without a review. */

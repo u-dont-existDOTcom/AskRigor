@@ -27,7 +27,7 @@ import {
   isSafeReportedModel,
   isYouTubeVideoId,
   laterFindingsCardSchema,
-  livingPersonClearFromReceipt,
+  livingPersonPlacesFromReceipt,
   namedVideosFromReceipt,
   screenFindingsCard,
   screenFindingsText,
@@ -90,6 +90,12 @@ export interface SavedFindingsCard {
    * at once, only these may. Empty for a receipt that signed none.
    */
   clearOfLivingPeople: ReadonlySet<number>;
+  /**
+   * Codex's re-review of 17 Nov 2026, finding 1 (P0): the stored card's findings, by number from 1, that the meaning
+   * judge read as naming a living person, as the receipt signed them (`nly`); the save holds them for the owner. Empty
+   * for a receipt that signed none. Left out, as by a caller from before it, it reads as empty.
+   */
+  judgedNamingLivingPeople?: ReadonlySet<number>;
 }
 
 /** Publishes a saved card's findings in the Atlas (decision 171, section 4B); the save never waits for it. */
@@ -428,9 +434,13 @@ export class FindingsSaveService {
       if (publisher !== undefined) {
         // Codex's review of 17 Nov 2026, finding 1: by the stored card's numbers, the findings the receipt signed, and
         // the card declares, as naming no living person.
-        const signedClear = livingPersonClearFromReceipt(receipt.claims.nlp, input.findings_card.findings.length);
+        const signedClear = livingPersonPlacesFromReceipt(receipt.claims.nlp, input.findings_card.findings.length);
         const clearOfLivingPeople = new Set(stored.kept.flatMap((original, at) => signedClear.has(original) &&
           input.findings_card.findings[original]!.names_living_person === false ? [at + 1] : []));
+        // Codex's re-review of 17 Nov 2026, finding 1: those the meaning judge read as naming one, as the receipt signed.
+        const signedNaming = livingPersonPlacesFromReceipt(receipt.claims.nly, input.findings_card.findings.length);
+        const judgedNamingLivingPeople = new Set(stored.kept.flatMap((original, at) =>
+          signedNaming.has(original) ? [at + 1] : []));
         this.publishAfterSave(publisher, {
           record,
           issueNumber: queued.issueNumber,
@@ -439,6 +449,7 @@ export class FindingsSaveService {
           replacedCards: queued.replacedCards,
           account: context.account,
           clearOfLivingPeople,
+          judgedNamingLivingPeople,
         });
       }
       return result({

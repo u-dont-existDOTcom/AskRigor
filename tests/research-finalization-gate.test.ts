@@ -3819,6 +3819,31 @@ describe("findings card at the final gate", () => {
     expect(offered.notes ?? []).not.toContainEqual(LIVING_PERSON_NOTE);
   });
 
+  // Codex's re-review of 17 Nov 2026, finding 1 (P0): the meaning judge's yes holds a finding for the owner, so the
+  // receipt signs the places it read as naming a living person (nly), which the save holds, apart from those merely
+  // not signed clear.
+  it("signs the findings the meaning judge reads as naming a living person, which the save holds", () => {
+    const namingClaim = signedClaim("nly");
+    const finding = (claim: string, declared?: boolean) => ({ ...CARD.findings[0], claim, sources: ["10.1002/art.41142"],
+      tags: [], draws_on_youtube_comments: false, ...(declared === undefined ? {} : { names_living_person: declared }) });
+    const card = { ...CARD, findings: [
+      finding("Exercise therapy eased pain more than usual care in the audited trials.", false),
+      finding("Exercise therapy has the strongest evidence for hip osteoarthritis.", true),
+      finding("Exercise therapy has the strongest evidence among the options for hip osteoarthritis."),
+    ] };
+    const judgment: MeaningJudgment = { status: "ran", sourceLines: [], youtube: [], comparison: [], limits: [],
+      standalone: [], significance: [], livingPerson: [{ finding: 1, names: true, why: "It names a researcher." },
+        { finding: 2, names: false, why: "" }, { finding: 3, names: true, why: "It names a doctor." }] };
+    const judged = finalizeResearch({ ...READY, later_inputs: { findings_card: card } },
+      { ...options, livingPersonCheck: true, meaningJudgment: judgment });
+    expect(namingClaim(judged.finalization_receipt)).toEqual(["1", "3"]);
+    // Without the check, or without a reading, nothing is signed.
+    expect(namingClaim(finalizeResearch({ ...READY, later_inputs: { findings_card: card } },
+      { ...options, meaningJudgment: judgment }).finalization_receipt)).toBeUndefined();
+    expect(namingClaim(finalizeResearch({ ...READY, later_inputs: { findings_card: card } },
+      { ...options, livingPersonCheck: true }).finalization_receipt)).toBeUndefined();
+  });
+
   it("asks a card's findings to declare YouTube comments only once this research read them", () => {
     const missing = finalizeResearch(READY, options);
     expect(missing.notes).toContainEqual(expect.stringContaining("This research read YouTube comments, so each finding " +

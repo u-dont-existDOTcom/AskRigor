@@ -894,15 +894,31 @@ quick-answer test found only from a challenge mark's stored verdict, whether
 the setting is still on or not. Run the one-shot admin `migrate` before the new
 image serves: it adds the nullable column and replaces `publish_atlas_findings`
 in its own shape, so no grant changes. Held, YouTube-comment and paid private
-findings are unaffected. A finding whose card doesn't declare, as the final
-check signed, that it names no living person is published kept instead, with
-the reason "waiting for the owner's decision: it may name a living person"
-(`list_kept`), until the owner shows it. The recommended value is `enabled`; to turn it off,
+findings are unaffected. A finding whose card declares that it names a living
+person, or that the meaning judge read as naming one, is held
+(`living_person_review`), with no page, until the owner decides, whatever the
+setting. Any other whose card doesn't declare, as the final check signed, that
+it names no living person is published kept instead, with the reason "waiting
+for the owner's decision: it may name a living person" (`list_kept`), until
+the owner shows it. The recommended value is `enabled`; to turn it off,
 remove the line and recreate `research-mcp`: findings already shown stay shown
 until the owner keeps them, and their pages still say nothing of the test. An
 earlier image's `migrate` puts back 0021's `publish_atlas_findings`, which
 leaves `shown_by` empty; this image's next `migrate` replaces it again. Undo no
 migration.
+
+Migration 0021 now lists `living_person_review` among the hold reasons, and a
+held finding may carry all six. 0021 replaces that list on every start, so the
+reason is added in 0021 itself (a later migration's wider list would be
+narrowed again by 0021 at the next start), and `migrate` admits exactly this
+one edit: from the digest databases recorded for 0021 (`f52a42eb…`) to the
+file's digest now (`95b5d194…`), recording the new digest in the same
+transaction (`ADMITTED_MIGRATION_EDITS` in `postgres.ts`). Any other edit still
+stops the start with `MIGRATION_SHA256_MISMATCH`. After that `migrate`, an
+image whose 0021 is the old one stops at its own `migrate` with
+`MIGRATION_SHA256_MISMATCH migration=0021_atlas_publications` and changes
+nothing, so the rollback image must be one built with this 0021 (this release
+or a later one); an image from before it can't serve this database.
 
 An image rollback below 0021 needs no drain: the earlier image never reads the
 table, publishes nothing at a save, and has no publication action. Undo no

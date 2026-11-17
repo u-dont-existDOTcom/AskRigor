@@ -1755,6 +1755,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "live_research",
   "living_evidence_repository_error",
   "living_evidence_repository_unavailable",
+  "living_person_review",
   "loaded_not_applied",
   "local_mechanical",
   "login_required",

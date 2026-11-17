@@ -640,7 +640,10 @@ whether it names a living person (`names_living_person`, true or false), in the 
 `ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS=enabled`, the finalization receipt signs the places of the findings declared false
 (`nlp`), less any the meaning judge reads as naming one (it is asked that only then, in its one call), and a free
 contributor's public card whose findings don't all declare it gets a note asking for it. A finding the receipt doesn't
-sign this way is kept off the Atlas's pages for the owner's decision instead of showing at once.
+sign this way is kept off the Atlas's pages for the owner's decision instead of showing at once. Codex's re-review of
+the same day: the receipt also signs the places the meaning judge reads as naming a living person (`nly`), and the save
+holds a finding whose card declares true, or whose place `nly` signs, for the owner (`living_person_review`), with no
+page, whatever the setting.
 
 Owner answer 221 (2 November 2026) adds the meaning judge, for the owner's dev accounts only, and no blocking rule.
 Exact comparisons cannot judge meaning, so once a dev account's check passes, AskRigor makes one Claude API call

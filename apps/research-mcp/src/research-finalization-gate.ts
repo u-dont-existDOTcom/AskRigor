@@ -4192,6 +4192,9 @@ export function finalizeResearch(
   // Codex's review of 17 Nov 2026, finding 1: the places of a checked card's findings that may show at once, as the
   // receipt signs them (nlp), while saved findings show at once.
   let livingPersonClear: string[] = [];
+  // Codex's re-review of 17 Nov 2026, finding 1: the places the meaning judge read as naming a living person (nly),
+  // which the save holds for the owner.
+  let livingPersonNaming: string[] = [];
   // The meaning judge's holds and notes (owner answer 221), added after the check's own notes.
   const judgeHeld: number[] = [];
   const judgeNotes: string[] = [];
@@ -4349,6 +4352,7 @@ export function finalizeResearch(
           }
           livingPersonClear = signedLivingPersonClear(input.findings_card, judgedNaming)
             .filter((place) => !heldFindings.includes(Number(place) - 1));
+          livingPersonNaming = [...judgedNaming].sort((left, right) => left - right).map((index) => String(index + 1));
           const undeclared = findingsInCard.some((finding, index) =>
             finding.names_living_person === undefined && !heldFindings.includes(index));
           if (options.findings === "save" && scope === "public" && undeclared) notes.push(inputNote(LIVING_PERSON_NOTE));
@@ -4982,7 +4986,9 @@ export function finalizeResearch(
             // Owner answer 307b: the videos the card links that this call ties to the person, by the finding's place.
             ...(namedVideoClaims.length === 0 ? {} : { nv: namedVideoClaims }),
             // Codex's review of 17 Nov 2026, finding 1: the findings that may show at once, by their places.
-            ...(livingPersonClear.length === 0 ? {} : { nlp: livingPersonClear })
+            ...(livingPersonClear.length === 0 ? {} : { nlp: livingPersonClear }),
+            // Codex's re-review of 17 Nov 2026, finding 1: those the meaning judge read as naming one, which are held.
+            ...(livingPersonNaming.length === 0 ? {} : { nly: livingPersonNaming })
           }
         : {}),
       // An offer that asks to file this research's map, made to this account: a paid private map is filed only with

@@ -1360,6 +1360,28 @@ describe("migration 0041", () => {
   });
 });
 
+// Codex's re-review of 17 Nov 2026, finding 1: the living-person hold reason is added in 0021, whose one edit migrate
+// admits by its digests, and the release says what that means for a rollback image.
+describe("migration 0021's admitted edit", () => {
+  it("adds the reason in 0021 alone, records the new digest in migrate's transaction, and says which image can roll back", async () => {
+    const repository = await read("packages/evidence-repository/src/postgres.ts");
+    const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("async contribute("));
+    expect(migrate).toContain('outcome === "admitted_edit"');
+    expect(migrate).toContain("UPDATE schema_migrations SET migration_sha256 = $2 WHERE migration_id = $1 AND migration_sha256 = $3");
+    expect(migrate.indexOf('await client.query("BEGIN")')).toBeLessThan(migrate.indexOf("UPDATE schema_migrations"));
+    // No later migration touches the closed list, which 0021 would narrow again at the next start.
+    const order = [...repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"))
+      .matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
+    for (const id of order.filter((id) => id > "0021_atlas_publications")) {
+      expect(await read(`packages/evidence-repository/migrations/${id}.sql`), id).not.toContain("atlas_publications_v1_held_check");
+    }
+    const readme = await read("infra/living-evidence-production/README.md");
+    expect(readme).toContain("`MIGRATION_SHA256_MISMATCH migration=0021_atlas_publications` and changes\nnothing, so the " +
+      "rollback image must be one built with this 0021");
+    expect(readme).toContain("(`living_person_review`), with no page, until the owner decides, whatever the\nsetting.");
+  });
+});
+
 async function read(relativePath: string): Promise<string> {
   return readFile(new URL(relativePath, root), "utf8");
 }

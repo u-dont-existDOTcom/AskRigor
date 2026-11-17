@@ -1,8 +1,10 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
 
 import {
+  ADMITTED_MIGRATION_EDITS,
   ATLAS_PUBLICATION_HOLD_REASONS,
   ATLAS_PUBLICATION_SCHEMA,
   ATLAS_PUBLICATION_SCHEMA_V2,
@@ -12,6 +14,7 @@ import {
   InMemoryAtlasPublicationStore,
   PostgresAtlasPublicationStore,
   atlasPublishedFindingSchema,
+  migrationDigestOutcome,
   type AtlasPublicationDraft,
   type AtlasPublishedFinding,
 } from "@askrigor/evidence-repository";
@@ -410,5 +413,52 @@ describe("migration 0021", () => {
     const states = migration.slice(migration.indexOf("state text NOT NULL CHECK (state IN ("));
     expect([...states.slice(0, states.indexOf("))")).matchAll(/'([a-z_]+)'/gu)].map(([, state]) => state))
       .toEqual([...ATLAS_PUBLICATION_STATES]);
+  });
+
+  // Codex's re-review of 17 Nov 2026, finding 1 (P0): a finding that may name a living person is held for the owner,
+  // a sixth reason. 0021 replaces its own list on every start, so the reason is added there, and the list may hold all
+  // six; a later migration's wider list would be narrowed again by 0021 at the next start.
+  it("holds a finding that may name a living person, with every other reason too, and no more than the six", async () => {
+    const migration = await readFile(new URL("../packages/evidence-repository/migrations/0021_atlas_publications.sql",
+      import.meta.url), "utf8");
+    expect(ATLAS_PUBLICATION_HOLD_REASONS).toContain("living_person_review");
+    expect(migration).toContain("AND jsonb_array_length(held_because) BETWEEN 1 AND 6\n");
+    const store = new InMemoryAtlasPublicationStore();
+    const rows = await store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: AT, revive: false, findings: [
+      draft(1, { state: "held", heldBecause: ["living_person_review"] }),
+      draft(2, { state: "held", heldBecause: [...ATLAS_PUBLICATION_HOLD_REASONS] }),
+    ] });
+    expect(rows.map(({ state, heldBecause }) => [state, heldBecause])).toEqual([
+      ["held", ["living_person_review"]], ["held", [...ATLAS_PUBLICATION_HOLD_REASONS]]]);
+    await expect(store.publish({ cardNumber: 251, cardSha256: DIGEST_B, publishedAt: AT, revive: false, findings: [
+      draft(1, { state: "held", heldBecause: ["living_person_review", "living_person_review"] })] })).rejects
+      .toBeInstanceOf(AtlasPublicationError);
+  });
+});
+
+// Codex's re-review of 17 Nov 2026, finding 1: migrations are checksummed, so an edit to an applied one stops the next
+// start. The one edit admitted is 0021's, from the digest every database recorded for it to the file's digest now, and
+// only that edit: the file less the new reason is exactly the 0021 that recorded the old digest.
+describe("the migrations' recorded digests", () => {
+  const sha = (text: string) => createHash("sha256").update(text).digest("hex");
+  const OLD_0021 = "f52a42ebd1a31f2adcef2ee267ab1a611e24d26afe44a3d9b04e2e7198d08443";
+
+  it("admits only 0021's verified edit, from the digest it recorded to the file's digest now", async () => {
+    const migration = await readFile(new URL("../packages/evidence-repository/migrations/0021_atlas_publications.sql",
+      import.meta.url), "utf8");
+    const before = migration
+      .replace("BETWEEN 1 AND 6\n", "BETWEEN 1 AND 5\n")
+      .replace(', "youtube_link", "living_person_review"]', ', "youtube_link"]');
+    expect(before).not.toBe(migration);
+    expect(sha(before)).toBe(OLD_0021);
+    const now = sha(migration);
+    expect(ADMITTED_MIGRATION_EDITS).toEqual({ "0021_atlas_publications": [{ from: OLD_0021, to: now }] });
+    expect(migrationDigestOutcome("0021_atlas_publications", OLD_0021, now)).toBe("admitted_edit");
+    expect(migrationDigestOutcome("0021_atlas_publications", now, now)).toBe("same");
+    expect(migrationDigestOutcome("0021_atlas_publications", undefined, now)).toBe("first_run");
+    // Never back, never from another digest, never for another migration.
+    expect(migrationDigestOutcome("0021_atlas_publications", now, OLD_0021)).toBe("mismatch");
+    expect(migrationDigestOutcome("0021_atlas_publications", "c".repeat(64), now)).toBe("mismatch");
+    expect(migrationDigestOutcome("0024_atlas_kept_for_research", OLD_0021, now)).toBe("mismatch");
   });
 });

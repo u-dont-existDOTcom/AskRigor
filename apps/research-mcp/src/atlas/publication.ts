@@ -600,7 +600,10 @@ export const LIVING_PERSON_WAITING = "waiting for the owner's decision: it may n
  * earlier-notice card publishes nothing here (planCardPublication, cardPublicationProblems). Codex's review of 17 Nov
  * 2026, finding 1 (P0): a finding shows at once only when its card declares that it names no living person and the
  * final check's receipt signed that (SavedFindingsCard.clearOfLivingPeople); any other is published kept, off every
- * list, for the owner's decision (LIVING_PERSON_WAITING), kept in the publishing's own write.
+ * list, for the owner's decision (LIVING_PERSON_WAITING), kept in the publishing's own write. Codex's re-review of 17
+ * Nov 2026, finding 1: a kept finding's own page stays public, so one whose card declares that it names a living
+ * person, or that the meaning judge read as naming one, is held (living_person_review), with no page, whatever the
+ * setting (namesLivingPerson, withLivingPersonHold).
  */
 export class AtlasCardPublisher implements FindingsCardPublisher {
   private readonly now: () => Date;
@@ -649,15 +652,19 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
         const showing = this.options.showOnPages === true;
         const forOwner = (findingNumber: number) => !saved.clearOfLivingPeople.has(findingNumber) ||
           saved.record.card.findings[findingNumber - 1]?.names_living_person !== false;
+        // Codex's re-review of 17 Nov 2026, finding 1 (P0): keeping a finding leaves its own page public, so one that
+        // names a living person is held, with no page, until the owner decides, whatever the setting.
+        const drafts = plan.drafts.map((draft) => withLivingPersonHold(draft,
+          namesLivingPerson(saved, draft.findingNumber)));
         const rows = await this.options.store.publish({
           cardNumber: saved.issueNumber,
           cardSha256: saved.record.card_sha256,
           findings: showing
-            ? plan.drafts.map((draft) => draft.state !== "unreviewed" ? draft : {
+            ? drafts.map((draft) => draft.state !== "unreviewed" ? draft : {
                 ...draft, shownBy: "automatic_showing" as const,
                 ...(forOwner(draft.findingNumber) ? { keptReason: LIVING_PERSON_WAITING } : {}),
               })
-            : plan.drafts,
+            : drafts,
           publishedAt: this.now().toISOString(),
           revive: false,
         });
@@ -674,6 +681,29 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
     }
     if (failure !== undefined) throw failure;
   }
+}
+
+/**
+ * Whether a saved finding names a living person, as far as the save knows (Codex's re-review of 17 Nov 2026, finding
+ * 1): its stored card declares it does, or the meaning judge read it as naming one, as the receipt signed (`nly`).
+ */
+export function namesLivingPerson(
+  saved: Pick<SavedFindingsCard, "record" | "judgedNamingLivingPeople">,
+  findingNumber: number,
+): boolean {
+  return saved.record.card.findings[findingNumber - 1]?.names_living_person === true ||
+    saved.judgedNamingLivingPeople?.has(findingNumber) === true;
+}
+
+/**
+ * A draft held for the owner's decision because it may name a living person (living_person_review), with any reason it
+ * is held for already, or the draft as it is. Only the save path, never an action of the owner's, holds for it: the
+ * owner's rule is that such claims publish only on his explicit decision.
+ */
+export function withLivingPersonHold(draft: AtlasPublicationDraft, holds: boolean): AtlasPublicationDraft {
+  if (!holds || draft.state === "accepted" || draft.state === "edited") return draft;
+  const reasons = new Set<AtlasPublicationHoldReason>([...(draft.heldBecause ?? []), "living_person_review"]);
+  return { ...draft, state: "held", heldBecause: ATLAS_PUBLICATION_HOLD_REASONS.filter((reason) => reasons.has(reason)) };
 }
 
 /**

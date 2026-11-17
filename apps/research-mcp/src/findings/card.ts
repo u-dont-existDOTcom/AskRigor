@@ -247,10 +247,11 @@ export function signedLivingPersonClear(
 }
 
 /**
- * The indexes into a checked card of the findings its receipt signed as naming no living person (`nlp`); empty for a
- * receipt that signed none, as one from before the declaration, or one made with saved findings not shown at once.
+ * The indexes into a checked card of the findings a receipt's living-person claim signs, by their places: `nlp`, those
+ * declared to name no living person; `nly`, those the meaning judge read as naming one (Codex's re-review of 17 Nov
+ * 2026, finding 1). Empty for a receipt that signed none, as one from before the claim, or one made without the check.
  */
-export function livingPersonClearFromReceipt(signed: unknown, findings: number): Set<number> {
+export function livingPersonPlacesFromReceipt(signed: unknown, findings: number): Set<number> {
   const entries = typeof signed === "string" ? [signed] : Array.isArray(signed) ? signed : [];
   return new Set(entries.flatMap((entry) => {
     if (typeof entry !== "string" || !/^[1-5]$/u.test(entry)) return [];

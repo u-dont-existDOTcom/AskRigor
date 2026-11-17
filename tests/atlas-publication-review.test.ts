@@ -399,6 +399,24 @@ describe("the publications through the owner's review", () => {
       .toMatchObject({ outcome: "not_published", problems: ["set_aside"] });
   });
 
+  // Codex's re-review of 17 Nov 2026, finding 1 (P0): what the save holds because it may name a living person is
+  // listed to the owner with that reason, and the owner's own publish_cards holds nothing for it.
+  it("lists a finding held because it may name a living person, and the owner's own publishing holds nothing", async () => {
+    const h = harness();
+    const declared = { ...VELMOR_CARD, findings: VELMOR_CARD.findings.map((finding, index) =>
+      ({ ...finding, names_living_person: index === 0 })) };
+    await h.save(declared, FREE, {});
+    const listed = await h.call({ action: "list_publications", publicationState: "held" });
+    expect(listed.structured.publications.items).toEqual([expect.objectContaining({ publication: "P-1001",
+      card: "ARF-0042", finding: 1, state: "held", heldBecause: ["living_person_review"] })]);
+    expect(listed.text).toContain("P-1001 (ARF-0042 finding 1), held for the owner: it holds a claim that may name a " +
+      "living person: ");
+    // A card saved before publishing began, which the owner chooses to publish: shown, not held.
+    await h.save({ ...DOI_CARD, findings: [{ ...DOI_CARD.findings[0]!, names_living_person: true }] }, null, {});
+    const published = await h.call({ action: "publish_cards", cards: ["ARF-0043"] });
+    expect(published.text).toContain("ARF-0043: finding 1 published as P-1003 (published, not checked by supervisors yet).");
+  });
+
   it("files topicless publications under the owner's topic in place, keeping their P numbers", async () => {
     const h = harness();
     const { topic: _topic, ...card } = VELMOR_CARD;

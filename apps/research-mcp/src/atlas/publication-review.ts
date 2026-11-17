@@ -161,6 +161,8 @@ const HELD_WORDS: Record<typeof ATLAS_PUBLICATION_HOLD_REASONS[number], string> 
   messaging_handle: "a messaging handle",
   card_reference: "a findings card's number",
   youtube_link: "a YouTube link",
+  // Codex's re-review of 17 Nov 2026, finding 1: its card declares, or the meaning judge read, that it names one.
+  living_person_review: "a claim that may name a living person",
 };
 const WITHDRAWN_WORDS: Record<typeof ATLAS_PUBLICATION_WITHDRAWN_REASONS[number], string> = {
   card_forgotten: "its card was deleted",

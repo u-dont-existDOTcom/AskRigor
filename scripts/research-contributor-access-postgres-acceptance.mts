@@ -709,6 +709,7 @@ async function verify(
     await verifyRelatedAndPreflight({ adminUrl, readerUrl, reviewRestricted, service, reviewService, writer, checks });
     await verifyTopicLinks({ adminUrl, readerUrl, admin, service, reviewService, writer, checks });
     await verifyAtlasMigrations({ adminUrl, schema: SCHEMA, checks });
+    await verifyLivingPersonHoldMigration({ adminUrl, schema: SCHEMA, checks });
     await verifyAtlasStorage({ adminUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
     await verifyAtlasScenario({ adminUrl, schema: SCHEMA, checks });
     await verifyAtlasCardFields({ adminUrl, schema: SCHEMA, checks });
@@ -2686,6 +2687,118 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
     }
     checks.push("an_0016_database_with_data_upgrades_to_every_migration_keeps_its_rows_and_takes_a_finding");
   } finally {
+    await admin.end();
+  }
+}
+
+/**
+ * Codex's re-review of 17 Nov 2026, finding 1: 0021's closed list of hold reasons takes living_person_review, longest
+ * six. A database whose 0021 recorded the released digest, holding a held row, refuses the reason; this image's
+ * migrate admits that one edit and records the new digest, after which the reason, and all six, are taken and seven
+ * are not; a second migrate changes nothing. An earlier image's migrate, with the released 0021, then stops and changes
+ * nothing, as does this image's when the recorded digest is neither: so a rollback image must carry this 0021.
+ */
+export async function verifyLivingPersonHoldMigration(context: { adminUrl: string; schema: string; checks: string[] }):
+  Promise<void> {
+  const { adminUrl, checks } = context;
+  const schema = `${context.schema}_hold_edit`;
+  const admin = new Pool({ connectionString: adminUrl, max: 2 });
+  const sha = (text: string) => createHash("sha256").update(text).digest("hex");
+  const file = (id: string) => readFile(new URL(`../packages/evidence-repository/migrations/${id}.sql`, import.meta.url), "utf8");
+  const current = await file("0021_atlas_publications");
+  const released = current.replace("BETWEEN 1 AND 6\n", "BETWEEN 1 AND 5\n")
+    .replace(', "youtube_link", "living_person_review"]', ', "youtube_link"]');
+  const RELEASED = "f52a42ebd1a31f2adcef2ee267ab1a611e24d26afe44a3d9b04e2e7198d08443";
+  assert(sha(released) === RELEASED && sha(current) !== RELEASED, "RELEASED_0021_NOT_RECONSTRUCTED");
+  const recorded = async () => (await admin.query<{ migration_sha256: string }>(
+    `SELECT migration_sha256 FROM ${schema}.schema_migrations WHERE migration_id = '0021_atlas_publications'`))
+    .rows[0]?.migration_sha256;
+  const held = (reasons: readonly string[], card: number) => admin.query(
+    `INSERT INTO ${schema}.atlas_publications (publication_number, card_number, card_sha256, finding_number,
+       published_json, state, atlas_number, held_because, published_at, state_changed_at)
+     VALUES ('P-' || nextval('${schema}.atlas_publication_number_seq')::text, $1, $2, 1, '{}'::jsonb, 'held', NULL,
+       $3::jsonb, now(), now())`,
+    [card, atlasHex(`synthetic-hold-edit-card:${card}`), JSON.stringify(reasons)]);
+  const refused = async (work: () => Promise<unknown>): Promise<string> => {
+    try {
+      await work();
+      return "";
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
+    }
+  };
+  const migrateNow = async () => {
+    const repository = new PostgresEvidenceRepository({ connectionString: adminUrl, schema });
+    try {
+      await repository.migrate();
+    } finally {
+      await repository.close();
+    }
+  };
+  try {
+    // A database as the released image left it: every migration in force, with 0021 as released.
+    const client = await admin.connect();
+    try {
+      await client.query("BEGIN");
+      for (const id of await migrationsInForce()) {
+        const sql = id === "0021_atlas_publications" ? released : await file(id);
+        await client.query(sql.replaceAll("__SCHEMA__", schema));
+        await client.query(`INSERT INTO ${schema}.schema_migrations (migration_id, migration_sha256) VALUES ($1, $2)`,
+          [id, sha(sql)]);
+      }
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+    await held(["email_address"], 9101);
+    assert((await refused(() => held(["living_person_review"], 9102))).includes("atlas_publications_v1_held_check"),
+      "RELEASED_0021_TOOK_THE_NEW_REASON");
+    assert(await recorded() === RELEASED, "RELEASED_0021_DIGEST_NOT_RECORDED");
+
+    await migrateNow();
+    assert(await recorded() === sha(current), "ADMITTED_0021_EDIT_NOT_RECORDED");
+    await held(["living_person_review"], 9103);
+    await held(["email_address", "phone_number", "messaging_handle", "card_reference", "youtube_link",
+      "living_person_review"], 9104);
+    assert((await refused(() => held(["email_address", "phone_number", "messaging_handle", "card_reference",
+      "youtube_link", "living_person_review", "living_person_review"], 9105))).includes("atlas_publications_v1_held_check"),
+      "SEVEN_HOLD_REASONS_TAKEN");
+    const before = await atlasMigrationSnapshot(admin, schema);
+    await migrateNow();
+    assert(await atlasMigrationSnapshot(admin, schema) === before, "SECOND_MIGRATE_AFTER_0021_EDIT_CHANGED_SOMETHING");
+    checks.push("migration_0021_admits_only_its_verified_edit_takes_living_person_review_and_replays_unchanged");
+
+    // An earlier image's migrate: the released 0021, then its digest check, in one transaction.
+    const earlier = await admin.connect();
+    let stopped = "";
+    try {
+      await earlier.query("BEGIN");
+      await earlier.query(released.replaceAll("__SCHEMA__", schema));
+      const stored = (await earlier.query<{ migration_sha256: string }>(
+        `SELECT migration_sha256 FROM ${schema}.schema_migrations WHERE migration_id = '0021_atlas_publications'`))
+        .rows[0]?.migration_sha256;
+      if (stored !== sha(released)) throw new Error("MIGRATION_SHA256_MISMATCH migration=0021_atlas_publications");
+      await earlier.query("COMMIT");
+    } catch (error) {
+      stopped = error instanceof Error ? error.message : String(error);
+      await earlier.query("ROLLBACK");
+    } finally {
+      earlier.release();
+    }
+    assert(stopped !== "", "EARLIER_IMAGE_MIGRATE_WENT_THROUGH_AFTER_0021_EDIT");
+    assert(await atlasMigrationSnapshot(admin, schema) === before, "EARLIER_IMAGE_MIGRATE_CHANGED_SOMETHING");
+    // Any other recorded digest stops this image's migrate too, changing nothing.
+    await admin.query(`UPDATE ${schema}.schema_migrations SET migration_sha256 = $1
+      WHERE migration_id = '0021_atlas_publications'`, ["c".repeat(64)]);
+    assert((await refused(migrateNow)).includes("MIGRATION_SHA256_MISMATCH migration=0021_atlas_publications"),
+      "UNKNOWN_0021_DIGEST_ADMITTED");
+    assert(await recorded() === "c".repeat(64), "REFUSED_MIGRATE_CHANGED_THE_RECORD");
+    checks.push("earlier_image_or_unknown_0021_digest_stops_migrate_and_changes_nothing");
+  } finally {
+    await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`).catch(() => undefined);
     await admin.end();
   }
 }

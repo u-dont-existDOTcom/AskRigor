@@ -1179,6 +1179,9 @@ What the model sends, and when:
   which nothing stores. Only those findings show on the Atlas's pages at once;
   any other is published kept, off every list, with the reason "waiting for the
   owner's decision: it may name a living person", until the owner shows it. The
+  receipt also signs the places the judge read as naming one (`nly`); a finding
+  declared `true`, or signed so, is held for the owner instead, with no page,
+  whatever the setting (Codex's re-review of 17 November 2026). The
   stored card keeps each finding's declaration as given, as the receipt's card
   digest covers it; the Atlas never publishes it. With the setting off nothing
   is signed and the judge isn't asked.

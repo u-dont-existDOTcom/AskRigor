@@ -602,7 +602,9 @@ export {
   type PreparedTopicLinkContribution,
 } from "./prepare.js";
 export {
+  ADMITTED_MIGRATION_EDITS,
   PostgresEvidenceRepository,
+  migrationDigestOutcome,
   type AnalysisReuseCandidate,
   type AnalysisReuseLookupInput,
   type ContributionReceipt,
