@@ -273,6 +273,12 @@ export interface AtlasFindingModel {
   /** The other findings the pages show from the same card, in number order. */
   siblings: ShownFinding[];
   /**
+   * The owner, 17 Nov 2026: true while saved findings show on the pages at once (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS),
+   * so a shown unreviewed finding without a challenge mark may never have had the quick-answer test, and its page says
+   * nothing of the test. Absent or false, being shown means the test showed it (owner answer 240a).
+   */
+  shownWithoutTest?: boolean;
+  /**
    * Votes and comments (decision 171, section 4E): the totals, the comments that show and the signed-in viewer's own;
    * null when votes and comments are switched off, and then nothing of them renders.
    */

@@ -420,6 +420,22 @@ export function atlasPagesEnabledFromEnv(
 }
 
 /**
+ * Whether a saved card's findings show on the Atlas's pages as soon as they are published (the owner, 17 Nov 2026:
+ * "show all the findings automatically when they pass quality checks like this one, i shouldn't be reviewing everything
+ * i already told u that before"): ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS set to "enabled". Off, the save path keeps each
+ * finding it publishes for AskRigor's research until the quick-answer test shows it (owner answer 240a), as before.
+ * Either way a finding stays unreviewed, labelled "Not checked by supervisors yet"; held findings stay held, findings
+ * drawn from YouTube comments and paid private cards are never published at the save, and the owner's
+ * keep_for_research and unpublish work as before. On, a shown finding without a challenge mark may never have had the
+ * quick-answer test, so its page no longer says a separate AI found that a quick AI answer misses it.
+ */
+export function atlasShowSavedFindingsFromEnv(
+  value = process.env.ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS
+): boolean {
+  return value?.trim() === "enabled";
+}
+
+/**
  * The dev accounts (owner answer 140b, 2026-10-20): ASKRIGOR_DEV_ACCOUNT_KEYS, a comma-separated list of account
  * references, the 12 characters manage_research_access shows a signed-in user (owner question, 2026-10-21), or of the
  * 64-character keys research_use_accounts stores. Like every active research account, a dev account registers a plain answer

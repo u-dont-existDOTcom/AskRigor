@@ -180,6 +180,11 @@ Not done: withdrawing weak findings to tidy the pages, which also removes them f
 Why: an AI can't fairly judge its own card, and 9 of the 13 findings the research lanes had published repeated a quick answer.\
 Not done: publishing cards as soon as they're saved (24 Oct, 168a, replaced); test questions that name the option, which find its paper almost every time. · Decided: 4 Nov 2026 (owner answers 240a, 241a); the bar, 5 Nov (the owner).
 
+**17 Nov 2026 owner update: a saved finding that passed AskRigor's checks shows on the pages at once, unreviewed and labelled "Not checked by supervisors yet", behind the setting `ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS=enabled`; it replaces the entry above for the save path while the setting is on.**\
+Why: the owner, 17 Nov 2026: "show all the findings automatically when they pass quality checks like this one, i shouldn't be reviewing everything i already told u that before". Until a release turns the setting on, sessions ran `show_on_pages` by hand for each passing card.\
+What stays: held findings (contact details, a card reference, a YouTube link) stay held; findings drawn from YouTube comments, paid private cards and earlier-notice cards are never published at the save; the owner's `keep_for_research`, `show_on_pages` and unpublishing work as before. With the setting on, being shown no longer means the quick-answer test showed a finding, so a shown finding's page says what the test found only from a challenge mark's stored verdict (`atlas/pages.ts`, `quickAnswerWords`); the daily test finds nothing waiting in `list_kept` and has to read the shown findings instead (`docs/atlas-quick-answer-test.md`).\
+Not done: a stored record, publication by publication, of whether the test ran (it needs a migration; the setting decides for every page at once); turning the setting on in the code's default (a release does it in `runtime.env`). · Decided: 17 Nov 2026 (the owner); built 17 Nov, not yet released.
+
 **A shown card carries the whole picture (what's known and not, the options, safety, research and people's reports), with the new parts highlighted.**\
 Why: the owner, 5 Nov: a card with only what beats the quick answer "wouldn't be enough to base a decision on".\
 Not done: showing a finding on a test pass alone; none is shown until cards can hold the whole picture. · Decided: 5 Nov 2026 (the owner).

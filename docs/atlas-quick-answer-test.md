@@ -4,6 +4,14 @@ Owner answer 240a (4 November 2026). A saved AI-found finding stays off the Atla
 stays in AskRigor's research lookup all the while. The test exists because the AI that did the research can't fairly
 judge its own card.
 
+While `ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS=enabled` (the owner, 17 November 2026: "show all the findings automatically
+when they pass quality checks like this one"), the save path keeps nothing: a saved finding that passed the final check
+and the publication checks shows on the pages at once, unreviewed and labelled "Not checked by supervisors yet", so step
+1 below finds nothing new waiting. The test then reads the shown findings instead: `list_publications`, the unreviewed
+ones not kept and not yet in the log (step 6). A pass changes nothing; a headline or a fail goes to `keep_for_research`
+as step 5 says, which takes it off the lists. A shown finding's page says what the test found only from a challenge
+mark's stored verdict while the setting is on, since being shown no longer means the test showed it.
+
 ## What runs it
 
 A scheduled task on the owner's Claude plan, using the reviewer's AskRigor connector. It makes no API call and costs no

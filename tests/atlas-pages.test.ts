@@ -54,7 +54,7 @@ import {
   CHALLENGES_PATH, KEPT_FOR_RESEARCH_LINE, QUICK_ANSWER_MISSES_IT, SHOWN_AS_A_CHALLENGE
 } from "../apps/research-mcp/src/atlas/pages.js";
 import { loadAtlasChallenges, loadAtlasFinding } from "../apps/research-mcp/src/atlas/page-data.js";
-import { atlasPagesEnabledFromEnv } from "../apps/research-mcp/src/config.js";
+import { atlasPagesEnabledFromEnv, atlasShowSavedFindingsFromEnv } from "../apps/research-mcp/src/config.js";
 import {
   findingsCardDigest,
   findingsCardSchema,
@@ -912,6 +912,10 @@ describe("the routes", () => {
     expect(atlasPagesEnabledFromEnv("enabled")).toBe(true);
     expect(atlasPagesEnabledFromEnv(" enabled ")).toBe(true);
     for (const value of [undefined, "", "true", "ENABLED", "disabled", "1"]) expect(atlasPagesEnabledFromEnv(value)).toBe(false);
+    // The owner, 17 Nov 2026: saved findings show at once only while ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS=enabled.
+    expect(atlasShowSavedFindingsFromEnv("enabled")).toBe(true);
+    expect(atlasShowSavedFindingsFromEnv(" enabled ")).toBe(true);
+    for (const value of [undefined, "", "true", "ENABLED", "on", "1"]) expect(atlasShowSavedFindingsFromEnv(value)).toBe(false);
     const { source } = await fixture();
     const off = await serve(createAtlasPagesHandler({ enabled: false, source, signal: new AtlasChangeSignal() }));
     for (const path of ["/atlas", "/atlas/atlas.css", "/atlas/changes", "/atlas/findings/P-1001"]) {
@@ -2318,6 +2322,28 @@ describe("findings that challenge the usual view", () => {
       markedBy: marker, at: store.tick() });
     signal.announce();
     expect((await text(base, `/atlas/findings/${shown.hip}`)).body).toContain(SHOWN_AS_A_CHALLENGE);
+  });
+
+  it("says nothing of the quick-answer test while saved findings show at once, unless a mark stored its verdict", async () => {
+    // The owner, 17 Nov 2026: with ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS on, a shown finding may never have had the test.
+    const { store, source, shown } = await fixture();
+    const signal = new AtlasChangeSignal();
+    const base = await serve(pages(source, { signal, savedFindingsShown: true }));
+    const unmarked = (await text(base, `/atlas/findings/${shown.hip}`)).body;
+    expect(unmarked).toContain("Not checked by supervisors yet");
+    expect(unmarked).toContain("AskRigor’s owner has not reviewed it yet.");
+    expect(unmarked).not.toContain(QUICK_ANSWER_MISSES_IT);
+    expect(unmarked).not.toContain(SHOWN_AS_A_CHALLENGE);
+    // A mark's stored verdict still says what the test found, in the status and the box alike.
+    await store.publications.markChallenges({ publicationNumbers: [shown.hip], mark: { ...MARK, verdict: "pass" },
+      markedBy: marker, at: store.tick() });
+    await store.publications.markChallenges({ publicationNumbers: [shown.effect], mark: MARK, markedBy: marker,
+      at: store.tick() });
+    signal.announce();
+    expect((await text(base, `/atlas/findings/${shown.hip}`)).body).toContain(QUICK_ANSWER_MISSES_IT);
+    const failed = (await text(base, `/atlas/findings/${shown.effect}`)).body;
+    expect(failed).toContain(SHOWN_AS_A_CHALLENGE);
+    expect(failed).not.toContain(QUICK_ANSWER_MISSES_IT);
   });
 
   it("keeps a finding kept for research off the section page, and clears a mark off the pages", async () => {
