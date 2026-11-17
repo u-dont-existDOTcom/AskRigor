@@ -33,6 +33,8 @@ import { NEXT_STEP_KINDS, type NextStepKind } from "./next-step-kinds.js";
 
 export const FINDINGS_LEDGER_RULES_VERSION = "2026-11-17.1";
 export const FINDINGS_LEDGER_MAX_CHARACTERS = 24_000;
+/** The most a token may hold once inflated, at issue as when it is read (Codex's re-review of 17 Nov 2026, finding 4). */
+const FINDINGS_LEDGER_MAX_INFLATED_BYTES = 256 * 1024;
 /** How long the server remembers the last ledger it issued for an account and research target. */
 export const FINDINGS_LEDGER_MEMORY_MS = 2 * 60 * 60 * 1000;
 const FINDINGS_LEDGER_MEMORY_ENTRIES = 2_000;
@@ -198,13 +200,14 @@ export function issueFindingsLedger(payload: FindingsLedgerPayload, secret: stri
 }
 
 /**
- * The token of a payload, within FINDINGS_LEDGER_MAX_CHARACTERS: open findings first, then settled ones. What doesn't
- * fit is made smaller in steps, each taken only when the one before is not enough (Codex's review of 17 Nov 2026,
- * finding 5, and its re-review, finding 3): settled findings are left out from the end; then open findings from the
- * end are kept as short records, with their id, disposition and reason but nothing to match them through an edit;
- * then short records are left out from the end. `beyond`, findings past MAX_ENTRIES, are never carried. What is left
- * out is returned, so the caller says what the token does not carry, and the token keeps the most open findings a
- * ledger of this research has left out at once (`o`).
+ * The token of a payload, within FINDINGS_LEDGER_MAX_CHARACTERS and, inflated, FINDINGS_LEDGER_MAX_INFLATED_BYTES
+ * (Codex's re-review of 17 Nov 2026, finding 4: a token the verifier would refuse is never issued): open findings
+ * first, then settled ones. What doesn't fit is made smaller in steps, each taken only when the one before is not
+ * enough (Codex's review of 17 Nov 2026, finding 5, and its re-review, finding 3): settled findings are left out from
+ * the end; then open findings from the end are kept as short records, with their id, disposition and reason but
+ * nothing to match them through an edit; then short records are left out from the end. `beyond`, findings past
+ * MAX_ENTRIES, are never carried. What is left out is returned, so the caller says what the token does not carry,
+ * and the token keeps the most open findings a ledger of this research has left out at once (`o`).
  */
 function issueWithin(payload: FindingsLedgerPayload, secret: string, beyond: readonly LedgerEntry[] = []):
   { token: string; payload: FindingsLedgerPayload; left: LedgerEntry[] } | undefined {
@@ -218,7 +221,9 @@ function issueWithin(payload: FindingsLedgerPayload, secret: string, beyond: rea
     const o = Math.min(Math.max(before ?? 0, open.length - short + openBeyond.length), 100_000);
     const kept: FindingsLedgerPayload = { ...rest, e: [...open.slice(0, full), ...open.slice(full, short).map(shortEntry),
       ...settled.slice(0, settledKept)], ...(o === 0 ? {} : { o }) };
-    const body = `fl1~${deflateRawSync(Buffer.from(JSON.stringify(kept))).toString("base64url")}`;
+    const json = Buffer.from(JSON.stringify(kept));
+    if (json.length > FINDINGS_LEDGER_MAX_INFLATED_BYTES) return undefined;
+    const body = `fl1~${deflateRawSync(json).toString("base64url")}`;
     const token = `${body}~${mac(body, secret).toString("base64url")}`;
     return token.length <= FINDINGS_LEDGER_MAX_CHARACTERS ? { token, payload: kept, left } : undefined;
   };
@@ -251,8 +256,8 @@ export function verifyFindingsLedger(token: unknown, secret: string): FindingsLe
   if (signature.length !== 16 || signature.toString("base64url") !== parts[2] ||
       !timingSafeEqual(mac(body, secret), signature)) return { ok: false, reason: "bad_signature" };
   try {
-    const raw: unknown = JSON.parse(inflateRawSync(Buffer.from(parts[1]!, "base64url"), { maxOutputLength: 256 * 1024 })
-      .toString("utf8"));
+    const raw: unknown = JSON.parse(inflateRawSync(Buffer.from(parts[1]!, "base64url"),
+      { maxOutputLength: FINDINGS_LEDGER_MAX_INFLATED_BYTES }).toString("utf8"));
     const parsed = payloadSchema.safeParse(raw);
     return parsed.success ? { ok: true, payload: parsed.data } : { ok: false, reason: "malformed" };
   } catch {

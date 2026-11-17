@@ -650,6 +650,15 @@ describe("the re-review of 17 Nov 2026", () => {
     const after = findingsLedger(params({ observed: [], raw: { later_inputs: { findings_ledger: next.token } } }));
     for (const result of [next, after]) expect(result.notes.join(" ")).toContain(`could not carry ${left} open findings`);
   });
+
+  it("4: never issues a token that its own check refuses", () => {
+    // Many disputes with one long reason: a short token that inflates past what a token may hold.
+    const reason = "The note restates the guideline the answer quotes, word for word. ".repeat(5).slice(0, 300).trim();
+    const result = findingsLedger(params({ observed: distinct(800).map((finding) => ({ ...finding, disputed: reason })) }));
+    expect(result.token).toBeDefined();
+    expect(verifyFindingsLedger(result.token, SECRET).ok).toBe(true);
+    expect(result.notes.join(" ")).toContain("are listed in check_findings but not carried");
+  });
 });
 
 // The panel's harness, as in final-check-panel.test.ts.
