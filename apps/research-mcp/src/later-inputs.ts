@@ -187,6 +187,16 @@ const LATER_INPUT_SHAPES = Object.freeze({
       .describe("When this research would save a later reader substantial work compared with one ordinary AI answer: " +
         "its dossier, in general terms, as this check's result describes it. AskRigor checks it against this call's " +
         "receipts and saves it whole, privately for its owner's review, or says why not."),
+    // Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026): the findings ledger and the writer's replies to its findings.
+    // Read from the raw call (findings-ledger.ts), so any value parses here and every problem is a note; used only while
+    // ASKRIGOR_FINDINGS_LEDGER is on.
+    findings_ledger: z.unknown().optional()
+      .describe("When a finalize_research result gave findings_ledger: that value, unchanged, in this research's next " +
+        "call."),
+    finding_responses: z.unknown().optional()
+      .describe("When a finalize_research result lists findings with ids: for each you won't fix, {id, response: " +
+        "\"disputed\", reason} with a reason the reader will see; \"fixed\" or \"withdrawn\" (with passage, the words " +
+        "withdrawn) count only when the next draft no longer gives the check that finding."),
   },
   // Owner answer 219b: the card exactly as finalize_research checked it, its findings' declarations included.
   save_research_findings: {

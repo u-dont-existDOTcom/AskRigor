@@ -16,6 +16,10 @@ import type { AtlasPageSource } from "@askrigor/evidence-repository";
 import { currentProtocolElementNames } from "./protocol-rule-names.js";
 import { createHash } from "node:crypto";
 import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
+import {
+  findingsLedgerEnabledFromEnv, findingsLedgerGuidance, findingsLedgerMemory, findingsLedgerMemoryKey, laterInputValue,
+  type FindingsLedgerMemory
+} from "./findings-ledger.js";
 import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./meaning-judge.js";
 import { researchPlannerFromEnv, type ResearchPlanner } from "./research-planner.js";
 import type { ResearchLane } from "./research-steering.js";
@@ -981,6 +985,13 @@ export interface RegisterToolsOptions {
   dossierPrivacyReading?: boolean;
   /** Whether the findings library is open; defaults to ASKRIGOR_FINDINGS_LIBRARY. */
   findingsLibrary?: boolean;
+  /**
+   * Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026): whether the final check keeps a findings ledger and plan_research
+   * says what can stop or hold an answer; defaults to ASKRIGOR_FINDINGS_LEDGER=on. Its memory of the last ledger issued
+   * for each account and research target is this process's, unless replaced for tests.
+   */
+  findingsLedger?: boolean;
+  findingsLedgerMemory?: FindingsLedgerMemory;
   /** Shared questions and answers (owner answer 200a); null turns them off; defaults to the server's settings. */
   sharedAnswers?: SharedAnswers | null;
   /** How long finalize_research waits for a findings save; replaced for tests. */
@@ -2116,6 +2127,8 @@ function defineResearchOperations(
       askrigorHolds: ASKRIGOR_HOLDS,
       // AskRigor#477 stage 1: plan_research asks for the research dossier where one can be saved.
       ...(options.researchDossiers === undefined ? {} : { researchDossiers: true }),
+      // Enforcing HRP, stage 1: plan_research says what can stop or hold an answer while the findings ledger is on.
+      findingsLedger: () => options.findingsLedger ?? findingsLedgerEnabledFromEnv(),
       ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
       ...(sharing === undefined ? {} : { sharedAnswers: { ...sharing, versions: async () =>
@@ -2622,6 +2635,12 @@ function defineResearchOperations(
       const library = options.findingsLibrary ?? findingsLibraryEnabledFromEnv();
       const researcher = await researchUseAccount(extra, options.researchContributorAccessService);
       const account = library ? researcher : undefined;
+      // Enforcing HRP, stage 1: the ledger this process last issued for this account and research target, read once for
+      // the call, before the check runs as many passes as it needs; the ledger the result returns is remembered after.
+      const ledgerMemory = options.findingsLedgerMemory ?? findingsLedgerMemory;
+      const ledgerKey = (options.findingsLedger ?? findingsLedgerEnabledFromEnv()) && secret !== undefined &&
+        checkedInput !== undefined ? findingsLedgerMemoryKey(secret, researcher?.accountKey, checkedInput.research_target)
+        : undefined;
       // Owner answer 301a: for the owner's dev accounts, AskRigor's own review of the draft, once per call whatever the
       // check's status. It starts as soon as its inputs are known, so it runs while the check's other lookups wait, and
       // is awaited before the result is returned. Advice only: it adds one note and changes nothing else of the result.
@@ -2659,6 +2678,8 @@ function defineResearchOperations(
         ...(callerReads ? { aiReadings: "caller" as const } : {}),
         ...(readsOnMobile(extra._meta) ? { mobileClient: true } : {}),
         ...(options.toolListVersion === undefined ? {} : { toolListVersion: options.toolListVersion }),
+        ...(ledgerKey === undefined ? {} : { findingsLedger: { account: researcher?.accountKey,
+          remembered: ledgerMemory.get(ledgerKey) } }),
         ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) }),
         // Owner answer 190a: every active research account's plain answer, registered before research, is compared
         // with the answer, on the MCP connector only.
@@ -3067,6 +3088,8 @@ function defineResearchOperations(
                 "carry_forward, pass that value as carried_state in this turn's next finalize_research call, so what " +
                 `it carried still holds; otherwise pass this one, in this turn or a later one: ${result.carry_forward}`
               : `\nPass this as carried_state in this conversation's next finalize_research call, in this turn or a later one: ${result.carry_forward}`) +
+          // Enforcing HRP, stage 1: the findings' ids and dispositions, and the ledger to pass back.
+          findingsLedgerGuidance(result.check_findings, result.findings_ledger) +
           // Owner answer 172a: the round within this turn, carried by the model like the conversation's state. 13 Nov
           // 2026: after a pass that followed a pass in this turn no other call is due, so the token is given only for a
           // call made despite that; it is what tells such a call that the turn had already passed.
@@ -3078,6 +3101,11 @@ function defineResearchOperations(
                 : ". Pass this as round_token in this turn's next finalize_research call: ") + result.round_token),
         result as unknown as Record<string, unknown>
       );
+      // Enforcing HRP, stage 1: the ledger this call returns is the one this process remembers, once per tool call, so
+      // the next call that leaves it out or passes an older one is noticed.
+      if (ledgerKey !== undefined && result.findings_ledger !== undefined) {
+        ledgerMemory.remember(ledgerKey, result.findings_ledger, secret!, laterInputValue(input, "findings_ledger"));
+      }
       return toolResult;
     }
   );

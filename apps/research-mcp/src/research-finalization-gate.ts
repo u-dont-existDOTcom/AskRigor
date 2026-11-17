@@ -74,7 +74,10 @@ import {
   checkStudyMap, readStudyMap, studyMapCheckSchema,
   type CheckedStudyMap, type StudyMapCheck, type StudyMapLookup, type StudyMapRequest, type StudyMapRequests
 } from "./study-map.js";
-import type { SecondReaderFinding } from "./second-reader.js";
+import type { SecondReaderFinding, SecondReaderKind } from "./second-reader.js";
+import {
+  checkFindingsSchema, findingsLedger, type ObservedFinding, type RememberedLedger
+} from "./findings-ledger.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
 import {
   findingsAndMapSaveOffer,
@@ -1817,6 +1820,15 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
   // AskRigor#477 stage 1 (owner answer 329a, 16 November 2026), runtime only (owner answer 189a): this research's
   // dossier, saved privately for the owner's review. Never a blocking step: the six blocking checks stay six.
   research_dossier: researchDossierDispositionSchema.optional(),
+  // Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026), runtime only (owner answer 189a), with ASKRIGOR_FINDINGS_LEDGER
+  // on: every problem this check found, with its id and disposition, and the signed ledger for the next call.
+  check_findings: checkFindingsSchema.optional()
+    .describe("Every problem this check found, a stop or a note, with an id kept through the draft's edits and its " +
+      "disposition: open, unresolved (still found after the draft changed), fixed or withdrawn (no longer found), " +
+      "disputed (with the reason the reader sees) or not_rechecked. Records only: it stops and holds nothing."),
+  findings_ledger: z.string().optional()
+    .describe("The signed ledger of this research's findings, to pass back as later_inputs.findings_ledger in its " +
+      "next finalize_research call."),
 });
 
 export const finalizeResearchPublishedOutputSchema = finalizeResearchRetainedOutputSchema.omit({ research_plan: true, notes: true })
@@ -1890,6 +1902,14 @@ export interface FinalizeResearchOptions {
   mobileClient?: boolean;
   /** This surface's tool list version (toolListVersionOf), which a call's tool_list_version is compared with. */
   toolListVersion?: string;
+  /**
+   * Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026; ASKRIGOR_FINDINGS_LEDGER=on): every problem this check reports
+   * becomes a record with an id and a disposition in check_findings, and a signed findings_ledger carries them to the
+   * next call. `account` is the research account's key the ledger is bound to (none for a caller without one);
+   * `remembered` is the ledger the server last issued for this account and research target, read once per tool call.
+   * It changes nothing the check finds, stops or holds.
+   */
+  findingsLedger?: { account?: string | undefined; remembered?: RememberedLedger | undefined };
 }
 
 // The owner's words (2026-10-15), many users' reports and the owner's own
@@ -2017,7 +2037,14 @@ export function finalizeResearch(
     return note;
   };
   let researchAdvised = false;
+  // Stage 1 of enforcing HRP: every problem this check finds, as admitted below, for the findings ledger.
+  const observedSteps: ObservedFinding[] = [];
   const addCheckStep = (step: CheckStep, blockingRule?: FinalCheckBlockingRule): void => {
+    if (options.findingsLedger !== undefined) {
+      const stop = blockingRule !== undefined && FINAL_CHECK_BLOCKING_RULES.includes(blockingRule) ? blockingRule : undefined;
+      observedSteps.push({ kind: step.kind, text: step.text, ...(step.rule === undefined ? {} : { rule: step.rule }),
+        ...(stop === undefined ? {} : { stop }), ...(ALWAYS_REPEATED_NOTE_KINDS.has(step.kind) ? { call: true } : {}) });
+    }
     if (step.deferUntilNextTurn === true) {
       caveatOnce(step.rule ?? step.text, step.deferredCaveat!);
     }
@@ -4569,7 +4596,11 @@ export function finalizeResearch(
     else if (declared !== current) addStep("tool_list", toolListNoticeRule(declared, current)!);
   }
 
-  const secondReading = checkSecondReading(input, options.secondReading, stepSink(addStep, "second_reading"));
+  // Stage 1 of enforcing HRP: a second-reading finding the writer dismissed is still a finding, disputed with its reason
+  // ("the writer replied" is not "it was fixed").
+  const secondReading = checkSecondReading(input, options.secondReading, stepSink(addStep, "second_reading"),
+    options.findingsLedger === undefined ? undefined : (step, reason) => observedSteps.push({ kind: "second_reading",
+      text: ruleText(step), rule: step, disputed: reason }));
 
   // Owner answer 172a: at most ten rounds in a turn, and a step that comes back unchanged three rounds running is no
   // longer asked for. The steps left stay in next_steps; a stopped check has none, and says why in `stopped`.
@@ -4751,6 +4782,25 @@ export function finalizeResearch(
     if (at >= 0) caveats.splice(at, 1);
     mapOffered = false;
   }
+  // Stage 1 of enforcing HRP (design-v2 of 17 Nov 2026): every problem found, admitted as a step or given as a note,
+  // matched with the ledger the call passed back, with its id and disposition. It records; it changes nothing above.
+  const ledger = options.findingsLedger === undefined ? undefined : (() => {
+    const admitted = new Set(observedSteps.map(({ text }) => text));
+    const observed: ObservedFinding[] = [...observedSteps, ...notes.filter((note) => !admitted.has(note))
+      .map((note) => ({ text: note, ...(repeatedNotes.has(note) ? { call: true } : {}) }))];
+    return findingsLedger({
+      secret: options.secret!,
+      account: options.findingsLedger!.account,
+      target: input.research_target,
+      versions: options.runningVersions,
+      raw: rawInput,
+      observed,
+      draft,
+      remembered: options.findingsLedger!.remembered,
+      now: options.now?.() ?? new Date()
+    });
+  })();
+  for (const note of ledger?.notes ?? []) if (!notes.includes(note)) notes.push(note);
   // 5 Nov 2026: a note an earlier check of this turn gave is not given again (runs removed a study to quiet a note
   // their drafts already met in their own words); a note whose words changed is new. A token without turn_notes, or
   // from an earlier turn, repeats nothing.
@@ -4804,6 +4854,10 @@ export function finalizeResearch(
       notes: judgeNotes.length
     } })
   };
+  if (ledger !== undefined) {
+    output.check_findings = ledger.checkFindings;
+    if (ledger.token !== undefined) output.findings_ledger = ledger.token;
+  }
   output.round = { number: checkRound.round, limit: CHECK_ROUND_LIMIT };
   if (status === "ready") output.check_line = CHECK_LINE + (callerReads ? CALLER_READINGS_CHECK_LINE : "");
   else if (status === "ready_with_limits") {
@@ -5479,7 +5533,8 @@ function quoteShownBeyond(shownBlocks: readonly string[], quote: string, others:
 
 /** Meaning belongs to the reader; this gate compares only shown and declared text. */
 function checkSecondReading(input: FinalizeResearchInput | undefined, reading: FinalizeResearchOptions["secondReading"],
-  nextSteps: Pick<RuleInput[], "push">): FinalizeResearchOutput["second_reading"] {
+  nextSteps: Pick<RuleInput[], "push">, onDismissed?: (step: CheckRule, reason: string) => void
+): FinalizeResearchOutput["second_reading"] {
   if (reading === undefined) return undefined;
   if (reading.status === "skipped") return { status: "skipped", reason: reading.reason, findings: 0, open: 0, dismissed: 0 };
   const labels = {
@@ -5489,13 +5544,18 @@ function checkSecondReading(input: FinalizeResearchInput | undefined, reading: F
   };
   const showing = quoteLocator(displayedProse(input?.answer_draft ?? ""));
   const findings = reading.findings.filter(({ kind, quote }) => Object.hasOwn(labels, kind) && showing(quote).length > 0);
-  const dismissedQuotes = (input?.reader_dismissed ?? []).map(({ quote }) => quoteForms(quote));
+  const dismissals = (input?.reader_dismissed ?? []).map(({ quote, reason }) => ({ forms: quoteForms(quote), reason }));
+  // One wording for the note and for a dismissed finding, so the findings ledger knows them as the same finding.
+  const step = (kind: SecondReaderKind, quote: string): CheckRule =>
+    rule`A second reading found a sentence that looks like ${labels[kind]} not in the declarations: ${JSON.stringify(quote)}. Declare it in ${kind}, or list it in reader_dismissed with a one-line reason.`;
   let open = 0;
   let dismissed = 0;
   for (const { kind, quote } of findings) {
     const normalized = quoteForms(quote);
-    if (dismissedQuotes.some((other) => normalized.some((text, i) => text === other[i]))) {
+    const dismissal = dismissals.find((other) => normalized.some((text, i) => text === other.forms[i]));
+    if (dismissal !== undefined) {
       dismissed += 1;
+      onDismissed?.(step(kind, quote), dismissal.reason);
       continue;
     }
     const covered = kind === "key_terms"
@@ -5505,7 +5565,7 @@ function checkSecondReading(input: FinalizeResearchInput | undefined, reading: F
         text.length > 0 && (text.includes(normalized[i]!) || normalized[i]!.includes(text))));
     if (covered) continue;
     open += 1;
-    nextSteps.push(rule`A second reading found a sentence that looks like ${labels[kind]} not in the declarations: ${JSON.stringify(quote)}. Declare it in ${kind}, or list it in reader_dismissed with a one-line reason.`);
+    nextSteps.push(step(kind, quote));
   }
   return { status: "ran", findings: findings.length, open, dismissed };
 }
