@@ -49,6 +49,7 @@ import {
   type UnsavedCardResult,
 } from "../apps/research-mcp/src/findings/service.js";
 import { unsavedCardNote } from "../apps/research-mcp/src/findings/unsaved-card.js";
+import { FINDINGS_CARD_REMINDER, FINDINGS_CARD_REQUEST_START } from "../apps/research-mcp/src/findings/card-reminder.js";
 import type { LessonAttemptLimiter } from "../apps/research-mcp/src/lessons/rate-limit.js";
 import {
   OTHER_TOOLS_SENTENCE,
@@ -1002,6 +1003,41 @@ describe("finalize_research, save_research_findings and the findings library", (
       findings_card: { status: "absent" },
     });
     expect(calls).toEqual([]);
+  });
+
+  // AskRigor#475: the card was asked for only in a note a passing check puts off "for a later answer", so a safety
+  // finding reached the Atlas only when the owner asked. A free contributor's first pass with no card now says the
+  // card belongs to this answer, in its text and in what an app reading only the structured content sees.
+  it("asks a free contributor's first pass with no card for it in this turn, and saves the card the next call sends", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { calls, findingsSave } = recorder();
+    const service = await accessService();
+    const finalize = connectorTool("finalize_research", { researchContributorAccessService: service, findingsLibrary: true, findingsSave });
+    const { findings_card: card, ...withoutCard } = request();
+    const first = await finalize(withoutCard, "auth0|free");
+    const output = first.structuredContent as unknown as FinalizeResearchOutput & { round_token?: string };
+    expect(output).toMatchObject({ status: "ready_with_limits",
+      findings_card: { status: "absent", problems: [FINDINGS_CARD_REMINDER] } });
+    expect(output.notes?.some((note) => note.startsWith(FINDINGS_CARD_REQUEST_START))).toBe(true);
+    expect(output).not.toHaveProperty("turn_already_passed");
+    expect((first.content as Array<{ text: string }>)[0]!.text).toContain(`\nFindings card: ${FINDINGS_CARD_REMINDER}`);
+    expect(FINDINGS_CARD_REMINDER).toContain("Harms and safety signals the research found count, even outside the question");
+    expect(calls).toEqual([]);
+    // The call it asks for: the same draft, with the card, in this turn. The repeat pass still signs its receipt, so the
+    // card is checked and saved, and the reminder is not given again.
+    const second = await finalize({ ...withoutCard, findings_card: card,
+      ...(output.carry_forward === undefined ? {} : { carried_state: output.carry_forward }),
+      ...(output.round_token === undefined ? {} : { round_token: output.round_token }) }, "auth0|free");
+    expect(second.structuredContent).toMatchObject({ status: "ready_with_limits",
+      findings_card: { status: "checked", problems: [], saved: { status: "saved", card_id: "ARF-0042" } } });
+    expect(calls).toHaveLength(1);
+    // None for a paid private answer, whose save waits for the person's yes, or a call marked findings_save off.
+    const paid = await finalize(withoutCard, "auth0|paid");
+    expect((paid.structuredContent as unknown as FinalizeResearchOutput).findings_card.problems).toEqual([]);
+    const marked = await finalize({ ...withoutCard, later_inputs: { findings_save: "off" } }, "auth0|free");
+    expect((marked.structuredContent as unknown as FinalizeResearchOutput).findings_card).toMatchObject({ status: "absent",
+      problems: [] });
+    expect(calls).toHaveLength(1);
   });
 
   it("reports a save that did not happen without holding back the answer", async () => {
