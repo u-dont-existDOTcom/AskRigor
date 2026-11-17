@@ -29,7 +29,11 @@ export const FINDINGS_LEDGER_MAX_CHARACTERS = 24_000;
 /** How long the server remembers the last ledger it issued for an account and research target. */
 export const FINDINGS_LEDGER_MEMORY_MS = 2 * 60 * 60 * 1000;
 const FINDINGS_LEDGER_MEMORY_ENTRIES = 2_000;
-const MAX_ENTRIES = 60;
+/**
+ * The most findings a ledger may name. What one token carries is bounded by its size (FINDINGS_LEDGER_MAX_CHARACTERS),
+ * which holds a few hundred; this only bounds what a token is read for.
+ */
+const MAX_ENTRIES = 2_000;
 const MAX_RESPONSES = 30;
 const SKETCH_SIZE = 16;
 /** A finding of the same rule whose inserted words overlap an earlier one's at least this much is the same finding. */
@@ -87,11 +91,13 @@ function checkerOf({ checker, kind }: { checker?: FindingChecker | undefined; ki
 }
 
 const hex = (length: number) => z.string().regex(new RegExp(`^[0-9a-f]{${length}}$`, "u"));
+// A settled finding (fixed or withdrawn) keeps only what finds it again under its id (f) and its history: never matched
+// through an edit, it needs no rule (r), sketch (h) or identifiers (i), so the ledger holds more open ones.
 const entrySchema = z.object({
   id: z.string().regex(/^F-[0-9a-f]{10}$/u),
-  r: hex(12),
+  r: hex(12).optional(),
   f: hex(16),
-  h: z.array(hex(6)).max(SKETCH_SIZE),
+  h: z.array(hex(6)).max(SKETCH_SIZE).optional(),
   d: z.enum(FINDING_DISPOSITIONS),
   n: z.number().int().min(1).max(10_000),
   l: z.number().int().min(1).max(10_000),
@@ -112,7 +118,9 @@ const payloadSchema = z.object({
   rev: z.number().int().min(1).max(10_000),
   d: z.union([hex(16), z.literal("")]),
   at: z.iso.datetime(),
-  e: z.array(entrySchema).max(MAX_ENTRIES)
+  e: z.array(entrySchema).max(MAX_ENTRIES),
+  // Codex's review of 17 Nov 2026, finding 5: how many open findings of this check the token could not carry.
+  o: z.number().int().min(1).max(100_000).optional()
 }).strict()
   // Codex's review of 17 Nov 2026, finding 4: one id names one finding, so a response addresses exactly one.
   .refine(({ e }) => new Set(e.map(({ id }) => id)).size === e.length, { message: "Two findings have one id." });
@@ -168,18 +176,37 @@ function mac(body: string, secret: string): Buffer {
 }
 
 export function issueFindingsLedger(payload: FindingsLedgerPayload, secret: string): string | undefined {
+  return issueWithin(payload, secret)?.token;
+}
+
+/**
+ * The token of a payload, within FINDINGS_LEDGER_MAX_CHARACTERS: open findings first, then settled ones, the newest
+ * first. What doesn't fit is left out from the end, settled findings before any open one, and returned, so the caller
+ * says what the token does not carry (Codex's review of 17 Nov 2026, finding 5).
+ */
+function issueWithin(payload: FindingsLedgerPayload, secret: string):
+  { token: string; payload: FindingsLedgerPayload; left: LedgerEntry[] } | undefined {
   const checked = payloadSchema.parse(payload);
-  const entries = [...checked.e];
-  for (;;) {
-    const body = `fl1~${deflateRawSync(Buffer.from(JSON.stringify({ ...checked, e: entries }))).toString("base64url")}`;
+  const ordered = [...checked.e.filter(({ d }) => !SETTLED.has(d)), ...checked.e.filter(({ d }) => SETTLED.has(d))];
+  const attempt = (count: number) => {
+    const left = ordered.slice(count);
+    const { o: before, ...rest } = checked;
+    const o = (before ?? 0) + left.filter(({ d }) => !SETTLED.has(d)).length;
+    const kept: FindingsLedgerPayload = { ...rest, e: ordered.slice(0, count), ...(o === 0 ? {} : { o: Math.min(o, 100_000) }) };
+    const body = `fl1~${deflateRawSync(Buffer.from(JSON.stringify(kept))).toString("base64url")}`;
     const token = `${body}~${mac(body, secret).toString("base64url")}`;
-    if (token.length <= FINDINGS_LEDGER_MAX_CHARACTERS) return token;
-    if (entries.length === 0) return undefined;
-    // The oldest settled finding goes first (settled ones come last, oldest at the end), then the last of any.
-    let settled = -1;
-    entries.forEach(({ d }, index) => { if (d === "fixed" || d === "withdrawn") settled = index; });
-    entries.splice(settled >= 0 ? settled : entries.length - 1, 1);
+    return token.length <= FINDINGS_LEDGER_MAX_CHARACTERS ? { token, payload: kept, left } : undefined;
+  };
+  const all = attempt(ordered.length);
+  if (all !== undefined) return all;
+  // The most entries that fit, found in a few tries rather than one per entry left out.
+  let fits = 0;
+  let over = ordered.length;
+  while (over - fits > 1) {
+    const middle = Math.floor((fits + over) / 2);
+    if (attempt(middle) !== undefined) fits = middle; else over = middle;
   }
+  return attempt(fits);
 }
 
 export type FindingsLedgerVerification =
@@ -339,6 +366,12 @@ function fingerprinted(secret: string, finding: ObservedFinding): Fingerprinted 
   };
 }
 
+/** A settled finding as the ledger keeps it: no rule, sketch, identifiers or reason, which only an open one uses. */
+function settledEntry({ id, f, d, n, l, k, s, c, x }: LedgerEntry): LedgerEntry {
+  return { id, f, d, n, l, ...(k === undefined ? {} : { k }), ...(s === undefined ? {} : { s }),
+    ...(c === undefined ? {} : { c }), ...(x === undefined ? {} : { x }) };
+}
+
 /** How much two findings' inserted words overlap, from their sketches (the smallest word digests of each). */
 export function sketchSimilarity(left: readonly string[], right: readonly string[]): number {
   if (left.length === 0 || right.length === 0) return 0;
@@ -470,7 +503,7 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     let best: { entry: LedgerEntry; similarity: number } | undefined;
     for (const entry of prior) {
       if (used.has(entry.id) || entry.r !== finding.r || SETTLED.has(entry.d)) continue;
-      const similarity = sketchSimilarity(entry.h, finding.h);
+      const similarity = sketchSimilarity(entry.h ?? [], finding.h);
       if (similarity >= FINDINGS_SAME_AFTER_EDIT && (best === undefined || similarity > best.similarity)) {
         best = { entry, similarity };
       }
@@ -573,7 +606,7 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
       }
     }
     const changed = disposition !== entry.d;
-    entries.push({ ...entry, d: disposition });
+    entries.push(SETTLED.has(disposition) ? settledEntry({ ...entry, d: disposition }) : { ...entry, d: disposition });
     if (changed || !SETTLED.has(disposition)) {
       findings.push({ id: entry.id, ...(entry.k === undefined ? {} : { kind: entry.k }),
         ...(entry.s === undefined ? {} : { stop: entry.s }), disposition: shown ?? disposition,
@@ -591,18 +624,35 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
       notes.push(`later_inputs.finding_responses names ${id}, which is not a finding of this research's ledger.`);
     }
   }
-  // The newest first, so a full ledger loses the oldest settled findings.
-  const kept = [...entries.filter(({ d }) => !SETTLED.has(d)), ...entries.filter(({ d }) => SETTLED.has(d))]
-    .slice(0, MAX_ENTRIES);
-  const payload: FindingsLedgerPayload = {
+  if (previous?.o !== undefined) {
+    notes.push(`The findings_ledger this check continued from could not carry ${previous.o} open findings of the ` +
+      "check before it; any of them found again here is listed as open, with no reply or disposition it had.");
+  }
+  // Every finding of this check is listed in check_findings, so each is addressable by its id; the token carries as
+  // many as fit, open ones first, and says how many open ones it leaves out (Codex's review, finding 5).
+  const issued = issueWithin({
     v: 1, a: account, t: target, ver, seq: Math.min((previous?.seq ?? 0) + 1, 100_000),
-    rev: Math.min(revision, 10_000), d: draftDigest || previous?.d || "", at: now.toISOString(), e: kept
-  };
-  const token = issueFindingsLedger(payload, secret);
+    rev: Math.min(revision, 10_000), d: draftDigest || previous?.d || "", at: now.toISOString(),
+    e: entries.slice(0, MAX_ENTRIES)
+  }, secret);
+  const leftOpen = (issued?.left ?? entries).filter(({ d }) => !SETTLED.has(d)).map(({ id }) => id);
+  const leftSettled = (issued?.left ?? entries).length - leftOpen.length;
+  if (leftOpen.length > 0) {
+    const open = entries.filter(({ d }) => !SETTLED.has(d)).length;
+    notes.push(`The findings_ledger carries ${open - leftOpen.length} of this research's ${open} open findings, all ` +
+      `it can hold; the other ${leftOpen.length} (${joinIds(leftOpen.slice(0, 20))}` +
+      `${leftOpen.length > 20 ? ` and ${leftOpen.length - 20} more` : ""}) are listed in check_findings but not ` +
+      "carried, so a reply to one of them, or its disposition, reaches the next check only if that check finds it " +
+      "again unchanged.");
+  }
+  if (leftSettled > 0) {
+    notes.push(`The findings_ledger no longer carries ${leftSettled} finding${leftSettled === 1 ? "" : "s"} settled ` +
+      "earlier (fixed or withdrawn), the oldest first, to stay within its size; one found again is listed as open.");
+  }
   if (observed.length > 0 || responses.size > 0) notes.push(FINDINGS_LEDGER_NOTE);
   return {
-    checkFindings: { ledger: state, revision: payload.rev, findings: findings.slice(0, MAX_ENTRIES) },
-    token,
+    checkFindings: { ledger: state, revision: issued?.payload.rev ?? Math.min(revision, 10_000), findings },
+    token: issued?.token,
     notes
   };
 }
@@ -614,10 +664,14 @@ function joinIds(ids: readonly string[]): string {
 /** The ids and dispositions, in the result's text for an app that hands its model only that. */
 export function findingsLedgerGuidance(checkFindings: CheckFindings | undefined, token: string | undefined): string {
   if (checkFindings === undefined) return "";
-  const shown = checkFindings.findings.filter(({ text }) => text !== undefined).slice(0, 30);
-  const lines = shown.map(({ id, stop, disposition, reason, text }) =>
-    `- ${id} (${stop === undefined ? "note" : `stop: ${stop}`}; ${disposition}${reason === undefined ? "" : `: ${reason}`}): ` +
-    `${text!.length > 200 ? `${text!.slice(0, 199).trimEnd()}…` : text}`);
+  // Every finding found, so each is addressable from the text alone (Codex's review, finding 5); after the first thirty,
+  // each with the start of its words, which the notes give in full.
+  const shown = checkFindings.findings.filter(({ text }) => text !== undefined);
+  const lines = shown.map(({ id, stop, disposition, reason, text }, index) => {
+    const most = index < 30 ? 200 : 80;
+    return `- ${id} (${stop === undefined ? "note" : `stop: ${stop}`}; ${disposition}${reason === undefined ? ""
+      : `: ${reason}`}): ${text!.length > most ? `${text!.slice(0, most - 1).trimEnd()}…` : text}`;
+  });
   const settled = checkFindings.findings.filter(({ text, disposition }) =>
     text === undefined && disposition !== "not_rechecked").map(({ id, disposition }) => `${id} ${disposition}`);
   const unchecked = checkFindings.findings.filter(({ text, disposition }) =>

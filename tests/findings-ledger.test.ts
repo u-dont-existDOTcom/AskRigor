@@ -409,6 +409,42 @@ describe("the review of 17 Nov 2026", () => {
     expect(() => issueFindingsLedger({ ...one, e: [one.e[0]!, { ...one.e[0]!, f: "0123456789abcdef" }] }, SECRET))
       .toThrow();
   });
+
+  it("5: keeps every open finding addressable, and says so whenever the ledger can't carry them all", () => {
+    const entriesOf = (token: string | undefined) => {
+      const verified = verifyFindingsLedger(token, SECRET);
+      return verified.ok ? verified.payload.e : [];
+    };
+    // Sixty-five: every one listed, carried and named in the text.
+    const observed = Array.from({ length: 65 }, (_, index) => note(`Finding number ${index} ${"word ".repeat(index % 7)}`));
+    const result = findingsLedger(params({ observed }));
+    expect(result.checkFindings.findings).toHaveLength(65);
+    expect(entriesOf(result.token)).toHaveLength(65);
+    const text = findingsLedgerGuidance(result.checkFindings, result.token);
+    for (const { id } of result.checkFindings.findings) expect(text).toContain(`- ${id} `);
+    // More than one token can hold: all listed, the token carries as many as fit, and the rest are named.
+    // Each with as many distinct words as a real note, so each record carries a full sketch.
+    const many = Array.from({ length: 400 }, (_, index) => note(`Distinct finding ${Array.from({ length: 20 }, (_, word) =>
+      `w${((index + 1) * (word + 7_919) * 104_729).toString(36)}`).join(" ")}`));
+    const big = findingsLedger(params({ observed: many }));
+    expect(big.checkFindings.findings).toHaveLength(400);
+    expect(big.token!.length).toBeLessThanOrEqual(24_000);
+    const carried = entriesOf(big.token);
+    expect(carried.length).toBeGreaterThan(60);
+    expect(carried.length).toBeLessThan(400);
+    const left = big.checkFindings.findings.filter(({ id }) => !carried.some((entry) => entry.id === id));
+    const said = big.notes.join(" ");
+    expect(said).toContain(`carries ${carried.length} of this research's 400 open findings`);
+    expect(said).toContain(left[0]!.id);
+    // The next check, continuing from that ledger, says the ledger it was given was incomplete.
+    const next = findingsLedger(params({ observed: many.slice(0, 10), raw: { later_inputs: { findings_ledger: big.token } } }));
+    expect(next.notes.join(" ")).toContain(`could not carry ${left.length} open findings`);
+    // Settled findings it drops to stay within its size are said too, never silently.
+    const settledLedger = findingsLedger(params({ observed: [], draft: "Every one fixed.",
+      raw: { later_inputs: { findings_ledger: big.token } } }));
+    expect(settledLedger.checkFindings.findings.filter(({ disposition }) => disposition === "fixed")).toHaveLength(
+      carried.length);
+  });
 });
 
 // The panel's harness, as in final-check-panel.test.ts.
