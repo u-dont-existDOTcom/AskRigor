@@ -1,4 +1,5 @@
 import { registerForumTools } from "./forum-tools.js";
+import { findingsCardReminder } from "./findings/card-reminder.js";
 import { resultSizeDeclarationsFromEnv, resultSizeMeta } from "./result-size-limits.js";
 import type { RedditReaderClient } from "./reddit-reader-client.js";
 import type { readForumPage } from "@askrigor/sources";
@@ -2853,6 +2854,14 @@ function defineResearchOperations(
           result.notes = [...(result.notes ?? []), unsavedCardNote(kept.card_id)];
         }
       }
+      // AskRigor#475: a free contributor's first pass with no card, though the check's note asked for one, says the card
+      // belongs to this answer, harms and safety signals included (findings/card-reminder.ts).
+      const cardReminder = findingsCardReminder({ findings: finalizeOptions.findings,
+        savingOn: account?.findingsSave === true && !callSavingOff, status: result.status,
+        cardStatus: result.findings_card.status, turnAlreadyPassed: result.turn_already_passed === true, notes: result.notes });
+      if (cardReminder !== undefined) {
+        result.findings_card.problems = [...result.findings_card.problems, cardReminder];
+      }
       // Owner answer 143a: a free answer whose research map was filed ends by saying what was saved, the card's id
       // included when its save confirmed.
       if (researcher?.mode === "FREE_CONTRIBUTOR" && result.research_map?.status === "filed") {
@@ -3018,7 +3027,8 @@ function defineResearchOperations(
           (result.previous_check === undefined ? "" :
             `\nThe previous final check in this conversation did not pass (${result.previous_check.open.join(", ") || "steps open"}), ` +
               "so an answer given after it went out unchecked; if one did, this answer says what changed from it.") +
-          (card.status === "absent" || card.status === "private"
+          (cardReminder !== undefined ? `\nFindings card: ${cardReminder}`
+            : card.status === "absent" || card.status === "private"
             ? ""
             : `\nFindings card: ${card.status}` +
               (card.saved !== undefined
