@@ -263,8 +263,10 @@ export interface AtlasPublicationDraft {
   heldBecause: AtlasPublicationHoldReason[] | null;
   published: AtlasPublishedFinding;
   /**
-   * How it reaches the pages, for an unreviewed draft the save shows at once (migration 0041): automatic_showing.
-   * Left out, as for every draft before it, it reaches them only once the quick-answer test or the owner shows it.
+   * How it reaches the pages (migration 0041): automatic_showing for an unreviewed draft the save shows at once;
+   * owner_action for one the owner publishes (publish_cards, a decision's publication), which shows. Never
+   * quick_answer_test, which only showing a finding the test kept with its pass records (keep). Left out, as for every
+   * draft before it, nothing is recorded: kept, it reaches the pages once the quick-answer test or the owner shows it.
    */
   shownBy?: AtlasPublicationRoute;
   /**
@@ -276,12 +278,28 @@ export interface AtlasPublicationDraft {
 }
 
 /**
- * How a publication reached the pages (Codex's review of 17 Nov 2026, finding 4): automatic_showing when the save
- * showed it at once (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS), so its page says nothing of the quick-answer test without a
- * challenge mark. A publication without one was kept for the quick-answer test, or published by the owner.
+ * How a publication reached the pages (Codex's review of 17 Nov 2026, finding 4, and its re-review), stored apart:
+ * owner_action, the owner published it or showed it again after it was kept; quick_answer_test, it was shown again
+ * after the quick-answer test kept it with its own pass reason (ATLAS_QUICK_ANSWER_TEST_PASSED); automatic_showing, the
+ * save showed it at once (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS). None (null) is not recorded: a publication from before
+ * migration 0041, one an earlier image published, or one still kept since its save. A page says the quick-answer test
+ * happened only for quick_answer_test, or from a challenge mark's stored verdict.
  */
-export const ATLAS_PUBLICATION_ROUTES = ["automatic_showing"] as const;
+export const ATLAS_PUBLICATION_ROUTES = ["owner_action", "quick_answer_test", "automatic_showing"] as const;
 export type AtlasPublicationRoute = typeof ATLAS_PUBLICATION_ROUTES[number];
+
+/**
+ * The kept reason the quick-answer test gives a finding that passed it (docs/atlas-quick-answer-test.md, step 5),
+ * alone or followed by a comma and more ("…, passed, waiting for the whole picture"): showing such a finding again is
+ * the test's route.
+ */
+export const ATLAS_QUICK_ANSWER_TEST_PASSED = "owner answer 240a: quick-answer test, passed";
+
+/** The route showing a kept publication again records, from the reason it was kept for (migration 0041). */
+export function routeOfShowingKept(keptReason: string): AtlasPublicationRoute {
+  return keptReason === ATLAS_QUICK_ANSWER_TEST_PASSED || keptReason.startsWith(`${ATLAS_QUICK_ANSWER_TEST_PASSED},`)
+    ? "quick_answer_test" : "owner_action";
+}
 
 export interface AtlasPublishInput {
   /** The card's issue number, for moderation; never in the published fields. */
@@ -534,8 +552,8 @@ function validatePublishInput(input: AtlasPublishInput): AtlasPublicationDraft[]
       !["unreviewed", "held", "accepted", "edited"].includes(draft.state) ||
       accepted !== (draft.atlasNumber !== null) || (draft.atlasNumber !== null && !ATLAS_NUMBER.test(draft.atlasNumber)) ||
       (draft.state === "held") !== (draft.heldBecause !== null) || !validHeldReasons(draft.heldBecause) ||
-      (draft.shownBy !== undefined && (!(ATLAS_PUBLICATION_ROUTES as readonly string[]).includes(draft.shownBy) ||
-        draft.state !== "unreviewed")) ||
+      (draft.shownBy !== undefined && !((draft.shownBy === "automatic_showing" && draft.state === "unreviewed") ||
+        (draft.shownBy === "owner_action" && draft.state !== "held"))) ||
       (draft.keptReason !== undefined && (typeof draft.keptReason !== "string" || draft.keptReason !== draft.keptReason.trim() ||
         draft.keptReason.length < 1 || draft.keptReason.length > 2_000 || draft.state !== "unreviewed"))) {
       throw invalid();
@@ -648,6 +666,7 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
           cardNumber: input.cardNumber,
           stateChangedAt: later(at, existing.stateChangedAt),
         });
+        if (draft.shownBy !== undefined) this.routes.set(existing.publicationNumber, draft.shownBy);
         outcomes.set(draft.findingNumber, "revived");
       } else {
         outcomes.set(draft.findingNumber, "existing");
@@ -762,6 +781,9 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
     }
     for (const row of targets) {
       if (!change.keep) {
+        // Shown again: how it reached the pages, from why it was kept (migration 0041).
+        const kept = this.kept.get(row.publicationNumber);
+        if (kept !== undefined) this.routes.set(row.publicationNumber, routeOfShowingKept(kept.reason));
         this.kept.delete(row.publicationNumber);
         continue;
       }

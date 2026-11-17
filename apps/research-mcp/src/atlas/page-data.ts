@@ -18,6 +18,7 @@ import type {
   AtlasPageSource,
   AtlasPageSourceIdentifiers,
   AtlasPageSourceScheme,
+  AtlasPublicationRoute,
   AtlasPublishedFinding,
   AtlasSubjectType,
 } from "@askrigor/evidence-repository";
@@ -205,12 +206,11 @@ export interface ShownFinding {
    */
   challenge: ShownChallenge | null;
   /**
-   * Codex's review of 17 Nov 2026, finding 4: true when the save showed it at once (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS),
-   * as its publication stores it (migration 0041), so it may never have had the quick-answer test and its page says
-   * nothing of the test without a challenge mark, whether the setting is on now or not. False when it was kept for the
-   * quick-answer test, which showed it (owner answer 240a), or the owner published it.
+   * Codex's review of 17 Nov 2026, finding 4, and its re-review: how it reached the pages, as its publication stores it
+   * (migration 0041): the owner's action, the quick-answer test, automatic showing, or null when not recorded. Its page
+   * says the quick-answer test happened only for quick_answer_test, or from a challenge mark's stored verdict.
    */
-  shownAtOnce: boolean;
+  shownBy: AtlasPublicationRoute | null;
 }
 
 /** A finding's challenge mark as its pages show it: never who marked it. */
@@ -519,7 +519,7 @@ function fromPublished(publication: AtlasPagePublication, published: AtlasPublis
     stateChangedAt: publication.stateChangedAt,
     kept: publication.kept,
     challenge: shownChallenge(publication),
-    shownAtOnce: publication.shownBy === "automatic_showing",
+    shownBy: publication.shownBy,
     namedVideos: shownNamedVideos(published.named_videos),
     ...researchBehind(published, shownSource),
     aiReadings: published.ai_readings ?? null,
@@ -693,7 +693,7 @@ function fromCanonical(
     stateChangedAt: publication.stateChangedAt,
     kept: publication.kept,
     challenge: shownChallenge(publication),
-    shownAtOnce: publication.shownBy === "automatic_showing",
+    shownBy: publication.shownBy,
     namedVideos: shownNamedVideos(content.research?.named_videos ?? publication.published?.named_videos),
     // Owner answers 252a and 255a: an accepted or edited finding shows the research behind it from its own version, or
     // from its publication's fields; both are erased with its F number's wording.

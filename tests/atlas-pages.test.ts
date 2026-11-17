@@ -17,6 +17,7 @@ import {
   prepareAtlasFindingIntent,
   sha256,
   type AtlasPageSource,
+  type AtlasPublicationRoute,
   type AtlasPublicationStore,
   type AtlasReviewStore,
 } from "@askrigor/evidence-repository";
@@ -51,7 +52,7 @@ import { AtlasCardPublisher, planCardPublication, publishedFindingOf } from "../
 import { AtlasKeptReview } from "../apps/research-mcp/src/atlas/kept-review.js";
 import { challengeMarker } from "../apps/research-mcp/src/atlas/challenge-review.js";
 import {
-  CHALLENGES_PATH, KEPT_FOR_RESEARCH_LINE, QUICK_ANSWER_MISSES_IT, SHOWN_AS_A_CHALLENGE
+  CHALLENGES_PATH, KEPT_FOR_RESEARCH_LINE, QUICK_ANSWER_MISSES_IT, SHOWN_AS_A_CHALLENGE, renderAtlasFinding
 } from "../apps/research-mcp/src/atlas/pages.js";
 import { loadAtlasChallenges, loadAtlasFinding } from "../apps/research-mcp/src/atlas/page-data.js";
 import { atlasPagesEnabledFromEnv, atlasShowSavedFindingsFromEnv } from "../apps/research-mcp/src/config.js";
@@ -2268,10 +2269,21 @@ describe("findings that challenge the usual view", () => {
   const USUAL_VIEW = `The usual view: Most guidelines advise zentarine at 40 mg a day for every adult with Velmor syndrome ` +
     `(<a href="${MARK.sourceUrl}" rel="nofollow noopener noreferrer">${MARK.sourceLabel}</a>).`;
   const marker = challengeMarker("auth0|owner");
-  // Codex's review of 17 Nov 2026, finding 4: the home page's sentence, true whichever way a finding reached the pages.
-  const HOME_ROUTES_SENTENCE = "Every finding here passed AskRigor’s automatic checks when it was saved. Some were also " +
-    "tested by a separate AI, which found that a quick AI answer misses them or that they challenge the usual view. A " +
-    "finding is marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed it.";
+  // Codex's review of 17 Nov 2026, finding 4, and its re-review: the home page's sentence, true whichever way a finding
+  // reached the pages, older owner-published ones included, which no automatic check need have passed.
+  const HOME_ROUTES_SENTENCE = "Each finding here was published by AskRigor’s owner, shown after a separate AI’s " +
+    "quick-answer test, or shown automatically once it passed AskRigor’s checks. A finding’s page says what that test " +
+    "found only when the test is recorded for it. A finding is marked “Not checked by supervisors yet” until AskRigor’s " +
+    "owner has reviewed it.";
+  // The quick-answer test's own kept reason for a pass (docs/atlas-quick-answer-test.md, step 5).
+  const TEST_PASSED = "owner answer 240a: quick-answer test, passed, waiting for the whole picture";
+  /** Shows a finding as the quick-answer test does: kept with its pass, then shown on the pages. */
+  const shownByTheTest = async (store: ReturnType<typeof atlas>, publication: string) => {
+    await store.publications.keep({ publicationNumbers: [publication], atlasNumbers: [], keep: true, reason: TEST_PASSED,
+      at: store.tick() });
+    await store.publications.keep({ publicationNumbers: [publication], atlasNumbers: [], keep: false, reason: null,
+      at: store.tick() });
+  };
   const numbersOf = (findings: readonly { publicationNumber: string }[]) => findings.map(({ publicationNumber }) => publicationNumber);
 
   it("lists the shown marked findings on a section page, with the usual view, its source and their limits", async () => {
@@ -2306,7 +2318,13 @@ describe("findings that challenge the usual view", () => {
     // The runtime's stores announce each write, which drops the pages' cache; these write to the store itself.
     const signal = new AtlasChangeSignal();
     const base = await serve(pages(source, { signal }));
-    // Unmarked, a shown unreviewed finding passed the quick-answer test.
+    // Unmarked, a shown unreviewed finding says the test found a quick AI answer misses it only when its record says the
+    // test showed it (Codex's re-review of 17 Nov 2026, finding 4): one whose route isn't recorded says nothing of it.
+    const unrecorded = (await text(base, `/atlas/findings/${shown.hip}`)).body;
+    expect(unrecorded).not.toContain(QUICK_ANSWER_MISSES_IT);
+    expect(unrecorded).toContain("AskRigor’s owner has not reviewed it yet.");
+    await shownByTheTest(store, shown.hip);
+    signal.announce();
     const before = (await text(base, `/atlas/findings/${shown.hip}`)).body;
     expect(before).toContain(QUICK_ANSWER_MISSES_IT);
     expect(before).not.toContain("It challenges the usual view");
@@ -2352,6 +2370,8 @@ describe("findings that challenge the usual view", () => {
     expect(page).toContain("AskRigor’s owner has not reviewed it yet.");
     expect(page).not.toContain(QUICK_ANSWER_MISSES_IT);
     // A finding the quick-answer test showed still says what the test found.
+    await shownByTheTest(store, shown.hip);
+    signal.announce();
     expect((await text(base, `/atlas/findings/${shown.hip}`)).body).toContain(QUICK_ANSWER_MISSES_IT);
     // A mark's stored verdict says what the test found of the one shown at once too.
     await store.publications.markChallenges({ publicationNumbers: [atOnce!.publicationNumber],
@@ -2362,6 +2382,75 @@ describe("findings that challenge the usual view", () => {
     const home = (await text(base, "/atlas")).body;
     expect(home).not.toContain("A finding reaches these pages once a separate AI finds that a quick AI answer misses it");
     expect(home).toContain(HOME_ROUTES_SENTENCE);
+  });
+
+  // Codex's re-review of 17 Nov 2026, finding 4: the owner's publish_cards stored no route, and its page said the
+  // quick-answer test had happened. Four routes are stored apart, and a page says the test happened only from the
+  // record: the test's own showing, or a mark's stored verdict.
+  it("says the quick-answer test happened only when the record says so, for each way a finding reached the pages", async () => {
+    const store = atlas();
+    const card = (claim: string) => recordOf(oneFindingCard(`${claim} zentarine 20 mg cut relapse from 30 of 120 to 18 ` +
+      "of 120 in one invented trial."));
+    const publish = async (cardNumber: number, claim: string, shownBy?: AtlasPublicationRoute) => {
+      const record = card(claim);
+      const plan = planCardPublication({ record, setAside: false, route: { route: "save", account: FREE } });
+      const [row] = await store.publications.publish({ cardNumber, cardSha256: record.card_sha256, publishedAt: store.tick(),
+        revive: false, findings: plan.drafts.map((draft) => shownBy === undefined ? draft : { ...draft, shownBy }) });
+      return row!.publicationNumber;
+    };
+    const owner = await publish(4501, "OWNERROUTE", "owner_action");
+    const automatic = await publish(4502, "AUTOMATICROUTE", "automatic_showing");
+    const older = await publish(4503, "OLDERROUTE");
+    const tested = await publish(4504, "TESTEDROUTE");
+    await shownByTheTest(store, tested);
+    // Kept with another reason and shown by the owner: the owner's action, not the test's.
+    const ownerShown = await publish(4505, "OWNERSHOWN");
+    await store.publications.keep({ publicationNumbers: [ownerShown], atlasNumbers: [], keep: true,
+      reason: "owner answer 240a: quick-answer test, failed", at: store.tick() });
+    await store.publications.keep({ publicationNumbers: [ownerShown], atlasNumbers: [], keep: false, reason: null,
+      at: store.tick() });
+    expect([owner, automatic, older, tested, ownerShown].map((number) => store.publications.shownByOf(number)))
+      .toEqual(["owner_action", "automatic_showing", null, "quick_answer_test", "owner_action"]);
+    const source = new InMemoryAtlasPageSource({ publications: store.publications });
+    const base = await serve(pages(source));
+    for (const number of [owner, automatic, older, ownerShown]) {
+      const page = (await text(base, `/atlas/findings/${number}`)).body;
+      expect(page, number).toContain("AskRigor’s owner has not reviewed it yet.");
+      expect(page, number).not.toContain(QUICK_ANSWER_MISSES_IT);
+      expect(page, number).not.toContain(SHOWN_AS_A_CHALLENGE);
+    }
+    expect((await text(base, `/atlas/findings/${tested}`)).body).toContain(QUICK_ANSWER_MISSES_IT);
+    expect((await text(base, "/atlas")).body).toContain(HOME_ROUTES_SENTENCE);
+  });
+
+  // The rollback regressions: an earlier image's publish_atlas_findings (0021's, which an earlier image's migrate puts
+  // back) stores no route, and a later image may store one this build doesn't know. Neither reads as the test.
+  it("reads a publication without a route, or with one it doesn't know, as not recorded, so it never claims the test", async () => {
+    const store = atlas();
+    const record = recordOf(oneFindingCard("ROLLBACKROUTE zentarine 20 mg cut relapse from 30 of 120 to 18 of 120."));
+    const plan = planCardPublication({ record, setAside: false, route: { route: "save", account: FREE } });
+    // Written as the earlier image writes it: no route, and not kept (automatic showing on that image).
+    const [row] = await store.publications.publish({ cardNumber: 4510, cardSha256: record.card_sha256,
+      publishedAt: store.tick(), revive: false, findings: plan.drafts });
+    const source = new InMemoryAtlasPageSource({ publications: store.publications });
+    const page = (await loadAtlasFinding(source, row!.publicationNumber))!;
+    expect(page.finding.shownBy).toBeNull();
+    expect(renderAtlasFinding(page)).not.toContain(QUICK_ANSWER_MISSES_IT);
+    // The PostgreSQL reader takes only the routes it knows; any other value is not recorded.
+    const reader = new PostgresAtlasPageSource({ connectionString: "postgres://reader@127.0.0.1/askrigor" });
+    const rows = [["automatic_showing", "automatic_showing"], ["quick_answer_test", "quick_answer_test"],
+      ["owner_action", "owner_action"], [null, null], ["a_later_route", null]] as const;
+    for (const [stored, read] of rows) {
+      const client = {
+        query: async (sql: string) => ({ rows: sql.includes("FROM atlas_publications") ? [{ publication_number: "P-1001",
+          state: "unreviewed", atlas_number: null, published_json: row!.published, published_at: new Date(SAVED_AT),
+          state_changed_at: new Date(SAVED_AT), kept: false, shown_by: stored }] : [], rowCount: 0 }),
+        release: () => undefined,
+      };
+      (reader as unknown as { pool: { connect: () => Promise<typeof client> } }).pool = { connect: async () => client };
+      const listed = await reader.read((reads) => reads.listPublications({ publicationNumbers: ["P-1001"], limit: 1 }));
+      expect(listed[0]?.shownBy, String(stored)).toBe(read);
+    }
   });
 
   it("keeps a finding kept for research off the section page, and clears a mark off the pages", async () => {

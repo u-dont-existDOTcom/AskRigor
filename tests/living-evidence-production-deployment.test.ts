@@ -1330,23 +1330,39 @@ describe("migration 0041", () => {
     expect(order.at(-1)).toBe("0041_atlas_show_saved_findings");
     // One nullable column, held to its one value by a check added by name; no table, and nothing dropped.
     expect(migration).toContain("ALTER TABLE atlas_publications ADD COLUMN IF NOT EXISTS shown_by text;");
-    expect(migration).toContain("ADD CONSTRAINT atlas_publications_v1_shown_by_check CHECK (\n  shown_by IS NULL OR shown_by = 'automatic_showing'\n);");
+    // Codex's re-review of 17 Nov 2026, finding 4: four routes stored apart, NULL being not recorded (older rows).
+    expect(migration).toContain("ADD CONSTRAINT atlas_publications_v1_shown_by_check CHECK (\n  shown_by IS NULL OR " +
+      "shown_by IN ('owner_action', 'quick_answer_test', 'automatic_showing')\n);");
     expect(migration).not.toMatch(/CREATE TABLE|DROP FUNCTION|DROP COLUMN/u);
-    // publish_atlas_findings alone is replaced, with 0021's arguments and result, so its grant stands as it was.
+    // publish_atlas_findings and keep_atlas_publications alone are replaced, each with its own arguments and result
+    // (0021's and 0024's), so their grants stand as they were.
+    const kept = await read("packages/evidence-repository/migrations/0024_atlas_kept_for_research.sql");
     const functions = migration.split("CREATE OR REPLACE FUNCTION ").slice(1);
-    expect(functions.map((chunk) => chunk.slice(0, chunk.indexOf("(")))).toEqual(["publish_atlas_findings"]);
-    const header = (text: string) => {
-      const start = text.indexOf("CREATE OR REPLACE FUNCTION publish_atlas_findings(");
+    expect(functions.map((chunk) => chunk.slice(0, chunk.indexOf("(")))).toEqual(["publish_atlas_findings",
+      "keep_atlas_publications"]);
+    const header = (text: string, name: string) => {
+      const start = text.indexOf(`CREATE OR REPLACE FUNCTION ${name}(`);
       return text.slice(start, text.indexOf("LANGUAGE plpgsql", start));
     };
-    expect(header(migration)).toBe(header(original));
+    expect(header(migration, "publish_atlas_findings")).toBe(header(original, "publish_atlas_findings"));
+    expect(header(migration, "keep_atlas_publications")).toBe(header(kept, "keep_atlas_publications"));
     expect(migration).toContain("SECURITY DEFINER\nSET search_path = __SCHEMA__, pg_catalog, pg_temp");
     expect(migration).toContain("REVOKE ALL ON FUNCTION publish_atlas_findings(integer, text, jsonb, timestamptz, boolean) FROM PUBLIC;");
+    expect(migration).toContain("REVOKE ALL ON FUNCTION keep_atlas_publications(text[], text[], boolean, text, timestamptz) FROM PUBLIC;");
     expect(review).toContain("GRANT EXECUTE ON FUNCTION living_evidence.publish_atlas_findings(integer, text, jsonb, timestamptz, boolean)");
-    // Only an unreviewed draft may say it is shown at once; publishing a withdrawn finding again leaves it as it was.
-    expect(migration).toContain("OR (draft_shown_by IS NOT NULL AND (draft_shown_by <> '\"automatic_showing\"'::jsonb OR draft_state <> 'unreviewed'))");
+    expect(review).toContain("GRANT EXECUTE ON FUNCTION living_evidence.keep_atlas_publications(text[], text[], boolean, text, timestamptz)");
+    // A draft may say it is shown at once only when unreviewed, or published by the owner only when it shows; never
+    // that the quick-answer test showed it, which only showing a finding the test kept with its pass records.
+    expect(migration).toContain("OR (draft_shown_by IS NOT NULL AND NOT (\n             (draft_shown_by = " +
+      "'\"automatic_showing\"'::jsonb AND draft_state = 'unreviewed')\n             OR (draft_shown_by = " +
+      "'\"owner_action\"'::jsonb AND draft_state IN ('unreviewed', 'accepted', 'edited'))))");
+    // Publishing a withdrawn finding again takes the owner's route when its draft gives one, and otherwise leaves it.
     const revive = migration.slice(migration.indexOf("ELSIF revive_withdrawn"), migration.indexOf("outcomes := outcomes || jsonb_build_object(draft_number::text, 'revived')"));
-    expect(revive).not.toMatch(/shown_by|kept_/u);
+    expect(revive).toContain("shown_by = coalesce(draft_shown_by #>> '{}', stored.shown_by),");
+    expect(revive).not.toMatch(/kept_/u);
+    // Showing a kept finding again records who showed it: the test, from its own pass reason, or the owner.
+    expect(migration).toContain("WHEN target.kept_reason = 'owner answer 240a: quick-answer test, passed'\n" +
+      "                 OR target.kept_reason LIKE 'owner answer 240a: quick-answer test, passed,%' THEN 'quick_answer_test'");
     // Finding 1: a finding kept for the owner is kept in the same write, by 0024's columns, only when unreviewed.
     expect(migration).toContain("held_because, published_at, state_changed_at, shown_by, kept_for_research_at, kept_reason)");
     expect(migration).toContain("draft_shown_by #>> '{}', CASE WHEN draft_kept IS NULL THEN NULL ELSE publish_time END, draft_kept #>> '{}')");
@@ -1379,6 +1395,14 @@ describe("migration 0021's admitted edit", () => {
     expect(readme).toContain("`MIGRATION_SHA256_MISMATCH migration=0021_atlas_publications` and changes\nnothing, so the " +
       "rollback image must be one built with this 0021");
     expect(readme).toContain("(`living_person_review`), with no page, until the owner decides, whatever the\nsetting.");
+  });
+
+  // Codex's re-review of 17 Nov 2026, finding 4: an earlier image reads its pages from the setting, not the route, and
+  // with the setting off would say the quick-answer test happened for a finding shown at once.
+  it("says how a rollback image's pages stay true about the quick-answer test", async () => {
+    const readme = await read("infra/living-evidence-production/README.md");
+    expect(readme).toContain("edit is recorded (below), so a rollback image is this release or a later one,\nwhose " +
+      "pages read the route.");
   });
 });
 

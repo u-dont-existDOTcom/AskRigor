@@ -92,15 +92,20 @@ and fail, which it neither changes nor depends on:
 5. Add the usual view, its source and the judgment to the finding's log line (step 6), marked or not.
 
 `clear_challenge` takes a mark off, except from a finding that shows unreviewed only because it challenges the usual
-view (a headline or a fail): without its mark its page would say a quick AI answer misses it, so `clear_challenge`
-refuses it, naming it, until `keep_for_research` has kept it. A shown finding that carries a mark is listed on `/atlas/challenges`, "Findings
+view (a headline or a fail): without its mark its page would no longer say that it is shown because it challenges the
+usual view, so `clear_challenge` refuses it, naming it, until `keep_for_research` has kept it. A shown finding that carries a mark is listed on `/atlas/challenges`, "Findings
 that challenge the usual view" (linked from the Atlas's home page and its list of all findings), with the usual view and
 its source beside it and its own limits: how sure it is, whom it applies to and what would change it. Its page carries a
 box saying it challenges the usual view, with the view and its source. An unreviewed finding's status says, from the
 stored verdict, that a separate AI found a quick AI answer misses it (a pass), or that a quick AI answer may already
 give it and that it's shown because it challenges the usual view (a headline or a fail), and its box says the same. A
 finding kept for research is on no list, the section page included, and its page, its box too, says nothing of the
-quick-answer test. These pages are kept out of
+quick-answer test. Without a mark, an unreviewed finding's page says a separate AI found a quick AI answer misses it only
+when its publication records that the test showed it: `show_on_pages` of a finding kept with step 5's pass reason,
+`owner answer 240a: quick-answer test, passed` alone or followed by a comma, stores the route `quick_answer_test`, and
+any other `show_on_pages`, the owner's `publish_cards` and a decision's publication store `owner_action` (migration
+0041; Codex's re-review of 17 Nov 2026, finding 4). A finding whose route isn't recorded, as every one from before 0041,
+says nothing of the test. These pages are kept out of
 search engines like every page of an unreviewed finding. The pages show no one's login and no YouTube comment data.
 
 Limits: the usual view is one helper's answer from two searches, so it can miss a newer or a regional guideline; its

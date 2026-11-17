@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AtlasFindingPromotionRunner,
   InMemoryAtlasCanonicalStore,
+  InMemoryAtlasPageSource,
   InMemoryAtlasPromotionStore,
   InMemoryAtlasPublicationStore,
   InMemoryAtlasReviewStore,
@@ -14,6 +15,8 @@ import {
 } from "@askrigor/evidence-repository";
 
 import { CONTEXT_REASON, AtlasPublicationReview } from "../apps/research-mcp/src/atlas/publication-review.js";
+import { loadAtlasFinding } from "../apps/research-mcp/src/atlas/page-data.js";
+import { QUICK_ANSWER_MISSES_IT, renderAtlasFinding } from "../apps/research-mcp/src/atlas/pages.js";
 import { AtlasCardPublisher, publishedFindingOf } from "../apps/research-mcp/src/atlas/publication.js";
 import { AtlasReview } from "../apps/research-mcp/src/findings/atlas-review.js";
 import { findingsCardDigest, findingsCardSchema, laterFindingsCardSchema } from "../apps/research-mcp/src/findings/card.js";
@@ -415,6 +418,29 @@ describe("the publications through the owner's review", () => {
     await h.save({ ...DOI_CARD, findings: [{ ...DOI_CARD.findings[0]!, names_living_person: true }] }, null, {});
     const published = await h.call({ action: "publish_cards", cards: ["ARF-0043"] });
     expect(published.text).toContain("ARF-0043: finding 1 published as P-1003 (published, not checked by supervisors yet).");
+  });
+
+  // Codex's re-review of 17 Nov 2026, finding 4: publish_cards stored no route, and its page said the quick-answer test
+  // had happened. The owner's publishing, and the publication an acceptance makes, are stored as the owner's action.
+  it("stores what the owner publishes as the owner's action, and its page says nothing of the quick-answer test", async () => {
+    await stubProviders();
+    const h = harness();
+    await h.save(DOI_CARD, null);
+    await h.save(VELMOR_CARD, PAID);
+    const published = await h.call({ action: "publish_cards", cards: ["ARF-0042"] });
+    expect(published.structured.publications.cards[0]).toMatchObject({ outcome: "published", publications: ["P-1001"] });
+    expect(h.publications.shownByOf("P-1001")).toBe("owner_action");
+    const page = renderAtlasFinding((await loadAtlasFinding(new InMemoryAtlasPageSource({ publications: h.publications }),
+      "P-1001"))!);
+    expect(page).toContain("AskRigor’s owner has not reviewed it yet.");
+    expect(page).not.toContain(QUICK_ANSWER_MISSES_IT);
+    // A paid private card's finding the owner accepts is published by that decision: the owner's action too.
+    const accept = await h.call({ action: "accept_finding", card: "ARF-0043", finding: 1,
+      cardSha256: await cardSha256Of(h, "ARF-0043", 1) });
+    expect(accept.structured.outcome, accept.text).toBe("finding_queued");
+    const [decided] = await h.publications.inspect({ cardNumbers: [43] });
+    expect(decided).toMatchObject({ state: "accepted" });
+    expect(h.publications.shownByOf(decided!.publicationNumber)).toBe("owner_action");
   });
 
   it("files topicless publications under the owner's topic in place, keeping their P numbers", async () => {

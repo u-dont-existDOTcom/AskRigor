@@ -355,7 +355,9 @@ export class AtlasPublicationReview {
       const rows = await this.deps.publications.publish({
         cardNumber: number,
         cardSha256: card.record.card_sha256,
-        findings: drafts,
+        // Codex's re-review of 17 Nov 2026, finding 4: what the owner publishes is stored as the owner's action, so its
+        // page never says the quick-answer test happened.
+        findings: drafts.map((draft) => draft.state === "held" ? draft : { ...draft, shownBy: "owner_action" as const }),
         publishedAt: this.deps.now().toISOString(),
         revive: true,
       });

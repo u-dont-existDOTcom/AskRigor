@@ -891,9 +891,22 @@ the pages at once, unreviewed and labelled "Not checked by supervisors yet".
 Migration `0041_atlas_show_saved_findings` stores that with the publication
 (`shown_by` is `automatic_showing`), and such a finding's page says what the
 quick-answer test found only from a challenge mark's stored verdict, whether
-the setting is still on or not. Run the one-shot admin `migrate` before the new
+the setting is still on or not. It also stores the owner's publishing
+(`owner_action`: `publish_cards`, a decision's publication, or `show_on_pages`
+of a kept finding) and the quick-answer test's showing (`quick_answer_test`:
+`show_on_pages` of a finding the test kept with its own pass reason) apart;
+a publication from before 0041 has no route, and a page says the test happened
+only for `quick_answer_test` or from a challenge mark's stored verdict, so an
+older finding's page no longer says it, and the home page says each finding
+was published by the owner, shown after the test, or shown automatically once
+it passed AskRigor's checks. Run the one-shot admin `migrate` before the new
 image serves: it adds the nullable column and replaces `publish_atlas_findings`
-in its own shape, so no grant changes. Held, YouTube-comment and paid private
+and `keep_atlas_publications`, each in its own shape, so no grant changes.
+An image from before 0041 read its pages from the setting, not the route, and
+with the setting off would say the quick-answer test happened for a finding
+shown at once; it can't serve this database anyway once this release's 0021
+edit is recorded (below), so a rollback image is this release or a later one,
+whose pages read the route. Held, YouTube-comment and paid private
 findings are unaffected. A finding whose card declares that it names a living
 person, or that the meaning judge read as naming one, is held
 (`living_person_review`), with no page, until the owner decides, whatever the

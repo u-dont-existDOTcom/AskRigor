@@ -99,9 +99,10 @@ export interface AtlasPagePublication {
    */
   challenge: AtlasPageChallenge | null;
   /**
-   * How it reached the pages (migration 0041; Codex's review of 17 Nov 2026, finding 4): automatic_showing when the save
-   * showed it at once, so its page says nothing of the quick-answer test without a challenge mark; null when it was
-   * kept for the quick-answer test, or published by the owner.
+   * How it reached the pages (migration 0041; Codex's review of 17 Nov 2026, finding 4, and its re-review): the owner's
+   * action, the quick-answer test, or automatic showing; null when not recorded (an older publication, one an earlier
+   * image published, or a route this build doesn't know). Its page says the quick-answer test happened only for
+   * quick_answer_test, or from a challenge mark's stored verdict.
    */
   shownBy: AtlasPublicationRoute | null;
 }
@@ -323,7 +324,7 @@ function pagePublicationOf(row: {
     stateChangedAt: row.stateChangedAt,
     kept: row.kept,
     challenge: pageChallengeOf(row.challenge),
-    // Read only as migration 0041 holds it; anything else reads as not shown at once.
+    // Read only as migration 0041 holds it; anything else, a later image's route included, reads as not recorded.
     shownBy: (ATLAS_PUBLICATION_ROUTES as readonly unknown[]).includes(row.shownBy) ? row.shownBy as AtlasPublicationRoute : null,
   };
 }

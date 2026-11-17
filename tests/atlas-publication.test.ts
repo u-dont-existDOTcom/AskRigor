@@ -441,9 +441,10 @@ describe("publishing at the save", () => {
     ]);
     await h.store.keep({ publicationNumbers: ["P-1001"], atlasNumbers: [], keep: false, reason: null, at: NOW.toISOString() });
     expect((await h.store.inspectKept()).map(({ publicationNumber }) => publicationNumber)).toEqual(["P-1002"]);
-    // With the setting off, nothing says it was shown at once (Codex's review of 17 Nov 2026, finding 4).
+    // With the setting off, nothing says it was shown at once (Codex's review of 17 Nov 2026, finding 4): the one still
+    // kept has no route, and the one shown again without the test's recorded pass was shown by the owner's action.
     const store = h.store as InMemoryAtlasPublicationStore;
-    expect([store.shownByOf("P-1001"), store.shownByOf("P-1002")]).toEqual([null, null]);
+    expect([store.shownByOf("P-1001"), store.shownByOf("P-1002")]).toEqual(["owner_action", null]);
   });
 
   it("shows a saved finding at once, unreviewed, while saved findings show on the pages (the owner, 17 Nov 2026)", async () => {

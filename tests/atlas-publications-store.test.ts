@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   ADMITTED_MIGRATION_EDITS,
   ATLAS_PUBLICATION_HOLD_REASONS,
+  ATLAS_PUBLICATION_ROUTES,
   ATLAS_PUBLICATION_SCHEMA,
   ATLAS_PUBLICATION_SCHEMA_V2,
   ATLAS_PUBLICATION_STATES,
@@ -377,6 +378,44 @@ describe("the PostgreSQL publication store", () => {
       withdrawnAt: LATER });
     await store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: LATER, revive: true, findings: [draft(1)] });
     expect(store.shownByOf(shown!.publicationNumber)).toBe("automatic_showing");
+  });
+
+  // Codex's re-review of 17 Nov 2026, finding 4: four routes stored apart. The owner's action and automatic showing are
+  // written with the publication; the quick-answer test's only when it shows a finding it kept with its pass; a
+  // publication from before 0041, or from an earlier image's publishing, has none (not recorded).
+  it("stores each way a publication reached the pages apart, and the test's only from its recorded pass", async () => {
+    expect(ATLAS_PUBLICATION_ROUTES).toEqual(["owner_action", "quick_answer_test", "automatic_showing"]);
+    const store = new InMemoryAtlasPublicationStore();
+    const rows = await store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: AT, revive: false, findings: [
+      { ...draft(1), shownBy: "owner_action" },
+      { ...draft(2, { state: "accepted", atlasNumber: "F-1001" }), shownBy: "owner_action" },
+      draft(3), draft(4), draft(5),
+    ] });
+    const [owner, accepted, tested, shownByOwner, untouched] = rows.map(({ publicationNumber }) => publicationNumber);
+    expect(rows.map(({ publicationNumber }) => store.shownByOf(publicationNumber)))
+      .toEqual(["owner_action", "owner_action", null, null, null]);
+    for (const refused of [
+      { ...draft(6, { state: "held", heldBecause: ["card_reference"] }), shownBy: "owner_action" as const },
+      { ...draft(6), shownBy: "quick_answer_test" as const },
+      { ...draft(6, { state: "accepted", atlasNumber: "F-1002" }), shownBy: "automatic_showing" as const },
+    ]) {
+      await expect(store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: AT, revive: false,
+        findings: [refused] })).rejects.toBeInstanceOf(AtlasPublicationError);
+    }
+    // Shown again after the quick-answer test kept it with its pass: the test's route; with any other reason: the owner's.
+    const keep = (numbers: string[], reason: string | null) => store.keep({ publicationNumbers: numbers, atlasNumbers: [],
+      keep: reason !== null, reason, at: LATER });
+    await keep([tested!], "owner answer 240a: quick-answer test, passed, waiting for the whole picture");
+    await keep([shownByOwner!], "owner answer 240a: quick-answer test, failed, challenges the usual view");
+    await keep([tested!, shownByOwner!, untouched!], null);
+    expect([tested, shownByOwner, untouched].map((number) => store.shownByOf(number!)))
+      .toEqual(["quick_answer_test", "owner_action", null]);
+    // The owner's publishing again of a withdrawn finding is the owner's action; without a route it stays as it was.
+    await store.withdraw({ reason: "owner_unpublished", publicationNumbers: [tested!], ownerReason: "Wrong.", withdrawnAt: LATER });
+    await store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: LATER, revive: true,
+      findings: [{ ...draft(3), shownBy: "owner_action" }] });
+    expect(store.shownByOf(tested!)).toBe("owner_action");
+    expect([owner, accepted].map((number) => store.shownByOf(number!))).toEqual(["owner_action", "owner_action"]);
   });
 
   it("refuses a row that does not read as a publication", async () => {

@@ -381,8 +381,9 @@ describe("mark_challenge, clear_challenge and list_challenges", () => {
     const refused = await run.run({ action: "clear_challenge", items: [shown, kept] });
     expect(refused).toMatchObject({ ok: false, error: { code: "invalid_request" } });
     expect(refused.text).toBe(`${shown} shows unreviewed only because it challenges the usual view, with the ` +
-      "quick-answer verdict headline or fail, so its mark stays while it shows: without it, its page would say a quick " +
-      "AI answer misses it. Keep it for research first (keep_for_research), then clear its mark; nothing was changed.");
+      "quick-answer verdict headline or fail, so its mark stays while it shows: without it, its page would no longer " +
+      "say that it is shown because it challenges the usual view. Keep it for research first (keep_for_research), then " +
+      "clear its mark; nothing was changed.");
     expect((await store.inspectChallenges()).map(({ publicationNumber }) => publicationNumber)).toEqual([shown, kept]);
   });
 

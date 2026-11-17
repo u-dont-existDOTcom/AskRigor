@@ -545,7 +545,7 @@ export function renderAtlasHome(model: AtlasHomeModel, reader?: AtlasPageReader)
 <h1>AskRigor Atlas</h1>
 <p class="lede">Findings from research done with AskRigor, written without the people who asked.</p>
 <div class="notice">
-<p>Every finding here passed AskRigor’s automatic checks when it was saved. Some were also tested by a separate AI, which found that a quick AI answer misses them or that they challenge the usual view. A finding is marked “${NOT_CHECKED_LABEL}” until AskRigor’s owner has reviewed it. A reviewed finding shows the wording the owner accepted, its Atlas number and the day it was checked; a rejected one leaves these pages.</p>
+<p>Each finding here was published by AskRigor’s owner, shown after a separate AI’s quick-answer test, or shown automatically once it passed AskRigor’s checks. A finding’s page says what that test found only when the test is recorded for it. A finding is marked “${NOT_CHECKED_LABEL}” until AskRigor’s owner has reviewed it. A reviewed finding shows the wording the owner accepted, its Atlas number and the day it was checked; a rejected one leaves these pages.</p>
 <p>How sure each finding is shows AskRigor’s rating, not a formal GRADE assessment. Rates and the numbers needed to treat or harm are worked out from each group’s counts. Nothing here is medical advice.</p>
 </div>
 ${ownerPicks(model.picks)}<section aria-labelledby="strongest-checked">
@@ -998,16 +998,17 @@ ${topic.findings.map((entry) => {
  * What an unreviewed shown finding's status says of the quick-answer test (owner answer 240a): a finding shown because it
  * passed says a quick AI answer misses it; one shown because it challenges the usual view says so from its stored verdict
  * (the owner, 6 Nov 2026), and a headline or a fail means a quick AI answer may already give it. A finding kept for
- * research hasn't passed the test, so it says neither. One the save showed at once (the owner, 17 Nov 2026) without a
- * challenge mark may never have had the test, so it says nothing of it either, as its publication stores how it reached
- * the pages, whatever the setting is now (Codex's review of 17 Nov 2026, finding 4); a mark's stored verdict still says
- * what the test found.
+ * research hasn't passed the test, so it says neither. Without a mark, it says the test found a quick AI answer misses
+ * it only when its publication records that the test showed it (shown_by quick_answer_test, migration 0041): one the
+ * owner published or showed, one the save showed at once, and one whose route isn't recorded say nothing of the test,
+ * whatever the settings are now (Codex's review of 17 Nov 2026, finding 4, and its re-review).
  */
 function quickAnswerWords(finding: ShownFinding): string {
   if (finding.kept) return "";
-  if (finding.challenge !== null && finding.challenge.verdict !== "pass") return `${SHOWN_AS_A_CHALLENGE} `;
-  if (finding.challenge === null && finding.shownAtOnce) return "";
-  return `${QUICK_ANSWER_MISSES_IT} `;
+  if (finding.challenge !== null) {
+    return finding.challenge.verdict === "pass" ? `${QUICK_ANSWER_MISSES_IT} ` : `${SHOWN_AS_A_CHALLENGE} `;
+  }
+  return finding.shownBy === "quick_answer_test" ? `${QUICK_ANSWER_MISSES_IT} ` : "";
 }
 
 /** The usual view a finding challenges, with its source's link, as a sentence. */
