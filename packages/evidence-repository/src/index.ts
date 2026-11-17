@@ -60,6 +60,7 @@ export {
   RESEARCH_DOSSIER_PUBLIC_DECISIONS,
   RESEARCH_DOSSIER_PUBLIC_STATES,
   ResearchDossierPublicationError,
+  publicCopyPassesPageGuard,
   publicDossierNoticeCovered,
   researchDossierAdmission,
   type PublicDossierCopy,

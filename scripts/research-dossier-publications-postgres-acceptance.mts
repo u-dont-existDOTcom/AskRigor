@@ -18,6 +18,7 @@ import {
   stableJson,
   type ResearchDossierPublishInput,
 } from "../packages/evidence-repository/src/index.js";
+import { rowPassesPageGuard } from "../apps/research-mcp/src/atlas/page-guard.js";
 import { publicDossierOf } from "../apps/research-mcp/src/findings/dossier-publication.js";
 import {
   DOSSIER_TOPIC_INDEX_PER_PAGE,
@@ -137,6 +138,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       "research_dossier_conflict_candidates(text, uuid, text, integer, integer)": "askrigor_research_access",
       "research_dossier_conflict_matches(jsonb)": "none",
       "research_dossier_topic_names(jsonb)": "none",
+      "research_dossier_public_passes_page_guard(jsonb)": "none",
       "research_dossier_lock_topics(text[])": "none",
       "research_dossier_lock_copy_topics(text, integer)": "none",
       "list_research_dossier_publications(text, integer)": "askrigor_research_review",
@@ -832,6 +834,38 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     assert((await publisher.publish(await copy(fourth.accountKey, f1))).outcome === "account_refused",
       "PUBLISHED_WITH_SAVING_OFF");
     checks.push("saving_off_publishes_nothing");
+
+    // Codex's re-review, P2 (his probe: a shown copy the pages then left out, answering 404): the database repeats the
+    // pages' last check at admission. It reads every text as the pages do, without format characters and whatever its
+    // case: text for text the same answer as rowPassesPageGuard, every format character in a card's reference included.
+    const formatCharacters = Array.from({ length: 0x110000 }, (_, code) => code)
+      .filter((code) => (code < 0xD800 || code > 0xDFFF) && /\p{Cf}/u.test(String.fromCodePoint(code)))
+      .map((code) => String.fromCodePoint(code));
+    const refusedTexts = ["See you\u200Btube.com for the trial.", "As card ARF-\u200B1234 says.", "On YOUTU.BE too.",
+      "On youtube-nocoo\u212Aie.com too.", "arf-0001", ...formatCharacters.map((mark) => `ARF-${mark}1234`),
+      ...formatCharacters.map((mark) => `you${mark}tube.com`)];
+    const passingTexts = ["A YouTube video was not used.", "ARF-123 is not a card.", "youtube dot com", "Kelvin \u212A.",
+      "ARF-١٢٣٤ in other digits", "Myo-inositol 2 g a day", "café, naïve, 東京"];
+    const parity = await admin.query<{ text: string; passes: boolean }>(`SELECT text,
+        ${SCHEMA}.research_dossier_public_passes_page_guard(jsonb_build_object('findings',
+          jsonb_build_array(jsonb_build_object('claim', text)))) AS passes
+      FROM unnest($1::text[]) AS text`, [[...refusedTexts, ...passingTexts]]);
+    for (const { text, passes } of parity.rows) {
+      assert(passes === rowPassesPageGuard({ claim: text }) && passes === passingTexts.includes(text),
+        `PAGE_GUARD_PARITY_${JSON.stringify(text)}`);
+    }
+    const guarded = await account("guarded");
+    for (const [index, claim] of refusedTexts.slice(0, 5).entries()) {
+      const version = await save(guarded.accountKey, `guarded-${index}`, `guarded-${index}`, null, (value) => {
+        value.topic = { key: "guarded-topic", name: "Guarded", other_names: [], related: [] };
+        value.forms = ["guarded-form"];
+        value.findings[0].claim = claim;
+      });
+      const refusedCopy = await publisher.publish(await copy(guarded.accountKey, version));
+      assert(refusedCopy.outcome === "payload_refused", `PAGE_GUARD_NOT_REPEATED_${index}_${refusedCopy.outcome}`);
+    }
+    assert((await pages.listShown({ topicKeys: ["guarded-topic"], limit: 10 })).length === 0, "GUARDED_COPY_SHOWN");
+    checks.push("admission_repeats_the_pages_last_check");
 
     // Malformed input is refused whole; a copy's content never changes and nothing is deleted.
     await expectError(() => access.query(`SELECT * FROM ${SCHEMA}.publish_research_dossier_version($1, $2::uuid,

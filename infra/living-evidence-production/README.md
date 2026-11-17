@@ -551,7 +551,7 @@ private record, two internal functions for the conflict candidates, two that tak
 publication and every review transition that changes what is shown take the same locks, in the same order), and two
 views. The research-access role publishes and reads a topic's shown copies
 (`publish_research_dossier_version`, which derives the public copy and why it is held from the saved private record and
-refuses anything else, and admits copies one topic at a time against the conflict check's candidates, and
+refuses anything else, and any copy the pages' last check would leave out, and admits copies one topic at a time against the conflict check's candidates, and
 `research_dossier_conflict_candidates`, every shown copy on the topic, a linked topic or under another name, a page at a
 time); the review role
 lists, inspects and decides (`list_research_dossier_publications`, `inspect_research_dossier_publication`,

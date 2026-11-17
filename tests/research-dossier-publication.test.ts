@@ -28,7 +28,7 @@ import {
   dossierRankItems,
   rankDossierFindings,
 } from "../apps/research-mcp/src/atlas/dossier-ranking.js";
-import { atlasPageProblems } from "../apps/research-mcp/src/atlas/page-guard.js";
+import { atlasPageProblems, rowPassesPageGuard } from "../apps/research-mcp/src/atlas/page-guard.js";
 import { atlasRouteOf, createAtlasPagesHandler, type AtlasPagesHandler } from "../apps/research-mcp/src/atlas/pages-http.js";
 import { publicDossiersEnabledFromEnv } from "../apps/research-mcp/src/config.js";
 import { AtlasReview } from "../apps/research-mcp/src/findings/atlas-review.js";
@@ -545,12 +545,40 @@ describe("the publisher's own derivation", () => {
       ...(change === undefined ? {} : { value: dossier(change) }) }));
     const [version] = dossiers.snapshot();
     const stored = (await dossiers.readVersion(ACCOUNT, version!.versionId))!.payload as Record<string, any>;
-    return { publications, versionId: version!.versionId, stored, honest: publicDossierOf(stored) };
+    return { dossiers, publications, versionId: version!.versionId, stored, honest: publicDossierOf(stored) };
   }
   const claimed = (versionId: string, payload: unknown) => ({ accountKey: ACCOUNT, versionId, payload,
     topicKey: "inositol-invented", relatedTopicKeys: [], payloadSha256: "a".repeat(64), state: "shown", holdReasons: [],
     compared: [], conflictCheck: "read", conflictsWith: [], importantConflict: false, origin: { surface: "/mcp" },
     privacyRead: true, at: NOW }) as never;
+
+  // Codex's re-review of stage 2, P2: the publisher repeats the pages' last check at admission, so no copy is stored as
+  // shown that the pages would then leave out (his probe stored one, and its page answered 404).
+  it("refuses a copy the pages' last check would leave out, however it reaches the publisher", async () => {
+    const { publicCopyPassesPageGuard } = await import("@askrigor/evidence-repository");
+    const refused = ["See you\u200Btube.com for the trial.", "As card ARF-\u200B1234 says.", "On YOUTU.BE too.",
+      "On youtube-nocoo\u212Aie.com too.", "arf-0001"];
+    const passing = ["A YouTube video was not used.", "ARF-123 is not a card.", "youtube dot com", "Kelvin \u212A."];
+    for (const text of [...refused, ...passing]) {
+      // The store's own check is the pages' check, text for text.
+      expect(publicCopyPassesPageGuard({ findings: [{ claim: text }] }), text).toBe(rowPassesPageGuard({ claim: text }));
+      expect(rowPassesPageGuard({ claim: text }), text).toBe(passing.includes(text));
+    }
+    for (const claim of refused) {
+      const { dossiers, publications, stored } = await saved();
+      const payload = structuredClone(stored);
+      payload.findings[0].claim = claim;
+      const hex = createHash("sha256").update(`guard:${claim}`).digest("hex");
+      const versionId = deterministicUuid(`guard:${claim}`);
+      await dossiers.append({ accountKey: ACCOUNT, dossierKey: hex, threadKey: hex, requestKey: hex, inputSha256: hex,
+        payload, payloadSha256: hex, cardNumber: null, identifiers: [], expectedPreviousVersionId: null, versionId,
+        at: NOW });
+      expect(await publications.publish({ accountKey: ACCOUNT, versionId, payload: publicDossierOf(payload) as never,
+        compared: [], conflictCheck: "read", conflictsWith: [], importantConflict: false, at: NOW }), claim)
+        .toEqual({ outcome: "payload_refused" });
+      expect(await publications.listShown({ limit: 10 })).toEqual([]);
+    }
+  });
 
   it("refuses a payload that is not exactly the saved record's public part", async () => {
     const { publications, versionId, honest } = await saved();
@@ -1330,7 +1358,7 @@ describe("the dossier's shape and migration 0040", () => {
     // The pure helpers that derive a copy from its private record (Codex's review, finding 10) read no table: they run
     // only inside the definer functions, as their owner.
     const pure = ["research_dossier_pick", "research_dossier_public_projection", "research_dossier_public_sizes_complete",
-      "research_dossier_topic_names"];
+      "research_dossier_topic_names", "research_dossier_public_passes_page_guard"];
     for (const { name, header } of functions) {
       expect(migration).toMatch(new RegExp(`REVOKE ALL ON FUNCTION ${name}\\([^;]*\\) FROM PUBLIC;`, "u"));
       if (pure.includes(name)) expect(header).toMatch(/IMMUTABLE/u);

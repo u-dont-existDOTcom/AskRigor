@@ -378,6 +378,33 @@ $function$;
 
 REVOKE ALL ON FUNCTION research_dossier_public_sizes_complete(jsonb) FROM PUBLIC;
 
+-- The pages' last check, repeated at admission (Codex's re-review of stage 2, P2: a copy was stored as shown that the
+-- pages then left out, and its page answered 404). The pages write every text escaped, so of their last check
+-- (atlas/page-guard.ts, rowPassesPageGuard) only two things can stop a text: a findings card's reference (ARF- and four
+-- digits) or a YouTube host's name (youtube.com, youtube-nocookie.com, youtu.be), whatever the case, read without
+-- Unicode's format characters (Cf, as of Unicode 17, the server's), and with the Kelvin sign read as the k it folds to,
+-- the one character outside ASCII that the pages' case-blind check folds onto one of these letters. Each text of the
+-- public part, at any depth, is read so; any that would stop a page refuses the copy.
+CREATE OR REPLACE FUNCTION research_dossier_public_passes_page_guard(projection jsonb)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+  SELECT NOT EXISTS (
+    SELECT 1
+      FROM jsonb_path_query(projection, 'strict $.**') AS item(value),
+           LATERAL (SELECT translate(regexp_replace(item.value #>> '{}',
+             '[­؀-؅؜۝܏࢐-࢑࣢᠎​-‏‪-‮⁠-⁤⁦-⁯﻿￹-￻\U000110BD\U000110CD\U00013430-\U0001343F\U0001BCA0-\U0001BCA3\U0001D173-\U0001D17A\U000E0001\U000E0020-\U000E007F]',
+             '', 'g'), chr(8490), 'k') AS shown) AS reading
+     WHERE jsonb_typeof(item.value) = 'string'
+       AND (reading.shown ~ '[Aa][Rr][Ff]-[0-9]{4}'
+         OR reading.shown ~
+           '[Yy][Oo][Uu][Tt][Uu]([Bb][Ee](-[Nn][Oo][Cc][Oo][Oo][Kk][Ii][Ee])?\.[Cc][Oo][Mm]|\.[Bb][Ee])'));
+$function$;
+
+REVOKE ALL ON FUNCTION research_dossier_public_passes_page_guard(jsonb) FROM PUBLIC;
+
 -- A public part's key, names, other names and forms, trimmed and lower-cased, each once: where another dossier may meet
 -- it under another name (research_dossier_public_versions.topic_names).
 CREATE OR REPLACE FUNCTION research_dossier_topic_names(projection jsonb)
@@ -524,7 +551,7 @@ REVOKE ALL ON FUNCTION research_dossier_lock_copy_topics(text, integer) FROM PUB
 -- It takes nothing on trust from the access role (Codex's review of stage 2, finding 10): the public copy, its topic,
 -- related topics and digest, where its research ran, whether a privacy reading passed it and whether a claim names a
 -- living person are all derived here from the private record. The payload the server checked must be exactly that
--- derivation, and must keep the sizes rule, or nothing is written (payload_refused). Why it is held is derived too:
+-- derivation, and must keep the sizes rule and pass the pages' last check, or nothing is written (payload_refused). Why it is held is derived too:
 -- waiting for the privacy reading, not highly confident, names a living person or did not say; only the conflict
 -- check's result comes from the server, which made it with AskRigor's paid reader.
 --
@@ -630,7 +657,9 @@ BEGIN
   stamp := coalesce(version_row.payload_json -> 'stamp', '{}'::jsonb);
   topic := projection -> 'topic' ->> 'key';
   IF target_payload IS DISTINCT FROM projection OR topic IS NULL OR topic !~ '^[a-z0-9][a-z0-9._-]{0,199}$'
-     OR NOT research_dossier_public_sizes_complete(projection) THEN
+     OR NOT research_dossier_public_sizes_complete(projection)
+     -- The pages' last check, repeated here, so no copy is stored as shown that a page would leave out.
+     OR NOT research_dossier_public_passes_page_guard(projection) THEN
     RETURN QUERY SELECT 'payload_refused'::text, NULL::text, NULL::text, NULL::text[];
     RETURN;
   END IF;

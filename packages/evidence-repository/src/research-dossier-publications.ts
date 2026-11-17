@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 
 import { assertSafeAtlasSchema, atlasPool, type PostgresAtlasStoreOptions } from "./atlas-findings.js";
+import { withoutFormatCharacters } from "./atlas-shown-text.js";
 import { sha256, stableJson } from "./hash.js";
 import type { InMemoryResearchDossierStore } from "./research-dossiers.js";
 
@@ -402,6 +403,33 @@ export function researchDossierAdmission(stored: Record<string, unknown>, projec
   ];
   return { state: holdReasons.length === 0 ? "shown" : "held", holdReasons, privacyRead,
     namesLivingPerson: typeof named === "boolean" ? named : null };
+}
+
+// What can stop a page in a text the pages write escaped (the research server's atlas/page-guard.ts): a findings card's
+// reference or a YouTube host's name, whatever the case. Written out letter by letter, as the database's
+// research_dossier_public_passes_page_guard writes them, so that neither depends on a locale's case rules.
+const PAGE_CARD_REFERENCE = /[Aa][Rr][Ff]-[0-9]{4}/u;
+const PAGE_YOUTUBE_HOST = /[Yy][Oo][Uu][Tt][Uu](?:[Bb][Ee](?:-[Nn][Oo][Cc][Oo][Oo][Kk][Ii][Ee])?\.[Cc][Oo][Mm]|\.[Bb][Ee])/u;
+const KELVIN_SIGN = /\u212A/gu;
+
+/**
+ * The pages' last check, repeated at admission as research_dossier_public_passes_page_guard (Codex's re-review of
+ * stage 2, P2): every text of a public part, at any depth, read without its format characters and with the Kelvin sign
+ * as the k it folds to, holds no findings card's reference and no YouTube host's name. A text the pages write escaped
+ * can stop a page only so; the research server's rowPassesPageGuard gives the same answer for every text.
+ */
+export function publicCopyPassesPageGuard(projection: unknown): boolean {
+  const texts: string[] = [];
+  const collect = (value: unknown): void => {
+    if (typeof value === "string") texts.push(value);
+    else if (Array.isArray(value)) value.forEach(collect);
+    else if (value !== null && typeof value === "object") Object.values(value).forEach(collect);
+  };
+  collect(projection);
+  return texts.every((text) => {
+    const shown = withoutFormatCharacters(text).replace(KELVIN_SIGN, "k");
+    return !PAGE_CARD_REFERENCE.test(shown) && !PAGE_YOUTUBE_HOST.test(shown);
+  });
 }
 
 /** A public part's key, names, other names and forms, trimmed and lower-cased, as research_dossier_topic_names. */
@@ -916,7 +944,7 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
     }
     const topic = (projection.topic ?? {}) as { key?: unknown; related?: unknown };
     if (stableJson(projection) !== stableJson(input.payload) || typeof topic.key !== "string" ||
-      !TOPIC_KEY.test(topic.key) || !this.options.sizesComplete(projection)) {
+      !TOPIC_KEY.test(topic.key) || !this.options.sizesComplete(projection) || !publicCopyPassesPageGuard(projection)) {
       return { outcome: "payload_refused" };
     }
     // Admitted one at a time, as the database's topic locks do; the candidates listed again must be those compared.
