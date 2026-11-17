@@ -574,7 +574,7 @@ describe("production living-evidence deployment", () => {
       '"0031_research_notice_acceptance",\n      "0032_research_call_record",\n      "0033_research_steering",\n      ' +
       '"0034_research_call_record_plan_next",\n      "0035_research_menu_learning",\n      ' +
       '"0036_research_use_notice_v6",\n      "0037_research_dossiers",\n      ' +
-      '"0038_research_proposal_idempotency_index",\n    ]');
+      '"0038_research_proposal_idempotency_index",\n      "0041_atlas_show_saved_findings",\n    ]');
     // append_only_guard on exactly the eight canonical tables; the two private review tables are not among them.
     const guarded = migration.slice(migration.indexOf("FOREACH table_name IN ARRAY ARRAY["));
     expect([...guarded.slice(0, guarded.indexOf("] LOOP")).matchAll(/'([a-z_]+)'/gu)].map(([, table]) => table))
@@ -944,14 +944,16 @@ describe("production living-evidence deployment", () => {
     // people's reports (owner answer 229a), 0027, a problem's rows at a glance, 0028, notice version 5 (owner answer
     // 253a), 0029, the research behind each finding (owner answers 254a and 255a), and 0030, the findings that challenge
     // the usual view (the owner, 6 November 2026). After the account migrations 0031 to 0035 comes 0036, notice
-    // version 6 (owner answer 307b), then 0037, the private research dossiers (AskRigor#477 stage 1), and last 0038,
-    // the index for the proposal lookup by idempotency key.
-    expect(order.slice(-18)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
+    // version 6 (owner answer 307b), then 0037, the private research dossiers (AskRigor#477 stage 1), 0038, the index
+    // for the proposal lookup by idempotency key, and last 0041, how a publication reached the pages (Codex's review of
+    // 17 Nov 2026, finding 4; 0039 and 0040 are other branches').
+    expect(order.slice(-19)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
       "0023_research_findings_save_switch", "0024_atlas_kept_for_research", "0025_atlas_placements", "0026_atlas_reports",
       "0027_atlas_glance_rows", "0028_research_use_notice_v5", "0029_atlas_research_behind", "0030_atlas_challenges",
       "0031_research_notice_acceptance", "0032_research_call_record",
       "0033_research_steering", "0034_research_call_record_plan_next", "0035_research_menu_learning",
-      "0036_research_use_notice_v6", "0037_research_dossiers", "0038_research_proposal_idempotency_index"]);
+      "0036_research_use_notice_v6", "0037_research_dossiers", "0038_research_proposal_idempotency_index",
+      "0041_atlas_show_saved_findings"]);
     // One table and its sequence, safe to run again; the reason lists replaced on every run.
     expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS atlas_publication_number_seq AS bigint START WITH 1001");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS atlas_publications (");
@@ -1124,11 +1126,12 @@ describe("production living-evidence deployment", () => {
     const review = await read("infra/living-evidence-production/provision-research-review-role.sh");
     const gaps = await read("infra/living-evidence-production/provision-evidence-gap-role.sh");
     const reader = await read("infra/living-evidence-production/init-reader.sh");
-    // Right after 0034 in the migrate list; only 0036 (notice version 6, owner answer 307b), 0037 and 0038 follow it.
+    // Right after 0034 in the migrate list; only 0036 (notice version 6, owner answer 307b), 0037, 0038 and 0041 follow it.
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
-    expect(order.slice(-5)).toEqual(["0034_research_call_record_plan_next", "0035_research_menu_learning",
-      "0036_research_use_notice_v6", "0037_research_dossiers", "0038_research_proposal_idempotency_index"]);
+    expect(order.slice(-6)).toEqual(["0034_research_call_record_plan_next", "0035_research_menu_learning",
+      "0036_research_use_notice_v6", "0037_research_dossiers", "0038_research_proposal_idempotency_index",
+      "0041_atlas_show_saved_findings"]);
     // Safe to run again: the columns, the table and the index come once, and every check is added by its name only
     // when it is missing.
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS learn_menu_choices boolean NOT NULL DEFAULT false");
@@ -1185,7 +1188,8 @@ describe("production living-evidence deployment", () => {
     const runbook = await read("infra/living-evidence-production/README.md");
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
-    expect(order.slice(-2)).toEqual(["0037_research_dossiers", "0038_research_proposal_idempotency_index"]);
+    expect(order.slice(-3)).toEqual(["0037_research_dossiers", "0038_research_proposal_idempotency_index",
+      "0041_atlas_show_saved_findings"]);
     // Additive: new objects only, each made once; nothing existing is dropped or altered but one trigger it owns.
     expect(migration).not.toMatch(/DROP (?!TRIGGER IF EXISTS)|ALTER TABLE|CREATE TABLE (?!IF NOT EXISTS)/u);
     expect([...migration.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)/gu)].map(([, name]) => name)).toEqual([
@@ -1288,7 +1292,7 @@ describe("production living-evidence deployment", () => {
     const runbook = await read("infra/living-evidence-production/README.md");
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
-    expect(order.at(-1)).toBe("0038_research_proposal_idempotency_index");
+    expect(order.slice(-2)).toEqual(["0038_research_proposal_idempotency_index", "0041_atlas_show_saved_findings"]);
     // One index, made once; no table, row, constraint, trigger, function or grant, and not CONCURRENTLY, which migrate()'s
     // single transaction cannot run.
     const statements = migration.replace(/--[^\n]*\n/gu, "").split(";").map((part) => part.trim()).filter(Boolean);
@@ -1311,6 +1315,42 @@ describe("production living-evidence deployment", () => {
     expect(section).toContain("Leave the index in place on a rollback");
     expect(section).toContain("SELECT count(*), pg_size_pretty(pg_total_relation_size('living_evidence.research_contribution_proposals'))");
     expect(section).toContain("research_contribution_proposals_idempotency_idx");
+  });
+});
+
+// Codex's review of 17 Nov 2026, finding 4: how a publication reached the pages, stored with it.
+describe("migration 0041", () => {
+  it("adds how a publication reached the pages, written only by publish_atlas_findings in its own shape, read by the pages", async () => {
+    const migration = await read("packages/evidence-repository/migrations/0041_atlas_show_saved_findings.sql");
+    const original = await read("packages/evidence-repository/migrations/0021_atlas_publications.sql");
+    const repository = await read("packages/evidence-repository/src/postgres.ts");
+    const review = await read("infra/living-evidence-production/provision-research-review-role.sh");
+    const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
+    const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
+    expect(order.at(-1)).toBe("0041_atlas_show_saved_findings");
+    // One nullable column, held to its one value by a check added by name; no table, and nothing dropped.
+    expect(migration).toContain("ALTER TABLE atlas_publications ADD COLUMN IF NOT EXISTS shown_by text;");
+    expect(migration).toContain("ADD CONSTRAINT atlas_publications_v1_shown_by_check CHECK (\n  shown_by IS NULL OR shown_by = 'automatic_showing'\n);");
+    expect(migration).not.toMatch(/CREATE TABLE|DROP FUNCTION|DROP COLUMN/u);
+    // publish_atlas_findings alone is replaced, with 0021's arguments and result, so its grant stands as it was.
+    const functions = migration.split("CREATE OR REPLACE FUNCTION ").slice(1);
+    expect(functions.map((chunk) => chunk.slice(0, chunk.indexOf("(")))).toEqual(["publish_atlas_findings"]);
+    const header = (text: string) => {
+      const start = text.indexOf("CREATE OR REPLACE FUNCTION publish_atlas_findings(");
+      return text.slice(start, text.indexOf("LANGUAGE plpgsql", start));
+    };
+    expect(header(migration)).toBe(header(original));
+    expect(migration).toContain("SECURITY DEFINER\nSET search_path = __SCHEMA__, pg_catalog, pg_temp");
+    expect(migration).toContain("REVOKE ALL ON FUNCTION publish_atlas_findings(integer, text, jsonb, timestamptz, boolean) FROM PUBLIC;");
+    expect(review).toContain("GRANT EXECUTE ON FUNCTION living_evidence.publish_atlas_findings(integer, text, jsonb, timestamptz, boolean)");
+    // Only an unreviewed draft may say it is shown at once; publishing a withdrawn finding again leaves it as it was.
+    expect(migration).toContain("OR (draft_shown_by IS NOT NULL AND (draft_shown_by <> '\"automatic_showing\"'::jsonb OR draft_state <> 'unreviewed'))");
+    const revive = migration.slice(migration.indexOf("ELSIF revive_withdrawn"), migration.indexOf("outcomes := outcomes || jsonb_build_object(draft_number::text, 'revived')"));
+    expect(revive).not.toContain("shown_by");
+    // The pages read it.
+    const pages = await read("packages/evidence-repository/src/atlas-pages.ts");
+    const columns = pages.slice(pages.indexOf("const PAGE_PUBLICATION_COLUMNS"), pages.indexOf("function publicationsSql"));
+    expect(columns).toContain("listed.shown_by");
   });
 });
 

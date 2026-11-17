@@ -545,7 +545,7 @@ export function renderAtlasHome(model: AtlasHomeModel, reader?: AtlasPageReader)
 <h1>AskRigor Atlas</h1>
 <p class="lede">Findings from research done with AskRigor, written without the people who asked.</p>
 <div class="notice">
-<p>A finding reaches these pages once a separate AI finds that a quick AI answer misses it, or that it challenges the usual view, marked “${NOT_CHECKED_LABEL}” until AskRigor’s owner has reviewed it. A reviewed finding shows the wording the owner accepted, its Atlas number and the day it was checked; a rejected one leaves these pages.</p>
+<p>Every finding here passed AskRigor’s automatic checks when it was saved. Some were also tested by a separate AI, which found that a quick AI answer misses them or that they challenge the usual view. A finding is marked “${NOT_CHECKED_LABEL}” until AskRigor’s owner has reviewed it. A reviewed finding shows the wording the owner accepted, its Atlas number and the day it was checked; a rejected one leaves these pages.</p>
 <p>How sure each finding is shows AskRigor’s rating, not a formal GRADE assessment. Rates and the numbers needed to treat or harm are worked out from each group’s counts. Nothing here is medical advice.</p>
 </div>
 ${ownerPicks(model.picks)}<section aria-labelledby="strongest-checked">
@@ -998,14 +998,15 @@ ${topic.findings.map((entry) => {
  * What an unreviewed shown finding's status says of the quick-answer test (owner answer 240a): a finding shown because it
  * passed says a quick AI answer misses it; one shown because it challenges the usual view says so from its stored verdict
  * (the owner, 6 Nov 2026), and a headline or a fail means a quick AI answer may already give it. A finding kept for
- * research hasn't passed the test, so it says neither. While saved findings show at once (the owner, 17 Nov 2026), a
- * shown finding without a challenge mark may never have had the test, so it says nothing of it either; a mark's stored
- * verdict still says what the test found.
+ * research hasn't passed the test, so it says neither. One the save showed at once (the owner, 17 Nov 2026) without a
+ * challenge mark may never have had the test, so it says nothing of it either, as its publication stores how it reached
+ * the pages, whatever the setting is now (Codex's review of 17 Nov 2026, finding 4); a mark's stored verdict still says
+ * what the test found.
  */
-function quickAnswerWords(finding: ShownFinding, shownWithoutTest = false): string {
+function quickAnswerWords(finding: ShownFinding): string {
   if (finding.kept) return "";
   if (finding.challenge !== null && finding.challenge.verdict !== "pass") return `${SHOWN_AS_A_CHALLENGE} `;
-  if (finding.challenge === null && shownWithoutTest) return "";
+  if (finding.challenge === null && finding.shownAtOnce) return "";
   return `${QUICK_ANSWER_MISSES_IT} `;
 }
 
@@ -1032,14 +1033,14 @@ function challengeBox(finding: ShownFinding): SafeHtml | "" {
 `;
 }
 
-function statusBlock(finding: ShownFinding, shownWithoutTest = false): SafeHtml {
+function statusBlock(finding: ShownFinding): SafeHtml {
   const status = finding.status;
   if (status.kind === "unreviewed") {
     return html`<div class="status status-unreviewed">
 <p class="status-label">${NOT_CHECKED_LABEL}</p>
 <p class="ai-label">${AI_LABEL}.</p>
 ${needsChecking(finding) ? html`<p class="badge badge-needs-checking">${NEEDS_CHECKING_LABEL}</p>
-` : ""}<p>${quickAnswerWords(finding, shownWithoutTest)}AskRigor’s owner has not reviewed it yet.${needsChecking(finding)
+` : ""}<p>${quickAnswerWords(finding)}AskRigor’s owner has not reviewed it yet.${needsChecking(finding)
     ? " Its claim is strong, so it needs checking before anyone relies on it." : ""}</p>
 </div>`;
   }
@@ -1393,7 +1394,7 @@ ${finding.whyNotUsual === null ? "" : html`<p><strong>Why this finding isn’t i
     ? html`<p><a href="${topicPath("inositol")}">Inositol: all forms, benefits, and risks</a></p>`
     : ""}
 ${finding.kept ? html`<p class="notice-line" role="note">${KEPT_FOR_RESEARCH_LINE}</p>
-` : ""}${statusBlock(finding, model.shownWithoutTest === true)}
+` : ""}${statusBlock(finding)}
 ${challengeBox(finding)}${question}
 <h1 class="claim">${finding.claim}</h1>
 <p class="meta">${joined(dates, " · ")}</p>

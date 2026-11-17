@@ -433,6 +433,9 @@ describe("publishing at the save", () => {
     ]);
     await h.store.keep({ publicationNumbers: ["P-1001"], atlasNumbers: [], keep: false, reason: null, at: NOW.toISOString() });
     expect((await h.store.inspectKept()).map(({ publicationNumber }) => publicationNumber)).toEqual(["P-1002"]);
+    // With the setting off, nothing says it was shown at once (Codex's review of 17 Nov 2026, finding 4).
+    const store = h.store as InMemoryAtlasPublicationStore;
+    expect([store.shownByOf("P-1001"), store.shownByOf("P-1002")]).toEqual([null, null]);
   });
 
   it("shows a saved finding at once, unreviewed, while saved findings show on the pages (the owner, 17 Nov 2026)", async () => {
@@ -446,6 +449,10 @@ describe("publishing at the save", () => {
       .toEqual([["P-1002", "unreviewed"], ["P-1001", "unreviewed"]]);
     expect(await h.store.inspectKept()).toEqual([]);
     expect(kept).toBe(0);
+    // Each is stored as shown at once, so its page says so after the setting is turned off (Codex's review of 17 Nov
+    // 2026, finding 4).
+    const store = h.store as InMemoryAtlasPublicationStore;
+    expect([store.shownByOf("P-1001"), store.shownByOf("P-1002")]).toEqual(["automatic_showing", "automatic_showing"]);
     // The owner's own actions are as before: keep_for_research keeps it, and show_on_pages shows it again.
     await h.store.keep({ publicationNumbers: ["P-1001"], atlasNumbers: [], keep: true, reason: "owner's choice",
       at: NOW.toISOString() });
@@ -459,6 +466,8 @@ describe("publishing at the save", () => {
     await held.service.publicationsSettled();
     expect((await held.store.inspect({})).map(({ state, heldBecause }) => [state, heldBecause]))
       .toEqual([["held", ["card_reference"]]]);
+    // A held finding didn't reach the pages, so it is not stored as shown at once.
+    expect((held.store as InMemoryAtlasPublicationStore).shownByOf("P-1001")).toBeNull();
     expect(await held.store.inspectKept()).toEqual([]);
     const paid = harness(undefined, undefined, { showOnPages: true });
     await expect(paid.save(VELMOR_CARD, { mode: "PAID_PRIVATE", noticeVersion: null })).resolves.toMatchObject({ status: "saved" });

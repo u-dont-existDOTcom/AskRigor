@@ -410,6 +410,7 @@ export { opensYouTube, withoutFormatCharacters } from "./atlas-shown-text.js";
 export {
   ATLAS_PUBLICATION_CARDS_PER_WITHDRAWAL,
   ATLAS_PUBLICATION_HOLD_REASONS,
+  ATLAS_PUBLICATION_ROUTES,
   ATLAS_PUBLICATION_LIVE_STATES,
   ATLAS_PUBLICATION_SCHEMA,
   ATLAS_PUBLICATION_SCHEMA_V2,
@@ -449,6 +450,7 @@ export {
   type AtlasPublicationDecision,
   type AtlasPublicationDraft,
   type AtlasPublicationHoldReason,
+  type AtlasPublicationRoute,
   type AtlasPublicationQuery,
   type AtlasPublicationState,
   type AtlasPublicationStore,

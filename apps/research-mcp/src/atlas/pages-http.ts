@@ -18,7 +18,6 @@ import {
 
 import {
   atlasPagesEnabledFromEnv,
-  atlasShowSavedFindingsFromEnv,
   devAccountKeysFromEnv,
   livingEvidenceReuseConfigFromEnv,
   researchContributorAccessConfigFromEnv,
@@ -519,12 +518,6 @@ export interface CreateAtlasPagesHandlerOptions {
   now?: () => number;
   /** Votes, comments and sign-in (ASKRIGOR_ATLAS_PARTICIPATION=enabled); without them only GET search forms show. */
   participation?: AtlasParticipationRuntime;
-  /**
-   * The owner, 17 Nov 2026: saved findings show on the pages at once (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS=enabled), so
-   * being shown no longer means the quick-answer test showed a finding, and a finding page says so only from a
-   * challenge mark's stored verdict.
-   */
-  savedFindingsShown?: boolean;
 }
 
 function setPageHeaders(response: ServerResponse): void {
@@ -786,8 +779,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     if (reader !== undefined && view?.viewer) {
       reader.viewer = { displayName: view.viewer.displayName, ...(isOwner(session) ? { owner: true } : {}) };
     }
-    return checked({ status: extras.status ?? 200, html: renderAtlasFinding(
-      options.savedFindingsShown === true ? { ...model, shownWithoutTest: true } : model, view, reader) });
+    return checked({ status: extras.status ?? 200, html: renderAtlasFinding(model, view, reader) });
   };
 
   /** A published report's page (owner answer 229a): the answer form for a signed-in reader, the sign-in link otherwise. */
@@ -1628,6 +1620,5 @@ export function createAtlasPagesHandlerFromEnv(env: NodeJS.ProcessEnv = process.
     proxySecret,
     source,
     ...(participation === undefined ? {} : { participation }),
-    savedFindingsShown: atlasShowSavedFindingsFromEnv(env.ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS),
   });
 }

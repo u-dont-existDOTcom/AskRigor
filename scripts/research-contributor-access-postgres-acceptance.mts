@@ -1232,11 +1232,11 @@ async function verifyProposalIdempotencyIndex(context: {
   }
   checks.push("proposal_lookup_by_idempotency_key_answered_from_the_0038_index");
 
-  // An earlier image (bc71b90e and before) runs its own migrations, every one but 0038, in one transaction, and checks
-  // each one's recorded digest: the index stays, unchanged.
+  // An earlier image (bc71b90e and before) runs its own migrations, every one before 0038, in one transaction, and
+  // checks each one's recorded digest: the index stays, unchanged.
   const earlier = (await readdir(migrationsDirectory))
     .filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/u.test(name) && !name.endsWith("_down.sql") &&
-      name !== "0038_research_proposal_idempotency_index.sql")
+      name < "0038_research_proposal_idempotency_index.sql")
     .sort();
   assert(earlier.at(-1) === "0037_research_dossiers.sql", "EARLIER_IMAGE_MIGRATION_LIST");
   const migrator = await admin.connect();

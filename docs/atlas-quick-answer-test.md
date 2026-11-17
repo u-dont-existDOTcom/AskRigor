@@ -9,8 +9,9 @@ when they pass quality checks like this one"), the save path keeps nothing: a sa
 and the publication checks shows on the pages at once, unreviewed and labelled "Not checked by supervisors yet", so step
 1 below finds nothing new waiting. The test then reads the shown findings instead: `list_publications`, the unreviewed
 ones not kept and not yet in the log (step 6). A pass changes nothing; a headline or a fail goes to `keep_for_research`
-as step 5 says, which takes it off the lists. A shown finding's page says what the test found only from a challenge
-mark's stored verdict while the setting is on, since being shown no longer means the test showed it.
+as step 5 says, which takes it off the lists. A finding shown at once is stored as such (migration 0041), so its page
+says what the test found only from a challenge mark's stored verdict, whether the setting is still on or not, since
+being shown that way doesn't mean the test showed it.
 
 ## What runs it
 
