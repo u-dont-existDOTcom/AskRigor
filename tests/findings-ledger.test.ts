@@ -719,6 +719,89 @@ describe("the re-review of 17 Nov 2026", () => {
   });
 });
 
+describe("the third review of 17 Nov 2026", () => {
+  const SENTENCE = "Pain fell by 12 points in the exercise group at 6 months, against 3 points with usual care.";
+  const OTHER = "Function improved by 8 points in the exercise group at 6 months, against 2 points with usual care.";
+  const CONCLUSION = "Exercise therapy reduced pain, though the effect was small and faded after a year.";
+  const line = (source: string, sentence = SENTENCE) => ({ source, claim: "Exercise eased knee pain a little.", sentence,
+    conclusion: CONCLUSION, against: "A larger trial found no difference after a year." });
+  const looked = (source: string, sentence: "found" | "not_found") =>
+    ({ source, sentence, conclusion: "found", text: "full_text" }) as const;
+  const twoSources = { receipts: [
+    issueResearchReceipt("study_audit", { doi: "10.1000/depth", content: "a".repeat(16) }, { secret: SECRET }),
+    issueResearchReceipt("study_audit", { doi: "10.1000/other", content: "b".repeat(16) }, { secret: SECRET })],
+  key_sources: [
+    { id: "10.1000/depth", status: "validated", read_depth: "full_text_audited", answer_marker: "[Texte lu]" },
+    { id: "10.1000/other", status: "validated", read_depth: "full_text_audited", answer_marker: "[Autre]" }] } as
+    Partial<FinalizeResearchInput>;
+  const quoted = `[Autre] [Autre étude](https://doi.org/10.1000/other). "${SENTENCE}" "${OTHER}" "${CONCLUSION}"`;
+  const withLines = (lines: Array<ReturnType<typeof line>>, later: Record<string, unknown> = {}) =>
+    withLedger(fixture(quoted, { ...twoSources, source_lines: lines } as Partial<FinalizeResearchInput>), later);
+  const lookups = (...given: Array<ReturnType<typeof looked>>) => ({ ...options(undefined), sourceLineLookups: given });
+  const byId = (output: FinalizeResearchOutput, id: string) => output.check_findings!.findings.find((found) => found.id === id);
+  const sentenceNote = (output: FinalizeResearchOutput) =>
+    output.check_findings!.findings.find(({ text }) => text?.startsWith("The sentence given for [Autre]"))!;
+
+  it("1: keeps a source line's finding not rechecked when another line of its source takes its place", () => {
+    const first = finalizeResearch(withLines([line("10.1000/depth"), line("10.1000/other")]),
+      lookups(looked("10.1000/depth", "found"), looked("10.1000/other", "not_found")));
+    const bad = sentenceNote(first);
+    expect(bad).toMatchObject({ disposition: "open" });
+    // Another line of the same source in its place, looked up and found, the draft unchanged: the bad passage was not
+    // looked up again.
+    const replaced = finalizeResearch(withLines([line("10.1000/depth"), line("10.1000/other", OTHER)],
+      { findings_ledger: first.findings_ledger }), lookups(looked("10.1000/depth", "found"), looked("10.1000/other", "found")));
+    expect(byId(replaced, bad.id)).toMatchObject({ disposition: "not_rechecked" });
+    // The bad line looked up again and found: fixed.
+    const again = finalizeResearch(withLines([line("10.1000/depth"), line("10.1000/other")],
+      { findings_ledger: replaced.findings_ledger }), lookups(looked("10.1000/depth", "found"), looked("10.1000/other", "found")));
+    expect(byId(again, bad.id)).toMatchObject({ disposition: "fixed" });
+  });
+
+  it("1: keeps what a finding was about through a check that still finds it, until each line is looked up again", () => {
+    // Two bad lines of one source give one finding; one is taken out while the other still gives it.
+    const first = finalizeResearch(withLines([line("10.1000/other"), line("10.1000/other", OTHER)]),
+      lookups(looked("10.1000/other", "not_found"), looked("10.1000/other", "not_found")));
+    const bad = sentenceNote(first);
+    const one = finalizeResearch(withLines([line("10.1000/other", OTHER)], { findings_ledger: first.findings_ledger }),
+      lookups(looked("10.1000/other", "not_found")));
+    expect(byId(one, bad.id)).toMatchObject({ disposition: "open" });
+    // The line kept is found now; the one taken out was never looked up again.
+    const found = finalizeResearch(withLines([line("10.1000/other", OTHER)], { findings_ledger: one.findings_ledger }),
+      lookups(looked("10.1000/other", "found")));
+    expect(byId(found, bad.id)).toMatchObject({ disposition: "not_rechecked" });
+  });
+
+  const CLAIM_BAD = "Exercise eased knee pain in the other trial.";
+  const CLAIM_GOOD = "Exercise eased knee pain in the audited trial.";
+  const claimOf = (quote: string, study: string, passage: string) =>
+    ({ quote, studies: [study], groups: 1, passages: [{ study, passage }] });
+  const BAD_CLAIM = claimOf(CLAIM_BAD, "O", OTHER);
+  const GOOD_CLAIM = claimOf(CLAIM_GOOD, "D", SENTENCE);
+  const mapped = (claims: Array<ReturnType<typeof claimOf>>, later: Record<string, unknown> = {}) =>
+    withLedger(fixture(`[Autre] [Autre étude](https://doi.org/10.1000/other).\n\n${CLAIM_BAD}\n\n${CLAIM_GOOD}`, {
+      ...twoSources, study_map: {
+      studies: [{ id: "D", source: "10.1000/depth", group: "Adults with knee pain, Exampleton, 2025" },
+        { id: "O", source: "10.1000/other", group: "Adults with knee pain, Sampleville, 2024" }],
+      claims } } as Partial<FinalizeResearchInput>), later);
+  const mapLookup = (...claims: Array<"found" | "not_found">) => ({ ...options(undefined), studyMapLookup: {
+    done: true, studies: [0, 1].map(() => ({ text: "full_text" as const, registry: [], abstractNumbers: [] })),
+    links: [], claims: claims.map((outcome) => [outcome]), records: [] } });
+
+  it("1: keeps a removed study_map claim's finding not rechecked while another claim is kept and checked", () => {
+    const first = finalizeResearch(mapped([BAD_CLAIM, GOOD_CLAIM]), mapLookup("not_found", "found"));
+    const bad = first.check_findings!.findings.find(({ text }) => text?.startsWith("The passage given in study_map.claims[0]"))!;
+    expect(bad).toMatchObject({ disposition: "open" });
+    // The bad claim taken out, the other kept (now at its place) and found, the draft unchanged.
+    const removed = finalizeResearch(mapped([GOOD_CLAIM], { findings_ledger: first.findings_ledger }), mapLookup("found"));
+    expect(byId(removed, bad.id)).toMatchObject({ disposition: "not_rechecked" });
+    // The bad claim given again, and its passage found: fixed.
+    const again = finalizeResearch(mapped([BAD_CLAIM, GOOD_CLAIM], { findings_ledger: removed.findings_ledger }),
+      mapLookup("found", "found"));
+    expect(byId(again, bad.id)).toMatchObject({ disposition: "fixed" });
+  });
+});
+
 // The panel's harness, as in final-check-panel.test.ts.
 class Element {
   children: Element[] = [];

@@ -34,7 +34,7 @@ import { NEXT_STEP_KINDS, type NextStepKind } from "./next-step-kinds.js";
  * with the six stops, and is not built here.
  */
 
-export const FINDINGS_LEDGER_RULES_VERSION = "2026-11-17.1";
+export const FINDINGS_LEDGER_RULES_VERSION = "2026-11-17.2";
 export const FINDINGS_LEDGER_MAX_CHARACTERS = 24_000;
 /** The most a token may hold once inflated, at issue as when it is read (Codex's re-review of 17 Nov 2026, finding 4). */
 const FINDINGS_LEDGER_MAX_INFLATED_BYTES = 256 * 1024;
@@ -47,7 +47,9 @@ const FINDINGS_LEDGER_MEMORY_ENTRIES = 2_000;
  */
 const MAX_ENTRIES = 2_000;
 const MAX_RESPONSES = 30;
-const MAX_ITEMS = 8;
+// A source's lines (at most twelve) and those a finding still found was about before, each once; more is one item that
+// is never looked up again, so such a finding is never fixed by a look-up it can't follow.
+const MAX_ITEMS = 16;
 const SKETCH_SIZE = 16;
 /** A finding of the same rule whose inserted words overlap an earlier one's at least this much is the same finding. */
 export const FINDINGS_SAME_AFTER_EDIT = 0.5;
@@ -99,11 +101,20 @@ export interface ObservedFinding {
   /** The part of the check that found it; by default the second reading for its kind, else the rules. */
   checker?: FindingChecker;
   /**
-   * For a look-up that reads lines one by one, what the finding is about (Codex's re-review of 17 Nov 2026, finding 1):
-   * each item a line group as the caller names it. An earlier finding with items counts as rechecked only when this
-   * call's checkedItems hold every one of them.
+   * For a look-up that reads lines one by one, what the finding is about (Codex's re-review of 17 Nov 2026, finding 1,
+   * and its third review, finding 1): each item a line, by its passage and what it is from (findingItem). An earlier
+   * finding with items counts as rechecked only when this call's checkedItems hold every one of them.
    */
   items?: readonly string[];
+}
+/**
+ * A line a look-up reads, as a finding's item: the part of the check that reads it, then what identifies it (its
+ * passages and the sources or studies they are from), each compared as the ledger compares words. Never its place or
+ * how many lines its source has, so a line put in another's place is not the line it replaced (Codex's third review of
+ * 17 Nov 2026, finding 1).
+ */
+export function findingItem(checker: FindingChecker, ...parts: readonly string[]): string {
+  return [checker, ...parts.map(normalized)].join("\u0000");
 }
 function checkerOf({ checker, kind }: { checker?: FindingChecker | undefined; kind?: NextStepKind | undefined }):
   FindingChecker {
@@ -548,6 +559,8 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   const covered = new Set<FindingChecker>(params.coverage ?? ALWAYS_RUN);
   const itemDigest = (item: string) => digest(secret, "item", item, 12);
   const checkedItems = new Set((params.checkedItems ?? []).map(itemDigest));
+  // No line's item: what a finding about more lines than a ledger keeps is about, never looked up again.
+  const tooMany = itemDigest("\u0000more lines than a findings ledger keeps");
   // One record per finding: the same rule with the same inserted words, found twice in one call, is one finding.
   const observed: Fingerprinted[] = [];
   for (const finding of params.observed) {
@@ -698,7 +711,11 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     const reader = finding.call !== true && (finding.kind === undefined || !CALL_KINDS.has(finding.kind));
     const first = before?.n ?? revision;
     const checker = checkerOf(finding);
-    const items = [...new Set((finding.items ?? []).map(itemDigest))].sort().slice(0, MAX_ITEMS);
+    // What it is about now, and what it was about before that this call did not look up again (Codex's third review of
+    // 17 Nov 2026, finding 1): a line taken out while another still gives the finding is still one it was about.
+    const about = [...new Set([...(finding.items ?? []).map(itemDigest),
+      ...(before?.u ?? []).filter((item) => !checkedItems.has(item))])].sort();
+    const items = about.length > MAX_ITEMS ? [tooMany] : about;
     entries.push({
       id, r: finding.r, f: finding.f, h: finding.h, d: disposition, n: first, l: revision,
       ...(finding.kind === undefined ? {} : { k: finding.kind }),

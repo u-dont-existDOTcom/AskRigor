@@ -76,7 +76,7 @@ import {
 } from "./study-map.js";
 import type { SecondReaderFinding, SecondReaderKind } from "./second-reader.js";
 import {
-  checkFindingsSchema, findingsLedger, type FindingChecker, type FindingsLedgerParams, type FindingsLedgerResult,
+  checkFindingsSchema, findingItem, findingsLedger, type FindingChecker, type FindingsLedgerParams, type FindingsLedgerResult,
   type ObservedFinding, type RememberedLedger
 } from "./findings-ledger.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
@@ -2049,27 +2049,19 @@ export function finalizeResearch(
     if (!noteCheckers.has(note)) noteCheckers.set(note, checker);
     return note;
   };
-  // Codex's re-review of 17 Nov 2026, finding 1: what a look-up's note is about, so an earlier one counts as rechecked
-  // only when the lines it was about were looked up again in full. Lines are grouped (a source's source_lines, a
-  // card finding's backing lines) and counted: a note is about its group as large as it was, and a group whose every
-  // line was looked up in full is checked as large as it is and smaller, so a group that lost a line was not.
+  // Codex's re-review of 17 Nov 2026, finding 1, and its third review, finding 1: what a look-up's note is about, so an
+  // earlier one counts as rechecked only when each line it was about was looked up again in full. A line is its
+  // passages and what they are from (findingItem: a source line's or backing line's quotes and source, a study map
+  // claim's or link's sentences and studies), never its place or how many lines its source has.
   const noteItems = new Map<string, Set<string>>();
   const checkedItems: string[] = [];
-  const lineGroups = (checker: FindingChecker, lines: ReadonlyArray<{ group: string; full: boolean;
+  const lineItems = (checker: FindingChecker, lines: ReadonlyArray<{ item: string; full: boolean;
     notes: readonly string[] }>): void => {
-    const groups = new Map<string, { count: number; full: boolean }>();
-    for (const { group, full } of lines) {
-      const was = groups.get(group) ?? { count: 0, full: true };
-      groups.set(group, { count: was.count + 1, full: was.full && full });
-    }
-    const item = (group: string, count: number) => `${checker}\u0000${group}\u0000${count}`;
-    for (const [group, { count, full }] of groups) {
-      if (full) for (let size = 1; size <= count; size += 1) checkedItems.push(item(group, size));
-    }
-    for (const { group, notes: given } of lines) {
+    for (const { item, full, notes: given } of lines) {
+      if (full) checkedItems.push(item);
       for (const note of given) {
         if (noteCheckers.get(note) !== checker) continue;
-        noteItems.set(note, new Set([...noteItems.get(note) ?? [], item(group, groups.get(group)!.count)]));
+        noteItems.set(note, new Set([...noteItems.get(note) ?? [], item]));
       }
     }
   };
@@ -4713,7 +4705,7 @@ export function finalizeResearch(
     : [];
   const backingRequests: SourceLineRequest[] = backingLines.map(({ source }, line) => quoteRequest(source, line));
   const backingLookups = options.backingLookups ?? [];
-  const backingGroups: Array<{ group: string; full: boolean; notes: string[] }> = [];
+  const backingItems: Array<{ item: string; full: boolean; notes: string[] }> = [];
   for (const { finding, line, lookup } of backingLookups) {
     const given = notes.length;
     const missing = [
@@ -4730,9 +4722,12 @@ export function finalizeResearch(
         ? "the copy the AI supplied" : "the owner's library copy"}, which the Atlas never quotes; a quote found in a ` +
         "full text AskRigor fetched itself or a PubMed abstract is shown."));
     }
-    backingGroups.push({ group: String(finding), full: !cutShort(lookup.reason), notes: notes.slice(given) });
+    const backed = backingLines.find((backing) => backing.finding === finding && backing.line === line);
+    backingItems.push({ item: backed === undefined ? findingItem("backing_lines", at)
+      : findingItem("backing_lines", normalizeIdentifier(backed.source), backed.sentence, backed.conclusion ?? ""),
+    full: !cutShort(lookup.reason), notes: notes.slice(given) });
   }
-  if (options.findingsLedger !== undefined) lineGroups("backing_lines", backingGroups);
+  if (options.findingsLedger !== undefined) lineItems("backing_lines", backingItems);
   const sourceLineChecks = passed && draft !== undefined ? (options.sourceLineLookups ?? []).flatMap((lookup, index) => {
     const line = sourceLines[index];
     if (line === undefined) return [];
@@ -4744,8 +4739,12 @@ export function finalizeResearch(
     if (!notes.includes(note)) notes.push(checkedBy("source_lines", note));
   }
   if (options.findingsLedger !== undefined) {
-    lineGroups("source_lines", sourceLineChecks.map((check) => ({ group: normalizeIdentifier(check.source),
-      full: !cutShort(check.reason), notes: sourceLineNotes(check) })));
+    // The lines checked, in sourceLineChecks' order.
+    const checkedLines = sourceLineChecks.length === 0 ? [] : (options.sourceLineLookups ?? []).flatMap((_, index) =>
+      sourceLines[index] === undefined ? [] : [sourceLines[index]!]);
+    lineItems("source_lines", sourceLineChecks.map((check, index) => ({ item: findingItem("source_lines",
+      normalizeIdentifier(checkedLines[index]!.source), checkedLines[index]!.sentence, checkedLines[index]!.conclusion),
+    full: !cutShort(check.reason), notes: sourceLineNotes(check) })));
   }
   // Owner answer 249a: the study map. Each study's source resolves through the verified receipts as a source line's
   // does, so its passages are looked up in its own text only, once the check passes; what the map gives is compared
@@ -4779,6 +4778,11 @@ export function finalizeResearch(
     });
     studyMapCheck = checked.check;
     for (const note of checked.notes) if (!notes.includes(note)) notes.push(checkedBy("study_map", note));
+    if (options.findingsLedger !== undefined) {
+      const full = options.studyMapLookup.done && options.studyMapLookup.studies.every(({ reason }) => !cutShort(reason));
+      lineItems("study_map", checked.parts.map(({ about, notes: given }) =>
+        ({ item: findingItem("study_map", ...about), full, notes: given })));
+    }
   }
   // Owner answer 221: the meaning judge's notes, for the AI only; none of them is a step or holds the answer back.
   const judgment = options.meaningJudgment;
