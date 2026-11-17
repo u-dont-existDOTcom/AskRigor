@@ -545,6 +545,18 @@ describe("the review of 17 Nov 2026", () => {
     expect(described).toContain("not encrypted");
     expect(described).toContain("dispute reasons");
   });
+
+  it("8: says the sixth stop only as the check applies it", () => {
+    const sixth = WHAT_STOPS.find(({ rule: name }) => name === "plain_answer_comparison")!.scope;
+    // It stops only with the registered plain answer's receipt passed and the account's note on, for a comparison
+    // missing or leaving a claim out; a change the research doesn't back is a note.
+    expect(sixth).toContain("receipt of the plain answer");
+    expect(sixth).toContain("plain-answer note is on");
+    expect(sixth).toContain("plain_answer_comparison missing, or leaving out a claim");
+    expect(sixth).toContain("a change the research doesn't back is a note, not a stop");
+    expect(WHAT_STOPS_TEXT).toContain(sixth);
+    expect(WHAT_STOPS_TEXT.length).toBeLessThan(1_200);
+  });
 });
 
 // The panel's harness, as in final-check-panel.test.ts.

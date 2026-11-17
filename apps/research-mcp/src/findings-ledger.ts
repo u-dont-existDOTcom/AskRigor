@@ -767,8 +767,12 @@ export const WHAT_STOPS = Object.freeze([
   { rule: "numbers", scope: "a declared yes-or-no result whose arithmetic fails or whose sentence lacks both groups' figures" },
   { rule: "harm_screen", scope: "listed safety statements with no serious harm named as searched" },
   { rule: "retractions", scope: "a statement taken back that still appears anywhere in the answer" },
-  { rule: "plain_answer_comparison", scope: "for an account that registered a plain answer, a claim of it left out of " +
-    "the comparison, or a change not backed by the research" }
+  // Codex's review of 17 Nov 2026, finding 8: as the check applies it (research-finalization-gate.ts, owner answers 140b
+  // and 217b). With the account's note off, a missing or incomplete comparison is a note; an unbacked change always is.
+  { rule: "plain_answer_comparison", scope: "when the receipt of the plain answer this account registered for this " +
+    "research before researching is among the receipts and the account's plain-answer note is on: " +
+    "plain_answer_comparison missing, or leaving out a claim of that plain answer (a change the research doesn't back " +
+    "is a note, not a stop)" }
 ] as const);
 export const WHAT_STOPS_TEXT = "What can stop this answer at finalize_research. Six checks stop the whole answer " +
   "until it is fixed, each only in its own scope: " +
