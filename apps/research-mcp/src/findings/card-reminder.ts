@@ -7,11 +7,15 @@
  * more (register-tools.ts gave an absent card no words). So the card was put off to a later answer that never came.
  *
  * This reminder is the contained fix, outside the final check's own rules: when a free contributor's check passes for
- * the first time in the turn, card saving is on, no card came with the call, and the check's own note asked for one,
+ * the first time in the turn, card saving is on, no card came with the call, and the check asked for one,
  * the result says, in its text and in findings_card.problems (which an app reading only the structured content shows
  * too), that the card belongs to this answer, and that harms and safety signals count. It changes nothing a person is
  * asked to agree to: the free notice already says a free contributor's findings cards are saved and published. A paid
  * private answer, a call marked findings_save "off", a dev account with card saving off and a repeat pass get none.
+ *
+ * Whether the check asked is its own fact (findingsCardRequested), not read from the notes shown (Codex's review of
+ * 17 Nov 2026, finding 5): a check that did not pass gave the request, so the turn's first pass left it out of its
+ * notes as already given, and a reminder reading the notes said nothing.
  */
 
 /** How the final check's note asking a free contributor's research for its card starts (research-finalization-gate.ts). */
@@ -34,13 +38,13 @@ export interface FindingsCardReminderInput {
   status: string;
   cardStatus: string;
   turnAlreadyPassed: boolean;
-  notes: readonly string[] | undefined;
+  /** The check asked for a card and none came (findingsCardRequested), whether or not its notes show the request. */
+  cardRequested: boolean;
 }
 
 /** The reminder for a first pass that a free contributor's card should have come with, or undefined. */
 export function findingsCardReminder(input: FindingsCardReminderInput): string | undefined {
   const passed = input.status === "ready" || input.status === "ready_with_limits";
-  const asked = (input.notes ?? []).some((note) => note.startsWith(FINDINGS_CARD_REQUEST_START));
   return input.findings === "save" && input.savingOn && passed && !input.turnAlreadyPassed &&
-    input.cardStatus === "absent" && asked ? FINDINGS_CARD_REMINDER : undefined;
+    input.cardStatus === "absent" && input.cardRequested ? FINDINGS_CARD_REMINDER : undefined;
 }

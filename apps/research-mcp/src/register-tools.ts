@@ -310,6 +310,7 @@ import {
   parseFinalizeResearchInput,
   finalizeResearchOutputSchema,
   finalizeResearchPublishedOutputSchema,
+  findingsCardRequested,
   meaningJudgeSourceOf,
   sourceLineRequestsOf,
   studyMapRequestsOf,
@@ -2895,7 +2896,8 @@ function defineResearchOperations(
       // belongs to this answer, harms and safety signals included (findings/card-reminder.ts).
       const cardReminder = findingsCardReminder({ findings: finalizeOptions.findings,
         savingOn: account?.findingsSave === true && !callSavingOff, status: result.status,
-        cardStatus: result.findings_card.status, turnAlreadyPassed: result.turn_already_passed === true, notes: result.notes });
+        cardStatus: result.findings_card.status, turnAlreadyPassed: result.turn_already_passed === true,
+        cardRequested: findingsCardRequested(result) });
       if (cardReminder !== undefined) {
         result.findings_card.problems = [...result.findings_card.problems, cardReminder];
       }

@@ -1040,6 +1040,44 @@ describe("finalize_research, save_research_findings and the findings library", (
     expect(calls).toHaveLength(1);
   });
 
+  // Codex's review of 17 Nov 2026, finding 5: a check that did not pass asked for the card, so the turn's note
+  // deduplication left the request out of the first pass's notes, and the reminder, reading only the notes shown, said
+  // nothing. The request is carried as its own fact and used on the turn's first pass.
+  it("reminds the turn's first pass when an earlier check that did not pass asked for the card", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { calls, findingsSave } = recorder();
+    const service = await accessService();
+    const finalize = connectorTool("finalize_research", { researchContributorAccessService: service, findingsLibrary: true, findingsSave });
+    const { findings_card: _card, ...withoutCard } = request();
+    // A key source the research has no receipt for leaves the check open.
+    const unfinished = { ...withoutCard, key_sources: [...withoutCard.key_sources,
+      { read_depth: "abstract_only", answer_marker: "Other", id: "PMID:31000001", status: "validated" }] };
+    const first = await finalize(unfinished, "auth0|free");
+    const open = first.structuredContent as unknown as FinalizeResearchOutput & { round_token?: string };
+    expect(open.status).toBe("not_ready");
+    expect(open.notes?.some((note) => note.startsWith(FINDINGS_CARD_REQUEST_START))).toBe(true);
+    expect(open.findings_card.problems).toEqual([]);
+    const carried = {
+      ...(open.carry_forward === undefined ? {} : { carried_state: open.carry_forward }),
+      ...(open.round_token === undefined ? {} : { round_token: open.round_token }),
+    };
+    const passed = await finalize({ ...withoutCard, ...carried }, "auth0|free");
+    const output = passed.structuredContent as unknown as FinalizeResearchOutput & { round_token?: string };
+    expect(output.status).toBe("ready_with_limits");
+    // The request itself is not shown again in this turn, and the first pass still says the card belongs to this answer.
+    expect(output.notes?.some((note) => note.startsWith(FINDINGS_CARD_REQUEST_START)) ?? false).toBe(false);
+    expect(output).not.toHaveProperty("turn_already_passed");
+    expect(output.findings_card).toMatchObject({ status: "absent", problems: [FINDINGS_CARD_REMINDER] });
+    expect((passed.content as Array<{ text: string }>)[0]!.text).toContain(`\nFindings card: ${FINDINGS_CARD_REMINDER}`);
+    // A repeat pass, still with no card, gets none.
+    const again = await finalize({ ...withoutCard,
+      ...(output.carry_forward === undefined ? {} : { carried_state: output.carry_forward }),
+      ...(output.round_token === undefined ? {} : { round_token: output.round_token }) }, "auth0|free");
+    expect(again.structuredContent).toMatchObject({ status: "ready_with_limits", turn_already_passed: true,
+      findings_card: { status: "absent", problems: [] } });
+    expect(calls).toEqual([]);
+  });
+
   it("reports a save that did not happen without holding back the answer", async () => {
     process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
     const { findingsSave } = recorder({ status: "rate_limited", retryable: true, retry_after_seconds: 60, reason_code: "hourly_limit" });
