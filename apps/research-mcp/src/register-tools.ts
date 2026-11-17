@@ -2196,6 +2196,9 @@ function defineResearchOperations(
         review: options.atlasReview,
         // The source checks use the provider settings the connector's own provider tools use.
         providers: () => ({ crossref: crossrefConfig(), pubmed: ncbiConfig() }),
+        // AskRigor#477 stage 2 (Codex's re-review): a held dossier copy's privacy reading, made later on the owner's
+        // action, on the planner's own path and only while the reading is on.
+        dossierPrivacyReader: () => dossierPrivacyReaderOf(options),
       },
       ...(sharing === undefined ? {} : { sharedAnswers: sharing.vault }),
     }),
@@ -2892,10 +2895,7 @@ function defineResearchOperations(
         const dossierStore = options.researchDossiers;
         // Codex's final check, off by default: the meaning-based privacy reading, on the planner's own API path. With it
         // on, a planner that is off reads nothing, and nothing is saved.
-        const reading = options.dossierPrivacyReading ?? dossierPrivacyReadingFromEnv();
-        const privacyReading: DossierPrivacyReader | undefined = !reading ? undefined
-          : async (texts) => await configuredPlanner(options).readDossierPrivacy?.(texts) ??
-            { status: "unavailable", reason: "off" };
+        const privacyReading = dossierPrivacyReaderOf(options);
         const outcome = await withinDeadline(saveResearchDossier(dossierStore, {
           dossier: researchDossierFromCall(input),
           account: researcher,
@@ -3191,6 +3191,18 @@ function findingsSaveAccount(account: {
   noticeVersion: string | null;
 }): FindingsSaveAccount {
   return { mode: account.mode, noticeVersion: account.noticeVersion };
+}
+
+/**
+ * AskRigor's privacy reading of a research dossier (findings/dossier-privacy-reading.ts), on the research planner's own
+ * Claude API path, while ASKRIGOR_DOSSIER_PRIVACY_READING is on (or the tests' own setting); undefined while it is off.
+ * A planner that is off answers that the reading is off.
+ */
+export function dossierPrivacyReaderOf(options: Pick<RegisterToolsOptions, "dossierPrivacyReading" |
+  "researchPlanner" | "meaningJudge"> = {}): DossierPrivacyReader | undefined {
+  if (!(options.dossierPrivacyReading ?? dossierPrivacyReadingFromEnv())) return undefined;
+  return async (texts) => await configuredPlanner(options as RegisterToolsOptions).readDossierPrivacy?.(texts) ??
+    { status: "unavailable", reason: "off" };
 }
 
 /**

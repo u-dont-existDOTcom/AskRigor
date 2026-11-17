@@ -67,6 +67,21 @@ CREATE TABLE IF NOT EXISTS research_dossier_public_versions (
   -- Whether AskRigor's semantic privacy reading passed exactly the saved content; a copy without it never shows
   -- (Codex's review of stage 2, finding 1).
   privacy_read boolean NOT NULL,
+  -- A privacy reading made later, for a copy no reading passed when it was saved (Codex's re-review of stage 2, P1): of
+  -- its public content, on the owner's action or by the server once the reader is available again, bound to the digest
+  -- of the content it read. Its outcome is final for that content: passed, or refused with the reader's reason and the
+  -- field it named. A reading that could not be made (the reader off or unavailable, no money left that day) is stored
+  -- apart, as the last temporary failure, and leaves the copy waiting.
+  privacy_reading_outcome text CHECK (privacy_reading_outcome IN ('passed', 'refused')),
+  privacy_reading_sha256 char(64) CHECK (privacy_reading_sha256 ~ '^[a-f0-9]{64}$'),
+  privacy_reading_reason text CHECK (privacy_reading_reason IN ('names_a_person', 'birth_date', 'where_someone_lives',
+    'contact_details', 'personal_health_story', 'relative_or_household', 'copied_conversation', 'other_personal_detail')),
+  privacy_reading_path text CHECK (privacy_reading_path ~ '^[a-z_]+(\[[0-9]+\]|\.[a-z_]+)*$'
+    AND length(privacy_reading_path) <= 200),
+  privacy_reading_at timestamptz,
+  privacy_unavailable_reason text CHECK (privacy_unavailable_reason IN ('off', 'too_long', 'daily_budget', 'timeout',
+    'error', 'refusal', 'unreadable')),
+  privacy_unavailable_at timestamptz,
   -- A claim names a living person (the AI's declaration): true, false, or NULL when the AI did not say. A copy that
   -- names one shows only on the owner's own decision, with who decided, when and the reason he typed (Codex's review of
   -- stage 2, finding 2); nothing else clears it.
@@ -95,7 +110,15 @@ CREATE TABLE IF NOT EXISTS research_dossier_public_versions (
   CHECK ((state = 'erased') = (erased_at IS NOT NULL)),
   CHECK ((erased_at IS NULL) = (public_payload IS NOT NULL AND public_sha256 IS NOT NULL AND topic_key IS NOT NULL)),
   CHECK (state <> 'held' OR cardinality(hold_reasons) > 0),
-  CHECK (state <> 'shown' OR privacy_read),
+  CHECK ((privacy_reading_outcome IS NULL) = (privacy_reading_sha256 IS NULL)
+    AND (privacy_reading_outcome IS NULL) = (privacy_reading_at IS NULL)),
+  CHECK ((privacy_reading_outcome IS NOT DISTINCT FROM 'refused') = (privacy_reading_reason IS NOT NULL)),
+  CHECK (privacy_reading_path IS NULL OR privacy_reading_reason IS NOT NULL),
+  CHECK (privacy_reading_outcome IS NULL OR NOT privacy_read),
+  CHECK ((privacy_unavailable_reason IS NULL) = (privacy_unavailable_at IS NULL)),
+  -- Shown only once a privacy reading passed its content: when it was saved, or later, bound to exactly this content.
+  CHECK (state <> 'shown' OR privacy_read OR (privacy_reading_outcome IS NOT DISTINCT FROM 'passed'
+    AND privacy_reading_sha256 IS NOT DISTINCT FROM public_sha256)),
   CHECK ((living_person_decided_at IS NULL) = (living_person_decided_by IS NULL)
     AND (living_person_decided_at IS NULL) = (living_person_reason IS NULL)),
   CHECK ((living_person_statement IS NULL) = (living_person_stated_by IS NULL)
@@ -130,7 +153,8 @@ CREATE TABLE IF NOT EXISTS research_dossier_public_events (
   public_number text NOT NULL,
   version_number integer NOT NULL,
   event text NOT NULL CHECK (event IN ('shown', 'held', 'superseded', 'taken_down', 'accepted', 'erased',
-    'living_person_decided', 'living_person_stated', 'detached', 'revised')),
+    'living_person_decided', 'living_person_stated', 'detached', 'revised', 'privacy_reading_passed',
+    'privacy_reading_refused')),
   reason text CHECK (reason IS NULL OR (reason = btrim(reason) AND length(reason) BETWEEN 1 AND 200)),
   happened_at timestamptz NOT NULL,
   FOREIGN KEY (public_number, version_number)
@@ -159,7 +183,7 @@ COMMENT ON COLUMN research_dossier_public_versions.origin IS
 COMMENT ON TABLE research_dossier_public_generation IS
   'AskRigor#477 stage 2: one row, its number raised by every write to research_dossier_public_versions, so every server drops its cached dossier pages.';
 COMMENT ON TABLE research_dossier_public_events IS
-  'Append-only: shown, held, superseded, taken_down, accepted, erased, living_person_decided (the owner''s decision to show a copy whose claim names a living person), living_person_stated (the owner''s statement, for a copy whose AI did not say, of whether a claim names a living person), detached (its contributor lost access), revised (a reviewed revision of an importance mark, on the new version).';
+  'Append-only: shown, held, superseded, taken_down, accepted, erased, living_person_decided (the owner''s decision to show a copy whose claim names a living person), living_person_stated (the owner''s statement, for a copy whose AI did not say, of whether a claim names a living person), privacy_reading_passed and privacy_reading_refused (a privacy reading made later, bound to the content read), detached (its contributor lost access), revised (a reviewed revision of an importance mark, on the new version).';
 
 -- A copy's content changes only by erasure; its state, its hold reasons and its acceptance change by the functions
 -- below; it is never deleted.
@@ -193,6 +217,12 @@ BEGIN
      OR (OLD.living_person_decided_at IS NOT NULL AND (NEW.living_person_decided_at IS DISTINCT FROM
        OLD.living_person_decided_at OR NEW.living_person_decided_by IS DISTINCT FROM OLD.living_person_decided_by
        OR NEW.living_person_reason IS DISTINCT FROM OLD.living_person_reason))
+     -- A privacy reading made later is final for the content it read.
+     OR (OLD.privacy_reading_outcome IS NOT NULL AND (NEW.privacy_reading_outcome IS DISTINCT FROM
+       OLD.privacy_reading_outcome OR NEW.privacy_reading_sha256 IS DISTINCT FROM OLD.privacy_reading_sha256
+       OR NEW.privacy_reading_reason IS DISTINCT FROM OLD.privacy_reading_reason
+       OR NEW.privacy_reading_path IS DISTINCT FROM OLD.privacy_reading_path
+       OR NEW.privacy_reading_at IS DISTINCT FROM OLD.privacy_reading_at))
      -- So is his statement, for a copy whose AI did not say.
      OR (OLD.living_person_statement IS NOT NULL AND (NEW.living_person_statement IS DISTINCT FROM
        OLD.living_person_statement OR NEW.living_person_stated_by IS DISTINCT FROM OLD.living_person_stated_by
@@ -682,7 +712,9 @@ RETURNS TABLE (public_number text, version_number integer, dossier_number text, 
   question text, hold_reasons text[], conflicts_with text[], origin jsonb, privacy_read boolean, accepted boolean,
   decided_at timestamptz, names_living_person boolean, living_person_decided_by text,
   living_person_decided_at timestamptz, living_person_reason text, revision_of integer, revised_by text,
-  revision_reason text, living_person_statement text, living_person_stated_by text, living_person_stated_at timestamptz)
+  revision_reason text, living_person_statement text, living_person_stated_by text, living_person_stated_at timestamptz,
+  privacy_reading_outcome text, privacy_reading_reason text, privacy_reading_path text, privacy_reading_at timestamptz,
+  privacy_unavailable_reason text, privacy_unavailable_at timestamptz)
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
@@ -699,7 +731,9 @@ BEGIN
     copy.public_payload ->> 'question', copy.hold_reasons, copy.conflicts_with, copy.origin, copy.privacy_read,
     copy.accepted_at IS NOT NULL, copy.decided_at, copy.names_living_person, copy.living_person_decided_by,
     copy.living_person_decided_at, copy.living_person_reason, copy.revision_of, copy.revised_by, copy.revision_reason,
-    copy.living_person_statement, copy.living_person_stated_by, copy.living_person_stated_at
+    copy.living_person_statement, copy.living_person_stated_by, copy.living_person_stated_at,
+    copy.privacy_reading_outcome, copy.privacy_reading_reason, copy.privacy_reading_path, copy.privacy_reading_at,
+    copy.privacy_unavailable_reason, copy.privacy_unavailable_at
     FROM research_dossier_public_versions copy
     JOIN research_dossier_publications publication ON publication.public_number = copy.public_number
    WHERE (target_state IS NULL AND copy.state <> 'erased') OR copy.state = target_state
@@ -717,7 +751,9 @@ RETURNS TABLE (public_number text, version_number integer, dossier_number text, 
   origin jsonb, privacy_read boolean, accepted boolean, decided_at timestamptz, names_living_person boolean,
   living_person_decided_by text, living_person_decided_at timestamptz, living_person_reason text, revision_of integer,
   revised_by text, revision_reason text, living_person_statement text, living_person_stated_by text,
-  living_person_stated_at timestamptz)
+  living_person_stated_at timestamptz, privacy_reading_outcome text, privacy_reading_reason text,
+  privacy_reading_path text, privacy_reading_at timestamptz, privacy_unavailable_reason text,
+  privacy_unavailable_at timestamptz)
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
@@ -728,7 +764,8 @@ AS $function$
     copy.origin, copy.privacy_read, copy.accepted_at IS NOT NULL, copy.decided_at, copy.names_living_person,
     copy.living_person_decided_by, copy.living_person_decided_at, copy.living_person_reason, copy.revision_of,
     copy.revised_by, copy.revision_reason, copy.living_person_statement, copy.living_person_stated_by,
-    copy.living_person_stated_at
+    copy.living_person_stated_at, copy.privacy_reading_outcome, copy.privacy_reading_reason, copy.privacy_reading_path,
+    copy.privacy_reading_at, copy.privacy_unavailable_reason, copy.privacy_unavailable_at
     FROM research_dossier_public_versions copy
     JOIN research_dossier_publications publication ON publication.public_number = copy.public_number
    WHERE copy.public_number = target_public_number
@@ -740,7 +777,8 @@ REVOKE ALL ON FUNCTION inspect_research_dossier_publication(text) FROM PUBLIC;
 -- The review's decision on one copy: show (a held or taken-down copy), hold (send a shown copy the owner has not
 -- accepted back for the check), take_down, or accept (it shows, checked by supervisors). Only the dossier's newest copy can be shown or accepted, and
 -- only while its private version is neither withdrawn, rejected nor erased and a privacy reading passed its saved
--- content; showing or accepting supersedes the dossier's other shown copy. A copy whose claim names a living person is
+-- content, when it was saved or later (record_research_dossier_privacy_reading); showing or accepting supersedes the
+-- dossier's other shown copy. A copy whose claim names a living person is
 -- refused here until the owner's own decision (decide_research_dossier_living_person) has shown it, and so is one whose
 -- AI did not say until the owner has stated that no claim names one (state_research_dossier_living_person; Codex's
 -- re-review of stage 2, P0: "didn't say" is not "no").
@@ -788,7 +826,9 @@ BEGIN
      OR (target_decision = 'take_down' AND copy_row.state NOT IN ('shown', 'held'))
      OR (target_decision = 'show' AND copy_row.state NOT IN ('held', 'taken_down'))
      OR (target_decision = 'accept' AND copy_row.state NOT IN ('shown', 'held', 'taken_down'))
-     OR (target_decision IN ('show', 'accept') AND (copy_row.version_number <> newest OR NOT copy_row.privacy_read
+     OR (target_decision IN ('show', 'accept') AND (copy_row.version_number <> newest
+       OR NOT (copy_row.privacy_read OR (copy_row.privacy_reading_outcome IS NOT DISTINCT FROM 'passed'
+         AND copy_row.privacy_reading_sha256 IS NOT DISTINCT FROM copy_row.public_sha256))
        OR NOT (copy_row.living_person_decided_at IS NOT NULL OR copy_row.names_living_person IS FALSE
          OR (copy_row.names_living_person IS NULL
            AND copy_row.living_person_statement IS NOT DISTINCT FROM 'names_no_living_person'))
@@ -877,7 +917,9 @@ BEGIN
   IF NOT (copy_row.names_living_person IS TRUE
        OR copy_row.living_person_statement IS NOT DISTINCT FROM 'names_a_living_person')
      OR copy_row.living_person_decided_at IS NOT NULL
-     OR copy_row.state NOT IN ('held', 'taken_down') OR copy_row.version_number <> newest OR NOT copy_row.privacy_read
+     OR copy_row.state NOT IN ('held', 'taken_down') OR copy_row.version_number <> newest
+     OR NOT (copy_row.privacy_read OR (copy_row.privacy_reading_outcome IS NOT DISTINCT FROM 'passed'
+       AND copy_row.privacy_reading_sha256 IS NOT DISTINCT FROM copy_row.public_sha256))
      OR (copy_row.accepted_at IS NULL AND (copy_row.version_id IS NULL OR EXISTS (SELECT 1 FROM research_dossier_events event
        WHERE event.version_id = copy_row.version_id AND event.event IN ('withdrawn', 'rejected', 'erased')))) THEN
     RETURN QUERY SELECT 'not_decidable'::text, copy_row.state, copy_row.accepted_at IS NOT NULL;
@@ -960,6 +1002,103 @@ $function$;
 
 REVOKE ALL ON FUNCTION state_research_dossier_living_person(text, integer, text, text, timestamptz) FROM PUBLIC;
 
+-- The copies waiting for a privacy reading that the server makes once the reader is available again (Codex's re-review
+-- of stage 2, P1): held, no reading passed when saved and none made since, least recently tried first; one that was
+-- too long for a reading is left to the owner, since its content never changes. With the content and its digest, which
+-- the reading is bound to.
+CREATE OR REPLACE FUNCTION list_research_dossier_privacy_pending(target_limit integer)
+RETURNS TABLE (public_number text, version_number integer, public_payload jsonb, public_sha256 text)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+#variable_conflict use_column
+BEGIN
+  IF target_limit IS NULL OR target_limit < 1 OR target_limit > 50 THEN
+    RAISE EXCEPTION 'RESEARCH_DOSSIER_REVIEW_INPUT_INVALID';
+  END IF;
+  RETURN QUERY
+  SELECT copy.public_number, copy.version_number, copy.public_payload, copy.public_sha256::text
+    FROM research_dossier_public_versions copy
+   WHERE copy.state = 'held' AND copy.erased_at IS NULL AND NOT copy.privacy_read
+     AND copy.privacy_reading_outcome IS NULL AND copy.privacy_unavailable_reason IS DISTINCT FROM 'too_long'
+   ORDER BY copy.privacy_unavailable_at NULLS FIRST, copy.decided_at, copy.public_number, copy.version_number
+   LIMIT target_limit;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION list_research_dossier_privacy_pending(integer) FROM PUBLIC;
+
+-- Records a privacy reading made later of one copy's public content (Codex's re-review of stage 2, P1), on the owner's
+-- action or the server's: only for a copy held or taken down that no reading passed when it was saved and none since,
+-- and only when the digest of the content read is the copy's own. passed and refused are final for that content, each
+-- with its event; unavailable is temporary, kept as the last failed try, and the copy stays waiting. It shows nothing
+-- itself: a pass lets the ordinary show and accept work.
+CREATE OR REPLACE FUNCTION record_research_dossier_privacy_reading(
+  target_public_number text,
+  target_version_number integer,
+  target_content_sha256 text,
+  target_outcome text,
+  target_reason text,
+  target_path text,
+  change_time timestamptz
+)
+RETURNS TABLE (outcome text, state text)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+#variable_conflict use_column
+DECLARE
+  copy_row research_dossier_public_versions%ROWTYPE;
+BEGIN
+  IF target_public_number IS NULL OR target_public_number !~ '^D-[1-9][0-9]{3,}$'
+     OR target_version_number IS NULL OR target_version_number < 1
+     OR target_content_sha256 IS NULL OR target_content_sha256 !~ '^[a-f0-9]{64}$'
+     OR target_outcome IS NULL OR target_outcome NOT IN ('passed', 'refused', 'unavailable')
+     OR (target_outcome = 'passed' AND (target_reason IS NOT NULL OR target_path IS NOT NULL))
+     OR (target_outcome <> 'passed' AND target_reason IS NULL)
+     OR (target_outcome = 'unavailable' AND target_path IS NOT NULL)
+     OR change_time IS NULL THEN
+    RAISE EXCEPTION 'RESEARCH_DOSSIER_REVIEW_INPUT_INVALID';
+  END IF;
+  PERFORM 1 FROM research_dossier_publications publication
+   WHERE publication.public_number = target_public_number FOR UPDATE;
+  SELECT * INTO copy_row FROM research_dossier_public_versions copy
+   WHERE copy.public_number = target_public_number AND copy.version_number = target_version_number
+   FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT 'not_found'::text, NULL::text;
+    RETURN;
+  END IF;
+  IF copy_row.state NOT IN ('held', 'taken_down') OR copy_row.privacy_read
+     OR copy_row.privacy_reading_outcome IS NOT NULL
+     OR copy_row.public_sha256 IS DISTINCT FROM target_content_sha256 THEN
+    RETURN QUERY SELECT 'not_readable'::text, copy_row.state;
+    RETURN;
+  END IF;
+  IF target_outcome = 'unavailable' THEN
+    UPDATE research_dossier_public_versions copy
+       SET privacy_unavailable_reason = target_reason, privacy_unavailable_at = change_time
+     WHERE copy.public_number = copy_row.public_number AND copy.version_number = copy_row.version_number;
+  ELSE
+    UPDATE research_dossier_public_versions copy
+       SET privacy_reading_outcome = target_outcome, privacy_reading_sha256 = target_content_sha256,
+           privacy_reading_reason = target_reason, privacy_reading_path = target_path, privacy_reading_at = change_time
+     WHERE copy.public_number = copy_row.public_number AND copy.version_number = copy_row.version_number;
+    INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
+    VALUES (copy_row.public_number, copy_row.version_number, 'privacy_reading_' || target_outcome, target_reason,
+      change_time);
+  END IF;
+  RETURN QUERY SELECT 'recorded'::text, copy_row.state;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION record_research_dossier_privacy_reading(
+  text, integer, text, text, text, text, timestamptz
+) FROM PUBLIC;
+
 -- A reviewed revision of one finding's importance mark (Codex's review of stage 2, finding 7): never an edit in place,
 -- but a new version of the dossier's newest copy, shown or held as it was, with the mark changed and everything else
 -- the same, who revised it (the reviewer login's digest) and the reason he typed; the copy it revises is superseded and
@@ -1025,13 +1164,21 @@ BEGIN
     revised_by, revision_reason, state, topic_key, related_topic_keys, topic_names, public_payload, public_sha256,
     hold_reasons, conflicts_with, origin, privacy_read, names_living_person, living_person_statement,
     living_person_stated_by, living_person_stated_at, living_person_decided_by,
-    living_person_decided_at, living_person_reason, accepted_at, decided_at, created_at)
+    living_person_decided_at, living_person_reason, privacy_reading_outcome, privacy_reading_sha256,
+    privacy_reading_reason, privacy_reading_path, privacy_reading_at, privacy_unavailable_reason, privacy_unavailable_at,
+    accepted_at, decided_at, created_at)
   VALUES (copy_row.public_number, newest + 1, copy_row.version_id, copy_row.detached_at, copy_row.version_number,
     target_revised_by, target_reason, copy_row.state, copy_row.topic_key, copy_row.related_topic_keys,
     copy_row.topic_names, revised, encode(sha256(convert_to(revised::text, 'UTF8')), 'hex'), copy_row.hold_reasons,
     copy_row.conflicts_with, copy_row.origin, copy_row.privacy_read, copy_row.names_living_person,
     copy_row.living_person_statement, copy_row.living_person_stated_by, copy_row.living_person_stated_at,
     copy_row.living_person_decided_by, copy_row.living_person_decided_at, copy_row.living_person_reason,
+    -- A revised mark changes one of three fixed words and no text, so a later reading carries to the new version,
+    -- bound to its content's digest: a refusal stays final, and a pass is not asked for again.
+    copy_row.privacy_reading_outcome, CASE WHEN copy_row.privacy_reading_outcome IS NOT NULL
+      THEN encode(sha256(convert_to(revised::text, 'UTF8')), 'hex') END, copy_row.privacy_reading_reason,
+    copy_row.privacy_reading_path, copy_row.privacy_reading_at, copy_row.privacy_unavailable_reason,
+    copy_row.privacy_unavailable_at,
     copy_row.accepted_at, change_time, change_time);
   INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
   VALUES (copy_row.public_number, newest + 1, 'revised', target_reason, change_time),
@@ -1071,6 +1218,9 @@ BEGIN
            topic_names = '{}', hold_reasons = '{}', conflicts_with = '{}', origin = '{}'::jsonb,
            living_person_decided_by = NULL, living_person_decided_at = NULL, living_person_reason = NULL,
            living_person_statement = NULL, living_person_stated_by = NULL, living_person_stated_at = NULL,
+           privacy_reading_outcome = NULL, privacy_reading_sha256 = NULL, privacy_reading_reason = NULL,
+           privacy_reading_path = NULL, privacy_reading_at = NULL, privacy_unavailable_reason = NULL,
+           privacy_unavailable_at = NULL,
            revision_reason = NULL, erased_at = NEW.happened_at,
            decided_at = NEW.happened_at
      WHERE copy.version_id = NEW.version_id AND copy.erased_at IS NULL AND copy.accepted_at IS NULL;
@@ -1134,6 +1284,9 @@ BEGIN
            topic_names = '{}', hold_reasons = '{}', conflicts_with = '{}', origin = '{}'::jsonb,
            living_person_decided_by = NULL, living_person_decided_at = NULL, living_person_reason = NULL,
            living_person_statement = NULL, living_person_stated_by = NULL, living_person_stated_at = NULL,
+           privacy_reading_outcome = NULL, privacy_reading_sha256 = NULL, privacy_reading_reason = NULL,
+           privacy_reading_path = NULL, privacy_reading_at = NULL, privacy_unavailable_reason = NULL,
+           privacy_unavailable_at = NULL,
            revision_reason = NULL, erased_at = change_time,
            decided_at = change_time, version_id = NULL, detached_at = change_time
      WHERE copy.public_number = target_number AND copy.accepted_at IS NULL AND copy.erased_at IS NULL;

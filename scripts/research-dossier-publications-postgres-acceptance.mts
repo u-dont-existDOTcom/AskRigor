@@ -140,6 +140,9 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       "decide_research_dossier_living_person(text, integer, text, text, timestamptz)": "askrigor_research_review",
       "revise_research_dossier_importance(text, integer, text, text, text, text, timestamptz)": "askrigor_research_review",
       "state_research_dossier_living_person(text, integer, text, text, timestamptz)": "askrigor_research_review",
+      "list_research_dossier_privacy_pending(integer)": "askrigor_research_review",
+      "record_research_dossier_privacy_reading(text, integer, text, text, text, text, timestamptz)":
+        "askrigor_research_review",
       "research_dossier_public_follow_private()": "none",
       "research_dossier_public_on_revocation()": "none",
       "research_dossier_public_changed()": "none",
@@ -447,6 +450,56 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     assert((await pages.listShown({ publicNumbers: [pending.publicNumber], limit: 1 })).length === 0,
       "PRIVACY_PENDING_ON_A_PAGE");
     checks.push("nothing_shows_without_a_privacy_reading_that_passed_the_saved_content");
+
+    // Codex's re-review, P1: a copy held for the privacy reading gets one later, bound to the digest of the content
+    // read. A reader that could not read is recorded as temporary and leaves it pending; a refusal is final for that
+    // content; a pass lets the ordinary show work and shows nothing by itself.
+    const [pendingRow] = await review.inspect(pending.publicNumber);
+    assert((await review.privacyPending(50)).some(({ publicNumber, payloadSha256 }) =>
+      publicNumber === pending.publicNumber && payloadSha256 === pendingRow!.payloadSha256), "PENDING_READING_NOT_LISTED");
+    const later = (reading: Parameters<typeof review.recordPrivacyReading>[0]["reading"], contentSha256 =
+      pendingRow!.payloadSha256!, publicNumber = pending.publicNumber) =>
+      review.recordPrivacyReading({ publicNumber, versionNumber: 1, contentSha256, reading, at: AT });
+    assert((await later({ status: "unavailable", reason: "daily_budget" })).outcome === "recorded",
+      "TEMPORARY_READING_NOT_RECORDED");
+    const temporary = (await review.inspect(pending.publicNumber))[0]!;
+    assert(temporary.laterPrivacyReading === null && temporary.privacyUnavailable?.reason === "daily_budget",
+      "TEMPORARY_READING_STORED_AS_FINAL");
+    assert((await review.decide({ publicNumber: pending.publicNumber, versionNumber: 1, decision: "show", reason: null,
+      at: AT })).outcome === "not_decidable", "SHOWN_AFTER_A_TEMPORARY_FAILURE");
+    assert((await later({ status: "pass" }, "f".repeat(64))).outcome === "not_readable", "READING_OF_OTHER_CONTENT_RECORDED");
+    assert((await later({ status: "pass" })).outcome === "recorded", "LATER_PASS_NOT_RECORDED");
+    assert(!(await review.privacyPending(50)).some(({ publicNumber }) => publicNumber === pending.publicNumber),
+      "PASSED_COPY_STILL_PENDING");
+    assert((await pages.listShown({ publicNumbers: [pending.publicNumber], limit: 1 })).length === 0,
+      "LATER_PASS_SHOWED_BY_ITSELF");
+    await expectError(() => admin.query(`UPDATE ${SCHEMA}.research_dossier_public_versions
+      SET privacy_reading_sha256 = $2 WHERE public_number = $1`, [pending.publicNumber, "e".repeat(64)]),
+    /RESEARCH_DOSSIER_PUBLIC_VERSION_IMMUTABLE/u, "LATER_READING_REBOUND");
+    assert((await review.decide({ publicNumber: pending.publicNumber, versionNumber: 1, decision: "show", reason: null,
+      at: AT })).outcome === "decided", "LATER_PASS_NOT_SHOWABLE");
+    const refusedVersion = await save(unread.accountKey, "unread-two", "unread-two-1", null,
+      (value) => { delete value.stamp.privacy_reading; });
+    const refusedCopy = await publisher.publish(await copy(unread.accountKey, refusedVersion));
+    assert(refusedCopy.outcome === "published" && refusedCopy.state === "held", "SECOND_PENDING_NOT_HELD");
+    const refusedSha = (await review.inspect(refusedCopy.publicNumber))[0]!.payloadSha256!;
+    assert((await later({ status: "refuse", reason: "personal_health_story", path: "findings[0].claim" }, refusedSha,
+      refusedCopy.publicNumber)).outcome === "recorded", "REFUSAL_NOT_RECORDED");
+    const refusedRow = (await review.inspect(refusedCopy.publicNumber))[0]!;
+    assert(refusedRow.laterPrivacyReading?.outcome === "refused" &&
+      refusedRow.laterPrivacyReading.reason === "personal_health_story", "REFUSAL_STORED_WRONG");
+    for (const reading of [{ status: "pass" as const }, { status: "unavailable" as const, reason: "timeout" as const }]) {
+      assert((await later(reading, refusedSha, refusedCopy.publicNumber)).outcome === "not_readable",
+        `REFUSED_CONTENT_READ_AGAIN_${reading.status.toUpperCase()}`);
+    }
+    for (const decision of ["show", "accept"] as const) {
+      assert((await review.decide({ publicNumber: refusedCopy.publicNumber, versionNumber: 1, decision, reason: null,
+        at: AT })).outcome === "not_decidable", `REFUSED_CONTENT_${decision.toUpperCase()}N`);
+    }
+    await expectError(() => admin.query(`UPDATE ${SCHEMA}.research_dossier_public_versions SET state = 'shown',
+      hold_reasons = '{}' WHERE public_number = $1`, [refusedCopy.publicNumber]), /check constraint/u,
+    "REFUSED_CONTENT_FORCED_SHOWN");
+    checks.push("a_privacy_reading_made_later_is_bound_to_its_content_and_a_refusal_is_final");
 
     // Codex's review, finding 2: a copy whose claim names a living person shows only on the owner's own decision, with
     // his typed reason and who decided, made once; show and accept refuse it, and nothing forces it up.

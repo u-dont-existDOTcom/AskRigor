@@ -747,6 +747,17 @@ export function dossierReadingTexts(input: ResearchDossierInput): DossierText[] 
   return dossierTexts(input, "", false, false).map(([path, text]) => ({ path, text }));
 }
 
+/**
+ * A public copy's text fields as a privacy reading made later reads them (Codex's re-review of stage 2): what its
+ * pages show in words, without its ids, references, fixed codes or the server's own stamp.
+ */
+export function publicDossierReadingTexts(payload: Record<string, unknown>): DossierText[] {
+  const { schema: _schema, checked: _checked, ...shown } = payload;
+  return dossierTexts(shown, "", false, false)
+    .filter(([path]) => !/(?:^|\.)(?:read|judged_by|scheme)$/u.test(path))
+    .map(([path, text]) => ({ path, text }));
+}
+
 /** The dossier as stored: the checked input, what the server read of each study and search, and its stamp. */
 export function storedResearchDossier(checked: CheckedDossier, stamp: Record<string, unknown>): Record<string, unknown> {
   const { input } = checked;

@@ -152,6 +152,13 @@ GRANT EXECUTE ON FUNCTION living_evidence.decide_research_dossier_living_person(
 -- is not "no"; Codex's re-review of stage 2).
 GRANT EXECUTE ON FUNCTION living_evidence.state_research_dossier_living_person(text, integer, text, text, timestamptz)
   TO askrigor_research_review;
+-- A privacy reading made later of a copy held waiting for it, bound to the digest of the content read, and the copies
+-- waiting for one (Codex's re-review of stage 2).
+GRANT EXECUTE ON FUNCTION living_evidence.list_research_dossier_privacy_pending(integer)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.record_research_dossier_privacy_reading(
+  text, integer, text, text, text, text, timestamptz
+) TO askrigor_research_review;
 -- A reviewed revision of an importance mark: a new version with the reviewer and reason, never an edit in place (Codex's
 -- review of stage 2, finding 7).
 GRANT EXECUTE ON FUNCTION living_evidence.revise_research_dossier_importance(

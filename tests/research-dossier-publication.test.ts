@@ -408,6 +408,107 @@ describe("a saved dossier's public copy (332a: the researching AI's own judgemen
 
 // Codex's review, finding 5: losing access is treated like erasure for an accepted copy: it stays, written without the
 // person, but keeps no link to the account and no record of where its research ran.
+// Codex's re-review of stage 2, P1: a copy held waiting for the privacy reading can get one later, bound to the digest of
+// the content read, on the owner's action and by the server when the reader is available again. A refusal is final for
+// that content; an unavailable reader or no money left today is temporary. Fakes stand in for every reading.
+describe("a privacy reading made later", () => {
+  /** A copy saved while the reading was off: held, waiting for the privacy reading. */
+  async function pending() {
+    const { dossiers, publications, publication } = stores();
+    const outcome = await saveResearchDossier(dossiers, request({ publication, privacyReading: undefined }));
+    expect(outcome?.disposition?.publication).toMatchObject({ status: "held", hold_reasons: ["privacy_reading_pending"] });
+    return { dossiers, publications };
+  }
+  const OWNER = "auth0|synthetic-owner";
+
+  it("lets the owner's action read it, bound to the content read, after which the ordinary show works", async () => {
+    const { publications } = await pending();
+    const read: string[] = [];
+    const reader = async (texts: ReadonlyArray<{ path: string; text: string }>) => {
+      read.push(...texts.map(({ path }) => path));
+      return { status: "pass" as const };
+    };
+    const review = new AtlasDossierReview({ store: publications, now: () => NOW, privacyReader: reader });
+    // Without a reader nothing is read and nothing recorded.
+    expect((await new AtlasDossierReview({ store: publications, now: () => NOW }).run({ action: "read_dossier_privacy",
+      dossier: "D-1001", reviewer: OWNER })).text).toBe("The privacy reading is switched off on this server " +
+      "(ASKRIGOR_DOSSIER_PRIVACY_READING), so no reading was made; nothing was changed.");
+    // A reading of other content than the copy's own is refused by the store.
+    const [copy] = await publications.inspect("D-1001");
+    expect(await publications.recordPrivacyReading({ publicNumber: "D-1001", versionNumber: 1,
+      contentSha256: "0".repeat(64), reading: { status: "pass" }, at: NOW })).toMatchObject({ outcome: "not_readable" });
+    const passed = await review.run({ action: "read_dossier_privacy", dossier: "D-1001", reviewer: OWNER });
+    expect(passed.text).toBe("D-1001 version 1: AskRigor's privacy reading passed its public content, exactly as " +
+      "stored. It is still held; the privacy reading no longer keeps show_dossier or accept_dossier from showing it.");
+    // It read the public content's texts, never an id, a code or the server's stamp.
+    expect(read).toContain("findings[1].claim");
+    expect(read).toContain("question");
+    expect(read.some((path) => /^checked|\.id$|\.read$|^schema|identifiers/u.test(path))).toBe(false);
+    expect(passed.dossiers?.items[0]).toMatchObject({ privacyRead: false,
+      laterPrivacyReading: { outcome: "passed", on: "2026-11-17" } });
+    expect((await publications.inspect("D-1001"))[0]!.payloadSha256).toBe(copy!.payloadSha256);
+    expect((await review.run({ action: "list_dossiers" })).text).toContain("held for: waiting for the privacy " +
+      "reading, which has since passed it (on 2026-11-17)");
+    // Made once: a reading that passed is not made again.
+    expect((await review.run({ action: "read_dossier_privacy", dossier: "D-1001", reviewer: OWNER })).ok).toBe(false);
+    expect((await review.run({ action: "show_dossier", dossier: "D-1001" })).text)
+      .toBe("D-1001 version 1 is now shown, at /atlas/dossiers/D-1001.");
+  });
+
+  it("keeps a refusal final for that content, and words it apart from a reader that could not read", async () => {
+    const { publications } = await pending();
+    const unavailable = new AtlasDossierReview({ store: publications, now: () => NOW,
+      privacyReader: async () => ({ status: "unavailable" as const, reason: "daily_budget" as const }) });
+    expect((await unavailable.run({ action: "read_dossier_privacy", dossier: "D-1001", reviewer: OWNER })).text)
+      .toBe("D-1001 version 1: the privacy reading could not be made just now (the day's money for readings was used " +
+        "up). " +
+        "That is temporary: it is still held, waiting for the reading, which you can ask for again and the server " +
+        "makes when the reader is available.");
+    expect((await unavailable.run({ action: "list_dossiers" })).text).toContain("held for: waiting for the privacy " +
+      "reading (last tried on 2026-11-17, when it could not be made: the day's money for readings was used up; that " +
+      "is temporary)");
+    expect((await unavailable.run({ action: "show_dossier", dossier: "D-1001" })).ok).toBe(false);
+    const refusing = new AtlasDossierReview({ store: publications, now: () => NOW,
+      privacyReader: async () => ({ status: "refuse" as const, reason: "personal_health_story" as const,
+        path: "findings[1].claim" }) });
+    expect((await refusing.run({ action: "read_dossier_privacy", dossier: "D-1001", reviewer: OWNER })).text)
+      .toBe("D-1001 version 1: AskRigor's privacy reading found a personal health story in findings[1].claim. That is " +
+        "final for this content: it can't be shown, and it is not read again. It is still held.");
+    expect((await refusing.run({ action: "list_dossiers" })).text).toContain("held for: waiting for the privacy " +
+      "reading, which has since refused it for good: it found a personal health story in findings[1].claim (on " +
+      "2026-11-17)");
+    // Final: neither another reading, a pass recorded by hand, the show nor accept puts it up.
+    const passing = new AtlasDossierReview({ store: publications, now: () => NOW,
+      privacyReader: async () => ({ status: "pass" as const }) });
+    expect((await passing.run({ action: "read_dossier_privacy", dossier: "D-1001", reviewer: OWNER })).ok).toBe(false);
+    const [copy] = await publications.inspect("D-1001");
+    expect(await publications.recordPrivacyReading({ publicNumber: "D-1001", versionNumber: 1,
+      contentSha256: copy!.payloadSha256!, reading: { status: "pass" }, at: NOW })).toMatchObject({ outcome: "not_readable" });
+    for (const action of ["show_dossier", "accept_dossier"] as const) {
+      expect((await passing.run({ action, dossier: "D-1001" })).ok).toBe(false);
+    }
+    expect(await publications.listShown({ limit: 10 })).toEqual([]);
+  });
+
+  it("is made by the server when the reader is available again, and stops while it is not", async () => {
+    const { publications } = await pending();
+    const { readPendingDossierPrivacy } = await import("../apps/research-mcp/src/atlas/dossier-review.js");
+    let calls = 0;
+    const budgetGone = async () => { calls += 1; return { status: "unavailable" as const, reason: "daily_budget" as const }; };
+    expect(await readPendingDossierPrivacy(publications, budgetGone, { now: () => NOW }))
+      .toEqual({ passed: 0, refused: 0, unavailable: 1 });
+    expect(calls).toBe(1);
+    expect((await publications.privacyPending(10)).map(({ publicNumber }) => publicNumber)).toEqual(["D-1001"]);
+    expect(await readPendingDossierPrivacy(publications, async () => ({ status: "pass" as const }), { now: () => NOW }))
+      .toEqual({ passed: 1, refused: 0, unavailable: 0 });
+    expect(await publications.privacyPending(10)).toEqual([]);
+    // A pass shows nothing by itself: the owner's review decides.
+    expect(await publications.listShown({ limit: 10 })).toEqual([]);
+    expect((await publications.decide({ publicNumber: "D-1001", versionNumber: 1, decision: "show", reason: null,
+      at: NOW })).outcome).toBe("decided");
+  });
+});
+
 describe("an accepted copy when its contributor loses access", () => {
   it("stays on the pages with no link to the account and no connector record; unaccepted copies leave", async () => {
     const { dossiers, publications, publication } = stores();

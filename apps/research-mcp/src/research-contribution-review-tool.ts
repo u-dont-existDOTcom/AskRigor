@@ -40,6 +40,7 @@ import { atlasGlanceSchema } from "./atlas/glance-review.js";
 import { atlasPublicationsSchema } from "./atlas/publication-review.js";
 import { laterInputShape } from "./later-inputs.js";
 import { CASE_REVIEW_SCOPE } from "./oauth-resource-server.js";
+import type { DossierPrivacyReader } from "./findings/dossier-privacy-reading.js";
 import type { ResearchOperationExtra } from "./research-operation.js";
 import type { SharedAnswerVault } from "./shared-answers.js";
 
@@ -114,9 +115,11 @@ export const researchContributionReviewInputSchema = z.object({
     const dossierInputs = value as { dossier?: unknown; dossierVersion?: unknown; dossierState?: unknown;
       dossierFinding?: unknown; dossierImportance?: unknown; dossierLivingPerson?: unknown };
     const dossierTakes = { dossier: ["inspect_dossier", "show_dossier", "hold_dossier", "take_down_dossier", "accept_dossier",
-      "show_dossier_naming_living_person", "revise_dossier_importance", "state_dossier_living_person"],
+      "show_dossier_naming_living_person", "revise_dossier_importance", "state_dossier_living_person",
+      "read_dossier_privacy"],
       dossierVersion: ["show_dossier", "hold_dossier", "take_down_dossier", "accept_dossier",
-        "show_dossier_naming_living_person", "revise_dossier_importance", "state_dossier_living_person"],
+        "show_dossier_naming_living_person", "revise_dossier_importance", "state_dossier_living_person",
+        "read_dossier_privacy"],
       dossierState: ["list_dossiers"], dossierFinding: ["revise_dossier_importance"],
       dossierImportance: ["revise_dossier_importance"], dossierLivingPerson: ["state_dossier_living_person"] } as const;
     for (const [field, actions] of Object.entries(dossierTakes)) {
@@ -326,6 +329,8 @@ export interface ResearchContributionReviewToolOptions {
     review?: AtlasReview;
     /** The provider settings the source checks use: crossrefConfig() and ncbiConfig(). */
     providers: () => AtlasProviderConfig;
+    /** AskRigor's privacy reading for read_dossier_privacy, while it is on; undefined otherwise. */
+    dossierPrivacyReader?: () => DossierPrivacyReader | undefined;
   };
   /** The shared questions and answers (owner answer 200a); undefined when the server keeps none. */
   sharedAnswers?: SharedAnswerVault;
@@ -360,8 +365,12 @@ export function createResearchContributionReviewHandler(
       // The owner, 6 Nov: a challenge mark keeps who marked it, the reviewer login authorizeOwnerReview admitted, only
       // as a digest (challenge-review.ts); it is never an input.
       const reviewer = extra?.authInfo?.extra?.subject;
+      // AskRigor#477 stage 2 (Codex's re-review): the privacy reading a held dossier copy may get later, never an input.
+      const dossierPrivacyReader = parsed.action === "read_dossier_privacy" ? options.atlas.dossierPrivacyReader?.()
+        : undefined;
       return atlasToolResult(await options.atlas.review.run(
-        { ...parsed, action: parsed.action, ...(typeof reviewer === "string" ? { reviewer } : {}) } as AtlasReviewRequest,
+        { ...parsed, action: parsed.action, ...(typeof reviewer === "string" ? { reviewer } : {}),
+          ...(dossierPrivacyReader === undefined ? {} : { dossierPrivacyReader }) } as AtlasReviewRequest,
         options.atlas.providers(),
       ));
     }

@@ -301,12 +301,12 @@ const LATER_INPUT_SHAPES = Object.freeze({
     // AskRigor#477 stage 2: research dossiers on the public Atlas.
     dossier: dossierNumberInputSchema.optional()
       .describe("With inspect_dossier, show_dossier, hold_dossier, take_down_dossier, accept_dossier, " +
-        "show_dossier_naming_living_person, revise_dossier_importance or state_dossier_living_person: the dossier's " +
-        "public number, such as D-1001."),
+        "show_dossier_naming_living_person, revise_dossier_importance, state_dossier_living_person or " +
+        "read_dossier_privacy: the dossier's public number, such as D-1001."),
     dossierVersion: dossierVersionInputSchema.optional()
       .describe("With show_dossier, hold_dossier, take_down_dossier, accept_dossier, " +
-        "show_dossier_naming_living_person, revise_dossier_importance or state_dossier_living_person: the version; its " +
-        "newest by default."),
+        "show_dossier_naming_living_person, revise_dossier_importance, state_dossier_living_person or " +
+        "read_dossier_privacy: the version; its newest by default."),
     dossierState: dossierStateInputSchema.optional()
       .describe("With list_dossiers: shown, held (the check's queue, by default), superseded, taken_down or erased."),
     dossierFinding: dossierFindingInputSchema.optional()

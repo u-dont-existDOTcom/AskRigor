@@ -128,7 +128,16 @@ export interface ResearchDossierPublicationRow {
   holdReasons: ResearchDossierHoldReason[];
   conflictsWith: string[];
   origin: Record<string, unknown>;
+  /** Whether a privacy reading passed its saved content when it was saved. */
   privacyRead: boolean;
+  /**
+   * A privacy reading made later of its public content, bound to that content's digest (Codex's re-review of stage 2):
+   * passed, or refused with the reader's reason and the field it named; final for that content. Null until one is made.
+   */
+  laterPrivacyReading: { outcome: "passed" | "refused"; reason: ResearchDossierPrivacyRefusal | null; path: string | null;
+    at: string } | null;
+  /** The last later reading that could not be made, which is temporary: why, and when. */
+  privacyUnavailable: { reason: ResearchDossierPrivacyUnavailable; at: string } | null;
   accepted: boolean;
   decidedAt: string;
   /**
@@ -173,6 +182,51 @@ export interface ResearchDossierLivingPersonDecisionInput {
   /** Who decided: the reviewer login's digest, reviewer: and 16 hex characters, never the login. */
   decidedBy: string;
   at: Date;
+}
+
+/** What a privacy reading finds, final for the content it read (the research server's dossier-privacy-reading.ts). */
+export const RESEARCH_DOSSIER_PRIVACY_REFUSALS = [
+  "names_a_person", "birth_date", "where_someone_lives", "contact_details", "personal_health_story",
+  "relative_or_household", "copied_conversation", "other_personal_detail",
+] as const;
+export type ResearchDossierPrivacyRefusal = typeof RESEARCH_DOSSIER_PRIVACY_REFUSALS[number];
+/** Why a privacy reading could not be made: temporary, never a finding about the content. */
+export const RESEARCH_DOSSIER_PRIVACY_UNAVAILABLE = [
+  "off", "too_long", "daily_budget", "timeout", "error", "refusal", "unreadable",
+] as const;
+export type ResearchDossierPrivacyUnavailable = typeof RESEARCH_DOSSIER_PRIVACY_UNAVAILABLE[number];
+
+/** A field path a privacy reading names, such as findings[1].claim. */
+const PRIVACY_PATH = /^[a-z_]+(?:\[[0-9]+\]|\.[a-z_]+)*$/u;
+
+/**
+ * A privacy reading made later of a held copy's public content (Codex's re-review of stage 2, P1), with the digest of
+ * the content read, which must be the copy's own: a pass or a refusal is final for that content; unavailable is a
+ * temporary failure, kept as the last try.
+ */
+export interface ResearchDossierPrivacyReadingInput {
+  publicNumber: string;
+  versionNumber: number;
+  contentSha256: string;
+  reading:
+    | { status: "pass" }
+    | { status: "refuse"; reason: ResearchDossierPrivacyRefusal; path?: string }
+    | { status: "unavailable"; reason: ResearchDossierPrivacyUnavailable };
+  at: Date;
+}
+
+export type ResearchDossierPrivacyReadingResult =
+  | { outcome: "recorded"; state: ResearchDossierPublicState }
+  | { outcome: "not_found" }
+  /** Not held or taken down, a reading passed or refused it already, or the content read is not the copy's own. */
+  | { outcome: "not_readable"; state: ResearchDossierPublicState };
+
+/** A copy waiting for a privacy reading, with the content to read and its digest. */
+export interface ResearchDossierPrivacyPending {
+  publicNumber: string;
+  versionNumber: number;
+  payload: Record<string, unknown>;
+  payloadSha256: string;
 }
 
 /** The owner's own statement on a copy whose AI did not say whether a claim names a living person. */
@@ -225,6 +279,9 @@ export interface ResearchDossierPublicationReviewStore {
   decideLivingPerson(input: ResearchDossierLivingPersonDecisionInput): Promise<ResearchDossierDecisionResult>;
   stateLivingPerson(input: ResearchDossierLivingPersonStatementInput): Promise<ResearchDossierLivingPersonStatementResult>;
   reviseImportance(input: ResearchDossierImportanceRevisionInput): Promise<ResearchDossierImportanceRevisionResult>;
+  /** Held copies waiting for a privacy reading, least recently tried first, 1 to 50. */
+  privacyPending(limit: number): Promise<ResearchDossierPrivacyPending[]>;
+  recordPrivacyReading(input: ResearchDossierPrivacyReadingInput): Promise<ResearchDossierPrivacyReadingResult>;
 }
 
 /** A shown copy, as the pages read it. */
@@ -382,6 +439,25 @@ function assertLivingPersonStatement(input: ResearchDossierLivingPersonStatement
   }
 }
 
+function assertPrivacyReading(input: ResearchDossierPrivacyReadingInput): void {
+  const { reading } = input;
+  if (!PUBLIC_DOSSIER_NUMBER.test(input.publicNumber) || !Number.isInteger(input.versionNumber) ||
+    input.versionNumber < 1 || !HEX_64.test(input.contentSha256) || Number.isNaN(input.at.getTime()) ||
+    !(reading.status === "pass" ||
+      (reading.status === "refuse" && (RESEARCH_DOSSIER_PRIVACY_REFUSALS as readonly string[]).includes(reading.reason) &&
+        (reading.path === undefined || (PRIVACY_PATH.test(reading.path) && reading.path.length <= 200))) ||
+      (reading.status === "unavailable" &&
+        (RESEARCH_DOSSIER_PRIVACY_UNAVAILABLE as readonly string[]).includes(reading.reason)))) {
+    throw new ResearchDossierPublicationError("INPUT_INVALID");
+  }
+}
+
+/** Whether a privacy reading passed a copy's content: when it was saved, or later, bound to exactly its content. */
+function privacyPassed(copy: { privacyRead: boolean; payloadSha256: string | null;
+  laterPrivacy: { outcome: string; sha256: string } | null }): boolean {
+  return copy.privacyRead || (copy.laterPrivacy?.outcome === "passed" && copy.laterPrivacy.sha256 === copy.payloadSha256);
+}
+
 function assertImportanceRevision(input: ResearchDossierImportanceRevisionInput): void {
   if (!PUBLIC_DOSSIER_NUMBER.test(input.publicNumber) || !Number.isInteger(input.versionNumber) ||
     input.versionNumber < 1 || !/^[a-z][a-z0-9_-]{0,31}$/u.test(input.findingId) ||
@@ -477,6 +553,12 @@ interface ReviewRow {
   living_person_statement: ResearchDossierLivingPersonStatement | null;
   living_person_stated_by: string | null;
   living_person_stated_at: Date | string | null;
+  privacy_reading_outcome: "passed" | "refused" | null;
+  privacy_reading_reason: ResearchDossierPrivacyRefusal | null;
+  privacy_reading_path: string | null;
+  privacy_reading_at: Date | string | null;
+  privacy_unavailable_reason: ResearchDossierPrivacyUnavailable | null;
+  privacy_unavailable_at: Date | string | null;
   living_person_decided_by: string | null;
   living_person_decided_at: Date | string | null;
   living_person_reason: string | null;
@@ -496,6 +578,11 @@ const reviewRowOf = (row: ReviewRow & { question?: string | null }): ResearchDos
   conflictsWith: row.conflicts_with,
   origin: row.origin,
   privacyRead: row.privacy_read,
+  laterPrivacyReading: row.privacy_reading_outcome === null || row.privacy_reading_at === null ? null
+    : { outcome: row.privacy_reading_outcome, reason: row.privacy_reading_reason, path: row.privacy_reading_path,
+      at: iso(row.privacy_reading_at) },
+  privacyUnavailable: row.privacy_unavailable_reason === null || row.privacy_unavailable_at === null ? null
+    : { reason: row.privacy_unavailable_reason, at: iso(row.privacy_unavailable_at) },
   accepted: row.accepted,
   decidedAt: iso(row.decided_at),
   namesLivingPerson: row.names_living_person,
@@ -595,6 +682,36 @@ export class PostgresResearchDossierPublicationReview implements ResearchDossier
       throw new Error("RESEARCH_DOSSIER_DECISION_RESULT_INVALID");
     }
     return { outcome: row.outcome, state: row.state, accepted: row.accepted };
+  }
+
+  async privacyPending(limit: number): Promise<ResearchDossierPrivacyPending[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50) throw new ResearchDossierPublicationError("INPUT_INVALID");
+    const result = await this.pool.query<{ public_number: string; version_number: number;
+      public_payload: Record<string, unknown>; public_sha256: string }>(
+      `SELECT public_number, version_number, public_payload, public_sha256
+         FROM ${this.schema}.list_research_dossier_privacy_pending($1)`, [limit]);
+    return result.rows.map((row) => ({ publicNumber: row.public_number, versionNumber: row.version_number,
+      payload: row.public_payload, payloadSha256: row.public_sha256 }));
+  }
+
+  async recordPrivacyReading(input: ResearchDossierPrivacyReadingInput): Promise<ResearchDossierPrivacyReadingResult> {
+    assertPrivacyReading(input);
+    const { reading } = input;
+    const result = await this.pool.query<{ outcome: string; state: ResearchDossierPublicState | null }>(
+      `SELECT outcome, state FROM ${this.schema}.record_research_dossier_privacy_reading(
+         $1, $2, $3, $4, $5, $6, $7::timestamptz)`,
+      [input.publicNumber, input.versionNumber, input.contentSha256,
+        reading.status === "pass" ? "passed" : reading.status === "refuse" ? "refused" : "unavailable",
+        reading.status === "pass" ? null : reading.reason, reading.status === "refuse" ? reading.path ?? null : null,
+        input.at.toISOString()],
+    );
+    const row = result.rows[0];
+    if (row === undefined) throw new Error("RESEARCH_DOSSIER_PRIVACY_READING_RESULT_MISSING");
+    if (row.outcome === "not_found") return { outcome: "not_found" };
+    if ((row.outcome !== "recorded" && row.outcome !== "not_readable") || row.state === null) {
+      throw new Error("RESEARCH_DOSSIER_PRIVACY_READING_RESULT_INVALID");
+    }
+    return { outcome: row.outcome, state: row.state };
   }
 
   async stateLivingPerson(input: ResearchDossierLivingPersonStatementInput):
@@ -710,6 +827,9 @@ interface MemoryCopy {
   conflictsWith: string[];
   origin: Record<string, unknown>;
   privacyRead: boolean;
+  laterPrivacy: { outcome: "passed" | "refused"; sha256: string; reason: ResearchDossierPrivacyRefusal | null;
+    path: string | null; at: Date } | null;
+  privacyUnavailable: { reason: ResearchDossierPrivacyUnavailable; at: Date } | null;
   namesLivingPerson: boolean | null;
   livingPersonStatement: { statement: ResearchDossierLivingPersonStatement; by: string; at: Date } | null;
   livingPersonDecision: { by: string; at: Date; reason: string } | null;
@@ -817,6 +937,8 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       conflictsWith: [...input.conflictsWith],
       origin,
       privacyRead: admission.privacyRead,
+      laterPrivacy: null,
+      privacyUnavailable: null,
       namesLivingPerson: admission.namesLivingPerson,
       livingPersonStatement: null,
       livingPersonDecision: null,
@@ -883,7 +1005,7 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       (input.decision === "show" && copy.state !== "held" && copy.state !== "taken_down") ||
       (input.decision === "accept" && copy.state !== "shown" && copy.state !== "held" && copy.state !== "taken_down") ||
       ((input.decision === "show" || input.decision === "accept") && (copy.versionNumber !== newest || (!accepted && closed) ||
-        !copy.privacyRead || !livingPersonClear(copy)));
+        !privacyPassed(copy) || !livingPersonClear(copy)));
     if (refused) return { outcome: "not_decidable", state: copy.state, accepted };
     const next: ResearchDossierPublicState = input.decision === "hold" ? "held"
       : input.decision === "take_down" ? "taken_down" : "shown";
@@ -925,9 +1047,12 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
     const versionNumber = newest + 1;
     copy.events.push({ event: "superseded", reason: null, at: input.at });
     const state = copy.state;
+    const revisedSha256 = sha256(stableJson(payload));
     this.copies.set(`${copy.publicNumber}#${versionNumber}`, {
       ...structuredClone({ ...copy, events: [] }), versionId: copy.versionId, versionNumber, payload,
-      payloadSha256: sha256(stableJson(payload)), decidedAt: input.at, acceptedAt: copy.acceptedAt,
+      payloadSha256: revisedSha256, decidedAt: input.at, acceptedAt: copy.acceptedAt,
+      // As the database does: a later reading carries to the revised mark, bound to the new content's digest.
+      laterPrivacy: copy.laterPrivacy === null ? null : { ...copy.laterPrivacy, sha256: revisedSha256 },
       livingPersonDecision: copy.livingPersonDecision,
       revision: { of: copy.versionNumber, by: input.revisedBy, reason: input.reason },
       events: [{ event: "revised", reason: input.reason, at: input.at }, { event: state, reason: null, at: input.at }],
@@ -947,7 +1072,7 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
     const accepted = copy.acceptedAt !== null;
     if (!(copy.namesLivingPerson === true || copy.livingPersonStatement?.statement === "names_a_living_person") ||
       copy.livingPersonDecision !== null || (copy.state !== "held" &&
-      copy.state !== "taken_down") || copy.versionNumber !== newest || !copy.privacyRead || (!accepted && closed)) {
+      copy.state !== "taken_down") || copy.versionNumber !== newest || !privacyPassed(copy) || (!accepted && closed)) {
       return { outcome: "not_decidable", state: copy.state, accepted };
     }
     for (const other of copies) {
@@ -961,6 +1086,42 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
     Object.assign(copy, { state: "shown", holdReasons: [], decidedAt: input.at,
       livingPersonDecision: { by: input.decidedBy, at: input.at, reason: input.reason } });
     return { outcome: "decided", state: "shown", accepted };
+  }
+
+  async privacyPending(limit: number): Promise<ResearchDossierPrivacyPending[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50) throw new ResearchDossierPublicationError("INPUT_INVALID");
+    this.followPrivate();
+    return [...this.copies.values()]
+      .filter((copy) => copy.state === "held" && copy.payload !== null && !copy.privacyRead && copy.laterPrivacy === null &&
+        copy.privacyUnavailable?.reason !== "too_long")
+      .sort((left, right) => (left.privacyUnavailable?.at.getTime() ?? -Infinity) -
+        (right.privacyUnavailable?.at.getTime() ?? -Infinity) || left.decidedAt.getTime() - right.decidedAt.getTime() ||
+        left.publicNumber.localeCompare(right.publicNumber) || left.versionNumber - right.versionNumber)
+      .slice(0, limit)
+      .map((copy) => ({ publicNumber: copy.publicNumber, versionNumber: copy.versionNumber,
+        payload: structuredClone(copy.payload!), payloadSha256: copy.payloadSha256! }));
+  }
+
+  async recordPrivacyReading(input: ResearchDossierPrivacyReadingInput): Promise<ResearchDossierPrivacyReadingResult> {
+    assertPrivacyReading(input);
+    this.followPrivate();
+    const copy = this.copies.get(`${input.publicNumber}#${input.versionNumber}`);
+    if (copy === undefined) return { outcome: "not_found" };
+    if ((copy.state !== "held" && copy.state !== "taken_down") || copy.privacyRead || copy.laterPrivacy !== null ||
+      copy.payloadSha256 !== input.contentSha256) {
+      return { outcome: "not_readable", state: copy.state };
+    }
+    const { reading } = input;
+    if (reading.status === "unavailable") {
+      copy.privacyUnavailable = { reason: reading.reason, at: input.at };
+    } else {
+      copy.laterPrivacy = { outcome: reading.status === "pass" ? "passed" : "refused", sha256: input.contentSha256,
+        reason: reading.status === "refuse" ? reading.reason : null,
+        path: reading.status === "refuse" ? reading.path ?? null : null, at: input.at };
+      copy.events.push({ event: `privacy_reading_${copy.laterPrivacy.outcome}`,
+        reason: copy.laterPrivacy.reason, at: input.at });
+    }
+    return { outcome: "recorded", state: copy.state };
   }
 
   async stateLivingPerson(input: ResearchDossierLivingPersonStatementInput):
@@ -1057,7 +1218,7 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
           copy.events.push({ event: "erased", reason: "contributor_access_revoked", at });
           Object.assign(copy, { state: "erased", payload: null, payloadSha256: null, topicKey: null, relatedTopicKeys: [],
             topicNames: [], holdReasons: [], conflictsWith: [], origin: {}, livingPersonDecision: null,
-            livingPersonStatement: null, decidedAt: at,
+            livingPersonStatement: null, laterPrivacy: null, privacyUnavailable: null, decidedAt: at,
             versionId: null, dossierNumber: null,
             revision: copy.revision === null ? null : { ...copy.revision, reason: null } });
         } else if (copy.versionId !== null && copy.state !== "erased") {
@@ -1073,7 +1234,7 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       if (facts.erased) {
         Object.assign(copy, { state: "erased", payload: null, payloadSha256: null, topicKey: null, relatedTopicKeys: [],
           topicNames: [], holdReasons: [], conflictsWith: [], origin: {}, livingPersonDecision: null,
-          livingPersonStatement: null, decidedAt: at,
+          livingPersonStatement: null, laterPrivacy: null, privacyUnavailable: null, decidedAt: at,
           revision: copy.revision === null ? null : { ...copy.revision, reason: null } });
         copy.events.push({ event: "erased", reason: "deletion_requested", at });
       } else if (facts.closed && (copy.state === "shown" || copy.state === "held")) {
@@ -1115,6 +1276,10 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       conflictsWith: [...copy.conflictsWith],
       origin: structuredClone(copy.origin),
       privacyRead: copy.privacyRead,
+      laterPrivacyReading: copy.laterPrivacy === null ? null : { outcome: copy.laterPrivacy.outcome,
+        reason: copy.laterPrivacy.reason, path: copy.laterPrivacy.path, at: copy.laterPrivacy.at.toISOString() },
+      privacyUnavailable: copy.privacyUnavailable === null ? null
+        : { reason: copy.privacyUnavailable.reason, at: copy.privacyUnavailable.at.toISOString() },
       accepted: copy.acceptedAt !== null,
       decidedAt: copy.decidedAt.toISOString(),
       namesLivingPerson: copy.namesLivingPerson,
