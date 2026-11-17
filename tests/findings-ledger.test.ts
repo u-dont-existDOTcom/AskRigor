@@ -702,6 +702,21 @@ describe("the re-review of 17 Nov 2026", () => {
     expect(stale.finding).toMatchObject({ id, disposition: "disputed" });
     expect(stale.finding.reason).toBeUndefined();
   });
+
+  it("7: gives a ledger note once in a turn, as the check gives its own notes", () => {
+    const first = finalizeResearch(fixture(), options(WARNING));
+    expect(first.notes).toContain(FINDINGS_LEDGER_NOTE);
+    expect(first.carry_forward).toBeDefined();
+    const second = finalizeResearch(withLedger({ ...fixture(), carried_state: first.carry_forward,
+      round_token: first.round_token }, { findings_ledger: first.findings_ledger }), options(WARNING));
+    expect(second.check_findings!.ledger).toBe("continued");
+    expect(second.notes ?? []).not.toContain(FINDINGS_LEDGER_NOTE);
+    // A new note of the ledger is still given.
+    const skipped = finalizeResearch(withLedger({ ...fixture(), carried_state: second.carry_forward,
+      round_token: second.round_token }, { findings_ledger: second.findings_ledger }), { ...options(WARNING),
+      secondReading: { status: "skipped", reason: SECOND_READING_LEFT_TO_CALLER } });
+    expect((skipped.notes ?? []).join(" ")).toContain("was not checked again");
+  });
 });
 
 // The panel's harness, as in final-check-panel.test.ts.

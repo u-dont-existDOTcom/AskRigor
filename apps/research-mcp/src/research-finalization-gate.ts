@@ -4833,7 +4833,7 @@ export function finalizeResearch(
   }
   // Stage 1 of enforcing HRP (design-v2 of 17 Nov 2026): every problem found, admitted as a step or given as a note,
   // for the ledger, which is built once every note is given (settleFindingsLedger). It records; it changes nothing.
-  const ledgerSource = options.findingsLedger === undefined ? undefined : (() => {
+  const ledgerSource: FindingsLedgerSource | undefined = options.findingsLedger === undefined ? undefined : (() => {
     const admitted = new Set(observedSteps.map(({ text }) => text));
     const observed: ObservedFinding[] = [...observedSteps, ...notes.filter((note) => !admitted.has(note))
       .map((note) => ({ text: note, ...(repeatedNotes.has(note) ? { call: true } : {}),
@@ -4875,7 +4875,8 @@ export function finalizeResearch(
   // dev account the meaning judge can raise a new concern at every pass). The notes are compared and carried as a
   // first pass words them, so the turn still gives each once.
   const lastCheck = passed && passedEarlierThisTurn;
-  if (newNotes.length < notes.length) newNotes.push(repeatedNotesLine(notes.length - newNotes.length, lastCheck));
+  const notRepeated = notes.length - newNotes.length;
+  if (notRepeated > 0) newNotes.push(repeatedNotesLine(notRepeated, lastCheck));
   const shownNotes = lastCheck
     ? newNotes.map((note) => repeatPassNote(note, inputNotes.has(note) ? "input" : "answer")) : newNotes;
   const output: FinalizeResearchOutput = {
@@ -5081,6 +5082,18 @@ export function finalizeResearch(
   });
   if (carry === "too_large") output.carry_forward_note = CARRIED_STATE_TOO_LARGE;
   else if (carry !== undefined) Object.assign(output, carry);
+  // Codex's re-review of 17 Nov 2026, finding 7: the ledger's notes, given once every note of the call is, are given
+  // once in a turn as the check's own are. settleFindingsLedger leaves out one an earlier check of this turn gave, and
+  // gives the carried state again with the ledger's notes among those this turn has given.
+  if (ledgerSource !== undefined && carry !== undefined && carry !== "too_large") {
+    ledgerSource.turn = { given: givenThisTurn, repeated: notRepeated, lastCheck,
+      carry: (given) => buildCarriedState(input, carried, options, {
+        status: status === "stopped" ? "not_ready" : status,
+        open: checkRound === undefined ? [...new Set(stepKinds)] : [...new Set(openSteps.map(({ kind }) => kind))],
+        caveats, turn: callRound.turn, firstTurn, notes: [...givenNotes, ...given],
+        ...(previousOpen === undefined ? {} : { previousOpen })
+      }) };
+  }
   if (checkRound?.status === "open") {
     output.round_token = checkRound.token;
   }
@@ -5169,8 +5182,21 @@ export const RESEARCH_BEHIND_NOTE ="The Atlas shows the research behind each fin
   "reports agree. Then check the answer again.";
 
 /** What the findings ledger of a check is built from, but for the notes its caller gives after it. */
-type FindingsLedgerSource = Omit<FindingsLedgerParams, "remembered" | "coverage" | "observed"> &
-  { observed: readonly ObservedFinding[]; coverage: readonly FindingChecker[] };
+type FindingsLedgerSource = Omit<FindingsLedgerParams, "remembered" | "coverage" | "observed"> & {
+  observed: readonly ObservedFinding[];
+  coverage: readonly FindingChecker[];
+  /**
+   * The turn's notes, so the ledger's are given once in it (Codex's re-review of 17 Nov 2026, finding 7): the digests
+   * of the notes earlier checks of this turn gave, how many of this check's were not repeated and whether it is the
+   * turn's last check, and the carried state again with more notes given. Absent without a carried state.
+   */
+  turn?: {
+    given: ReadonlySet<string>;
+    repeated: number;
+    lastCheck: boolean;
+    carry: (given: readonly string[]) => ReturnType<typeof buildCarriedState>;
+  };
+};
 // Stage 1 of enforcing HRP: what each check's findings ledger is built from, by the result it returned.
 const FINDINGS_LEDGER_SOURCES = new WeakMap<FinalizeResearchOutput, FindingsLedgerSource>();
 
@@ -5197,7 +5223,19 @@ export function settleFindingsLedger(result: FinalizeResearchOutput, settle: {
   if (ledger.token === undefined) delete result.findings_ledger;
   else result.findings_ledger = ledger.token;
   const notes = [...result.notes ?? []];
-  for (const note of ledger.notes) if (!notes.includes(note)) notes.push(note);
+  const { turn } = source;
+  const fresh = turn === undefined ? ledger.notes : ledger.notes.filter((note) => !turn.given.has(noteDigest(note)));
+  if (turn !== undefined) {
+    // The line that stands for the notes not repeated counts the ledger's too.
+    const left = ledger.notes.length - fresh.length;
+    const line = notes.indexOf(repeatedNotesLine(turn.repeated, turn.lastCheck));
+    if (left > 0 && turn.repeated > 0 && line >= 0) {
+      notes[line] = repeatedNotesLine(turn.repeated + left, turn.lastCheck);
+    } else if (left > 0) notes.push(repeatedNotesLine(left, turn.lastCheck));
+    const carry = turn.carry(ledger.notes);
+    if (carry !== undefined && carry !== "too_large") Object.assign(result, carry);
+  }
+  for (const note of fresh) if (!notes.includes(note)) notes.push(note);
   if (notes.length > 0) result.notes = notes;
   return ledger;
 }
