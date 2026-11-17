@@ -14,7 +14,9 @@ SET search_path TO __SCHEMA__, public;
 --
 -- The copy follows its private version: a withdrawn or rejected version's copy leaves the pages, and an erased
 -- version's copy is erased with it, unless the owner had accepted it, which then stays, written without the person
--- (design 3.7). The pages' reader sees only the shown copies, through two views; it reads no table. Additive and safe to
+-- (design 3.7). Losing access is treated like erasure for an accepted copy (Codex's review of stage 2, finding 5): its
+-- dossier's copies are detached from the private versions and the account, and keep no record of where the research
+-- ran; the account's unaccepted copies leave the pages. The pages' reader sees only the shown copies, through two views; it reads no table. Additive and safe to
 -- run again: an earlier image never reads these tables, and the triggers keep the copies in step with what an earlier
 -- image's revocation and forget_card do to the private versions.
 
@@ -27,14 +29,19 @@ CREATE TABLE IF NOT EXISTS research_dossier_public_notices (
 
 CREATE TABLE IF NOT EXISTS research_dossier_publications (
   public_number text PRIMARY KEY CHECK (public_number ~ '^D-[1-9][0-9]{3,}$'),
-  dossier_number text NOT NULL UNIQUE REFERENCES research_dossiers(dossier_number),
-  created_at timestamptz NOT NULL
+  -- The private dossier; NULL once detached, when its contributor lost access with an accepted copy.
+  dossier_number text UNIQUE REFERENCES research_dossiers(dossier_number),
+  created_at timestamptz NOT NULL,
+  detached_at timestamptz,
+  CHECK ((dossier_number IS NULL) = (detached_at IS NOT NULL))
 );
 
 CREATE TABLE IF NOT EXISTS research_dossier_public_versions (
-  version_id uuid PRIMARY KEY REFERENCES research_dossier_versions(version_id),
   public_number text NOT NULL REFERENCES research_dossier_publications(public_number),
   version_number integer NOT NULL CHECK (version_number >= 1),
+  -- The private version it copies; NULL once detached (losing access, as erasure, cuts the link to the account).
+  version_id uuid UNIQUE REFERENCES research_dossier_versions(version_id),
+  detached_at timestamptz,
   state text NOT NULL CHECK (state IN ('shown', 'held', 'superseded', 'taken_down', 'erased')),
   topic_key text CHECK (topic_key IS NULL OR topic_key ~ '^[a-z0-9][a-z0-9._-]{0,199}$'),
   related_topic_keys text[] NOT NULL DEFAULT '{}' CHECK (cardinality(related_topic_keys) <= 10),
@@ -59,7 +66,9 @@ CREATE TABLE IF NOT EXISTS research_dossier_public_versions (
   decided_at timestamptz NOT NULL,
   created_at timestamptz NOT NULL,
   erased_at timestamptz,
-  UNIQUE (public_number, version_number),
+  PRIMARY KEY (public_number, version_number),
+  CHECK ((version_id IS NULL) = (detached_at IS NOT NULL)),
+  CHECK (version_id IS NOT NULL OR origin = '{}'::jsonb),
   CHECK ((state = 'erased') = (erased_at IS NOT NULL)),
   CHECK ((erased_at IS NULL) = (public_payload IS NOT NULL AND public_sha256 IS NOT NULL AND topic_key IS NOT NULL)),
   CHECK (state <> 'held' OR cardinality(hold_reasons) > 0),
@@ -81,15 +90,18 @@ CREATE INDEX IF NOT EXISTS research_dossier_public_state_idx
 
 CREATE TABLE IF NOT EXISTS research_dossier_public_events (
   event_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  version_id uuid NOT NULL REFERENCES research_dossier_public_versions(version_id),
+  public_number text NOT NULL,
+  version_number integer NOT NULL,
   event text NOT NULL CHECK (event IN ('shown', 'held', 'superseded', 'taken_down', 'accepted', 'erased',
-    'living_person_decided')),
+    'living_person_decided', 'detached')),
   reason text CHECK (reason IS NULL OR (reason = btrim(reason) AND length(reason) BETWEEN 1 AND 200)),
-  happened_at timestamptz NOT NULL
+  happened_at timestamptz NOT NULL,
+  FOREIGN KEY (public_number, version_number)
+    REFERENCES research_dossier_public_versions (public_number, version_number)
 );
 
 CREATE INDEX IF NOT EXISTS research_dossier_public_events_version_idx
-  ON research_dossier_public_events (version_id, event_id);
+  ON research_dossier_public_events (public_number, version_number, event_id);
 
 COMMENT ON TABLE research_dossier_public_notices IS
   'AskRigor#477 stage 2: the free contributor notices whose yes covers a dossier on the public Atlas. Empty until notice v7 is released on the owner''s yes.';
@@ -100,7 +112,7 @@ COMMENT ON TABLE research_dossier_public_versions IS
 COMMENT ON COLUMN research_dossier_public_versions.origin IS
   'Where the research ran (owner answer 332a): the connector surface, whether the caller made the AI readings, and the runner''s own declaration. For the review only.';
 COMMENT ON TABLE research_dossier_public_events IS
-  'Append-only: shown, held, superseded, taken_down, accepted, erased, living_person_decided (the owner''s decision to show a copy whose claim names a living person).';
+  'Append-only: shown, held, superseded, taken_down, accepted, erased, living_person_decided (the owner''s decision to show a copy whose claim names a living person), detached (its contributor lost access).';
 
 -- A copy's content changes only by erasure; its state, its hold reasons and its acceptance change by the functions
 -- below; it is never deleted.
@@ -112,7 +124,11 @@ BEGIN
   IF TG_OP = 'DELETE' THEN
     RAISE EXCEPTION 'RESEARCH_DOSSIER_PUBLIC_VERSION_IMMUTABLE' USING ERRCODE = '55000';
   END IF;
-  IF NEW.version_id <> OLD.version_id OR NEW.public_number <> OLD.public_number
+  -- A copy's private version changes only by detaching it (NULL, once).
+  IF (NEW.version_id IS DISTINCT FROM OLD.version_id AND NOT (OLD.version_id IS NOT NULL AND NEW.version_id IS NULL
+       AND NEW.detached_at IS NOT NULL))
+     OR NEW.detached_at IS DISTINCT FROM OLD.detached_at AND OLD.detached_at IS NOT NULL
+     OR NEW.public_number <> OLD.public_number
      OR NEW.version_number <> OLD.version_number OR NEW.created_at <> OLD.created_at
      OR NEW.privacy_read <> OLD.privacy_read OR NEW.names_living_person <> OLD.names_living_person THEN
     RAISE EXCEPTION 'RESEARCH_DOSSIER_PUBLIC_VERSION_IMMUTABLE' USING ERRCODE = '55000';
@@ -253,8 +269,8 @@ BEGIN
   END IF;
 
   -- Older copies this one replaces, each with its event.
-  INSERT INTO research_dossier_public_events (version_id, event, reason, happened_at)
-  SELECT copy.version_id, 'superseded', NULL, change_time
+  INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
+  SELECT copy.public_number, copy.version_number, 'superseded', NULL, change_time
     FROM research_dossier_public_versions copy
    WHERE copy.public_number = number_text
      AND (copy.state = 'held' OR (target_state = 'shown' AND copy.state = 'shown'));
@@ -269,8 +285,8 @@ BEGIN
   VALUES (target_version_id, number_text, version_row.version_number, target_state, target_topic_key,
     target_related_topic_keys, target_payload, target_payload_sha256, target_hold_reasons, target_conflicts_with,
     target_origin, target_privacy_read, 'names_living_people' = ANY(target_hold_reasons), change_time, change_time);
-  INSERT INTO research_dossier_public_events (version_id, event, reason, happened_at)
-  VALUES (target_version_id, target_state,
+  INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
+  VALUES (number_text, version_row.version_number, target_state,
     CASE WHEN target_state = 'held' THEN array_to_string(target_hold_reasons, ' ') END, change_time);
 
   RETURN QUERY SELECT 'published'::text, number_text, target_state;
@@ -405,20 +421,21 @@ BEGIN
      OR (target_decision = 'accept' AND copy_row.state NOT IN ('shown', 'held', 'taken_down'))
      OR (target_decision IN ('show', 'accept') AND (copy_row.version_number <> newest OR NOT copy_row.privacy_read
        OR (copy_row.names_living_person AND copy_row.living_person_decided_at IS NULL)
-       OR (copy_row.accepted_at IS NULL AND EXISTS (SELECT 1 FROM research_dossier_events event
-         WHERE event.version_id = copy_row.version_id AND event.event IN ('withdrawn', 'rejected', 'erased'))))) THEN
+       OR (copy_row.accepted_at IS NULL AND (copy_row.version_id IS NULL OR EXISTS (SELECT 1 FROM research_dossier_events event
+         WHERE event.version_id = copy_row.version_id AND event.event IN ('withdrawn', 'rejected', 'erased')))))) THEN
     RETURN QUERY SELECT 'not_decidable'::text, copy_row.state, copy_row.accepted_at IS NOT NULL;
     RETURN;
   END IF;
 
   next_state := CASE target_decision WHEN 'hold' THEN 'held' WHEN 'take_down' THEN 'taken_down' ELSE 'shown' END;
   IF next_state = 'shown' THEN
-    INSERT INTO research_dossier_public_events (version_id, event, reason, happened_at)
-    SELECT copy.version_id, 'superseded', NULL, change_time FROM research_dossier_public_versions copy
+    INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
+    SELECT copy.public_number, copy.version_number, 'superseded', NULL, change_time FROM research_dossier_public_versions copy
      WHERE copy.public_number = target_public_number AND copy.state = 'shown'
-       AND copy.version_id <> copy_row.version_id;
+       AND copy.version_number <> copy_row.version_number;
     UPDATE research_dossier_public_versions copy SET state = 'superseded', decided_at = change_time
-     WHERE copy.public_number = target_public_number AND copy.state = 'shown' AND copy.version_id <> copy_row.version_id;
+     WHERE copy.public_number = target_public_number AND copy.state = 'shown'
+       AND copy.version_number <> copy_row.version_number;
   END IF;
   UPDATE research_dossier_public_versions copy
      SET state = next_state,
@@ -427,14 +444,14 @@ BEGIN
          accepted_at = CASE WHEN target_decision = 'accept' THEN coalesce(copy.accepted_at, change_time)
            ELSE copy.accepted_at END,
          decided_at = change_time
-   WHERE copy.version_id = copy_row.version_id;
+   WHERE copy.public_number = copy_row.public_number AND copy.version_number = copy_row.version_number;
   IF copy_row.state <> next_state THEN
-    INSERT INTO research_dossier_public_events (version_id, event, reason, happened_at)
-    VALUES (copy_row.version_id, next_state, target_reason, change_time);
+    INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
+    VALUES (copy_row.public_number, copy_row.version_number, next_state, target_reason, change_time);
   END IF;
   IF target_decision = 'accept' AND copy_row.accepted_at IS NULL THEN
-    INSERT INTO research_dossier_public_events (version_id, event, reason, happened_at)
-    VALUES (copy_row.version_id, 'accepted', target_reason, change_time);
+    INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
+    VALUES (copy_row.public_number, copy_row.version_number, 'accepted', target_reason, change_time);
   END IF;
   RETURN QUERY SELECT 'decided'::text, next_state,
     target_decision = 'accept' OR copy_row.accepted_at IS NOT NULL;
@@ -485,23 +502,25 @@ BEGIN
    WHERE copy.public_number = target_public_number;
   IF NOT copy_row.names_living_person OR copy_row.living_person_decided_at IS NOT NULL
      OR copy_row.state NOT IN ('held', 'taken_down') OR copy_row.version_number <> newest OR NOT copy_row.privacy_read
-     OR (copy_row.accepted_at IS NULL AND EXISTS (SELECT 1 FROM research_dossier_events event
-       WHERE event.version_id = copy_row.version_id AND event.event IN ('withdrawn', 'rejected', 'erased'))) THEN
+     OR (copy_row.accepted_at IS NULL AND (copy_row.version_id IS NULL OR EXISTS (SELECT 1 FROM research_dossier_events event
+       WHERE event.version_id = copy_row.version_id AND event.event IN ('withdrawn', 'rejected', 'erased')))) THEN
     RETURN QUERY SELECT 'not_decidable'::text, copy_row.state, copy_row.accepted_at IS NOT NULL;
     RETURN;
   END IF;
-  INSERT INTO research_dossier_public_events (version_id, event, reason, happened_at)
-  SELECT copy.version_id, 'superseded', NULL, change_time FROM research_dossier_public_versions copy
-   WHERE copy.public_number = target_public_number AND copy.state = 'shown' AND copy.version_id <> copy_row.version_id;
+  INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
+  SELECT copy.public_number, copy.version_number, 'superseded', NULL, change_time FROM research_dossier_public_versions copy
+   WHERE copy.public_number = target_public_number AND copy.state = 'shown'
+     AND copy.version_number <> copy_row.version_number;
   UPDATE research_dossier_public_versions copy SET state = 'superseded', decided_at = change_time
-   WHERE copy.public_number = target_public_number AND copy.state = 'shown' AND copy.version_id <> copy_row.version_id;
+   WHERE copy.public_number = target_public_number AND copy.state = 'shown'
+     AND copy.version_number <> copy_row.version_number;
   UPDATE research_dossier_public_versions copy
      SET state = 'shown', hold_reasons = '{}', living_person_decided_by = target_decided_by,
          living_person_decided_at = change_time, living_person_reason = target_reason, decided_at = change_time
-   WHERE copy.version_id = copy_row.version_id;
-  INSERT INTO research_dossier_public_events (version_id, event, reason, happened_at)
-  VALUES (copy_row.version_id, 'living_person_decided', target_reason, change_time),
-         (copy_row.version_id, 'shown', target_reason, change_time);
+   WHERE copy.public_number = copy_row.public_number AND copy.version_number = copy_row.version_number;
+  INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
+  VALUES (copy_row.public_number, copy_row.version_number, 'living_person_decided', target_reason, change_time),
+         (copy_row.public_number, copy_row.version_number, 'shown', target_reason, change_time);
   RETURN QUERY SELECT 'decided'::text, 'shown'::text, copy_row.accepted_at IS NOT NULL;
 END
 $function$;
@@ -519,15 +538,15 @@ SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 BEGIN
   IF NEW.event IN ('withdrawn', 'rejected') THEN
-    INSERT INTO research_dossier_public_events (version_id, event, reason, happened_at)
-    SELECT copy.version_id, 'taken_down', 'private_version_' || NEW.event, NEW.happened_at
+    INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
+    SELECT copy.public_number, copy.version_number, 'taken_down', 'private_version_' || NEW.event, NEW.happened_at
       FROM research_dossier_public_versions copy
      WHERE copy.version_id = NEW.version_id AND copy.state IN ('shown', 'held') AND copy.accepted_at IS NULL;
     UPDATE research_dossier_public_versions copy SET state = 'taken_down', decided_at = NEW.happened_at
      WHERE copy.version_id = NEW.version_id AND copy.state IN ('shown', 'held') AND copy.accepted_at IS NULL;
   ELSIF NEW.event = 'erased' THEN
-    INSERT INTO research_dossier_public_events (version_id, event, reason, happened_at)
-    SELECT copy.version_id, 'erased', 'deletion_requested', NEW.happened_at
+    INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
+    SELECT copy.public_number, copy.version_number, 'erased', 'deletion_requested', NEW.happened_at
       FROM research_dossier_public_versions copy
      WHERE copy.version_id = NEW.version_id AND copy.erased_at IS NULL AND copy.accepted_at IS NULL;
     UPDATE research_dossier_public_versions copy
@@ -551,6 +570,75 @@ CREATE TRIGGER research_dossier_public_follow_private
   FOR EACH ROW WHEN (NEW.event IN ('withdrawn', 'rejected', 'erased'))
   EXECUTE FUNCTION research_dossier_public_follow_private();
 
+-- Losing access is treated like erasure for an accepted copy (Codex's review of stage 2, finding 5): when an account is
+-- revoked, every unaccepted shown or held copy of its dossiers leaves the pages, whatever its private version's events
+-- (a version the owner reviewed privately is not withdrawn), and every copy of a dossier with an accepted copy is
+-- detached: no private version, no private dossier and no record of where its research ran, so nothing ties the public
+-- copy to the account. The accepted copy stays, written without the person; that dossier's unaccepted copies are erased
+-- as they are detached, since a later deletion request could no longer find them. On the same revocation as 0037's
+-- trigger.
+CREATE OR REPLACE FUNCTION research_dossier_public_on_revocation()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+DECLARE
+  change_time timestamptz := coalesce(NEW.revoked_at, clock_timestamp());
+  target_number text;
+BEGIN
+  INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
+  SELECT copy.public_number, copy.version_number, 'taken_down', 'contributor_access_revoked', change_time
+    FROM research_dossier_public_versions copy
+    JOIN research_dossier_versions stored ON stored.version_id = copy.version_id
+    JOIN research_dossiers dossier ON dossier.dossier_number = stored.dossier_number
+   WHERE dossier.account_key = NEW.account_key AND copy.state IN ('shown', 'held') AND copy.accepted_at IS NULL;
+  UPDATE research_dossier_public_versions copy SET state = 'taken_down', decided_at = change_time
+    FROM research_dossier_versions stored, research_dossiers dossier
+   WHERE stored.version_id = copy.version_id AND dossier.dossier_number = stored.dossier_number
+     AND dossier.account_key = NEW.account_key AND copy.state IN ('shown', 'held') AND copy.accepted_at IS NULL;
+  FOR target_number IN
+    SELECT publication.public_number FROM research_dossier_publications publication
+      JOIN research_dossiers dossier ON dossier.dossier_number = publication.dossier_number
+     WHERE dossier.account_key = NEW.account_key
+       AND EXISTS (SELECT 1 FROM research_dossier_public_versions copy
+         WHERE copy.public_number = publication.public_number AND copy.accepted_at IS NOT NULL)
+     ORDER BY publication.public_number
+     FOR UPDATE OF publication
+  LOOP
+    INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
+    SELECT copy.public_number, copy.version_number, 'erased', 'contributor_access_revoked', change_time
+      FROM research_dossier_public_versions copy
+     WHERE copy.public_number = target_number AND copy.accepted_at IS NULL AND copy.erased_at IS NULL;
+    UPDATE research_dossier_public_versions copy
+       SET state = 'erased', public_payload = NULL, public_sha256 = NULL, topic_key = NULL, related_topic_keys = '{}',
+           hold_reasons = '{}', conflicts_with = '{}', origin = '{}'::jsonb, living_person_decided_by = NULL,
+           living_person_decided_at = NULL, living_person_reason = NULL, erased_at = change_time,
+           decided_at = change_time, version_id = NULL, detached_at = change_time
+     WHERE copy.public_number = target_number AND copy.accepted_at IS NULL AND copy.erased_at IS NULL;
+    INSERT INTO research_dossier_public_events (public_number, version_number, event, reason, happened_at)
+    SELECT copy.public_number, copy.version_number, 'detached', 'contributor_access_revoked', change_time
+      FROM research_dossier_public_versions copy
+     WHERE copy.public_number = target_number AND copy.version_id IS NOT NULL AND copy.erased_at IS NULL;
+    UPDATE research_dossier_public_versions copy
+       SET version_id = NULL, detached_at = change_time, origin = '{}'::jsonb
+     WHERE copy.public_number = target_number AND copy.version_id IS NOT NULL AND copy.erased_at IS NULL;
+    UPDATE research_dossier_publications publication SET dossier_number = NULL, detached_at = change_time
+     WHERE publication.public_number = target_number;
+  END LOOP;
+  RETURN NULL;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION research_dossier_public_on_revocation() FROM PUBLIC;
+
+DROP TRIGGER IF EXISTS research_dossier_public_on_revocation ON research_use_accounts;
+CREATE TRIGGER research_dossier_public_on_revocation
+  AFTER UPDATE OF status, revoked_at ON research_use_accounts
+  FOR EACH ROW WHEN (NEW.status = 'REVOKED'
+    AND (OLD.status IS DISTINCT FROM 'REVOKED' OR OLD.revoked_at IS DISTINCT FROM NEW.revoked_at))
+  EXECUTE FUNCTION research_dossier_public_on_revocation();
+
 -- What the pages read, as the reader role: the shown copies, and the shown dossiers' history. The view holds the
 -- private version's state too, so a copy whose version was withdrawn, rejected or erased never shows, even if a
 -- trigger had not run; an accepted copy shows as the owner accepted it.
@@ -559,8 +647,8 @@ SELECT copy.public_number, copy.version_number, copy.topic_key, copy.related_top
   copy.public_sha256, copy.accepted_at IS NOT NULL AS accepted, copy.decided_at AS shown_at, copy.conflicts_with
   FROM research_dossier_public_versions copy
  WHERE copy.state = 'shown' AND copy.erased_at IS NULL
-   AND (copy.accepted_at IS NOT NULL OR NOT EXISTS (SELECT 1 FROM research_dossier_events event
-     WHERE event.version_id = copy.version_id AND event.event IN ('withdrawn', 'rejected', 'erased')));
+   AND (copy.accepted_at IS NOT NULL OR (copy.version_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM research_dossier_events event
+     WHERE event.version_id = copy.version_id AND event.event IN ('withdrawn', 'rejected', 'erased'))));
 
 CREATE OR REPLACE VIEW research_dossier_public_history WITH (security_barrier = true) AS
 SELECT copy.public_number, copy.version_number, copy.state, copy.accepted_at IS NOT NULL AS accepted,

@@ -238,6 +238,8 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
   /** Each request key and the version it got (the database's research_dossier_requests). */
   private readonly requests = new Map<string, string>();
   private readonly queues = new Map<string, Promise<unknown>>();
+  /** Accounts revoked here (revoke), as research_use_accounts says REVOKED; the public copies follow them. */
+  private readonly revoked = new Set<string>();
   private nextNumber = 1;
 
   constructor(private readonly options: {
@@ -294,6 +296,7 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
 
   /** What the database's revocation trigger does: withdraws the account's versions still waiting for review. */
   revoke(accountKey: string, at: Date): number {
+    this.revoked.add(accountKey);
     let withdrawn = 0;
     for (const version of this.versions.values()) {
       const dossier = this.dossiers.get(version.dossierNumber)!;
@@ -307,12 +310,12 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
 
   /**
    * What the public copies need to know of a private version (AskRigor#477 stage 2, research-dossier-publications.ts),
-   * as the database's publish function and triggers read it: whose it is, whether it is its dossier's newest, and
-   * whether it was withdrawn, rejected or erased.
+   * as the database's publish function and triggers read it: whose it is, whether it is its dossier's newest,
+   * whether it was withdrawn, rejected or erased, and whether its account was revoked.
    */
   versionFacts(versionId: string): {
     accountKey: string | null; dossierNumber: string; versionNumber: number; newest: boolean; closed: boolean;
-    erased: boolean;
+    erased: boolean; accountRevoked: boolean;
   } | undefined {
     const version = this.versions.get(versionId);
     if (version === undefined) return undefined;
@@ -324,6 +327,7 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
       newest: this.latestOf(version.dossierNumber)?.versionId === versionId,
       closed: version.events.some(({ event }) => event === "withdrawn" || event === "rejected" || event === "erased"),
       erased: version.erasedAt !== null,
+      accountRevoked: dossier.accountKey !== null && this.revoked.has(dossier.accountKey),
     };
   }
 

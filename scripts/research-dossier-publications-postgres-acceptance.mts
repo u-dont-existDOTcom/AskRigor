@@ -131,6 +131,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       "decide_research_dossier_publication(text, integer, text, text, timestamptz)": "askrigor_research_review",
       "decide_research_dossier_living_person(text, integer, text, text, timestamptz)": "askrigor_research_review",
       "research_dossier_public_follow_private()": "none",
+      "research_dossier_public_on_revocation()": "none",
       "research_dossier_public_version_guard()": "none",
     };
     for (const [signature, owner] of Object.entries(grants)) {
@@ -244,6 +245,42 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     assert((await review.decide({ publicNumber: secondCopy.publicNumber, versionNumber: 1, decision: "show", reason: null,
       at: AT })).outcome === "not_decidable", "WITHDRAWN_COPY_SHOWN_AGAIN");
     checks.push("revocation_takes_an_unaccepted_copy_off_the_pages_for_good");
+
+    // Codex's review, finding 5: losing access is treated like erasure for an accepted copy. It stays on the pages, but
+    // its dossier's copies keep no link to a private version, the private dossier or the account, and no record of where
+    // the research ran; that dossier's unaccepted copies are erased with the link. Another dossier's unaccepted copy
+    // leaves the pages even when the owner had reviewed its private version (which revocation does not withdraw).
+    const leaving = await account("leaving");
+    const l1 = await save(leaving.accountKey, "leaving", "leaving-1");
+    const leavingCopy = await publisher.publish(copy(leaving.accountKey, l1, "leaving-1"));
+    assert(leavingCopy.outcome === "published", "LEAVING_PUBLISH_WRONG");
+    assert((await review.decide({ publicNumber: leavingCopy.publicNumber, versionNumber: 1, decision: "accept",
+      reason: null, at: AT })).outcome === "decided", "LEAVING_ACCEPT_WRONG");
+    const l2 = await save(leaving.accountKey, "leaving", "leaving-2", l1);
+    await publisher.publish(copy(leaving.accountKey, l2, "leaving-2", "held", ["not_high_confidence"]));
+    const b1 = await save(leaving.accountKey, "leaving-b", "leaving-b-1");
+    const reviewedCopy = await publisher.publish(copy(leaving.accountKey, b1, "leaving-b-1"));
+    assert(reviewedCopy.outcome === "published", "REVIEWED_PUBLISH_WRONG");
+    await admin.query(`INSERT INTO ${SCHEMA}.research_dossier_events (version_id, event, reason, happened_at)
+      VALUES ($1, 'accepted', NULL, $2)`, [b1, AT]);
+    await service.revoke(leaving.subject);
+    const stillShown = await pages.listShown({ publicNumbers: [leavingCopy.publicNumber, reviewedCopy.publicNumber], limit: 5 });
+    assert(stillShown.length === 1 && stillShown[0]!.publicNumber === leavingCopy.publicNumber && stillShown[0]!.accepted,
+      "ACCESS_LOSS_PAGES_WRONG");
+    const leavingRows = await review.inspect(leavingCopy.publicNumber);
+    const leavingV1 = leavingRows.find(({ versionNumber }) => versionNumber === 1);
+    assert(leavingV1?.state === "shown" && leavingV1.dossierNumber === null && Object.keys(leavingV1.origin).length === 0,
+      "ACCEPTED_COPY_STILL_LINKED");
+    assert(leavingRows.find(({ versionNumber }) => versionNumber === 2)?.state === "erased", "DETACHED_SIBLING_NOT_ERASED");
+    const links = await admin.query<{ linked: string; dossier: string | null }>(`SELECT
+        (SELECT count(*) FROM ${SCHEMA}.research_dossier_public_versions copy
+          WHERE copy.public_number = $1 AND copy.version_id IS NOT NULL)::text AS linked,
+        (SELECT publication.dossier_number FROM ${SCHEMA}.research_dossier_publications publication
+          WHERE publication.public_number = $1) AS dossier`, [leavingCopy.publicNumber]);
+    assert(links.rows[0]!.linked === "0" && links.rows[0]!.dossier === null, "ACCESS_LOSS_LINK_KEPT");
+    const reviewedRow = (await review.inspect(reviewedCopy.publicNumber))[0];
+    assert(reviewedRow?.state === "taken_down" && reviewedRow.dossierNumber !== null, "REVIEWED_COPY_STILL_SHOWN");
+    checks.push("losing_access_detaches_accepted_copies_and_takes_down_the_rest");
 
     // Erasure (forget_card's, by the thread): an unaccepted copy is erased with its private version; an accepted one
     // stays, written without the person, and keeps nothing of where its research ran.

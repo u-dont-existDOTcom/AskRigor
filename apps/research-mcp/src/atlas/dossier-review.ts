@@ -60,7 +60,7 @@ export function livingPersonDecider(reviewer: string): string {
 
 /** Where a copy's research ran, in words: the connector surface, the runner's declaration, who made the readings. */
 export function originWords(origin: Record<string, unknown>): string {
-  if (Object.keys(origin).length === 0) return "not kept (its research was deleted)";
+  if (Object.keys(origin).length === 0) return "not kept (its contributor's access ended or its research was deleted)";
   const surface = SURFACE_WORDS[String(origin.surface)] ?? "an unknown surface";
   const runner = origin.run === "runner" ? "declared as AskRigor's research runner, through " : "a chat through ";
   return `${runner}${surface}${origin.readings === "caller" ? ", with the final check's AI readings made by the caller"
@@ -71,7 +71,8 @@ export const atlasDossiersSchema = z.object({
   items: z.array(z.object({
     dossier: z.string(),
     version: z.number().int(),
-    privateNumber: z.string().describe("The private ARD number, for the owner only."),
+    privateNumber: z.string().nullable().describe("The private ARD number, for the owner only; null once its " +
+      "contributor's access ended with an accepted copy, which then keeps no link to the account."),
     state: z.enum(RESEARCH_DOSSIER_PUBLIC_STATES),
     topicKey: z.string().nullable(),
     question: z.string().nullable(),
@@ -133,11 +134,13 @@ function itemOf(row: ResearchDossierPublicationRow, content?: Record<string, unk
   };
 }
 
-const lineOf = (row: ResearchDossierPublicationRow) => `${row.publicNumber} version ${row.versionNumber} ` +
-  `(${row.dossierNumber}), ${row.state}${row.accepted ? ", checked by supervisors" : ""}${row.topicKey === null ? ""
+const lineOf = (row: ResearchDossierPublicationRow) => `${row.publicNumber} version ${row.versionNumber}` +
+  `${row.dossierNumber === null ? "" : ` (${row.dossierNumber})`}, ${row.state}${row.accepted ? ", checked by supervisors"
+    : ""}${row.topicKey === null ? ""
     : `, topic ${row.topicKey}`}${row.holdReasons.length === 0 ? "" : `, held for: ${holdReasonWords(row.holdReasons)}`}${
-    row.conflictsWith.length === 0 ? "" : `, conflicts with ${row.conflictsWith.join(", ")}`}; researched in ${
-    originWords(row.origin)}`;
+    row.conflictsWith.length === 0 ? "" : `, conflicts with ${row.conflictsWith.join(", ")}`}; ${
+    Object.keys(row.origin).length === 0 ? `where its research ran is ${originWords(row.origin)}`
+      : `researched in ${originWords(row.origin)}`}`;
 
 export class AtlasDossierReview {
   constructor(private readonly deps: { store: ResearchDossierPublicationReviewStore; now: () => Date }) {}

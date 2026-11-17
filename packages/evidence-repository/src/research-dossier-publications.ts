@@ -84,7 +84,8 @@ export type ResearchDossierPublishResult =
 export interface ResearchDossierTopicCopy {
   publicNumber: string;
   versionNumber: number;
-  dossierNumber: string;
+  /** null for a detached copy (its contributor lost access). */
+  dossierNumber: string | null;
   payload: Record<string, unknown>;
 }
 
@@ -97,7 +98,8 @@ export interface ResearchDossierPublisher {
 export interface ResearchDossierPublicationRow {
   publicNumber: string;
   versionNumber: number;
-  dossierNumber: string;
+  /** The private ARD number; null once detached, when its contributor lost access with an accepted copy. */
+  dossierNumber: string | null;
   state: ResearchDossierPublicState;
   topicKey: string | null;
   question: string | null;
@@ -263,7 +265,7 @@ export class PostgresResearchDossierPublisher implements ResearchDossierPublishe
 
   async topicCopies(topicKey: string): Promise<ResearchDossierTopicCopy[]> {
     if (!TOPIC_KEY.test(topicKey)) throw new ResearchDossierPublicationError("INPUT_INVALID");
-    const result = await this.pool.query<{ public_number: string; version_number: number; dossier_number: string;
+    const result = await this.pool.query<{ public_number: string; version_number: number; dossier_number: string | null;
       public_payload: Record<string, unknown> }>(
       `SELECT public_number, version_number, dossier_number, public_payload
          FROM ${this.schema}.research_dossier_topic_publications($1)`,
@@ -277,7 +279,7 @@ export class PostgresResearchDossierPublisher implements ResearchDossierPublishe
 interface ReviewRow {
   public_number: string;
   version_number: number;
-  dossier_number: string;
+  dossier_number: string | null;
   state: ResearchDossierPublicState;
   topic_key: string | null;
   hold_reasons: ResearchDossierHoldReason[];
@@ -445,9 +447,10 @@ export class PostgresPublicDossierPageSource implements PublicDossierPageSource 
 // In memory ------------------------------------------------------------------------------------------------------------
 
 interface MemoryCopy {
-  versionId: string;
+  /** The private version; null once detached. */
+  versionId: string | null;
   publicNumber: string;
-  dossierNumber: string;
+  dossierNumber: string | null;
   versionNumber: number;
   state: ResearchDossierPublicState;
   topicKey: string | null;
@@ -473,9 +476,14 @@ interface MemoryCopy {
  */
 export class InMemoryResearchDossierPublications
 implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, PublicDossierPageSource {
+  /** By public number and version, as the database's key. */
   private readonly copies = new Map<string, MemoryCopy>();
   private readonly numbers = new Map<string, string>();
   private nextNumber = 1001;
+
+  private copyOfVersion(versionId: string): MemoryCopy | undefined {
+    return [...this.copies.values()].find((copy) => copy.versionId === versionId);
+  }
 
   constructor(private readonly options: {
     dossiers: InMemoryResearchDossierStore;
@@ -489,7 +497,7 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
     if (!(await (this.options.eligible?.(input.accountKey) ?? true))) return { outcome: "account_refused" };
     const facts = this.options.dossiers.versionFacts(input.versionId);
     if (facts === undefined || facts.accountKey !== input.accountKey) return { outcome: "version_refused" };
-    const existing = this.copies.get(input.versionId);
+    const existing = this.copyOfVersion(input.versionId);
     if (existing !== undefined) return { outcome: "replayed", publicNumber: existing.publicNumber, state: existing.state };
     if (!facts.newest || facts.closed || facts.erased) return { outcome: "version_refused" };
     let publicNumber = this.numbers.get(facts.dossierNumber);
@@ -503,7 +511,7 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
         copy.events.push({ event: "superseded", reason: null, at: input.at });
       }
     }
-    this.copies.set(input.versionId, {
+    this.copies.set(`${publicNumber}#${facts.versionNumber}`, {
       versionId: input.versionId,
       publicNumber,
       dossierNumber: facts.dossierNumber,
@@ -560,7 +568,7 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
     const copy = copies.find(({ versionNumber }) => versionNumber === input.versionNumber);
     if (copy === undefined) return { outcome: "not_found" };
     const newest = Math.max(...copies.map(({ versionNumber }) => versionNumber));
-    const closed = this.options.dossiers.versionFacts(copy.versionId)?.closed ?? true;
+    const closed = this.closed(copy);
     const accepted = copy.acceptedAt !== null;
     const refused = copy.state === "erased" ||
       (input.decision === "hold" && (copy.state !== "shown" || accepted)) ||
@@ -598,7 +606,7 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
     const copy = copies.find(({ versionNumber }) => versionNumber === input.versionNumber);
     if (copy === undefined) return { outcome: "not_found" };
     const newest = Math.max(...copies.map(({ versionNumber }) => versionNumber));
-    const closed = this.options.dossiers.versionFacts(copy.versionId)?.closed ?? true;
+    const closed = this.closed(copy);
     const accepted = copy.acceptedAt !== null;
     if (!copy.namesLivingPerson || copy.livingPersonDecision !== null || (copy.state !== "held" &&
       copy.state !== "taken_down") || copy.versionNumber !== newest || !copy.privacyRead || (!accepted && closed)) {
@@ -647,10 +655,39 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
         decidedAt: copy.decidedAt.toISOString() }));
   }
 
-  /** What the database's trigger does when a private version is withdrawn, rejected or erased. */
+  /**
+   * What the database's triggers do when a private version is withdrawn, rejected or erased, and when an account is
+   * revoked: its unaccepted copies leave the pages, and a dossier with an accepted copy is detached, its unaccepted
+   * copies erased (Codex's review of stage 2, finding 5).
+   */
   followPrivate(at = new Date()): void {
+    const byNumber = new Map<string, MemoryCopy[]>();
+    for (const copy of this.copies.values()) byNumber.set(copy.publicNumber, [...byNumber.get(copy.publicNumber) ?? [], copy]);
+    for (const [publicNumber, copies] of byNumber) {
+      const linked = copies.find(({ versionId }) => versionId !== null);
+      if (linked === undefined || this.options.dossiers.versionFacts(linked.versionId!)?.accountRevoked !== true) continue;
+      for (const copy of copies) {
+        if (copy.acceptedAt === null && (copy.state === "shown" || copy.state === "held")) {
+          Object.assign(copy, { state: "taken_down", decidedAt: at });
+          copy.events.push({ event: "taken_down", reason: "contributor_access_revoked", at });
+        }
+      }
+      if (!copies.some(({ acceptedAt }) => acceptedAt !== null)) continue;
+      for (const copy of copies) {
+        if (copy.acceptedAt === null && copy.state !== "erased") {
+          copy.events.push({ event: "erased", reason: "contributor_access_revoked", at });
+          Object.assign(copy, { state: "erased", payload: null, payloadSha256: null, topicKey: null, relatedTopicKeys: [],
+            holdReasons: [], conflictsWith: [], origin: {}, livingPersonDecision: null, decidedAt: at, versionId: null,
+            dossierNumber: null });
+        } else if (copy.versionId !== null && copy.state !== "erased") {
+          copy.events.push({ event: "detached", reason: "contributor_access_revoked", at });
+          Object.assign(copy, { versionId: null, dossierNumber: null, origin: {} });
+        }
+      }
+      for (const [dossierNumber, number] of this.numbers) if (number === publicNumber) this.numbers.delete(dossierNumber);
+    }
     for (const copy of this.copies.values()) {
-      const facts = this.options.dossiers.versionFacts(copy.versionId);
+      const facts = copy.versionId === null ? undefined : this.options.dossiers.versionFacts(copy.versionId);
       if (facts === undefined || copy.acceptedAt !== null || copy.state === "erased") continue;
       if (facts.erased) {
         Object.assign(copy, { state: "erased", payload: null, payloadSha256: null, topicKey: null, relatedTopicKeys: [],
@@ -663,19 +700,24 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
     }
   }
 
-  /** Every copy's state and events, for tests. */
+  /** Every copy's state and events, and whether it still names a private version, for tests. */
   snapshot(): Array<{ publicNumber: string; versionNumber: number; state: ResearchDossierPublicState; accepted: boolean;
-    holdReasons: string[]; events: string[]; erased: boolean }> {
+    holdReasons: string[]; events: string[]; erased: boolean; linked: boolean }> {
     return [...this.copies.values()]
       .sort((left, right) => left.publicNumber.localeCompare(right.publicNumber) || left.versionNumber - right.versionNumber)
       .map((copy) => ({ publicNumber: copy.publicNumber, versionNumber: copy.versionNumber, state: copy.state,
         accepted: copy.acceptedAt !== null, holdReasons: [...copy.holdReasons], events: copy.events.map(({ event }) => event),
-        erased: copy.payload === null }));
+        erased: copy.payload === null, linked: copy.versionId !== null }));
   }
 
   private shows(copy: MemoryCopy): boolean {
     if (copy.state !== "shown" || copy.payload === null) return false;
-    return copy.acceptedAt !== null || !(this.options.dossiers.versionFacts(copy.versionId)?.closed ?? true);
+    return copy.acceptedAt !== null || !this.closed(copy);
+  }
+
+  /** Withdrawn, rejected or erased, or detached: a copy so closed shows only as the owner accepted it. */
+  private closed(copy: MemoryCopy): boolean {
+    return copy.versionId === null || (this.options.dossiers.versionFacts(copy.versionId)?.closed ?? true);
   }
 
   private rowOf(copy: MemoryCopy): ResearchDossierPublicationRow {

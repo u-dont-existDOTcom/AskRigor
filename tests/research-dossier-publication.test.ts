@@ -398,6 +398,33 @@ describe("a saved dossier's public copy (332a: the researching AI's own judgemen
   });
 });
 
+// Codex's review, finding 5: losing access is treated like erasure for an accepted copy: it stays, written without the
+// person, but keeps no link to the account and no record of where its research ran.
+describe("an accepted copy when its contributor loses access", () => {
+  it("stays on the pages with no link to the account and no connector record; unaccepted copies leave", async () => {
+    const { dossiers, publications, publication } = stores();
+    await saveResearchDossier(dossiers, request({ publication }));
+    const review = new AtlasDossierReview({ store: publications, now: () => NOW });
+    expect((await review.run({ action: "accept_dossier", dossier: "D-1001" })).ok).toBe(true);
+    // A second dossier of the same account, shown and not accepted.
+    await saveResearchDossier(dossiers, request({ publication, value: dossier((value) => {
+      value.question = "Which inositol forms were tested against placebo?"; }) }));
+    expect((await publications.listShown({ limit: 10 })).map(({ publicNumber }) => publicNumber).sort())
+      .toEqual(["D-1001", "D-1002"]);
+    dossiers.revoke(ACCOUNT, NOW);
+    expect((await publications.listShown({ limit: 10 })).map(({ publicNumber, accepted }) => [publicNumber, accepted]))
+      .toEqual([["D-1001", true]]);
+    const [kept] = await publications.inspect("D-1001");
+    expect(kept).toMatchObject({ state: "shown", accepted: true, dossierNumber: null, origin: {} });
+    expect((await review.run({ action: "inspect_dossier", dossier: "D-1001" })).text)
+      .toContain("D-1001 version 1, shown, checked by supervisors, topic inositol-invented; where its research ran " +
+        "is not kept (its contributor's access ended or its research was deleted)");
+    expect((await publications.inspect("D-1002"))[0]).toMatchObject({ state: "taken_down", dossierNumber: "ARD-0002" });
+    // Nothing of the account remains to find it by: no copy names a private version of it.
+    expect(publications.snapshot().find(({ publicNumber }) => publicNumber === "D-1001")).toMatchObject({ linked: false });
+  });
+});
+
 /** The thread key the in-memory store holds for a version, as forget_card would find it. */
 async function threadOf(store: InMemoryResearchDossierStore, versionId: string): Promise<string> {
   const { findingsThreadKey } = await import("../apps/research-mcp/src/findings/service.js");

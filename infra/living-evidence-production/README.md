@@ -553,7 +553,8 @@ reason, the only way a copy whose claim names a living person shows);
 the canonical reader reads only the views `research_dossier_public_pages` and `research_dossier_public_history`. A
 trigger on `research_dossier_events` takes a copy off the pages when its version is withdrawn or rejected, and erases it
 when its version is erased, unless the owner accepted it, so an earlier image's revocation and `forget_card` keep them in
-step. Its release: the one-shot admin `migrate`, then re-run `/usr/local/bin/provision-research-access-role` and
+step; a trigger on `research_use_accounts` treats losing access like erasure for an accepted copy, detaching its
+dossier's copies from the private versions and the account and clearing their origin. Its release: the one-shot admin `migrate`, then re-run `/usr/local/bin/provision-research-access-role` and
 `/usr/local/bin/provision-research-review-role`, before the image serves. Nothing is published until both
 `ASKRIGOR_PUBLIC_DOSSIERS=enabled` (off by default; it also needs `ASKRIGOR_RESEARCH_DOSSIERS=enabled`) and the release of
 notice v7, on the owner's yes, which adds its version to `research_dossier_public_notices` and to
