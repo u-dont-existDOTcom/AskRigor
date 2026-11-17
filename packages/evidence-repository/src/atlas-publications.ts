@@ -460,6 +460,20 @@ export interface AtlasLivingPersonNote {
   notedAt: string;
 }
 
+/**
+ * Codex's fourth review of 17 Nov 2026: the review role's functions the living-person hold relies on, by their exact
+ * signatures (migrations 0021 and 0041): the publishing that reads what a save stored, the record a save makes, the
+ * read that matches older publications, the owner's notes and the showing that records his decision. The server isn't
+ * ready to serve while one is missing or the review role can't run it.
+ */
+export const ATLAS_LIVING_PERSON_HOLD_FUNCTIONS = [
+  "publish_atlas_findings(integer, text, jsonb, timestamptz, boolean)",
+  "record_atlas_living_person(integer, jsonb, text[], timestamptz)",
+  "inspect_atlas_publications(text[], integer[], text[], text[], bigint, integer)",
+  "inspect_atlas_living_person_notes(text[])",
+  "show_atlas_publications(text[], text[], text, text, timestamptz)",
+] as const;
+
 /** The most numbers one record takes beside its readings, and one notes' read, as migration 0041 does. */
 export const ATLAS_LIVING_PERSON_MATCHES_PER_RECORD = 500;
 export const ATLAS_LIVING_PERSON_NOTES_PER_READ = 500;
@@ -1171,6 +1185,21 @@ export class PostgresAtlasPublicationStore implements AtlasPublicationStore {
 
   async close(): Promise<void> {
     await this.pool.end();
+  }
+
+  /**
+   * Of ATLAS_LIVING_PERSON_HOLD_FUNCTIONS, in their order, each that is missing from the schema or that this role can't
+   * run; an empty list when the hold can run.
+   */
+  async livingPersonHoldMissing(): Promise<string[]> {
+    const result = await this.pool.query(
+      `SELECT required.signature FROM unnest($1::text[]) WITH ORDINALITY AS required(signature, place)
+        WHERE to_regprocedure($2 || '.' || required.signature) IS NULL
+           OR NOT has_function_privilege(to_regprocedure($2 || '.' || required.signature), 'EXECUTE')
+        ORDER BY required.place`,
+      [[...ATLAS_LIVING_PERSON_HOLD_FUNCTIONS], this.schema],
+    ) as unknown as { rows: Array<{ signature: string }> };
+    return result.rows.map(({ signature }) => signature);
   }
 
   async keep(change: AtlasKeepChange): Promise<AtlasKeptView[]> {

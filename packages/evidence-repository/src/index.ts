@@ -465,6 +465,7 @@ export {
   type AtlasPublishedRow,
   type AtlasPublishedSourceDetail,
   type AtlasPublishInput,
+  ATLAS_LIVING_PERSON_HOLD_FUNCTIONS,
   ATLAS_LIVING_PERSON_HOLD_OUTCOMES,
   ATLAS_LIVING_PERSON_MATCHES_PER_RECORD,
   ATLAS_LIVING_PERSON_READINGS,

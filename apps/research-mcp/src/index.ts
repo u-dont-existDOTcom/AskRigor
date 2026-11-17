@@ -2,9 +2,10 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 
 import { DEFAULT_PORT } from "./config.js";
-import { createAskRigorHttpServer } from "./server.js";
+import { startAskRigorServer } from "./start.js";
 
 export { createAskRigorHttpServer, createAskRigorServer } from "./server.js";
+export { startAskRigorServer } from "./start.js";
 export {
   createPublicEvidenceGapIntakeHandler,
   createPublicEvidenceGapIntakeHandlerFromConfig,
@@ -522,9 +523,6 @@ if (
   fileURLToPath(import.meta.url) === resolve(process.argv[1])
 ) {
   const port = Number(process.env.PORT ?? DEFAULT_PORT);
-  const server = createAskRigorHttpServer();
-
-  server.listen(port, "0.0.0.0", () => {
-    console.log(`AskRigor MCP server listening on port ${port}`);
-  });
+  // Codex's fourth review of 17 Nov 2026: it serves only once the Atlas's living-person hold can run.
+  if (await startAskRigorServer({ port }) === undefined) process.exitCode = 1;
 }

@@ -992,7 +992,11 @@ back to:
    `inspect_atlas_living_person_notes` and `show_atlas_publications`), and
    recreate `research-mcp` with this image, with
    `ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS`, `ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN`
-   and `ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION` still unset.
+   and `ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION` still unset. Before it
+   serves, this image checks that the review role can run every function the
+   living-person hold relies on; when one is missing or not granted, it prints
+   "AskRigor did not start: …", naming them, and doesn't serve, so `/healthz`
+   doesn't answer: run the step it names, then recreate `research-mcp`.
 3. Then acceptance: `npm run contributor-access:postgres-acceptance` on this
    release's commit, and on the server the Atlas home page and a finding's page
    answering and `list_publications` listing.

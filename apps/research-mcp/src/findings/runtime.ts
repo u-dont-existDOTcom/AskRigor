@@ -185,6 +185,42 @@ export function createAtlasPublicationStoreFromEnv(
   }
 }
 
+/** Whether the living-person hold can run: missing lists what it lacks, or is null when the database couldn't say. */
+export type AtlasHoldReadiness = { ready: true } | { ready: false; missing: string[] | null };
+
+/**
+ * Codex's fourth review of 17 Nov 2026: whether the server may serve. While saves publish in the Atlas (its review
+ * store is configured), the database enforces the hold for a finding that may name a living person, so every function
+ * the hold relies on must be there and the review role must be able to run it (ATLAS_LIVING_PERSON_HOLD_FUNCTIONS). A
+ * database that can't be asked is not ready either. Ready when saves publish nothing in the Atlas.
+ */
+export async function atlasHoldReadiness(
+  env: NodeJS.ProcessEnv = process.env,
+  createStore: (env: NodeJS.ProcessEnv) => Pick<PostgresAtlasPublicationStore, "livingPersonHoldMissing" | "close"> |
+    undefined = createAtlasPublicationStoreFromEnv,
+): Promise<AtlasHoldReadiness> {
+  const store = createStore(env);
+  if (store === undefined) return { ready: true };
+  try {
+    const missing = await store.livingPersonHoldMissing();
+    return missing.length === 0 ? { ready: true } : { ready: false, missing };
+  } catch {
+    return { ready: false, missing: null };
+  } finally {
+    await store.close().catch(() => undefined);
+  }
+}
+
+/** What the server says when the hold isn't ready, and it doesn't start. */
+export function atlasHoldReadinessText(readiness: Extract<AtlasHoldReadiness, { ready: false }>): string {
+  return readiness.missing === null
+    ? "AskRigor did not start: it couldn't ask the research review database whether the Atlas's living-person hold " +
+      "can run."
+    : "AskRigor did not start: the Atlas's living-person hold needs these PostgreSQL functions, which are missing or " +
+      `which the review role can't run: ${readiness.missing.join("; ")}. Run the one-shot admin migrate, re-run ` +
+      "provision-research-review-role, then start it again.";
+}
+
 /**
  * The owner's findings actions for the Atlas, from the environment (Atlas phase 2 design, section 3): decisions and
  * intents through the review role's functions (the research review database), the canonical Atlas through the public

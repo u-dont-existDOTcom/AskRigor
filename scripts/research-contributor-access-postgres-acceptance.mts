@@ -7,6 +7,7 @@ import { isDeepStrictEqual } from "node:util";
 import { Pool } from "pg";
 
 import {
+  ATLAS_LIVING_PERSON_HOLD_FUNCTIONS,
   ATLAS_PUBLICATION_SCHEMA,
   ATLAS_PUBLICATION_SCHEMA_V2,
   ATLAS_PUBLICATION_SCHEMA_V3,
@@ -4506,7 +4507,11 @@ async function verifyLivingPersonEnforced(context: {
     const clear = card("denied", [false, false]);
     assert((await save(clear, "1", { nlp: ["1", "2"] })).status === "saved", "DENIED_FIRST_SAVE");
     await service.publicationsSettled();
+    // Codex's fourth review of 17 Nov 2026: the server's readiness check finds the hold ready, then not.
+    assert(isDeepStrictEqual(await store.livingPersonHoldMissing(), []), "HOLD_NOT_READY_WITH_EVERY_GRANT");
     await admin.query(`REVOKE EXECUTE ON FUNCTION ${signature} FROM askrigor_research_review`);
+    assert(isDeepStrictEqual(await store.livingPersonHoldMissing(),
+      ["record_atlas_living_person(integer, jsonb, text[], timestamptz)"]), "HOLD_READY_WITHOUT_ITS_GRANT");
     const before = await store.inspect({ cardNumbers: [7210] });
     const both = card("denied", [true, false]);
     const denied = await save({ ...both, findings: [both.findings[1]!, both.findings[0]!] }, "2", { nlp: ["1"] });
@@ -4532,6 +4537,16 @@ async function verifyLivingPersonEnforced(context: {
   assert(retried.status === "existing_card" && retriedRows[0]?.state === "held" && retriedRows[1]?.state === "unreviewed",
     `DENIED_RETRY_DID_NOT_HOLD ${JSON.stringify(retriedRows)}`);
   checks.push("a_save_whose_living_person_record_is_denied_fails_retryable_and_publishes_nothing");
+  // A database this release never migrated has none of the functions: not ready either.
+  const unmigrated = new PostgresAtlasPublicationStore({ connectionString: reviewUrl, schema: `${schema}_never_migrated` });
+  try {
+    assert(isDeepStrictEqual(await unmigrated.livingPersonHoldMissing(), [...ATLAS_LIVING_PERSON_HOLD_FUNCTIONS]),
+      "HOLD_READY_WITHOUT_ITS_FUNCTIONS");
+  } finally {
+    await unmigrated.close();
+  }
+  assert(isDeepStrictEqual(await store.livingPersonHoldMissing(), []), "HOLD_NOT_READY_AFTER_ITS_GRANT");
+  checks.push("the_readiness_check_fails_while_a_function_the_hold_relies_on_is_missing_or_not_granted");
 }
 
 /**
