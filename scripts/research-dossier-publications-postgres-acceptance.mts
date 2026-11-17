@@ -15,6 +15,7 @@ import {
   ResearchContributorAccessService,
   conflictCandidateId,
   deterministicUuid,
+  publicDossierTopicOrder,
   stableJson,
   type ResearchDossierPublishInput,
   type ResearchDossierShowCheck,
@@ -979,8 +980,10 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     // the number the pages cache under moves with every change, a revocation's trigger included.
     const filler = await account("filler");
     for (let index = 0; index < 300; index += 1) {
+      // Labels whose order is not their keys': capitals and small letters, a letter beyond ASCII, and ties.
+      const label = `${["Zulu", "alpha", "Ébène", "Alpha", "zulu"][index % 5]} ${Math.floor(index / 10)}`;
       const version = await save(filler.accountKey, `filler-${index}`, `filler-${index}`, null, (value) => {
-        value.topic = { key: `filler-${index}`, name: `Filler ${index}`, other_names: [], related: [] };
+        value.topic = { key: `filler-${index}`, name: label, other_names: [], related: [] };
         value.forms = [`filler-form-${index}`]; });
       assert((await publisher.publish(await copy(filler.accountKey, version))).outcome === "published", `FILLER_${index}`);
     }
@@ -992,19 +995,33 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     const crowdedPage = await loadDossierTopic(pages, "crowded-topic", async () => undefined, 11);
     assert(crowdedPage !== undefined && crowdedPage.page === 11 && crowdedPage.dossiers.length > 0,
       "LATER_TOPIC_PAGE_NOT_FOUND");
-    // Codex's re-review, P1: the topics list comes a page at a time after a key, in the order of the keys, never whole.
-    const topicList: Array<{ key: string }> = [];
-    for (let after: string | undefined; ;) {
-      const index = await loadDossierTopicIndex(pages, [], after);
+    // Codex's re-review, P1: the topics list comes a page at a time, never whole; his third review, P2: in the order of
+    // the labels, the key breaking ties, after the last label and key, with the card topics placed by their own labels.
+    // The database's order and the server's agree exactly, capitals, letters beyond ASCII and ties included.
+    const cards = [{ key: "filler-7", label: "Card filler", count: 3 }, { key: "card-only", label: "Card only", count: 1 }];
+    const topicList: Array<{ key: string; label: string; count: number }> = [];
+    for (let after: { label: string; key: string } | undefined; ;) {
+      const index = await loadDossierTopicIndex(pages, cards, after);
       assert(index.topics.length <= DOSSIER_TOPIC_INDEX_PER_PAGE, "TOPIC_INDEX_PAGE_TOO_LONG");
       topicList.push(...index.topics);
       if (!index.more) break;
-      after = index.topics.at(-1)!.key;
+      after = index.topics.at(-1)!;
     }
     const keys = topicList.map(({ key }) => key);
-    assert(keys.includes("synthetic-topic") && keys.includes("filler-299") && keys.length > 300 &&
-      new Set(keys).size === keys.length && keys.every((key, place) => place === 0 || keys[place - 1]! < key),
-    "TOPIC_LIST_INCOMPLETE");
+    const dossierTopics = Number((await admin.query<{ topics: string }>(
+      `SELECT count(*)::text AS topics FROM ${SCHEMA}.research_dossier_public_topics`)).rows[0]!.topics);
+    assert(keys.includes("synthetic-topic") && keys.includes("filler-299") && keys.length === dossierTopics + 1 &&
+      new Set(keys).size === keys.length &&
+      topicList.every((topic, place) => place === 0 || publicDossierTopicOrder(topicList[place - 1]!, topic) < 0),
+    `TOPIC_LIST_INCOMPLETE_${keys.length}_${dossierTopics}`);
+    const cardFiller = topicList.find(({ key }) => key === "filler-7");
+    assert(cardFiller?.label === "Card filler" && cardFiller.count === 5, "CARD_TOPIC_NOT_MERGED");
+    const sqlOrder = (await readerPool.query<{ topic_key: string; name: string }>(`SELECT topic_key, name
+      FROM ${SCHEMA}.research_dossier_public_topics
+      ORDER BY translate(name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz') COLLATE "C",
+        topic_key COLLATE "C"`)).rows.map(({ topic_key: key, name: label }) => ({ key, label }));
+    assert(sqlOrder.map(({ key }) => key).join() ===
+      [...sqlOrder].sort(publicDossierTopicOrder).map(({ key }) => key).join(), "TOPIC_ORDER_DIFFERS_FROM_THE_SERVERS");
     const beforeRevocation = await pages.generation();
     const watched = await account("watched");
     const w1 = await save(watched.accountKey, "watched", "watched-1", null, (value) => {

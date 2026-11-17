@@ -419,17 +419,42 @@ export interface PublicDossierTopic {
   dossiers: number;
 }
 
-/** A page of the topics with shown dossiers: those after a key, in the order of their keys. */
+/**
+ * A page of the topics with shown dossiers, in the topics list's order (publicDossierTopicOrder): those after a label
+ * and key, those of some keys only, or all but some keys (the card topics, which the list places by their own labels).
+ */
 export interface PublicDossierTopicQuery {
-  after?: string;
+  after?: { label: string; key: string };
+  keys?: readonly string[];
+  exclude?: readonly string[];
   limit: number;
 }
 
+/** The longest label a topics list's place may name. */
+export const PUBLIC_DOSSIER_TOPIC_LABEL_LIMIT = 400;
+
 function assertTopicQuery(query: PublicDossierTopicQuery): void {
   if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > PUBLIC_DOSSIERS_PER_READ ||
-    (query.after !== undefined && !TOPIC_KEY.test(query.after))) {
+    (query.after !== undefined && (!TOPIC_KEY.test(query.after.key) || typeof query.after.label !== "string" ||
+      query.after.label.length > PUBLIC_DOSSIER_TOPIC_LABEL_LIMIT || query.after.label.includes("\u0000"))) ||
+    (query.keys !== undefined && !query.keys.every((key) => TOPIC_KEY.test(key))) ||
+    (query.exclude !== undefined && !query.exclude.every((key) => TOPIC_KEY.test(key)))) {
     throw new ResearchDossierPublicationError("INPUT_INVALID");
   }
+}
+
+/**
+ * A label as the topics list orders it (Codex's third review, P2: the list went by key, so "Zulu" came before "Alpha"):
+ * its ASCII capitals lower-cased and nothing else changed, so the database orders it exactly as the server does,
+ * whatever either one's locale (research_dossier_public_topics, by translate and COLLATE "C").
+ */
+export const foldTopicLabel = (label: string) => label.replace(/[A-Z]/gu, (letter) => letter.toLowerCase());
+
+/** The topics list's order: by folded label, as UTF-8 bytes (code points), then by key. */
+export function publicDossierTopicOrder(left: { label: string; key: string }, right: { label: string; key: string }):
+  number {
+  return Buffer.compare(Buffer.from(foldTopicLabel(left.label), "utf8"), Buffer.from(foldTopicLabel(right.label), "utf8")) ||
+    Buffer.compare(Buffer.from(left.key, "utf8"), Buffer.from(right.key, "utf8"));
 }
 
 /** The pages' reader side. */
@@ -994,12 +1019,17 @@ export class PostgresPublicDossierPageSource implements PublicDossierPageSource 
 
   async listTopics(query: PublicDossierTopicQuery): Promise<PublicDossierTopic[]> {
     assertTopicQuery(query);
-    // Keys are lower-case ASCII, so their byte order here is the server's string order.
+    // The list's order (publicDossierTopicOrder): the label with its ASCII capitals lower-cased, as bytes, then the key.
+    const folded = `translate(name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz') COLLATE "C"`;
     const result = await this.pool.query<{ topic_key: string; name: string | null; findings: number; dossiers: number }>(
       `SELECT topic_key, name, findings, dossiers FROM ${this.schema}.research_dossier_public_topics
-        WHERE $1::text IS NULL OR topic_key COLLATE "C" > $1::text COLLATE "C"
-        ORDER BY topic_key COLLATE "C"
-        LIMIT $2`, [query.after ?? null, query.limit]);
+        WHERE name IS NOT NULL
+          AND ($1::text[] IS NULL OR topic_key = ANY($1::text[]))
+          AND ($2::text[] IS NULL OR NOT topic_key = ANY($2::text[]))
+          AND ($3::text IS NULL OR (${folded}, topic_key COLLATE "C") > ($3::text COLLATE "C", $4::text COLLATE "C"))
+        ORDER BY ${folded}, topic_key COLLATE "C"
+        LIMIT $5`, [query.keys === undefined ? null : [...query.keys], query.exclude === undefined ? null : [...query.exclude],
+        query.after === undefined ? null : foldTopicLabel(query.after.label), query.after?.key ?? null, query.limit]);
     return result.rows.flatMap((row) => row.name === null ? [] : [{ topicKey: row.topic_key, name: row.name,
       findings: row.findings, dossiers: row.dossiers }]);
   }
@@ -1518,8 +1548,13 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       topic.dossiers += 1;
       topics.set(copy.topicKey!, topic);
     }
-    return [...topics.values()].sort((left, right) => left.topicKey < right.topicKey ? -1 : 1)
-      .filter(({ topicKey }) => query.after === undefined || topicKey > query.after).slice(0, query.limit);
+    const place = (topic: PublicDossierTopic) => ({ label: topic.name, key: topic.topicKey });
+    return [...topics.values()].filter(({ name }) => name !== "")
+      .sort((left, right) => publicDossierTopicOrder(place(left), place(right)))
+      .filter((topic) => (query.keys === undefined || query.keys.includes(topic.topicKey)) &&
+        (query.exclude === undefined || !query.exclude.includes(topic.topicKey)) &&
+        (query.after === undefined || publicDossierTopicOrder(place(topic), query.after) > 0))
+      .slice(0, query.limit);
   }
 
   /** In memory, a digest of every copy's state: it changes with any change, as the database's number does. */

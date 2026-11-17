@@ -1109,12 +1109,13 @@ describe("the dossier pages' reads, pages, size and cache", () => {
     expect(entries(first)).toHaveLength(200);
     expect(entries(first)[0]).toBe("inositol-invented");
     expect(entries(first).at(-1)).toBe("topic-198");
-    expect(first).toContain('<a rel="next" href="/atlas/topics?after=topic-198">More topics</a>');
-    const second = (await get(base, "/atlas/topics?after=topic-198")).body;
+    expect(first).toContain('<a rel="next" href="/atlas/topics?after=topic-198&amp;after_label=Topic%20topic-198">' +
+      "More topics</a>");
+    const second = (await get(base, "/atlas/topics?after=topic-198&after_label=Topic%20topic-198")).body;
     expect(entries(second)).toEqual(Array.from({ length: 31 }, (_, index) => `topic-${String(199 + index).padStart(3, "0")}`));
     expect(second).toContain('<a href="/atlas/topics">First topics</a>');
     expect(second).not.toContain("More topics");
-    expect((await get(base, "/atlas/topics?after=topic-229")).status).toBe(404);
+    expect((await get(base, "/atlas/topics?after=topic-229&after_label=Topic%20topic-229")).status).toBe(404);
     expect(Math.max(...limits)).toBeLessThanOrEqual(201);
     // The whole response, not only its list of every finding, stays within the size it is given.
     const { DOSSIER_PAGE_BYTES, fitDossierPage, loadDossierTopic, renderDossierTopicPage } =
@@ -1129,6 +1130,32 @@ describe("the dossier pages' reads, pages, size and cache", () => {
       expect(atlasPageProblems(fitted)).toEqual([]);
       expect(fitted).toContain("Research dossiers: main points at a glance");
     }
+  }, 120_000);
+
+  // Codex's third review, P2 (his probe listed "Zulu" before "Alpha"): the topics list keeps the order of labels, the
+  // key breaking ties, as the list without dossiers does, and its next page starts after the last label and key.
+  it("lists the topics by label, the key breaking ties, a page at a time after the last label and key", async () => {
+    const { loadDossierTopicIndex } = await import("../apps/research-mcp/src/atlas/dossier-pages.js");
+    const probe = await many(2, (index) => ["a-zulu", "z-alpha"][index]!, (payload) => {
+      payload.topic.name = payload.topic.key === "a-zulu" ? "Zulu" : "Alpha"; });
+    // Card topics join them in the same order: one a dossier topic's key too, listed once, by its card label.
+    const index = await loadDossierTopicIndex(probe.publications, [{ key: "m-card", label: "mango", count: 2 },
+      { key: "a-zulu", label: "Apple", count: 1 }, { key: "b-same", label: "Alpha", count: 1 }]);
+    expect(index.topics.map(({ key, label, count }) => `${label}/${key}/${count}`)).toEqual(["Alpha/b-same/1",
+      "Alpha/z-alpha/5", "Apple/a-zulu/6", "Inositol (invented)/inositol-invented/5", "mango/m-card/2"]);
+    expect(index.more).toBe(false);
+    // Across pages: labels in the reverse order of their keys.
+    const { publications } = await many(230, (number) => `topic-${String(number).padStart(3, "0")}`, (payload) => {
+      payload.topic.name = `Name ${String(229 - Number(payload.topic.key.slice(6))).padStart(3, "0")}`; });
+    const base = await serve(handler(publications));
+    const entries = (body: string) => [...body.matchAll(/<li><a href="\/atlas\/topics\/([a-z0-9._-]+)">/gu)].map(([, key]) => key);
+    const first = (await get(base, "/atlas/topics")).body;
+    expect(entries(first)).toEqual(["inositol-invented", ...Array.from({ length: 199 }, (_, place) =>
+      `topic-${String(229 - place).padStart(3, "0")}`)]);
+    expect(first).toContain('<a rel="next" href="/atlas/topics?after=topic-031&amp;after_label=Name%20198">More topics</a>');
+    const second = (await get(base, "/atlas/topics?after=topic-031&after_label=Name%20198")).body;
+    expect(entries(second)).toEqual(Array.from({ length: 31 }, (_, place) => `topic-${String(30 - place).padStart(3, "0")}`));
+    expect(second).not.toContain("More topics");
   }, 120_000);
 
   it("drops every server's cached dossier pages when the research is withdrawn, also in another process", async () => {

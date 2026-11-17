@@ -1,6 +1,7 @@
 import {
   PUBLIC_DOSSIERS_MAX_OFFSET,
   PUBLIC_DOSSIERS_PER_READ,
+  publicDossierTopicOrder,
   readConflictFinding,
   type PublicDossierCopy,
   type PublicDossierHistoryEntry,
@@ -65,7 +66,7 @@ export const DOSSIER_FINDING_BYTES = 1_000_000;
  * without what each opens onto (fitDossierPage).
  */
 export const DOSSIER_PAGE_BYTES = 2_000_000;
-/** The topics list, while dossiers show, this many topics a page, in the order of their keys. */
+/** The topics list, while dossiers show, this many topics a page, in the order of their labels (then keys). */
 export const DOSSIER_TOPIC_INDEX_PER_PAGE = 200;
 
 /** How much of a page that shows dossiers its parts may take (fitDossierPage). */
@@ -391,7 +392,7 @@ export async function loadDossierPage(source: PublicDossierPageSource, publicNum
 }
 
 export interface DossierTopicIndexPage {
-  /** This page's topics, in the order of their keys, each once, its findings counted from cards and dossiers. */
+  /** This page's topics, in the order of their labels, then keys, each once, its findings counted from cards and dossiers. */
   topics: Array<{ key: string; label: string; count: number }>;
   /** Whether more topics follow this page's last. */
   more: boolean;
@@ -399,26 +400,41 @@ export interface DossierTopicIndexPage {
 
 /**
  * One page of the topics list while dossiers show (Codex's re-review of stage 2, P1: the list read every topic): the
- * card topics and the dossier topics as one list in the order of their keys, DOSSIER_TOPIC_INDEX_PER_PAGE at a time
- * after the key given, each topic once with the findings of both. The dossier topics are read one page at a time
- * from the reader's topics view, never all of them; a topic is listed only once every dossier topic up to its key is
- * read, so no count is cut.
+ * card topics and the dossier topics as one list in the order of their labels, the key breaking ties, as the list
+ * without dossiers is (Codex's third review, P2: it went by key, so "Zulu" came before "Alpha"),
+ * DOSSIER_TOPIC_INDEX_PER_PAGE at a time after the label and key given, each topic once with the findings of both. The
+ * dossier topics are read one page at a time from the reader's topics view, never all of them, the card topics apart,
+ * since those are placed by their own labels and their dossier findings read by their keys; a topic is listed only once
+ * every dossier topic up to its place is read, so no count is cut. The order is publicDossierTopicOrder, which the
+ * database keeps exactly.
  */
 export async function loadDossierTopicIndex(source: PublicDossierPageSource,
-  cardTopics: ReadonlyArray<{ key: string; label: string; count: number }>, after?: string): Promise<DossierTopicIndexPage> {
-  const read = await source.listTopics({ ...(after === undefined ? {} : { after }), limit: DOSSIER_TOPIC_INDEX_PER_PAGE + 1 });
-  const bound = read.length > DOSSIER_TOPIC_INDEX_PER_PAGE ? read.at(-1)!.topicKey : undefined;
+  cardTopics: ReadonlyArray<{ key: string; label: string; count: number }>, after?: { label: string; key: string }):
+  Promise<DossierTopicIndexPage> {
+  const cardKeys = new Set(cardTopics.map(({ key }) => key));
+  const read = await source.listTopics({ ...(after === undefined ? {} : { after }), exclude: [...cardKeys],
+    limit: DOSSIER_TOPIC_INDEX_PER_PAGE + 1 });
+  const last = read.at(-1);
+  const bound = read.length > DOSSIER_TOPIC_INDEX_PER_PAGE && last !== undefined
+    ? { label: last.name, key: last.topicKey } : undefined;
   const topics = new Map<string, { key: string; label: string; count: number }>();
-  for (const topic of cardTopics) if (after === undefined || topic.key > after) topics.set(topic.key, { ...topic });
-  for (const { topicKey, name, findings } of read) {
-    if (!rowPassesPageGuard(name)) continue;
-    const known = topics.get(topicKey);
-    if (known === undefined) topics.set(topicKey, { key: topicKey, label: name, count: findings });
-    else known.count += findings;
+  for (const topic of cardTopics) {
+    if (after === undefined || publicDossierTopicOrder(topic, after) > 0) topics.set(topic.key, { ...topic });
   }
-  const ordered = [...topics.values()].sort((left, right) => left.key < right.key ? -1 : left.key > right.key ? 1 : 0);
-  const complete = bound === undefined ? ordered : ordered.filter(({ key }) => key <= bound);
-  return { topics: complete.slice(0, DOSSIER_TOPIC_INDEX_PER_PAGE),
+  for (const { topicKey, name, findings } of read) {
+    if (rowPassesPageGuard(name)) topics.set(topicKey, { key: topicKey, label: name, count: findings });
+  }
+  const ordered = [...topics.values()].sort(publicDossierTopicOrder);
+  const complete = bound === undefined ? ordered : ordered.filter((topic) => publicDossierTopicOrder(topic, bound) <= 0);
+  const listed = complete.slice(0, DOSSIER_TOPIC_INDEX_PER_PAGE);
+  // A card topic that dossiers show too: their findings, read by its key.
+  const shared = listed.filter(({ key }) => cardKeys.has(key)).map(({ key }) => key);
+  if (shared.length > 0) {
+    const counts = new Map((await source.listTopics({ keys: shared, limit: shared.length }))
+      .map(({ topicKey, findings }) => [topicKey, findings]));
+    for (const topic of listed) topic.count += counts.get(topic.key) ?? 0;
+  }
+  return { topics: listed,
     more: complete.length > DOSSIER_TOPIC_INDEX_PER_PAGE || complete.length < ordered.length || bound !== undefined };
 }
 

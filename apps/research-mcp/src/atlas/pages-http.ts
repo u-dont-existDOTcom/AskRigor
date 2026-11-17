@@ -12,6 +12,7 @@ import {
   ResearchContributorAccessService,
   researchAccountKeyForSubject,
   PostgresPublicDossierPageSource,
+  PUBLIC_DOSSIER_TOPIC_LABEL_LIMIT,
   type AtlasPageSource,
   type AtlasParticipationStore,
   type AtlasReportStore,
@@ -245,8 +246,8 @@ export type AtlasRoute =
   | { kind: "findings"; before?: string; filter?: AtlasFindingFilter }
   // The owner, 6 Nov 2026: the findings that challenge the usual view.
   | { kind: "challenges"; before?: string }
-  // after: AskRigor#477 stage 2, while dossiers show, the topics after this key (?after=), from the query.
-  | { kind: "topics"; after?: string }
+  // after: AskRigor#477 stage 2, while dossiers show, the topics after this label and key (?after=&after_label=).
+  | { kind: "topics"; after?: { label: string; key: string } }
   | { kind: "health" }
   | { kind: "subcategory"; subcategoryKey: string }
   | { kind: "map" }
@@ -858,7 +859,8 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       case "topics": {
         const model = await loadAtlasTopics(source);
         // AskRigor#477 stage 2 (Codex's re-review): the topics that research dossiers show join the findings' own, as one
-        // list in the order of their keys, a page at a time after a key and within the whole page's size.
+        // list in the order of their labels (Codex's third review), a page at a time after a label and key and within
+        // the whole page's size.
         if (options.dossiers !== undefined) {
           const index = await loadDossierTopicIndex(options.dossiers, model.topics, route.after);
           if (route.after !== undefined && index.topics.length === 0) {
@@ -866,7 +868,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           }
           const { page: fitted } = fitDossierEntries((count) => renderAtlasTopics({ ...model,
             topics: index.topics.slice(0, count) }, reader, { ...(route.after === undefined ? {} : { after: route.after }),
-            ...(count < index.topics.length || index.more ? { next: index.topics[count - 1]!.key } : {}) }),
+            ...(count < index.topics.length || index.more ? { next: index.topics[count - 1]! } : {}) }),
           index.topics.length);
           return checked({ status: 200, html: fitted });
         }
@@ -1530,12 +1532,16 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
             cacheKey = `${pathname}?page=${page}`;
           }
         }
-        // The topics list after a key, only while dossiers show (Codex's re-review of stage 2); otherwise as before.
+        // The topics list after a label and key, only while dossiers show (Codex's re-review and third review of stage
+        // 2); otherwise as before. A place needs both.
         if (pageRoute.kind === "topics" && options.dossiers !== undefined) {
-          const after = /^[a-z0-9][a-z0-9._-]{0,199}$/u.exec(queryOf(request).get("after") ?? "")?.[0];
-          if (after !== undefined) {
-            pageRoute = { kind: "topics", after };
-            cacheKey = `${pathname}?after=${after}`;
+          const query = queryOf(request);
+          const key = /^[a-z0-9][a-z0-9._-]{0,199}$/u.exec(query.get("after") ?? "")?.[0];
+          const label = query.get("after_label") ?? "";
+          if (key !== undefined && label.length > 0 && label.length <= PUBLIC_DOSSIER_TOPIC_LABEL_LIMIT &&
+            !/[\u0000-\u001f\u007f]/u.test(label)) {
+            pageRoute = { kind: "topics", after: { label, key } };
+            cacheKey = `${pathname}?after=${key}&after_label=${encodeURIComponent(label)}`;
           }
         }
         if (options.dossiers !== undefined &&
