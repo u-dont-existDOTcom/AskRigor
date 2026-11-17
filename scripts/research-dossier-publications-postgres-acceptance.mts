@@ -19,6 +19,7 @@ import {
   type ResearchDossierPublishInput,
 } from "../packages/evidence-repository/src/index.js";
 import { publicDossierOf } from "../apps/research-mcp/src/findings/dossier-publication.js";
+import { loadDossierPage, loadDossierTopic, loadDossierTopicList } from "../apps/research-mcp/src/atlas/dossier-pages.js";
 
 // AskRigor#477 stage 2 (owner answers 331a, 332a and 333a, 16 Nov 2026): migration 0040's public dossier copies, on a
 // real PostgreSQL with production's four roles (scripts/run-research-dossier-publications-postgres-acceptance.sh).
@@ -112,12 +113,13 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
 
     // No role reads or writes a table; the reader reads only the two views; each function goes to exactly one role.
     for (const table of ["research_dossier_public_notices", "research_dossier_publications",
-      "research_dossier_public_versions", "research_dossier_public_events"]) {
+      "research_dossier_public_versions", "research_dossier_public_events", "research_dossier_public_generation"]) {
       for (const [pool, role] of [[access, "ACCESS"], [reviewPool, "REVIEW"], [readerPool, "READER"]] as const) {
         await expectDenied(() => pool.query(`SELECT * FROM ${SCHEMA}.${table}`), `${role}_READS_${table.toUpperCase()}`);
       }
     }
-    for (const view of ["research_dossier_public_pages", "research_dossier_public_history"]) {
+    for (const view of ["research_dossier_public_pages", "research_dossier_public_history", "research_dossier_public_topics",
+      "research_dossier_public_changes"]) {
       await readerPool.query(`SELECT * FROM ${SCHEMA}.${view}`);
       await expectDenied(() => access.query(`SELECT * FROM ${SCHEMA}.${view}`), `ACCESS_READS_${view.toUpperCase()}`);
       await expectDenied(() => reviewPool.query(`SELECT * FROM ${SCHEMA}.${view}`), `REVIEW_READS_${view.toUpperCase()}`);
@@ -137,6 +139,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       "revise_research_dossier_importance(text, integer, text, text, text, text, timestamptz)": "askrigor_research_review",
       "research_dossier_public_follow_private()": "none",
       "research_dossier_public_on_revocation()": "none",
+      "research_dossier_public_changed()": "none",
       "research_dossier_public_version_guard()": "none",
       "research_dossier_pick(jsonb, text[])": "none",
       "research_dossier_public_projection(jsonb)": "none",
@@ -582,6 +585,38 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     assert(markedNext.outcome === "published" && (await review.inspect(markedCopy.publicNumber))[0]!.versionNumber === 3,
       "LATER_COPY_NOT_NUMBERED_AFTER_THE_REVISION");
     checks.push("an_importance_mark_changes_only_by_a_new_reviewed_version");
+
+    // Codex's review, findings 8 and 9: past the newest 500 shown copies an older dossier's page and topic are still
+    // read by their own number and key, a topic comes a page at a time, the topics list reads a view of every topic, and
+    // the number the pages cache under moves with every change, a revocation's trigger included.
+    const filler = await account("filler");
+    for (let index = 0; index < 300; index += 1) {
+      const version = await save(filler.accountKey, `filler-${index}`, `filler-${index}`, null, (value) => {
+        value.topic = { key: `filler-${index}`, name: `Filler ${index}`, other_names: [], related: [] };
+        value.forms = [`filler-form-${index}`]; });
+      assert((await publisher.publish(await copy(filler.accountKey, version))).outcome === "published", `FILLER_${index}`);
+    }
+    const shownCount = (await admin.query<{ shown: string }>(
+      `SELECT count(*)::text AS shown FROM ${SCHEMA}.research_dossier_public_pages`)).rows[0]!.shown;
+    assert(Number(shownCount) > 500, `NOT_PAST_500_${shownCount}`);
+    assert((await loadDossierPage(pages, derived.publicNumber))?.shown.copy.publicNumber === derived.publicNumber,
+      "OLDER_DOSSIER_PAGE_NOT_FOUND");
+    const crowdedPage = await loadDossierTopic(pages, "crowded-topic", async () => undefined, 11);
+    assert(crowdedPage !== undefined && crowdedPage.page === 11 && crowdedPage.dossiers.length > 0,
+      "LATER_TOPIC_PAGE_NOT_FOUND");
+    const topicList = await loadDossierTopicList(pages);
+    assert(topicList.some(({ key }) => key === "synthetic-topic") && topicList.some(({ key }) => key === "filler-299") &&
+      topicList.length > 300, "TOPIC_LIST_INCOMPLETE");
+    const beforeRevocation = await pages.generation();
+    const watched = await account("watched");
+    const w1 = await save(watched.accountKey, "watched", "watched-1", null, (value) => {
+      value.topic = { key: "watched-topic", name: "Watched", other_names: [], related: [] }; value.forms = ["watched-form"]; });
+    await publisher.publish(await copy(watched.accountKey, w1));
+    const afterPublish = await pages.generation();
+    assert(afterPublish !== beforeRevocation, "GENERATION_STILL_AFTER_PUBLISH");
+    await service.revoke(watched.subject);
+    assert(await pages.generation() !== afterPublish, "GENERATION_STILL_AFTER_REVOCATION");
+    checks.push("pages_read_by_number_and_topic_past_500_and_their_cache_number_moves_with_revocation");
 
     // Saving switched off refuses, under the account lock the private append uses.
     const fourth = await account("fourth");

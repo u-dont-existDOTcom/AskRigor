@@ -238,6 +238,8 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
   /** Each request key and the version it got (the database's research_dossier_requests). */
   private readonly requests = new Map<string, string>();
   private readonly queues = new Map<string, Promise<unknown>>();
+  /** Each dossier's newest version, kept as versions are appended. */
+  private readonly newest = new Map<string, MemoryVersion>();
   /** Accounts revoked here (revoke), as research_use_accounts says REVOKED; the public copies follow them. */
   private readonly revoked = new Set<string>();
   private nextNumber = 1;
@@ -316,8 +318,6 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
   versionFacts(versionId: string): {
     accountKey: string | null; dossierNumber: string; versionNumber: number; newest: boolean; closed: boolean;
     erased: boolean; accountRevoked: boolean;
-    /** The saved record, as the publish function reads it; null once erased. */
-    payload: Record<string, unknown> | null;
   } | undefined {
     const version = this.versions.get(versionId);
     if (version === undefined) return undefined;
@@ -330,8 +330,13 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
       closed: version.events.some(({ event }) => event === "withdrawn" || event === "rejected" || event === "erased"),
       erased: version.erasedAt !== null,
       accountRevoked: dossier.accountKey !== null && this.revoked.has(dossier.accountKey),
-      payload: version.payload === null ? null : structuredClone(version.payload),
     };
+  }
+
+  /** A version's saved record, as the public copies' publish function reads it; null once erased. */
+  versionPayload(versionId: string): Record<string, unknown> | null | undefined {
+    const version = this.versions.get(versionId);
+    return version === undefined ? undefined : version.payload === null ? null : structuredClone(version.payload);
   }
 
   /** Every version's events and state, for tests. */
@@ -352,13 +357,7 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
   }
 
   private latestOf(dossierNumber: string): MemoryVersion | undefined {
-    let latest: MemoryVersion | undefined;
-    for (const version of this.versions.values()) {
-      if (version.dossierNumber === dossierNumber && (latest === undefined || version.versionNumber > latest.versionNumber)) {
-        latest = version;
-      }
-    }
-    return latest;
+    return this.newest.get(dossierNumber);
   }
 
   private async appendNow(input: ResearchDossierAppendInput): Promise<ResearchDossierAppendResult> {
@@ -409,6 +408,10 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
     };
     if (this.versions.has(version.versionId)) throw new Error("RESEARCH_DOSSIER_VERSION_EXISTS");
     this.versions.set(version.versionId, version);
+    const newestSoFar = this.newest.get(version.dossierNumber);
+    if (newestSoFar === undefined || version.versionNumber > newestSoFar.versionNumber) {
+      this.newest.set(version.dossierNumber, version);
+    }
     this.requests.set(input.requestKey, version.versionId);
     return { outcome: "inserted", ...this.resultOf(version) };
   }

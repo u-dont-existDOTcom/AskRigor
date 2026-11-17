@@ -555,7 +555,10 @@ lists, inspects and decides (`list_research_dossier_publications`, `inspect_rese
 `decide_research_dossier_publication`, `decide_research_dossier_living_person`, the owner's own decision with his
 reason, the only way a copy whose claim names a living person shows, and `revise_research_dossier_importance`, a
 reviewed revision of an importance mark as a new version, never an edit in place);
-the canonical reader reads only the views `research_dossier_public_pages` and `research_dossier_public_history`. A
+the canonical reader reads only the views `research_dossier_public_pages`, `research_dossier_public_history`,
+`research_dossier_public_topics` (each shown topic once, for the topics list) and `research_dossier_public_changes` (a
+number a trigger raises with every change to the copies, which every server's pages cache under, so a withdrawal or an
+erasure is never served from a cache). A
 trigger on `research_dossier_events` takes a copy off the pages when its version is withdrawn or rejected, and erases it
 when its version is erased, unless the owner accepted it, so an earlier image's revocation and `forget_card` keep them in
 step; a trigger on `research_use_accounts` treats losing access like erasure for an accepted copy, detaching its

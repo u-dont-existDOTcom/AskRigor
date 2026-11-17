@@ -47,7 +47,18 @@ import { ATLAS_TOPIC_FAMILIES, atlasTopicFamily } from "./topic-families.js";
  */
 
 export const DOSSIER_GLANCE_COUNT = 8;
-const SHOWN_READ = 500;
+/** A topic's dossiers a page at a time, newest first (Codex's review of stage 2, finding 8). */
+export const DOSSIERS_PER_TOPIC_PAGE = 20;
+export const DOSSIER_TOPIC_PAGES = 500;
+/**
+ * The most a page's list of every finding takes, as escaped bytes: the list stops at the first finding past it, in its
+ * order, and says how many more there are and where (finding 8).
+ */
+export const DOSSIER_FINDING_BYTES = 1_000_000;
+/** A dossier page compares it with the newest this many shown dossiers on its topic, and says so when there are more. */
+const TOPIC_COMPARED = 200;
+/** Topics sharing a study are looked for among the newest this many shown dossiers: a bounded look, never a lookup. */
+const SHARED_STUDY_READ = 500;
 
 export interface ShownDossier {
   copy: PublicDossierCopy;
@@ -71,6 +82,10 @@ export interface DossierTopicModel {
   topicKey: string;
   name: string;
   otherNames: string[];
+  /** This page's dossiers, newest first; page 1 is the newest. */
+  page: number;
+  /** Whether older dossiers follow on the next page. */
+  more: boolean;
   dossiers: ShownDossier[];
   ranked: DossierRankItem[];
   forms: Array<{ form: string | null; findings: DossierRankItem[] }>;
@@ -84,6 +99,8 @@ export interface DossierPageModel {
   forms: Array<{ form: string | null; findings: DossierRankItem[] }>;
   history: PublicDossierHistoryEntry[];
   disagreements: DossierDisagreementView[];
+  /** False when its topic has more shown dossiers than the newest it was compared with. */
+  comparedAll: boolean;
   related: DossierRelatedTopic[];
 }
 
@@ -129,15 +146,22 @@ function disagreementsAmong(dossiers: readonly ShownDossier[]): DossierDisagreem
 }
 
 /**
- * The topics a topic links: those its dossiers name, those whose dossiers share a study with them, and the curated
- * family it belongs to, each only where a page shows (a shown dossier, or a card topic the caller knows).
+ * The topics a topic links: those its dossiers name, those whose dossiers share a study with them (among the newest
+ * shown dossiers, SHARED_STUDY_READ), and the curated family it belongs to, each only where a page shows (a shown
+ * dossier, or a card topic the caller knows). A named topic's name is read by its own key.
  */
-async function relatedTopics(topicKey: string, own: readonly ShownDossier[], all: readonly ShownDossier[],
+async function relatedTopics(source: PublicDossierPageSource, topicKey: string, own: readonly ShownDossier[],
   cardTopicLabel: (key: string) => Promise<string | undefined>): Promise<DossierRelatedTopic[]> {
+  const all = (await source.listShown({ limit: SHARED_STUDY_READ })).flatMap((copy) => shownOf(copy) ?? []);
+  const declared = [...new Set(own.flatMap(({ copy }) => copy.relatedTopicKeys))].filter((key) => key !== topicKey);
+  if (declared.length > 0) {
+    all.push(...(await source.listShown({ topicKeys: declared, limit: SHARED_STUDY_READ }))
+      .flatMap((copy) => shownOf(copy) ?? []));
+  }
   const names = new Map<string, string>();
   for (const { dossier } of all) if (!names.has(dossier.topic.key)) names.set(dossier.topic.key, dossier.topic.name);
   const wanted = new Map<string, DossierRelatedTopic["why"]>();
-  for (const { copy } of own) for (const key of copy.relatedTopicKeys) if (key !== topicKey) wanted.set(key, "declared");
+  for (const key of declared) wanted.set(key, "declared");
   const ownIds = new Set(own.flatMap(({ dossier }) => [...identityKeys(dossier)]));
   for (const { dossier } of all) {
     if (dossier.topic.key === topicKey || wanted.has(dossier.topic.key)) continue;
@@ -157,12 +181,14 @@ async function relatedTopics(topicKey: string, own: readonly ShownDossier[], all
   return related.sort((left, right) => left.label.localeCompare(right.label, "en")).slice(0, 20);
 }
 
-/** A topic's shown dossiers, ranked; undefined when none shows. */
+/** One page of a topic's shown dossiers, ranked, read by the topic's key; undefined when none shows there. */
 export async function loadDossierTopic(source: PublicDossierPageSource, topicKey: string,
-  cardTopicLabel: (key: string) => Promise<string | undefined> = async () => undefined):
+  cardTopicLabel: (key: string) => Promise<string | undefined> = async () => undefined, page = 1):
   Promise<DossierTopicModel | undefined> {
-  const all = (await source.listShown({ limit: SHOWN_READ })).flatMap((copy) => shownOf(copy) ?? []);
-  const dossiers = all.filter(({ copy }) => copy.topicKey === topicKey);
+  if (!Number.isInteger(page) || page < 1 || page > DOSSIER_TOPIC_PAGES) return undefined;
+  const read = await source.listShown({ topicKeys: [topicKey], limit: DOSSIERS_PER_TOPIC_PAGE + 1,
+    offset: (page - 1) * DOSSIERS_PER_TOPIC_PAGE });
+  const dossiers = read.slice(0, DOSSIERS_PER_TOPIC_PAGE).flatMap((copy) => shownOf(copy) ?? []);
   if (dossiers.length === 0) return undefined;
   const ranked = rankDossierFindings(dossierRankItems(dossiers.map(({ copy, dossier }) =>
     ({ publicNumber: copy.publicNumber, dossier, shownAt: copy.shownAt, accepted: copy.accepted }))));
@@ -173,11 +199,13 @@ export async function loadDossierTopic(source: PublicDossierPageSource, topicKey
     topicKey,
     name: dossiers.find(({ copy }) => copy.accepted)?.dossier.topic.name ?? newest.topic.name,
     otherNames: [...new Set(dossiers.flatMap(({ dossier }) => dossier.topic.other_names))].slice(0, 20),
+    page,
+    more: read.length > DOSSIERS_PER_TOPIC_PAGE,
     dossiers,
     ranked,
     forms: byForm(ranked, forms),
     disagreements: disagreementsAmong(dossiers),
-    related: await relatedTopics(topicKey, dossiers, all, cardTopicLabel),
+    related: await relatedTopics(source, topicKey, dossiers, cardTopicLabel),
   };
 }
 
@@ -185,35 +213,31 @@ export async function loadDossierTopic(source: PublicDossierPageSource, topicKey
 export async function loadDossierPage(source: PublicDossierPageSource, publicNumber: string,
   cardTopicLabel: (key: string) => Promise<string | undefined> = async () => undefined):
   Promise<DossierPageModel | undefined> {
-  const all = (await source.listShown({ limit: SHOWN_READ })).flatMap((copy) => shownOf(copy) ?? []);
-  const shown = all.find(({ copy }) => copy.publicNumber === publicNumber);
+  const [copy] = await source.listShown({ publicNumbers: [publicNumber], limit: 1 });
+  const shown = copy === undefined ? undefined : shownOf(copy);
   if (shown === undefined) return undefined;
   const ranked = rankDossierFindings(dossierRankItems([{ publicNumber, dossier: shown.dossier,
     shownAt: shown.copy.shownAt, accepted: shown.copy.accepted }]));
-  const onTopic = all.filter(({ copy }) => copy.topicKey === shown.copy.topicKey);
+  const read = await source.listShown({ topicKeys: [shown.copy.topicKey], limit: TOPIC_COMPARED });
+  const onTopic = read.flatMap((other) => other.publicNumber === publicNumber ? [] : shownOf(other) ?? []);
   return {
     shown,
     ranked,
     forms: byForm(ranked, shown.dossier.forms),
     history: await source.history([publicNumber]),
-    disagreements: disagreementsAmong([shown, ...onTopic.filter((other) => other !== shown)])
+    disagreements: disagreementsAmong([shown, ...onTopic])
       .filter(({ left, right }) => left.publicNumber === publicNumber || right.publicNumber === publicNumber),
-    related: await relatedTopics(shown.copy.topicKey, [shown], all, cardTopicLabel),
+    comparedAll: read.length < TOPIC_COMPARED,
+    related: await relatedTopics(source, shown.copy.topicKey, [shown], cardTopicLabel),
   };
 }
 
 /** The topics with shown dossiers, for the topics list: key, name and how many findings they show. */
 export async function loadDossierTopicList(source: PublicDossierPageSource):
   Promise<Array<{ key: string; label: string; count: number }>> {
-  const topics = new Map<string, { key: string; label: string; count: number }>();
-  for (const copy of await source.listShown({ limit: SHOWN_READ })) {
-    const shown = shownOf(copy);
-    if (shown === undefined) continue;
-    const topic = topics.get(copy.topicKey) ?? { key: copy.topicKey, label: shown.dossier.topic.name, count: 0 };
-    topic.count += shown.dossier.findings.length;
-    topics.set(copy.topicKey, topic);
-  }
-  return [...topics.values()];
+  // Every topic once, from the reader's topics view: never a read of every copy, and never only the newest ones.
+  return (await source.listTopics()).filter(({ name }) => rowPassesPageGuard(name))
+    .map(({ topicKey, name, findings }) => ({ key: topicKey, label: name, count: findings }));
 }
 
 // Words ------------------------------------------------------------------------------------------------------------
@@ -284,6 +308,14 @@ const COVERAGE_WORDS: Readonly<Record<string, string>> = {
 const joined = (items: readonly SafeHtml[], separator: SafeHtml) =>
   items.flatMap((item, index) => index === 0 ? [item] : [separator, item]);
 const people = (count: number) => `${count.toLocaleString("en-US")} ${count === 1 ? "person" : "people"}`;
+/** What a study's size counts (Codex's review of stage 2, finding 11): animals, lab samples, or people. */
+const UNIT_WORDS: Readonly<Record<string, [string, string]>> = {
+  animal: ["animal", "animals"], lab: ["lab sample", "lab samples"],
+};
+const counted = (count: number, kind: string | undefined) => {
+  const [one, many] = UNIT_WORDS[kind ?? ""] ?? ["person", "people"];
+  return `${count.toLocaleString("en-US")} ${count === 1 ? one : many}`;
+};
 const percent = (events: number, total: number) => {
   const value = Math.round(1_000 * events / total) / 10;
   return `${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)}%`;
@@ -295,8 +327,8 @@ function evidencePart(part: DossierEvidencePart): string {
   const label = `${part.count} ${part.count === 1 ? one : many}`;
   if (part.kind === "searches") return label;
   if (part.kind === "people_reports") return `${label}, ${people(part.people)} reporting`;
-  const sized = part.people > 0 ? `${people(part.people)}${part.unsized > 0 ? `, and ${part.unsized} without a size` : ""}`
-    : "size not given";
+  const sized = part.people > 0 ? `${counted(part.people, part.kind)}${part.unsized > 0
+    ? `, and ${part.unsized} without a size` : ""}` : "size not given";
   return `${label} (${sized})${NOT_IN_PEOPLE.has(part.kind) ? ", not yet shown in people" : ""}`;
 }
 
@@ -312,8 +344,11 @@ function identifierLinks(study: PublicDossierStudy): SafeHtml[] {
   });
 }
 
-/** A result's figure with its sizes: counts as "x of n (p%)" for each group; a value with its groups' sizes. */
-function figureText(result: PublicDossierResult): SafeHtml | "" {
+/**
+ * A result's figure with its sizes: counts as "x of n (p%)" for each group; a value with its groups' sizes, counted in
+ * what its study counts.
+ */
+function figureText(result: PublicDossierResult, kind: string | undefined): SafeHtml | "" {
   const figure = result.figure;
   const sizes = resultSizes(result);
   if (figure?.kind === "counts") {
@@ -321,7 +356,7 @@ function figureText(result: PublicDossierResult): SafeHtml | "" {
   }
   const value = figure?.kind === "value"
     ? html`${figure.measure === undefined ? "" : html`${figure.measure}: `}${figure.value} ${figure.unit}` : "";
-  const sized = sizes === undefined ? "" : sizes.comparator === undefined ? html`${people(sizes.option)}`
+  const sized = sizes === undefined ? "" : sizes.comparator === undefined ? html`${counted(sizes.option, kind)}`
     : html`groups of ${sizes.option} and ${sizes.comparator}`;
   if (value === "" && sized === "") return "";
   return html`${value}${value !== "" && sized !== "" ? " · " : ""}${sized}`;
@@ -333,7 +368,7 @@ function resultItem(dossier: PublicDossier, result: PublicDossierResult): SafeHt
     html`${CERTAINTY_WORDS[result.certainty] ?? result.certainty}`];
   if (result.comparator !== undefined) facts.push(html`against ${result.comparator}`);
   if (result.follow_up !== undefined) facts.push(html`followed ${result.follow_up}`);
-  const figure = figureText(result);
+  const figure = figureText(result, study?.kind);
   const provenance = result.provenance === "calculated" ? "calculated by the AI from the paper’s numbers"
     : result.provenance === "from_table" ? "read from a table" : result.provenance === "reported" ? "as reported" : null;
   return html`<li><p><strong>${result.outcome}</strong>${study === undefined ? "" : html` (${studyLabel(dossier, study)})`}</p>
@@ -346,7 +381,7 @@ function studyLabel(dossier: PublicDossier, study: PublicDossierStudy): SafeHtml
   const [one] = EVIDENCE_WORDS[study.kind] ?? [study.kind];
   const size = studyPeople(dossier, study);
   return html`${one}${study.form === undefined ? "" : html`, ${study.form}`}${size === undefined ? ", size not given"
-    : html`, ${people(size)}`}`;
+    : html`, ${counted(size, study.kind)}`}`;
 }
 
 function studyItem(dossier: PublicDossier, study: PublicDossierStudy): SafeHtml {
@@ -407,13 +442,28 @@ function glanceList(items: readonly DossierRankItem[], showDossier: boolean): Sa
   return html`<ol class="dossier-glance">${items.map((item) => glanceItem(item, showDossier))}</ol>`;
 }
 
-function formSections(forms: DossierTopicModel["forms"], showDossier: boolean, idPrefix: string): SafeHtml {
-  return html`${forms.length > 1 ? html`<p class="dossier-forms-nav">${joined(forms.map((group, index) =>
+/**
+ * Every finding by form, within a size: the findings in their order until the next would pass the bytes given, then a
+ * line that says how many more there are and where they are.
+ */
+function formSections(forms: DossierTopicModel["forms"], showDossier: boolean, idPrefix: string, bytes: number,
+  more: (count: number) => string): SafeHtml {
+  let used = 0;
+  let left = 0;
+  const groups = forms.map((group) => ({ form: group.form, items: group.findings.flatMap((item) => {
+    if (left > 0) { left += 1; return []; }
+    const rendered = glanceItem(item, showDossier);
+    used += Buffer.byteLength(rendered.value, "utf8");
+    if (used > bytes) { left = 1; return []; }
+    return [rendered];
+  }) })).filter(({ items }) => items.length > 0);
+  return html`${groups.length > 1 ? html`<p class="dossier-forms-nav">${joined(groups.map((group, index) =>
     html`<a href="#${idPrefix}-form-${index}">${group.form ?? "Across forms"}</a>`), html` · `)}</p>` : ""}
-${forms.map((group, index) => html`<section aria-labelledby="${idPrefix}-form-${index}">
+${groups.map((group, index) => html`<section aria-labelledby="${idPrefix}-form-${index}">
 <h4 id="${idPrefix}-form-${index}">${group.form ?? "Across forms"}</h4>
-${glanceList(group.findings, showDossier)}
-</section>`)}`;
+<ol class="dossier-glance">${group.items}</ol>
+</section>`)}
+${left === 0 ? "" : html`<p class="meta">${more(left)}</p>`}`;
 }
 
 function disagreementList(disagreements: readonly DossierDisagreementView[]): SafeHtml | "" {
@@ -441,9 +491,14 @@ function dossierSummary({ copy, dossier }: ShownDossier): SafeHtml {
 /** Whether every dossier on a page is unreviewed: the page then stays out of search engines, its text out of snippets. */
 const unreviewed = (dossiers: readonly ShownDossier[]) => dossiers.some(({ copy }) => !copy.accepted);
 
-/** The dossiers' part of a topic page: main points at a glance, all findings by form, conflicts, dossiers, related. */
-export function dossierTopicSection(model: DossierTopicModel): SafeHtml {
+/**
+ * The dossiers' part of a topic page: main points at a glance, all findings by form within their size, conflicts, this
+ * page's dossiers with links to the newer and older ones, and related topics.
+ */
+export function dossierTopicSection(model: DossierTopicModel, size: { findingBytes?: number } = {}): SafeHtml {
   const glance = model.ranked.slice(0, DOSSIER_GLANCE_COUNT);
+  const pageOf = (page: number) => page === 1 ? topicPath(model.topicKey) : `${topicPath(model.topicKey)}?page=${page}`;
+  const paged = model.page > 1 || model.more;
   return html`<section class="dossier-section" aria-labelledby="dossiers-heading"${unreviewed(model.dossiers)
     ? html` data-nosnippet` : ""}>
 <h2 id="dossiers-heading">Research dossiers: main points at a glance</h2>
@@ -451,12 +506,15 @@ ${unreviewed(model.dossiers) ? statusBadge(false) : statusBadge(true)}
 <p class="meta">${DOSSIER_ORDER_LINE} Open a line for what it rests on.</p>
 ${glanceList(glance, true)}
 ${model.ranked.length > glance.length || model.forms.length > 1 ? html`<details class="dossier-more">
-<summary>All ${model.ranked.length} findings, by form</summary>
-${formSections(model.forms, true, "topic")}
+<summary>All ${model.ranked.length} findings${paged ? " of the dossiers on this page" : ""}, by form</summary>
+${formSections(model.forms, true, "topic", size.findingBytes ?? DOSSIER_FINDING_BYTES, (count) =>
+    `${count} more ${count === 1 ? "finding is" : "findings are"} in the dossiers below, each on its own page.`)}
 </details>` : ""}
 ${disagreementList(model.disagreements)}
-<h3>The dossiers</h3>
+<h3>${paged ? html`The dossiers, page ${model.page}` : "The dossiers"}</h3>
 <ul class="dossier-list">${model.dossiers.map(dossierSummary)}</ul>
+${paged ? html`<p class="dossier-pages">${model.page > 1 ? html`<a rel="prev" href="${pageOf(model.page - 1)}">Newer dossiers on this topic</a>` : ""}${
+    model.page > 1 && model.more ? " · " : ""}${model.more ? html`<a rel="next" href="${pageOf(model.page + 1)}">Older dossiers on this topic</a>` : ""}</p>` : ""}
 ${relatedList(model.related)}
 </section>`;
 }
@@ -464,10 +522,10 @@ ${relatedList(model.related)}
 /** A topic page that only dossiers show (no card finding has the topic). */
 export function renderDossierTopicPage(model: DossierTopicModel, reader?: AtlasPageReader): string {
   return page({
-    path: topicPath(model.topicKey),
+    path: model.page === 1 ? topicPath(model.topicKey) : `${topicPath(model.topicKey)}?page=${model.page}`,
     noindex: model.dossiers.every(({ copy }) => !copy.accepted),
     reader,
-    title: `${model.name} | AskRigor Atlas`,
+    title: `${model.name}${model.page === 1 ? "" : `, research dossiers page ${model.page}`} | AskRigor Atlas`,
     description: `Research dossiers about ${model.name} in the AskRigor Atlas: main points first, every study a click away.`,
     body: html`<p class="breadcrumbs"><a href="/atlas">Atlas</a> › <a href="/atlas/topics">Topics</a></p>
 <h1>${model.name}</h1>
@@ -529,9 +587,11 @@ ${dossier.value.reason === undefined ? "" : html`<p><strong>What this adds:</str
 ${glanceList(model.ranked.slice(0, DOSSIER_GLANCE_COUNT), false)}
 ${model.ranked.length > DOSSIER_GLANCE_COUNT || model.forms.length > 1 ? html`<details class="dossier-more">
 <summary>All ${model.ranked.length} findings, by form</summary>
-${formSections(model.forms, false, "dossier")}
+${formSections(model.forms, false, "dossier", DOSSIER_FINDING_BYTES, (count) =>
+    `${count} more ${count === 1 ? "finding is" : "findings are"} not listed here, to keep the page a readable size.`)}
 </details>` : ""}
 ${disagreementList(model.disagreements)}
+${model.comparedAll || model.disagreements.length === 0 ? "" : html`<p class="meta">Compared with the newest ${TOPIC_COMPARED} dossiers on its topic.</p>`}
 ${checkedSection(dossier)}
 <details class="dossier-more"><summary>Every study (${studies.length})</summary>
 <ul class="dossier-studies-list">${studies.map((study) => studyItem(dossier, study))}</ul></details>

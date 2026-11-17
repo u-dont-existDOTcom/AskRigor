@@ -671,7 +671,9 @@ describe("dossiers on the Atlas's pages", () => {
     expect(body).toContain("Not checked: that each paper says what a finding claims: the researching AI’s reading");
     expect(body).toContain("The researching AI judged it with high confidence.");
     expect(body).toContain("Every study (5)");
-    expect(body).toContain("animal study, myo-inositol, 40 people");
+    // Codex's review, finding 11: an animal study's size is in animals, never people.
+    expect(body).toContain("animal study, myo-inositol, 40 animals");
+    expect(body).not.toContain("40 people");
     expect(body).toContain('<meta name="robots" content="noindex">');
     expect(body).not.toMatch(/ARD-|ARF-|\/mcp|claude|0123abc/u);
     expect((await get(base, "/atlas/dossiers/D-1002")).status).toBe(404);
@@ -698,6 +700,112 @@ describe("dossiers on the Atlas's pages", () => {
     expect(page).toContain("Checked by supervisors");
     expect(page).not.toContain('<meta name="robots" content="noindex">');
     expect(page).not.toContain("data-nosnippet");
+  });
+});
+
+// Codex's review, findings 8, 9 and 11: an exact dossier or topic is read by its own number or key before any limit;
+// collections come a page at a time within a size; a change anywhere drops every server's cached pages; sizes are in
+// people, animals or lab samples.
+describe("the dossier pages' reads, pages, size and cache", () => {
+  /**
+   * D-1001 saved and shown as usual, then many more shown copies of its saved record, each a dossier of its own on the
+   * topic given, written straight into the stores (as the publish function would) so the test stays quick.
+   */
+  async function many(count: number, topicOf: (index: number) => string) {
+    const { dossiers, publications, publication } = stores();
+    await saveResearchDossier(dossiers, request({ publication }));
+    const [first] = dossiers.snapshot();
+    const base = (await dossiers.readVersion(ACCOUNT, first!.versionId))!.payload as Record<string, any>;
+    for (let index = 0; index < count; index += 1) {
+      const key = topicOf(index);
+      const payload = structuredClone(base);
+      payload.question = `Synthetic question ${index}: what do inositol forms do?`;
+      payload.topic = { key, name: `Topic ${key}`, other_names: [], related: [] };
+      payload.forms = [`form-${key}`];
+      const hex = createHash("sha256").update(`many:${index}`).digest("hex");
+      const versionId = deterministicUuid(`many:${index}`);
+      // Each a second later than the one before, so D-1001 is the oldest.
+      const at = new Date(NOW.getTime() + (index + 1) * 1_000);
+      await dossiers.append({ accountKey: ACCOUNT, dossierKey: hex, threadKey: hex, requestKey: hex, inputSha256: hex,
+        payload, payloadSha256: hex, cardNumber: null, identifiers: [], expectedPreviousVersionId: null, versionId, at });
+      const compared: string[] = [];
+      for (let page = await publications.conflictCandidates(ACCOUNT, versionId, null, 200); page.length > 0;
+        page = page.length < 200 ? [] : await publications.conflictCandidates(ACCOUNT, versionId, page.at(-1)!, 200)) {
+        compared.push(...page.map(({ publicNumber, versionNumber }) => `${publicNumber}/${versionNumber}`));
+      }
+      const shown = await publications.publish({ accountKey: ACCOUNT, versionId, payload: publicDossierOf(payload) as never,
+        compared, conflictCheck: "read", conflictsWith: [], importantConflict: false, at });
+      expect(shown).toMatchObject({ outcome: "published", state: "shown" });
+    }
+    return { dossiers, publications };
+  }
+  const handler = (publications: InMemoryResearchDossierPublications, signal = new AtlasChangeSignal()) =>
+    createAtlasPagesHandler({ enabled: true, signal, dossiers: publications,
+      source: new InMemoryAtlasPageSource({ publications: new InMemoryAtlasPublicationStore() }) });
+
+  it("finds an older dossier's page and topic past the newest 500 shown dossiers", async () => {
+    const { publications } = await many(501, (index) => `topic-${index}`);
+    const base = await serve(handler(publications));
+    expect((await get(base, "/atlas/dossiers/D-1001")).status).toBe(200);
+    expect((await get(base, "/atlas/topics/inositol-invented")).status).toBe(200);
+    expect((await get(base, "/atlas/topics")).body).toContain('<a href="/atlas/topics/inositol-invented">');
+  }, 60_000);
+
+  it("shows a topic's dossiers a page at a time, and keeps a page within its size", async () => {
+    const { publications } = await many(45, () => "crowded-invented");
+    const base = await serve(handler(publications));
+    const first = await get(base, "/atlas/topics/crowded-invented");
+    expect(first.status).toBe(200);
+    expect(first.body.match(/<li><a href="\/atlas\/dossiers\/D-\d+">/gu)).toHaveLength(20);
+    expect(first.body).toContain('<a rel="next" href="/atlas/topics/crowded-invented?page=2">Older dossiers on this topic</a>');
+    const third = await get(base, "/atlas/topics/crowded-invented?page=3");
+    expect(third.body.match(/<li><a href="\/atlas\/dossiers\/D-\d+">/gu)).toHaveLength(5);
+    expect(third.body).not.toContain("Older dossiers on this topic");
+    expect((await get(base, "/atlas/topics/crowded-invented?page=4")).status).toBe(404);
+    // The findings list stops at its size, and says how many more there are and where.
+    const { loadDossierTopic, dossierTopicSection } = await import("../apps/research-mcp/src/atlas/dossier-pages.js");
+    const model = (await loadDossierTopic(publications, "crowded-invented"))!;
+    const section = dossierTopicSection(model, { findingBytes: 20_000 }).value;
+    expect(Buffer.byteLength(section, "utf8")).toBeLessThan(80_000);
+    expect(section).toMatch(/\d+ more findings are in the dossiers below, each on its own page\./u);
+  }, 60_000);
+
+  it("drops every server's cached dossier pages when the research is withdrawn, also in another process", async () => {
+    const { dossiers, publications, publication } = stores();
+    await saveResearchDossier(dossiers, request({ publication }));
+    // Two servers, each with its own cache and its own change signal, reading the same database.
+    const one = await serve(handler(publications));
+    const two = await serve(handler(publications));
+    for (const base of [one, two]) {
+      expect((await get(base, "/atlas/dossiers/D-1001")).status).toBe(200);
+      expect((await get(base, "/atlas/topics/inositol-invented")).body).toContain("D-1001");
+    }
+    // Revocation lands in the database (a trigger), announced on neither server's signal.
+    dossiers.revoke(ACCOUNT, NOW);
+    for (const base of [one, two]) {
+      expect((await get(base, "/atlas/dossiers/D-1001")).status).toBe(404);
+      expect((await get(base, "/atlas/topics/inositol-invented")).status).toBe(404);
+    }
+  });
+
+  it("gives sizes in people, animals or lab samples, as the study was", async () => {
+    const { dossiers, publications, publication } = stores();
+    // The lab study's abstract was read in this research, as its receipt says.
+    const saved = await saveResearchDossier(dossiers, request({ publication,
+      receipts: [...RECEIPTS, receipt("pubmed_record", { pmid: "66666666", abs: "1" })], value: dossier((value) => {
+      value.studies.push({ id: "s6", identifiers: ["PMID 66666666"], kind: "lab", form: "IP6", participants: 12,
+        decision: "used" });
+      value.findings.push({ id: "f6", claim: "IP6 slowed cell growth in a dish.", certainty: "low", kind: "helps",
+        applies_to: "Cells in a dish", form: "IP6", rests_on: ["s6"], what_would_change_it: "Any study in people",
+        importance: "context" });
+    }) }));
+    expect(saved?.disposition).toMatchObject({ status: "saved", publication: { status: "shown" } });
+    const base = await serve(handler(publications));
+    const page = (await get(base, "/atlas/dossiers/D-1001")).body;
+    expect(page).toContain("lab study, IP6, 12 lab samples");
+    expect(page).toContain("1 lab study (12 lab samples), not yet shown in people");
+    expect(page).toContain("animal study, myo-inositol, 40 animals");
+    expect(page).toContain("human trial, D-chiro-inositol, 10 people");
   });
 });
 
@@ -881,7 +989,7 @@ describe("the dossier's shape and migration 0040", () => {
     expect(shape).not.toMatch(/Atlas|published|shown on/u);
   });
 
-  it("ships a migration that publishes nothing until a notice is listed, and gives the reader only two views", async () => {
+  it("ships a migration that publishes nothing until a notice is listed, and gives the reader only four views", async () => {
     const migration = await readFile(new URL("../packages/evidence-repository/migrations/0040_research_dossier_publications.sql",
       import.meta.url), "utf8");
     expect(migration).not.toMatch(/INSERT INTO research_dossier_public_notices/u);
@@ -889,9 +997,12 @@ describe("the dossier's shape and migration 0040", () => {
     expect(migration).toContain("FOR NO KEY UPDATE;");
     expect(migration).toContain("GRANT SELECT ON TABLE research_dossier_public_pages TO askrigor_reader;");
     expect(migration).toContain("GRANT SELECT ON TABLE research_dossier_public_history TO askrigor_reader;");
-    expect(migration.match(/GRANT /gu)).toHaveLength(2);
+    // The topics list and the number that moves with every change (Codex's review, findings 8 and 9).
+    expect(migration).toContain("GRANT SELECT ON TABLE research_dossier_public_topics TO askrigor_reader;");
+    expect(migration).toContain("GRANT SELECT ON TABLE research_dossier_public_changes TO askrigor_reader;");
+    expect(migration.match(/GRANT /gu)).toHaveLength(4);
     for (const table of ["research_dossier_public_notices", "research_dossier_publications",
-      "research_dossier_public_versions", "research_dossier_public_events"]) {
+      "research_dossier_public_versions", "research_dossier_public_events", "research_dossier_public_generation"]) {
       expect(migration).toContain(`REVOKE ALL ON TABLE ${table} FROM PUBLIC;`);
       expect(migration).toContain(`REVOKE ALL ON TABLE ${table} FROM askrigor_reader;`);
     }

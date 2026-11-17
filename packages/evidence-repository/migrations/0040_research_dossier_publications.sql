@@ -16,9 +16,10 @@ SET search_path TO __SCHEMA__, public;
 -- version's copy is erased with it, unless the owner had accepted it, which then stays, written without the person
 -- (design 3.7). Losing access is treated like erasure for an accepted copy (Codex's review of stage 2, finding 5): its
 -- dossier's copies are detached from the private versions and the account, and keep no record of where the research
--- ran; the account's unaccepted copies leave the pages. The pages' reader sees only the shown copies, through two views; it reads no table. Additive and safe to
--- run again: an earlier image never reads these tables, and the triggers keep the copies in step with what an earlier
--- image's revocation and forget_card do to the private versions.
+-- ran; the account's unaccepted copies leave the pages. The pages' reader sees only the shown copies, their history,
+-- the topics they are on and a number that changes with every change to them, through four views; it reads no table.
+-- Additive and safe to run again: an earlier image never reads these tables, and the triggers keep the copies in step
+-- with what an earlier image's revocation and forget_card do to the private versions.
 
 CREATE SEQUENCE IF NOT EXISTS research_dossier_public_number_seq AS bigint START WITH 1001;
 
@@ -125,6 +126,14 @@ CREATE TABLE IF NOT EXISTS research_dossier_public_events (
 CREATE INDEX IF NOT EXISTS research_dossier_public_events_version_idx
   ON research_dossier_public_events (public_number, version_number, event_id);
 
+-- One number that changes with every write to the copies, in the same transaction, whichever process or trigger made
+-- it (a publication, a decision, a revocation, an erasure): each server's pages read it before a cached dossier page
+-- and render again when it moved (Codex's review of stage 2, finding 9).
+CREATE TABLE IF NOT EXISTS research_dossier_public_generation (
+  singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
+  generation bigint NOT NULL CHECK (generation >= 1)
+);
+
 COMMENT ON TABLE research_dossier_public_notices IS
   'AskRigor#477 stage 2: the free contributor notices whose yes covers a dossier on the public Atlas. Empty until notice v7 is released on the owner''s yes.';
 COMMENT ON TABLE research_dossier_publications IS
@@ -133,6 +142,8 @@ COMMENT ON TABLE research_dossier_public_versions IS
   'One public copy per saved dossier version: shown (marked unreviewed until accepted), held for AskRigor''s check, superseded by a newer one, taken down, or erased with its private version.';
 COMMENT ON COLUMN research_dossier_public_versions.origin IS
   'Where the research ran (owner answer 332a): the connector surface, whether the caller made the AI readings, and the runner''s own declaration. For the review only.';
+COMMENT ON TABLE research_dossier_public_generation IS
+  'AskRigor#477 stage 2: one row, its number raised by every write to research_dossier_public_versions, so every server drops its cached dossier pages.';
 COMMENT ON TABLE research_dossier_public_events IS
   'Append-only: shown, held, superseded, taken_down, accepted, erased, living_person_decided (the owner''s decision to show a copy whose claim names a living person), detached (its contributor lost access), revised (a reviewed revision of an importance mark, on the new version).';
 
@@ -180,6 +191,26 @@ DROP TRIGGER IF EXISTS research_dossier_public_version_guard ON research_dossier
 CREATE TRIGGER research_dossier_public_version_guard
   BEFORE UPDATE OR DELETE ON research_dossier_public_versions
   FOR EACH ROW EXECUTE FUNCTION research_dossier_public_version_guard();
+
+CREATE OR REPLACE FUNCTION research_dossier_public_changed()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+BEGIN
+  INSERT INTO research_dossier_public_generation AS kept (singleton, generation) VALUES (true, 1)
+  ON CONFLICT (singleton) DO UPDATE SET generation = kept.generation + 1;
+  RETURN NULL;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION research_dossier_public_changed() FROM PUBLIC;
+
+DROP TRIGGER IF EXISTS research_dossier_public_changed ON research_dossier_public_versions;
+CREATE TRIGGER research_dossier_public_changed
+  AFTER INSERT OR UPDATE ON research_dossier_public_versions
+  FOR EACH STATEMENT EXECUTE FUNCTION research_dossier_public_changed();
 
 DROP TRIGGER IF EXISTS append_only_guard ON research_dossier_public_events;
 CREATE TRIGGER append_only_guard
@@ -1011,10 +1042,27 @@ SELECT copy.public_number, copy.version_number, copy.state, copy.accepted_at IS 
  WHERE copy.state IN ('shown', 'superseded') AND copy.erased_at IS NULL
    AND EXISTS (SELECT 1 FROM research_dossier_public_pages shown WHERE shown.public_number = copy.public_number);
 
+-- The topics the pages list (Codex's review of stage 2, finding 8): each shown topic once, with its newest copy's name and
+-- how many findings and dossiers it shows, so the list never reads every copy.
+CREATE OR REPLACE VIEW research_dossier_public_topics WITH (security_barrier = true) AS
+SELECT shown.topic_key,
+  (array_agg(shown.public_payload -> 'topic' ->> 'name' ORDER BY shown.shown_at DESC, shown.public_number))[1] AS name,
+  sum(jsonb_array_length(shown.public_payload -> 'findings'))::integer AS findings, count(*)::integer AS dossiers
+  FROM research_dossier_public_pages shown
+ GROUP BY shown.topic_key;
+
+-- The number that moves with every change to the copies, for the pages' caches.
+CREATE OR REPLACE VIEW research_dossier_public_changes WITH (security_barrier = true) AS
+SELECT coalesce((SELECT kept.generation FROM research_dossier_public_generation kept), 0) AS generation;
+
 COMMENT ON VIEW research_dossier_public_pages IS
   'AskRigor#477 stage 2: the dossier copies the public Atlas shows, for the pages'' reader role.';
 COMMENT ON VIEW research_dossier_public_history IS
   'AskRigor#477 stage 2: each shown dossier''s shown and superseded copies, without their content, for its history.';
+COMMENT ON VIEW research_dossier_public_topics IS
+  'AskRigor#477 stage 2: each topic with shown dossiers, its name and its counts, for the topics list.';
+COMMENT ON VIEW research_dossier_public_changes IS
+  'AskRigor#477 stage 2: a number that changes with every change to the dossier copies, for the pages'' caches.';
 
 REVOKE ALL ON TABLE research_dossier_public_notices FROM PUBLIC;
 REVOKE ALL ON TABLE research_dossier_publications FROM PUBLIC;
@@ -1022,9 +1070,12 @@ REVOKE ALL ON TABLE research_dossier_public_versions FROM PUBLIC;
 REVOKE ALL ON TABLE research_dossier_public_events FROM PUBLIC;
 REVOKE ALL ON TABLE research_dossier_public_pages FROM PUBLIC;
 REVOKE ALL ON TABLE research_dossier_public_history FROM PUBLIC;
+REVOKE ALL ON TABLE research_dossier_public_topics FROM PUBLIC;
+REVOKE ALL ON TABLE research_dossier_public_changes FROM PUBLIC;
+REVOKE ALL ON TABLE research_dossier_public_generation FROM PUBLIC;
 REVOKE ALL ON SEQUENCE research_dossier_public_number_seq FROM PUBLIC;
 -- The reader's default table grants must not expose a held copy, a private origin or the notices list; it reads the
--- two views only.
+-- four views only.
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'askrigor_reader') THEN
@@ -1035,8 +1086,13 @@ BEGIN
     REVOKE ALL ON SEQUENCE research_dossier_public_number_seq FROM askrigor_reader;
     REVOKE ALL ON TABLE research_dossier_public_pages FROM askrigor_reader;
     REVOKE ALL ON TABLE research_dossier_public_history FROM askrigor_reader;
+    REVOKE ALL ON TABLE research_dossier_public_topics FROM askrigor_reader;
+    REVOKE ALL ON TABLE research_dossier_public_changes FROM askrigor_reader;
+    REVOKE ALL ON TABLE research_dossier_public_generation FROM askrigor_reader;
     GRANT SELECT ON TABLE research_dossier_public_pages TO askrigor_reader;
     GRANT SELECT ON TABLE research_dossier_public_history TO askrigor_reader;
+    GRANT SELECT ON TABLE research_dossier_public_topics TO askrigor_reader;
+    GRANT SELECT ON TABLE research_dossier_public_changes TO askrigor_reader;
   END IF;
 END
 $$;

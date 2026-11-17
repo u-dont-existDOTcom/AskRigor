@@ -250,7 +250,8 @@ export type AtlasRoute =
   | { kind: "comment-maps" }
   | { kind: "search" }
   | { kind: "sitemap" }
-  | { kind: "topic"; topicKey: string }
+  // page: AskRigor#477 stage 2, a later page of the topic's research dossiers (?page=2), from the query.
+  | { kind: "topic"; topicKey: string; page?: number }
   | { kind: "finding"; publicationNumber: string }
   // AskRigor#477 stage 2: a research dossier's page (it answers 404 while public dossiers are off).
   | { kind: "dossier"; publicNumber: string }
@@ -875,6 +876,13 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       case "map":
         return checked({ status: 200, html: renderAtlasMap(await loadAtlasMap(source, clock()), reader) });
       case "topic": {
+        // AskRigor#477 stage 2: a later page of the topic's research dossiers is theirs alone (Codex's review, 8).
+        if (route.page !== undefined && route.page > 1) {
+          const later = options.dossiers === undefined ? undefined
+            : await loadDossierTopic(options.dossiers, route.topicKey, cardTopicLabel(source), route.page);
+          return checked(later === undefined ? { status: 404, html: renderAtlasNotFound(reader) }
+            : { status: 200, html: renderDossierTopicPage(later, reader) });
+        }
         const model = await loadAtlasTopic(source, route.topicKey);
         // AskRigor#477 stage 2: the topic's research dossiers lead it, or make its page when no finding has the topic.
         const dossiers = options.dossiers === undefined ? undefined
@@ -1502,6 +1510,27 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           pageRoute = { kind: "challenges", ...(before === undefined ? {} : { before }) };
           cacheKey = `${pathname}${before === undefined ? "" : `?before=${before}`}`;
         }
+        // AskRigor#477 stage 2 (Codex's review, findings 8 and 9): a topic's later page of research dossiers; and every
+        // page that shows dossiers is kept under the number that moves with any change to them, in this process or
+        // another, so a withdrawal or an erasure is never served from a cache. Unread, the page renders afresh.
+        let dossierCache = true;
+        if (pageRoute.kind === "topic") {
+          const page = /^[1-9][0-9]{0,2}$/u.exec(queryOf(request).get("page") ?? "")?.[0];
+          if (page !== undefined && page !== "1") {
+            pageRoute = { kind: "topic", topicKey: pageRoute.topicKey, page: Number(page) };
+            cacheKey = `${pathname}?page=${page}`;
+          }
+        }
+        if (options.dossiers !== undefined &&
+          (pageRoute.kind === "topic" || pageRoute.kind === "topics" || pageRoute.kind === "dossier")) {
+          try {
+            cacheKey = `${cacheKey}#dossiers=${await options.dossiers.generation()}`;
+          } catch {
+            dossierCache = false;
+          }
+        }
+        const cachedPage = (key: string, make: () => Promise<RenderedAtlasPage>) =>
+          dossierCache ? cache.get(key, make) : make();
         if (participation !== undefined) {
           const { session, clear: stale } = await currentSession(request, participation, now, "read-as-signed-out");
           const query = queryOf(request);
@@ -1520,11 +1549,11 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
             write(response, page.status, HTML, page.html, { "cache-control": PRIVATE, vary: "Cookie" }, stale);
             return true;
           }
-          const page = await cache.get(cacheKey, () => render(pageRoute, source, signedOutReader(pathname)));
+          const page = await cachedPage(cacheKey, () => render(pageRoute, source, signedOutReader(pathname)));
           write(response, page.status, HTML, page.html, { vary: "Cookie" }, stale);
           return true;
         }
-        const page = await cache.get(cacheKey, () => render(pageRoute, source));
+        const page = await cachedPage(cacheKey, () => render(pageRoute, source));
         write(response, page.status, HTML, page.html);
       } catch {
         if (!response.headersSent) plainFailure(response, 503, renderAtlasUnavailable());

@@ -8,8 +8,9 @@ import type { InMemoryResearchDossierStore } from "./research-dossiers.js";
  * AskRigor#477, stage 2 (owner answers 331a, 332a and 333a, 16 November 2026): research dossiers on the public Atlas
  * (migration 0040_research_dossier_publications). Each saved dossier version may get one public copy, written in its
  * final state: shown, marked "Not checked by supervisors yet" until the owner accepts it, or held for AskRigor's check.
- * Three roles: the research-access role publishes and reads a topic's shown copies for the conflict check; the review
- * role lists, inspects and decides; the pages' reader reads the shown copies and their history through two views.
+ * Three roles: the research-access role publishes and reads the conflict check's candidates; the review role lists,
+ * inspects and decides; the pages' reader reads the shown copies, their history, their topics and the number that
+ * moves with every change to them through four views.
  * Consent is the database's own: an account publishes only while its accepted notice is one of
  * research_dossier_public_notices, which is empty until notice v7 is released on the owner's yes.
  */
@@ -220,19 +221,41 @@ export interface PublicDossierHistoryEntry {
   revised: boolean;
 }
 
+/**
+ * A read of shown copies, newest first: an exact topic or public number is filtered before the limit and the offset
+ * (Codex's review of stage 2, finding 8), so an older dossier is found by its own number.
+ */
 export interface PublicDossierQuery {
   topicKeys?: readonly string[];
   publicNumbers?: readonly string[];
   /** 1 to PUBLIC_DOSSIERS_PER_READ. */
   limit: number;
+  /** How many to pass over first, for a later page; 0 to PUBLIC_DOSSIERS_MAX_OFFSET. */
+  offset?: number;
 }
 
 export const PUBLIC_DOSSIERS_PER_READ = 500;
+export const PUBLIC_DOSSIERS_MAX_OFFSET = 100_000;
+
+/** A topic with shown dossiers: its newest copy's name, and how many findings and dossiers it shows. */
+export interface PublicDossierTopic {
+  topicKey: string;
+  name: string;
+  findings: number;
+  dossiers: number;
+}
 
 /** The pages' reader side. */
 export interface PublicDossierPageSource {
   listShown(query: PublicDossierQuery): Promise<PublicDossierCopy[]>;
   history(publicNumbers: readonly string[]): Promise<PublicDossierHistoryEntry[]>;
+  /** Every topic with shown dossiers, by key. */
+  listTopics(): Promise<PublicDossierTopic[]>;
+  /**
+   * A value that changes with every change to the copies, made by any process or trigger: a cached dossier page is
+   * kept under it, so every server renders again after a publication, a decision, a revocation or an erasure (finding 9).
+   */
+  generation(): Promise<string>;
 }
 
 export class ResearchDossierPublicationError extends Error {
@@ -303,6 +326,8 @@ const candidateOrder = (left: { publicNumber: string; versionNumber: number },
 
 function assertQuery(query: PublicDossierQuery): void {
   if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > PUBLIC_DOSSIERS_PER_READ ||
+    (query.offset !== undefined && (!Number.isInteger(query.offset) || query.offset < 0 ||
+      query.offset > PUBLIC_DOSSIERS_MAX_OFFSET)) ||
     (query.topicKeys !== undefined && !query.topicKeys.every((key) => TOPIC_KEY.test(key))) ||
     (query.publicNumbers !== undefined && !query.publicNumbers.every((number) => PUBLIC_DOSSIER_NUMBER.test(number)))) {
     throw new ResearchDossierPublicationError("INPUT_INVALID");
@@ -542,9 +567,9 @@ export class PostgresPublicDossierPageSource implements PublicDossierPageSource 
         WHERE ($1::text[] IS NULL OR topic_key = ANY($1::text[]))
           AND ($2::text[] IS NULL OR public_number = ANY($2::text[]))
         ORDER BY shown_at DESC, public_number
-        LIMIT $3`,
+        LIMIT $3 OFFSET $4`,
       [query.topicKeys === undefined ? null : [...query.topicKeys],
-        query.publicNumbers === undefined ? null : [...query.publicNumbers], query.limit],
+        query.publicNumbers === undefined ? null : [...query.publicNumbers], query.limit, query.offset ?? 0],
     );
     return result.rows.map((row) => ({
       publicNumber: row.public_number,
@@ -557,6 +582,19 @@ export class PostgresPublicDossierPageSource implements PublicDossierPageSource 
       shownAt: iso(row.shown_at),
       conflictsWith: row.conflicts_with,
     }));
+  }
+
+  async listTopics(): Promise<PublicDossierTopic[]> {
+    const result = await this.pool.query<{ topic_key: string; name: string | null; findings: number; dossiers: number }>(
+      `SELECT topic_key, name, findings, dossiers FROM ${this.schema}.research_dossier_public_topics ORDER BY topic_key`);
+    return result.rows.flatMap((row) => row.name === null ? [] : [{ topicKey: row.topic_key, name: row.name,
+      findings: row.findings, dossiers: row.dossiers }]);
+  }
+
+  async generation(): Promise<string> {
+    const result = await this.pool.query<{ generation: string | number }>(
+      `SELECT generation FROM ${this.schema}.research_dossier_public_changes`);
+    return String(result.rows[0]?.generation ?? 0);
   }
 
   async history(publicNumbers: readonly string[]): Promise<PublicDossierHistoryEntry[]> {
@@ -650,10 +688,13 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       return { outcome: "replayed", publicNumber: existing.publicNumber, state: existing.state,
         holdReasons: [...existing.holdReasons] };
     }
-    if (!facts.newest || facts.closed || facts.erased || facts.payload === null) return { outcome: "version_refused" };
+    const stored = this.options.dossiers.versionPayload(input.versionId);
+    if (!facts.newest || facts.closed || facts.erased || stored === null || stored === undefined) {
+      return { outcome: "version_refused" };
+    }
     let projection: Record<string, unknown>;
     try {
-      projection = this.options.project(facts.payload);
+      projection = this.options.project(stored);
     } catch {
       return { outcome: "payload_refused" };
     }
@@ -668,9 +709,9 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       !input.conflictsWith.every((number) => candidates.some((id) => id.startsWith(`${number}/`))))) {
       return { outcome: "comparison_stale" };
     }
-    const admission = researchDossierAdmission(facts.payload, projection, input.importantConflict,
+    const admission = researchDossierAdmission(stored, projection, input.importantConflict,
       input.conflictCheck === "not_read" && candidates.length > 0);
-    const stamp = (facts.payload.stamp ?? {}) as { origin?: unknown };
+    const stamp = (stored.stamp ?? {}) as { origin?: unknown };
     const origin = stamp.origin !== null && typeof stamp.origin === "object" && !Array.isArray(stamp.origin)
       ? structuredClone(stamp.origin as Record<string, unknown>) : {};
     let publicNumber = this.numbers.get(facts.dossierNumber);
@@ -716,8 +757,9 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
     after: { publicNumber: string; versionNumber: number } | null, limit: number): Promise<ResearchDossierTopicCopy[]> {
     this.followPrivate();
     const facts = this.options.dossiers.versionFacts(versionId);
-    if (facts === undefined || facts.accountKey !== accountKey || facts.payload === null) return [];
-    return this.matches(this.options.project(facts.payload))
+    const stored = this.options.dossiers.versionPayload(versionId);
+    if (facts === undefined || facts.accountKey !== accountKey || stored === null || stored === undefined) return [];
+    return this.matches(this.options.project(stored))
       .filter((copy) => after === null || candidateOrder(copy, after) > 0)
       .slice(0, limit)
       .map((copy) => ({ publicNumber: copy.publicNumber, versionNumber: copy.versionNumber, topicKey: copy.topicKey!,
@@ -853,13 +895,36 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
         (query.publicNumbers === undefined || query.publicNumbers.includes(copy.publicNumber)))
       .sort((left, right) => right.decidedAt.getTime() - left.decidedAt.getTime() ||
         left.publicNumber.localeCompare(right.publicNumber))
-      .slice(0, query.limit)
+      .slice(query.offset ?? 0, (query.offset ?? 0) + query.limit)
       .map((copy) => ({
         publicNumber: copy.publicNumber, versionNumber: copy.versionNumber, topicKey: copy.topicKey!,
         relatedTopicKeys: [...copy.relatedTopicKeys], payload: structuredClone(copy.payload!),
         payloadSha256: copy.payloadSha256!, accepted: copy.acceptedAt !== null, shownAt: copy.decidedAt.toISOString(),
         conflictsWith: [...copy.conflictsWith],
       }));
+  }
+
+  async listTopics(): Promise<PublicDossierTopic[]> {
+    this.followPrivate();
+    const topics = new Map<string, PublicDossierTopic>();
+    // Every shown copy, newest first, as the view groups them: the topic's name is its newest copy's.
+    for (const copy of [...this.copies.values()].filter((copy) => this.shows(copy))
+      .sort((left, right) => right.decidedAt.getTime() - left.decidedAt.getTime() ||
+        left.publicNumber.localeCompare(right.publicNumber))) {
+      const topic = topics.get(copy.topicKey!) ?? { topicKey: copy.topicKey!,
+        name: String((copy.payload!.topic as { name?: unknown } | undefined)?.name ?? ""), findings: 0, dossiers: 0 };
+      topic.findings += Array.isArray(copy.payload!.findings) ? copy.payload!.findings.length : 0;
+      topic.dossiers += 1;
+      topics.set(copy.topicKey!, topic);
+    }
+    return [...topics.values()].sort((left, right) => left.topicKey < right.topicKey ? -1 : 1);
+  }
+
+  /** In memory, a digest of every copy's state: it changes with any change, as the database's number does. */
+  async generation(): Promise<string> {
+    this.followPrivate();
+    return sha256(stableJson([...this.copies.values()].map((copy) => [copy.publicNumber, copy.versionNumber, copy.state,
+      copy.acceptedAt?.toISOString() ?? null, copy.payloadSha256, copy.versionId])));
   }
 
   async history(publicNumbers: readonly string[]): Promise<PublicDossierHistoryEntry[]> {
