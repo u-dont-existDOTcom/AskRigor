@@ -5,7 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { rule } from "../apps/research-mcp/src/check-rules.js";
 import { FINAL_CHECK_PANEL_RENDER_SOURCE } from "../apps/research-mcp/src/final-check-panel.js";
 import {
-  FINAL_CHECK_PANEL_FINDINGS_LEAD, FINDINGS_LEDGER_MEMORY_MS, FINDINGS_LEDGER_NOTE, WHAT_STOPS, WHAT_STOPS_TEXT,
+  FINAL_CHECK_PANEL_FINDINGS_LEAD, FINDINGS_LEDGER_LINEAGES, FINDINGS_LEDGER_MEMORY_MS, FINDINGS_LEDGER_NOTE, WHAT_STOPS,
+  WHAT_STOPS_TEXT,
   createFindingsLedgerMemory, findingsLedger, findingsLedgerAccountsFromEnv, findingsLedgerEnabledFromEnv,
   findingsLedgerGuidance,
   findingsLedgerMemoryKey, issueFindingsLedger, sketchSimilarity, verifyFindingsLedger, whatStops,
@@ -451,12 +452,12 @@ describe("the review of 17 Nov 2026", () => {
       await isWaiting;
       const second = await call(withLedger({ ...fixture(), ...state(first) }, { findings_ledger: first.findings_ledger }));
       await call(withLedger({ ...fixture(), ...state(second) }, { findings_ledger: second.findings_ledger }));
-      expect(memory.get(key)!.payload.seq).toBe(3);
+      expect(memory.get(key)![0]!.payload.seq).toBe(3);
       release();
       const last = await late;
       // It passed the first ledger, older than the latest: it continues from the latest, and the memory moves on.
       expect(last.check_findings!.ledger).toBe("replayed");
-      expect(memory.get(key)!.payload.seq).toBe(4);
+      expect(memory.get(key)![0]!.payload.seq).toBe(4);
     } finally { await client.close(); await server.close(); }
   });
 
@@ -1149,29 +1150,31 @@ describe("through the MCP tool", () => {
   });
 });
 
+// finalize_research through the MCP tool, with the ledger on for every caller and a memory of its own.
+const mcp = async (run: (call: (input: Record<string, unknown>) => Promise<FinalizeResearchOutput>) => Promise<void>,
+  serverOptions: Record<string, unknown> = {}) => {
+  vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", SECRET);
+  const server = createAskRigorServer("standard", { researchAccessRequired: false, findingsLibrary: false,
+    findingsLedger: true, findingsLedgerAccounts: "all", findingsLedgerMemory: createFindingsLedgerMemory(),
+    secondReader: { enabled: true, readAnswer: async (draft) => reading(draft.includes(WARNING) ? WARNING : undefined) as never },
+    ...serverOptions });
+  const client = new Client({ name: "findings-ledger-fable-test", version: "1" });
+  const [a, b] = InMemoryTransport.createLinkedPair();
+  try {
+    await server.connect(b); await client.connect(a);
+    await run(async (input) => {
+      const response = await client.callTool({ name: "finalize_research", arguments: withSourceReading(input) });
+      expect(response.isError).not.toBe(true);
+      return response.structuredContent as FinalizeResearchOutput;
+    });
+  } finally { await client.close(); await server.close(); }
+};
+// The same chat's next call: the turn's round token and the carried state of the call before.
+const continuing = (previous: FinalizeResearchOutput, input = fixture()) =>
+  ({ ...input, carried_state: previous.carry_forward, round_token: previous.round_token });
+
 // Fable's check of 17 Nov 2026 (fable-check-stage1.md), before the ledger is switched on: one regression for each point.
 describe("before switching on (Fable's check of 17 Nov 2026)", () => {
-  const mcp = async (run: (call: (input: Record<string, unknown>) => Promise<FinalizeResearchOutput>) => Promise<void>,
-    serverOptions: Record<string, unknown> = {}) => {
-    vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", SECRET);
-    const server = createAskRigorServer("standard", { researchAccessRequired: false, findingsLibrary: false,
-      findingsLedger: true, findingsLedgerAccounts: "all", findingsLedgerMemory: createFindingsLedgerMemory(),
-      secondReader: { enabled: true, readAnswer: async (draft) => reading(draft.includes(WARNING) ? WARNING : undefined) as never },
-      ...serverOptions });
-    const client = new Client({ name: "findings-ledger-fable-test", version: "1" });
-    const [a, b] = InMemoryTransport.createLinkedPair();
-    try {
-      await server.connect(b); await client.connect(a);
-      await run(async (input) => {
-        const response = await client.callTool({ name: "finalize_research", arguments: withSourceReading(input) });
-        expect(response.isError).not.toBe(true);
-        return response.structuredContent as FinalizeResearchOutput;
-      });
-    } finally { await client.close(); await server.close(); }
-  };
-  const continuing = (previous: FinalizeResearchOutput, input = fixture()) =>
-    ({ ...input, carried_state: previous.carry_forward, round_token: previous.round_token });
-
   it("1: starts a second chat's ledger afresh, with nothing of another chat's on the same question", async () => {
     await mcp(async (call) => {
       // The first chat disputes the second reading's finding.
@@ -1302,5 +1305,86 @@ describe("before switching on (Fable's check of 17 Nov 2026)", () => {
       expect(output.check_findings).toBeUndefined();
       expect(output.findings_ledger).toBeUndefined();
     }, { findingsLedger: undefined, findingsLedgerAccounts: undefined });
+  });
+});
+
+// Codex's sixth review of 17 Nov 2026 (re-review5.md): one regression for each point.
+describe("Codex's sixth review of 17 Nov 2026", () => {
+  const reason = "It restates the guideline the answer quotes.";
+
+  it("1: never undoes a dispute when an older ledger of the chat comes back without the chat's state", async () => {
+    await mcp(async (call) => {
+      const first = await call(fixture());
+      const id = warningFinding(first)!.id;
+      const disputed = await call(withLedger(continuing(first), { findings_ledger: first.findings_ledger,
+        finding_responses: [{ id, response: "disputed", reason }] }));
+      const third = await call(withLedger(continuing(disputed), { findings_ledger: disputed.findings_ledger }));
+      expect(warningFinding(third)).toMatchObject({ id, disposition: "disputed", reason });
+      // The first ledger again, with no round token and no carried state: its own latest history is used.
+      const replayed = await call(withLedger(fixture(), { findings_ledger: first.findings_ledger }));
+      expect(replayed.check_findings!.ledger).toBe("replayed");
+      expect(warningFinding(replayed)).toMatchObject({ id, disposition: "disputed" });
+      const notes = replayed.notes!.join(" ");
+      expect(notes).toContain("is ledger 1, not the latest (ledger 3)");
+      expect(notes).toContain(`${id} is still disputed, but its reason isn't available for this check.`);
+    });
+  });
+
+  it("1: keeps each chat's ledger apart: a second chat neither inherits the first's nor overwrites it", async () => {
+    await mcp(async (call) => {
+      const first = await call(fixture());
+      const id = warningFinding(first)!.id;
+      const disputed = await call(withLedger(continuing(first), { findings_ledger: first.findings_ledger,
+        finding_responses: [{ id, response: "disputed", reason }] }));
+      // A second chat on the same account asks the same question, and goes on without passing its ledger back.
+      const other = await call(fixture());
+      expect(other.check_findings!.ledger).toBe("new");
+      expect(warningFinding(other)).toMatchObject({ id, disposition: "open" });
+      const otherNext = await call(continuing(other));
+      expect(otherNext.check_findings!.ledger).toBe("omitted");
+      expect(warningFinding(otherNext)).toMatchObject({ id, disposition: "open" });
+      // The first chat's first ledger, with none of its state, still finds the first chat's dispute.
+      const back = await call(withLedger(fixture(), { findings_ledger: first.findings_ledger }));
+      expect(back.check_findings!.ledger).toBe("replayed");
+      expect(warningFinding(back)).toMatchObject({ id, disposition: "disputed" });
+      // The first chat carrying its state but not its ledger continues its own ledger, not the second chat's.
+      const carried = await call(continuing(disputed));
+      expect(carried.check_findings!.ledger).toBe("omitted");
+      expect(warningFinding(carried)).toMatchObject({ id, disposition: "disputed" });
+      // Each chat's ledger names its own lineage, kept through every revision.
+      const lineage = (token: unknown) => { const verified = verifyFindingsLedger(token, SECRET);
+        return verified.ok ? verified.payload.lin : undefined; };
+      expect(lineage(first.findings_ledger)).toMatch(/^[0-9a-f]{16}$/u);
+      expect(new Set([first, disputed, back, carried].map(({ findings_ledger: token }) => lineage(token))).size).toBe(1);
+      expect(lineage(otherNext.findings_ledger)).toBe(lineage(other.findings_ledger));
+      expect(lineage(other.findings_ledger)).not.toBe(lineage(first.findings_ledger));
+    });
+  });
+
+  it("1: remembers the latest ledger of a bounded number of chats per account and research target, and no words", () => {
+    const memory = createFindingsLedgerMemory();
+    const key = findingsLedgerMemoryKey(SECRET, "acct-a", "A research target");
+    const at = NOW.getTime();
+    const chat = (turn: string, raw: Record<string, unknown> = {}, now = at) => {
+      const result = findingsLedger(params({ observed: [draftNote(WARNING)], turns: { call: turn }, raw,
+        remembered: memory.get(key, now) }));
+      memory.update(key, () => result.remember, now);
+      return result;
+    };
+    const turns = Array.from({ length: FINDINGS_LEDGER_LINEAGES + 1 }, (_, index) => index.toString(16).padStart(16, "0"));
+    const id = chat(turns[0]!).checkFindings.findings[0]!.id;
+    // The first chat disputes its finding.
+    expect(chat(turns[0]!, { later_inputs: { finding_responses: [{ id, response: "disputed", reason }] } })
+      .checkFindings.findings[0]).toMatchObject({ id, disposition: "disputed" });
+    // As many other chats as the memory keeps for one account and target: the first chat's is kept apart from theirs.
+    for (const turn of turns.slice(1, -1)) expect(chat(turn).checkFindings.ledger).toBe("new");
+    expect(memory.get(key, at)).toHaveLength(FINDINGS_LEDGER_LINEAGES);
+    expect(chat(turns[0]!, {}, at + 1).checkFindings.findings[0]).toMatchObject({ id, disposition: "disputed" });
+    expect(JSON.stringify(memory.get(key, at + 1))).not.toMatch(/guideline|Coffee|blood pressure/u);
+    // One chat more: the chat least recently checked is forgotten, never the one just continued.
+    expect(chat(turns.at(-1)!, {}, at + 2).checkFindings.ledger).toBe("new");
+    expect(memory.get(key, at + 2)).toHaveLength(FINDINGS_LEDGER_LINEAGES);
+    expect(chat(turns[0]!, {}, at + 3).checkFindings.ledger).toBe("omitted");
+    expect(chat(turns[1]!, {}, at + 4).checkFindings.ledger).toBe("new");
   });
 });

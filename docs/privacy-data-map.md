@@ -2714,7 +2714,9 @@ pending-proposal stores have their own strict contracts and authority boundaries
   with no account. It carries each finding's id; keyed 6- to 16-hex digests
   of the account, the research target, the checked draft, the running
   versions, and each finding's rule, words, cited identifiers and the lines it
-  was about; each finding's kind, stop rule, disposition, the part of the
+  was about; the ledger's lineage, a keyed 16-hex digest made with a chat's
+  first ledger and kept by every ledger issued from it; each finding's kind,
+  stop rule, disposition, the part of the
   check that found it, and the revisions it was first and last found in; the
   ledger's sequence and revision numbers, the most open findings a ledger of
   the research has had to leave out, and the time it was issued; and, for a
@@ -2723,16 +2725,19 @@ pending-proposal stores have their own strict contracts and authority boundaries
   keyed 16-hex digest. It carries no words of the answer or of the findings,
   at most 24,000 characters, and at most 256 KiB once inflated. The server
   process keeps in memory only, for two hours at most and at most 2,000
-  ledgers, the last ledger it issued for each account and research target,
-  keyed by the account's and target's digests: the same digests, numbers and
-  dispositions as the token, with each dispute reason's keyed digest in place
-  of its words, and 16-hex digests of that token, the token it was issued
-  from, the request that issued it and that request's turn (the turn id its
-  round token carries). Only a call carrying that turn, in its round token or
-  carried state, or that token or the one it was issued from, uses it; any
-  other call, such as a second chat asking the same question, starts a new
-  ledger. It keeps no words of the answer, the findings or the reasons, and no
-  token. An expired ledger is swept at the
+  ledgers, the last ledger it issued of each lineage, for at most 8 lineages
+  of each account and research target (beyond them, the lineage least
+  recently issued a ledger is forgotten), keyed by the account's and target's
+  digests and the lineage: the same digests, numbers and dispositions as the
+  token, with each dispute reason's keyed digest in place of its words, and
+  16-hex digests of that token, the token it was issued from, the request that
+  issued it and the turns (the turn ids round tokens carry) its lineage's
+  ledgers were issued in, at most 32. A call passing a ledger of the research,
+  however old, uses its lineage's; a call passing none uses the one whose
+  turns include its round token's or carried state's; any other call, such as
+  a second chat asking the same question, starts a lineage of its own. It
+  keeps no words of the answer, the findings or the reasons, and no token. An
+  expired ledger is swept at the
   next call or by a timer; none survives a restart. A dispute survives a
   ledger left out; its reason is shown again only from a verified ledger
   passed back whose reason has the digest kept, so an older ledger never

@@ -2641,8 +2641,9 @@ function defineResearchOperations(
       const library = options.findingsLibrary ?? findingsLibraryEnabledFromEnv();
       const researcher = await researchUseAccount(extra, options.researchContributorAccessService);
       const account = library ? researcher : undefined;
-      // Enforcing HRP, stage 1: this process's memory of the last ledger issued for this account and research target,
-      // read and replaced in one step once the call's notes are all given (Codex's review of 17 Nov 2026, finding 3).
+      // Enforcing HRP, stage 1: this process's memory of the last ledger issued of each lineage (chat) of this account
+      // and research target, read and replaced in one step once the call's notes are all given (Codex's review of 17
+      // Nov 2026, finding 3, and its sixth review, finding 1).
       const ledgerMemory = options.findingsLedgerMemory ?? findingsLedgerMemory;
       const ledgerKey = findingsLedgerFor(options, () => researcher !== undefined &&
         isDevAccount(researcher.accountKey, devAccountKeysFromEnv())) && secret !== undefined &&

@@ -1909,11 +1909,12 @@ export interface FinalizeResearchOptions {
    * Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026; ASKRIGOR_FINDINGS_LEDGER=on): every problem this check reports
    * becomes a record with an id and a disposition in check_findings, and a signed findings_ledger carries them to the
    * next call. `account` is the research account's key the ledger is bound to (none for a caller without one);
-   * `remembered` is the ledger the server last issued for this account and research target. With `deferred`, the
-   * caller gives notes of its own after the check, and builds the ledger itself, once they are all given, with
-   * settleFindingsLedger (Codex's review of 17 Nov 2026, finding 7). It changes nothing the check finds, stops or holds.
+   * `remembered`, the ledgers the server last issued for this account and research target, one per lineage. With
+   * `deferred`, the caller gives notes of its own after the check, and builds the ledger itself, once they are all
+   * given, with settleFindingsLedger (Codex's review of 17 Nov 2026, finding 7). It changes nothing the check finds,
+   * stops or holds.
    */
-  findingsLedger?: { account?: string | undefined; remembered?: RememberedLedger | undefined; deferred?: boolean };
+  findingsLedger?: { account?: string | undefined; remembered?: readonly RememberedLedger[] | undefined; deferred?: boolean };
 }
 
 // The owner's words (2026-10-15), many users' reports and the owner's own
@@ -5245,7 +5246,7 @@ const FINDINGS_LEDGER_SOURCES = new WeakMap<FinalizeResearchOutput, FindingsLedg
  * nothing for a result whose check kept none.
  */
 export function settleFindingsLedger(result: FinalizeResearchOutput, settle: {
-  late?: readonly ObservedFinding[]; coverage?: readonly FindingChecker[]; remembered?: RememberedLedger | undefined;
+  late?: readonly ObservedFinding[]; coverage?: readonly FindingChecker[]; remembered?: readonly RememberedLedger[] | undefined;
 }): FindingsLedgerResult | undefined {
   const source = FINDINGS_LEDGER_SOURCES.get(result);
   if (source === undefined) return undefined;

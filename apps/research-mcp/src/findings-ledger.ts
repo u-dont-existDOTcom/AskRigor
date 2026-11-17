@@ -16,21 +16,24 @@ import { NEXT_STEP_KINDS, type NextStepKind } from "./next-step-kinds.js";
  * receipts, carried state and round tokens, and bound to the account, the research target, the checked draft and the
  * running versions. Signed, not encrypted: it is deflated JSON in base64url, so whoever holds the token can read what it
  * carries, with no account. That is the findings' ids; keyed digests of the account, the research target, the draft,
- * the versions and each finding's rule, words, cited identifiers, the lines it was about and their quotes; each
+ * the versions and each finding's rule, words, cited identifiers, the lines it was about and their quotes; the ledger's
+ * lineage, a keyed digest made when a chat's first ledger is and kept by every ledger issued from it; each
  * finding's kind, stop rule and disposition and the part of the check that found it; sequence and revision numbers;
  * the most open findings a ledger of the research has had to leave out; the time it was issued; and, for a finding
  * still disputed, the writer's reason, which the reader is shown anyway, or, when that reason is no longer at hand,
  * its keyed digest. It holds no words of the answer or of the findings.
  * The server keeps, per process and for two hours at most (swept when they pass, whether or not the ledger is asked for
- * again), the last ledger it issued for an account and research target, so a call of the same chat that leaves the
+ * again), the last ledger it issued of each lineage, for at most FINDINGS_LEDGER_LINEAGES lineages of an account and
+ * research target (Codex's sixth review of 17 Nov 2026, finding 1), so a call of the same chat that leaves the
  * ledger out, or passes an older one, is detected: the same digests, numbers and dispositions, with each dispute reason's
- * keyed digest in place of its words, and the digests of that token, its parent, the request that issued it and that
- * request's turn. A call of the same chat carries that turn (its round token's or its carried state's), that ledger or
- * its parent; any other, such as a second chat asking the same question, starts afresh and inherits nothing (Fable's
- * check of 17 Nov 2026). It keeps no words: a
+ * keyed digest in place of its words, and the digests of that token, its parent, the request that issued it and the
+ * turns its lineage's ledgers were issued in. A ledger passed back names its lineage, so any older ledger of a chat
+ * finds that chat's latest one; a call that passes none continues the lineage one of whose turns it carries (its round
+ * token's or its carried state's). Any other, such as a second chat asking the same question, starts a lineage of its
+ * own and inherits nothing, and overwrites no other chat's (Fable's check of 17 Nov 2026). It keeps no words: a
  * dispute survives a ledger left out, and its reason is shown again only from a ledger passed back whose reason has
- * the digest kept (Codex's re-review of 17 Nov 2026, finding 6). Across processes or restarts the signed token alone
- * carries the ledger (Codex's review of 17 Nov 2026, finding 6).
+ * the digest kept (Codex's re-review of 17 Nov 2026, finding 6). Across processes or restarts, or once a lineage is
+ * forgotten, the signed token alone carries the ledger (Codex's review of 17 Nov 2026, finding 6).
  *
  * Off unless ASKRIGOR_FINDINGS_LEDGER is "on", and then only for the owner's development accounts unless
  * ASKRIGOR_FINDINGS_LEDGER_ACCOUNTS is "all" (Fable's check of 17 Nov 2026). It adds a record of what the check found and never changes what the check
@@ -42,9 +45,16 @@ export const FINDINGS_LEDGER_RULES_VERSION = "2026-11-17.2";
 export const FINDINGS_LEDGER_MAX_CHARACTERS = 24_000;
 /** The most a token may hold once inflated, at issue as when it is read (Codex's re-review of 17 Nov 2026, finding 4). */
 const FINDINGS_LEDGER_MAX_INFLATED_BYTES = 256 * 1024;
-/** How long the server remembers the last ledger it issued for an account and research target. */
+/** How long the server remembers the last ledger it issued of a lineage. */
 export const FINDINGS_LEDGER_MEMORY_MS = 2 * 60 * 60 * 1000;
 const FINDINGS_LEDGER_MEMORY_ENTRIES = 2_000;
+/**
+ * The most lineages (chats) of one account and research target the server remembers (Codex's sixth review of 17 Nov
+ * 2026, finding 1); beyond them it forgets the one least recently issued a ledger, whose own token then carries it alone.
+ */
+export const FINDINGS_LEDGER_LINEAGES = 8;
+/** The most turns a lineage's memory names, the latest kept. */
+const FINDINGS_LEDGER_TURNS = 32;
 /**
  * The most findings a ledger may name. What one token carries is bounded by its size (FINDINGS_LEDGER_MAX_CHARACTERS):
  * as measured on 17 Nov 2026, 195 open findings without dispute reasons that each quote twenty words no other finding
@@ -184,6 +194,9 @@ const payloadSchema = z.object({
   a: hex(16),
   t: hex(16),
   ver: hex(16),
+  // Codex's sixth review of 17 Nov 2026, finding 1: the lineage, made with a chat's first ledger and kept by every one
+  // issued from it, by which the server finds the latest ledger of the chat whatever older one is passed back.
+  lin: hex(16),
   seq: z.number().int().min(1).max(100_000),
   rev: z.number().int().min(1).max(10_000),
   d: z.union([hex(16), z.literal("")]),
@@ -231,7 +244,7 @@ export function findingsLedgerAccountDigest(secret: string, account: string | un
 export function findingsLedgerTargetDigest(secret: string, target: string): string {
   return digest(secret, "target", normalized(target), 16);
 }
-/** The server memory's key for an account and research target. */
+/** The server memory's key for an account and research target, under which it keeps each lineage's latest ledger. */
 export function findingsLedgerMemoryKey(secret: string, account: string | undefined, target: string): string {
   return `${findingsLedgerAccountDigest(secret, account)}${findingsLedgerTargetDigest(secret, target)}`;
 }
@@ -323,9 +336,8 @@ function tokenDigest(token: string): string {
 }
 
 /**
- * The last ledger the server issued for an account and research target: its payload (digests, numbers and
- * dispositions; for a finding still disputed, its reason's digest, never its words) and digests of tokens and the
- * request; no token itself.
+ * The last ledger the server issued of a lineage: its payload (digests, numbers and dispositions; for a finding still
+ * disputed, its reason's digest, never its words) and digests of tokens, the request and turns; no token itself.
  */
 export interface RememberedLedger {
   payload: FindingsLedgerPayload;
@@ -339,54 +351,74 @@ export interface RememberedLedger {
    */
   request?: string;
   /**
-   * The keyed digest of the turn of the call that issued it (Fable's check of 17 Nov 2026): two chats asking the same
-   * question share an account and research target, and only a call carrying this turn, as its round token's or its
-   * carried state's, continues that ledger's chat. Absent, no call does but by passing that ledger or its parent.
+   * The keyed digests of the turns its lineage's ledgers were issued in, the latest last, at most FINDINGS_LEDGER_TURNS
+   * (Fable's check of 17 Nov 2026, and Codex's sixth review of 17 Nov 2026, finding 1): two chats asking the same
+   * question share an account and research target, and a call that passes no ledger continues this lineage only when
+   * it carries one of these turns, as its round token's or its carried state's.
    */
-  turn?: string;
+  turns?: readonly string[];
   at: number;
 }
 export interface FindingsLedgerMemory {
-  get(key: string, now?: number): RememberedLedger | undefined;
   /**
-   * Codex's review of 17 Nov 2026, finding 3: reads the ledger last remembered for an account and research target and
-   * remembers what `next` makes of it, in one step. `next` runs synchronously, so no other call's update comes between
-   * the read and the write: a call that finished late builds on the latest ledger rather than overwriting it. What
-   * `next` returns undefined for is left as it was.
+   * The ledgers remembered for an account and research target, one per lineage, the one issued most recently first;
+   * undefined when there is none.
    */
-  update(key: string, next: (remembered: RememberedLedger | undefined) => Omit<RememberedLedger, "at"> | undefined,
+  get(key: string, now?: number): readonly RememberedLedger[] | undefined;
+  /**
+   * Codex's review of 17 Nov 2026, finding 3: reads the ledgers remembered for an account and research target and
+   * remembers what `next` makes of them, as the latest of its lineage, in one step. `next` runs synchronously, so no
+   * other call's update comes between the read and the write: a call that finished late builds on the latest ledger
+   * rather than overwriting it. What `next` returns undefined for is left as it was. Past FINDINGS_LEDGER_LINEAGES
+   * lineages of the account and target, the one least recently issued a ledger is forgotten (Codex's sixth review of
+   * 17 Nov 2026, finding 1).
+   */
+  update(key: string, next: (remembered: readonly RememberedLedger[]) => Omit<RememberedLedger, "at"> | undefined,
     now?: number): void;
-  /** How many ledgers it holds. */
+  /** How many ledgers it holds, one per lineage. */
   size(): number;
 }
 
 /**
  * Codex's review of 17 Nov 2026, finding 6: no ledger is kept past its two hours. Each update sweeps every expired one,
  * and while any is kept a timer, which never keeps the process alive, sweeps when the oldest expires, so a ledger never
- * asked for again goes too.
+ * asked for again goes too. At most FINDINGS_LEDGER_MEMORY_ENTRIES ledgers in all, the oldest going first.
  */
 export function createFindingsLedgerMemory(): FindingsLedgerMemory {
-  const kept = new Map<string, RememberedLedger>();
+  // By account and research target, then by lineage, the one issued least recently first.
+  const kept = new Map<string, Map<string, RememberedLedger>>();
+  let count = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const forget = (memoryKey: string, lineage: string) => {
+    const lineages = kept.get(memoryKey);
+    if (lineages?.delete(lineage) === true) count -= 1;
+    if (lineages?.size === 0) kept.delete(memoryKey);
+  };
   const sweep = (now: number) => {
-    for (const [memoryKey, { at }] of kept) if (now - at > FINDINGS_LEDGER_MEMORY_MS) kept.delete(memoryKey);
+    for (const [memoryKey, lineages] of kept) {
+      for (const [lineage, { at }] of lineages) if (now - at > FINDINGS_LEDGER_MEMORY_MS) forget(memoryKey, lineage);
+    }
+  };
+  const oldest = () => {
+    let found: { memoryKey: string; lineage: string; at: number } | undefined;
+    for (const [memoryKey, lineages] of kept) {
+      for (const [lineage, { at }] of lineages) if (found === undefined || at < found.at) found = { memoryKey, lineage, at };
+    }
+    return found;
   };
   const schedule = () => {
-    if (timer !== undefined || kept.size === 0) return;
-    let oldest = Infinity;
-    for (const { at } of kept.values()) oldest = Math.min(oldest, at);
+    const first = timer === undefined ? oldest() : undefined;
+    if (first === undefined) return;
     timer = setTimeout(() => {
       timer = undefined;
       sweep(Date.now());
       schedule();
-    }, Math.max(1_000, oldest + FINDINGS_LEDGER_MEMORY_MS + 1 - Date.now()));
+    }, Math.max(1_000, first.at + FINDINGS_LEDGER_MEMORY_MS + 1 - Date.now()));
     timer.unref?.();
   };
   const get = (memoryKey: string, now: number) => {
-    const found = kept.get(memoryKey);
-    if (found === undefined) return undefined;
-    if (now - found.at > FINDINGS_LEDGER_MEMORY_MS) { kept.delete(memoryKey); return undefined; }
-    return found;
+    const live = [...kept.get(memoryKey)?.values() ?? []].filter(({ at }) => now - at <= FINDINGS_LEDGER_MEMORY_MS);
+    return live.length === 0 ? undefined : live.reverse();
   };
   return {
     get(memoryKey, now = Date.now()) {
@@ -394,16 +426,25 @@ export function createFindingsLedgerMemory(): FindingsLedgerMemory {
     },
     update(memoryKey, next, now = Date.now()) {
       sweep(now);
-      const record = next(get(memoryKey, now));
+      const record = next(get(memoryKey, now) ?? []);
       if (record !== undefined) {
-        kept.delete(memoryKey);
-        if (kept.size >= FINDINGS_LEDGER_MEMORY_ENTRIES) kept.delete(kept.keys().next().value!);
-        kept.set(memoryKey, { ...record, at: now });
+        const lineage = record.payload.lin;
+        forget(memoryKey, lineage);
+        while ((kept.get(memoryKey)?.size ?? 0) >= FINDINGS_LEDGER_LINEAGES) {
+          forget(memoryKey, kept.get(memoryKey)!.keys().next().value!);
+        }
+        for (let first = oldest(); first !== undefined && count >= FINDINGS_LEDGER_MEMORY_ENTRIES; first = oldest()) {
+          forget(first.memoryKey, first.lineage);
+        }
+        const lineages = kept.get(memoryKey) ?? new Map<string, RememberedLedger>();
+        lineages.set(lineage, { ...record, at: now });
+        kept.set(memoryKey, lineages);
+        count += 1;
       }
       schedule();
     },
     size() {
-      return kept.size;
+      return count;
     }
   };
 }
@@ -559,11 +600,14 @@ export interface FindingsLedgerParams {
    * `coverage` says.
    */
   checkedItems?: readonly string[] | undefined;
-  remembered?: RememberedLedger | undefined;
+  /** The ledgers the server remembers for this account and research target, one per lineage (FindingsLedgerMemory.get). */
+  remembered?: readonly RememberedLedger[] | undefined;
   /**
    * The turn ids this call carries (Fable's check of 17 Nov 2026): its own (its round token's, or a new one) and, with a
-   * verified carried state, that state's. `remembered` is used only when it was issued in one of them, or the call
-   * passes it or the ledger it was issued from; otherwise the call is another chat's and inherits nothing from it.
+   * verified carried state, that state's. A call that passes a ledger of this research continues that ledger's lineage
+   * (Codex's sixth review of 17 Nov 2026, finding 1); one that passes none continues the remembered lineage whose
+   * ledgers were issued in one of these turns. Otherwise the call is another chat's: it starts a lineage of its own and
+   * inherits nothing.
    */
   turns?: { call: string; carried?: string | undefined } | undefined;
   now: Date;
@@ -595,18 +639,20 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   const ver = versionsDigest(secret, params.versions);
   const given = laterInputValue(raw, "findings_ledger");
   const givenDigest = typeof given === "string" && given !== "" ? tokenDigest(given) : undefined;
-  // Fable's check of 17 Nov 2026: the ledger remembered for this account and research target is another chat's too
-  // when two ask the same question. Only a call carrying its chat's state continues it: the turn it was issued in, as
-  // the call's round token or carried state gives it, or that ledger or the one it was issued from. Any other call
-  // starts afresh and inherits nothing.
+  const verified = given === undefined || given === null || given === "" ? undefined : verifyFindingsLedger(given, secret);
+  const ours = verified?.ok === true && verified.payload.a === account && verified.payload.t === target
+    ? verified.payload : undefined;
+  // Fable's check of 17 Nov 2026, and Codex's sixth review of 17 Nov 2026, finding 1: two chats asking the same question
+  // share an account and research target, so the server remembers each chat's latest ledger apart, by its lineage. A
+  // ledger of this research passed back, however old, names its lineage, and its latest ledger is used; a call passing
+  // none continues the lineage one of whose turns it carries, as its round token or carried state gives it. Any other
+  // call starts a lineage of its own and inherits nothing.
   const turnDigest = (turn: string | undefined) => turn === undefined ? undefined : digest(secret, "turn", turn, 16);
   const callTurn = turnDigest(params.turns?.call);
   const carriedTurn = turnDigest(params.turns?.carried);
-  const sameChat = ({ turn, token, parent }: RememberedLedger) =>
-    (turn !== undefined && (turn === callTurn || turn === carriedTurn)) ||
-    (givenDigest !== undefined && (givenDigest === token || givenDigest === parent));
-  const remembered = params.remembered !== undefined && params.remembered.payload.a === account &&
-    params.remembered.payload.t === target && sameChat(params.remembered) ? params.remembered : undefined;
+  const known = (params.remembered ?? []).filter(({ payload }) => payload.a === account && payload.t === target);
+  const remembered = ours !== undefined ? known.find(({ payload }) => payload.lin === ours.lin)
+    : known.find(({ turns }) => (turns ?? []).some((turn) => turn === callTurn || turn === carriedTurn));
   const draftDigest = draft === undefined || draft === "" ? "" : digest(secret, "draft", draft, 16);
   const responseNotes: string[] = [];
   const responses = readResponses(raw, responseNotes);
@@ -641,7 +687,7 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   let retry = false;
   // The reasons of an older ledger passed back, which give back only a reason the memory's digest matches.
   let older: FindingsLedgerPayload | undefined;
-  if (given === undefined || given === null || given === "") {
+  if (verified === undefined) {
     if (remembered !== undefined) {
       state = "omitted";
       previous = remembered.payload;
@@ -650,7 +696,6 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
         "latest findings_ledger back in every call.");
     }
   } else {
-    const verified = verifyFindingsLedger(given, secret);
     if (!verified.ok) {
       state = "rejected";
       previous = remembered?.payload;
@@ -927,10 +972,17 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     retention.push(`An earlier findings_ledger of this research could not carry ${previous.o} open findings, so this ` +
       "ledger may lack their dispositions: a check that finds one again lists it as open.");
   }
+  // Codex's sixth review of 17 Nov 2026, finding 1: the lineage of the ledger this one is issued from, or, for a chat's
+  // first, a new one made from this call, its turns and its time.
+  const lineage = previous?.lin ?? digest(secret, "lineage", [account, target, callTurn ?? "", carriedTurn ?? "", request,
+    now.toISOString()].join("\u0000"), 16);
+  // The turns this lineage's ledgers were issued in, this call's last.
+  const turns = [...new Set([...remembered?.payload.lin === lineage ? remembered.turns ?? [] : [],
+    ...callTurn === undefined ? [] : [callTurn]])].slice(-FINDINGS_LEDGER_TURNS);
   // Every finding of this check is listed in check_findings, so each is addressable by its id; the token carries as
   // many as fit, open ones first, and says how many open ones it leaves out (Codex's review, finding 5).
   const issued = issueWithin({
-    v: 1, a: account, t: target, ver, seq: Math.min((previous?.seq ?? 0) + 1, 100_000),
+    v: 1, a: account, t: target, ver, lin: lineage, seq: Math.min((previous?.seq ?? 0) + 1, 100_000),
     rev: Math.min(revision, 10_000), d: draftDigest || previous?.d || "",
     // A retry is given the ledger it was given the first time, token for token.
     at: retry && remembered !== undefined ? remembered.payload.at : now.toISOString(),
@@ -963,7 +1015,7 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     retention,
     remember: issued === undefined ? undefined : { payload: forMemory(issued.payload, secret),
       token: tokenDigest(issued.token), ...(givenDigest === undefined ? {} : { parent: givenDigest }), request,
-      ...(callTurn === undefined ? {} : { turn: callTurn }) }
+      ...(turns.length === 0 ? {} : { turns }) }
   };
 }
 
