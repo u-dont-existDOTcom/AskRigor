@@ -242,6 +242,12 @@ export interface RememberedLedger {
   /** The digest of that token, and of the token it was issued from (absent for a new ledger). */
   token: string;
   parent?: string;
+  /**
+   * The digest of everything the call that issued it gave the ledger: the ledger passed back, the draft, the replies,
+   * what the check found and which parts of it ran. Only the same request on the same parent is a retry (Codex's
+   * review of 17 Nov 2026, finding 2).
+   */
+  request?: string;
   at: number;
 }
 export interface FindingsLedgerMemory {
@@ -439,9 +445,28 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     params.remembered.payload.t === target ? params.remembered : undefined;
   const given = laterInputValue(raw, "findings_ledger");
   const draftDigest = draft === undefined || draft === "" ? "" : digest(secret, "draft", draft, 16);
+  const responseNotes: string[] = [];
+  const responses = readResponses(raw, responseNotes);
+  const covered = new Set<FindingChecker>(params.coverage ?? ALWAYS_RUN);
+  // One record per finding: the same rule with the same inserted words, found twice in one call, is one finding.
+  const observed: Fingerprinted[] = [];
+  for (const finding of params.observed) {
+    const entry = fingerprinted(secret, finding);
+    if (!observed.some(({ f }) => f === entry.f)) observed.push(entry);
+  }
+  // Codex's review of 17 Nov 2026, finding 2: the whole of what this call gives the ledger. A call passing the parent
+  // of the latest ledger is a retry only when all of it is the same; otherwise it is a replay of an older ledger, and
+  // continues from the latest, so a reply or disposition recorded since can't be rolled back.
+  const request = digest(secret, "request", JSON.stringify([
+    typeof given === "string" ? tokenDigest(given) : "", draftDigest, ver, [...responses.values()],
+    observed.map(({ f, stop, call, disputed, ...finding }) =>
+      [f, stop ?? "", call === true, disputed ?? "", checkerOf(finding)]),
+    [...covered].sort()
+  ]), 16);
 
   let state: FindingsLedgerState = "new";
   let previous: FindingsLedgerPayload | undefined;
+  let retry = false;
   if (given === undefined || given === null || given === "") {
     if (remembered !== undefined) {
       state = "omitted";
@@ -466,8 +491,7 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
         ? "this check's findings start a new ledger." : "the ledger AskRigor last issued for this research was used."));
     } else {
       const givenDigest = tokenDigest(given as string);
-      const retry = remembered !== undefined && remembered.parent === givenDigest &&
-        remembered.payload.d === draftDigest;
+      retry = remembered !== undefined && remembered.parent === givenDigest && remembered.request === request;
       const older = remembered !== undefined && !retry && remembered.token !== givenDigest &&
         remembered.payload.seq >= verified.payload.seq;
       if (older) {
@@ -488,21 +512,14 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
       "again under the current ones.");
   }
 
-  const responses = readResponses(raw, notes);
+  notes.push(...responseNotes);
   const previousRevision = previous?.rev ?? 0;
   const draftChanged = draftDigest !== "" && previous !== undefined && previous.d !== draftDigest;
   const revision = draftDigest !== "" && (previous === undefined || previous.d !== draftDigest)
     ? previousRevision + 1 : Math.max(previousRevision, 1);
   const prior = previous?.e ?? [];
   const used = new Set<string>();
-  const covered = new Set<FindingChecker>(params.coverage ?? ALWAYS_RUN);
 
-  // One record per finding: the same rule with the same inserted words, found twice in one call, is one finding.
-  const observed: Fingerprinted[] = [];
-  for (const finding of params.observed) {
-    const entry = fingerprinted(secret, finding);
-    if (!observed.some(({ f }) => f === entry.f)) observed.push(entry);
-  }
   const matches = new Map<Fingerprinted, LedgerEntry>();
   for (const finding of observed) {
     const exact = prior.find((entry) => entry.f === finding.f && !used.has(entry.id));
@@ -643,7 +660,9 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   // many as fit, open ones first, and says how many open ones it leaves out (Codex's review, finding 5).
   const issued = issueWithin({
     v: 1, a: account, t: target, ver, seq: Math.min((previous?.seq ?? 0) + 1, 100_000),
-    rev: Math.min(revision, 10_000), d: draftDigest || previous?.d || "", at: now.toISOString(),
+    rev: Math.min(revision, 10_000), d: draftDigest || previous?.d || "",
+    // A retry is given the ledger it was given the first time, token for token.
+    at: retry && remembered !== undefined ? remembered.payload.at : now.toISOString(),
     e: entries.slice(0, MAX_ENTRIES)
   }, secret);
   const leftOpen = (issued?.left ?? entries).filter(({ d }) => !SETTLED.has(d)).map(({ id }) => id);
@@ -666,7 +685,7 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     token: issued?.token,
     notes,
     remember: issued === undefined ? undefined : { payload: issued.payload, token: tokenDigest(issued.token),
-      ...(typeof given === "string" && given !== "" ? { parent: tokenDigest(given) } : {}) }
+      ...(typeof given === "string" && given !== "" ? { parent: tokenDigest(given) } : {}), request }
   };
 }
 

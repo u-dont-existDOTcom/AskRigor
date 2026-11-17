@@ -387,6 +387,32 @@ describe("the review of 17 Nov 2026", () => {
       expect.objectContaining({ id: warning.id, disposition: "fixed" })]));
   });
 
+  it("2: takes only the same request again as a retry; an older ledger with other replies continues from the latest", () => {
+    const memory = createFindingsLedgerMemory();
+    const key = findingsLedgerMemoryKey(SECRET, "acct-a", "A research target");
+    const at = NOW.getTime();
+    const first = findingsLedger(params({ observed: [draftNote(WARNING)], draft: "Draft one." }));
+    memory.update(key, () => first.remember, at);
+    const id = first.checkFindings.findings[0]!.id;
+    const reason = "The sentence reports a guideline's wording, not a claim of this answer.";
+    const disputing = { later_inputs: { findings_ledger: first.token,
+      finding_responses: [{ id, response: "disputed", reason }] } };
+    const disputed = findingsLedger(params({ observed: [draftNote(WARNING)], draft: "Draft one.", raw: disputing,
+      remembered: memory.get(key, at) }));
+    expect(disputed.checkFindings.findings[0]).toMatchObject({ id, disposition: "disputed", reason });
+    memory.update(key, () => disputed.remember, at);
+    // The first ledger again with the same draft but without the reply: not a retry, so the dispute recorded since stays.
+    const rolledBack = findingsLedger(params({ observed: [draftNote(WARNING)], draft: "Draft one.",
+      raw: { later_inputs: { findings_ledger: first.token } }, remembered: memory.get(key, at) }));
+    expect(rolledBack.checkFindings.ledger).toBe("replayed");
+    expect(rolledBack.checkFindings.findings[0]).toMatchObject({ id, disposition: "disputed", reason });
+    // The same request sent again is a retry: the same ledger, token for token.
+    const retried = findingsLedger(params({ observed: [draftNote(WARNING)], draft: "Draft one.", raw: disputing,
+      remembered: memory.get(key, at), now: new Date(at + 5_000) }));
+    expect(retried.checkFindings.ledger).toBe("continued");
+    expect(retried.token).toBe(disputed.token);
+  });
+
   it("3: never lets a call that finishes late overwrite a newer ledger the server remembers", async () => {
     vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", SECRET);
     const memory = createFindingsLedgerMemory();
