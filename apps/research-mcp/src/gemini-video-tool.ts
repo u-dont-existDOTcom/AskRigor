@@ -145,9 +145,10 @@ const publishedVideoClaimsOutputSchema = z.object({
 const publishedVideoClaimSchema = publishedVideoClaimsOutputSchema.shape.claims.unwrap().element;
 /**
  * Server fix 8, C2 (Codex's red team of 17 Nov 2026: a 3 min 36 s video read whole came back complete with no claim and
- * n=0): why a whole-video reading listed nothing. no_speech, Gemini heard nobody speak (spoken_language zxx or none);
- * no_claims_listed, Gemini heard speech and listed no health claim, which is not a reading of what the video says: it
- * lists health claims only, and may have missed some.
+ * n=0): why a whole-video reading listed nothing. no_speech, Gemini heard nobody speak (spoken_language zxx, given
+ * explicitly); no_claims_listed, Gemini listed no health claim, which is not a reading of what the video says: it lists
+ * health claims only, and may have missed some. An empty spoken_language is no_claims_listed in a language not known,
+ * never no speech (Codex's review of 17 Nov 2026, finding 6).
  */
 export const VIDEO_EMPTY_REASONS = ["no_speech", "no_claims_listed"] as const;
 // Owner answer 189a: the published output stays open for these later fields, without changing tools/list.
@@ -493,10 +494,13 @@ function completedResult(
   };
 }
 
-/** Why a whole-video reading listed no claim (server fix 8, C2): nobody spoke, or speech with no claim listed. */
+/**
+ * Why a whole-video reading listed no claim (server fix 8, C2): nobody spoke, or no claim listed. Only an explicit zxx
+ * says nobody spoke (Codex's review of 17 Nov 2026, finding 6): an empty language is a missing answer, not silence, so
+ * it reads as no claim listed, in a language not known.
+ */
 function emptyReason(spokenLanguage: string): typeof VIDEO_EMPTY_REASONS[number] {
-  const language = spokenLanguage.trim().toLowerCase();
-  return language === "" || language === "zxx" ? "no_speech" : "no_claims_listed";
+  return spokenLanguage.trim().toLowerCase() === "zxx" ? "no_speech" : "no_claims_listed";
 }
 
 /** What an empty whole-video reading says first: what was tried, what came back, and what it is not. */
@@ -507,7 +511,9 @@ function emptyReadingText(reason: typeof VIDEO_EMPTY_REASONS[number], output: Ou
       "Say the video was read and held no spoken claim; what is shown on screen is in on_screen_citations and " +
       "sponsorships, when there is any."
     : `Gemini read ${covered} and listed no health claim (status empty: an empty reading, not a reading of what the ` +
-      `video says). It heard speech in ${output.spoken_language}, so it lists health claims only and may have missed ` +
+      `video says). ${(output.spoken_language ?? "").trim() === ""
+        ? "Gemini gave no spoken language, so the video's language is unknown. It"
+        : `It heard speech in ${output.spoken_language}, so it`} lists health claims only and may have missed ` +
       "some: never say the video makes no claim, or what it says, from this result. For what a moment says, call " +
       `${EXTRACT_YOUTUBE_VIDEO_CLAIMS} again with the video and at (MM:SS); its description, from get_youtube_video, ` +
       "may say what the video covers.";
