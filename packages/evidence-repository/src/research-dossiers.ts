@@ -305,6 +305,28 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
     return withdrawn;
   }
 
+  /**
+   * What the public copies need to know of a private version (AskRigor#477 stage 2, research-dossier-publications.ts),
+   * as the database's publish function and triggers read it: whose it is, whether it is its dossier's newest, and
+   * whether it was withdrawn, rejected or erased.
+   */
+  versionFacts(versionId: string): {
+    accountKey: string | null; dossierNumber: string; versionNumber: number; newest: boolean; closed: boolean;
+    erased: boolean;
+  } | undefined {
+    const version = this.versions.get(versionId);
+    if (version === undefined) return undefined;
+    const dossier = this.dossiers.get(version.dossierNumber)!;
+    return {
+      accountKey: dossier.accountKey,
+      dossierNumber: version.dossierNumber,
+      versionNumber: version.versionNumber,
+      newest: this.latestOf(version.dossierNumber)?.versionId === versionId,
+      closed: version.events.some(({ event }) => event === "withdrawn" || event === "rejected" || event === "erased"),
+      erased: version.erasedAt !== null,
+    };
+  }
+
   /** Every version's events and state, for tests. */
   snapshot(): Array<{ dossierNumber: string; versionNumber: number; versionId: string; erased: boolean;
     writtenAlongside: boolean; events: string[]; identifiers: number; cardNumber: number | null }> {

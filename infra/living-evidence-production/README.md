@@ -538,6 +538,28 @@ next `migrate` that includes 0038 builds it again. Should it ever have to go, dr
 blocking writes: `DROP INDEX CONCURRENTLY IF EXISTS living_evidence.research_contribution_proposals_idempotency_idx;`.
 Undo no migration.
 
+Migration `0040_research_dossier_publications` (AskRigor#477 stage 2, owner answers 331a, 332a and 333a; built, not
+yet released; 0039 is another branch's) adds the research dossiers' public copies: `research_dossier_public_notices`
+(the notices whose yes covers a dossier on the public Atlas, empty), `research_dossier_publications` (a dossier's public
+number, D-1001 onward), `research_dossier_public_versions` (one copy per saved version: shown, held for AskRigor's check
+with its reasons, superseded, taken down or erased; its public content, topic, related topics, the dossiers it conflicts
+with, where its research ran and whether the privacy reading read it) and `research_dossier_public_events`
+(append-only), five functions and two views. The research-access role publishes and reads a topic's shown copies
+(`publish_research_dossier_version`, `research_dossier_topic_publications`); the review role lists, inspects and decides
+(`list_research_dossier_publications`, `inspect_research_dossier_publication`, `decide_research_dossier_publication`);
+the canonical reader reads only the views `research_dossier_public_pages` and `research_dossier_public_history`. A
+trigger on `research_dossier_events` takes a copy off the pages when its version is withdrawn or rejected, and erases it
+when its version is erased, unless the owner accepted it, so an earlier image's revocation and `forget_card` keep them in
+step. Its release: the one-shot admin `migrate`, then re-run `/usr/local/bin/provision-research-access-role` and
+`/usr/local/bin/provision-research-review-role`, before the image serves. Nothing is published until both
+`ASKRIGOR_PUBLIC_DOSSIERS=enabled` (off by default; it also needs `ASKRIGOR_RESEARCH_DOSSIERS=enabled`) and the release of
+notice v7, on the owner's yes, which adds its version to `research_dossier_public_notices` and to
+`PUBLIC_DOSSIER_NOTICE_VERSIONS`. Read-only, as the migrator:
+`SELECT state, count(*) FROM living_evidence.research_dossier_public_versions GROUP BY state;`. An earlier image never
+reads these tables. Undo no migration; to take everything off the pages at once, set `ASKRIGOR_PUBLIC_DOSSIERS` off
+(the pages stop reading the views) or take copies down with `take_down_dossier`. Its own PostgreSQL acceptance:
+`npm run dossier-publications:postgres-acceptance`.
+
 Owner answers 254a and 255a (2026-11-05; built, not yet released; plan
 `../../docs/superpowers/plans/2026-11-05-atlas-research-behind.md`): migration
 `0029_atlas_research_behind` admits `forum_read` among the verified bases of

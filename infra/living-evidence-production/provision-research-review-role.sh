@@ -136,6 +136,14 @@ GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_challenges()
 -- thread key alone (never by a card number, which several people's saves share).
 GRANT EXECUTE ON FUNCTION living_evidence.erase_research_dossiers(text, timestamptz)
   TO askrigor_research_review;
+-- AskRigor#477 stage 2 (migration 0040): the dossiers' public copies, listed, inspected and decided (show, hold, take
+-- down, accept) through these functions; no table right.
+GRANT EXECUTE ON FUNCTION living_evidence.list_research_dossier_publications(text, integer)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.inspect_research_dossier_publication(text)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.decide_research_dossier_publication(text, integer, text, text, timestamptz)
+  TO askrigor_research_review;
 ALTER ROLE askrigor_research_review SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_review SET idle_in_transaction_session_timeout = '5s';
 ALTER ROLE askrigor_research_review SET search_path = living_evidence, pg_catalog;
