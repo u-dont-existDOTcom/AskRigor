@@ -115,6 +115,10 @@ records decisions and their sources; it adds no authority to the list above.
 - `youtube-channel-registry.md`: the seed of the YouTube channel registry (owner's idea, 30 Oct): 74 channels by
   health category, confirmed through the API, with the kinds of value (methods, hard cases, outcomes, leads, critique,
   benchmark), cautions and where each came from; none checked yet.
+- `youtube-subtitles-operator-runbook.md`: saving a public video's or playlist's captions on the operator's own
+  computer with yt-dlp (AskRigor#484): the install check, the original-language track, an absolute folder, a slow pace,
+  stopping at HTTP 429 and counting saved files against the playlist; a local fallback, never part of AskRigor's service
+  or a store of transcripts, with the two captures #484 reports.
 - `audits/2026-11-07-owner-answer-275a-production-release.md`: the site update of #423 and #429, the Support page's Bitcoin address and research-job requests and the privacy notice's new section (owner answer 275a, 7 Nov 2026).
 - `audits/2026-11-09-owner-answer-285-production-release.md`: #435, HRP 20.6.41's `WordsAreNotSizes` (owner answer 282a), the all-journal search through OpenAlex with the owner's free key (283a), the timing runs' fixes (an emergency's action first, the menu's fields, measured times) and the form people use, with the privacy notice naming OpenAlex released first (owner answer 285a, 9 Nov 2026).
 - `audits/2026-11-10-owner-answer-286-production-release.md`: #436, balanced asks before researching when the recommended tasks could take more than about 10 minutes or when the person's choices could steer the research (owner answer 284), with no app refresh (owner answer 286a, 10 Nov 2026).
