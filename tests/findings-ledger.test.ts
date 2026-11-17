@@ -13,6 +13,7 @@ import {
   type FindingsLedgerParams, type ObservedFinding,
 } from "../apps/research-mcp/src/findings-ledger.js";
 import { laterInputNames } from "../apps/research-mcp/src/later-inputs.js";
+import { ANSWER_READING_LABELS } from "../apps/research-mcp/src/source-reading.js";
 import {
   FINAL_CHECK_BLOCKING_RULES, SECOND_READING_LEFT_TO_CALLER, communitySkipCaveat,
   finalizeResearch as finalizeResearchUnwrapped, finalizeResearchOutputSchema, settleFindingsLedger,
@@ -569,7 +570,7 @@ describe("the review of 17 Nov 2026", () => {
     expect(sixth).toContain("plain_answer_comparison missing, or leaving out a claim");
     expect(sixth).toContain("a change the research doesn't back is a note, not a stop");
     expect(WHAT_STOPS_TEXT).toContain(sixth);
-    expect(WHAT_STOPS_TEXT.length).toBeLessThan(1_300);
+    expect(WHAT_STOPS_TEXT.length).toBeLessThan(1_600);
   });
 });
 
@@ -1096,7 +1097,7 @@ describe("what can stop an answer, said up front", () => {
     // Claim holds wait for the owner's answer on how they fit with the six stops.
     expect(WHAT_STOPS_TEXT).not.toMatch(/\bhold/u);
     expect(whatStops()).toEqual({ text: WHAT_STOPS_TEXT, stops: WHAT_STOPS.map((stop) => ({ ...stop })) });
-    expect(WHAT_STOPS_TEXT.length).toBeLessThan(1_300);
+    expect(WHAT_STOPS_TEXT.length).toBeLessThan(1_600);
   });
 });
 
@@ -1386,5 +1387,29 @@ describe("Codex's sixth review of 17 Nov 2026", () => {
     expect(memory.get(key, at + 2)).toHaveLength(FINDINGS_LEDGER_LINEAGES);
     expect(chat(turns[0]!, {}, at + 3).checkFindings.ledger).toBe("omitted");
     expect(chat(turns[1]!, {}, at + 4).checkFindings.ledger).toBe("new");
+  });
+
+  it("2: says up front how reading depth is held as the check holds it, and what the reader's panel lists", () => {
+    const scope = WHAT_STOPS.find(({ rule: stop }) => stop === "read_depth")!.scope;
+    // The answer's words on how a key source was read, already in the draft, count only with their source_reading entry.
+    const words = fixture(WARNING, { answer_draft: "[Texte lu] [Étude](https://doi.org/10.1000/depth) " +
+      `(${ANSWER_READING_LABELS.full_text_audited}).\n\n${WARNING}\n\n` +
+      communitySkipCaveat("Synthetic fixture isolates the findings ledger.") });
+    const without = finalizeResearchUnwrapped(words, options(WARNING));
+    expect(without.status).toBe("not_ready");
+    expect(without.check_findings!.findings).toEqual(expect.arrayContaining([expect.objectContaining({
+      stop: "read_depth", text: expect.stringContaining("is cited in the answer without saying how it was read") })]));
+    expect(finalizeResearch(words, options(WARNING)).status).not.toBe("not_ready");
+    expect(scope).toContain("without a later_inputs.source_reading entry giving its reading and quoting");
+    expect(scope).toContain("the words alone don't count");
+    // A lower reading, part of the text or less, needs no receipt; the reader's panel lists it as one the receipts
+    // don't show.
+    expect(scope).toContain("partial_text or less needs no receipt");
+    expect(scope).toContain("the reader is told the receipts don't show it");
+    // What the reader's panel lists: at most 20, and nothing about the call or a check that didn't run.
+    expect(WHAT_STOPS_TEXT).not.toContain("the reader sees open and disputed ones under the answer");
+    expect(WHAT_STOPS_TEXT).toContain("Under a passing answer the reader sees up to 20 problems left open or disputed");
+    expect(WHAT_STOPS_TEXT).toContain("none about the call itself or a check that didn't run");
+    expect(WHAT_STOPS_TEXT.split("\n")).toHaveLength(1);
   });
 });

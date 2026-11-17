@@ -1056,8 +1056,13 @@ export const WHAT_STOPS = Object.freeze([
   // Fable's check of 17 Nov 2026: each scope as research-finalization-gate.ts applies the rule (addBlockingStep).
   { rule: "source_provenance", scope: "a key source with no AskRigor receipt from this research, not linked in the " +
     "answer, or linked to a page no receipt ties to it" },
-  { rule: "read_depth", scope: "a reading in read_depth or source_reading beyond what the receipts show, or a cited key " +
-    "source without the answer's words on how it was read" },
+  // Codex's sixth review of 17 Nov 2026, finding 2: as research-finalization-gate.ts holds it. A lower reading needs no
+  // receipt (DECLARABLE_WITHOUT_RECEIPT), and the panel lists it apart, as one AskRigor's receipts don't show; a cited
+  // key source needs its source_reading entry, whatever words the draft already has.
+  { rule: "read_depth", scope: "a reading in read_depth or source_reading beyond what the receipts show (partial_text " +
+    "or less needs no receipt, and the reader is told the receipts don't show it), or a cited key source without a " +
+    "later_inputs.source_reading entry giving its reading and quoting, from answer_draft, the words beside it saying so " +
+    "(the words alone don't count)" },
   { rule: "numbers", scope: "a binary_results entry whose counts or number needed to treat or harm are wrong, or whose " +
     "quote lacks either group's figure, that number or its follow-up" },
   { rule: "harm_screen", scope: "safety_claims with no harm searched in harm_screen" },
@@ -1070,12 +1075,15 @@ export const WHAT_STOPS = Object.freeze([
     "change the research doesn't back is a note, not a stop)" }
 ] as const);
 // Fable's check of 17 Nov 2026: a call whose answer_draft or research_target is missing or unusable is not checked
-// (invalidFinalizeResearchInput), so its answer is not ready either; nothing else stops it.
+// (invalidFinalizeResearchInput), so its answer is not ready either; nothing else stops it. Codex's sixth review of 17
+// Nov 2026, finding 2: what the reader's panel lists, as final-check-panel.ts lists it: under a passing check, at most
+// 20 problems, then how many more, and never one about the call or a check that did not run (reader false).
 export const WHAT_STOPS_TEXT = "What can stop this answer at finalize_research. Without a usable answer_draft and " +
   "research_target the check doesn't run, and the answer is not ready. Otherwise six checks stop the whole answer " +
   "until fixed, each only in its scope: " + WHAT_STOPS.map(({ scope }, index) => `${index + 1}. ${scope}`).join("; ") +
   ". Nothing else stops it: all else is a note with an id. Fix it, or dispute it in later_inputs.finding_responses " +
-  "with a reason; the reader sees open and disputed ones under the answer.";
+  "with a reason. Under a passing answer the reader sees up to 20 problems left open or disputed, and how many more, " +
+  "but none about the call itself or a check that didn't run.";
 export const whatStopsSchema = z.object({
   text: z.string(),
   stops: z.array(z.object({ rule: z.string(), scope: z.string() }).strict())
