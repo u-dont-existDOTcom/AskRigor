@@ -1044,7 +1044,7 @@ describe("the panel", () => {
       .textContent).not.toContain(OPENING);
   });
 
-  it("counts the earlier findings the reader could see that were not checked again, with or without open ones", () => {
+  it("counts the earlier problems the reader could see that were not checked again, with or without open ones", () => {
     const unchecked = [
       { id: "F-0000000006", disposition: "not_rechecked", reader: true, first_revision: 1, last_revision: 1 },
       { id: "F-0000000007", disposition: "not_rechecked", reader: true, first_revision: 1, last_revision: 1 },
@@ -1053,12 +1053,12 @@ describe("the panel", () => {
     const both = render({ status: "ready", check_findings: { ledger: "continued", revision: 2,
       findings: [...findings, ...unchecked] } });
     expect(both.textContent).toContain(`${OPENING} (2)`);
-    expect(both.all("p").map(({ textContent }) => textContent)).toContain("2 earlier findings were not checked again.");
+    expect(both.all("p").map(({ textContent }) => textContent)).toContain("2 earlier problems were not checked again.");
     // With no open finding, the line is still shown.
     const alone = render({ status: "ready_with_limits", limits: [], check_findings: { ledger: "continued", revision: 2,
       findings: unchecked.slice(1) } });
     expect(alone.textContent).not.toContain(OPENING);
-    expect(alone.all("p").map(({ textContent }) => textContent)).toContain("1 earlier finding was not checked again.");
+    expect(alone.all("p").map(({ textContent }) => textContent)).toContain("1 earlier problem was not checked again.");
     expect(render({ status: "not_ready", check_findings: { ledger: "continued", revision: 2, findings: unchecked } })
       .textContent).not.toContain("not checked again");
     expect(render({ status: "ready", check_findings: { ledger: "continued", revision: 2, findings: unchecked.slice(2) } })
@@ -1258,5 +1258,24 @@ describe("before switching on (Fable's check of 17 Nov 2026)", () => {
     expect(scope("numbers")).toContain("lacks either group's figure, that number or its follow-up");
     expect(WHAT_STOPS_TEXT).toContain("Nothing else stops it");
     expect(WHAT_STOPS.map(({ rule: name }) => name)).toEqual([...FINAL_CHECK_BLOCKING_RULES]);
+  });
+
+  it("4: calls them problems, never findings, in everything the reader's panel shows of them", () => {
+    const texts = (root: Element) => root.all("p").concat(root.all("li"), root.all("summary"))
+      .map(({ textContent }) => textContent);
+    const unchecked = (id: string) => ({ id, disposition: "not_rechecked", reader: true, first_revision: 1, last_revision: 1 });
+    const result = { status: "ready", check_findings: { ledger: "continued", revision: 2, not_run: ["the meaning judge"],
+      findings: [
+        { id: "F-0000000001", text: "Give the absolute numbers.", disposition: "open", reader: true, first_revision: 1,
+          last_revision: 2 },
+        { id: "F-0000000002", text: "Name the harm.", disposition: "disputed", reader: true, first_revision: 1,
+          last_revision: 2 },
+        unchecked("F-0000000003"), unchecked("F-0000000004")] } };
+    const base = new Set(texts(render({ status: "ready" })));
+    const added = texts(render(result)).filter((text) => !base.has(text));
+    expect(added).toContain("2 earlier problems were not checked again.");
+    expect(added.filter((text) => /finding/iu.test(text))).toEqual([]);
+    expect(texts(render({ status: "ready", check_findings: { ledger: "continued", revision: 2,
+      findings: [unchecked("F-0000000003")] } }))).toContain("1 earlier problem was not checked again.");
   });
 });

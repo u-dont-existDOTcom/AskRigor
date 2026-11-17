@@ -223,8 +223,8 @@ function renderFinalCheck(doc, structuredContent) {
       open.appendChild(list);
     }
     if (unchecked > 0) {
-      appendText("p", unchecked === 1 ? "1 earlier finding was not checked again."
-        : unchecked + " earlier findings were not checked again.");
+      appendText("p", unchecked === 1 ? "1 earlier problem was not checked again."
+        : unchecked + " earlier problems were not checked again.");
     }
     const notRun = result.check_findings && typeof result.check_findings === "object" &&
       Array.isArray(result.check_findings.not_run) ? result.check_findings.not_run.filter((name) =>
