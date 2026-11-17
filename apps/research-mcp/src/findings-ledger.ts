@@ -42,6 +42,7 @@ const FINDINGS_LEDGER_MEMORY_ENTRIES = 2_000;
  */
 const MAX_ENTRIES = 2_000;
 const MAX_RESPONSES = 30;
+const MAX_ITEMS = 8;
 const SKETCH_SIZE = 16;
 /** A finding of the same rule whose inserted words overlap an earlier one's at least this much is the same finding. */
 export const FINDINGS_SAME_AFTER_EDIT = 0.5;
@@ -92,6 +93,12 @@ export interface ObservedFinding {
   disputed?: string;
   /** The part of the check that found it; by default the second reading for its kind, else the rules. */
   checker?: FindingChecker;
+  /**
+   * For a look-up that reads lines one by one, what the finding is about (Codex's re-review of 17 Nov 2026, finding 1):
+   * each item a line group as the caller names it. An earlier finding with items counts as rechecked only when this
+   * call's checkedItems hold every one of them.
+   */
+  items?: readonly string[];
 }
 function checkerOf({ checker, kind }: { checker?: FindingChecker | undefined; kind?: NextStepKind | undefined }):
   FindingChecker {
@@ -114,7 +121,9 @@ const entrySchema = z.object({
   c: z.literal(true).optional(),
   w: z.string().trim().min(1).max(300).optional(),
   i: z.array(hex(12)).max(6).optional(),
-  x: z.enum(FINDING_CHECKERS).optional()
+  x: z.enum(FINDING_CHECKERS).optional(),
+  // Codex's re-review of 17 Nov 2026, finding 1: keyed digests of what an open finding of a look-up was about.
+  u: z.array(hex(12)).min(1).max(MAX_ITEMS).optional()
 }).strict();
 type LedgerEntry = z.output<typeof entrySchema>;
 const payloadSchema = z.object({
@@ -458,6 +467,12 @@ export interface FindingsLedgerParams {
    * the call. An earlier finding of a part that did not is not rechecked: neither fixed nor withdrawn.
    */
   coverage?: readonly FindingChecker[] | undefined;
+  /**
+   * What the look-ups of this call checked in full, item by item, named as the findings' items are (Codex's re-review
+   * of 17 Nov 2026, finding 1). An earlier finding with items is rechecked only when all of them are here, whatever
+   * `coverage` says.
+   */
+  checkedItems?: readonly string[] | undefined;
   remembered?: RememberedLedger | undefined;
   now: Date;
 }
@@ -488,6 +503,8 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   const responseNotes: string[] = [];
   const responses = readResponses(raw, responseNotes);
   const covered = new Set<FindingChecker>(params.coverage ?? ALWAYS_RUN);
+  const itemDigest = (item: string) => digest(secret, "item", item, 12);
+  const checkedItems = new Set((params.checkedItems ?? []).map(itemDigest));
   // One record per finding: the same rule with the same inserted words, found twice in one call, is one finding.
   const observed: Fingerprinted[] = [];
   for (const finding of params.observed) {
@@ -500,8 +517,8 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   const request = digest(secret, "request", JSON.stringify([
     typeof given === "string" ? tokenDigest(given) : "", draftDigest, ver, [...responses.values()],
     observed.map(({ f, stop, call, disputed, ...finding }) =>
-      [f, stop ?? "", call === true, disputed ?? "", checkerOf(finding)]),
-    [...covered].sort()
+      [f, stop ?? "", call === true, disputed ?? "", checkerOf(finding), [...finding.items ?? []].sort()]),
+    [...covered].sort(), [...checkedItems].sort()
   ]), 16);
 
   let state: FindingsLedgerState = "new";
@@ -618,6 +635,7 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     const reader = finding.call !== true && (finding.kind === undefined || !CALL_KINDS.has(finding.kind));
     const first = before?.n ?? revision;
     const checker = checkerOf(finding);
+    const items = [...new Set((finding.items ?? []).map(itemDigest))].sort().slice(0, MAX_ITEMS);
     entries.push({
       id, r: finding.r, f: finding.f, h: finding.h, d: disposition, n: first, l: revision,
       ...(finding.kind === undefined ? {} : { k: finding.kind }),
@@ -625,7 +643,8 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
       ...(finding.stop === undefined ? {} : { s: finding.stop }),
       ...(reader ? {} : { c: true as const }),
       ...(reason === undefined ? {} : { w: reason }),
-      ...(finding.ids.length === 0 ? {} : { i: finding.ids.map((found) => digest(secret, "identifier", found, 12)) })
+      ...(finding.ids.length === 0 ? {} : { i: finding.ids.map((found) => digest(secret, "identifier", found, 12)) }),
+      ...(items.length === 0 ? {} : { u: items })
     });
     findings.push({
       id, ...(finding.kind === undefined ? {} : { kind: finding.kind }),
@@ -636,7 +655,8 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   }
 
   // Earlier findings this check no longer finds. One the part of the check that found it did not look for again, for
-  // want of a draft or because that part did not run in full, is not rechecked: the ledger keeps it as it was.
+  // want of a draft, because that part did not run in full, or because the lines it was about were not looked up again
+  // in full (Codex's re-review of 17 Nov 2026, finding 1), is not rechecked: the ledger keeps it as it was.
   const draftIdentifiers = draft === undefined ? [] : identifiers(normalized(draft));
   const notRechecked = new Map<string, string[]>();
   for (const entry of prior) {
@@ -648,10 +668,10 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     if (!SETTLED.has(entry.d)) {
       const needsDraft = entry.k === undefined || DRAFT_KINDS.has(entry.k);
       const checker = checkerOf({ checker: entry.x, kind: entry.k });
-      if ((needsDraft && draftDigest === "") || !covered.has(checker)) {
+      const unchecked = entry.u === undefined ? !covered.has(checker) : entry.u.some((item) => !checkedItems.has(item));
+      if ((needsDraft && draftDigest === "") || unchecked) {
         shown = "not_rechecked";
-        const why = needsDraft && draftDigest === "" ? "this call gave no answer_draft"
-          : `${CHECKER_NAMES[checker]} did not run in full in this call`;
+        const why = needsDraft && draftDigest === "" ? "draft" : entry.u === undefined ? checker : "items";
         notRechecked.set(why, [...notRechecked.get(why) ?? [], entry.id]);
       } else if (response?.response === "withdrawn") {
         const still = response.passage !== undefined && draft !== undefined &&
@@ -683,9 +703,12 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     }
   }
   for (const [why, ids] of notRechecked) {
-    notes.push(`${joinIds(ids)} ${ids.length === 1 ? "was" : "were"} not checked again: ${why}, so ` +
-      `${ids.length === 1 ? "it is" : "they are"} neither fixed nor withdrawn until a check that looks for ` +
-      `${ids.length === 1 ? "it" : "them"} again.`);
+    const one = ids.length === 1;
+    notes.push(`${joinIds(ids)} ${one ? "was" : "were"} not checked again: ${why === "draft"
+      ? "this call gave no answer_draft" : why === "items"
+        ? `the ${one ? "line it was" : "lines they were"} about ${one ? "was" : "were"} not looked up again`
+        : `${CHECKER_NAMES[why as FindingChecker]} did not run in full in this call`}, so ${one ? "it is" : "they are"} ` +
+      `neither fixed nor withdrawn until a check that looks for ${one ? "it" : "them"} again.`);
   }
   for (const id of responses.keys()) {
     if (!answered.has(id)) {

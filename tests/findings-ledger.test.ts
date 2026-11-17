@@ -559,6 +559,48 @@ describe("the review of 17 Nov 2026", () => {
   });
 });
 
+// Codex's re-review of 17 Nov 2026 (re-review.md), one regression for each failure it found.
+describe("the re-review of 17 Nov 2026", () => {
+  const SENTENCE = "Pain fell by 12 points in the exercise group at 6 months, against 3 points with usual care.";
+  const CONCLUSION = "Exercise therapy reduced pain, though the effect was small and faded after a year.";
+  const sourceLine = (source: string) => ({ source, claim: "Exercise eased knee pain a little.", sentence: SENTENCE,
+    conclusion: CONCLUSION, against: "A larger trial found no difference after a year." });
+  const looked = (source: string, sentence: "found" | "not_found") =>
+    ({ source, sentence, conclusion: "found", text: "full_text" }) as const;
+
+  it("1: keeps a removed source line's finding not rechecked while another line is checked", () => {
+    const quoted = `[Autre] [Autre étude](https://doi.org/10.1000/other). "${SENTENCE}" "${CONCLUSION}"`;
+    const twoSources = { receipts: [
+      issueResearchReceipt("study_audit", { doi: "10.1000/depth", content: "a".repeat(16) }, { secret: SECRET }),
+      issueResearchReceipt("study_audit", { doi: "10.1000/other", content: "b".repeat(16) }, { secret: SECRET })],
+    key_sources: [
+      { id: "10.1000/depth", status: "validated", read_depth: "full_text_audited", answer_marker: "[Texte lu]" },
+      { id: "10.1000/other", status: "validated", read_depth: "full_text_audited", answer_marker: "[Autre]" }] } as
+      Partial<FinalizeResearchInput>;
+    const first = finalizeResearch(fixture(quoted, { ...twoSources,
+      source_lines: [sourceLine("10.1000/depth"), sourceLine("10.1000/other")] } as Partial<FinalizeResearchInput>),
+    { ...options(undefined), sourceLineLookups: [looked("10.1000/depth", "found"), looked("10.1000/other", "not_found")] });
+    expect(first.next_steps).toEqual([]);
+    expect(first.status).toBe("ready_with_limits");
+    const bad = first.check_findings!.findings.find(({ text }) => text?.startsWith("The sentence given for [Autre]"))!;
+    expect(bad).toMatchObject({ disposition: "open" });
+    // The bad line taken out of source_lines, the good one kept and checked, the draft unchanged: the bad line was not
+    // looked up again, so its finding is not fixed.
+    const removed = finalizeResearch(withLedger(fixture(quoted, { ...twoSources,
+      source_lines: [sourceLine("10.1000/depth")] } as Partial<FinalizeResearchInput>),
+    { findings_ledger: first.findings_ledger }), { ...options(undefined), sourceLineLookups: [looked("10.1000/depth", "found")] });
+    expect(removed.check_findings!.findings).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: bad.id, disposition: "not_rechecked" })]));
+    // Its line looked up again and found: fixed.
+    const again = finalizeResearch(withLedger(fixture(quoted, { ...twoSources,
+      source_lines: [sourceLine("10.1000/depth"), sourceLine("10.1000/other")] } as Partial<FinalizeResearchInput>),
+    { findings_ledger: removed.findings_ledger }),
+    { ...options(undefined), sourceLineLookups: [looked("10.1000/depth", "found"), looked("10.1000/other", "found")] });
+    expect(again.check_findings!.findings).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: bad.id, disposition: "fixed" })]));
+  });
+});
+
 // The panel's harness, as in final-check-panel.test.ts.
 class Element {
   children: Element[] = [];

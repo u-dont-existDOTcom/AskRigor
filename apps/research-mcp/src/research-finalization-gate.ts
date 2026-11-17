@@ -2049,6 +2049,34 @@ export function finalizeResearch(
     if (!noteCheckers.has(note)) noteCheckers.set(note, checker);
     return note;
   };
+  // Codex's re-review of 17 Nov 2026, finding 1: what a look-up's note is about, so an earlier one counts as rechecked
+  // only when the lines it was about were looked up again in full. Lines are grouped (a source's source_lines, a
+  // card finding's backing lines) and counted: a note is about its group as large as it was, and a group whose every
+  // line was looked up in full is checked as large as it is and smaller, so a group that lost a line was not.
+  const noteItems = new Map<string, Set<string>>();
+  const checkedItems: string[] = [];
+  const lineGroups = (checker: FindingChecker, lines: ReadonlyArray<{ group: string; full: boolean;
+    notes: readonly string[] }>): void => {
+    const groups = new Map<string, { count: number; full: boolean }>();
+    for (const { group, full } of lines) {
+      const was = groups.get(group) ?? { count: 0, full: true };
+      groups.set(group, { count: was.count + 1, full: was.full && full });
+    }
+    const item = (group: string, count: number) => `${checker}\u0000${group}\u0000${count}`;
+    for (const [group, { count, full }] of groups) {
+      if (full) for (let size = 1; size <= count; size += 1) checkedItems.push(item(group, size));
+    }
+    for (const { group, notes: given } of lines) {
+      for (const note of given) {
+        if (noteCheckers.get(note) !== checker) continue;
+        noteItems.set(note, new Set([...noteItems.get(note) ?? [], item(group, groups.get(group)!.count)]));
+      }
+    }
+  };
+  // A look-up cut short (a text that couldn't be read just then, or was no longer held, or came too late) did not run
+  // in full.
+  const cutShort = (reason: string | undefined) =>
+    reason === "text_unavailable" || reason === "text_expired" || reason === "late";
   const addCheckStep = (step: CheckStep, blockingRule?: FinalCheckBlockingRule): void => {
     if (options.findingsLedger !== undefined) {
       const stop = blockingRule !== undefined && FINAL_CHECK_BLOCKING_RULES.includes(blockingRule) ? blockingRule : undefined;
@@ -4685,7 +4713,9 @@ export function finalizeResearch(
     : [];
   const backingRequests: SourceLineRequest[] = backingLines.map(({ source }, line) => quoteRequest(source, line));
   const backingLookups = options.backingLookups ?? [];
+  const backingGroups: Array<{ group: string; full: boolean; notes: string[] }> = [];
   for (const { finding, line, lookup } of backingLookups) {
+    const given = notes.length;
     const missing = [
       ...(lookup.sentence === "not_found" ? ["sentence"] : []),
       ...(lookup.conclusion === "not_found" ? ["conclusion"] : [])
@@ -4700,7 +4730,9 @@ export function finalizeResearch(
         ? "the copy the AI supplied" : "the owner's library copy"}, which the Atlas never quotes; a quote found in a ` +
         "full text AskRigor fetched itself or a PubMed abstract is shown."));
     }
+    backingGroups.push({ group: String(finding), full: !cutShort(lookup.reason), notes: notes.slice(given) });
   }
+  if (options.findingsLedger !== undefined) lineGroups("backing_lines", backingGroups);
   const sourceLineChecks = passed && draft !== undefined ? (options.sourceLineLookups ?? []).flatMap((lookup, index) => {
     const line = sourceLines[index];
     if (line === undefined) return [];
@@ -4710,6 +4742,10 @@ export function finalizeResearch(
   }) : [];
   for (const note of sourceLineChecks.flatMap(sourceLineNotes)) {
     if (!notes.includes(note)) notes.push(checkedBy("source_lines", note));
+  }
+  if (options.findingsLedger !== undefined) {
+    lineGroups("source_lines", sourceLineChecks.map((check) => ({ group: normalizeIdentifier(check.source),
+      full: !cutShort(check.reason), notes: sourceLineNotes(check) })));
   }
   // Owner answer 249a: the study map. Each study's source resolves through the verified receipts as a source line's
   // does, so its passages are looked up in its own text only, once the check passes; what the map gives is compared
@@ -4801,12 +4837,10 @@ export function finalizeResearch(
     const admitted = new Set(observedSteps.map(({ text }) => text));
     const observed: ObservedFinding[] = [...observedSteps, ...notes.filter((note) => !admitted.has(note))
       .map((note) => ({ text: note, ...(repeatedNotes.has(note) ? { call: true } : {}),
-        ...(noteCheckers.has(note) ? { checker: noteCheckers.get(note)! } : {}) }))];
+        ...(noteCheckers.has(note) ? { checker: noteCheckers.get(note)! } : {}),
+        ...(noteItems.has(note) ? { items: [...noteItems.get(note)!] } : {}) }))];
     // Codex's review of 17 Nov 2026, finding 1: the parts of the check that ran in full in this call; an earlier finding
-    // of any other part is not rechecked, never fixed. A look-up cut short (a text that couldn't be read just then, or
-    // was no longer held, or came too late) did not run in full.
-    const cutShort = (reason: string | undefined) =>
-      reason === "text_unavailable" || reason === "text_expired" || reason === "late";
+    // of any other part is not rechecked, never fixed.
     const coverage: FindingChecker[] = ["rules", "call",
       ...(passed && draft !== undefined ? ["passing" as const] : []),
       ...(secondReading?.status === "ran" ? ["second_reading" as const] : []),
@@ -4826,6 +4860,7 @@ export function finalizeResearch(
       observed,
       draft,
       coverage,
+      checkedItems,
       now: options.now?.() ?? new Date()
     } satisfies FindingsLedgerSource;
   })();
