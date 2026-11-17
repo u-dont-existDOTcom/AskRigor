@@ -317,7 +317,7 @@ import {
   DOSSIER_PRIVACY_READING_LIMITS,
   type DossierPrivacyReader,
 } from "./findings/dossier-privacy-reading.js";
-import { DOSSIER_CONFLICT_READING_LIMITS, readDossierConflicts } from "./findings/dossier-conflict-reading.js";
+import { DOSSIER_CONFLICT_READING_LIMITS, deadlineConflictReader } from "./findings/dossier-conflict-reading.js";
 import {
   researchDossierAllowed,
   researchDossierFromCall,
@@ -2896,6 +2896,13 @@ function defineResearchOperations(
         // Codex's final check, off by default: the meaning-based privacy reading, on the planner's own API path. With it
         // on, a planner that is off reads nothing, and nothing is saved.
         const privacyReading = dossierPrivacyReaderOf(options);
+        // The save's outer deadline: past it the answer goes on without the save, and the conflict reader starts no
+        // further paid call (Codex's re-review of stage 2), so the copy is held, waiting for the conflict check.
+        const saveDeadline = (options.findingsSaveDeadlineMilliseconds ?? FINDINGS_SAVE_DEADLINE_MILLISECONDS) +
+          (privacyReading === undefined ? 0 : DOSSIER_PRIVACY_READING_LIMITS.timeoutMs) +
+          // Stage 2: one conflict comparison's wait, while public dossiers are on.
+          (options.researchDossierPublisher === undefined ? 0 : DOSSIER_CONFLICT_READING_LIMITS.timeoutMs);
+        const saveStopsAt = Date.now() + saveDeadline;
         const outcome = await withinDeadline(saveResearchDossier(dossierStore, {
           dossier: researchDossierFromCall(input),
           account: researcher,
@@ -2918,11 +2925,8 @@ function defineResearchOperations(
             ...(options.publicDossierNotices === undefined ? {} : { noticeCovering: options.publicDossierNotices }),
             // Codex's review of stage 2, finding 3: the meaning-based conflict check on the planner's own paid path,
             // made only here, while public dossiers are on; with the planner off a copy with candidates is held.
-            conflictReader: async (conflictRequest) => {
-              const call = configuredPlanner(options).readDossierConflicts;
-              return call === undefined ? { status: "unavailable", reason: "off" }
-                : await readDossierConflicts(conflictRequest, call);
-            },
+            conflictReader: async (conflictRequest) =>
+              await deadlineConflictReader(configuredPlanner(options).readDossierConflicts, saveStopsAt)(conflictRequest),
           } }),
           secret,
           versions: {
@@ -2933,10 +2937,7 @@ function defineResearchOperations(
             }),
           },
         }).catch((): ResearchDossierSaveOutcome => ({ disposition: { status: "unavailable", reason: "store_unavailable" } })),
-        (options.findingsSaveDeadlineMilliseconds ?? FINDINGS_SAVE_DEADLINE_MILLISECONDS) +
-          (privacyReading === undefined ? 0 : DOSSIER_PRIVACY_READING_LIMITS.timeoutMs) +
-          // Stage 2: one conflict comparison's wait, while public dossiers are on.
-          (options.researchDossierPublisher === undefined ? 0 : DOSSIER_CONFLICT_READING_LIMITS.timeoutMs),
+        saveDeadline,
         { disposition: { status: "unconfirmed", reason: "not_confirmed_in_time" } } as ResearchDossierSaveOutcome);
         if (outcome !== undefined) {
           if (outcome.disposition !== undefined) result.research_dossier = outcome.disposition;

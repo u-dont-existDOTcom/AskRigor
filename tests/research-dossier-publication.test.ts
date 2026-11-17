@@ -1130,6 +1130,23 @@ describe("conflicts with shown dossiers", () => {
     }
   });
 
+  // Codex's re-review of stage 2, P1: once the save's outer deadline has passed, no comparison is started and the copy
+  // is held, waiting for the conflict check.
+  it("holds a copy waiting for the conflict check once the save's outer deadline has passed", async () => {
+    const { deadlineConflictReader } = await import("../apps/research-mcp/src/findings/dossier-conflict-reading.js");
+    const { dossiers, publications, publication } = stores();
+    await saveResearchDossier(dossiers, request({ publication }));
+    let calls = 0;
+    const outcome = await saveResearchDossier(dossiers, request({ ...other, value: dossier((value) => {
+      value.question = "Which inositol forms were measured for fasting insulin, again?"; }),
+      publication: { publisher: publications, noticeCovering: COVERING,
+        conflictReader: deadlineConflictReader(async () => { calls += 1;
+          return { status: "reply" as const, reply: { conflicts: [] } }; }, NOW.getTime() - 1, () => NOW.getTime()) } }));
+    expect(outcome?.disposition?.publication).toEqual({ status: "held", public_id: "D-1002",
+      hold_reasons: ["conflict_check_pending"] });
+    expect(calls).toBe(0);
+  });
+
   it("checks the comparison again before the insert, so a dossier shown meanwhile is compared too", async () => {
     const { dossiers, publications } = stores();
     let meanwhile = false;

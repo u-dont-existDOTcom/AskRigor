@@ -10,7 +10,8 @@ import { DOSSIER_PRIVACY_READING_MODEL } from "./dossier-privacy-reading.js";
  * path prices, as the privacy reading does, and answers which pairs of findings conflict, by their ids, never words.
  * "Benefit against harm on the same outcome" counts. A reading that cannot be made (the planner off, a request too
  * long for one call, the day's cap reached, a timeout, an error, a declined or unreadable reply) holds the copy,
- * waiting for the conflict check. Nothing is retried.
+ * waiting for the conflict check. Nothing is retried, and no call starts once the save's outer deadline has passed
+ * (Codex's re-review of stage 2: the save stops waiting then, so a later call would be paid for nothing).
  */
 export const DOSSIER_CONFLICT_READING_MODEL = DOSSIER_PRIVACY_READING_MODEL;
 
@@ -142,14 +143,19 @@ export function dossierConflictsOf(reply: unknown, batch: DossierConflictRequest
   return conflicts;
 }
 
-/** The whole comparison, one call per batch on the planner's path; any call that cannot be made makes it unavailable. */
-export async function readDossierConflicts(request: DossierConflictRequest, call: DossierConflictCall):
-  Promise<DossierConflictReading> {
+/**
+ * The whole comparison, one call per batch on the planner's path; any call that cannot be made makes it unavailable,
+ * and so does the outer deadline (stopAt, a time in milliseconds): once it has passed, no further batch starts.
+ */
+export async function readDossierConflicts(request: DossierConflictRequest, call: DossierConflictCall,
+  options: { stopAt?: number; now?: () => number } = {}): Promise<DossierConflictReading> {
   if (request.shown.length === 0) return { status: "read", conflicts: [] };
   const batches = dossierConflictBatches(request);
   if (batches === undefined) return { status: "unavailable", reason: "too_long" };
+  const now = options.now ?? Date.now;
   const conflicts: DossierConflict[] = [];
   for (const batch of batches) {
+    if (options.stopAt !== undefined && now() >= options.stopAt) return { status: "unavailable", reason: "timeout" };
     const answered = await call(JSON.stringify(batch));
     if (answered.status === "unavailable") return answered;
     const found = dossierConflictsOf(answered.reply, batch);
@@ -157,4 +163,14 @@ export async function readDossierConflicts(request: DossierConflictRequest, call
     conflicts.push(...found);
   }
   return { status: "read", conflicts };
+}
+
+/**
+ * The conflict reader a save uses: the planner's path, starting no batch once the save's outer deadline (stopAt) has
+ * passed; with the planner off there is no reading. Either way the copy is then held, waiting for the conflict check.
+ */
+export function deadlineConflictReader(call: DossierConflictCall | undefined, stopAt: number,
+  now: () => number = Date.now): DossierConflictReader {
+  return async (request) => call === undefined ? { status: "unavailable", reason: "off" }
+    : await readDossierConflicts(request, call, { stopAt, now });
 }

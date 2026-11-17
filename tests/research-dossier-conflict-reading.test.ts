@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   DOSSIER_CONFLICT_READING_LIMITS,
   DOSSIER_CONFLICT_READING_RUBRIC,
+  deadlineConflictReader,
   dossierConflictBatches,
   readDossierConflicts,
   type DossierConflictRequest,
@@ -53,6 +54,36 @@ describe("the conflict comparison's request and reply", () => {
     }
     await expect(readDossierConflicts(REQUEST, async () => ({ status: "unavailable", reason: "daily_budget" })))
       .resolves.toEqual({ status: "unavailable", reason: "daily_budget" });
+  });
+});
+
+// Codex's re-review of stage 2, P1: his scaled probe started another call after the outer deadline had passed. No further
+// batch starts once it has; the reading is then not made, and the copy is held, waiting for the conflict check.
+describe("the comparison's outer deadline", () => {
+  const long = "A claim that is long enough to fill a call. ".repeat(10);
+  const many: DossierConflictRequest = { dossier: side(3, long),
+    shown: Array.from({ length: 60 }, (_, index) => ({ dossier: `D-${1001 + index}`, ...side(10, long) })) };
+
+  it("starts no further batch once the outer deadline has passed", async () => {
+    expect(dossierConflictBatches(many)!.length).toBeGreaterThan(2);
+    let clock = 0;
+    let calls = 0;
+    // Each call takes 20 seconds; the save's outer deadline is 15 seconds away.
+    const slow = async () => { calls += 1; clock += 20_000; return { status: "reply" as const, reply: { conflicts: [] } }; };
+    await expect(readDossierConflicts(many, slow, { stopAt: 15_000, now: () => clock })).resolves.toEqual({
+      status: "unavailable", reason: "timeout" });
+    expect(calls).toBe(1);
+    // Already past it, none starts.
+    calls = 0;
+    await expect(deadlineConflictReader(slow, 0, () => 1)(many)).resolves.toEqual({ status: "unavailable",
+      reason: "timeout" });
+    expect(calls).toBe(0);
+    // Before it, every batch is read; and without the planner's path there is no reading.
+    clock = 0;
+    await expect(deadlineConflictReader(async () => ({ status: "reply" as const, reply: { conflicts: [] } }),
+      Number.POSITIVE_INFINITY, () => clock)(many)).resolves.toEqual({ status: "read", conflicts: [] });
+    await expect(deadlineConflictReader(undefined, Number.POSITIVE_INFINITY)(many)).resolves.toEqual({
+      status: "unavailable", reason: "off" });
   });
 });
 
