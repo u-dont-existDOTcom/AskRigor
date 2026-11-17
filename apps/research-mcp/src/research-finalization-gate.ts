@@ -2053,15 +2053,19 @@ export function finalizeResearch(
   // earlier one counts as rechecked only when each line it was about was looked up again in full. A line is its
   // passages and what they are from (findingItem: a source line's or backing line's quotes and source, a study map
   // claim's or link's sentences and studies), never its place or how many lines its source has.
+  // Each line's passages too, the quotes the answer shows, by which a withdrawal settles the finding of a line taken
+  // out (Codex's third review of 17 Nov 2026, finding 3).
   const noteItems = new Map<string, Set<string>>();
+  const notePassages = new Map<string, Array<{ item: string; passage: string }>>();
   const checkedItems: string[] = [];
   const lineItems = (checker: FindingChecker, lines: ReadonlyArray<{ item: string; full: boolean;
-    notes: readonly string[] }>): void => {
-    for (const { item, full, notes: given } of lines) {
+    notes: readonly string[]; passages: readonly string[] }>): void => {
+    for (const { item, full, notes: given, passages } of lines) {
       if (full) checkedItems.push(item);
       for (const note of given) {
         if (noteCheckers.get(note) !== checker) continue;
         noteItems.set(note, new Set([...noteItems.get(note) ?? [], item]));
+        notePassages.set(note, [...notePassages.get(note) ?? [], ...passages.map((passage) => ({ item, passage }))]);
       }
     }
   };
@@ -4705,7 +4709,7 @@ export function finalizeResearch(
     : [];
   const backingRequests: SourceLineRequest[] = backingLines.map(({ source }, line) => quoteRequest(source, line));
   const backingLookups = options.backingLookups ?? [];
-  const backingItems: Array<{ item: string; full: boolean; notes: string[] }> = [];
+  const backingItems: Array<{ item: string; full: boolean; notes: string[]; passages: string[] }> = [];
   for (const { finding, line, lookup } of backingLookups) {
     const given = notes.length;
     const missing = [
@@ -4725,7 +4729,9 @@ export function finalizeResearch(
     const backed = backingLines.find((backing) => backing.finding === finding && backing.line === line);
     backingItems.push({ item: backed === undefined ? findingItem("backing_lines", at)
       : findingItem("backing_lines", normalizeIdentifier(backed.source), backed.sentence, backed.conclusion ?? ""),
-    full: !cutShort(lookup.reason), notes: notes.slice(given) });
+    full: !cutShort(lookup.reason), notes: notes.slice(given),
+    passages: backed === undefined ? [] : [backed.sentence, ...backed.conclusion === undefined ? []
+      : [backed.conclusion]] });
   }
   if (options.findingsLedger !== undefined) lineItems("backing_lines", backingItems);
   const sourceLineChecks = passed && draft !== undefined ? (options.sourceLineLookups ?? []).flatMap((lookup, index) => {
@@ -4744,7 +4750,8 @@ export function finalizeResearch(
       sourceLines[index] === undefined ? [] : [sourceLines[index]!]);
     lineItems("source_lines", sourceLineChecks.map((check, index) => ({ item: findingItem("source_lines",
       normalizeIdentifier(checkedLines[index]!.source), checkedLines[index]!.sentence, checkedLines[index]!.conclusion),
-    full: !cutShort(check.reason), notes: sourceLineNotes(check) })));
+    full: !cutShort(check.reason), notes: sourceLineNotes(check),
+    passages: [checkedLines[index]!.sentence, checkedLines[index]!.conclusion] })));
   }
   // Owner answer 249a: the study map. Each study's source resolves through the verified receipts as a source line's
   // does, so its passages are looked up in its own text only, once the check passes; what the map gives is compared
@@ -4780,8 +4787,8 @@ export function finalizeResearch(
     for (const note of checked.notes) if (!notes.includes(note)) notes.push(checkedBy("study_map", note));
     if (options.findingsLedger !== undefined) {
       const full = options.studyMapLookup.done && options.studyMapLookup.studies.every(({ reason }) => !cutShort(reason));
-      lineItems("study_map", checked.parts.map(({ about, notes: given }) =>
-        ({ item: findingItem("study_map", ...about), full, notes: given })));
+      lineItems("study_map", checked.parts.map(({ about, notes: given, passages }) =>
+        ({ item: findingItem("study_map", ...about), full, notes: given, passages })));
     }
   }
   // Owner answer 221: the meaning judge's notes, for the AI only; none of them is a step or holds the answer back.
@@ -4842,7 +4849,8 @@ export function finalizeResearch(
     const observed: ObservedFinding[] = [...observedSteps, ...notes.filter((note) => !admitted.has(note))
       .map((note) => ({ text: note, ...(repeatedNotes.has(note) ? { call: true } : {}),
         ...(noteCheckers.has(note) ? { checker: noteCheckers.get(note)! } : {}),
-        ...(noteItems.has(note) ? { items: [...noteItems.get(note)!] } : {}) }))];
+        ...(noteItems.has(note) ? { items: [...noteItems.get(note)!] } : {}),
+        ...(notePassages.has(note) ? { passages: notePassages.get(note)! } : {}) }))];
     // Codex's review of 17 Nov 2026, finding 1: the parts of the check that ran in full in this call; an earlier finding
     // of any other part is not rechecked, never fixed.
     const coverage: FindingChecker[] = ["rules", "call",

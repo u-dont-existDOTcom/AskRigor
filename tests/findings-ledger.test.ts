@@ -829,6 +829,37 @@ describe("the third review of 17 Nov 2026", () => {
     // What the token could not carry is said.
     expect(first.notes.join(" ")).toContain("are listed in check_findings but not carried");
   });
+
+  it("3: settles a removed line's finding as withdrawn only by its own passage, once the draft no longer has it", () => {
+    // Two bad lines, one of each source, each its own finding.
+    const first = finalizeResearch(withLines([line("10.1000/depth", OTHER), line("10.1000/other")]),
+      lookups(looked("10.1000/depth", "not_found"), looked("10.1000/other", "not_found")));
+    const bad = sentenceNote(first);
+    const otherBad = first.check_findings!.findings.find(({ text }) => text?.startsWith("The sentence given for [Texte lu]"))!;
+    expect(otherBad).toMatchObject({ disposition: "open" });
+    const withdraw = (draftText: string, passage: string) => finalizeResearch(withLedger(fixture(draftText,
+      twoSources), { findings_ledger: first.findings_ledger, finding_responses: [{ id: bad.id, response: "withdrawn",
+      passage }] }), lookups());
+    const linked = "[Autre] [Autre étude](https://doi.org/10.1000/other).";
+    // Both lines taken out of source_lines. The draft still quoting the passage: not withdrawn.
+    const still = withdraw(quoted, SENTENCE);
+    expect(byId(still, bad.id)).toMatchObject({ disposition: "not_rechecked" });
+    expect(still.notes).toContain(`${bad.id}: the passage later_inputs.finding_responses withdraws still appears in the draft.`);
+    // A passage the draft doesn't have, but that the finding was never about, settles nothing: another finding's own
+    // passage, or any other.
+    for (const passage of [OTHER, "Some sentence this finding was never about, which no draft gives."]) {
+      const unbound = withdraw(linked, passage);
+      expect(byId(unbound, bad.id)).toMatchObject({ disposition: "not_rechecked" });
+      expect(unbound.notes).toContain(`${bad.id} stays as it was: a withdrawal counts only with a passage of the line ` +
+        "it was about that the draft no longer gives.");
+    }
+    // Its own passage, gone from the draft: withdrawn, with the warning that what rested on it may remain.
+    const gone = withdraw(linked, SENTENCE);
+    expect(byId(gone, bad.id)).toMatchObject({ disposition: "withdrawn" });
+    expect(gone.notes).toContain(`${bad.id} was withdrawn: its passage is gone from the draft, but a paraphrase of it, ` +
+      "or a claim that rested on it, may still be there.");
+    expect(byId(gone, otherBad.id)).toMatchObject({ disposition: "not_rechecked" });
+  });
 });
 
 // The panel's harness, as in final-check-panel.test.ts.

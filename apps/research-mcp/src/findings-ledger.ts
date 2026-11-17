@@ -16,11 +16,11 @@ import { NEXT_STEP_KINDS, type NextStepKind } from "./next-step-kinds.js";
  * receipts, carried state and round tokens, and bound to the account, the research target, the checked draft and the
  * running versions. Signed, not encrypted: it is deflated JSON in base64url, so whoever holds the token can read what it
  * carries, with no account. That is the findings' ids; keyed digests of the account, the research target, the draft,
- * the versions and each finding's rule, words, cited identifiers and the lines it was about; each finding's kind, stop
- * rule and disposition and the part of the check that found it; sequence and revision numbers; the most open findings
- * a ledger of the research has had to leave out; the time it was issued; and, for a finding still disputed, the
- * writer's reason, which the reader is shown anyway, or, when that reason is no longer at hand, its keyed digest. It
- * holds no words of the answer or of the findings.
+ * the versions and each finding's rule, words, cited identifiers, the lines it was about and their quotes; each
+ * finding's kind, stop rule and disposition and the part of the check that found it; sequence and revision numbers;
+ * the most open findings a ledger of the research has had to leave out; the time it was issued; and, for a finding
+ * still disputed, the writer's reason, which the reader is shown anyway, or, when that reason is no longer at hand,
+ * its keyed digest. It holds no words of the answer or of the findings.
  * The server keeps, per process and for two hours at most (swept when they pass, whether or not the ledger is asked for
  * again), the last ledger it issued for an account and research target, so a call that leaves the ledger out, or passes
  * an older one, is detected: the same digests, numbers and dispositions, with each dispute reason's keyed digest in
@@ -52,6 +52,8 @@ const MAX_RESPONSES = 30;
 // A source's lines (at most twelve) and those a finding still found was about before, each once; more is one item that
 // is never looked up again, so such a finding is never fixed by a look-up it can't follow.
 const MAX_ITEMS = 16;
+// The passages a withdrawal may name: one more is never carried, so it can't settle a finding (never a false settling).
+const MAX_PASSAGES = 24;
 const SKETCH_SIZE = 16;
 /** A finding of the same rule whose inserted words overlap an earlier one's at least this much is the same finding. */
 export const FINDINGS_SAME_AFTER_EDIT = 0.5;
@@ -108,6 +110,12 @@ export interface ObservedFinding {
    * finding with items counts as rechecked only when this call's checkedItems hold every one of them.
    */
   items?: readonly string[];
+  /**
+   * The passages of those lines, each with its item: a quote the answer shows, so a withdrawal that gives one of them,
+   * once the draft no longer has it, settles the finding of a line taken out (Codex's third review of 17 Nov 2026,
+   * finding 3).
+   */
+  passages?: ReadonlyArray<{ item: string; passage: string }>;
 }
 /**
  * A line a look-up reads, as a finding's item: the part of the check that reads it, then what identifies it (its
@@ -144,7 +152,9 @@ const entrySchema = z.object({
   i: z.array(hex(12)).max(6).optional(),
   x: z.enum(FINDING_CHECKERS).optional(),
   // Codex's re-review of 17 Nov 2026, finding 1: keyed digests of what an open finding of a look-up was about.
-  u: z.array(hex(12)).min(1).max(MAX_ITEMS).optional()
+  u: z.array(hex(12)).min(1).max(MAX_ITEMS).optional(),
+  // Codex's third review of 17 Nov 2026, finding 3: keyed digests of each of those lines' passages, with its line.
+  p: z.array(hex(12)).min(1).max(MAX_PASSAGES).optional()
 }).strict();
 type LedgerEntry = z.output<typeof entrySchema>;
 const payloadSchema = z.object({
@@ -552,6 +562,8 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   const checkedItems = new Set((params.checkedItems ?? []).map(itemDigest));
   // No line's item: what a finding about more lines than a ledger keeps is about, never looked up again.
   const tooMany = itemDigest("\u0000more lines than a findings ledger keeps");
+  const passageDigest = (item: string, passage: string) =>
+    digest(secret, "passage", `${item}\u0000${normalized(passage)}`, 12);
   // One record per finding: the same rule with the same inserted words, found twice in one call, is one finding.
   const observed: Fingerprinted[] = [];
   for (const finding of params.observed) {
@@ -707,6 +719,8 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     const about = [...new Set([...(finding.items ?? []).map(itemDigest),
       ...(before?.u ?? []).filter((item) => !checkedItems.has(item))])].sort();
     const items = about.length > MAX_ITEMS ? [tooMany] : about;
+    const passages = [...new Set([...(finding.passages ?? []).map(({ item, passage }) =>
+      passageDigest(itemDigest(item), passage)), ...before?.p ?? []])].sort().slice(0, MAX_PASSAGES);
     entries.push({
       id, r: finding.r, f: finding.f, h: finding.h, d: disposition, n: first, l: revision,
       ...(finding.kind === undefined ? {} : { k: finding.kind }),
@@ -716,7 +730,8 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
       ...(reason === undefined ? {} : { w: reason }),
       ...(lost === undefined ? {} : { g: lost }),
       ...(finding.ids.length === 0 ? {} : { i: finding.ids.map((found) => digest(secret, "identifier", found, 12)) }),
-      ...(items.length === 0 ? {} : { u: items })
+      ...(items.length === 0 ? {} : { u: items }),
+      ...(passages.length === 0 ? {} : { p: passages })
     });
     findings.push({
       id, ...(finding.kind === undefined ? {} : { kind: finding.kind }),
@@ -730,6 +745,15 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   // want of a draft, because that part did not run in full, or because the lines it was about were not looked up again
   // in full (Codex's re-review of 17 Nov 2026, finding 1), is not rechecked: the ledger keeps it as it was.
   const draftIdentifiers = draft === undefined ? [] : identifiers(normalized(draft));
+  // What rested on a withdrawn finding: a source it named that the draft still cites.
+  const stillCited = (entry: LedgerEntry): void => {
+    const cited = draftIdentifiers.filter((found) => (entry.i ?? []).includes(digest(secret, "identifier", found, 12)));
+    if (cited.length > 0) {
+      notes.push(`${entry.id} was withdrawn, but the draft still cites ${cited.join(", ")}; check that nothing ` +
+        "else in it rests on what was withdrawn.");
+    }
+  };
+  const stillThere = (id: string) => `${id}: the passage later_inputs.finding_responses withdraws still appears in the draft.`;
   const notRechecked = new Map<string, string[]>();
   for (const entry of prior) {
     if (used.has(entry.id)) continue;
@@ -742,10 +766,29 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
       const needsDraft = entry.k === undefined || DRAFT_KINDS.has(entry.k);
       const checker = checkerOf({ checker: entry.x, kind: entry.k });
       const unchecked = entry.u === undefined ? !covered.has(checker) : entry.u.some((item) => !checkedItems.has(item));
-      if ((needsDraft && draftDigest === "") || unchecked) {
+      // Codex's third review of 17 Nov 2026, finding 3: a finding of lines taken out is settled by a withdrawal that
+      // gives a passage of one of them this call did not look up again, once the draft it supplies no longer has it.
+      // Any other passage settles nothing.
+      const withdrawing = response?.response === "withdrawn" && entry.u !== undefined && draft !== undefined &&
+        draftDigest !== "" && unchecked;
+      const passage = withdrawing ? response.passage : undefined;
+      const bound = passage !== undefined && entry.u!.some((item) => !checkedItems.has(item) &&
+        (entry.p ?? []).includes(passageDigest(item, passage)));
+      const gone = bound && !normalized(draft!).includes(normalized(passage));
+      if (gone) {
+        disposition = "withdrawn";
+        notes.push(`${entry.id} was withdrawn: its passage is gone from the draft, but a paraphrase of it, or a claim ` +
+          "that rested on it, may still be there.");
+        stillCited(entry);
+      } else if ((needsDraft && draftDigest === "") || unchecked) {
         shown = "not_rechecked";
         const why = needsDraft && draftDigest === "" ? "draft" : entry.u === undefined ? checker : "items";
         notRechecked.set(why, [...notRechecked.get(why) ?? [], entry.id]);
+        if (bound) notes.push(stillThere(entry.id));
+        else if (withdrawing) {
+          notes.push(`${entry.id} stays as it was: a withdrawal counts only with a passage of the line it was about ` +
+            "that the draft no longer gives.");
+        }
         // A dispute is the writer's reply, recorded whether or not the check looked again (Codex's re-review of 17 Nov
         // 2026, finding 2); a fix or a withdrawal waits for a check that does.
         if (response?.response === "disputed") {
@@ -756,17 +799,11 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
         const still = response.passage !== undefined && draft !== undefined &&
           normalized(draft).includes(normalized(response.passage));
         if (still) {
-          notes.push(`${entry.id}: the passage later_inputs.finding_responses withdraws still appears in the draft.`);
+          notes.push(stillThere(entry.id));
           disposition = entry.d === "open" && draftChanged ? "unresolved" : entry.d;
         } else {
           disposition = "withdrawn";
-          // What rested on the withdrawn finding: a source it named that the draft still cites.
-          const cited = draftIdentifiers.filter((found) =>
-            (entry.i ?? []).includes(digest(secret, "identifier", found, 12)));
-          if (cited.length > 0) {
-            notes.push(`${entry.id} was withdrawn, but the draft still cites ${cited.join(", ")}; check that nothing ` +
-              "else in it rests on what was withdrawn.");
-          }
+          stillCited(entry);
         }
       } else {
         disposition = "fixed";
@@ -786,11 +823,14 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   }
   for (const [why, ids] of notRechecked) {
     const one = ids.length === 1;
-    notes.push(`${joinIds(ids)} ${one ? "was" : "were"} not checked again: ${why === "draft"
-      ? "this call gave no answer_draft" : why === "items"
-        ? `the ${one ? "line it was" : "lines they were"} about ${one ? "was" : "were"} not looked up again`
-        : `${CHECKER_NAMES[why as FindingChecker]} did not run in full in this call`}, so ${one ? "it is" : "they are"} ` +
-      `neither fixed nor withdrawn until a check that looks for ${one ? "it" : "them"} again.`);
+    // Codex's third review of 17 Nov 2026, finding 3: a finding of a line taken out can be withdrawn by its passage.
+    notes.push(`${joinIds(ids)} ${one ? "was" : "were"} not checked again: ${why === "items"
+      ? `the ${one ? "line it was" : "lines they were"} about ${one ? "was" : "were"} not looked up again, so ` +
+        `${one ? "it is" : "they are"} not fixed. If you took ${one ? "the line" : "a line"} out, withdraw ` +
+        `${one ? "it" : "its finding"} with one of its quotes as the passage, once the draft no longer has that quote.`
+      : `${why === "draft" ? "this call gave no answer_draft" : `${CHECKER_NAMES[why as FindingChecker]} did not run ` +
+        "in full in this call"}, so ${one ? "it is" : "they are"} neither fixed nor withdrawn until a check that looks ` +
+        `for ${one ? "it" : "them"} again.`}`);
   }
   if (reasonLost.length > 0) {
     const one = reasonLost.length === 1;

@@ -637,6 +637,8 @@ export interface StudyMapPart {
   /** Its kind, its sentences and the sources of the studies it rests on: never its place. */
   about: string[];
   notes: string[];
+  /** The passage a withdrawal of it names: a claim's sentence in the answer, a link's passage. */
+  passages: string[];
 }
 
 /**
@@ -653,9 +655,10 @@ export function checkStudyMap(
   const sourceOf = (id: string): string => map.studies.find((study) => study.id === id)?.source ?? id;
   const claimParts: StudyMapPart[] = map.claims.map(({ quote, studies, passages }) => ({ about: ["claim", quote,
     studies.map(sourceOf).join("\u0001"),
-    passages.map(({ study, passage: text }) => `${sourceOf(study)}\u0001${text}`).join("\u0002")], notes: [] }));
+    passages.map(({ study, passage: text }) => `${sourceOf(study)}\u0001${text}`).join("\u0002")], notes: [],
+  passages: [quote] }));
   const linkParts: StudyMapPart[] = map.links.map(({ from, kind, to, passage: text }) =>
-    ({ about: ["link", sourceOf(from), kind, sourceOf(to), text], notes: [] }));
+    ({ about: ["link", sourceOf(from), kind, sourceOf(to), text], notes: [], passages: [text] }));
   const about = (note: string, ...parts: readonly StudyMapPart[]): void => {
     notes.push(note);
     for (const part of parts) part.notes.push(note);
