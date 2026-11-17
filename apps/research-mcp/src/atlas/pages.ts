@@ -786,7 +786,12 @@ ${INOSITOL_DOSSIER.comparisons.map((row) => html`<tr><th scope="row">${row.form}
 </section>`;
 }
 
-export function renderAtlasTopic(model: AtlasTopicModel, reader?: AtlasPageReader): string {
+/**
+ * A topic page. dossiers (AskRigor#477 stage 2, dossier-pages.ts) is its research dossiers' part, which leads the page
+ * when the topic has shown dossiers; the page is kept out of search engines only when nothing on it is checked.
+ */
+export function renderAtlasTopic(model: AtlasTopicModel, reader?: AtlasPageReader,
+  dossiers?: { section: SafeHtml; anyChecked: boolean }): string {
   // Substance-family dossiers collect source-bound claims previously filed under separate condition/topic names.
   // Unreviewed and research-only claims retain their original labels and never become accepted by being grouped.
   if (model.family !== undefined) {
@@ -795,6 +800,7 @@ export function renderAtlasTopic(model: AtlasTopicModel, reader?: AtlasPageReade
 <h1>${model.topic.label}</h1>
 <p class="lede">${model.family.intro}</p>
 <p class="notice-line">A cross-topic, AI-prepared research synthesis, not a medical treatment guideline or supervisor-accepted systematic review. Each underlying finding retains its source, certainty and review status.</p>
+${dossiers?.section ?? ""}
 ${model.topic.key === "inositol" ? inositolDossierOverview() : ""}
 <nav aria-label="Inositol forms"><p>${joined(model.family.groups.map((group) =>
   html`<a href="#family-${group.key}">${group.heading}</a>`), " · ")}</p></nav>
@@ -810,7 +816,7 @@ ${group.findings.length === 0 ? html`<p class="meta">No separate Atlas finding i
 <ul>${model.topic.key === "inositol" ? INOSITOL_DOSSIER.generalNotes.map((note) => html`<li>${note}</li>`) : []}</ul>
 <h3>Research still to consolidate</h3>
 <p>${model.family.unfinishedResearch}</p></section>`;
-    return page({ path: topicPath(model.topic.key), noindex: unreviewedOnly(findings), reader,
+    return page({ path: topicPath(model.topic.key), noindex: unreviewedOnly(findings) && dossiers?.anyChecked !== true, reader,
       title: `${model.topic.label} | AskRigor Atlas`,
       description: "A joined index of inositol forms, benefits, harms, and unfinished research.",
       body });
@@ -818,6 +824,7 @@ ${group.findings.length === 0 ? html`<p class="meta">No separate Atlas finding i
   const body = html`<p class="breadcrumbs"><a href="/atlas">Atlas</a></p>
 <h1>${model.topic.label}</h1>
 <p class="lede">Findings about ${model.topic.label}. Within each part, findings checked by supervisors come first.</p>
+${dossiers?.section ?? ""}
 ${topicMap(model)}
 ${model.sections.map((section) => html`<section aria-labelledby="part-${section.id}">
 <h2 id="part-${section.id}">${section.heading}</h2>
@@ -827,7 +834,7 @@ ${findingList(section.findings)}
 `)}`;
   return page({
     path: topicPath(model.topic.key),
-    noindex: unreviewedOnly(model.sections.flatMap(({ findings }) => findings)),
+    noindex: unreviewedOnly(model.sections.flatMap(({ findings }) => findings)) && dossiers?.anyChecked !== true,
     reader,
     title: `${model.topic.label} | AskRigor Atlas`,
     description: `Findings about ${model.topic.label} in the AskRigor Atlas.`,
@@ -1910,6 +1917,24 @@ table { width: 100%; border-collapse: collapse; }
 .dossier-studies li { margin-bottom: 1.4rem; }
 .dossier-studies h4 { margin: 0 0 0.3rem; }
 .dossier-studies p { margin: 0.35rem 0; }
+/* AskRigor#477 stage 2: research dossiers, main points at a glance, each a line that opens (dossier-pages.ts). */
+.dossier-section { margin: 1.5rem 0; padding: 1rem; border: 1px solid var(--line); border-radius: 0.5rem; background: var(--surface); }
+.dossier-glance { margin: 0.75rem 0; padding-left: 1.4rem; }
+.dossier-finding { margin: 0 0 0.6rem; }
+.dossier-finding summary { cursor: pointer; }
+.dossier-importance, .dossier-hard { display: inline-block; padding: 0 0.4rem; border-radius: 0.3rem; font-size: 0.85rem; font-weight: 700; background: var(--quiet-surface); color: var(--quiet); }
+.dossier-decision_changing .dossier-importance { background: var(--contested-surface); color: var(--contested); }
+.dossier-important .dossier-importance { background: var(--unreviewed-surface); color: var(--unreviewed); }
+.dossier-hard { background: var(--checked-surface); color: var(--checked); }
+.dossier-claim { font-weight: 600; }
+.dossier-evidence { display: block; font-size: 0.95rem; color: var(--muted); }
+.dossier-detail { margin: 0.5rem 0 0.75rem; padding: 0.5rem 0.75rem; border-left: 0.2rem solid var(--line); }
+.dossier-detail h4 { margin: 0.6rem 0 0.2rem; font-size: 1rem; }
+.dossier-detail ul, .dossier-studies-list { padding-left: 1.2rem; }
+.dossier-figure { margin: 0.2rem 0; font-variant-numeric: tabular-nums; }
+.dossier-more { margin: 0.75rem 0; }
+.dossier-more > summary { cursor: pointer; font-weight: 700; }
+.dossier-checked, .dossier-value { margin: 1.25rem 0; }
 th, td { padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 thead th { font-size: 0.9rem; color: var(--muted); }
 td:last-child, th:last-child { text-align: right; }
