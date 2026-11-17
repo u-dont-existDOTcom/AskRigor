@@ -1,5 +1,6 @@
 import {
-  findingsSaveMarker, findingsSaveOff, laterInputShape, mergeLaterInputs, TOP_LEVEL_FALLBACK_INPUTS
+  FINDINGS_LEDGER_LATER_INPUTS, finalizeResearchLaterShape, findingsSaveMarker, findingsSaveOff, laterInputShape,
+  mergeLaterInputs, TOP_LEVEL_FALLBACK_INPUTS
 } from "./later-inputs.js";
 import { sourceIdentifierOf } from "./atlas/page-data.js";
 import { atlasReuseSchema, checkAtlasReuse, atlasSourceDigest, checkedAtlasSources } from "./atlas/reuse.js";
@@ -1039,10 +1040,11 @@ export const finalizeResearchInputSchema = z.object({
 }).strict();
 
 // Later fields have one declaration, in later-inputs.ts. The runtime parser sees them after the envelope is
-// merged; the top-level schema used by tools/list is unchanged.
-export function finalizeResearchRuntimeInputSchema() {
+// merged; the top-level schema used by tools/list is unchanged. The findings ledger's are fields only for a call the
+// ledger is active for (Codex's sixth review of 17 Nov 2026, finding 3); for any other they are unknown, as before it.
+export function finalizeResearchRuntimeInputSchema({ findingsLedger = false }: { findingsLedger?: boolean } = {}) {
   const later = laterInputShape("finalize_research");
-  return finalizeResearchInputSchema.extend({
+  const schema = finalizeResearchInputSchema.extend({
     ...later,
     answer_draft: finalizeResearchInputSchema.shape.answer_draft.describe(
       "The exact answer to check. Only source provenance and links, declared reading depth (with each cited key " +
@@ -1054,6 +1056,8 @@ export function finalizeResearchRuntimeInputSchema() {
       "Optional legacy renderings of answer guidance. Limits may be reworded or translated directly; missing " +
       "or changed limit sentences do not create steps.")
   });
+  // Read from the raw call (findings-ledger.ts): accepted as given, and never part of the checked input's type.
+  return findingsLedger ? schema.extend(FINDINGS_LEDGER_LATER_INPUTS) as unknown as typeof schema : schema;
 }
 export type FinalizeResearchInput = z.output<ReturnType<typeof finalizeResearchRuntimeInputSchema>>;
 
@@ -1180,7 +1184,13 @@ export function normalizeFinalizeResearchInput(rawInput: unknown): unknown {
 }
 
 /** Merge later inputs, keep independently usable fields, and return all format problems as notes. */
-export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseResult<FinalizeResearchInput> & {
+/**
+ * `findingsLedger`: whether the findings ledger is active for this call, so that later_inputs.findings_ledger and
+ * later_inputs.finding_responses are inputs of it; otherwise they are unknown inputs, as before the ledger (Codex's sixth
+ * review of 17 Nov 2026, finding 3).
+ */
+export function parseFinalizeResearchInput(rawInput: unknown, { findingsLedger = false }: { findingsLedger?: boolean } = {}):
+  z.ZodSafeParseResult<FinalizeResearchInput> & {
   notes: string[]; droppedFindingsCard: boolean; droppedCard?: unknown;
   /** The study map as checked (owner answer 249a): each item at its place as given. */
   studyMap?: CheckedStudyMap;
@@ -1189,15 +1199,15 @@ export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseRes
 } {
   const topLevel = new Set([...Object.keys(finalizeResearchInputSchema.shape), "later_inputs"]);
   // The usable later inputs are kept, each bad key dropped alone, and a key in both places takes its later form.
-  const { input, problems } = mergeLaterInputs("finalize_research", rawInput, topLevel, undefined,
-    { keepUsable: true, fallback: TOP_LEVEL_FALLBACK_INPUTS });
+  const { input, problems } = mergeLaterInputs("finalize_research", rawInput, topLevel,
+    finalizeResearchLaterShape(findingsLedger), { keepUsable: true, fallback: TOP_LEVEL_FALLBACK_INPUTS });
   const notes = problems.map(({ path, message, kind }) =>
     kind === "dropped" ? `${inputPath(path)}: dropped. ${message}` : `${inputPath(path)}: ${message}`);
   // The test marker, read from the raw call on its own: a value other than "off", or later_inputs sent as text, is read
   // as off, which a note says (the recheck of 5 Nov 2026).
   const marker = findingsSaveMarker(rawInput).note;
   if (marker !== undefined) notes.push(marker);
-  const runtime = finalizeResearchRuntimeInputSchema();
+  const runtime = finalizeResearchRuntimeInputSchema({ findingsLedger });
   const object = input !== null && typeof input === "object" && !Array.isArray(input);
   const essential = object ? ["answer_draft", "research_target"].flatMap((key) => {
     const field = key as "answer_draft" | "research_target";
@@ -1950,7 +1960,7 @@ export function finalizeResearch(
   rawInput: unknown,
   options: FinalizeResearchOptions
 ): FinalizeResearchOutput {
-  const parsed = parseFinalizeResearchInput(rawInput);
+  const parsed = parseFinalizeResearchInput(rawInput, { findingsLedger: options.findingsLedger !== undefined });
   if (!parsed.success) return invalidFinalizeResearchInput(parsed.error, options, parsed.notes);
   const input = parsed.data;
   // A test run's call, marked findings_save "off", read from the raw call on its own: it offers no save and files no

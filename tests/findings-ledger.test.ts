@@ -12,7 +12,7 @@ import {
   findingsLedgerMemoryKey, issueFindingsLedger, sketchSimilarity, verifyFindingsLedger, whatStops,
   type FindingsLedgerParams, type ObservedFinding,
 } from "../apps/research-mcp/src/findings-ledger.js";
-import { laterInputNames } from "../apps/research-mcp/src/later-inputs.js";
+import { finalizeResearchLaterShape, laterInputNames } from "../apps/research-mcp/src/later-inputs.js";
 import { ANSWER_READING_LABELS } from "../apps/research-mcp/src/source-reading.js";
 import {
   FINAL_CHECK_BLOCKING_RULES, SECOND_READING_LEFT_TO_CALLER, communitySkipCaveat,
@@ -104,8 +104,12 @@ describe("the setting", () => {
     expect(on.notes).toContain(FINDINGS_LEDGER_NOTE);
   });
 
-  it("accepts the two later inputs, read from the raw call", () => {
-    expect(laterInputNames("finalize_research")).toEqual(expect.arrayContaining(["findings_ledger", "finding_responses"]));
+  it("accepts the two later inputs, read from the raw call, only while the ledger is active for the call", () => {
+    expect(Object.keys(finalizeResearchLaterShape(true))).toEqual(expect.arrayContaining(["findings_ledger",
+      "finding_responses"]));
+    // Codex's sixth review of 17 Nov 2026, finding 3: otherwise they are unknown inputs, as on main.
+    expect(laterInputNames("finalize_research")).not.toContain("findings_ledger");
+    expect(Object.keys(finalizeResearchLaterShape(false))).toEqual(laterInputNames("finalize_research"));
   });
 });
 
@@ -1411,5 +1415,38 @@ describe("Codex's sixth review of 17 Nov 2026", () => {
     expect(WHAT_STOPS_TEXT).toContain("Under a passing answer the reader sees up to 20 problems left open or disputed");
     expect(WHAT_STOPS_TEXT).toContain("none about the call itself or a check that didn't run");
     expect(WHAT_STOPS_TEXT.split("\n")).toHaveLength(1);
+  });
+
+  it("3: with the ledger inactive, treats findings_ledger and finding_responses as unknown inputs, as main does", async () => {
+    // finalize_research's later inputs on main, before the ledger.
+    const main = ["community_evidence", "treatment_choice", "open_leads", "another_pass_estimate", "findings_card",
+      "source_lines", "study_map", "user_observations", "community_leads", "source_reading", "name_forms", "key_name",
+      "search_coverage", "claim_coverage", "findings_save", "asked", "ai_readings", "research_dossier"];
+    const unknown = (name: string, names: readonly string[]) => `later_inputs.${name}: dropped. Unknown later input ` +
+      `"${name}" for finalize_research. Its later inputs: ${names.join(", ")}.`;
+    const later = { finding_responses: [{ id: "F-0123456789", response: "disputed", reason: "A reason." }],
+      synthetic_future_input: 1 };
+    const call = withLedger({ ...fixture(), findings_ledger: "fl1~top~level" }, { ...later, findings_ledger: "fl1~a~b" });
+    const inactive = (notes: readonly string[] | undefined) => {
+      for (const name of ["findings_ledger", "finding_responses", "synthetic_future_input"]) {
+        expect(notes).toContain(unknown(name, main));
+      }
+      expect(notes).toContain("findings_ledger: dropped an unknown field.");
+    };
+    // The check itself, without the ledger.
+    inactive(finalizeResearch(call, { secret: SECRET, now: () => NOW, secondReading: reading(WARNING) }).notes);
+    // Through the MCP tool: the ledger off, or on for the owner's development accounts and called by another.
+    await mcp(async (run) => inactive((await run(call)).notes), { findingsLedger: false });
+    await mcp(async (run) => inactive((await run(call)).notes), { findingsLedgerAccounts: "dev" });
+    // Active, both are read, and the guidance for an unknown input names them.
+    const ledger = ["findings_ledger", "finding_responses"];
+    const active = finalizeResearch(withLedger(fixture(), { ...later, findings_ledger: "fl1~a~b" }), options(WARNING));
+    expect(active.notes).toContain(unknown("synthetic_future_input", [...main, ...ledger]));
+    expect((active.notes ?? []).filter((text) => ledger.some((name) => text.includes(`${name}: dropped`)))).toEqual([]);
+    await mcp(async (run) => {
+      const output = await run(withLedger(fixture(), { ...later, findings_ledger: "fl1~a~b" }));
+      expect(output.check_findings!.ledger).toBe("rejected");
+      expect(output.notes).toContain(unknown("synthetic_future_input", [...main, ...ledger]));
+    });
   });
 });
