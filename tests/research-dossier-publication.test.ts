@@ -1158,6 +1158,36 @@ describe("the dossier pages' reads, pages, size and cache", () => {
     expect(second).not.toContain("More topics");
   }, 120_000);
 
+  // Codex's third review, P2: the compact page was returned without checking its size, and the sections besides the
+  // findings had no bound. The compact page is checked too, and every other list is kept within a share of the size.
+  it("checks the compact page against its size too, and bounds every other list on it", async () => {
+    const { publications } = await many(3, () => "inositol-invented");
+    const { fitDossierPage, loadDossierPage, loadDossierTopic, renderDossierPage, renderDossierTopicPage } =
+      await import("../apps/research-mcp/src/atlas/dossier-pages.js");
+    const claim = "A long claim about the same form and outcome, ".repeat(10).trim();
+    const side = (publicNumber: string) => ({ publicNumber, claim, accepted: false });
+    // A dossier page with two thousand versions (the database's most) and fifty disagreements.
+    const page = (await loadDossierPage(publications, "D-1001"))!;
+    page.history = Array.from({ length: 2_000 }, (_, place) => ({ publicNumber: "D-1001", versionNumber: 2_000 - place,
+      state: place === 0 ? "shown" as const : "superseded" as const, accepted: false, decidedAt: NOW.toISOString(),
+      revised: true }));
+    page.disagreements = Array.from({ length: 50 }, () => ({ form: "myo-inositol", found: "check" as const,
+      left: side("D-1001"), right: side("D-1002") }));
+    const topic = (await loadDossierTopic(publications, "inositol-invented"))!;
+    topic.disagreements = page.disagreements;
+    for (const [render, bytes] of [[(size: object) => renderDossierPage(page, undefined, size), 60_000],
+      [(size: object) => renderDossierTopicPage(topic, undefined, size), 30_000]] as const) {
+      // Even compact, with every finding left to its dossier's page, the whole is more than the size given.
+      expect(Buffer.byteLength(render({ findingBytes: 0, compact: true }), "utf8")).toBeGreaterThan(bytes);
+      const fitted = fitDossierPage(render, bytes);
+      expect(Buffer.byteLength(fitted, "utf8")).toBeLessThanOrEqual(bytes);
+      expect(atlasPageProblems(fitted)).toEqual([]);
+      expect(fitted).toMatch(/\d+ more disagreements are not listed here, to keep the page a readable size\./u);
+    }
+    expect(fitDossierPage((size) => renderDossierPage(page, undefined, size), 60_000))
+      .toMatch(/\d+ more versions are not listed here, to keep the page a readable size\./u);
+  }, 60_000);
+
   it("drops every server's cached dossier pages when the research is withdrawn, also in another process", async () => {
     const { dossiers, publications, publication } = stores();
     await saveResearchDossier(dossiers, request({ publication }));

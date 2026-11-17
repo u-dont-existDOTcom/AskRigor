@@ -63,7 +63,7 @@ export const DOSSIER_FINDING_BYTES = 1_000_000;
 /**
  * The most a whole page that shows dossiers takes, as bytes (Codex's re-review of stage 2, P1): the list of every finding
  * gets what the rest of the page leaves, and when the rest alone is more, the main points at a glance are listed
- * without what each opens onto (fitDossierPage).
+ * without what each opens onto, then every other list is kept within a share of the size (fitDossierPage).
  */
 export const DOSSIER_PAGE_BYTES = 2_000_000;
 /** The topics list, while dossiers show, this many topics a page, in the order of their labels (then keys). */
@@ -75,12 +75,20 @@ export interface DossierPageSize {
   findingBytes?: number;
   /** The main points at a glance as lines alone, each linking its dossier, without what each opens onto. */
   compact?: boolean;
+  /**
+   * The bytes each other list may take (where dossiers disagree, the dossiers, the related topics, and on a dossier's
+   * page its studies, results, searches, open questions and versions): each stops at the first entry past it and says
+   * how many more there are. Unbounded when not given.
+   */
+  listBytes?: number;
 }
 
 /**
  * A page that shows dossiers, within its whole size: the list of every finding is cut to what the rest of the page
- * leaves; if the rest alone is more, the main points at a glance are shown as lines alone. Everything else a dossier
- * part holds is bounded by its count and the dossier's own limits.
+ * leaves; if the rest alone is more, the main points at a glance are shown as lines alone; if that is still more
+ * (Codex's third review, P2: it was returned unchecked), every other list is kept within a shrinking share of the size.
+ * Each page is checked; past every step the smallest is returned, which only a topic's card findings, outside the
+ * dossiers' part, can keep above the size.
  */
 export function fitDossierPage(render: (size: DossierPageSize) => string, bytes = DOSSIER_PAGE_BYTES): string {
   const sizeOf = (page: string) => Buffer.byteLength(page, "utf8");
@@ -91,8 +99,33 @@ export function fitDossierPage(render: (size: DossierPageSize) => string, bytes 
     if (size <= bytes) return page;
     findingBytes = Math.max(0, findingBytes - (size - bytes) - 4_096);
   }
-  const page = render({ findingBytes: 0 });
-  return sizeOf(page) <= bytes ? page : render({ findingBytes: 0, compact: true });
+  let smallest = render({ findingBytes: 0 });
+  if (sizeOf(smallest) <= bytes) return smallest;
+  for (const listBytes of [undefined, Math.floor(bytes / 8), Math.floor(bytes / 32), 0]) {
+    const page = render({ findingBytes: 0, compact: true, ...(listBytes === undefined ? {} : { listBytes }) });
+    if (sizeOf(page) <= bytes) return page;
+    if (sizeOf(page) < sizeOf(smallest)) smallest = page;
+  }
+  return smallest;
+}
+
+/**
+ * A list's entries within the bytes given (none given: all of them): those up to the first past it, and a line saying
+ * how many more there are, in words for one and for several.
+ */
+function boundedList<T>(items: readonly T[], render: (item: T) => SafeHtml, bytes: number | undefined,
+  words: [string, string]): { entries: SafeHtml[]; more: SafeHtml | "" } {
+  const entries: SafeHtml[] = [];
+  let used = 0;
+  for (const item of items) {
+    const rendered = render(item);
+    used += Buffer.byteLength(rendered.value, "utf8");
+    if (bytes !== undefined && used > bytes) break;
+    entries.push(rendered);
+  }
+  const left = items.length - entries.length;
+  return { entries, more: left === 0 ? "" : html`<p class="meta">${left} more ${left === 1 ? words[0] : words[1]} ${
+    left === 1 ? "is" : "are"} not listed here, to keep the page a readable size.</p>` };
 }
 /** A dossier page compares it with the newest this many shown dossiers on its topic, and says so when there are more. */
 const TOPIC_COMPARED = 200;
@@ -696,27 +729,38 @@ ${left === 0 ? "" : html`<p class="meta">${more(left)}</p>`}`;
  * from a dossier supervisors have not checked keeps the list out of search snippets, and, on a checked dossier's own
  * page (markUnchecked), that dossier is marked as not checked.
  */
-function disagreementList(disagreements: readonly DossierDisagreementView[], markUnchecked = false): SafeHtml | "" {
+function disagreementList(disagreements: readonly DossierDisagreementView[], markUnchecked = false,
+  listBytes?: number): SafeHtml | "" {
   if (disagreements.length === 0) return "";
   const side = (one: DossierDisagreementView["left"]) => html`“${one.claim}” (<a href="${dossierPagePath(one.publicNumber)}">${one.publicNumber}</a>${
     markUnchecked && !one.accepted ? html`, ${NOT_CHECKED_LABEL.toLocaleLowerCase("en")}` : ""})`;
   const entry = (item: DossierDisagreementView) => html`<li>${item.form === null ? "" : html`${item.form}: `}${side(item.left)} and ${side(item.right)}</li>`;
-  const list = (items: readonly DossierDisagreementView[]) => html`<ul class="dossier-conflicts"${
-    items.some(({ left, right }) => !left.accepted || !right.accepted) ? html` data-nosnippet` : ""}>${items.map(entry)}</ul>`;
-  const checked = disagreements.filter(({ found }) => found === "check");
-  const kinds = disagreements.filter(({ found }) => found === "kinds");
+  // Within the bytes given, all of them together: those found by the check first, then the rest.
+  const bounded = boundedList(disagreements, entry, listBytes, ["disagreement", "disagreements"]);
+  const shown = disagreements.slice(0, bounded.entries.length);
+  const list = (found: DossierDisagreementView["found"]) => {
+    const items = shown.flatMap((item, place) => item.found === found ? [{ item, rendered: bounded.entries[place]! }] : []);
+    return { count: items.length, html: html`<ul class="dossier-conflicts"${items.some(({ item }) => !item.left.accepted ||
+      !item.right.accepted) ? html` data-nosnippet` : ""}>${items.map(({ rendered }) => rendered)}</ul>` };
+  };
+  const checked = list("check");
+  const kinds = list("kinds");
   return html`<h3>Where dossiers disagree</h3>
-${checked.length === 0 ? "" : html`<p class="meta">AskRigor’s conflict check read these findings as contradicting each other.</p>
-${list(checked)}`}
-${kinds.length === 0 ? "" : html`<p class="meta">Two dossiers reached opposite kinds of conclusion for the same form. They may be about different outcomes or people; AskRigor checks such conflicts when they matter.</p>
-${list(kinds)}`}`;
+${checked.count === 0 ? "" : html`<p class="meta">AskRigor’s conflict check read these findings as contradicting each other.</p>
+${checked.html}`}
+${kinds.count === 0 ? "" : html`<p class="meta">Two dossiers reached opposite kinds of conclusion for the same form. They may be about different outcomes or people; AskRigor checks such conflicts when they matter.</p>
+${kinds.html}`}
+${bounded.more}`;
 }
 
-function relatedList(related: readonly DossierRelatedTopic[]): SafeHtml | "" {
+function relatedList(related: readonly DossierRelatedTopic[], listBytes?: number): SafeHtml | "" {
   if (related.length === 0) return "";
+  const { entries, more } = boundedList(related, (topic) => html`<li><a href="${topicPath(topic.key)}">${topic.label}</a>${
+    topic.why === "shared_studies" ? html` <span class="meta">(shares studies with this topic)</span>` : ""}</li>`, listBytes,
+  ["related topic", "related topics"]);
   return html`<h3>Related topics</h3>
-<ul class="dossier-related">${related.map((topic) => html`<li><a href="${topicPath(topic.key)}">${topic.label}</a>${
-    topic.why === "shared_studies" ? html` <span class="meta">(shares studies with this topic)</span>` : ""}</li>`)}</ul>`;
+<ul class="dossier-related">${entries}</ul>
+${more}`;
 }
 
 function dossierSummary({ copy, dossier }: ShownDossier): SafeHtml {
@@ -759,12 +803,13 @@ ${model.ranked.length > glance.length || model.forms.length > 1 || paged ? html`
 ${formSections(model.forms, true, "topic", size.findingBytes ?? DOSSIER_FINDING_BYTES, (count) =>
     `${count} more ${count === 1 ? "finding is" : "findings are"} in the dossiers below, each on its own page.`)}
 </details>` : ""}
-${disagreementList(model.disagreements)}
+${disagreementList(model.disagreements, false, size.listBytes)}
 <h3>${paged ? html`The dossiers, page ${model.page}` : "The dossiers"}</h3>
-<ul class="dossier-list">${model.dossiers.map(dossierSummary)}</ul>
+${((list) => html`<ul class="dossier-list">${list.entries}</ul>
+${list.more}`)(boundedList(model.dossiers, dossierSummary, size.listBytes, ["dossier on this page", "dossiers on this page"]))}
 ${paged ? html`<p class="dossier-pages">${model.page > 1 ? html`<a rel="prev" href="${pageOf(model.page - 1)}">Newer dossiers on this topic</a>` : ""}${
     model.page > 1 && model.more ? " · " : ""}${model.more ? html`<a rel="next" href="${pageOf(model.page + 1)}">Older dossiers on this topic</a>` : ""}</p>` : ""}
-${relatedList(model.related)}
+${relatedList(model.related, size.listBytes)}
 </section>`;
 }
 
@@ -840,25 +885,31 @@ ${model.ranked.length > DOSSIER_GLANCE_COUNT || model.forms.length > 1 ? html`<d
 ${formSections(model.forms, false, "dossier", size.findingBytes ?? DOSSIER_FINDING_BYTES, (count) =>
     `${count} more ${count === 1 ? "finding is" : "findings are"} not listed here, to keep the page a readable size.`)}
 </details>` : ""}
-${disagreementList(model.disagreements, copy.accepted)}
+${disagreementList(model.disagreements, copy.accepted, size.listBytes)}
 ${model.comparedAll || model.disagreements.length === 0 ? "" : html`<p class="meta">Compared with the newest ${TOPIC_COMPARED} dossiers on its topic.</p>`}
 ${checkedSection(dossier)}
-<details class="dossier-more"><summary>Every study (${studies.length})</summary>
-<ul class="dossier-studies-list">${studies.map((study) => studyItem(dossier, study))}</ul></details>
-${dossier.results.length === 0 ? "" : html`<details class="dossier-more"><summary>Every result (${dossier.results.length}, ${comparisons} ${
+${((list) => html`<details class="dossier-more"><summary>Every study (${studies.length})</summary>
+<ul class="dossier-studies-list">${list.entries}</ul>${list.more}</details>`)(boundedList(studies,
+    (study) => studyItem(dossier, study), size.listBytes, ["study", "studies"]))}
+${dossier.results.length === 0 ? "" : ((list) => html`<details class="dossier-more"><summary>Every result (${dossier.results.length}, ${comparisons} ${
     comparisons === 1 ? "comparison" : "comparisons"} with group sizes)</summary>
-<ul>${dossier.results.map((result) => resultItem(dossier, result))}</ul></details>`}
-${dossier.searches.length === 0 ? "" : html`<details class="dossier-more"><summary>Every search (${dossier.searches.length})</summary>
-<ul>${dossier.searches.map((search) => html`<li>${DATABASE_WORDS[search.database] ?? search.database}: ${search.query}${
+<ul>${list.entries}</ul>${list.more}</details>`)(boundedList(dossier.results, (result) => resultItem(dossier, result),
+    size.listBytes, ["result", "results"]))}
+${dossier.searches.length === 0 ? "" : ((list) => html`<details class="dossier-more"><summary>Every search (${dossier.searches.length})</summary>
+<ul>${list.entries}</ul>${list.more}</details>`)(boundedList(dossier.searches, (search) => html`<li>${DATABASE_WORDS[search.database] ?? search.database}: ${search.query}${
     search.date_range === undefined ? "" : html`, ${search.date_range.start} to ${search.date_range.end}`}${
-    search.records_found === null ? "" : html` (${search.records_found.toLocaleString("en-US")} records)`}</li>`)}</ul></details>`}
+    search.records_found === null ? "" : html` (${search.records_found.toLocaleString("en-US")} records)`}</li>`,
+  size.listBytes, ["search", "searches"]))}
 ${dossier.community === undefined ? "" : html`<h2>People’s reports</h2>${communityText(dossier.community)}`}
-${dossier.open_trails.length === 0 ? "" : html`<h2>Still unknown</h2><ul>${dossier.open_trails.map((trail) => html`<li>${trail}</li>`)}</ul>`}
-${model.history.length <= 1 ? "" : html`<h2>Versions</h2><ul>${model.history.map((entry) => html`<li>Version ${entry.versionNumber}, ${
+${dossier.open_trails.length === 0 ? "" : ((list) => html`<h2>Still unknown</h2><ul>${list.entries}</ul>${list.more}`)(
+    boundedList(dossier.open_trails, (trail) => html`<li>${trail}</li>`, size.listBytes,
+      ["open question", "open questions"]))}
+${model.history.length <= 1 ? "" : ((list) => html`<h2>Versions</h2><ul>${list.entries}</ul>${list.more}`)(
+    boundedList(model.history, (entry) => html`<li>Version ${entry.versionNumber}, ${
     dayOf(entry.decidedAt)}: ${entry.state === "shown" ? "shown now" : "replaced by a later version"}${entry.accepted
     ? ", checked by supervisors" : ""}${entry.revised ? "; AskRigor’s review changed how much one of its findings matters"
-    : ""}</li>`)}</ul>`}
-${relatedList(model.related)}
+    : ""}</li>`, size.listBytes, ["version", "versions"]))}
+${relatedList(model.related, size.listBytes)}
 </div>`,
   });
 }
