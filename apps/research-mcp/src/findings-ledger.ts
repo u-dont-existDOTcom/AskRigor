@@ -22,9 +22,12 @@ import { NEXT_STEP_KINDS, type NextStepKind } from "./next-step-kinds.js";
  * still disputed, the writer's reason, which the reader is shown anyway, or, when that reason is no longer at hand,
  * its keyed digest. It holds no words of the answer or of the findings.
  * The server keeps, per process and for two hours at most (swept when they pass, whether or not the ledger is asked for
- * again), the last ledger it issued for an account and research target, so a call that leaves the ledger out, or passes
- * an older one, is detected: the same digests, numbers and dispositions, with each dispute reason's keyed digest in
- * place of its words, and the digests of that token, its parent and the request that issued it. It keeps no words: a
+ * again), the last ledger it issued for an account and research target, so a call of the same chat that leaves the
+ * ledger out, or passes an older one, is detected: the same digests, numbers and dispositions, with each dispute reason's
+ * keyed digest in place of its words, and the digests of that token, its parent, the request that issued it and that
+ * request's turn. A call of the same chat carries that turn (its round token's or its carried state's), that ledger or
+ * its parent; any other, such as a second chat asking the same question, starts afresh and inherits nothing (Fable's
+ * check of 17 Nov 2026). It keeps no words: a
  * dispute survives a ledger left out, and its reason is shown again only from a ledger passed back whose reason has
  * the digest kept (Codex's re-review of 17 Nov 2026, finding 6). Across processes or restarts the signed token alone
  * carries the ledger (Codex's review of 17 Nov 2026, finding 6).
@@ -316,6 +319,12 @@ export interface RememberedLedger {
    * review of 17 Nov 2026, finding 2).
    */
   request?: string;
+  /**
+   * The keyed digest of the turn of the call that issued it (Fable's check of 17 Nov 2026): two chats asking the same
+   * question share an account and research target, and only a call carrying this turn, as its round token's or its
+   * carried state's, continues that ledger's chat. Absent, no call does but by passing that ledger or its parent.
+   */
+  turn?: string;
   at: number;
 }
 export interface FindingsLedgerMemory {
@@ -532,6 +541,12 @@ export interface FindingsLedgerParams {
    */
   checkedItems?: readonly string[] | undefined;
   remembered?: RememberedLedger | undefined;
+  /**
+   * The turn ids this call carries (Fable's check of 17 Nov 2026): its own (its round token's, or a new one) and, with a
+   * verified carried state, that state's. `remembered` is used only when it was issued in one of them, or the call
+   * passes it or the ledger it was issued from; otherwise the call is another chat's and inherits nothing from it.
+   */
+  turns?: { call: string; carried?: string | undefined } | undefined;
   now: Date;
 }
 
@@ -559,9 +574,20 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
   const account = findingsLedgerAccountDigest(secret, params.account);
   const target = findingsLedgerTargetDigest(secret, params.target);
   const ver = versionsDigest(secret, params.versions);
-  const remembered = params.remembered !== undefined && params.remembered.payload.a === account &&
-    params.remembered.payload.t === target ? params.remembered : undefined;
   const given = laterInputValue(raw, "findings_ledger");
+  const givenDigest = typeof given === "string" && given !== "" ? tokenDigest(given) : undefined;
+  // Fable's check of 17 Nov 2026: the ledger remembered for this account and research target is another chat's too
+  // when two ask the same question. Only a call carrying its chat's state continues it: the turn it was issued in, as
+  // the call's round token or carried state gives it, or that ledger or the one it was issued from. Any other call
+  // starts afresh and inherits nothing.
+  const turnDigest = (turn: string | undefined) => turn === undefined ? undefined : digest(secret, "turn", turn, 16);
+  const callTurn = turnDigest(params.turns?.call);
+  const carriedTurn = turnDigest(params.turns?.carried);
+  const sameChat = ({ turn, token, parent }: RememberedLedger) =>
+    (turn !== undefined && (turn === callTurn || turn === carriedTurn)) ||
+    (givenDigest !== undefined && (givenDigest === token || givenDigest === parent));
+  const remembered = params.remembered !== undefined && params.remembered.payload.a === account &&
+    params.remembered.payload.t === target && sameChat(params.remembered) ? params.remembered : undefined;
   const draftDigest = draft === undefined || draft === "" ? "" : digest(secret, "draft", draft, 16);
   const responseNotes: string[] = [];
   const responses = readResponses(raw, responseNotes);
@@ -619,7 +645,6 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
         : "another research target"}, so it was not used; ` + (remembered === undefined
         ? "this check's findings start a new ledger." : "the ledger AskRigor last issued for this research was used."));
     } else {
-      const givenDigest = tokenDigest(given as string);
       retry = remembered !== undefined && remembered.parent === givenDigest && remembered.request === request;
       if (remembered !== undefined && !retry && remembered.token !== givenDigest &&
           remembered.payload.seq >= verified.payload.seq) {
@@ -913,8 +938,8 @@ export function findingsLedger(params: FindingsLedgerParams): FindingsLedgerResu
     notes,
     retention,
     remember: issued === undefined ? undefined : { payload: forMemory(issued.payload, secret),
-      token: tokenDigest(issued.token),
-      ...(typeof given === "string" && given !== "" ? { parent: tokenDigest(given) } : {}), request }
+      token: tokenDigest(issued.token), ...(givenDigest === undefined ? {} : { parent: givenDigest }), request,
+      ...(callTurn === undefined ? {} : { turn: callTurn }) }
   };
 }
 

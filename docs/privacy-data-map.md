@@ -2724,8 +2724,12 @@ pending-proposal stores have their own strict contracts and authority boundaries
   keyed by the account's and target's digests: the same digests, numbers and
   dispositions as the token, with each dispute reason's keyed digest in place
   of its words, and 16-hex digests of that token, the token it was issued
-  from, and the request that issued it. It keeps no words of the answer, the
-  findings or the reasons, and no token. An expired ledger is swept at the
+  from, the request that issued it and that request's turn (the turn id its
+  round token carries). Only a call carrying that turn, in its round token or
+  carried state, or that token or the one it was issued from, uses it; any
+  other call, such as a second chat asking the same question, starts a new
+  ledger. It keeps no words of the answer, the findings or the reasons, and no
+  token. An expired ledger is swept at the
   next call or by a timer; none survives a restart. A dispute survives a
   ledger left out; its reason is shown again only from a verified ledger
   passed back whose reason has the digest kept, so an older ledger never

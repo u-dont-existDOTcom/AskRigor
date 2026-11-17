@@ -74,9 +74,11 @@ const draftNote = (quote: string): ObservedFinding => {
   const step = rule`The answer says ${JSON.stringify(quote)} without a source.`;
   return { kind: "answer_draft", text: step.text, rule: step };
 };
+// One chat's calls carry its turn (Fable's check of 17 Nov 2026): the server's memory is used only for them.
+const TURN = "0123456789abcdef";
 const params = (overrides: Partial<FindingsLedgerParams>): FindingsLedgerParams => ({
   secret: SECRET, account: "acct-a", target: "A research target", versions: { hrp: "20.6.43", universal: "20.5.40", build: "abc1234" },
-  raw: {}, observed: [], draft: "A draft.", now: NOW, ...overrides,
+  raw: {}, observed: [], draft: "A draft.", turns: { call: TURN }, now: NOW, ...overrides,
 });
 
 describe("the setting", () => {
@@ -439,11 +441,14 @@ describe("the review of 17 Nov 2026", () => {
         expect(response.isError).not.toBe(true);
         return response.structuredContent as FinalizeResearchOutput;
       };
+      // One chat's calls, each carrying the turn's round token and the carried state (Fable's check of 17 Nov 2026).
+      const state = (previous: FinalizeResearchOutput) =>
+        ({ carried_state: previous.carry_forward, round_token: previous.round_token });
       const first = await call(fixture());
-      const late = call(withLedger(fixture(EDITED), { findings_ledger: first.findings_ledger }));
+      const late = call(withLedger({ ...fixture(EDITED), ...state(first) }, { findings_ledger: first.findings_ledger }));
       await isWaiting;
-      const second = await call(withLedger(fixture(), { findings_ledger: first.findings_ledger }));
-      await call(withLedger(fixture(), { findings_ledger: second.findings_ledger }));
+      const second = await call(withLedger({ ...fixture(), ...state(first) }, { findings_ledger: first.findings_ledger }));
+      await call(withLedger({ ...fixture(), ...state(second) }, { findings_ledger: second.findings_ledger }));
       expect(memory.get(key)!.payload.seq).toBe(3);
       release();
       const last = await late;
@@ -1114,7 +1119,10 @@ describe("through the MCP tool", () => {
       expect(first.text).toContain(`Pass this as later_inputs.findings_ledger in this research's next finalize_research call: ${first.output.findings_ledger}`);
       const id = warningFinding(first.output)!.id;
       expect(first.text).toContain(`- ${id} (note; open): `);
-      const second = await call(fixture(EDITED));
+      // The same chat, carrying its state but not the ledger (Fable's check of 17 Nov 2026: another chat, carrying none
+      // of it, starts afresh).
+      const second = await call({ ...fixture(EDITED), carried_state: first.output.carry_forward,
+        round_token: first.output.round_token });
       expect(second.output.check_findings!.ledger).toBe("omitted");
       expect(second.output.notes!.join(" ")).toContain("left out later_inputs.findings_ledger");
       const third = await call(withLedger(fixture(EDITED), { findings_ledger: second.output.findings_ledger }));
@@ -1136,5 +1144,73 @@ describe("through the MCP tool", () => {
       expect(output.findings_ledger).toBeUndefined();
       expect((response.content as Array<{ text: string }>)[0]!.text).not.toContain("findings_ledger");
     } finally { await client.close(); await server.close(); }
+  });
+});
+
+// Fable's check of 17 Nov 2026 (fable-check-stage1.md), before the ledger is switched on: one regression for each point.
+describe("before switching on (Fable's check of 17 Nov 2026)", () => {
+  const mcp = async (run: (call: (input: Record<string, unknown>) => Promise<FinalizeResearchOutput>) => Promise<void>,
+    serverOptions: Record<string, unknown> = {}) => {
+    vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", SECRET);
+    const server = createAskRigorServer("standard", { researchAccessRequired: false, findingsLibrary: false,
+      findingsLedger: true, findingsLedgerMemory: createFindingsLedgerMemory(),
+      secondReader: { enabled: true, readAnswer: async (draft) => reading(draft.includes(WARNING) ? WARNING : undefined) as never },
+      ...serverOptions });
+    const client = new Client({ name: "findings-ledger-fable-test", version: "1" });
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    try {
+      await server.connect(b); await client.connect(a);
+      await run(async (input) => {
+        const response = await client.callTool({ name: "finalize_research", arguments: withSourceReading(input) });
+        expect(response.isError).not.toBe(true);
+        return response.structuredContent as FinalizeResearchOutput;
+      });
+    } finally { await client.close(); await server.close(); }
+  };
+  const continuing = (previous: FinalizeResearchOutput, input = fixture()) =>
+    ({ ...input, carried_state: previous.carry_forward, round_token: previous.round_token });
+
+  it("1: starts a second chat's ledger afresh, with nothing of another chat's on the same question", async () => {
+    await mcp(async (call) => {
+      // The first chat disputes the second reading's finding.
+      const first = await call(fixture());
+      const id = warningFinding(first)!.id;
+      const disputed = await call(withLedger(continuing(first), { findings_ledger: first.findings_ledger,
+        finding_responses: [{ id, response: "disputed", reason: "It restates the guideline the answer quotes." }] }));
+      expect(warningFinding(disputed)).toMatchObject({ id, disposition: "disputed" });
+      // A second chat on the same account asks the same question, carrying none of the first chat's state.
+      const other = await call(fixture());
+      expect(other.check_findings!.ledger).toBe("new");
+      expect(warningFinding(other)).toMatchObject({ disposition: "open" });
+      expect(other.check_findings!.findings.filter(({ disposition }) => disposition === "disputed")).toEqual([]);
+      expect((other.notes ?? []).join(" ")).not.toContain("left out later_inputs.findings_ledger");
+      expect((other.notes ?? []).join(" ")).not.toContain("still disputed");
+      // The first chat passing its own ledger back continues it, not the second chat's.
+      const back = await call(withLedger(continuing(disputed), { findings_ledger: disputed.findings_ledger }));
+      expect(back.check_findings!.ledger).toBe("continued");
+      expect(warningFinding(back)).toMatchObject({ id, disposition: "disputed" });
+    });
+  });
+
+  it("1: uses the ledger it remembers only for a call that carries that ledger's turn, carried state or token", () => {
+    const memory = createFindingsLedgerMemory();
+    const key = findingsLedgerMemoryKey(SECRET, "acct-a", "A research target");
+    const turn = TURN;
+    const first = findingsLedger(params({ observed: [draftNote(WARNING)], turns: { call: turn } }));
+    memory.update(key, () => first.remember, NOW.getTime());
+    const remembered = () => memory.get(key, NOW.getTime());
+    // Another chat: a turn of its own and no carried state.
+    const other = findingsLedger(params({ observed: [draftNote(WARNING)], turns: { call: "fedcba9876543210" },
+      remembered: remembered() }));
+    expect(other.checkFindings.ledger).toBe("new");
+    expect(other.notes.join(" ")).not.toContain("left out later_inputs.findings_ledger");
+    // The same turn, or a later turn carrying the state of the call that issued it, is the same chat.
+    expect(findingsLedger(params({ observed: [draftNote(WARNING)], turns: { call: turn }, remembered: remembered() }))
+      .checkFindings.ledger).toBe("omitted");
+    expect(findingsLedger(params({ observed: [draftNote(WARNING)], turns: { call: "1111111111111111", carried: turn },
+      remembered: remembered() })).checkFindings.ledger).toBe("omitted");
+    // No turn at all inherits nothing.
+    expect(findingsLedger(params({ observed: [draftNote(WARNING)], turns: undefined, remembered: remembered() }))
+      .checkFindings.ledger).toBe("new");
   });
 });

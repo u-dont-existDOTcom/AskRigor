@@ -4889,6 +4889,9 @@ export function finalizeResearch(
       draft,
       coverage,
       checkedItems,
+      // Fable's check of 17 Nov 2026: the turns this call carries, so the ledger remembered for this research is used
+      // only for a call of its own chat.
+      turns: { call: callRound.turn, ...(carried?.turn === undefined ? {} : { carried: carried.turn }) },
       now: options.now?.() ?? new Date()
     } satisfies FindingsLedgerSource;
   })();
