@@ -2041,8 +2041,8 @@ export function finalizeResearch(
     return note;
   };
   let researchAdvised = false;
-  // Stage 1 of enforcing HRP: every problem this check finds, as admitted below, for the findings ledger, and which part of
-  // the check gave each note that only some calls run (by default the rules, which run at every call).
+  // Stage 1 of enforcing HRP: every problem this check finds, as admitted below, for the findings ledger, and which
+  // part of the check gave each note that only some calls run (by default the rules, which run at every call).
   const observedSteps: ObservedFinding[] = [];
   const noteCheckers = new Map<string, FindingChecker>();
   const checkedBy = (checker: FindingChecker, note: string): string => {
@@ -4655,9 +4655,9 @@ export function finalizeResearch(
     // The note comes with a passing check, whose answer goes out as checked, so it asks for the check again (the
     // regression run on #389's build: o356-dropout-nausea and q136-weak-lead edited after the check instead).
     // After a pass that followed a pass in this turn, the turn's last check, the change asks for no further call.
-    if (repeated >= 3) notes.push(checkedBy("passing", `The draft repeats ${repeated} of the panel's limits word for word; the panel ` +
-      "already lists every limit beneath the answer. Keep only those that change what this person should believe " +
-      `or do, in your own words, ${passedEarlierThisTurn ? "with no further check in this turn"
+    if (repeated >= 3) notes.push(checkedBy("passing", `The draft repeats ${repeated} of the panel's limits word ` +
+      "for word; the panel already lists every limit beneath the answer. Keep only those that change what this person " +
+      `should believe or do, in your own words, ${passedEarlierThisTurn ? "with no further check in this turn"
         : "and call finalize_research again with the changed draft"}.`));
   }
   // Owner answer 237a: each line's quotes are looked up once the check passes, in the text its key source's verified
@@ -4692,12 +4692,13 @@ export function finalizeResearch(
     ];
     const at = `findings_card.findings[${finding}].backing[${line}]`;
     if (missing.length > 0) {
-      notes.push(checkedBy("backing_lines", `The ${missing.join(" and the ")} of ${at} ${missing.length === 1 ? "isn't" : "aren't"} in the text ` +
-        "AskRigor fetched, so the Atlas won't show it. Copy each whole and exactly, in the paper's language."));
+      notes.push(checkedBy("backing_lines", `The ${missing.join(" and the ")} of ${at} ` +
+        `${missing.length === 1 ? "isn't" : "aren't"} in the text AskRigor fetched, so the Atlas won't show it. Copy ` +
+        "each whole and exactly, in the paper's language."));
     } else if (lookup.text === "search_copy" || lookup.text === "library_copy") {
-      notes.push(checkedBy("backing_lines", `The quotes of ${at} were found only in ${lookup.text === "search_copy" ? "the copy the AI supplied"
-        : "the owner's library copy"}, which the Atlas never quotes; a quote found in a full text AskRigor fetched ` +
-        "itself or a PubMed abstract is shown."));
+      notes.push(checkedBy("backing_lines", `The quotes of ${at} were found only in ${lookup.text === "search_copy"
+        ? "the copy the AI supplied" : "the owner's library copy"}, which the Atlas never quotes; a quote found in a ` +
+        "full text AskRigor fetched itself or a PubMed abstract is shown."));
     }
   }
   const sourceLineChecks = passed && draft !== undefined ? (options.sourceLineLookups ?? []).flatMap((lookup, index) => {

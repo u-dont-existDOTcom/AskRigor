@@ -72,7 +72,8 @@ export type FindingChecker = (typeof FINDING_CHECKERS)[number];
 /** What ran in full when nothing else is said: the rules and what is said of the call. */
 const ALWAYS_RUN: readonly FindingChecker[] = ["rules", "call"];
 const CHECKER_NAMES: Record<FindingChecker, string> = {
-  rules: "the check's rules", passing: "the checks of a passing answer", source_lines: "the look-up of source_lines' quotes",
+  rules: "the check's rules", passing: "the checks of a passing answer",
+  source_lines: "the look-up of source_lines' quotes",
   backing_lines: "the look-up of the findings card's backing lines", study_map: "the look-up of the study map",
   meaning_judge: "the meaning judge", second_reading: "the second reading", review: "AskRigor's review of the draft",
   call: "the check of the call"
@@ -199,7 +200,8 @@ function issueWithin(payload: FindingsLedgerPayload, secret: string):
     const left = ordered.slice(count);
     const { o: before, ...rest } = checked;
     const o = (before ?? 0) + left.filter(({ d }) => !SETTLED.has(d)).length;
-    const kept: FindingsLedgerPayload = { ...rest, e: ordered.slice(0, count), ...(o === 0 ? {} : { o: Math.min(o, 100_000) }) };
+    const kept: FindingsLedgerPayload = { ...rest, e: ordered.slice(0, count),
+      ...(o === 0 ? {} : { o: Math.min(o, 100_000) }) };
     const body = `fl1~${deflateRawSync(Buffer.from(JSON.stringify(kept))).toString("base64url")}`;
     const token = `${body}~${mac(body, secret).toString("base64url")}`;
     return token.length <= FINDINGS_LEDGER_MAX_CHARACTERS ? { token, payload: kept, left } : undefined;
