@@ -364,7 +364,7 @@ describe("extract_youtube_video_claims", () => {
   });
 
   it("says a video Gemini heard nobody speak in has no speech, and no statement (test 5)", async () => {
-    for (const language of ["zxx", ""]) {
+    for (const language of ["zxx", " ZXX "]) {
       const { deps } = dependencies();
       deps.advance.mockResolvedValueOnce(complete({ ...REPORT, spoken_language: language, claims: [], sponsorships: [],
         on_screen_citations: [] }));
@@ -373,6 +373,25 @@ describe("extract_youtube_video_claims", () => {
         empty_reason: "no_speech", speech: "none", claims: [] });
       expect(text(done), language).toMatch(/^Gemini read the whole video \(00:00 to 15:00\) and heard nobody speak/u);
       expect(done.receipt, language).toEqual({ video: VIDEO, mode: "claims", n: 0, empty: "no_speech" });
+    }
+  });
+
+  // Codex's review of 17 Nov 2026, finding 6: a missing language is not silence; only an explicit zxx says nobody spoke.
+  it("reads an empty spoken_language as an unknown language with no claim listed, never as no speech", async () => {
+    for (const language of ["", "  "]) {
+      const { deps } = dependencies();
+      deps.advance.mockResolvedValueOnce(complete({ ...REPORT, spoken_language: language, claims: [], sponsorships: [],
+        on_screen_citations: [] }));
+      const done = await extractYoutubeVideoClaims({ video: VIDEO }, deps);
+      const output = done.result.structuredContent as Record<string, unknown>;
+      expect(output, language).toMatchObject({ status: "empty", coverage: "whole_video",
+        empty_reason: "no_claims_listed", claims: [] });
+      expect(output, language).not.toHaveProperty("speech");
+      expect(text(done), language).not.toContain("heard nobody speak");
+      expect(text(done), language).not.toMatch(/speech in\s*[,.]/u);
+      expect(text(done), language).toContain("Gemini gave no spoken language, so the video's language is unknown");
+      expect(text(done), language).toContain("never say the video makes no claim, or what it says, from this result");
+      expect(done.receipt, language).toEqual({ video: VIDEO, mode: "claims", n: 0, empty: "no_claims_listed" });
     }
   });
 
