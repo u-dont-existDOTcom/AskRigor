@@ -84,7 +84,7 @@ GRANT EXECUTE ON FUNCTION living_evidence.read_research_dossier_version(text, uu
 -- checks the account and its notice itself, derives the copy and why it is held from the private record and admits it
 -- one topic at a time, and the shown copies that are its conflict check's candidates, a page at a time.
 GRANT EXECUTE ON FUNCTION living_evidence.publish_research_dossier_version(
-  text, uuid, jsonb, text[], text, text[], boolean, timestamptz
+  text, uuid, jsonb, text[], text, text[], timestamptz
 ) TO askrigor_research_access;
 GRANT EXECUTE ON FUNCTION living_evidence.research_dossier_conflict_candidates(text, uuid, text, integer, integer)
   TO askrigor_research_access;

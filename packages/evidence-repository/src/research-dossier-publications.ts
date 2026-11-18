@@ -67,15 +67,17 @@ export interface ResearchDossierPublishInput {
   /**
    * The conflict check's candidates it compared, as D-1001/2 (public number and version): all of them, from
    * conflictCandidates. The store lists them again under its topic locks and refuses a check made against any other
-   * set (comparison_stale). Ignored when the check was not read.
+   * set (comparison_stale, or held waiting for the conflict check when it was not read).
    */
   compared: readonly string[];
   /** read: AskRigor's reader compared the copy with every candidate; not_read: it could not, and the copy is held. */
   conflictCheck: "read" | "not_read";
-  /** The shown dossiers it conflicts with, by public number: the server's conflict check, which it made. */
-  conflictsWith: readonly string[];
-  /** A conflict on an important finding (either finding decision-changing or important): the copy is held for it. */
-  importantConflict: boolean;
+  /**
+   * Every pair of findings the check read as contradicting (conflictFindingId), none cut (Codex's fourth review): the
+   * store's admission gate works out from all of them which are important (either finding decision-changing or
+   * important, by the two copies' own marks), and an important one holds the copy.
+   */
+  conflictFindings: readonly string[];
   at: Date;
 }
 
@@ -113,22 +115,27 @@ export function readConflictFinding(id: string):
 /**
  * The conflict check an owner's show of a held or taken-down copy is given (Codex's third review, P1), and a later
  * automatic admission too: the candidates compared (D-1001/2) from showCandidates, the copy's own dossier's shown copy
- * aside for the owner's show; read, or not read when the reader could not compare them all; the pairs of findings read
- * as contradicting (conflictFindingId); whether any is important (either finding decision-changing or important); and
- * the owner's override, the reviewer login's digest, or null. The store lists the candidates again under the topic
- * locks and refuses a check made against any other set.
+ * aside for the owner's show; read, or not read when the reader could not compare them all; every pair of findings
+ * read as contradicting (conflictFindingId), none cut; and the owner's override: who (the reviewer login's digest) and
+ * the shown dossiers he named, or null and none. The store's admission gate (research_dossier_show_refusal) lists the
+ * candidates again under the topic locks and refuses a check made, read or not, against any other set; works out from
+ * all the pairs which are important and which dossiers an override must cover; and refuses an override that does not
+ * name every one of them (Codex's fourth review).
  */
 export interface ResearchDossierShowCheck {
   compared: readonly string[];
   conflictCheck: "read" | "not_read";
   conflictFindings: readonly string[];
-  importantConflict: boolean;
   overrideBy: string | null;
+  overrideConflicts: readonly string[];
 }
 
 /** No comparison: what a decision that shows nothing new is given. */
 export const NO_SHOW_CHECK: ResearchDossierShowCheck = Object.freeze({ compared: [], conflictCheck: "read",
-  conflictFindings: [], importantConflict: false, overrideBy: null });
+  conflictFindings: [], overrideBy: null, overrideConflicts: [] });
+
+/** At most this many shown dossiers an override covers and the pages list for one copy; more keeps it as it is. */
+export const CONFLICT_OVERRIDE_LIMIT = 50;
 
 /** A shown copy that is a candidate for the conflict check of a new one. */
 export interface ResearchDossierTopicCopy {
@@ -214,10 +221,14 @@ export type ResearchDossierDecisionResult =
   | { outcome: "decided"; state: ResearchDossierPublicState; accepted: boolean }
   | { outcome: "not_found" }
   | { outcome: "not_decidable"; state: ResearchDossierPublicState; accepted: boolean }
-  /** The shown candidates changed since the check, or no check was made: compare again. */
-  | { outcome: "comparison_stale" }
-  /** An important conflict, or no comparison while a candidate shows, and no override: nothing was changed. */
-  | { outcome: "conflict_found" | "conflict_not_checked"; state: ResearchDossierPublicState; accepted: boolean };
+  /** The shown candidates changed since the check, or no check was made: the current set, to compare again. */
+  | { outcome: "comparison_stale"; compared: string[] }
+  /**
+   * An important conflict, or no comparison while a candidate shows, and no override naming every shown dossier it
+   * must cover (required); or more of them than an override can cover (conflicts_over_limit): nothing was changed.
+   */
+  | { outcome: "conflict_found" | "conflict_not_checked" | "conflicts_over_limit"; state: ResearchDossierPublicState;
+    accepted: boolean; required: string[] };
 
 /** The owner's own decision to show a copy whose claim names a living person (Codex's review of stage 2, finding 2). */
 export interface ResearchDossierLivingPersonDecisionInput {
@@ -335,6 +346,8 @@ export interface ResearchDossierImportanceRevisionInput {
   reason: string;
   /** Who revised it: the reviewer login's digest, reviewer: and 16 hex characters. */
   revisedBy: string;
+  /** For a shown copy, whose revision is new content shown: the conflict check of the revised content, as for a show. */
+  check?: ResearchDossierShowCheck;
   at: Date;
 }
 
@@ -342,7 +355,11 @@ export type ResearchDossierImportanceRevisionResult =
   | { outcome: "revised"; versionNumber: number; state: ResearchDossierPublicState; previous: string }
   | { outcome: "not_found" }
   /** Not the newest copy, not shown or held, no such finding, or the mark is already that. */
-  | { outcome: "not_revisable"; state: ResearchDossierPublicState; previous: string | null };
+  | { outcome: "not_revisable"; state: ResearchDossierPublicState; previous: string | null }
+  /** A shown copy's revision refused by the admission gate, as a show would be: nothing was changed. */
+  | { outcome: "comparison_stale"; compared: string[] }
+  | { outcome: "conflict_found" | "conflict_not_checked" | "conflicts_over_limit"; state: ResearchDossierPublicState;
+    required: string[] };
 
 /** The review role's side: the owner's review, and AskRigor's check of held copies. */
 export interface ResearchDossierPublicationReviewStore {
@@ -481,12 +498,9 @@ export class ResearchDossierPublicationError extends Error {
 
 function assertPublishInput(input: ResearchDossierPublishInput): void {
   if (!HEX_64.test(input.accountKey) || !UUID.test(input.versionId) || input.payload === null ||
-    typeof input.payload !== "object" || Array.isArray(input.payload) || typeof input.importantConflict !== "boolean" ||
-    !input.compared.every((id) => /^D-[1-9][0-9]{3,}\/[1-9][0-9]*$/u.test(id)) ||
-    (input.conflictCheck !== "read" && input.conflictCheck !== "not_read") ||
-    (input.conflictCheck === "not_read" && (input.importantConflict || input.conflictsWith.length > 0)) ||
-    input.conflictsWith.length > 50 || !input.conflictsWith.every((number) => PUBLIC_DOSSIER_NUMBER.test(number)) ||
-    (input.importantConflict && input.conflictsWith.length === 0) ||
+    typeof input.payload !== "object" || Array.isArray(input.payload) ||
+    showCheckInvalid({ compared: input.compared, conflictCheck: input.conflictCheck,
+      conflictFindings: input.conflictFindings, overrideBy: null, overrideConflicts: [] }) ||
     !(input.at instanceof Date) || Number.isNaN(input.at.getTime())) {
     throw new ResearchDossierPublicationError("INPUT_INVALID");
   }
@@ -582,10 +596,12 @@ function assertQuery(query: PublicDossierQuery): void {
 function showCheckInvalid(check: ResearchDossierShowCheck): boolean {
   return !Array.isArray(check.compared) || !check.compared.every((id) => /^D-[1-9][0-9]{3,}\/[1-9][0-9]*$/u.test(id)) ||
     (check.conflictCheck !== "read" && check.conflictCheck !== "not_read") || !Array.isArray(check.conflictFindings) ||
-    check.conflictFindings.length > 50 || !check.conflictFindings.every((id) => readConflictFinding(id) !== undefined) ||
-    typeof check.importantConflict !== "boolean" || (check.importantConflict && check.conflictFindings.length === 0) ||
-    (check.conflictCheck === "not_read" && (check.importantConflict || check.conflictFindings.length > 0)) ||
-    (check.overrideBy !== null && !/^reviewer:[0-9a-f]{16}$/u.test(check.overrideBy));
+    !check.conflictFindings.every((id) => readConflictFinding(id) !== undefined) ||
+    (check.conflictCheck === "not_read" && check.conflictFindings.length > 0) ||
+    (check.overrideBy !== null && !/^reviewer:[0-9a-f]{16}$/u.test(check.overrideBy)) ||
+    !Array.isArray(check.overrideConflicts) || check.overrideConflicts.length > 200 ||
+    !check.overrideConflicts.every((number) => PUBLIC_DOSSIER_NUMBER.test(number)) ||
+    (check.overrideBy === null && check.overrideConflicts.length > 0);
 }
 
 /** The shown dossiers a copy's pairs name, by public number, once each, in order. */
@@ -641,7 +657,8 @@ function assertImportanceRevision(input: ResearchDossierImportanceRevisionInput)
     input.versionNumber < 1 || !/^[a-z][a-z0-9_-]{0,31}$/u.test(input.findingId) ||
     !["decision_changing", "important", "context"].includes(input.importance) || typeof input.reason !== "string" ||
     input.reason !== input.reason.trim() || input.reason.length < 1 || input.reason.length > 200 ||
-    !/^reviewer:[0-9a-f]{16}$/u.test(input.revisedBy) || Number.isNaN(input.at.getTime())) {
+    !/^reviewer:[0-9a-f]{16}$/u.test(input.revisedBy) || showCheckInvalid(input.check ?? NO_SHOW_CHECK) ||
+    Number.isNaN(input.at.getTime())) {
     throw new ResearchDossierPublicationError("INPUT_INVALID");
   }
 }
@@ -679,9 +696,9 @@ export class PostgresResearchDossierPublisher implements ResearchDossierPublishe
     const result = await this.pool.query<{ outcome: string; public_number: string | null; state: string | null;
       hold_reasons: string[] | null }>(
       `SELECT outcome, public_number, state, hold_reasons FROM ${this.schema}.publish_research_dossier_version(
-         $1, $2::uuid, $3::jsonb, $4::text[], $5, $6::text[], $7, $8::timestamptz)`,
+         $1, $2::uuid, $3::jsonb, $4::text[], $5, $6::text[], $7::timestamptz)`,
       [input.accountKey, input.versionId, JSON.stringify(input.payload), [...input.compared], input.conflictCheck,
-        [...input.conflictsWith], input.importantConflict, input.at.toISOString()],
+        [...input.conflictFindings], input.at.toISOString()],
     );
     const row = result.rows[0];
     if (row === undefined) throw new Error("RESEARCH_DOSSIER_PUBLISH_RESULT_MISSING");
@@ -781,13 +798,25 @@ const reviewRowOf = (row: ReviewRow & { question?: string | null }): ResearchDos
 });
 
 /** A decision's outcome row, read back. */
-function decisionOf(row: { outcome: string; state: ResearchDossierPublicState | null; accepted: boolean | null } | undefined):
-  ResearchDossierDecisionResult {
+interface DecisionRow {
+  outcome: string;
+  state: ResearchDossierPublicState | null;
+  accepted: boolean | null;
+  candidates: string[] | null;
+  required: string[] | null;
+}
+
+function decisionOf(row: DecisionRow | undefined): ResearchDossierDecisionResult {
   if (row === undefined) throw new Error("RESEARCH_DOSSIER_DECISION_RESULT_MISSING");
   if (row.outcome === "not_found") return { outcome: "not_found" };
-  if (row.outcome === "comparison_stale") return { outcome: "comparison_stale" };
-  if ((row.outcome !== "decided" && row.outcome !== "not_decidable" && row.outcome !== "conflict_found" &&
-    row.outcome !== "conflict_not_checked") || row.state === null || row.accepted === null) {
+  if (row.outcome === "comparison_stale" && row.candidates !== null) {
+    return { outcome: "comparison_stale", compared: row.candidates };
+  }
+  if ((row.outcome === "conflict_found" || row.outcome === "conflict_not_checked" ||
+    row.outcome === "conflicts_over_limit") && row.state !== null && row.accepted !== null && row.required !== null) {
+    return { outcome: row.outcome, state: row.state, accepted: row.accepted, required: row.required };
+  }
+  if ((row.outcome !== "decided" && row.outcome !== "not_decidable") || row.state === null || row.accepted === null) {
     throw new Error("RESEARCH_DOSSIER_DECISION_RESULT_INVALID");
   }
   return { outcome: row.outcome, state: row.state, accepted: row.accepted };
@@ -795,7 +824,7 @@ function decisionOf(row: { outcome: string; state: ResearchDossierPublicState | 
 
 /** A show's conflict check as the decision functions take it, after their own inputs and before the time. */
 const checkParameters = (check: ResearchDossierShowCheck = NO_SHOW_CHECK) => [[...check.compared], check.conflictCheck,
-  [...check.conflictFindings], check.importantConflict, check.overrideBy];
+  [...check.conflictFindings], check.overrideBy, [...check.overrideConflicts]];
 
 /** The review role's side, on its own pool (the review runtime's, as forget_card's eraser). */
 export class PostgresResearchDossierPublicationReview implements ResearchDossierPublicationReviewStore {
@@ -832,10 +861,9 @@ export class PostgresResearchDossierPublicationReview implements ResearchDossier
 
   async decide(input: ResearchDossierDecisionInput): Promise<ResearchDossierDecisionResult> {
     assertDecision(input);
-    const result = await this.pool.query<{ outcome: string; state: ResearchDossierPublicState | null;
-      accepted: boolean | null }>(
-      `SELECT outcome, state, accepted FROM ${this.schema}.decide_research_dossier_publication(
-         $1, $2, $3, $4, $5::text[], $6, $7::text[], $8, $9, $10::timestamptz)`,
+    const result = await this.pool.query<DecisionRow>(
+      `SELECT outcome, state, accepted, candidates, required FROM ${this.schema}.decide_research_dossier_publication(
+         $1, $2, $3, $4, $5::text[], $6, $7::text[], $8, $9::text[], $10::timestamptz)`,
       [input.publicNumber, input.versionNumber, input.decision, input.reason, ...checkParameters(input.check),
         input.at.toISOString()],
     );
@@ -862,15 +890,24 @@ export class PostgresResearchDossierPublicationReview implements ResearchDossier
   async reviseImportance(input: ResearchDossierImportanceRevisionInput): Promise<ResearchDossierImportanceRevisionResult> {
     assertImportanceRevision(input);
     const result = await this.pool.query<{ outcome: string; version_number: number | null;
-      state: ResearchDossierPublicState | null; previous_importance: string | null }>(
-      `SELECT outcome, version_number, state, previous_importance FROM ${this.schema}.revise_research_dossier_importance(
-         $1, $2, $3, $4, $5, $6, $7::timestamptz)`,
+      state: ResearchDossierPublicState | null; previous_importance: string | null; candidates: string[] | null;
+      required: string[] | null }>(
+      `SELECT outcome, version_number, state, previous_importance, candidates, required
+         FROM ${this.schema}.revise_research_dossier_importance(
+         $1, $2, $3, $4, $5, $6, $7::text[], $8, $9::text[], $10, $11::text[], $12::timestamptz)`,
       [input.publicNumber, input.versionNumber, input.findingId, input.importance, input.reason, input.revisedBy,
-        input.at.toISOString()],
+        ...checkParameters(input.check), input.at.toISOString()],
     );
     const row = result.rows[0];
     if (row === undefined) throw new Error("RESEARCH_DOSSIER_REVISION_RESULT_MISSING");
     if (row.outcome === "not_found") return { outcome: "not_found" };
+    if (row.outcome === "comparison_stale" && row.candidates !== null) {
+      return { outcome: "comparison_stale", compared: row.candidates };
+    }
+    if ((row.outcome === "conflict_found" || row.outcome === "conflict_not_checked" ||
+      row.outcome === "conflicts_over_limit") && row.state !== null && row.required !== null) {
+      return { outcome: row.outcome, state: row.state, required: row.required };
+    }
     if (row.outcome === "not_revisable" && row.state !== null) {
       return { outcome: "not_revisable", state: row.state, previous: row.previous_importance };
     }
@@ -882,10 +919,9 @@ export class PostgresResearchDossierPublicationReview implements ResearchDossier
 
   async decideLivingPerson(input: ResearchDossierLivingPersonDecisionInput): Promise<ResearchDossierDecisionResult> {
     assertLivingPersonDecision(input);
-    const result = await this.pool.query<{ outcome: string; state: ResearchDossierPublicState | null;
-      accepted: boolean | null }>(
-      `SELECT outcome, state, accepted FROM ${this.schema}.decide_research_dossier_living_person(
-         $1, $2, $3, $4, $5::text[], $6, $7::text[], $8, $9, $10::timestamptz)`,
+    const result = await this.pool.query<DecisionRow>(
+      `SELECT outcome, state, accepted, candidates, required FROM ${this.schema}.decide_research_dossier_living_person(
+         $1, $2, $3, $4, $5::text[], $6, $7::text[], $8, $9::text[], $10::timestamptz)`,
       [input.publicNumber, input.versionNumber, input.reason, input.decidedBy, ...checkParameters(input.check),
         input.at.toISOString()],
     );
@@ -928,9 +964,9 @@ export class PostgresResearchDossierPublicationReview implements ResearchDossier
     const result = await this.pool.query<{ outcome: string; state: ResearchDossierPublicState | null;
       hold_reasons: ResearchDossierHoldReason[] | null }>(
       `SELECT outcome, state, hold_reasons FROM ${this.schema}.admit_research_dossier_after_privacy(
-         $1, $2, $3::text[], $4, $5::text[], $6, $7::timestamptz)`,
+         $1, $2, $3::text[], $4, $5::text[], $6::timestamptz)`,
       [input.publicNumber, input.versionNumber, [...check.compared], check.conflictCheck, [...check.conflictFindings],
-        check.importantConflict, input.at.toISOString()],
+        input.at.toISOString()],
     );
     const row = result.rows[0];
     if (row === undefined) throw new Error("RESEARCH_DOSSIER_ADMISSION_RESULT_MISSING");
@@ -1093,6 +1129,14 @@ interface MemoryCopy {
   events: Array<{ event: string; reason: string | null; at: Date }>;
 }
 
+/** The admission gate's word, as research_dossier_show_refusal returns it. */
+interface MemoryGate {
+  refusal: "comparison_stale" | "conflict_found" | "conflict_not_checked" | "conflicts_over_limit" | "overridden" | null;
+  candidates: string[];
+  required: string[];
+  kept: string[];
+}
+
 /**
  * The same rules in memory, over an in-memory dossier store, for tests: the account check (eligible), the newest
  * unwithdrawn version of the account's own dossier, one copy per version, supersession, the review's decisions, and
@@ -1152,14 +1196,12 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       !TOPIC_KEY.test(topic.key) || !this.options.sizesComplete(projection) || !publicCopyPassesPageGuard(projection)) {
       return { outcome: "payload_refused" };
     }
-    // Admitted one at a time, as the database's topic locks do; the candidates listed again must be those compared.
-    const candidates = this.matches(projection).map(conflictCandidateId).sort();
-    if (input.conflictCheck === "read" && (stableJson(candidates) !== stableJson([...input.compared].sort()) ||
-      !input.conflictsWith.every((number) => candidates.some((id) => id.startsWith(`${number}/`))))) {
-      return { outcome: "comparison_stale" };
-    }
-    const admission = researchDossierAdmission(stored, projection, input.importantConflict,
-      input.conflictCheck === "not_read" && candidates.length > 0);
+    // Admitted one at a time, as the database's topic locks do, by the admission gate: never overridden here.
+    const gate = this.gate(projection, null, true, { compared: input.compared, conflictCheck: input.conflictCheck,
+      conflictFindings: input.conflictFindings, overrideBy: null, overrideConflicts: [] });
+    if (gate.refusal === "comparison_stale" && input.conflictCheck === "read") return { outcome: "comparison_stale" };
+    const admission = researchDossierAdmission(stored, projection, gate.refusal !== null && input.conflictCheck === "read",
+      gate.refusal !== null && input.conflictCheck === "not_read");
     const stamp = (stored.stamp ?? {}) as { origin?: unknown };
     const origin = stamp.origin !== null && typeof stamp.origin === "object" && !Array.isArray(stamp.origin)
       ? structuredClone(stamp.origin as Record<string, unknown>) : {};
@@ -1188,7 +1230,7 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       payload: projection,
       payloadSha256: sha256(stableJson(projection)),
       holdReasons: [...admission.holdReasons],
-      conflictsWith: [...input.conflictsWith],
+      conflictsWith: conflictPartners(gate.kept),
       conflictFindings: [],
       conflictOverride: null,
       origin,
@@ -1233,35 +1275,66 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
   }
 
   /**
-   * Whether a copy may show now, as research_dossier_show_refusal: stale unless compared with exactly the candidates,
-   * its own dossier's shown copy counted only for an automatic admission; then a conflict or no comparison needs an
-   * override.
+   * The admission gate, as research_dossier_show_refusal: the complete, current set of candidates (its own dossier's
+   * shown copy only when withOwn), stale unless compared with exactly them, read or not; from every pair, the important
+   * ones (by the two copies' own marks) and the dossiers an override must cover, before anything is cut; more than
+   * CONFLICT_OVERRIDE_LIMIT of them keeps the copy as it is; an override must name every one; then the pairs kept, one
+   * for each dossier the override covers first.
    */
-  private showRefusal(copy: MemoryCopy, withOwn: boolean, check: ResearchDossierShowCheck):
-    "comparison_stale" | "conflict_found" | "conflict_not_checked" | "overridden" | null {
-    const candidates = this.matches(copy.payload!)
-      .filter((other) => other !== copy && (withOwn || other.publicNumber !== copy.publicNumber))
-      .map(conflictCandidateId).sort();
-    if (check.conflictCheck === "read" && (stableJson(candidates) !== stableJson([...check.compared].sort()) ||
-      !check.conflictFindings.every((pair) => candidates.includes(pair.split(":")[1]!)))) {
-      return "comparison_stale";
+  private gate(payload: Record<string, unknown>, self: { publicNumber: string; versionNumber: number } | null,
+    withOwn: boolean, check: ResearchDossierShowCheck): MemoryGate {
+    const shown = this.matches(payload).filter((other) => !(self !== null && other.publicNumber === self.publicNumber &&
+      other.versionNumber === self.versionNumber) && (withOwn || other.publicNumber !== self?.publicNumber));
+    const candidates = shown.map(conflictCandidateId).sort();
+    const byId = new Map(shown.map((other) => [conflictCandidateId(other), other]));
+    const findingOf = (content: Record<string, unknown> | null | undefined, id: string) =>
+      ((content?.findings ?? []) as Array<Record<string, unknown>>).find((finding) => finding.id === id);
+    const pairs = [...new Set(check.conflictFindings)].sort();
+    const theirsOf = (pair: string) => {
+      const read = readConflictFinding(pair)!;
+      return { read, theirs: byId.get(`${read.publicNumber}/${read.versionNumber}`) };
+    };
+    if (stableJson(candidates) !== stableJson([...check.compared].sort()) || !pairs.every((pair) => {
+      const { read, theirs } = theirsOf(pair);
+      return theirs !== undefined && findingOf(payload, read.finding) !== undefined &&
+        findingOf(theirs.payload, read.theirs) !== undefined;
+    })) {
+      return { refusal: "comparison_stale", candidates, required: [], kept: [] };
     }
-    if ((check.conflictCheck === "not_read" && candidates.length > 0) || check.importantConflict) {
-      if (check.overrideBy === null) return check.conflictCheck === "not_read" ? "conflict_not_checked" : "conflict_found";
-      return "overridden";
+    const weighty = new Set(pairs.filter((pair) => {
+      const { read, theirs } = theirsOf(pair);
+      return findingOf(payload, read.finding)?.importance !== "context" ||
+        findingOf(theirs!.payload, read.theirs)?.importance !== "context";
+    }));
+    const required = check.conflictCheck === "read" ? conflictPartners([...weighty])
+      : [...new Set(candidates.map((id) => id.split("/")[0]!))].sort();
+    const refusal = required.length === 0 ? null : required.length > CONFLICT_OVERRIDE_LIMIT ? "conflicts_over_limit"
+      : check.overrideBy === null || !required.every((number) => check.overrideConflicts.includes(number))
+        ? check.conflictCheck === "read" ? "conflict_found" : "conflict_not_checked" : "overridden";
+    const order = (left: string, right: string) => left < right ? -1 : left > right ? 1 : 0;
+    const first = new Set<string>();
+    const covered = new Set<string>();
+    for (const pair of [...pairs].sort((left, right) => Number(weighty.has(right)) - Number(weighty.has(left)) ||
+      order(left, right))) {
+      const partner = readConflictFinding(pair)!.publicNumber;
+      if (!covered.has(partner)) {
+        covered.add(partner);
+        first.add(pair);
+      }
     }
-    return null;
+    const kept = [...pairs].sort((left, right) => Number(first.has(right)) - Number(first.has(left)) ||
+      Number(weighty.has(right)) - Number(weighty.has(left)) || order(left, right)).slice(0, CONFLICT_OVERRIDE_LIMIT);
+    return { refusal, candidates, required, kept };
   }
 
-  /** What a show records of its conflict check: the pairs, the dossiers they name, and an override with its event. */
-  private recordShowCheck(copy: MemoryCopy, check: ResearchDossierShowCheck, refusal: "overridden" | null, at: Date): void {
-    Object.assign(copy, { conflictsWith: conflictPartners(check.conflictFindings),
-      conflictFindings: [...check.conflictFindings],
-      conflictOverride: refusal === "overridden" ? { by: check.overrideBy!, at } : null });
-    if (refusal === "overridden") {
-      copy.events.push({ event: "conflict_overridden", reason: `${check.overrideBy} ${check.conflictCheck === "read"
-        ? `over ${conflictPartners(check.conflictFindings).join(" ")}` : "without the conflict check"}`.slice(0, 200).trimEnd(),
-      at });
+  /** What a show records of the gate's word: the pairs kept, the dossiers they name, and an override with its event. */
+  private recordShowCheck(copy: MemoryCopy, check: ResearchDossierShowCheck, gate: MemoryGate, at: Date,
+    versionEvents: MemoryCopy["events"] = copy.events): void {
+    Object.assign(copy, { conflictsWith: conflictPartners(gate.kept), conflictFindings: [...gate.kept],
+      conflictOverride: gate.refusal === "overridden" ? { by: check.overrideBy!, at } : null });
+    if (gate.refusal === "overridden") {
+      versionEvents.push({ event: "conflict_overridden", reason: `${check.overrideBy} ${check.conflictCheck === "read"
+        ? `over ${gate.required.join(" ")}` : "without the conflict check"}`.slice(0, 200).trimEnd(), at });
     }
   }
 
@@ -1313,12 +1386,12 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
     // A copy not shown yet is compared with the shown dossiers before it is (Codex's third review, P1).
     if (next === "shown" && copy.state !== "shown") {
       const check = input.check ?? NO_SHOW_CHECK;
-      const refusal = this.showRefusal(copy, false, check);
-      if (refusal === "comparison_stale") return { outcome: refusal };
-      if (refusal === "conflict_found" || refusal === "conflict_not_checked") {
-        return { outcome: refusal, state: copy.state, accepted };
+      const gate = this.gate(copy.payload!, copy, false, check);
+      if (gate.refusal === "comparison_stale") return { outcome: gate.refusal, compared: gate.candidates };
+      if (gate.refusal !== null && gate.refusal !== "overridden") {
+        return { outcome: gate.refusal, state: copy.state, accepted, required: gate.required };
       }
-      this.recordShowCheck(copy, check, refusal, input.at);
+      this.recordShowCheck(copy, check, gate, input.at);
     }
     if (next === "shown") {
       for (const other of copies) {
@@ -1355,6 +1428,13 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
     }
     const payload = structuredClone(copy.payload!);
     (payload.findings as Array<Record<string, unknown>>)[place]!.importance = input.importance;
+    // A shown copy's revision is new content shown: through the admission gate, its own dossier's aside.
+    const check = input.check ?? NO_SHOW_CHECK;
+    const gate = copy.state === "shown" ? this.gate(payload, copy, false, check) : undefined;
+    if (gate?.refusal === "comparison_stale") return { outcome: gate.refusal, compared: gate.candidates };
+    if (gate !== undefined && gate.refusal !== null && gate.refusal !== "overridden") {
+      return { outcome: gate.refusal, state: copy.state, required: gate.required };
+    }
     const versionNumber = newest + 1;
     copy.events.push({ event: "superseded", reason: null, at: input.at });
     const state = copy.state;
@@ -1368,6 +1448,7 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       revision: { of: copy.versionNumber, by: input.revisedBy, reason: input.reason },
       events: [{ event: "revised", reason: input.reason, at: input.at }, { event: state, reason: null, at: input.at }],
     });
+    if (gate !== undefined) this.recordShowCheck(this.copies.get(`${copy.publicNumber}#${versionNumber}`)!, check, gate, input.at);
     Object.assign(copy, { state: "superseded", holdReasons: [], decidedAt: input.at });
     return { outcome: "revised", versionNumber, state, previous };
   }
@@ -1387,12 +1468,12 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       return { outcome: "not_decidable", state: copy.state, accepted };
     }
     const check = input.check ?? NO_SHOW_CHECK;
-    const refusal = this.showRefusal(copy, false, check);
-    if (refusal === "comparison_stale") return { outcome: refusal };
-    if (refusal === "conflict_found" || refusal === "conflict_not_checked") {
-      return { outcome: refusal, state: copy.state, accepted };
+    const gate = this.gate(copy.payload!, copy, false, check);
+    if (gate.refusal === "comparison_stale") return { outcome: gate.refusal, compared: gate.candidates };
+    if (gate.refusal !== null && gate.refusal !== "overridden") {
+      return { outcome: gate.refusal, state: copy.state, accepted, required: gate.required };
     }
-    this.recordShowCheck(copy, check, refusal, input.at);
+    this.recordShowCheck(copy, check, gate, input.at);
     for (const other of copies) {
       if (other !== copy && other.state === "shown") {
         Object.assign(other, { state: "superseded", decidedAt: input.at });
@@ -1463,12 +1544,15 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
     const copy = this.copies.get(`${input.publicNumber}#${input.versionNumber}`);
     if (copy === undefined) return { outcome: "not_found" };
     if (!(await this.admissible(copy))) return { outcome: "not_admissible", state: copy.state };
-    const refusal = this.showRefusal(copy, true, input.check);
-    if (refusal === "comparison_stale") return { outcome: refusal };
-    if (refusal === "conflict_not_checked") return { outcome: "waiting" };
-    Object.assign(copy, { conflictsWith: conflictPartners(input.check.conflictFindings),
-      conflictFindings: [...input.check.conflictFindings], decidedAt: input.at });
-    if (refusal === "conflict_found") {
+    const gate = this.gate(copy.payload!, copy, true, input.check);
+    if (gate.refusal === "comparison_stale") return { outcome: gate.refusal };
+    if (gate.refusal === "conflict_not_checked" ||
+      (gate.refusal === "conflicts_over_limit" && input.check.conflictCheck === "not_read")) {
+      return { outcome: "waiting" };
+    }
+    Object.assign(copy, { conflictsWith: conflictPartners(gate.kept), conflictFindings: [...gate.kept],
+      decidedAt: input.at });
+    if (gate.refusal === "conflict_found" || gate.refusal === "conflicts_over_limit") {
       copy.holdReasons = ["important_conflict"];
       copy.events.push({ event: "held", reason: "important_conflict", at: input.at });
       return { outcome: "held", holdReasons: ["important_conflict"] };

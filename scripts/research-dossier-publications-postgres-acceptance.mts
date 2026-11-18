@@ -28,6 +28,8 @@ import {
   loadDossierTopic,
   loadDossierTopicIndex,
 } from "../apps/research-mcp/src/atlas/dossier-pages.js";
+import { AtlasDossierReview } from "../apps/research-mcp/src/atlas/dossier-review.js";
+import type { DossierConflictReader } from "../apps/research-mcp/src/findings/dossier-conflict-reading.js";
 
 // AskRigor#477 stage 2 (owner answers 331a, 332a and 333a, 16 Nov 2026): migration 0040's public dossier copies, on a
 // real PostgreSQL with production's four roles (scripts/run-research-dossier-publications-postgres-acceptance.sh).
@@ -119,14 +121,27 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       if (page.length < 200) break;
     }
     return { compared: all.filter((candidate) => candidate.publicNumber !== publicNumber).map(conflictCandidateId),
-      conflictCheck: "read", conflictFindings: [], importantConflict: false, overrideBy: null };
+      conflictCheck: "read", conflictFindings: [], overrideBy: null, overrideConflicts: [] };
   };
   review.decide = async (input) => await plainDecide({ ...input,
     check: input.check ?? await noConflict(input.publicNumber, input.versionNumber) });
   review.decideLivingPerson = async (input) => await plainDecideLivingPerson({ ...input,
     check: input.check ?? await noConflict(input.publicNumber, input.versionNumber) });
+  // A shown copy's revised mark is new content shown, compared first too (Codex's fourth review).
+  const plainRevise = review.reviseImportance.bind(review);
+  review.reviseImportance = async (input) => await plainRevise({ ...input,
+    check: input.check ?? await noConflict(input.publicNumber, input.versionNumber) });
   const eraser = new PostgresResearchDossierEraser({ connectionString: reviewUrl, schema: SCHEMA });
   const pages = new PostgresPublicDossierPageSource({ connectionString: readerUrl, schema: SCHEMA });
+  // A copy forced to shown by hand, carrying the admission gate's word for its content as if the gate had admitted it,
+  // so the table's own constraints are what refuse it (the show guard refuses it without; Codex's fourth review).
+  const forceShown = (publicNumber: string) => {
+    assert(/^D-[1-9][0-9]{3,}$/u.test(publicNumber), "FORCED_NUMBER_INVALID");
+    return admin.query(`SELECT set_config('askrigor.dossier_show_admitted', public_sha256::text, true)
+        FROM ${SCHEMA}.research_dossier_public_versions WHERE public_number = '${publicNumber}' AND version_number = 1;
+      UPDATE ${SCHEMA}.research_dossier_public_versions SET state = 'shown', hold_reasons = '{}'
+       WHERE public_number = '${publicNumber}' AND version_number = 1`);
+  };
   try {
     // Applied, recorded once, and safe to run again: a second migrate changes nothing and keeps its digest.
     const recorded = await admin.query(`SELECT migration_sha256 FROM ${SCHEMA}.schema_migrations
@@ -156,7 +171,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     const executes = async (role: string, signature: string) => (await admin.query<{ allowed: boolean }>(
       "SELECT has_function_privilege($1, $2, 'EXECUTE') AS allowed", [role, `${SCHEMA}.${signature}`])).rows[0]!.allowed;
     const grants: Record<string, string> = {
-      "publish_research_dossier_version(text, uuid, jsonb, text[], text, text[], boolean, timestamptz)":
+      "publish_research_dossier_version(text, uuid, jsonb, text[], text, text[], timestamptz)":
         "askrigor_research_access",
       "research_dossier_conflict_candidates(text, uuid, text, integer, integer)": "askrigor_research_access",
       "research_dossier_conflict_matches(jsonb)": "none",
@@ -166,19 +181,19 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       "research_dossier_lock_copy_topics(text, integer)": "none",
       "list_research_dossier_publications(text, integer)": "askrigor_research_review",
       "inspect_research_dossier_publication(text)": "askrigor_research_review",
-      "decide_research_dossier_publication(text, integer, text, text, text[], text, text[], boolean, text, timestamptz)":
+      "decide_research_dossier_publication(text, integer, text, text, text[], text, text[], text, text[], timestamptz)":
         "askrigor_research_review",
-      "decide_research_dossier_living_person(text, integer, text, text, text[], text, text[], boolean, text, timestamptz)":
+      "decide_research_dossier_living_person(text, integer, text, text, text[], text, text[], text, text[], timestamptz)":
         "askrigor_research_review",
       "research_dossier_show_candidates(text, integer, text, integer, integer)": "askrigor_research_review",
-      "research_dossier_show_check_invalid(text[], text, text[], boolean, text)": "none",
-      "research_dossier_show_refusal(jsonb, text, integer, boolean, text[], text, text[], boolean, text)": "none",
+      "research_dossier_show_check_invalid(text[], text, text[], text, text[])": "none",
+      "research_dossier_show_refusal(jsonb, text, integer, boolean, text[], text, text[], text, text[])": "none",
       "research_dossier_conflict_partners(text[])": "none",
-      "admit_research_dossier_after_privacy(text, integer, text[], text, text[], boolean, timestamptz)":
+      "admit_research_dossier_after_privacy(text, integer, text[], text, text[], timestamptz)":
         "askrigor_research_review",
       "list_research_dossier_admission_pending(integer)": "askrigor_research_review",
       "research_dossier_admissible(living_evidence.research_dossier_public_versions)": "none",
-      "revise_research_dossier_importance(text, integer, text, text, text, text, timestamptz)": "askrigor_research_review",
+      "revise_research_dossier_importance(text, integer, text, text, text, text, text[], text, text[], text, text[], timestamptz)": "askrigor_research_review",
       "state_research_dossier_living_person(text, integer, text, text, timestamptz)": "askrigor_research_review",
       "list_research_dossier_privacy_pending(integer)": "askrigor_research_review",
       "record_research_dossier_privacy_reading(text, integer, text, text, text, text, timestamptz)":
@@ -187,6 +202,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       "research_dossier_public_on_revocation()": "none",
       "research_dossier_public_changed()": "none",
       "research_dossier_public_version_guard()": "none",
+      "research_dossier_public_show_guard()": "none",
       "research_dossier_pick(jsonb, text[])": "none",
       "research_dossier_public_projection(jsonb)": "none",
       "research_dossier_public_sizes_complete(jsonb)": "none",
@@ -292,10 +308,10 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     // The copy the server sends: the saved record's public part as publicDossierOf makes it, and a conflict check made
     // against every candidate (here finding none unless told).
     const copy = async (accountKey: string, versionId: string,
-      conflict: { conflictsWith?: string[]; importantConflict?: boolean } = {}): Promise<ResearchDossierPublishInput> => ({
+      conflict: { conflictFindings?: string[] } = {}): Promise<ResearchDossierPublishInput> => ({
       accountKey, versionId, payload: publicDossierOf(savedPayloads.get(versionId)!) as unknown as Record<string, unknown>,
       compared: (await candidatesOf(accountKey, versionId)).map(conflictCandidateId), conflictCheck: "read",
-      conflictsWith: conflict.conflictsWith ?? [], importantConflict: conflict.importantConflict ?? false, at: AT });
+      conflictFindings: conflict.conflictFindings ?? [], at: AT });
     const moderate = (value: Record<string, any>) => { value.value.confidence = "moderate"; };
 
     // No notice covers public dossiers until v7's release adds it: an active v6 account publishes nothing.
@@ -484,8 +500,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       assert((await review.decide({ publicNumber: pending.publicNumber, versionNumber: 1, decision, reason: null,
         at: AT })).outcome === "not_decidable", `PRIVACY_PENDING_${decision.toUpperCase()}N`);
     }
-    await expectError(() => admin.query(`UPDATE ${SCHEMA}.research_dossier_public_versions SET state = 'shown',
-      hold_reasons = '{}' WHERE public_number = $1`, [pending.publicNumber]), /check constraint/u,
+    await expectError(() => forceShown(pending.publicNumber), /check constraint/u,
     "PRIVACY_PENDING_FORCED_SHOWN");
     assert((await pages.listShown({ publicNumbers: [pending.publicNumber], limit: 1 })).length === 0,
       "PRIVACY_PENDING_ON_A_PAGE");
@@ -536,8 +551,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       assert((await review.decide({ publicNumber: refusedCopy.publicNumber, versionNumber: 1, decision, reason: null,
         at: AT })).outcome === "not_decidable", `REFUSED_CONTENT_${decision.toUpperCase()}N`);
     }
-    await expectError(() => admin.query(`UPDATE ${SCHEMA}.research_dossier_public_versions SET state = 'shown',
-      hold_reasons = '{}' WHERE public_number = $1`, [refusedCopy.publicNumber]), /check constraint/u,
+    await expectError(() => forceShown(refusedCopy.publicNumber), /check constraint/u,
     "REFUSED_CONTENT_FORCED_SHOWN");
     checks.push("a_privacy_reading_made_later_is_bound_to_its_content_and_a_refusal_is_final");
 
@@ -568,7 +582,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       };
       const read = async (publicNumber: string): Promise<ResearchDossierShowCheck> => ({ compared:
         (await review.showCandidates(publicNumber, 1, null, 200)).map(conflictCandidateId), conflictCheck: "read",
-      conflictFindings: [], importantConflict: false, overrideBy: null });
+      conflictFindings: [], overrideBy: null, overrideConflicts: [] });
       const admit = async (publicNumber: string, check?: ResearchDossierShowCheck) =>
         await review.admitAfterPrivacy({ publicNumber, versionNumber: 1, check: check ?? await read(publicNumber), at: AT });
       const pendingNumbers = async () => (await review.admissionPending(50)).map(({ publicNumber }) => publicNumber);
@@ -608,12 +622,15 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       const rivalVersion = await save(rival.accountKey, "admit-rival", "admit-rival", null, topic("contested"));
       const rivalCopy = await publisher.publish(await copy(rival.accountKey, rivalVersion));
       assert(rivalCopy.outcome === "published" && rivalCopy.state === "shown", "ADMIT_RIVAL_NOT_SHOWN");
-      assert((await admit(contested, { compared: [], conflictCheck: "read", conflictFindings: [], importantConflict: false,
-        overrideBy: null })).outcome === "comparison_stale", "ADMITTED_AGAINST_ANOTHER_SET");
-      assert((await admit(contested, { compared: [], conflictCheck: "not_read", conflictFindings: [],
-        importantConflict: false, overrideBy: null })).outcome === "waiting", "ADMITTED_WITHOUT_A_COMPARISON");
+      assert((await admit(contested, { compared: [], conflictCheck: "read", conflictFindings: [], overrideBy: null,
+        overrideConflicts: [] })).outcome === "comparison_stale", "ADMITTED_AGAINST_ANOTHER_SET");
+      // Not read, against another set: stale too (Codex's fourth review); against the set now, it waits.
+      assert((await admit(contested, { compared: [], conflictCheck: "not_read", conflictFindings: [], overrideBy: null,
+        overrideConflicts: [] })).outcome === "comparison_stale", "UNREAD_ADMISSION_AGAINST_ANOTHER_SET");
+      assert((await admit(contested, { ...(await read(contested)), conflictCheck: "not_read" })).outcome === "waiting",
+        "ADMITTED_WITHOUT_A_COMPARISON");
       assert((await pendingNumbers()).includes(contested), "WAITING_COPY_NOT_PENDING_ADMISSION");
-      const conflicted = await admit(contested, { ...(await read(contested)), importantConflict: true,
+      const conflicted = await admit(contested, { ...(await read(contested)),
         conflictFindings: [`f1:${rivalCopy.publicNumber}/1:f1`] });
       assert(conflicted.outcome === "held" && conflicted.holdReasons.join() === "important_conflict",
         `ADMITTED_OVER_AN_IMPORTANT_CONFLICT_${conflicted.outcome}`);
@@ -634,10 +651,9 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       assert((await review.decide({ publicNumber: namedCopy.publicNumber, versionNumber: 1, decision, reason: "fine",
         at: AT })).outcome === "not_decidable", `NAMED_${decision.toUpperCase()}N_ORDINARILY`);
     }
-    await expectError(() => admin.query(`UPDATE ${SCHEMA}.research_dossier_public_versions SET state = 'shown',
-      hold_reasons = '{}' WHERE public_number = $1`, [namedCopy.publicNumber]), /check constraint/u, "NAMED_FORCED_SHOWN");
+    await expectError(() => forceShown(namedCopy.publicNumber), /check constraint/u, "NAMED_FORCED_SHOWN");
     await expectError(() => reviewPool.query(`SELECT * FROM ${SCHEMA}.decide_research_dossier_living_person($1, 1,
-      'A public figure in office', 'auth0|synthetic-owner', '{}'::text[], 'read', '{}'::text[], false, NULL, now())`,
+      'A public figure in office', 'auth0|synthetic-owner', '{}'::text[], 'read', '{}'::text[], NULL, '{}'::text[], now())`,
     [namedCopy.publicNumber]),
     /RESEARCH_DOSSIER_REVIEW_INPUT_INVALID/u, "NAMED_DECIDER_NOT_A_DIGEST");
     const namedDecision = { publicNumber: namedCopy.publicNumber, versionNumber: 1, reason: "A public figure in office",
@@ -668,8 +684,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       assert((await review.decide({ publicNumber: silentCopy.publicNumber, versionNumber: 1, decision, reason: null,
         at: AT })).outcome === "not_decidable", `UNDECLARED_${decision.toUpperCase()}N_ORDINARILY`);
     }
-    await expectError(() => admin.query(`UPDATE ${SCHEMA}.research_dossier_public_versions SET state = 'shown',
-      hold_reasons = '{}' WHERE public_number = $1`, [silentCopy.publicNumber]), /check constraint/u,
+    await expectError(() => forceShown(silentCopy.publicNumber), /check constraint/u,
     "UNDECLARED_FORCED_SHOWN");
     assert((await review.decideLivingPerson({ publicNumber: silentCopy.publicNumber, versionNumber: 1,
       reason: "A public figure", decidedBy: "reviewer:0123456789abcdef", at: AT })).outcome === "not_decidable",
@@ -753,7 +768,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     try {
       await holder.query("BEGIN");
       const held = await holder.query<{ outcome: string }>(`SELECT outcome FROM ${SCHEMA}.publish_research_dossier_version(
-        $1, $2::uuid, $3::jsonb, $4::text[], 'read', '{}'::text[], false, $5::timestamptz)`,
+        $1, $2::uuid, $3::jsonb, $4::text[], 'read', '{}'::text[], $5::timestamptz)`,
       [racer.accountKey, blocker, JSON.stringify(blockerCheck.payload), [...blockerCheck.compared], AT.toISOString()]);
       assert(held.rows[0]?.outcome === "published", "BLOCKER_NOT_PUBLISHED");
       const pending = publisher.publish(waitingCheck).then((result) => { settled = true; waited = result; });
@@ -771,8 +786,8 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       notRead.holdReasons.join() === "conflict_check_pending", "UNREAD_CHECK_NOT_HELD");
     const conflicting = await save(racer.accountKey, "racer-conflict", "racer-conflict", null, crowded);
     const conflictCheck = await copy(racer.accountKey, conflicting);
-    const other = conflictCheck.compared[0]!.split("/")[0]!;
-    const importantConflict = await publisher.publish({ ...conflictCheck, conflictsWith: [other], importantConflict: true });
+    const importantConflict = await publisher.publish({ ...conflictCheck,
+      conflictFindings: [`f1:${conflictCheck.compared[0]}:f1`] });
     assert(importantConflict.outcome === "published" && importantConflict.holdReasons.join() === "important_conflict",
       "IMPORTANT_CONFLICT_NOT_HELD");
     checks.push("admission_is_serialized_per_topic_and_rechecks_the_comparison_set");
@@ -800,8 +815,8 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     try {
       await reviewing.query("BEGIN");
       const shownByReview = await reviewing.query<{ outcome: string; state: string }>(`SELECT outcome, state
-        FROM ${SCHEMA}.decide_research_dossier_publication($1, 1, 'show', NULL, '{}'::text[], 'read', '{}'::text[], false,
-          NULL, $2::timestamptz)`,
+        FROM ${SCHEMA}.decide_research_dossier_publication($1, 1, 'show', NULL, '{}'::text[], 'read', '{}'::text[], NULL,
+          '{}'::text[], $2::timestamptz)`,
       [reviewHeld.publicNumber, AT.toISOString()]);
       assert(shownByReview.rows[0]?.outcome === "decided" && shownByReview.rows[0].state === "shown",
         "RACE_REVIEW_SHOW_WRONG");
@@ -852,7 +867,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       try {
         await holding.query("BEGIN");
         const held = await holding.query<{ outcome: string }>(`SELECT outcome FROM ${SCHEMA}.publish_research_dossier_version(
-          $1, $2::uuid, $3::jsonb, $4::text[], 'read', '{}'::text[], false, $5::timestamptz)`,
+          $1, $2::uuid, $3::jsonb, $4::text[], 'read', '{}'::text[], $5::timestamptz)`,
         [reviewer.accountKey, blocking, JSON.stringify(blockingCheck.payload), [...blockingCheck.compared], AT.toISOString()]);
         assert(held.rows[0]?.outcome === "published", `RACE_BLOCKER_${name.toUpperCase()}_NOT_PUBLISHED`);
         const waiting = transition().then(() => { settled = true; });
@@ -895,7 +910,7 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       const candidates = (await review.showCandidates(heldCopy.publicNumber, 1, null, 200)).map(conflictCandidateId);
       assert(candidates.join() === `${autoCopy.publicNumber}/1`, `PROBE_CANDIDATES_WRONG_${candidates.join()}`);
       const conflict: ResearchDossierShowCheck = { compared: candidates, conflictCheck: "read",
-        conflictFindings: [`f1:${autoCopy.publicNumber}/1:f1`], importantConflict: true, overrideBy: null };
+        conflictFindings: [`f1:${autoCopy.publicNumber}/1:f1`], overrideBy: null, overrideConflicts: [] };
       const found = await review.decide({ ...showHeld, check: conflict });
       assert(found.outcome === "conflict_found" && found.state === "held", `PROBE_CONFLICT_SHOWN_${found.outcome}`);
       assert((await review.decideLivingPerson({ publicNumber: heldCopy.publicNumber, versionNumber: 1, reason: "x",
@@ -904,12 +919,14 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       assert((await pages.listShown({ topicKeys: ["third-review-late"], limit: 10 })).length === 1,
         "PROBE_BOTH_SHOWN_WITHOUT_AN_OVERRIDE");
       // The same comparison without the automatic copy is stale; one that could not be made needs the override too.
-      assert((await review.decide({ ...showHeld, check: { ...conflict, compared: [], conflictFindings: [],
-        importantConflict: false } })).outcome === "comparison_stale", "PROBE_PARTIAL_COMPARISON_ACCEPTED");
-      assert((await review.decide({ ...showHeld, check: { compared: [], conflictCheck: "not_read", conflictFindings: [],
-        importantConflict: false, overrideBy: null } })).outcome === "conflict_not_checked", "PROBE_UNREAD_CHECK_SHOWN");
+      assert((await review.decide({ ...showHeld, check: { ...conflict, compared: [], conflictFindings: [] } })).outcome ===
+        "comparison_stale", "PROBE_PARTIAL_COMPARISON_ACCEPTED");
+      assert((await review.decide({ ...showHeld, check: { compared: candidates, conflictCheck: "not_read",
+        conflictFindings: [], overrideBy: null, overrideConflicts: [] } })).outcome === "conflict_not_checked",
+      "PROBE_UNREAD_CHECK_SHOWN");
       const overrideBy = "reviewer:0011223344556677";
-      const overridden = await review.decide({ ...showHeld, check: { ...conflict, overrideBy } });
+      const overridden = await review.decide({ ...showHeld, check: { ...conflict, overrideBy,
+        overrideConflicts: [autoCopy.publicNumber] } });
       assert(overridden.outcome === "decided" && overridden.state === "shown", `PROBE_OVERRIDE_NOT_SHOWN_${overridden.outcome}`);
       const row = (await review.inspect(heldCopy.publicNumber))[0]!;
       assert(row.conflictOverride?.by === overrideBy && row.conflictOverride.at === AT.toISOString() &&
@@ -937,6 +954,188 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       "PROBE_PAIRS_REWRITTEN");
     }
     checks.push("an_owners_show_is_compared_first_and_shows_a_conflict_only_on_a_recorded_override");
+
+    // Codex's fourth review, P1 (his probe): an override prepared while the comparison could not be made named the one
+    // shown candidate; the show waited behind another publication on the topic and then showed with two candidates
+    // current. The admission gate checks the set for a comparison not read too: the show is refused as stale, with the
+    // set it has now, and the owner's review, comparing again, presents both shown dossiers.
+    {
+      const prober = await account("fourth-review-unread");
+      const topicOf = (value: Record<string, any>) => {
+        value.topic = { key: "fourth-review-unread", name: "Fourth review unread", other_names: [], related: [] };
+        value.forms = ["fourth-review-unread-form"];
+      };
+      const heldVersion = await save(prober.accountKey, "fourth-unread-held", "fourth-unread-held", null,
+        (value) => { topicOf(value); moderate(value); });
+      const held = await publisher.publish(await copy(prober.accountKey, heldVersion));
+      const firstVersion = await save(prober.accountKey, "fourth-unread-first", "fourth-unread-first", null, topicOf);
+      const first = await publisher.publish(await copy(prober.accountKey, firstVersion));
+      assert(held.outcome === "published" && held.state === "held" && first.outcome === "published" &&
+        first.state === "shown", "UNREAD_PROBE_SETUP_WRONG");
+      const prepared: ResearchDossierShowCheck = { compared: [`${first.publicNumber}/1`], conflictCheck: "not_read",
+        conflictFindings: [], overrideBy: "reviewer:0011223344556677", overrideConflicts: [first.publicNumber] };
+      const secondVersion = await save(prober.accountKey, "fourth-unread-second", "fourth-unread-second", null, topicOf);
+      const secondCheck = await copy(prober.accountKey, secondVersion);
+      const holding = await access.connect();
+      let decided: Awaited<ReturnType<typeof plainDecide>> | undefined;
+      let settled = false;
+      let second = "";
+      try {
+        await holding.query("BEGIN");
+        const written = await holding.query<{ public_number: string; state: string }>(`SELECT public_number, state
+          FROM ${SCHEMA}.publish_research_dossier_version($1, $2::uuid, $3::jsonb, $4::text[], 'read', '{}'::text[],
+          $5::timestamptz)`, [prober.accountKey, secondVersion, JSON.stringify(secondCheck.payload),
+          [...secondCheck.compared], AT.toISOString()]);
+        assert(written.rows[0]?.state === "shown", "UNREAD_PROBE_SECOND_NOT_SHOWN");
+        second = written.rows[0].public_number;
+        const waiting = plainDecide({ publicNumber: held.publicNumber, versionNumber: 1, decision: "show", reason: null,
+          check: prepared, at: AT }).then((result) => { settled = true; decided = result; });
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        assert(!settled, "UNREAD_PROBE_SHOW_DID_NOT_WAIT");
+        await holding.query("COMMIT");
+        await waiting;
+      } finally {
+        holding.release();
+      }
+      const now = [`${first.publicNumber}/1`, `${second}/1`].sort();
+      assert(decided?.outcome === "comparison_stale" && decided.compared.join() === now.join(),
+        `UNREAD_OVERRIDE_SHOWN_FOR_ANOTHER_SET_${decided?.outcome}`);
+      assert((await review.inspect(held.publicNumber))[0]!.state === "held", "UNREAD_PROBE_COPY_SHOWN");
+      const ownerReview = new AtlasDossierReview({ store: review, now: () => AT });
+      const answer = await ownerReview.run({ action: "show_dossier", dossier: held.publicNumber,
+        reviewer: "auth0|synthetic-owner", dossierOverrideConflicts: [first.publicNumber] });
+      assert(!answer.ok && answer.text.includes(`(${first.publicNumber} and ${second})`) &&
+        answer.text.includes(`but not ${second}.`), `UNREAD_PROBE_SET_NOT_PRESENTED_${answer.text}`);
+      assert((await pages.listShown({ topicKeys: ["fourth-review-unread"], limit: 10 })).length === 2,
+        "UNREAD_PROBE_PAGES_WRONG");
+    }
+    checks.push("an_unread_comparison_made_for_another_set_is_refused_and_the_set_now_presented");
+
+    // Codex's fourth review, P1: the cut at 50 came before the override's scope was worked out, so with 51 important
+    // conflicts an override naming 50 showed the copy and the fifty-first was on no page. The gate works out the scope
+    // from the whole comparison: with 50 named or all 51, the copy stays held, and the owner is told why.
+    {
+      const crowd = await account("fourth-review-crowd");
+      const topicOf = (value: Record<string, any>) => {
+        value.topic = { key: "fourth-review-crowd", name: "Fourth review crowd", other_names: [], related: [] };
+        value.forms = ["fourth-review-crowd-form"];
+      };
+      const heldVersion = await save(crowd.accountKey, "fourth-crowd-held", "fourth-crowd-held", null,
+        (value) => { topicOf(value); moderate(value); });
+      const held = await publisher.publish(await copy(crowd.accountKey, heldVersion));
+      assert(held.outcome === "published" && held.state === "held", "CROWD_HELD_WRONG");
+      const shown: string[] = [];
+      for (let place = 0; place < 51; place += 1) {
+        const version = await save(crowd.accountKey, `fourth-crowd-${place}`, `fourth-crowd-${place}`, null, topicOf);
+        const result = await publisher.publish(await copy(crowd.accountKey, version));
+        assert(result.outcome === "published" && result.state === "shown", `CROWD_${place}_NOT_SHOWN`);
+        shown.push(result.publicNumber);
+      }
+      const opposed: DossierConflictReader = async (request) => ({ status: "read",
+        conflicts: request.shown.map(({ dossier }) => ({ finding: "f1", dossier, theirs: "f1" })) });
+      const ownerReview = new AtlasDossierReview({ store: review, now: () => AT, conflictReader: opposed });
+      for (const named of [shown.slice(0, 50), shown]) {
+        const answer = await ownerReview.run({ action: "show_dossier", dossier: held.publicNumber,
+          reviewer: "auth0|synthetic-owner", dossierOverrideConflicts: named });
+        assert(!answer.ok && answer.text.includes("That is 51 shown dossiers, more than the 50 an override can cover " +
+          "and the pages can list, so it stays held; no override can show it."), `CROWD_${named.length}_NOT_REFUSED`);
+      }
+      const candidates = (await review.showCandidates(held.publicNumber, 1, null, 200)).map(conflictCandidateId);
+      const everyPair = candidates.map((candidate) => `f1:${candidate}:f1`);
+      const overLimit = await plainDecide({ publicNumber: held.publicNumber, versionNumber: 1, decision: "show",
+        reason: null, at: AT, check: { compared: candidates, conflictCheck: "read", conflictFindings: everyPair,
+          overrideBy: "reviewer:0011223344556677", overrideConflicts: shown } });
+      assert(overLimit.outcome === "conflicts_over_limit" && overLimit.required.length === 51,
+        `CROWD_STORE_ADMITTED_${overLimit.outcome}`);
+      assert((await review.inspect(held.publicNumber))[0]!.state === "held", "CROWD_COPY_SHOWN");
+    }
+    checks.push("fifty_one_important_conflicts_keep_the_copy_held_whatever_the_override_names");
+
+    // Codex's fourth review: a copy becomes shown only through the admission gate. Each way of making one shown is sent
+    // through a stale set and through an incomplete override (for the automatic ones, which take none, no override); each
+    // ends refused or held, and nothing new shows. A statement that shows a copy without the gate is refused itself.
+    {
+      const owner = await account("fourth-review-ways");
+      const others = await account("fourth-review-ways-others");
+      const topicOf = (value: Record<string, any>) => {
+        value.topic = { key: "fourth-review-ways", name: "Fourth review ways", other_names: [], related: [] };
+        value.forms = ["fourth-review-ways-form"];
+      };
+      const publishOn = async (who: { accountKey: string }, label: string,
+        change: (value: Record<string, any>) => void = () => undefined) => {
+        const version = await save(who.accountKey, label, label, null, (value) => { topicOf(value); change(value); });
+        const result = await publisher.publish(await copy(who.accountKey, version));
+        assert(result.outcome === "published", `WAYS_${label.toUpperCase()}_NOT_PUBLISHED`);
+        return { version, publicNumber: result.publicNumber, state: result.state };
+      };
+      const x = await publishOn(others, "ways-x");
+      const y = await publishOn(others, "ways-y");
+      const toShow = await publishOn(owner, "ways-show", moderate);
+      const toAccept = await publishOn(owner, "ways-accept", moderate);
+      const toName = await publishOn(owner, "ways-name", (value) => { value.names_living_people = true; });
+      const toAdmit = await publishOn(owner, "ways-admit", (value) => { delete value.stamp.privacy_reading; });
+      const toRevise = await publishOn(owner, "ways-revise");
+      assert(x.state === "shown" && y.state === "shown" && toShow.state === "held" && toAccept.state === "held" &&
+        toName.state === "held" && toAdmit.state === "held" && toRevise.state === "shown", "WAYS_SETUP_WRONG");
+      const sha = (await review.inspect(toAdmit.publicNumber))[0]!.payloadSha256!;
+      assert((await review.recordPrivacyReading({ publicNumber: toAdmit.publicNumber, versionNumber: 1, contentSha256: sha,
+        reading: { status: "pass" }, at: AT })).outcome === "recorded", "WAYS_ADMIT_PASS_NOT_RECORDED");
+      const automatic = await save(owner.accountKey, "ways-automatic", "ways-automatic", null, topicOf);
+      const current = async (publicNumber: string, withOwn: boolean) =>
+        (await review.showCandidates(publicNumber, 1, null, 200))
+          .filter((candidate) => withOwn || candidate.publicNumber !== publicNumber).map(conflictCandidateId);
+      const stale = (): ResearchDossierShowCheck => ({ compared: [], conflictCheck: "read", conflictFindings: [],
+        overrideBy: null, overrideConflicts: [] });
+      const incomplete = (compared: string[], override: boolean): ResearchDossierShowCheck => ({ compared,
+        conflictCheck: "read", conflictFindings: [`f1:${x.publicNumber}/1:f1`, `f1:${y.publicNumber}/1:f1`],
+        overrideBy: override ? "reviewer:0011223344556677" : null, overrideConflicts: override ? [x.publicNumber] : [] });
+      const ways: Array<[string, (check: ResearchDossierShowCheck) => Promise<string>, () => Promise<ResearchDossierShowCheck>]> = [
+        ["show", async (check) => (await plainDecide({ publicNumber: toShow.publicNumber, versionNumber: 1,
+          decision: "show", reason: null, check, at: AT })).outcome,
+        async () => incomplete(await current(toShow.publicNumber, false), true)],
+        ["accept", async (check) => (await plainDecide({ publicNumber: toAccept.publicNumber, versionNumber: 1,
+          decision: "accept", reason: null, check, at: AT })).outcome,
+        async () => incomplete(await current(toAccept.publicNumber, false), true)],
+        ["living_person", async (check) => (await plainDecideLivingPerson({ publicNumber: toName.publicNumber,
+          versionNumber: 1, reason: "A public figure in office", decidedBy: "reviewer:0123456789abcdef", check, at: AT }))
+          .outcome, async () => incomplete(await current(toName.publicNumber, false), true)],
+        ["revise", async (check) => (await review.reviseImportance({ publicNumber: toRevise.publicNumber,
+          versionNumber: 1, findingId: "f2", importance: "important", reason: "A reviewed mark",
+          revisedBy: "reviewer:fedcba9876543210", check, at: AT })).outcome,
+        async () => incomplete(await current(toRevise.publicNumber, false), true)],
+        ["admission_after_privacy", async (check) => (await review.admitAfterPrivacy({
+          publicNumber: toAdmit.publicNumber, versionNumber: 1, check, at: AT })).outcome,
+        async () => incomplete(await current(toAdmit.publicNumber, true), false)],
+        ["automatic_publication", async (check) => {
+          const result = await publisher.publish({ ...(await copy(owner.accountKey, automatic)),
+            compared: check.compared, conflictCheck: check.conflictCheck, conflictFindings: check.conflictFindings });
+          return result.outcome === "published" ? `${result.outcome}:${result.state}:${result.holdReasons.join()}`
+            : result.outcome;
+        }, async () => incomplete((await candidatesOf(owner.accountKey, automatic)).map(conflictCandidateId), false)],
+      ];
+      const ends: Record<string, [string, string]> = {
+        show: ["comparison_stale", "conflict_found"], accept: ["comparison_stale", "conflict_found"],
+        living_person: ["comparison_stale", "conflict_found"], revise: ["comparison_stale", "conflict_found"],
+        admission_after_privacy: ["comparison_stale", "held"],
+        automatic_publication: ["comparison_stale", "published:held:important_conflict"],
+      };
+      const before = (await pages.listShown({ topicKeys: ["fourth-review-ways"], limit: 50 }))
+        .map(({ publicNumber, versionNumber }) => `${publicNumber}/${versionNumber}`).sort().join();
+      for (const [way, attempt, incompleteCheck] of ways) {
+        const staleEnd = await attempt(stale());
+        const incompleteEnd = await attempt(await incompleteCheck());
+        assert(staleEnd === ends[way]![0] && incompleteEnd === ends[way]![1],
+          `WAY_${way.toUpperCase()}_ENDED_${staleEnd}_${incompleteEnd}`);
+      }
+      const after = (await pages.listShown({ topicKeys: ["fourth-review-ways"], limit: 50 }))
+        .map(({ publicNumber, versionNumber }) => `${publicNumber}/${versionNumber}`).sort().join();
+      assert(before === after, `WAYS_SHOWED_A_COPY_${before}_${after}`);
+      // No statement shows a copy but on the gate's admission of exactly its content.
+      await expectError(() => admin.query(`UPDATE ${SCHEMA}.research_dossier_public_versions SET state = 'shown',
+        hold_reasons = '{}' WHERE public_number = $1 AND version_number = 1`, [toShow.publicNumber]),
+      /RESEARCH_DOSSIER_SHOW_NOT_ADMITTED/u, "WAYS_SHOWN_WITHOUT_THE_GATE");
+    }
+    checks.push("every_way_of_making_a_copy_shown_ends_refused_or_held_on_a_stale_set_or_an_incomplete_override");
 
     // Codex's review, finding 7: an importance mark changes only by a new, reviewed version: the old one is kept as it
     // was, the new one records who revised it and why, and a dossier's later copy is numbered after it.
@@ -1075,11 +1274,11 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
 
     // Malformed input is refused whole; a copy's content never changes and nothing is deleted.
     await expectError(() => access.query(`SELECT * FROM ${SCHEMA}.publish_research_dossier_version($1, $2::uuid,
-      '{}'::jsonb, '{}'::text[], 'read', '{}'::text[], true, now())`, [first.accountKey,
+      '{}'::jsonb, '{}'::text[], 'read', ARRAY['f1:D-1001'], now())`, [first.accountKey,
       deterministicUuid("publication-acceptance:none")]),
-    /RESEARCH_DOSSIER_PUBLISH_INPUT_INVALID/u, "IMPORTANT_CONFLICT_WITHOUT_A_DOSSIER_ACCEPTED");
+    /RESEARCH_DOSSIER_PUBLISH_INPUT_INVALID/u, "MALFORMED_CONFLICT_PAIR_ACCEPTED");
     await expectError(() => access.query(`SELECT * FROM ${SCHEMA}.publish_research_dossier_version($1, $2::uuid,
-      '{}'::jsonb, '{}'::text[], 'not_read', ARRAY['D-1001'], false, now())`, [first.accountKey,
+      '{}'::jsonb, '{}'::text[], 'not_read', ARRAY['f1:D-1001/1:f1'], now())`, [first.accountKey,
       deterministicUuid("publication-acceptance:none")]),
     /RESEARCH_DOSSIER_PUBLISH_INPUT_INVALID/u, "CONFLICTS_WITHOUT_A_READING_ACCEPTED");
     await expectError(() => admin.query(`UPDATE ${SCHEMA}.research_dossier_public_versions SET public_payload = '{}'::jsonb

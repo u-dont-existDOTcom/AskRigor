@@ -143,12 +143,12 @@ GRANT EXECUTE ON FUNCTION living_evidence.list_research_dossier_publications(tex
 GRANT EXECUTE ON FUNCTION living_evidence.inspect_research_dossier_publication(text)
   TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.decide_research_dossier_publication(
-  text, integer, text, text, text[], text, text[], boolean, text, timestamptz
+  text, integer, text, text, text[], text, text[], text, text[], timestamptz
 ) TO askrigor_research_review;
 -- The owner's own decision to show a copy whose claim names a living person, with his typed reason (Codex's review of
 -- stage 2, finding 2).
 GRANT EXECUTE ON FUNCTION living_evidence.decide_research_dossier_living_person(
-  text, integer, text, text, text[], text, text[], boolean, text, timestamptz
+  text, integer, text, text, text[], text, text[], text, text[], timestamptz
 ) TO askrigor_research_review;
 -- The shown dossiers a copy is compared with before the review shows it (Codex's third review, P1).
 GRANT EXECUTE ON FUNCTION living_evidence.research_dossier_show_candidates(text, integer, text, integer, integer)
@@ -167,14 +167,14 @@ GRANT EXECUTE ON FUNCTION living_evidence.record_research_dossier_privacy_readin
 -- A copy held only for the privacy reading shows by itself once a later reading passes it, if it otherwise qualifies,
 -- after fresh conflict and eligibility checks; and the copies waiting for that (Codex's third review).
 GRANT EXECUTE ON FUNCTION living_evidence.admit_research_dossier_after_privacy(
-  text, integer, text[], text, text[], boolean, timestamptz
+  text, integer, text[], text, text[], timestamptz
 ) TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.list_research_dossier_admission_pending(integer)
   TO askrigor_research_review;
 -- A reviewed revision of an importance mark: a new version with the reviewer and reason, never an edit in place (Codex's
 -- review of stage 2, finding 7).
 GRANT EXECUTE ON FUNCTION living_evidence.revise_research_dossier_importance(
-  text, integer, text, text, text, text, timestamptz
+  text, integer, text, text, text, text, text[], text, text[], text, text[], timestamptz
 ) TO askrigor_research_review;
 ALTER ROLE askrigor_research_review SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_review SET idle_in_transaction_session_timeout = '5s';

@@ -319,9 +319,10 @@ const LATER_INPUT_SHAPES = Object.freeze({
         "whether a claim names a living person, names_no_living_person or names_a_living_person; recorded once, with " +
         "who and when."),
     dossierOverrideConflicts: dossierOverrideConflictsInputSchema.optional()
-      .describe("With show_dossier, accept_dossier or show_dossier_naming_living_person: the shown dossiers, such as " +
-        "D-1002, that AskRigor's conflict check found the copy contradicts on an important finding, or could not compare " +
-        "it with; naming them all shows it anyway, recorded with who and when."),
+      .describe("With show_dossier, accept_dossier, show_dossier_naming_living_person or revise_dossier_importance of " +
+        "a shown copy: the shown dossiers, such as D-1002, whose findings AskRigor's conflict check read as " +
+        "contradicting the copy's on an important finding, or that it could not compare it with; naming them all " +
+        "shows it anyway, recorded with who and when, up to 50 of them."),
   },
 } satisfies Record<string, z.ZodRawShape>);
 
