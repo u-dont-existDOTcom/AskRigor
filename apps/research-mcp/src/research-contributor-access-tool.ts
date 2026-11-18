@@ -149,6 +149,7 @@ import {
   type ResearchReceiptClaims,
 } from "./research-receipts.js";
 import { toolListNotice, toolListVersionField } from "./tool-list-currency.js";
+import { WHAT_STOPS_TEXT, whatStops, whatStopsSchema } from "./findings-ledger.js";
 
 // A notice version as a pattern, not the current value: clients keep a tool's
 // schema for as long as a chat or connector lives, so a constant here would let
@@ -419,6 +420,11 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
   }).strict().optional()
     .describe("With plan_research, when a research dossier can be saved: when to include one with the final check, " +
       "its shape, and what keeps it truthful."),
+  // Enforcing HRP, stage 1 (runtime only): what can stop the answer, here as well as in the text.
+  what_stops: whatStopsSchema.optional()
+    .describe("With plan_research, while AskRigor keeps a findings ledger: the six checks that stop a whole answer, " +
+      "each in its scope, once the call gives a usable answer_draft and research_target; everything else is a note to " +
+      "fix or dispute."),
 }).strict();
 
 /**
@@ -577,6 +583,12 @@ export interface ResearchContributorToolOptions {
   askrigorHolds?: AskRigorHoldsOptions;
   /** AskRigor#477 stage 1: research dossiers are saved (ASKRIGOR_RESEARCH_DOSSIERS), so plan_research may ask for one. */
   researchDossiers?: boolean;
+  /**
+   * Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026): while the findings ledger is on for the account (whether it is
+   * one of the owner's development accounts is given), plan_research says up front what can stop an answer at the final
+   * check (the owner's note on question 338): the six whole-answer stops.
+   */
+  findingsLedger?: (devAccount: boolean) => boolean;
 }
 
 export interface ResearchMapOptions {
@@ -1108,7 +1120,8 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         const learning = devAccount && options.researchPlanner?.()?.enabled === true
           ? { log: options.log ?? defaultLog } : undefined;
         return await planResearchAction(options.service, auth.subject, parsed.researchMenu!, options.plainAnswer,
-          options.menuDigestSecret?.(), devAccount, learning, options.researchDossiers === true, findingsSaveOff(parsed));
+          options.menuDigestSecret?.(), devAccount, learning, options.researchDossiers === true, findingsSaveOff(parsed),
+          options.findingsLedger?.(devAccount) === true);
       }
       if (parsed.action === "set_plain_answer_note") {
         return await setPlainAnswerNote(options.service, auth.subject, parsed.plainAnswerNote!, options.plainAnswer);
@@ -1786,6 +1799,8 @@ async function planResearchAction(
   // findings_save "off", which asks for none.
   dossiers = false,
   callSavingOff = false,
+  // Enforcing HRP, stage 1: say up front what can stop the answer.
+  upFront = false,
 ): Promise<CallToolResult> {
   const account = await service.activeAccount(subject);
   const accountKey = service.accountKeyForSubject(subject);
@@ -1864,7 +1879,9 @@ async function planResearchAction(
     content: [{ type: "text", text },
       ...(dossierRequest
         ? [{ type: "text" as const, text: `${RESEARCH_DOSSIER_REQUEST} ${RESEARCH_DOSSIER_SHAPE} ${RESEARCH_DOSSIER_GUARDS}` }]
-        : [])],
+        : []),
+      // Enforcing HRP, stage 1 (the owner's note on question 338): what can stop the answer, before research.
+      ...(upFront ? [{ type: "text" as const, text: WHAT_STOPS_TEXT }] : [])],
     structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
       ok: true,
       researchMenu: result,
@@ -1873,6 +1890,7 @@ async function planResearchAction(
       ...(youDecide === undefined ? {} : { you_decide_later_inputs: youDecide }),
       ...(dossierRequest ? { research_dossier_request: { instruction: RESEARCH_DOSSIER_REQUEST,
         shape: RESEARCH_DOSSIER_SHAPE, guards: RESEARCH_DOSSIER_GUARDS } } : {}),
+      ...(upFront ? { what_stops: whatStops() } : {}),
     }),
   };
 }

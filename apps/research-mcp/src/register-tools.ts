@@ -16,6 +16,10 @@ import type { AtlasPageSource } from "@askrigor/evidence-repository";
 import { currentProtocolElementNames } from "./protocol-rule-names.js";
 import { createHash } from "node:crypto";
 import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
+import {
+  findingsLedgerAccountsFromEnv, findingsLedgerEnabledFromEnv, findingsLedgerGuidance, findingsLedgerMemory,
+  findingsLedgerMemoryKey, type FindingChecker, type FindingsLedgerAccounts, type FindingsLedgerMemory, type ObservedFinding
+} from "./findings-ledger.js";
 import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./meaning-judge.js";
 import { researchPlannerFromEnv, type ResearchPlanner } from "./research-planner.js";
 import type { ResearchLane } from "./research-steering.js";
@@ -308,6 +312,7 @@ import {
   sourceLineRequestsOf,
   studyMapRequestsOf,
   backingRequestsOf,
+  settleFindingsLedger,
   shortLookupDeclared,
   type FinalizeResearchOptions,
   type FinalizeResearchOutput
@@ -981,6 +986,18 @@ export interface RegisterToolsOptions {
   dossierPrivacyReading?: boolean;
   /** Whether the findings library is open; defaults to ASKRIGOR_FINDINGS_LIBRARY. */
   findingsLibrary?: boolean;
+  /**
+   * Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026): whether the final check keeps a findings ledger and plan_research
+   * says what can stop an answer; defaults to ASKRIGOR_FINDINGS_LEDGER=on. Its memory of the last ledger issued
+   * for each account and research target is this process's, unless replaced for tests.
+   */
+  findingsLedger?: boolean;
+  /**
+   * Whose answers get it while it is on (Fable's check of 17 Nov 2026): "dev", only the owner's development accounts, or
+   * "all"; defaults to ASKRIGOR_FINDINGS_LEDGER_ACCOUNTS, "dev" unless it is "all".
+   */
+  findingsLedgerAccounts?: FindingsLedgerAccounts;
+  findingsLedgerMemory?: FindingsLedgerMemory;
   /** Shared questions and answers (owner answer 200a); null turns them off; defaults to the server's settings. */
   sharedAnswers?: SharedAnswers | null;
   /** How long finalize_research waits for a findings save; replaced for tests. */
@@ -2116,6 +2133,8 @@ function defineResearchOperations(
       askrigorHolds: ASKRIGOR_HOLDS,
       // AskRigor#477 stage 1: plan_research asks for the research dossier where one can be saved.
       ...(options.researchDossiers === undefined ? {} : { researchDossiers: true }),
+      // Enforcing HRP, stage 1: plan_research says what can stop an answer while the findings ledger is on for the account.
+      findingsLedger: (devAccount) => findingsLedgerFor(options, () => devAccount),
       ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
       ...(sharing === undefined ? {} : { sharedAnswers: { ...sharing, versions: async () =>
@@ -2622,6 +2641,23 @@ function defineResearchOperations(
       const library = options.findingsLibrary ?? findingsLibraryEnabledFromEnv();
       const researcher = await researchUseAccount(extra, options.researchContributorAccessService);
       const account = library ? researcher : undefined;
+      // Enforcing HRP, stage 1: this process's memory of the last ledger issued of each lineage (chat) of this account
+      // and research target, read and replaced in one step once the call's notes are all given (Codex's review of 17
+      // Nov 2026, finding 3, and its sixth review, finding 1).
+      const ledgerMemory = options.findingsLedgerMemory ?? findingsLedgerMemory;
+      const ledgerKey = findingsLedgerFor(options, () => researcher !== undefined &&
+        isDevAccount(researcher.accountKey, devAccountKeysFromEnv())) && secret !== undefined &&
+        checkedInput !== undefined ? findingsLedgerMemoryKey(secret, researcher?.accountKey, checkedInput.research_target)
+        : undefined;
+      // Codex's review of 17 Nov 2026, finding 7: the notes this tool gives after the check's own passes are findings of
+      // the ledger as the check's are, each with the part of the check it came from; the ledger is built once they are
+      // all given. With the ledger off, a note is given as before and nothing else is kept.
+      const lateFindings: ObservedFinding[] = [];
+      const lateCoverage: FindingChecker[] = [];
+      const addLateNote = (note: string, finding: Omit<ObservedFinding, "text">): void => {
+        result.notes = [...(result.notes ?? []), note];
+        if (ledgerKey !== undefined) lateFindings.push({ text: note, ...finding });
+      };
       // Owner answer 301a: for the owner's dev accounts, AskRigor's own review of the draft, once per call whatever the
       // check's status. It starts as soon as its inputs are known, so it runs while the check's other lookups wait, and
       // is awaited before the result is returned. Advice only: it adds one note and changes nothing else of the result.
@@ -2659,6 +2695,7 @@ function defineResearchOperations(
         ...(callerReads ? { aiReadings: "caller" as const } : {}),
         ...(readsOnMobile(extra._meta) ? { mobileClient: true } : {}),
         ...(options.toolListVersion === undefined ? {} : { toolListVersion: options.toolListVersion }),
+        ...(ledgerKey === undefined ? {} : { findingsLedger: { account: researcher?.accountKey, deferred: true } }),
         ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) }),
         // Owner answer 190a: every active research account's plain answer, registered before research, is compared
         // with the answer, on the MCP connector only.
@@ -2844,7 +2881,7 @@ function defineResearchOperations(
         if (kept?.status === "kept") {
           keptCardId = kept.card_id;
           result.findings_card.saved = { status: "not_saved", reason: KEPT_FOR_REVIEW };
-          result.notes = [...(result.notes ?? []), unsavedCardNote(kept.card_id)];
+          addLateNote(unsavedCardNote(kept.card_id), { checker: "call", call: true });
         }
       }
       // Owner answer 143a: a free answer whose research map was filed ends by saying what was saved, the card's id
@@ -2914,7 +2951,7 @@ function defineResearchOperations(
         { disposition: { status: "unconfirmed", reason: "not_confirmed_in_time" } } as ResearchDossierSaveOutcome);
         if (outcome !== undefined) {
           if (outcome.disposition !== undefined) result.research_dossier = outcome.disposition;
-          if (outcome.note !== undefined) result.notes = [...(result.notes ?? []), outcome.note];
+          if (outcome.note !== undefined) addLateNote(outcome.note, { checker: "call", call: true });
           const line = outcome.disposition === undefined ? undefined : researchDossierLine(outcome.disposition);
           if (line !== undefined && result.finalization_receipt !== undefined) {
             result.saved_line = result.saved_line === undefined ? line : `${result.saved_line} ${line}`;
@@ -2926,13 +2963,28 @@ function defineResearchOperations(
       // Owner answer 301a: the review's one note, after every other part of the result is settled, so no later pass of
       // the check can drop it and nothing else of the result depends on it.
       if (reviewing !== undefined) {
-        const reviewNote = answerReviewNote(await reviewing);
-        if (reviewNote !== undefined) result.notes = [...(result.notes ?? []), reviewNote];
+        const review = await reviewing;
+        const reviewNote = answerReviewNote(review);
+        // Only a review that ran looked for what an earlier one found; only its gaps are about the answer. One that did
+        // not run is named apart for the reader (Fable's check of 17 Nov 2026).
+        if (review.reviewing.status === "reviewed") lateCoverage.push("review");
+        if (reviewNote !== undefined) {
+          addLateNote(reviewNote, review.reviewing.status === "reviewed" && review.reviewing.review.gaps.length > 0
+            ? { checker: "review" } : { checker: "review", call: true,
+              ...(review.reviewing.status === "reviewed" ? {} : { notRun: true as const }) });
+        }
       }
       // Owner answer 310a: what a call that leaves the AI readings to its caller did not get from the server, and a
       // value that was not read as that.
-      if (callerReads) result.notes = [...(result.notes ?? []), CALLER_READINGS_NOTE];
-      if (aiReadings.note !== undefined) result.notes = [...(result.notes ?? []), aiReadings.note];
+      if (callerReads) addLateNote(CALLER_READINGS_NOTE, { checker: "call", call: true });
+      if (aiReadings.note !== undefined) addLateNote(aiReadings.note, { checker: "call", call: true });
+      // Enforcing HRP, stage 1: the findings ledger, built once, now that every note of the call is given, from the
+      // latest ledger this process remembers, and remembered in the same step, with no await between (Codex's review of
+      // 17 Nov 2026, finding 3): a call that ran long can't overwrite a newer one's ledger.
+      if (ledgerKey !== undefined) {
+        ledgerMemory.update(ledgerKey, (remembered) =>
+          settleFindingsLedger(result, { late: lateFindings, coverage: lateCoverage, remembered })?.remember);
+      }
       const card = result.findings_card;
       const analyses = result.analyses_saved;
       const passing = result.status === "ready" || result.status === "ready_with_limits";
@@ -3067,6 +3119,8 @@ function defineResearchOperations(
                 "carry_forward, pass that value as carried_state in this turn's next finalize_research call, so what " +
                 `it carried still holds; otherwise pass this one, in this turn or a later one: ${result.carry_forward}`
               : `\nPass this as carried_state in this conversation's next finalize_research call, in this turn or a later one: ${result.carry_forward}`) +
+          // Enforcing HRP, stage 1: the findings' ids and dispositions, and the ledger to pass back.
+          findingsLedgerGuidance(result.check_findings, result.findings_ledger) +
           // Owner answer 172a: the round within this turn, carried by the model like the conversation's state. 13 Nov
           // 2026: after a pass that followed a pass in this turn no other call is due, so the token is given only for a
           // call made despite that; it is what tells such a call that the turn had already passed.
@@ -3165,6 +3219,16 @@ function findingsSaveAccount(account: {
   noticeVersion: string | null;
 }): FindingsSaveAccount {
   return { mode: account.mode, noticeVersion: account.noticeVersion };
+}
+
+/**
+ * Enforcing HRP, stage 1: whether a call's answer gets the findings ledger (Fable's check of 17 Nov 2026): the ledger is
+ * on, and the account is one of the owner's development accounts or ASKRIGOR_FINDINGS_LEDGER_ACCOUNTS is "all". With
+ * it off, the account is not looked at.
+ */
+function findingsLedgerFor(options: RegisterToolsOptions, devAccount: () => boolean): boolean {
+  return (options.findingsLedger ?? findingsLedgerEnabledFromEnv()) &&
+    ((options.findingsLedgerAccounts ?? findingsLedgerAccountsFromEnv()) === "all" || devAccount());
 }
 
 /**

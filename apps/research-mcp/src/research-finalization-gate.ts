@@ -1,5 +1,6 @@
 import {
-  findingsSaveMarker, findingsSaveOff, laterInputShape, mergeLaterInputs, TOP_LEVEL_FALLBACK_INPUTS
+  FINDINGS_LEDGER_LATER_INPUTS, finalizeResearchLaterShape, findingsSaveMarker, findingsSaveOff, laterInputShape,
+  mergeLaterInputs, TOP_LEVEL_FALLBACK_INPUTS
 } from "./later-inputs.js";
 import { sourceIdentifierOf } from "./atlas/page-data.js";
 import { atlasReuseSchema, checkAtlasReuse, atlasSourceDigest, checkedAtlasSources } from "./atlas/reuse.js";
@@ -67,14 +68,18 @@ import {
 } from "./tool-list-currency.js";
 import type { MeaningJudgeSource, MeaningJudgment } from "./meaning-judge.js";
 import {
-  quoteShown, sourceLineCheckSchema, sourceLineNotes, sourceLineSchema,
+  quoteShown, sourceLineCheckSchema, sourceLineMissing, sourceLineNotes, sourceLineSchema,
   type SourceLineLookup, type SourceLineRequest
 } from "./source-lines.js";
 import {
   checkStudyMap, readStudyMap, studyMapCheckSchema,
   type CheckedStudyMap, type StudyMapCheck, type StudyMapLookup, type StudyMapRequest, type StudyMapRequests
 } from "./study-map.js";
-import type { SecondReaderFinding } from "./second-reader.js";
+import type { SecondReaderFinding, SecondReaderKind } from "./second-reader.js";
+import {
+  checkFindingsSchema, findingItem, findingsLedger, type FindingChecker, type FindingsLedgerParams, type FindingsLedgerResult,
+  type ObservedFinding, type RememberedLedger
+} from "./findings-ledger.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
 import {
   findingsAndMapSaveOffer,
@@ -1035,10 +1040,11 @@ export const finalizeResearchInputSchema = z.object({
 }).strict();
 
 // Later fields have one declaration, in later-inputs.ts. The runtime parser sees them after the envelope is
-// merged; the top-level schema used by tools/list is unchanged.
-export function finalizeResearchRuntimeInputSchema() {
+// merged; the top-level schema used by tools/list is unchanged. The findings ledger's are fields only for a call the
+// ledger is active for (Codex's sixth review of 17 Nov 2026, finding 3); for any other they are unknown, as before it.
+export function finalizeResearchRuntimeInputSchema({ findingsLedger = false }: { findingsLedger?: boolean } = {}) {
   const later = laterInputShape("finalize_research");
-  return finalizeResearchInputSchema.extend({
+  const schema = finalizeResearchInputSchema.extend({
     ...later,
     answer_draft: finalizeResearchInputSchema.shape.answer_draft.describe(
       "The exact answer to check. Only source provenance and links, declared reading depth (with each cited key " +
@@ -1050,6 +1056,8 @@ export function finalizeResearchRuntimeInputSchema() {
       "Optional legacy renderings of answer guidance. Limits may be reworded or translated directly; missing " +
       "or changed limit sentences do not create steps.")
   });
+  // Read from the raw call (findings-ledger.ts): accepted as given, and never part of the checked input's type.
+  return findingsLedger ? schema.extend(FINDINGS_LEDGER_LATER_INPUTS) as unknown as typeof schema : schema;
 }
 export type FinalizeResearchInput = z.output<ReturnType<typeof finalizeResearchRuntimeInputSchema>>;
 
@@ -1176,7 +1184,13 @@ export function normalizeFinalizeResearchInput(rawInput: unknown): unknown {
 }
 
 /** Merge later inputs, keep independently usable fields, and return all format problems as notes. */
-export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseResult<FinalizeResearchInput> & {
+/**
+ * `findingsLedger`: whether the findings ledger is active for this call, so that later_inputs.findings_ledger and
+ * later_inputs.finding_responses are inputs of it; otherwise they are unknown inputs, as before the ledger (Codex's sixth
+ * review of 17 Nov 2026, finding 3).
+ */
+export function parseFinalizeResearchInput(rawInput: unknown, { findingsLedger = false }: { findingsLedger?: boolean } = {}):
+  z.ZodSafeParseResult<FinalizeResearchInput> & {
   notes: string[]; droppedFindingsCard: boolean; droppedCard?: unknown;
   /** The study map as checked (owner answer 249a): each item at its place as given. */
   studyMap?: CheckedStudyMap;
@@ -1185,15 +1199,15 @@ export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseRes
 } {
   const topLevel = new Set([...Object.keys(finalizeResearchInputSchema.shape), "later_inputs"]);
   // The usable later inputs are kept, each bad key dropped alone, and a key in both places takes its later form.
-  const { input, problems } = mergeLaterInputs("finalize_research", rawInput, topLevel, undefined,
-    { keepUsable: true, fallback: TOP_LEVEL_FALLBACK_INPUTS });
+  const { input, problems } = mergeLaterInputs("finalize_research", rawInput, topLevel,
+    finalizeResearchLaterShape(findingsLedger), { keepUsable: true, fallback: TOP_LEVEL_FALLBACK_INPUTS });
   const notes = problems.map(({ path, message, kind }) =>
     kind === "dropped" ? `${inputPath(path)}: dropped. ${message}` : `${inputPath(path)}: ${message}`);
   // The test marker, read from the raw call on its own: a value other than "off", or later_inputs sent as text, is read
   // as off, which a note says (the recheck of 5 Nov 2026).
   const marker = findingsSaveMarker(rawInput).note;
   if (marker !== undefined) notes.push(marker);
-  const runtime = finalizeResearchRuntimeInputSchema();
+  const runtime = finalizeResearchRuntimeInputSchema({ findingsLedger });
   const object = input !== null && typeof input === "object" && !Array.isArray(input);
   const essential = object ? ["answer_draft", "research_target"].flatMap((key) => {
     const field = key as "answer_draft" | "research_target";
@@ -1817,6 +1831,17 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
   // AskRigor#477 stage 1 (owner answer 329a, 16 November 2026), runtime only (owner answer 189a): this research's
   // dossier, saved privately for the owner's review. Never a blocking step: the six blocking checks stay six.
   research_dossier: researchDossierDispositionSchema.optional(),
+  // Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026), runtime only (owner answer 189a), with ASKRIGOR_FINDINGS_LEDGER
+  // on: every problem this check found, with its id and disposition, and the signed ledger for the next call.
+  check_findings: checkFindingsSchema.optional()
+    .describe("Every problem this check found, a stop or a note, with an id kept through the draft's edits and its " +
+      "disposition: open, unresolved (still found after the draft changed), fixed or withdrawn (no longer found), " +
+      "disputed (with the reason the reader sees) or not_rechecked. Records only: it stops and holds nothing."),
+  findings_ledger: z.string().optional()
+    .describe("The signed ledger of this research's findings, to pass back as later_inputs.findings_ledger in its " +
+      "next finalize_research call. Signed, not encrypted: whoever holds it can read what it carries, the findings' " +
+      "ids, digests, kinds and dispositions, revision numbers, and the dispute reasons of findings still disputed; no " +
+      "words of the answer or of the findings."),
 });
 
 export const finalizeResearchPublishedOutputSchema = finalizeResearchRetainedOutputSchema.omit({ research_plan: true, notes: true })
@@ -1890,6 +1915,16 @@ export interface FinalizeResearchOptions {
   mobileClient?: boolean;
   /** This surface's tool list version (toolListVersionOf), which a call's tool_list_version is compared with. */
   toolListVersion?: string;
+  /**
+   * Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026; ASKRIGOR_FINDINGS_LEDGER=on): every problem this check reports
+   * becomes a record with an id and a disposition in check_findings, and a signed findings_ledger carries them to the
+   * next call. `account` is the research account's key the ledger is bound to (none for a caller without one);
+   * `remembered`, the ledgers the server last issued for this account and research target, one per lineage. With
+   * `deferred`, the caller gives notes of its own after the check, and builds the ledger itself, once they are all
+   * given, with settleFindingsLedger (Codex's review of 17 Nov 2026, finding 7). It changes nothing the check finds,
+   * stops or holds.
+   */
+  findingsLedger?: { account?: string | undefined; remembered?: readonly RememberedLedger[] | undefined; deferred?: boolean };
 }
 
 // The owner's words (2026-10-15), many users' reports and the owner's own
@@ -1925,7 +1960,7 @@ export function finalizeResearch(
   rawInput: unknown,
   options: FinalizeResearchOptions
 ): FinalizeResearchOutput {
-  const parsed = parseFinalizeResearchInput(rawInput);
+  const parsed = parseFinalizeResearchInput(rawInput, { findingsLedger: options.findingsLedger !== undefined });
   if (!parsed.success) return invalidFinalizeResearchInput(parsed.error, options, parsed.notes);
   const input = parsed.data;
   // A test run's call, marked findings_save "off", read from the raw call on its own: it offers no save and files no
@@ -2017,7 +2052,49 @@ export function finalizeResearch(
     return note;
   };
   let researchAdvised = false;
+  // Stage 1 of enforcing HRP: every problem this check finds, as admitted below, for the findings ledger, and which
+  // part of the check gave each note that only some calls run (by default the rules, which run at every call).
+  const observedSteps: ObservedFinding[] = [];
+  const noteCheckers = new Map<string, FindingChecker>();
+  // Fable's check of 17 Nov 2026: the notes that say a part of the check did not run, no problem of the answer.
+  const notRunNotes = new Set<string>();
+  const checkedBy = (checker: FindingChecker, note: string): string => {
+    if (!noteCheckers.has(note)) noteCheckers.set(note, checker);
+    return note;
+  };
+  // Codex's re-review of 17 Nov 2026, finding 1, and its third review, finding 1: what a look-up's note is about, so an
+  // earlier one counts as rechecked only when each line it was about was looked up again in full. A line is its
+  // passages and what they are from (findingItem: a source line's or backing line's quotes and source, a study map
+  // claim's or link's sentences and studies), never its place or how many lines its source has.
+  // Each line's passages too, the quotes the answer shows, by which a withdrawal settles the finding of a line taken
+  // out (Codex's third review of 17 Nov 2026, finding 3): of each note, those it objects to, by default all the line's
+  // and, for a note that some of its quotes weren't found, only those (its fourth review, finding 1).
+  const noteItems = new Map<string, Set<string>>();
+  const notePassages = new Map<string, Array<{ item: string; passage: string }>>();
+  const checkedItems: string[] = [];
+  const lineItems = (checker: FindingChecker, lines: ReadonlyArray<{ item: string; full: boolean;
+    notes: readonly string[]; passages: readonly string[]; objected?: ReadonlyMap<string, readonly string[]> }>):
+    void => {
+    for (const { item, full, notes: given, passages, objected } of lines) {
+      if (full) checkedItems.push(item);
+      for (const note of given) {
+        if (noteCheckers.get(note) !== checker) continue;
+        noteItems.set(note, new Set([...noteItems.get(note) ?? [], item]));
+        notePassages.set(note, [...notePassages.get(note) ?? [],
+          ...(objected?.get(note) ?? passages).map((passage) => ({ item, passage }))]);
+      }
+    }
+  };
+  // A look-up cut short (a text that couldn't be read just then, or was no longer held, or came too late) did not run
+  // in full.
+  const cutShort = (reason: string | undefined) =>
+    reason === "text_unavailable" || reason === "text_expired" || reason === "late";
   const addCheckStep = (step: CheckStep, blockingRule?: FinalCheckBlockingRule): void => {
+    if (options.findingsLedger !== undefined) {
+      const stop = blockingRule !== undefined && FINAL_CHECK_BLOCKING_RULES.includes(blockingRule) ? blockingRule : undefined;
+      observedSteps.push({ kind: step.kind, text: step.text, ...(step.rule === undefined ? {} : { rule: step.rule }),
+        ...(stop === undefined ? {} : { stop }), ...(ALWAYS_REPEATED_NOTE_KINDS.has(step.kind) ? { call: true } : {}) });
+    }
     if (step.deferUntilNextTurn === true) {
       caveatOnce(step.rule ?? step.text, step.deferredCaveat!);
     }
@@ -4569,7 +4646,11 @@ export function finalizeResearch(
     else if (declared !== current) addStep("tool_list", toolListNoticeRule(declared, current)!);
   }
 
-  const secondReading = checkSecondReading(input, options.secondReading, stepSink(addStep, "second_reading"));
+  // Stage 1 of enforcing HRP: a second-reading finding the writer dismissed is still a finding, disputed with its reason
+  // ("the writer replied" is not "it was fixed").
+  const secondReading = checkSecondReading(input, options.secondReading, stepSink(addStep, "second_reading"),
+    options.findingsLedger === undefined ? undefined : (step, reason) => observedSteps.push({ kind: "second_reading",
+      text: ruleText(step), rule: step, disputed: reason }));
 
   // Owner answer 172a: at most ten rounds in a turn, and a step that comes back unchanged three rounds running is no
   // longer asked for. The steps left stay in next_steps; a stopped check has none, and says why in `stopped`.
@@ -4614,10 +4695,10 @@ export function finalizeResearch(
     // The note comes with a passing check, whose answer goes out as checked, so it asks for the check again (the
     // regression run on #389's build: o356-dropout-nausea and q136-weak-lead edited after the check instead).
     // After a pass that followed a pass in this turn, the turn's last check, the change asks for no further call.
-    if (repeated >= 3) notes.push(`The draft repeats ${repeated} of the panel's limits word for word; the panel ` +
-      "already lists every limit beneath the answer. Keep only those that change what this person should believe " +
-      `or do, in your own words, ${passedEarlierThisTurn ? "with no further check in this turn"
-        : "and call finalize_research again with the changed draft"}.`);
+    if (repeated >= 3) notes.push(checkedBy("passing", `The draft repeats ${repeated} of the panel's limits word ` +
+      "for word; the panel already lists every limit beneath the answer. Keep only those that change what this person " +
+      `should believe or do, in your own words, ${passedEarlierThisTurn ? "with no further check in this turn"
+        : "and call finalize_research again with the changed draft"}.`));
   }
   // Owner answer 237a: each line's quotes are looked up once the check passes, in the text its key source's verified
   // receipts name, and what came of it goes to the AI as notes, and to the panel. None of it holds the answer back.
@@ -4644,21 +4725,38 @@ export function finalizeResearch(
     : [];
   const backingRequests: SourceLineRequest[] = backingLines.map(({ source }, line) => quoteRequest(source, line));
   const backingLookups = options.backingLookups ?? [];
+  const backingItems: Array<{ item: string; full: boolean; notes: string[]; passages: string[];
+    objected?: Map<string, string[]> }> = [];
   for (const { finding, line, lookup } of backingLookups) {
+    const given = notes.length;
     const missing = [
-      ...(lookup.sentence === "not_found" ? ["sentence"] : []),
-      ...(lookup.conclusion === "not_found" ? ["conclusion"] : [])
+      ...(lookup.sentence === "not_found" ? ["sentence" as const] : []),
+      ...(lookup.conclusion === "not_found" ? ["conclusion" as const] : [])
     ];
     const at = `findings_card.findings[${finding}].backing[${line}]`;
+    let missingNote: string | undefined;
     if (missing.length > 0) {
-      notes.push(`The ${missing.join(" and the ")} of ${at} ${missing.length === 1 ? "isn't" : "aren't"} in the text ` +
-        "AskRigor fetched, so the Atlas won't show it. Copy each whole and exactly, in the paper's language.");
+      missingNote = `The ${missing.join(" and the ")} of ${at} ` +
+        `${missing.length === 1 ? "isn't" : "aren't"} in the text AskRigor fetched, so the Atlas won't show it. Copy ` +
+        "each whole and exactly, in the paper's language.";
+      notes.push(checkedBy("backing_lines", missingNote));
     } else if (lookup.text === "search_copy" || lookup.text === "library_copy") {
-      notes.push(`The quotes of ${at} were found only in ${lookup.text === "search_copy" ? "the copy the AI supplied"
-        : "the owner's library copy"}, which the Atlas never quotes; a quote found in a full text AskRigor fetched ` +
-        "itself or a PubMed abstract is shown.");
+      notes.push(checkedBy("backing_lines", `The quotes of ${at} were found only in ${lookup.text === "search_copy"
+        ? "the copy the AI supplied" : "the owner's library copy"}, which the Atlas never quotes; a quote found in a ` +
+        "full text AskRigor fetched itself or a PubMed abstract is shown."));
     }
+    const backed = backingLines.find((backing) => backing.finding === finding && backing.line === line);
+    backingItems.push({ item: backed === undefined ? findingItem("backing_lines", at)
+      : findingItem("backing_lines", normalizeIdentifier(backed.source), backed.sentence, backed.conclusion ?? ""),
+    full: !cutShort(lookup.reason), notes: notes.slice(given),
+    passages: backed === undefined ? [] : [backed.sentence, ...backed.conclusion === undefined ? []
+      : [backed.conclusion]],
+    // The quotes not found, which alone that note objects to.
+    ...(backed === undefined || missingNote === undefined ? {} : { objected: new Map([[missingNote,
+      missing.flatMap((quote) => quote === "sentence" ? [backed.sentence] : backed.conclusion === undefined ? []
+        : [backed.conclusion])]]) }) });
   }
+  if (options.findingsLedger !== undefined) lineItems("backing_lines", backingItems);
   const sourceLineChecks = passed && draft !== undefined ? (options.sourceLineLookups ?? []).flatMap((lookup, index) => {
     const line = sourceLines[index];
     if (line === undefined) return [];
@@ -4666,7 +4764,24 @@ export function finalizeResearch(
     return [{ ...lookup, label: key?.answer_marker ?? lookup.source,
       shown: quoteShown(draft, line.sentence) && quoteShown(draft, line.conclusion) }];
   }) : [];
-  for (const note of sourceLineChecks.flatMap(sourceLineNotes)) if (!notes.includes(note)) notes.push(note);
+  for (const note of sourceLineChecks.flatMap(sourceLineNotes)) {
+    if (!notes.includes(note)) notes.push(checkedBy("source_lines", note));
+  }
+  if (options.findingsLedger !== undefined) {
+    // The lines checked, in sourceLineChecks' order.
+    const checkedLines = sourceLineChecks.length === 0 ? [] : (options.sourceLineLookups ?? []).flatMap((_, index) =>
+      sourceLines[index] === undefined ? [] : [sourceLines[index]!]);
+    lineItems("source_lines", sourceLineChecks.map((check, index) => {
+      const checked = checkedLines[index]!;
+      const missing = sourceLineMissing(check);
+      return { item: findingItem("source_lines", normalizeIdentifier(checked.source), checked.sentence,
+        checked.conclusion), full: !cutShort(check.reason), notes: sourceLineNotes(check),
+      passages: [checked.sentence, checked.conclusion],
+      // The quotes not found, which alone that note objects to.
+      ...(missing === undefined ? {}
+        : { objected: new Map([[missing.note, missing.quotes.map((quote) => checked[quote])]]) }) };
+    }));
+  }
   // Owner answer 249a: the study map. Each study's source resolves through the verified receipts as a source line's
   // does, so its passages are looked up in its own text only, once the check passes; what the map gives is compared
   // exactly, and what came of it goes to the AI as notes. None of it holds the answer back or consumes a round.
@@ -4698,14 +4813,21 @@ export function finalizeResearch(
       sameQuote
     });
     studyMapCheck = checked.check;
-    for (const note of checked.notes) if (!notes.includes(note)) notes.push(note);
+    for (const note of checked.notes) if (!notes.includes(note)) notes.push(checkedBy("study_map", note));
+    if (options.findingsLedger !== undefined) {
+      const full = options.studyMapLookup.done && options.studyMapLookup.studies.every(({ reason }) => !cutShort(reason));
+      lineItems("study_map", checked.parts.map(({ about, notes: given, passages }) =>
+        ({ item: findingItem("study_map", ...about), full, notes: given, passages })));
+    }
   }
   // Owner answer 221: the meaning judge's notes, for the AI only; none of them is a step or holds the answer back.
   const judgment = options.meaningJudgment;
   if (judgment !== undefined && passed) {
     if (judgment.status === "skipped") {
-      judgeNotes.push(`The meaning judge did not run (${MEANING_JUDGE_SKIP_REASONS[judgment.reason] ?? judgment.reason}); ` +
-        "this check is as it would be without it.");
+      const notRun = `The meaning judge did not run (${MEANING_JUDGE_SKIP_REASONS[judgment.reason] ?? judgment.reason}); ` +
+        "this check is as it would be without it.";
+      judgeNotes.push(notRun);
+      notRunNotes.add(notRun);
     } else {
       // Only an entry the note credits to its work was the judge's question.
       for (const { item, backed, why } of judgment.comparison) {
@@ -4744,13 +4866,51 @@ export function finalizeResearch(
           "about what and in whom, and applies_to to say whom it holds for, then send the card and check the answer again.");
       }
     }
-    for (const note of judgeNotes) if (!notes.includes(note)) notes.push(note);
+    for (const note of judgeNotes) if (!notes.includes(note)) notes.push(checkedBy("meaning_judge", note));
   }
   if (status === "stopped" && saveOfferCaveat !== undefined) {
     const at = caveats.indexOf(saveOfferCaveat);
     if (at >= 0) caveats.splice(at, 1);
     mapOffered = false;
   }
+  // Stage 1 of enforcing HRP (design-v2 of 17 Nov 2026): every problem found, admitted as a step or given as a note,
+  // for the ledger, which is built once every note is given (settleFindingsLedger). It records; it changes nothing.
+  const ledgerSource: FindingsLedgerSource | undefined = options.findingsLedger === undefined ? undefined : (() => {
+    const admitted = new Set(observedSteps.map(({ text }) => text));
+    const observed: ObservedFinding[] = [...observedSteps, ...notes.filter((note) => !admitted.has(note))
+      .map((note) => ({ text: note, ...(repeatedNotes.has(note) ? { call: true } : {}),
+        ...(noteCheckers.has(note) ? { checker: noteCheckers.get(note)! } : {}),
+        ...(notRunNotes.has(note) ? { notRun: true as const } : {}),
+        ...(noteItems.has(note) ? { items: [...noteItems.get(note)!] } : {}),
+        ...(notePassages.has(note) ? { passages: notePassages.get(note)! } : {}) }))];
+    // Codex's review of 17 Nov 2026, finding 1: the parts of the check that ran in full in this call; an earlier finding
+    // of any other part is not rechecked, never fixed.
+    const coverage: FindingChecker[] = ["rules", "call",
+      ...(passed && draft !== undefined ? ["passing" as const] : []),
+      ...(secondReading?.status === "ran" ? ["second_reading" as const] : []),
+      ...(passed && judgment?.status === "ran" ? ["meaning_judge" as const] : []),
+      ...(passed && draft !== undefined && options.sourceLineLookups !== undefined &&
+        options.sourceLineLookups.every(({ reason }) => !cutShort(reason)) ? ["source_lines" as const] : []),
+      ...(options.backingLookups !== undefined && options.backingLookups.every(({ lookup }) => !cutShort(lookup.reason))
+        ? ["backing_lines" as const] : []),
+      ...(passed && draft !== undefined && studyMap !== undefined && options.studyMapLookup?.done === true &&
+        options.studyMapLookup.studies.every(({ reason }) => !cutShort(reason)) ? ["study_map" as const] : [])];
+    return {
+      secret: options.secret!,
+      account: options.findingsLedger!.account,
+      target: input.research_target,
+      versions: options.runningVersions,
+      raw: rawInput,
+      observed,
+      draft,
+      coverage,
+      checkedItems,
+      // Fable's check of 17 Nov 2026: the turns this call carries, so the ledger remembered for this research is used
+      // only for a call of its own chat.
+      turns: { call: callRound.turn, ...(carried?.turn === undefined ? {} : { carried: carried.turn }) },
+      now: options.now?.() ?? new Date()
+    } satisfies FindingsLedgerSource;
+  })();
   // 5 Nov 2026: a note an earlier check of this turn gave is not given again (runs removed a study to quiet a note
   // their drafts already met in their own words); a note whose words changed is new. A token without turn_notes, or
   // from an earlier turn, repeats nothing.
@@ -4762,7 +4922,8 @@ export function finalizeResearch(
   // dev account the meaning judge can raise a new concern at every pass). The notes are compared and carried as a
   // first pass words them, so the turn still gives each once.
   const lastCheck = passed && passedEarlierThisTurn;
-  if (newNotes.length < notes.length) newNotes.push(repeatedNotesLine(notes.length - newNotes.length, lastCheck));
+  const notRepeated = notes.length - newNotes.length;
+  if (notRepeated > 0) newNotes.push(repeatedNotesLine(notRepeated, lastCheck));
   const shownNotes = lastCheck
     ? newNotes.map((note) => repeatPassNote(note, inputNotes.has(note) ? "input" : "answer")) : newNotes;
   const output: FinalizeResearchOutput = {
@@ -4968,6 +5129,18 @@ export function finalizeResearch(
   });
   if (carry === "too_large") output.carry_forward_note = CARRIED_STATE_TOO_LARGE;
   else if (carry !== undefined) Object.assign(output, carry);
+  // Codex's re-review of 17 Nov 2026, finding 7: the ledger's notes, given once every note of the call is, are given
+  // once in a turn as the check's own are. settleFindingsLedger leaves out one an earlier check of this turn gave, and
+  // gives the carried state again with the ledger's notes among those this turn has given.
+  if (ledgerSource !== undefined && carry !== undefined && carry !== "too_large") {
+    ledgerSource.turn = { given: givenThisTurn, repeated: notRepeated, lastCheck,
+      carry: (given) => buildCarriedState(input, carried, options, {
+        status: status === "stopped" ? "not_ready" : status,
+        open: checkRound === undefined ? [...new Set(stepKinds)] : [...new Set(openSteps.map(({ kind }) => kind))],
+        caveats, turn: callRound.turn, firstTurn, notes: [...givenNotes, ...given],
+        ...(previousOpen === undefined ? {} : { previousOpen })
+      }) };
+  }
   if (checkRound?.status === "open") {
     output.round_token = checkRound.token;
   }
@@ -4980,6 +5153,13 @@ export function finalizeResearch(
   }
   if (passed && backingLines.length > 0 && options.backingLookups === undefined) {
     BACKING_REQUESTS.set(parsedOutput, { lines: backingLines, requests: backingRequests });
+  }
+  // Stage 1 of enforcing HRP: the ledger is built here unless the caller gives notes of its own after the check.
+  if (ledgerSource !== undefined) {
+    FINDINGS_LEDGER_SOURCES.set(parsedOutput, ledgerSource);
+    if (options.findingsLedger!.deferred !== true) {
+      settleFindingsLedger(parsedOutput, { remembered: options.findingsLedger!.remembered });
+    }
   }
   // Owner answer 221: what the meaning judge may read of a passing check with a draft, for the tool's dev accounts.
   if (passed && draft !== undefined) {
@@ -5047,6 +5227,67 @@ export const RESEARCH_BEHIND_NOTE ="The Atlas shows the research behind each fin
   "(only when studies measured it the way the reports did), support_not_located or outcome_mismatch, with " +
   "studies_measured for outcome_mismatch}. A finding may rest on its forum_signal alone, with no sources, when the " +
   "reports agree. Then check the answer again.";
+
+/** What the findings ledger of a check is built from, but for the notes its caller gives after it. */
+type FindingsLedgerSource = Omit<FindingsLedgerParams, "remembered" | "coverage" | "observed"> & {
+  observed: readonly ObservedFinding[];
+  coverage: readonly FindingChecker[];
+  /**
+   * The turn's notes, so the ledger's are given once in it (Codex's re-review of 17 Nov 2026, finding 7): the digests
+   * of the notes earlier checks of this turn gave, how many of this check's were not repeated and whether it is the
+   * turn's last check, and the carried state again with more notes given. Absent without a carried state.
+   */
+  turn?: {
+    given: ReadonlySet<string>;
+    repeated: number;
+    lastCheck: boolean;
+    carry: (given: readonly string[]) => ReturnType<typeof buildCarriedState>;
+  };
+};
+// Stage 1 of enforcing HRP: what each check's findings ledger is built from, by the result it returned.
+const FINDINGS_LEDGER_SOURCES = new WeakMap<FinalizeResearchOutput, FindingsLedgerSource>();
+
+/**
+ * Enforcing HRP, stage 1 (Codex's review of 17 Nov 2026, finding 7): the one place a check's findings ledger is built,
+ * once every note of the call is given. The check's own steps and notes, and `late`, the notes its caller gave after it
+ * (the review of the draft, a kept card or dossier, what the call left to its caller), each with the part of the
+ * check it came from, are matched with the ledger passed back or `remembered`; `coverage` adds the parts the caller
+ * ran in full. It sets check_findings, findings_ledger and the ledger's notes on the result, and returns the ledger;
+ * nothing for a result whose check kept none.
+ */
+export function settleFindingsLedger(result: FinalizeResearchOutput, settle: {
+  late?: readonly ObservedFinding[]; coverage?: readonly FindingChecker[]; remembered?: readonly RememberedLedger[] | undefined;
+}): FindingsLedgerResult | undefined {
+  const source = FINDINGS_LEDGER_SOURCES.get(result);
+  if (source === undefined) return undefined;
+  const ledger = findingsLedger({
+    ...source,
+    observed: [...source.observed, ...settle.late ?? []],
+    coverage: [...source.coverage, ...settle.coverage ?? []],
+    remembered: settle.remembered
+  });
+  result.check_findings = ledger.checkFindings;
+  if (ledger.token === undefined) delete result.findings_ledger;
+  else result.findings_ledger = ledger.token;
+  const notes = [...result.notes ?? []];
+  const { turn } = source;
+  // What a ledger could not carry is said at every check of a turn (Codex's fourth review of 17 Nov 2026, finding 2).
+  const fresh = turn === undefined ? ledger.notes
+    : ledger.notes.filter((note) => ledger.retention.includes(note) || !turn.given.has(noteDigest(note)));
+  if (turn !== undefined) {
+    // The line that stands for the notes not repeated counts the ledger's too.
+    const left = ledger.notes.length - fresh.length;
+    const line = notes.indexOf(repeatedNotesLine(turn.repeated, turn.lastCheck));
+    if (left > 0 && turn.repeated > 0 && line >= 0) {
+      notes[line] = repeatedNotesLine(turn.repeated + left, turn.lastCheck);
+    } else if (left > 0) notes.push(repeatedNotesLine(left, turn.lastCheck));
+    const carry = turn.carry(ledger.notes);
+    if (carry !== undefined && carry !== "too_large") Object.assign(result, carry);
+  }
+  for (const note of fresh) if (!notes.includes(note)) notes.push(note);
+  if (notes.length > 0) result.notes = notes;
+  return ledger;
+}
 
 // What a passing check gives the meaning judge, by the result it returned; nothing else reads it, and it goes with the
 // result object.
@@ -5479,7 +5720,8 @@ function quoteShownBeyond(shownBlocks: readonly string[], quote: string, others:
 
 /** Meaning belongs to the reader; this gate compares only shown and declared text. */
 function checkSecondReading(input: FinalizeResearchInput | undefined, reading: FinalizeResearchOptions["secondReading"],
-  nextSteps: Pick<RuleInput[], "push">): FinalizeResearchOutput["second_reading"] {
+  nextSteps: Pick<RuleInput[], "push">, onDismissed?: (step: CheckRule, reason: string) => void
+): FinalizeResearchOutput["second_reading"] {
   if (reading === undefined) return undefined;
   if (reading.status === "skipped") return { status: "skipped", reason: reading.reason, findings: 0, open: 0, dismissed: 0 };
   const labels = {
@@ -5489,13 +5731,18 @@ function checkSecondReading(input: FinalizeResearchInput | undefined, reading: F
   };
   const showing = quoteLocator(displayedProse(input?.answer_draft ?? ""));
   const findings = reading.findings.filter(({ kind, quote }) => Object.hasOwn(labels, kind) && showing(quote).length > 0);
-  const dismissedQuotes = (input?.reader_dismissed ?? []).map(({ quote }) => quoteForms(quote));
+  const dismissals = (input?.reader_dismissed ?? []).map(({ quote, reason }) => ({ forms: quoteForms(quote), reason }));
+  // One wording for the note and for a dismissed finding, so the findings ledger knows them as the same finding.
+  const step = (kind: SecondReaderKind, quote: string): CheckRule =>
+    rule`A second reading found a sentence that looks like ${labels[kind]} not in the declarations: ${JSON.stringify(quote)}. Declare it in ${kind}, or list it in reader_dismissed with a one-line reason.`;
   let open = 0;
   let dismissed = 0;
   for (const { kind, quote } of findings) {
     const normalized = quoteForms(quote);
-    if (dismissedQuotes.some((other) => normalized.some((text, i) => text === other[i]))) {
+    const dismissal = dismissals.find((other) => normalized.some((text, i) => text === other.forms[i]));
+    if (dismissal !== undefined) {
       dismissed += 1;
+      onDismissed?.(step(kind, quote), dismissal.reason);
       continue;
     }
     const covered = kind === "key_terms"
@@ -5505,7 +5752,7 @@ function checkSecondReading(input: FinalizeResearchInput | undefined, reading: F
         text.length > 0 && (text.includes(normalized[i]!) || normalized[i]!.includes(text))));
     if (covered) continue;
     open += 1;
-    nextSteps.push(rule`A second reading found a sentence that looks like ${labels[kind]} not in the declarations: ${JSON.stringify(quote)}. Declare it in ${kind}, or list it in reader_dismissed with a one-line reason.`);
+    nextSteps.push(step(kind, quote));
   }
   return { status: "ran", findings: findings.length, open, dismissed };
 }
