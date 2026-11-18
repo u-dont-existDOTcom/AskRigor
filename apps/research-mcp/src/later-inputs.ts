@@ -321,8 +321,8 @@ const LATER_INPUT_SHAPES = Object.freeze({
     dossierOverrideConflicts: dossierOverrideConflictsInputSchema.optional()
       .describe("With show_dossier, accept_dossier, show_dossier_naming_living_person or revise_dossier_importance of " +
         "a shown copy: the shown dossiers, such as D-1002, whose findings AskRigor's conflict check read as " +
-        "contradicting the copy's on an important finding, or that it could not compare it with; naming them all " +
-        "shows it anyway, recorded with who and when, up to 50 of them."),
+        "contradicting the copy's, in a pair with at least one important finding, or that it could not compare it " +
+        "with; naming them all shows it anyway, recorded with who and when, up to 50 of them."),
   },
 } satisfies Record<string, z.ZodRawShape>);
 

@@ -1051,6 +1051,77 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
     }
     checks.push("fifty_one_important_conflicts_keep_the_copy_held_whatever_the_override_names");
 
+    // Codex's fifth review, P2 (his three probes): what the gate kept is the one source of the store, the pages and the
+    // owner's words. An automatic publication keeps its pairs, and its page lists them; a pair the reader repeats 51
+    // times is one pair in the store, on the page and in the words; a pair is important when either finding is, so the
+    // words never call this copy's background finding important.
+    {
+      const fifth = await account("fifth-review");
+      const topicOf = (key: string, weight: "context" | null) => (value: Record<string, any>) => {
+        value.topic = { key, name: `Fifth review ${key}`, other_names: [], related: [] };
+        value.forms = [`${key}-form`];
+        if (weight !== null) for (const finding of value.findings) finding.importance = weight;
+      };
+      const background = topicOf("fifth-review-pairs", "context");
+      const baseVersion = await save(fifth.accountKey, "fifth-base", "fifth-base", null, background);
+      const base = await publisher.publish(await copy(fifth.accountKey, baseVersion));
+      assert(base.outcome === "published" && base.state === "shown", "FIFTH_BASE_NOT_SHOWN");
+      const pair = `f1:${base.publicNumber}/1:f1`;
+      const laterVersion = await save(fifth.accountKey, "fifth-later", "fifth-later", null, background);
+      const later = await publisher.publish(await copy(fifth.accountKey, laterVersion,
+        { conflictFindings: Array.from({ length: 51 }, () => pair) }));
+      assert(later.outcome === "published" && later.state === "shown", "FIFTH_AUTOMATIC_NOT_SHOWN");
+      const automatic = (await review.inspect(later.publicNumber))[0]!;
+      assert(stableJson(automatic.conflictFindings) === stableJson([pair]) &&
+        stableJson(automatic.conflictsWith) === stableJson([base.publicNumber]), "FIFTH_AUTOMATIC_PAIR_NOT_KEPT");
+      assert((await loadDossierPage(pages, later.publicNumber))!.disagreements
+        .filter(({ found }) => found === "check").length === 1, "FIFTH_AUTOMATIC_PAIR_NOT_ON_PAGE");
+
+      const heldVersion = await save(fifth.accountKey, "fifth-held", "fifth-held", null,
+        (value) => { background(value); moderate(value); });
+      const held = await publisher.publish(await copy(fifth.accountKey, heldVersion));
+      assert(held.outcome === "published" && held.state === "held", "FIFTH_HELD_WRONG");
+      const repeated: DossierConflictReader = async () => ({ status: "read", conflicts: Array.from({ length: 51 },
+        () => ({ finding: "f1", dossier: base.publicNumber, theirs: "f1" })) });
+      const answer = await new AtlasDossierReview({ store: review, now: () => AT, conflictReader: repeated }).run({
+        action: "show_dossier", dossier: held.publicNumber, reviewer: "auth0|synthetic-owner" });
+      assert(answer.ok && answer.text === `${held.publicNumber} version 1 is now shown, at /atlas/dossiers/${
+        held.publicNumber}. AskRigor's conflict check read a background finding of it and one of ${base.publicNumber} ` +
+        "as contradicting; the pages list the pair.", "FIFTH_REPEATED_PAIR_NOT_COUNTED_ONCE");
+      assert(stableJson((await review.inspect(held.publicNumber))[0]!.conflictFindings) === stableJson([pair]),
+        "FIFTH_REPEATED_PAIR_NOT_KEPT_ONCE");
+      assert((await loadDossierPage(pages, held.publicNumber))!.disagreements
+        .filter(({ found }) => found === "check").length === 1, "FIFTH_REPEATED_PAIR_NOT_ON_PAGE_ONCE");
+
+      const markedVersion = await save(fifth.accountKey, "fifth-marked", "fifth-marked", null,
+        topicOf("fifth-review-weight", null));
+      const marked = await publisher.publish(await copy(fifth.accountKey, markedVersion));
+      assert(marked.outcome === "published" && marked.state === "shown", "FIFTH_MARKED_NOT_SHOWN");
+      const lightVersion = await save(fifth.accountKey, "fifth-light", "fifth-light", null,
+        (value) => { topicOf("fifth-review-weight", "context")(value); moderate(value); });
+      const light = await publisher.publish(await copy(fifth.accountKey, lightVersion));
+      assert(light.outcome === "published" && light.state === "held", "FIFTH_LIGHT_WRONG");
+      const opposite: DossierConflictReader = async () => ({ status: "read",
+        conflicts: [{ finding: "f1", dossier: marked.publicNumber, theirs: "f1" }] });
+      const weighed = await new AtlasDossierReview({ store: review, now: () => AT, conflictReader: opposite }).run({
+        action: "show_dossier", dossier: light.publicNumber, reviewer: "auth0|synthetic-owner" });
+      assert(!weighed.ok && !weighed.text.includes("an important finding of it") && weighed.text.startsWith(
+        `${light.publicNumber} version 1 was not shown: AskRigor's conflict check read a finding of it and one of ${
+          marked.publicNumber} as contradicting, a pair with at least one important finding: its finding f1, `),
+      "FIFTH_IMPORTANCE_OVERCLAIMED");
+      // Held automatically for a background finding against an important one, it keeps that pair too.
+      const heavyPair = `f1:${marked.publicNumber}/1:f1`;
+      const heldAutomaticVersion = await save(fifth.accountKey, "fifth-held-automatic", "fifth-held-automatic", null,
+        topicOf("fifth-review-weight", "context"));
+      const heldAutomatic = await publisher.publish(await copy(fifth.accountKey, heldAutomaticVersion,
+        { conflictFindings: [heavyPair] }));
+      assert(heldAutomatic.outcome === "published" && heldAutomatic.state === "held" &&
+        heldAutomatic.holdReasons.join() === "important_conflict" &&
+        stableJson((await review.inspect(heldAutomatic.publicNumber))[0]!.conflictFindings) === stableJson([heavyPair]),
+      "FIFTH_HELD_AUTOMATIC_PAIR_NOT_KEPT");
+    }
+    checks.push("automatic_publication_keeps_its_pairs_counted_once_and_worded_by_either_finding");
+
     // Codex's fourth review: a copy becomes shown only through the admission gate. Each way of making one shown is sent
     // through a stale set and through an incomplete override (for the automatic ones, which take none, no override); each
     // ends refused or held, and nothing new shows. A statement that shows a copy without the gate is refused itself.

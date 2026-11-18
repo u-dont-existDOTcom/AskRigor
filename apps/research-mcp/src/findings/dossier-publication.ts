@@ -394,12 +394,18 @@ export async function compareWithShown(mine: PublicDossier, candidates: readonly
   const conflicts = new Map<string, DossierFoundConflict[]>();
   for (const { id, dossier: theirs, publicNumber, versionNumber } of shown) {
     const findings = new Map(theirs.findings.map((finding) => [finding.id, finding]));
-    conflicts.set(id, reading.conflicts.filter((conflict) => conflict.dossier === publicNumber).flatMap((conflict) => {
+    // Each pair once, however often the reading names it, by the key the admission gate counts it by (Codex's fifth
+    // review): the store, the pages and the owner's words then count the same pairs.
+    const pairs = new Map<string, DossierFoundConflict>();
+    for (const conflict of reading.conflicts) {
       const left = own.get(conflict.finding);
       const right = findings.get(conflict.theirs);
-      return left === undefined || right === undefined ? [] : [{ finding: left.id, publicNumber, versionNumber,
-        theirs: right.id, important: left.importance !== "context" || right.importance !== "context" }];
-    }));
+      if (conflict.dossier !== publicNumber || left === undefined || right === undefined) continue;
+      const pair = { finding: left.id, publicNumber, versionNumber, theirs: right.id,
+        important: left.importance !== "context" || right.importance !== "context" };
+      if (!pairs.has(conflictFindingId(pair))) pairs.set(conflictFindingId(pair), pair);
+    }
+    conflicts.set(id, [...pairs.values()]);
   }
   return { status: "read", conflicts };
 }
@@ -499,14 +505,28 @@ export async function publishResearchDossier(request: DossierPublicationRequest)
   return { status: "not_published", public_id: published.publicNumber, reason: `copy_${published.state}` };
 }
 
+/**
+ * What AskRigor's conflict check read, in the pages' words, the one place every message takes them from (Codex's fourth
+ * and fifth reviews): it read findings as contradicting, which is not a finding that they do; and a pair is important
+ * when either of its findings is, so the words call the pair important, never this copy's finding, which may be
+ * background when only the other one is important.
+ */
+export function conflictReadWords(weight: "important" | "background", pairs: number, partners: string): string {
+  const one = pairs === 1;
+  return weight === "background"
+    ? `AskRigor's conflict check read ${one ? `a background finding of it and one of ${partners}`
+      : `background findings of it and of ${partners}`} as contradicting`
+    : `AskRigor's conflict check read ${one ? `a finding of it and one of ${partners}` : `findings of it and of ${
+      partners}`} as contradicting, ${one ? "a pair" : "each pair"} with at least one important finding`;
+}
+
 /** Each hold reason in plain words, for the AI's note and the owner's review. */
 export const HOLD_REASON_WORDS: Readonly<Record<string, string>> = {
   privacy_reading_pending: "waiting for the privacy reading",
   not_high_confidence: "the researching AI was not highly confident in it",
   names_living_people: "a claim names a living person",
   living_people_undeclared: "its researching AI did not say whether a claim names a living person",
-  important_conflict: "AskRigor's conflict check read an important finding of it and one of a shown dossier as " +
-    "contradicting",
+  important_conflict: conflictReadWords("important", 1, "a shown dossier"),
   conflict_check_pending: "waiting for the conflict check",
   owner_hold: "held back by the owner's review",
 };

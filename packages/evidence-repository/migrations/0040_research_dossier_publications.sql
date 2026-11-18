@@ -62,9 +62,10 @@ CREATE TABLE IF NOT EXISTS research_dossier_public_versions (
     'living_people_undeclared', 'important_conflict', 'owner_hold', 'privacy_reading_pending',
     'conflict_check_pending']::text[]),
   conflicts_with text[] NOT NULL DEFAULT '{}' CHECK (cardinality(conflicts_with) <= 50),
-  -- The pairs of findings the conflict check read as contradicting, when the owner's review showed the copy or it was
-  -- admitted after a later privacy reading (Codex's third review, P1): its finding, the shown copy (D-1001/2) and that
-  -- copy's finding, as f2:D-1001/2:f3. The pages list them.
+  -- The pairs of findings the conflict check read as contradicting, as the admission gate kept them, however the copy
+  -- was admitted: published automatically (Codex's fifth review), shown by the owner's review or admitted after a later
+  -- privacy reading (his third review, P1): its finding, the shown copy (D-1001/2) and that copy's finding, as
+  -- f2:D-1001/2:f3. The pages list them.
   conflict_findings text[] NOT NULL DEFAULT '{}' CHECK (cardinality(conflict_findings) <= 50
     AND array_position(conflict_findings, NULL) IS NULL
     AND array_to_string(conflict_findings, ' ')
@@ -937,10 +938,11 @@ BEGIN
      AND (copy.state = 'held' OR (next_state = 'shown' AND copy.state = 'shown'));
 
   INSERT INTO research_dossier_public_versions (version_id, public_number, version_number, state, topic_key,
-    related_topic_keys, topic_names, public_payload, public_sha256, hold_reasons, conflicts_with, origin, privacy_read,
-    names_living_person, decided_at, created_at)
+    related_topic_keys, topic_names, public_payload, public_sha256, hold_reasons, conflicts_with, conflict_findings,
+    origin, privacy_read, names_living_person, decided_at, created_at)
   VALUES (target_version_id, number_text, next_version, next_state, topic, related, names, projection,
     encode(sha256(convert_to(projection::text, 'UTF8')), 'hex'), reasons, research_dossier_conflict_partners(gate.kept),
+    gate.kept,
     CASE WHEN jsonb_typeof(stamp -> 'origin') = 'object' THEN stamp -> 'origin' ELSE '{}'::jsonb END,
     projection -> 'checked' -> 'privacy_reading' = 'true'::jsonb,
     CASE WHEN jsonb_typeof(version_row.payload_json -> 'names_living_people') = 'boolean'

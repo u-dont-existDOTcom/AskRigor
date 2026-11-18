@@ -34,6 +34,7 @@ import {
   readPublicDossier,
   type DossierComparison,
   type DossierFoundConflict,
+  conflictReadWords,
 } from "../findings/dossier-publication.js";
 import type { DossierPrivacyReader, DossierPrivacyReading } from "../findings/dossier-privacy-reading.js";
 
@@ -126,15 +127,10 @@ const counted = (count: number, one: string, many: string) => `${count} ${count 
 const namesWords = (names: readonly string[]) => names.length <= NAMES_SPELLED ? joinWords(names)
   : `${names.slice(0, NAMES_SPELLED).join(", ")} and ${names.length - NAMES_SPELLED} more`;
 
-/**
- * What the check read, in the pages' words (Codex's fourth review): it read findings as contradicting, which is not a
- * finding that they do.
- */
+/** What the check read, in the shared words (conflictReadWords), of pairs counted once each as the gate counts them. */
 function readWords(pairs: readonly DossierFoundConflict[], weight: "important" | "background"): string {
   const partners = partnersOf(pairs);
-  return `AskRigor's conflict check read ${pairs.length === 1
-    ? `${weight === "important" ? "an important finding" : "a background finding"} of it and one of ${partners[0]}`
-    : `${weight} findings of it and of ${namesWords(partners)}`} as contradicting`;
+  return conflictReadWords(weight, pairs.length, pairs.length === 1 ? partners[0]! : namesWords(partners));
 }
 
 /**

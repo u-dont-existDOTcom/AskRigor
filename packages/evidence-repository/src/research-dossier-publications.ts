@@ -1231,7 +1231,8 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       payloadSha256: sha256(stableJson(projection)),
       holdReasons: [...admission.holdReasons],
       conflictsWith: conflictPartners(gate.kept),
-      conflictFindings: [],
+      // What the gate kept, as the database keeps it (Codex's fifth review): the pages list a background conflict too.
+      conflictFindings: [...gate.kept],
       conflictOverride: null,
       origin,
       privacyRead: admission.privacyRead,
