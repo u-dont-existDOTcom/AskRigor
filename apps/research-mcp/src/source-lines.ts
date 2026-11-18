@@ -499,9 +499,25 @@ const TEXT_NAMES: Readonly<Record<TextKind, string>> = {
   library_copy: "the copy from the owner's library"
 };
 
+/**
+ * The note that a checked line's quotes weren't found, with the quotes it is about (the findings ledger withdraws a
+ * finding of a line taken out only by a quote it objects to); none when no quote was looked up and not found.
+ */
+export function sourceLineMissing(check: SourceLineCheck):
+  { note: string; quotes: Array<"sentence" | "conclusion"> } | undefined {
+  const quotes = [
+    ...(check.sentence === "not_found" ? ["sentence" as const] : []),
+    ...(check.conclusion === "not_found" ? ["conclusion" as const] : [])
+  ];
+  return quotes.length === 0 ? undefined : { quotes, note: `The ${quotes.join(" and the ")} given for ${check.label} ` +
+    `${quotes.length === 1 ? "isn't" : "aren't"} in ${TEXT_NAMES[check.text ?? "full_text"]} AskRigor looked in. Copy ` +
+    "each whole and exactly, with no ellipsis, in the paper's language, or take it out of the answer and of " +
+    "source_lines, and check the answer again." };
+}
+
 /** What the AI should do about one checked line, as notes. None of them holds the answer back. */
 export function sourceLineNotes(check: SourceLineCheck): string[] {
-  const { label, reason, text } = check;
+  const { label, reason } = check;
   const notes: string[] = [];
   if (reason === "not_a_key_source") {
     notes.push(`source_lines names ${label}, which isn't in key_sources: give the id of a key source, so its quotes can ` +
@@ -522,15 +538,8 @@ export function sourceLineNotes(check: SourceLineCheck): string[] {
       "and the answer can't say AskRigor found both: give the paper's own conclusion, from its abstract or its " +
       "conclusions, as the second quote.");
   }
-  const missing = [
-    ...(check.sentence === "not_found" ? ["sentence"] : []),
-    ...(check.conclusion === "not_found" ? ["conclusion"] : [])
-  ];
-  if (missing.length > 0) {
-    notes.push(`The ${missing.join(" and the ")} given for ${label} ${missing.length === 1 ? "isn't" : "aren't"} in ` +
-      `${TEXT_NAMES[text ?? "full_text"]} AskRigor looked in. Copy each whole and exactly, with no ellipsis, in the ` +
-      "paper's language, or take it out of the answer and of source_lines, and check the answer again.");
-  }
+  const missing = sourceLineMissing(check);
+  if (missing !== undefined) notes.push(missing.note);
   if (!check.shown) {
     notes.push(`The answer doesn't show both quotes given for ${label}: show them, as written, beside the claim, with ` +
       "the strongest thing against it.");

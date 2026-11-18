@@ -335,6 +335,29 @@ export function laterInputNames(tool: string): readonly string[] {
   return Object.keys(laterInputShape(tool));
 }
 
+/**
+ * Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026): the findings ledger and the writer's replies to its findings. Read
+ * from the raw call (findings-ledger.ts), so any value parses here and every problem is a note. Later inputs of
+ * finalize_research only for a call the ledger is active for (ASKRIGOR_FINDINGS_LEDGER on, and the caller among
+ * ASKRIGOR_FINDINGS_LEDGER_ACCOUNTS); for any other they are unknown inputs, named as such, with guidance that lists
+ * neither, exactly as before the ledger (Codex's sixth review of 17 Nov 2026, finding 3).
+ */
+export const FINDINGS_LEDGER_LATER_INPUTS = Object.freeze({
+  findings_ledger: z.unknown().optional()
+    .describe("When a finalize_research result gave findings_ledger: that value, unchanged, in this research's next " +
+      "call."),
+  finding_responses: z.unknown().optional()
+    .describe("When a finalize_research result lists findings with ids: for each you won't fix, {id, response: " +
+      "\"disputed\", reason} with a reason the reader will see; \"fixed\" or \"withdrawn\" (with passage, the words " +
+      "withdrawn) count only when the next draft no longer gives the check that finding."),
+} satisfies z.ZodRawShape);
+
+/** finalize_research's later inputs for a call, with the findings ledger's only while the ledger is active for it. */
+export function finalizeResearchLaterShape(findingsLedger: boolean): z.ZodRawShape {
+  return findingsLedger ? { ...laterInputShape("finalize_research"), ...FINDINGS_LEDGER_LATER_INPUTS }
+    : laterInputShape("finalize_research");
+}
+
 interface RuntimeInputOptions {
   /** Required when a connector's published shape is already permissive or relaxed. */
   schema?: z.ZodObject;
