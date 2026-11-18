@@ -300,7 +300,8 @@ const LATER_INPUT_SHAPES = Object.freeze({
     // showing says who acts.
     shown_by: z.enum(ATLAS_SHOWN_BY).optional()
       .describe("With show_on_pages, which needs it: owner when AskRigor's owner shows them, or quick_answer_test, " +
-        "with quick_answer_verdict, when the quick-answer test does."),
+        "with quick_answer_verdict, when the quick-answer test does. With publish_cards, which needs it too: owner, " +
+        "AskRigor's owner, the only one who publishes cards."),
   },
 } satisfies Record<string, z.ZodRawShape>);
 

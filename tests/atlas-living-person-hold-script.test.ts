@@ -150,7 +150,8 @@ describe("holding named findings for the owner's decision on a living person", (
             return { rows: (row === undefined ? [] : [{ state: row.state,
               unchanged: JSON.stringify(row) === values![1] }]) as unknown as Row[] };
           }
-          return { rows: (text.trim().startsWith("UPDATE") ? [{ publication_number: values![0] }] : []) as unknown as Row[] };
+          return { rows: (text.trim().startsWith("UPDATE") ? [{ state: values![1],
+            held_because: values![2] === null ? null : JSON.parse(values![2] as string) }] : []) as unknown as Row[] };
         },
       };
       return { result: await restoreLivingPersonHolds(client, { images, apply }), calls };
@@ -186,6 +187,46 @@ describe("holding named findings for the owner's decision on a living person", (
         .rejects.toThrow(/HOLD_SCRIPT_(?:IMAGES_INVALID|SCHEMA_INVALID)/u);
       expect(calls).toEqual([]);
     }
+  });
+
+  // Codex's fifth review of 17 Nov 2026 (P0): a manual hold, then a save that says the finding names a living person,
+  // then the restore. The table's rule keeps it held (migration 0041), and the restore says so, with the reason; the
+  // PostgreSQL acceptance runs the same on the database and reads its page.
+  it("keeps held, and says so, a finding a later save stored as naming a living person", async () => {
+    const before = { publication_number: "P-1001", state: "unreviewed", held_because: null,
+      state_changed_at: "2026-11-17T09:00:00+00:00" };
+    const after = { ...before, state: "held", held_because: ["living_person_review"],
+      state_changed_at: "2026-11-18T09:00:00+00:00" };
+    const images: HoldScriptImages = { schema: "living_evidence", heldAt: AT, images: [{ publication: "P-1001", before, after }] };
+    const run = async (apply: boolean) => {
+      const calls: string[] = [];
+      const client: HoldScriptClient = {
+        async query<Row extends object>(text: string) {
+          calls.push(text);
+          if (text.startsWith("SELECT")) {
+            return { rows: [{ state: "held", unchanged: true, living_person_yes: true }] as unknown as Row[] };
+          }
+          // As the trigger leaves it: the restore's write ends held.
+          return { rows: (text.trim().startsWith("UPDATE") ? [{ state: "held", held_because: ["living_person_review"] }]
+            : []) as unknown as Row[] };
+        },
+      };
+      return { result: await restoreLivingPersonHolds(client, { images, apply }), calls };
+    };
+    const dry = await run(false);
+    expect(dry.calls[2]).toContain("atlas_living_person_readings readings");
+    expect(dry.calls[2]).toContain("stored.owner_decided_at IS NULL");
+    expect(dry.result.lines).toEqual([{ publication: "P-1001", outcome: "kept_held", state: "unreviewed",
+      heldBecause: ["living_person_review"] }]);
+    const applied = await run(true);
+    expect(applied.result.lines).toEqual([{ publication: "P-1001", outcome: "kept_held", state: "unreviewed",
+      heldBecause: ["living_person_review"] }]);
+    expect(applied.result.text).toBe([
+      "P-1001: kept held, with no page (living_person_review): a save since the hold says it may name a living " +
+        "person, and you haven't decided it. Your accept_finding or edit_finding shows it.",
+      "Put back 0 as it was before the hold; nothing else changed. The pages show them as before within a minute. " +
+        "1 stays held because it may name a living person.",
+    ].join("\n"));
   });
 
   it("is named in the release with its dry run, and no migration holds anything already on the pages", async () => {

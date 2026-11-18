@@ -1351,17 +1351,27 @@ describe("migration 0041", () => {
     const functions = migration.split("CREATE OR REPLACE FUNCTION ").slice(1);
     expect(functions.map((chunk) => chunk.slice(0, chunk.indexOf("(")))).toEqual(["publish_atlas_findings",
       "keep_atlas_publications", "atlas_publication_claim_key_forgotten", ...ATLAS_LIVING_PERSON_FUNCTIONS,
-      ...ATLAS_SHOW_FUNCTIONS]);
-    // The trigger's function runs for no role: it is revoked from PUBLIC and granted to none.
-    expect(migration).toContain("REVOKE ALL ON FUNCTION atlas_publication_claim_key_forgotten() FROM PUBLIC;");
-    expect(review).not.toContain("atlas_publication_claim_key_forgotten");
+      ...ATLAS_SHOW_FUNCTIONS, "atlas_publication_living_person_hold", "atlas_living_person_reading_hold"]);
+    // The triggers' functions run for no role: each is revoked from PUBLIC and granted to none. Codex's fifth review of
+    // 17 Nov 2026: the two that make the living-person hold the table's rule read the stored readings, which no role
+    // that writes reaches, so they run as the migration's owner.
+    for (const name of ["atlas_publication_claim_key_forgotten", "atlas_publication_living_person_hold",
+      "atlas_living_person_reading_hold"]) {
+      expect(migration).toContain(`REVOKE ALL ON FUNCTION ${name}() FROM PUBLIC;`);
+      expect(review).not.toContain(name);
+    }
+    expect(migration).toContain("CREATE TRIGGER atlas_publications_living_person_hold\n  BEFORE INSERT OR UPDATE ON " +
+      "atlas_publications\n  FOR EACH ROW\n  EXECUTE FUNCTION atlas_publication_living_person_hold();");
+    expect(migration).toContain("CREATE CONSTRAINT TRIGGER atlas_living_person_readings_hold\n  AFTER INSERT OR UPDATE " +
+      "ON atlas_living_person_readings\n  DEFERRABLE INITIALLY DEFERRED\n  FOR EACH ROW\n  WHEN (NEW.reading = 'yes')\n" +
+      "  EXECUTE FUNCTION atlas_living_person_reading_hold();");
     for (const [name, args] of [["record_atlas_living_person", "integer, jsonb, text[], timestamptz"],
       ["inspect_atlas_living_person_notes", "text[]"],
       ["show_atlas_publications", "text[], text[], text, text, timestamptz"]] as const) {
       expect(migration).toContain(`REVOKE ALL ON FUNCTION ${name}(${args}) FROM PUBLIC;`);
       expect(review).toContain(`GRANT EXECUTE ON FUNCTION living_evidence.${name}(${args})\n  TO askrigor_research_review;`);
     }
-    expect(migration.split("SECURITY DEFINER\nSET search_path = __SCHEMA__, pg_catalog, pg_temp")).toHaveLength(6);
+    expect(migration.split("SECURITY DEFINER\nSET search_path = __SCHEMA__, pg_catalog, pg_temp")).toHaveLength(8);
     const header = (text: string, name: string) => {
       const start = text.indexOf(`CREATE OR REPLACE FUNCTION ${name}(`);
       return text.slice(start, text.indexOf("LANGUAGE plpgsql", start));

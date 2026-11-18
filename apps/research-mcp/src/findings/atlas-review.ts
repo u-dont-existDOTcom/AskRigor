@@ -472,7 +472,10 @@ export interface AtlasReviewRequest {
   usual_view_source_url?: AtlasChallengeRequest["usual_view_source_url"];
   usual_view_source_label?: AtlasChallengeRequest["usual_view_source_label"];
   quick_answer_verdict?: AtlasChallengeRequest["quick_answer_verdict"];
-  /** show_on_pages: who shows them, from later_inputs.shown_by (Codex's fourth review of 17 Nov 2026). */
+  /**
+   * show_on_pages and publish_cards: who shows or publishes them, from later_inputs.shown_by (Codex's fourth and fifth
+   * reviews of 17 Nov 2026).
+   */
   shown_by?: AtlasKeepRequest["shown_by"];
   /** The reviewer login that made the call, set by the tool after its owner check; never an input. */
   reviewer?: string;
@@ -1261,6 +1264,8 @@ export class AtlasReview {
       ...(request.cardsTo === undefined ? {} : { cardsTo: request.cardsTo }),
       ...(request.topicKey === undefined ? {} : { topicKey: request.topicKey }),
       ...(request.topicLabel === undefined ? {} : { topicLabel: request.topicLabel }),
+      // Codex's fifth review of 17 Nov 2026 (P1): publish_cards says who acts, as show_on_pages does.
+      ...(request.shown_by === undefined ? {} : { shown_by: request.shown_by }),
     });
     return {
       ok: result.ok,

@@ -594,3 +594,103 @@ END
 $function$;
 
 REVOKE ALL ON FUNCTION show_atlas_publications(text[], text[], text, text, timestamptz) FROM PUBLIC;
+
+-- Codex's fifth review of 17 Nov 2026: five reviews in a row found a new path around the hold, each a writer that
+-- skipped it (the last, the hold script's restore). So the rule is the table's, and every writer passes it: a
+-- publication of a card's finding whose stored reading is yes (atlas_living_person_readings) and that the owner hasn't
+-- decided (accepted or edited, or with owner_decided_at) is never stored unreviewed with its texts. A write that would
+-- store it so stores it held instead (living_person_review, with no page), and one held for another reason gains the
+-- reason, as record_atlas_living_person does; whoever writes it: a save, publish_cards, show_on_pages,
+-- keep_atlas_publications as an earlier image calls it, the hold script, or a hand-written UPDATE by any role. It holds
+-- rather than refuses, so an earlier image's write never fails on an error it doesn't know; the server reads the row
+-- back after each showing and says what is true. A held row's route goes with the page it doesn't have: a write that
+-- gives one, or a new row, keeps none. A new row without a claim key (an earlier image's) is held when any finding of
+-- its card is stored as yes. A publication from before claim keys were stored (claim_key NULL) has no stored reading of
+-- its own; record_atlas_living_person holds such rows by number, and a later write doesn't read one for them.
+CREATE OR REPLACE FUNCTION atlas_publication_living_person_hold()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+BEGIN
+  IF NEW.published_json IS NULL OR NEW.owner_decided_at IS NOT NULL OR NEW.state NOT IN ('unreviewed', 'held')
+     OR (NEW.state = 'held' AND NEW.held_because ? 'living_person_review')
+  THEN
+    RETURN NEW;
+  END IF;
+  IF NEW.claim_key IS NOT NULL THEN
+    IF NOT EXISTS (SELECT 1 FROM atlas_living_person_readings readings
+                    WHERE readings.card_number = NEW.card_number AND readings.claim_key = NEW.claim_key
+                      AND readings.reading = 'yes') THEN
+      RETURN NEW;
+    END IF;
+  -- A new row without a key (an earlier image's draft gives none) can't be matched to its own reading: it is held
+  -- when any finding of its card is stored as yes.
+  ELSIF TG_OP <> 'INSERT' OR NOT EXISTS (SELECT 1 FROM atlas_living_person_readings readings
+                                          WHERE readings.card_number = NEW.card_number AND readings.reading = 'yes') THEN
+    RETURN NEW;
+  END IF;
+  IF NEW.state = 'unreviewed' THEN
+    NEW.held_because := '["living_person_review"]'::jsonb;
+    IF TG_OP = 'INSERT' OR NEW.shown_by IS DISTINCT FROM OLD.shown_by THEN
+      NEW.shown_by := NULL;
+      NEW.shown_test_verdict := NULL;
+    END IF;
+  ELSE
+    -- living_person_review is the last of 0021's reasons, so adding it at the end keeps their order.
+    NEW.held_because := NEW.held_because || '["living_person_review"]'::jsonb;
+  END IF;
+  NEW.state := 'held';
+  RETURN NEW;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION atlas_publication_living_person_hold() FROM PUBLIC;
+
+-- After atlas_publications_claim_key_forgotten (triggers fire in their names' order), which clears an erased row's key.
+DROP TRIGGER IF EXISTS atlas_publications_living_person_hold ON atlas_publications;
+CREATE TRIGGER atlas_publications_living_person_hold
+  BEFORE INSERT OR UPDATE ON atlas_publications
+  FOR EACH ROW
+  EXECUTE FUNCTION atlas_publication_living_person_hold();
+
+-- A reading stored as yes holds, in the same transaction, each publication of its claim that the rule above holds,
+-- whoever stored it. At the transaction's end, so record_atlas_living_person and publish_atlas_findings, which hold
+-- first, still say what they did; it locks every publication of the claim first, so a showing that runs meanwhile
+-- waits for this transaction, then reads the yes.
+CREATE OR REPLACE FUNCTION atlas_living_person_reading_hold()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM atlas_living_person_readings readings
+                  WHERE readings.card_number = NEW.card_number AND readings.claim_key = NEW.claim_key
+                    AND readings.reading = 'yes') THEN
+    RETURN NULL;
+  END IF;
+  PERFORM 1 FROM atlas_publications stored
+    WHERE stored.card_number = NEW.card_number AND stored.claim_key = NEW.claim_key
+    ORDER BY substring(stored.publication_number FROM 3)::bigint
+    FOR UPDATE;
+  -- atlas_publications_living_person_hold holds each one this write touches.
+  UPDATE atlas_publications stored
+     SET state_changed_at = greatest(clock_timestamp(), stored.state_changed_at)
+   WHERE stored.card_number = NEW.card_number AND stored.claim_key = NEW.claim_key
+     AND stored.published_json IS NOT NULL AND stored.owner_decided_at IS NULL
+     AND (stored.state = 'unreviewed' OR (stored.state = 'held' AND NOT stored.held_because ? 'living_person_review'));
+  RETURN NULL;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION atlas_living_person_reading_hold() FROM PUBLIC;
+
+DROP TRIGGER IF EXISTS atlas_living_person_readings_hold ON atlas_living_person_readings;
+CREATE CONSTRAINT TRIGGER atlas_living_person_readings_hold
+  AFTER INSERT OR UPDATE ON atlas_living_person_readings
+  DEFERRABLE INITIALLY DEFERRED
+  FOR EACH ROW
+  WHEN (NEW.reading = 'yes')
+  EXECUTE FUNCTION atlas_living_person_reading_hold();

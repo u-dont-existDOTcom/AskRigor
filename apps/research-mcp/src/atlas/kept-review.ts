@@ -140,8 +140,35 @@ export class AtlasKeptReview {
     }
     const found = new Set(views.flatMap((view) => [view.publicationNumber, ...(view.atlasNumber === null ? [] : [view.atlasNumber])]));
     const missing = numbers.filter((number) => !found.has(number));
+    // Codex's fifth review of 17 Nov 2026 (P1): what the database stored after the showing, read back, is what the
+    // answer says. A showing never lifts a hold, and the table holds a finding a save stored as naming a living person
+    // that the owner hasn't decided, whoever shows it: such a one has no page, and the answer never says it shows.
+    const paged = (view: AtlasKeptView) => !view.kept && ["unreviewed", "accepted", "edited"].includes(view.state);
+    const unpaged = keep ? [] : views.filter((view) => !paged(view));
+    const reasons = new Map<string, readonly string[]>();
+    if (unpaged.some(({ state }) => state === "held")) {
+      for (const row of await this.deps.publications.inspect({
+        publicationNumbers: unpaged.map(({ publicationNumber }) => publicationNumber), limit: unpaged.length })) {
+        reasons.set(row.publicationNumber, row.heldBecause ?? []);
+      }
+    }
+    const noPage = (view: AtlasKeptView) => view.state === "held"
+      ? (reasons.get(view.publicationNumber) ?? []).includes("living_person_review")
+        ? "held, with no page: it may name a living person, and only your accept_finding or edit_finding shows it"
+        : "held, with no page: a showing doesn't lift a hold; your accept_finding, edit_finding or reject_finding decides it"
+      : view.kept ? "still kept for research" : `${view.state}, with no page`;
     const lines = views.map((view) => `${view.publicationNumber}${view.atlasNumber === null ? "" : ` (${view.atlasNumber})`}: ` +
-      `${view.state}, ${view.kept ? "kept for research" : "on the pages"}`);
+      `${!keep && !paged(view) ? noPage(view) : `${view.state}, ${view.kept ? "kept for research" : "on the pages"}`}`);
+    if (unpaged.length > 0) {
+      const shown = views.length - unpaged.length;
+      return {
+        ok: false,
+        text: `${shown} of ${views.length} publication(s) shown on the pages again; ${unpaged.length} not, so ` +
+          `${unpaged.length === 1 ? "its page answers" : "their pages answer"} not found. ${lines.join("; ")}.` +
+          `${missing.length === 0 ? "" : ` Not found: ${missing.join(", ")}.`}`,
+        kept: { items: views.map(itemOf) },
+      };
+    }
     return {
       ok: true,
       outcome: keep ? "kept_for_research" : "shown_on_pages",

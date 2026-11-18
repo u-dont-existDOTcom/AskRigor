@@ -97,8 +97,10 @@ export const researchContributionReviewInputSchema = z.object({
         context.addIssue({ code: "custom", message: `${value.action} does not take ${field}` });
       }
     }
-    // Codex's fourth review of 17 Nov 2026 (P1s): later_inputs.shown_by goes only with show_on_pages, which needs it.
-    if ((value as { shown_by?: unknown }).shown_by !== undefined && value.action !== "show_on_pages") {
+    // Codex's fourth review of 17 Nov 2026 (P1s): later_inputs.shown_by goes only with show_on_pages, which needs it,
+    // and, since its fifth review, with publish_cards, which needs it too.
+    if ((value as { shown_by?: unknown }).shown_by !== undefined && value.action !== "show_on_pages" &&
+      value.action !== "publish_cards") {
       context.addIssue({ code: "custom", message: `${value.action} does not take shown_by` });
     }
     // Owner answer 229a: later_inputs.placements goes with place_items, and place_items needs it.

@@ -946,7 +946,25 @@ has changed it since, and again only says what it would do until run with
 through `record_atlas_living_person`, and `publish_atlas_findings` reads that
 value under a lock at the moment it publishes, so a finding stored as yes is
 held whichever path publishes it, `publish_cards` included. If that store
-fails, the save fails, says to save again, and publishes nothing. A later save
+fails, the save fails, says to save again, and publishes nothing.
+
+Since Codex's fifth review of 17 Nov 2026 the hold is the table's own rule, in
+two triggers of 0041 (`atlas_publications_living_person_hold` and
+`atlas_living_person_readings_hold`): no write by any role, this release's or an
+earlier image's, the hold script's restore or a hand-written `UPDATE`, can store
+a publication unreviewed with its texts while its stored reading is yes and the
+owner hasn't decided it. Such a write stores it held instead
+(`living_person_review`, no page) rather than failing, and a reading stored as
+yes holds such a publication in the same transaction. `publish_cards` needs
+`later_inputs.shown_by: owner`, as `show_on_pages` does, and the owner's
+`show_on_pages` of a held finding says it stays held. When a save's record
+fails, this server process also stops showing, on every page, list and lookup,
+an unreviewed finding whose claim that save said names a living person, until a
+later save of the card, or the same one tried again, records it; and
+`finalize_research` says the save failed and can be retried, and how. That is
+kept in memory only: it lasts until `research-mcp` restarts, and a restart
+doesn't serve until the hold's functions are granted and its triggers are on
+(below), when the database holds a stored yes itself. A later save
 of the same question and claims lands on the open card (`existing_card`) and
 publishes nothing of its own; when it says a finding names a living person (its
 card declares it, or the meaning judge read it so), the same transaction holds
@@ -1009,7 +1027,8 @@ back to:
    `ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS`, `ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN`
    and `ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION` still unset. Before it
    serves, this image checks that the review role can run every function the
-   living-person hold relies on; when one is missing or not granted, it prints
+   living-person hold relies on, and that its two triggers are there and on;
+   when one is missing, switched off or not granted, it prints
    "AskRigor did not start: …", naming them, and doesn't serve, so `/healthz`
    doesn't answer: run the step it names, then recreate `research-mcp`.
 3. Then acceptance: `npm run contributor-access:postgres-acceptance` on this

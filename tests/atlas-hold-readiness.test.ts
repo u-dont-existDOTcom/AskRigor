@@ -2,7 +2,11 @@ import type { AddressInfo } from "node:net";
 
 import { describe, expect, it } from "vitest";
 
-import { ATLAS_LIVING_PERSON_HOLD_FUNCTIONS, PostgresAtlasPublicationStore } from "@askrigor/evidence-repository";
+import {
+  ATLAS_LIVING_PERSON_HOLD_FUNCTIONS,
+  ATLAS_LIVING_PERSON_HOLD_TRIGGERS,
+  PostgresAtlasPublicationStore,
+} from "@askrigor/evidence-repository";
 
 import { atlasHoldReadiness, atlasHoldReadinessText } from "../apps/research-mcp/src/findings/runtime.js";
 import { startAskRigorServer } from "../apps/research-mcp/src/start.js";
@@ -11,6 +15,7 @@ import { startAskRigorServer } from "../apps/research-mcp/src/start.js";
 // release that skipped a provisioning step (its migrate, or provision-research-review-role) cannot serve.
 
 const RECORD = "record_atlas_living_person(integer, jsonb, text[], timestamptz)";
+const TRIGGER = "atlas_publications.atlas_publications_living_person_hold";
 
 function storeAnswering(answer: () => Promise<string[]>) {
   let closed = false;
@@ -35,9 +40,10 @@ describe("the living-person hold's readiness", () => {
   });
 
   it("says plainly what is missing and what to run", () => {
-    expect(atlasHoldReadinessText({ ready: false, missing: [RECORD] })).toBe("AskRigor did not start: the Atlas's " +
-      "living-person hold needs these PostgreSQL functions, which are missing or which the review role can't run: " +
-      `${RECORD}. Run the one-shot admin migrate, re-run provision-research-review-role, then start it again.`);
+    expect(atlasHoldReadinessText({ ready: false, missing: [RECORD, `trigger ${TRIGGER}`] })).toBe("AskRigor did not start: " +
+      "the Atlas's living-person hold needs these PostgreSQL functions and triggers, which are missing, switched off, " +
+      `or which the review role can't run: ${RECORD}; trigger ${TRIGGER}. Run the one-shot admin migrate, re-run ` +
+      "provision-research-review-role, then start it again.");
     expect(atlasHoldReadinessText({ ready: false, missing: null })).toBe("AskRigor did not start: it couldn't ask the " +
       "research review database whether the Atlas's living-person hold can run.");
   });
@@ -51,18 +57,26 @@ describe("the living-person hold's readiness", () => {
       "show_atlas_publications(text[], text[], text, text, timestamptz)",
     ]);
     const store = new PostgresAtlasPublicationStore({ connectionString: "postgres://review@127.0.0.1/askrigor" });
+    // Codex's fifth review of 17 Nov 2026: and each trigger that makes the hold the table's rule, there and switched on.
+    expect(ATLAS_LIVING_PERSON_HOLD_TRIGGERS).toEqual([TRIGGER,
+      "atlas_living_person_readings.atlas_living_person_readings_hold"]);
     const calls: Array<{ sql: string; values: unknown[] }> = [];
     (store as unknown as { pool: { query: unknown } }).pool = {
       query: async (sql: string, values: unknown[]) => {
         calls.push({ sql: sql.replace(/\s+/gu, " ").trim(), values });
-        return { rows: [{ signature: RECORD }] };
+        return { rows: calls.length === 1 ? [{ signature: RECORD }] : [{ name: TRIGGER }] };
       },
     };
-    expect(await store.livingPersonHoldMissing()).toEqual([RECORD]);
+    expect(await store.livingPersonHoldMissing()).toEqual([RECORD, `trigger ${TRIGGER}`]);
     expect(calls).toEqual([{ sql: "SELECT required.signature FROM unnest($1::text[]) WITH ORDINALITY AS " +
       "required(signature, place) WHERE to_regprocedure($2 || '.' || required.signature) IS NULL OR NOT " +
       "has_function_privilege(to_regprocedure($2 || '.' || required.signature), 'EXECUTE') ORDER BY required.place",
-    values: [[...ATLAS_LIVING_PERSON_HOLD_FUNCTIONS], "living_evidence"] }]);
+    values: [[...ATLAS_LIVING_PERSON_HOLD_FUNCTIONS], "living_evidence"] }, {
+      sql: "SELECT required.name FROM unnest($1::text[]) WITH ORDINALITY AS required(name, place) WHERE NOT EXISTS " +
+        "(SELECT 1 FROM pg_catalog.pg_trigger hold JOIN pg_catalog.pg_class held ON held.oid = hold.tgrelid JOIN " +
+        "pg_catalog.pg_namespace space ON space.oid = held.relnamespace WHERE space.nspname = $2 AND held.relname || " +
+        "'.' || hold.tgname = required.name AND hold.tgenabled <> 'D') ORDER BY required.place",
+      values: [[...ATLAS_LIVING_PERSON_HOLD_TRIGGERS], "living_evidence"] }]);
   });
 
   it("starts the server only when the hold is ready", async () => {

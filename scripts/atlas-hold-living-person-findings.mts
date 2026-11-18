@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 
 import { Pool } from "pg";
 
@@ -169,13 +170,21 @@ export async function holdForLivingPersonReview(client: HoldScriptClient, input:
   return { applied: input.apply, lines, text: [...lines.map((line) => holdScriptText(line, input.apply)), closing].join("\n") };
 }
 
-export type RestoreScriptOutcome = "restored" | "changed_since" | "not_found";
+export type RestoreScriptOutcome = "restored" | "kept_held" | "changed_since" | "not_found";
 
 export interface RestoreScriptLine {
   publication: string;
   outcome: RestoreScriptOutcome;
-  /** Its state before the hold, for one put back; its state now, for one changed since; null when not found. */
+  /**
+   * Its state before the hold, for one put back or kept held; its state now, for one changed since; null when not
+   * found.
+   */
   state: string | null;
+  /**
+   * For one kept held (Codex's fifth review of 17 Nov 2026): the reasons it stays held for, living_person_review among
+   * them, since a save stored that it names a living person and the owner hasn't decided it.
+   */
+  heldBecause?: string[];
 }
 
 const imageObject = (value: unknown): value is Record<string, unknown> =>
@@ -200,6 +209,10 @@ export function restoreScriptText(line: RestoreScriptLine, applied: boolean): st
   switch (line.outcome) {
     case "restored":
       return `${line.publication}: ${applied ? "put" : "would be put"} back as it was before the hold (${line.state}).`;
+    case "kept_held":
+      return `${line.publication}: ${applied ? "kept" : "would be kept"} held, with no page (${(line.heldBecause ?? [])
+        .join(", ")}): a save since the hold says it may name a living person, and you haven't decided it. Your ` +
+        "accept_finding or edit_finding shows it.";
     case "changed_since":
       return `${line.publication}: changed since the hold (now ${line.state}), so it stays as it is.`;
     case "not_found":
@@ -225,24 +238,42 @@ export async function restoreLivingPersonHolds(client: HoldScriptClient, input: 
   try {
     await client.query("SET LOCAL TimeZone = 'UTC'");
     for (const { publication, before, after } of images.images) {
-      const [now] = (await client.query<{ state: string; unchanged: boolean }>(`SELECT stored.state,
-        to_jsonb(stored.*) = $2::jsonb AS unchanged FROM ${images.schema}.atlas_publications stored
+      // Codex's fifth review of 17 Nov 2026 (P0): the restore passes the table's rule (migration 0041's
+      // atlas_publications_living_person_hold), as every writer does: a row a save has since stored as naming a living
+      // person, that the owner hasn't decided, stays held. It reads that here for a dry run, and from the row the
+      // restore wrote with --apply.
+      const [now] = (await client.query<{ state: string; unchanged: boolean; living_person_yes: boolean }>(`SELECT
+        stored.state, to_jsonb(stored.*) = $2::jsonb AS unchanged,
+        stored.owner_decided_at IS NULL AND EXISTS (SELECT 1 FROM ${images.schema}.atlas_living_person_readings readings
+          WHERE readings.card_number = stored.card_number AND readings.claim_key = stored.claim_key
+            AND readings.reading = 'yes') AS living_person_yes
+        FROM ${images.schema}.atlas_publications stored
         WHERE stored.publication_number = $1${input.apply ? " FOR UPDATE" : ""}`, [publication, JSON.stringify(after)])).rows;
       if (now === undefined) {
         lines.push({ publication, outcome: "not_found", state: null });
       } else if (now.unchanged !== true) {
         lines.push({ publication, outcome: "changed_since", state: now.state });
       } else {
+        const beforeReasons = Array.isArray(before.held_because) ? before.held_because as string[] : [];
+        let stays: string[] | undefined;
         if (input.apply) {
-          const put = await client.query(`UPDATE ${images.schema}.atlas_publications stored
+          const put = await client.query<{ state: string; held_because: string[] | null }>(`UPDATE
+            ${images.schema}.atlas_publications stored
             SET state = $2, held_because = $3::jsonb, state_changed_at = $4::timestamptz
             WHERE stored.publication_number = $1 AND to_jsonb(stored.*) = $5::jsonb
-            RETURNING stored.publication_number`,
+            RETURNING stored.state, stored.held_because`,
           [publication, before.state, before.held_because === null ? null : JSON.stringify(before.held_because),
             before.state_changed_at, JSON.stringify(after)]);
           if (put.rows.length !== 1) throw new Error("HOLD_SCRIPT_RESTORE_RACED");
+          const [written] = put.rows;
+          if (written!.state !== before.state || !isDeepStrictEqual(written!.held_because, before.held_because)) {
+            stays = written!.held_because ?? [];
+          }
+        } else if (now.living_person_yes && !beforeReasons.includes(LIVING_PERSON_HOLD)) {
+          stays = [...beforeReasons, LIVING_PERSON_HOLD];
         }
-        lines.push({ publication, outcome: "restored", state: String(before.state) });
+        lines.push(stays === undefined ? { publication, outcome: "restored", state: String(before.state) }
+          : { publication, outcome: "kept_held", state: String(before.state), heldBecause: stays });
       }
     }
     await client.query(input.apply ? "COMMIT" : "ROLLBACK");
@@ -251,10 +282,13 @@ export async function restoreLivingPersonHolds(client: HoldScriptClient, input: 
     throw error;
   }
   const count = lines.filter(({ outcome }) => outcome === "restored").length;
+  const held = lines.filter(({ outcome }) => outcome === "kept_held").length;
+  const keptHeld = held === 0 ? "" : ` ${held} ${input.apply ? held === 1 ? "stays" : "stay" : "would stay"} held because ${held === 1 ? "it" : "they"} ` +
+    "may name a living person.";
   const closing = input.apply
     ? `Put back ${count} as it was before the hold; nothing else changed. The pages show ${count === 1 ? "it" : "them"} ` +
-      "as before within a minute."
-    : `Dry run: nothing was changed. Run again with --apply to put back the ${count} that would be put back.`;
+      `as before within a minute.${keptHeld}`
+    : `Dry run: nothing was changed. Run again with --apply to put back the ${count} that would be put back.${keptHeld}`;
   return { applied: input.apply, lines, text: [...lines.map((line) => restoreScriptText(line, input.apply)), closing].join("\n") };
 }
 

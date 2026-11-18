@@ -191,7 +191,8 @@ export type AtlasHoldReadiness = { ready: true } | { ready: false; missing: stri
 /**
  * Codex's fourth review of 17 Nov 2026: whether the server may serve. While saves publish in the Atlas (its review
  * store is configured), the database enforces the hold for a finding that may name a living person, so every function
- * the hold relies on must be there and the review role must be able to run it (ATLAS_LIVING_PERSON_HOLD_FUNCTIONS). A
+ * the hold relies on must be there and the review role must be able to run it (ATLAS_LIVING_PERSON_HOLD_FUNCTIONS), and,
+ * since Codex's fifth review, the triggers that make it the table's rule must be there and on (ATLAS_LIVING_PERSON_HOLD_TRIGGERS). A
  * database that can't be asked is not ready either. Ready when saves publish nothing in the Atlas.
  */
 export async function atlasHoldReadiness(
@@ -216,8 +217,9 @@ export function atlasHoldReadinessText(readiness: Extract<AtlasHoldReadiness, { 
   return readiness.missing === null
     ? "AskRigor did not start: it couldn't ask the research review database whether the Atlas's living-person hold " +
       "can run."
-    : "AskRigor did not start: the Atlas's living-person hold needs these PostgreSQL functions, which are missing or " +
-      `which the review role can't run: ${readiness.missing.join("; ")}. Run the one-shot admin migrate, re-run ` +
+    : "AskRigor did not start: the Atlas's living-person hold needs these PostgreSQL functions and triggers, which are " +
+      `missing, switched off, or which the review role can't run: ${readiness.missing.join("; ")}. Run the one-shot ` +
+      "admin migrate, re-run " +
       "provision-research-review-role, then start it again.";
 }
 

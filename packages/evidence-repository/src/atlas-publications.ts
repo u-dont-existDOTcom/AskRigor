@@ -485,6 +485,15 @@ export const ATLAS_LIVING_PERSON_HOLD_FUNCTIONS = [
   "show_atlas_publications(text[], text[], text, text, timestamptz)",
 ] as const;
 
+/**
+ * Codex's fifth review of 17 Nov 2026: the triggers that make the hold the table's rule (migration 0041), as
+ * "table.trigger". The server isn't ready to serve while one is missing or switched off.
+ */
+export const ATLAS_LIVING_PERSON_HOLD_TRIGGERS = [
+  "atlas_publications.atlas_publications_living_person_hold",
+  "atlas_living_person_readings.atlas_living_person_readings_hold",
+] as const;
+
 /** The most numbers one record takes beside its readings, and one notes' read, as migration 0041 does. */
 export const ATLAS_LIVING_PERSON_MATCHES_PER_RECORD = 500;
 export const ATLAS_LIVING_PERSON_NOTES_PER_READ = 500;
@@ -1214,7 +1223,8 @@ export class PostgresAtlasPublicationStore implements AtlasPublicationStore {
 
   /**
    * Of ATLAS_LIVING_PERSON_HOLD_FUNCTIONS, in their order, each that is missing from the schema or that this role can't
-   * run; an empty list when the hold can run.
+   * run, then of ATLAS_LIVING_PERSON_HOLD_TRIGGERS each that is missing or switched off (Codex's fifth review of 17 Nov
+   * 2026); an empty list when the hold can run.
    */
   async livingPersonHoldMissing(): Promise<string[]> {
     const result = await this.pool.query(
@@ -1224,7 +1234,16 @@ export class PostgresAtlasPublicationStore implements AtlasPublicationStore {
         ORDER BY required.place`,
       [[...ATLAS_LIVING_PERSON_HOLD_FUNCTIONS], this.schema],
     ) as unknown as { rows: Array<{ signature: string }> };
-    return result.rows.map(({ signature }) => signature);
+    const triggers = await this.pool.query(
+      `SELECT required.name FROM unnest($1::text[]) WITH ORDINALITY AS required(name, place)
+        WHERE NOT EXISTS (SELECT 1 FROM pg_catalog.pg_trigger hold
+          JOIN pg_catalog.pg_class held ON held.oid = hold.tgrelid
+          JOIN pg_catalog.pg_namespace space ON space.oid = held.relnamespace
+         WHERE space.nspname = $2 AND held.relname || '.' || hold.tgname = required.name AND hold.tgenabled <> 'D')
+        ORDER BY required.place`,
+      [[...ATLAS_LIVING_PERSON_HOLD_TRIGGERS], this.schema],
+    ) as unknown as { rows: Array<{ name: string }> };
+    return [...result.rows.map(({ signature }) => signature), ...triggers.rows.map(({ name }) => `trigger ${name}`)];
   }
 
   async keep(change: AtlasKeepChange): Promise<AtlasKeptView[]> {
