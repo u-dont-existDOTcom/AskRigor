@@ -7,6 +7,7 @@ import {
   RESEARCH_USE_NOTICE_VERSION,
   type AtlasIntentView,
   type AtlasPublicationStore,
+  type AtlasPageReads,
 } from "@askrigor/evidence-repository";
 
 import {
@@ -18,6 +19,7 @@ import {
   decidedPublicationDraft,
   decidedPublicationState,
   drawnFromYouTubeComments,
+  livingPersonClaimKey,
   planCardPublication,
   publicationHoldReasons,
   publishedFindingOf,
@@ -31,6 +33,11 @@ import {
   withoutYouTubeData,
   type StoredFinding,
 } from "../apps/research-mcp/src/findings/card.js";
+import { AtlasChangeSignal } from "../apps/research-mcp/src/atlas/change-signal.js";
+import {
+  UnrecordedLivingPersonClaims,
+  withoutUnrecordedLivingPerson,
+} from "../apps/research-mcp/src/atlas/living-person-pending.js";
 import { parseMarker } from "../apps/research-mcp/src/findings/github-findings.js";
 import { parseFindingsRecordBody } from "../apps/research-mcp/src/findings/github-findings-review.js";
 import { GitHubFindingsQueue } from "../apps/research-mcp/src/findings/github-findings.js";
@@ -330,7 +337,8 @@ describe("publishing at the save", () => {
     ({ surface: "/mcp/claude", toolCatalogSha256: "c".repeat(64), ...(account === undefined ? {} : { account }) });
 
   function harness(store: AtlasPublicationStore = new InMemoryAtlasPublicationStore(), sourceTitles?: AtlasSourceTitleLookup,
-    publisher: { showOnPages?: boolean; livingPersonUnknown?: "keep" | "hold" | "reader" } = {}) {
+    publisher: { showOnPages?: boolean; livingPersonUnknown?: "keep" | "hold" | "reader";
+      unrecorded?: UnrecordedLivingPersonClaims } = {}) {
     const github = new FakeGitHub();
     const service = new FindingsSaveService({
       receiptSecret: () => SECRET,
@@ -701,6 +709,49 @@ describe("publishing at the save", () => {
     await expect(h.save(yes, FREE, "2", { target: "ba9876543210", nlp: ["2"] })).resolves.toEqual(failed);
     expect(findingsSaveToolResult(failed as FindingsSaveResult).content).toEqual([{ type: "text",
       text: "Not saved: the findings library is unavailable right now; try saving again." }]);
+  });
+
+  // Codex's fifth review of 17 Nov 2026 (P0): that failed save left the finding public in the database (HTTP 200).
+  // Until a record of its card stores the yes, this process's pages don't show it: its page answers 404, and no list
+  // shows it. A later save, or the same tried again, that records it lifts that, and the database holds it.
+  it("keeps a claim off the pages while its living-person record fails, until a record stores it", async () => {
+    const signal = new AtlasChangeSignal();
+    let announced = 0;
+    signal.subscribe(() => { announced += 1; });
+    const unrecorded = new UnrecordedLivingPersonClaims(signal);
+    const store = new InMemoryAtlasPublicationStore();
+    const h = harness(store, undefined, { showOnPages: true, unrecorded });
+    const clear = { ...VELMOR_CARD, findings: VELMOR_CARD.findings.map((finding) => ({ ...finding,
+      names_living_person: false })) };
+    await expect(h.save(clear, FREE, "1", { nlp: ["1", "2"] })).resolves.toMatchObject({ status: "saved" });
+    await h.service.publicationsSettled();
+    const shown = (await store.inspect({})).sort((left, right) => left.findingNumber - right.findingNumber);
+    expect(shown.map(({ state }) => state)).toEqual(["unreviewed", "unreviewed"]);
+    const record = store.recordLivingPerson.bind(store);
+    store.recordLivingPerson = async () => { throw new Error("permission denied for function record_atlas_living_person"); };
+    const yes = { ...clear, findings: [{ ...clear.findings[0]!, names_living_person: true }, clear.findings[1]!] };
+    await expect(h.save(yes, FREE, "2", { target: "ba9876543210", nlp: ["2"] })).resolves
+      .toMatchObject({ status: "queue_unavailable", retryable: true });
+    const naming = livingPersonClaimKey(shown[0]!.published!.claim);
+    expect(unrecorded.has(naming)).toBe(true);
+    expect(unrecorded.has(livingPersonClaimKey(shown[1]!.published!.claim))).toBe(false);
+    expect(announced).toBeGreaterThan(0);
+    // The pages read through it: the finding the failed save said yes of is gone from every read; its sibling shows.
+    const page = (publication: typeof shown[number]) => ({ publicationNumber: publication.publicationNumber,
+      state: publication.state, atlasNumber: null, published: publication.published, publishedAt: publication.publishedAt,
+      stateChangedAt: publication.stateChangedAt, kept: false, challenge: null, shownBy: null, shownTestVerdict: null });
+    const source = withoutUnrecordedLivingPerson({ read: async (work) => work({
+      listPublications: async () => shown.map(page) } as unknown as AtlasPageReads) }, livingPersonClaimKey, unrecorded);
+    const listed = async () => (await source.read((reads) => reads.listPublications({ limit: 10 })))
+      .map(({ publicationNumber }) => publicationNumber);
+    expect(await listed()).toEqual([shown[1]!.publicationNumber]);
+    // Retried with the grant back: the record stores the yes, the database holds it, and the pages read it again.
+    store.recordLivingPerson = record;
+    await expect(h.save(yes, FREE, "2", { target: "ba9876543210", nlp: ["2"] })).resolves
+      .toMatchObject({ status: "existing_card" });
+    expect(unrecorded.has(naming)).toBe(false);
+    expect((await store.inspect({ publicationNumbers: [shown[0]!.publicationNumber] }))[0]!.state).toBe("held");
+    expect(await listed()).toEqual(shown.map(({ publicationNumber }) => publicationNumber));
   });
 
   // The owner's answer to what a card that doesn't say means is still to come (question 346), so it is one setting,

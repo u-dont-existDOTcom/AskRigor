@@ -2820,6 +2820,7 @@ function defineResearchOperations(
         account?.mode === "FREE_CONTRIBUTOR" && checkedInput?.findings_card !== undefined &&
         result.findings_card.status === "checked" && result.finalization_receipt !== undefined
       ) {
+        let retryableSave = false;
         const save = (options.findingsSave ?? saveResearchFindings)({
           findings_card: checkedInput.findings_card,
           finalization_receipt: result.finalization_receipt,
@@ -2830,7 +2831,10 @@ function defineResearchOperations(
           toolCatalogSha256: toolCatalogSha256(),
           // Decision 171, section 4B: the account checks for publishing the card in the Atlas at its save.
           account: findingsSaveAccount(account),
-        }).then(savedFindings, () => ({ status: "not_saved" as const, reason: "queue_service_unavailable" }));
+        }).then((outcome) => {
+          retryableSave = outcome.status === "queue_unavailable" && outcome.retryable;
+          return savedFindings(outcome);
+        }, () => ({ status: "not_saved" as const, reason: "queue_service_unavailable" }));
         result.findings_card.saved = await withinDeadline(
           save,
           options.findingsSaveDeadlineMilliseconds ?? FINDINGS_SAVE_DEADLINE_MILLISECONDS,
@@ -2840,6 +2844,10 @@ function defineResearchOperations(
         // unconfirmed or failed save has no id, and no line.
         const cardId = result.findings_card.saved.card_id;
         if (cardId !== undefined) result.saved_line = findingsSavedLine(cardId);
+        // Codex's fifth review of 17 Nov 2026 (P0): its failure, that it can be retried and how reach the caller.
+        if (retryableSave && result.findings_card.saved.status === "not_saved") {
+          result.notes = [...(result.notes ?? []), FINDINGS_SAVE_RETRY_NOTE];
+        }
       }
       // The owner, 4 Nov 2026: a card that didn't save is kept privately for a second look, so a finding isn't lost on
       // a technicality. Saving-off dev accounts keep nothing, as they save nothing, and it never changes the check.
@@ -3297,6 +3305,14 @@ function savedFindings(result: FindingsSaveResult): NonNullable<FinalizeResearch
   }
   return { status: "not_saved", reason: result.reason_code ?? result.status };
 }
+
+/**
+ * Codex's fifth review of 17 Nov 2026 (P0): a free contributor's save that failed but can be tried again says so, and
+ * how, as a note, since the frozen output keeps saved to its status and reason.
+ */
+export const FINDINGS_SAVE_RETRY_NOTE = "The findings card's save failed (queue_service_unavailable) and can be " +
+  "retried: call save_research_findings with the same findings_card and this call's finalization_receipt. This save " +
+  "published nothing.";
 
 // The tool catalog a findings card was saved with: sha256 of the operation
 // names, sorted, one per line. Read when a save arrives, once the catalog exists.

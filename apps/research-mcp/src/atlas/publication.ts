@@ -43,6 +43,7 @@ import type {
 } from "../findings/service.js";
 import type { AtlasSourceTitleLookup, AtlasSourceTitles } from "../findings/source-checks.js";
 import { contactDetailKinds, withoutDirectionControls } from "./contact-check.js";
+import { unrecordedLivingPersonClaims, type UnrecordedLivingPersonClaims } from "./living-person-pending.js";
 
 /**
  * Publishing saved findings cards in the Atlas (decision 171, section 4B; owner answers 168a and "171 approved", 24 Oct
@@ -629,6 +630,11 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
      * (ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN, livingPersonReading): keep, as before, when left out.
      */
     livingPersonUnknown?: "keep" | "hold" | "reader";
+    /**
+     * Codex's fifth review of 17 Nov 2026 (P0): the claims whose record hasn't stored yet, which the pages don't show;
+     * the process's own by default.
+     */
+    unrecorded?: UnrecordedLivingPersonClaims;
   }) {
     this.now = options.now ?? (() => new Date());
   }
@@ -653,6 +659,10 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
       claimKey: livingPersonClaimKey(finding.claim), reading: livingPersonStoredReading(saved, index + 1) }));
     if (readings.length === 0) return;
     const naming = new Set(readings.flatMap(({ claimKey, reading }) => reading === "yes" ? [claimKey] : []));
+    // Codex's fifth review of 17 Nov 2026 (P0): until the record stores them, this process's pages don't show a claim it
+    // says yes of. A record that fails leaves them so, until a later record of the card stores them.
+    const unrecorded = this.options.unrecorded ?? unrecordedLivingPersonClaims;
+    unrecorded.pending(saved.issueNumber, [...naming]);
     let matched: string[] = [];
     if (saved.kind === "existing" && naming.size > 0) {
       const rows = await this.options.store.inspect({ cardNumbers: [saved.issueNumber], limit: ATLAS_PUBLICATIONS_PER_INSPECT });
@@ -661,6 +671,7 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
     }
     await this.options.store.recordLivingPerson({ cardNumber: saved.issueNumber, readings, publicationNumbers: matched,
       at: this.now().toISOString() });
+    unrecorded.recorded(saved.issueNumber, readings.map(({ claimKey }) => claimKey));
   }
 
   async afterSave(saved: SavedFindingsCard): Promise<void> {
