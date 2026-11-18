@@ -5,6 +5,7 @@ import {
   FINAL_CHECK_PANEL_SOURCE_LINES_LEAD,
 } from "./final-check-messages.js";
 import { ANSWER_READING_LABELS, LINKED_READING_LABELS, SHOWN_READING_LABELS } from "./source-reading.js";
+import { FINAL_CHECK_PANEL_FINDINGS_LEAD } from "./findings-ledger.js";
 
 export const FINAL_CHECK_PANEL_URI = "ui://askrigor/final-check.html";
 /**
@@ -61,6 +62,13 @@ export function inlineFinalCheckAppBundle(bundle: string): string {
 // with research receipts, the line after the verdict says how much of the research AskRigor read, counted exactly from
 // the receipts, unfolded; and what was checked lists, apart from the key studies, the other studies the answer links,
 // each with the reading AskRigor's receipts show, or that AskRigor did not look it up.
+// Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026; owner answer 338a: "every other break is shown to the reader"): with
+// the findings ledger on, under a passing check one closed line opens the problems the check found that the answer
+// leaves open, each with its id: not fixed, or disputed with the AI's reason. Problems about the call itself are left
+// out; at most 20 are listed. Below it, one line counts the earlier problems this check did not look for again, so the
+// reader sees they were not shown as fixed (Codex's re-review of 17 Nov 2026), even when none is listed above. A check
+// that did not run (the meaning judge timed out, say) is no problem of the answer: one line names those apart (Fable's
+// check of 17 Nov 2026).
 export const FINAL_CHECK_PANEL_RENDER_SOURCE = String.raw`
 const COMPLETE_CHECKS_TIP = ${JSON.stringify(COMPLETE_CHECKS_TIP)};
 const CHECK_SCOPE = ${JSON.stringify(FINAL_CHECK_PANEL_SCOPE)};
@@ -70,6 +78,7 @@ const SOURCE_LINES_LEAD = ${JSON.stringify(FINAL_CHECK_PANEL_SOURCE_LINES_LEAD)}
 const ANSWER_READING_LABELS = ${JSON.stringify(ANSWER_READING_LABELS)};
 const SHOWN_READING_LABELS = ${JSON.stringify(SHOWN_READING_LABELS)};
 const LINKED_READING_LABELS = ${JSON.stringify(LINKED_READING_LABELS)};
+const FINDINGS_LEAD = ${JSON.stringify(FINAL_CHECK_PANEL_FINDINGS_LEAD)};
 function sourceLineOutcome(line) {
   const place = line.text === "abstract" ? "the paper's abstract"
     : line.text === "search_copy" ? "a copy the AI supplied, not one AskRigor fetched itself" : "the paper's full text";
@@ -193,6 +202,36 @@ function renderFinalCheck(doc, structuredContent) {
       const list = doc.createElement("ul");
       for (const limit of strings(result.limits)) appendText("li", limit, list);
       checked.appendChild(list);
+    }
+    const listed = result.check_findings && typeof result.check_findings === "object" &&
+      Array.isArray(result.check_findings.findings) ? result.check_findings.findings.filter((entry) => entry &&
+        entry.reader === true && typeof entry.id === "string") : [];
+    const findings = listed.filter((entry) => typeof entry.text === "string" &&
+      (entry.disposition === "open" || entry.disposition === "unresolved" || entry.disposition === "disputed"));
+    const unchecked = listed.filter((entry) => entry.disposition === "not_rechecked").length;
+    if (findings.length > 0) {
+      const open = fold("Problems AskRigor's check found that this answer leaves open (" + findings.length + ")");
+      appendText("p", FINDINGS_LEAD, open);
+      const list = doc.createElement("ul");
+      for (const entry of findings.slice(0, 20)) {
+        const how = entry.disposition !== "disputed" ? "Not fixed"
+          : typeof entry.reason === "string" && entry.reason !== "" ? "Disputed by the AI: " + entry.reason
+            : "Disputed by the AI. Its reason isn't available for this check.";
+        appendText("li", how + " (" + entry.id + "). " + entry.text, list);
+      }
+      if (findings.length > 20) appendText("li", "And " + (findings.length - 20) + " more.", list);
+      open.appendChild(list);
+    }
+    if (unchecked > 0) {
+      appendText("p", unchecked === 1 ? "1 earlier problem was not checked again."
+        : unchecked + " earlier problems were not checked again.");
+    }
+    const notRun = result.check_findings && typeof result.check_findings === "object" &&
+      Array.isArray(result.check_findings.not_run) ? result.check_findings.not_run.filter((name) =>
+        typeof name === "string" && name !== "") : [];
+    if (notRun.length > 0) {
+      appendText("p", "Checks that did not run: " + (notRun.length === 1 ? notRun[0]
+        : notRun.slice(0, -1).join(", ") + " and " + notRun[notRun.length - 1]) + ".");
     }
   }
   if (result.status === "stopped") {
