@@ -491,7 +491,9 @@ export async function publishResearchDossier(request: DossierPublicationRequest)
   if (published.outcome === "version_refused") return { status: "not_published", reason: "version_not_publishable" };
   if (published.outcome === "payload_refused") return { status: "not_published", reason: "not_publishable" };
   const reasons = published.holdReasons;
-  const conflictsWith = [...new Set(found.map(({ publicNumber }) => publicNumber))].sort().slice(0, 50);
+  // The shown dossiers the stored pairs name, as the publisher returns them, on a replay too (Codex's sixth review):
+  // what the gate kept is the one source, so the response neither selects, sorts nor cuts them again.
+  const conflictsWith = published.conflictsWith;
   const page = dossierPagePath(published.publicNumber);
   if (published.state === "shown") {
     return { status: "shown", public_id: published.publicNumber, page,

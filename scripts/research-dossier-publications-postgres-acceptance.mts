@@ -21,7 +21,7 @@ import {
   type ResearchDossierShowCheck,
 } from "../packages/evidence-repository/src/index.js";
 import { rowPassesPageGuard } from "../apps/research-mcp/src/atlas/page-guard.js";
-import { publicDossierOf } from "../apps/research-mcp/src/findings/dossier-publication.js";
+import { publicDossierOf, publishResearchDossier } from "../apps/research-mcp/src/findings/dossier-publication.js";
 import {
   DOSSIER_TOPIC_INDEX_PER_PAGE,
   loadDossierPage,
@@ -1121,6 +1121,43 @@ async function verify(adminUrl: string, accessUrl: string, reviewUrl: string, re
       "FIFTH_HELD_AUTOMATIC_PAIR_NOT_KEPT");
     }
     checks.push("automatic_publication_keeps_its_pairs_counted_once_and_worded_by_either_finding");
+
+    // Codex's sixth review, P2 (his two probes): the server's response sorted and cut the partners on its own. It names
+    // what the publisher returns, which is what storage kept: among 50 background partners and one important partner
+    // numbered last, the important one; and on a replay whose reader finds nothing, the stored partners still.
+    {
+      const sixth = await account("sixth-review");
+      const topicOf = (weight: "context" | null) => (value: Record<string, any>) => {
+        value.topic = { key: "sixth-review-crowd", name: "Sixth review crowd", other_names: [], related: [] };
+        value.forms = ["sixth-review-crowd-form"];
+        if (weight !== null) for (const finding of value.findings) finding.importance = weight;
+      };
+      const partners: string[] = [];
+      for (let place = 0; place < 51; place += 1) {
+        const version = await save(sixth.accountKey, `sixth-${place}`, `sixth-${place}`, null,
+          topicOf(place < 50 ? "context" : null));
+        const result = await publisher.publish(await copy(sixth.accountKey, version));
+        assert(result.outcome === "published" && result.state === "shown", `SIXTH_${place}_NOT_SHOWN`);
+        partners.push(result.publicNumber);
+      }
+      const important = partners.at(-1)!;
+      const versionId = await save(sixth.accountKey, "sixth-new", "sixth-new", null, topicOf("context"));
+      // As the server's save calls it; the dossier's private number is not read by the publication.
+      const publishWith = (conflictReader: DossierConflictReader) => publishResearchDossier({ publisher,
+        accountKey: sixth.accountKey, noticeVersion: RESEARCH_USE_NOTICE_VERSION,
+        noticeCovering: [RESEARCH_USE_NOTICE_VERSION], versionId, dossierNumber: "ARD-0000",
+        stored: savedPayloads.get(versionId)!, conflictReader, at: AT });
+      const opposed: DossierConflictReader = async (request) => ({ status: "read",
+        conflicts: request.shown.map(({ dossier }) => ({ finding: "f1", dossier, theirs: "f1" })) });
+      const published = await publishWith(opposed);
+      assert(published.status === "held" && published.public_id !== undefined, `SIXTH_NOT_HELD_${published.status}`);
+      const kept = (await review.inspect(published.public_id))[0]!.conflictsWith;
+      assert(kept.length === 50 && kept.includes(important) &&
+        stableJson(published.conflicts_with) === stableJson(kept), "SIXTH_RESPONSE_NOT_WHAT_STORAGE_KEPT");
+      const replayed = await publishWith(async () => ({ status: "read", conflicts: [] }));
+      assert(stableJson(replayed) === stableJson(published), "SIXTH_REPLAY_LOST_THE_STORED_PARTNERS");
+    }
+    checks.push("the_publication_response_names_what_storage_kept_also_on_a_replay");
 
     // Codex's fourth review: a copy becomes shown only through the admission gate. Each way of making one shown is sent
     // through a stale set and through an incomplete override (for the automatic ones, which take none, no override); each

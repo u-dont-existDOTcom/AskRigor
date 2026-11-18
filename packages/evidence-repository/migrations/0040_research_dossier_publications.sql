@@ -778,7 +778,8 @@ REVOKE ALL ON FUNCTION research_dossier_show_refusal(
 -- waits for it or wins. Only the newest version of one of the account's own dossiers, neither withdrawn, rejected nor
 -- erased. A copy already written for the version is returned as it is (a retry). A shown copy supersedes the dossier's
 -- older shown and held copies; a held one supersedes only older held ones, so a shown copy stays until its successor
--- is checked.
+-- is checked. Written or returned, it comes with the shown dossiers its stored pairs name (Codex's sixth review): the
+-- server's response names those and no others.
 --
 -- It takes nothing on trust from the access role (Codex's review of stage 2, finding 10): the public copy, its topic,
 -- related topics and digest, where its research ran, whether a privacy reading passed it and whether a claim names a
@@ -804,7 +805,7 @@ CREATE OR REPLACE FUNCTION publish_research_dossier_version(
   target_conflict_findings text[],
   change_time timestamptz
 )
-RETURNS TABLE (outcome text, public_number text, state text, hold_reasons text[])
+RETURNS TABLE (outcome text, public_number text, state text, hold_reasons text[], conflicts_with text[])
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = __SCHEMA__, pg_catalog, pg_temp
@@ -844,7 +845,7 @@ BEGIN
      OR account_row.findings_save IS NOT TRUE
      OR NOT EXISTS (SELECT 1 FROM research_dossier_public_notices notice
        WHERE notice.notice_version = account_row.notice_version) THEN
-    RETURN QUERY SELECT 'account_refused'::text, NULL::text, NULL::text, NULL::text[];
+    RETURN QUERY SELECT 'account_refused'::text, NULL::text, NULL::text, NULL::text[], NULL::text[];
     RETURN;
   END IF;
 
@@ -855,7 +856,7 @@ BEGIN
    WHERE stored.version_id = target_version_id AND dossier.account_key = target_account_key
      AND dossier.erased_at IS NULL;
   IF NOT FOUND THEN
-    RETURN QUERY SELECT 'version_refused'::text, NULL::text, NULL::text, NULL::text[];
+    RETURN QUERY SELECT 'version_refused'::text, NULL::text, NULL::text, NULL::text[], NULL::text[];
     RETURN;
   END IF;
   -- Writers of one dossier queue, as the private append's do.
@@ -864,7 +865,8 @@ BEGIN
   SELECT * INTO existing FROM research_dossier_public_versions copy
    WHERE copy.version_id = target_version_id AND copy.revision_of IS NULL;
   IF FOUND THEN
-    RETURN QUERY SELECT 'replayed'::text, existing.public_number, existing.state, existing.hold_reasons;
+    RETURN QUERY SELECT 'replayed'::text, existing.public_number, existing.state, existing.hold_reasons,
+      existing.conflicts_with;
     RETURN;
   END IF;
 
@@ -873,7 +875,7 @@ BEGIN
        WHERE newer.dossier_number = version_row.dossier_number AND newer.version_number > version_row.version_number)
      OR EXISTS (SELECT 1 FROM research_dossier_events event
        WHERE event.version_id = target_version_id AND event.event IN ('withdrawn', 'rejected', 'erased')) THEN
-    RETURN QUERY SELECT 'version_refused'::text, NULL::text, NULL::text, NULL::text[];
+    RETURN QUERY SELECT 'version_refused'::text, NULL::text, NULL::text, NULL::text[], NULL::text[];
     RETURN;
   END IF;
 
@@ -885,7 +887,7 @@ BEGIN
      OR NOT research_dossier_public_sizes_complete(projection)
      -- The pages' last check, repeated here, so no copy is stored as shown that a page would leave out.
      OR NOT research_dossier_public_passes_page_guard(projection) THEN
-    RETURN QUERY SELECT 'payload_refused'::text, NULL::text, NULL::text, NULL::text[];
+    RETURN QUERY SELECT 'payload_refused'::text, NULL::text, NULL::text, NULL::text[], NULL::text[];
     RETURN;
   END IF;
   related := ARRAY(SELECT jsonb_array_elements_text(projection -> 'topic' -> 'related'));
@@ -896,7 +898,7 @@ BEGIN
   SELECT * INTO gate FROM research_dossier_show_refusal(projection, NULL, NULL, true, target_compared,
     target_conflict_check, target_conflict_findings, NULL, '{}');
   IF gate.refusal = 'comparison_stale' AND target_conflict_check = 'read' THEN
-    RETURN QUERY SELECT 'comparison_stale'::text, NULL::text, NULL::text, NULL::text[];
+    RETURN QUERY SELECT 'comparison_stale'::text, NULL::text, NULL::text, NULL::text[], NULL::text[];
     RETURN;
   END IF;
   -- Never overridden here: an important conflict holds it for one, a check not read (or read against another set)
@@ -951,7 +953,8 @@ BEGIN
   VALUES (number_text, next_version, next_state,
     CASE WHEN next_state = 'held' THEN array_to_string(reasons, ' ') END, change_time);
 
-  RETURN QUERY SELECT 'published'::text, number_text, next_state, reasons;
+  RETURN QUERY SELECT 'published'::text, number_text, next_state, reasons,
+    research_dossier_conflict_partners(gate.kept);
 END
 $function$;
 

@@ -1344,6 +1344,54 @@ describe("conflicts with shown dossiers", () => {
         .toHaveLength(1);
     });
 
+  /**
+   * 50 shown dossiers whose f2 is background and a fifty-first, numbered last, whose f2 is important; then a copy whose
+   * background f2 the reader pairs with each of theirs, published automatically.
+   */
+  async function againstFiftyOne() {
+    const made = stores();
+    const background = (value: Record<string, any>) => { value.findings[1].importance = "context"; };
+    for (let place = 0; place < 51; place += 1) {
+      const outcome = await saveResearchDossier(made.dossiers, request({ publication: made.publication,
+        account: { ...other.account, accountKey: place.toString(16).padStart(64, "d") },
+        value: dossier(place < 50 ? background : () => undefined) }));
+      expect(outcome?.disposition?.publication).toMatchObject({ status: "shown", public_id: `D-${1001 + place}` });
+    }
+    const { reader } = fakeReader((conflictRequest) => conflictRequest.shown.map((shown: any) => ({ finding: "f2",
+      dossier: shown.dossier, theirs: "f2" })));
+    const outcome = await saveResearchDossier(made.dossiers, request({ value: dossier(background),
+      publication: { ...made.publication, conflictReader: reader } }));
+    return { ...made, outcome };
+  }
+
+  // Codex's sixth review, P2 (his probe): the response sorted and cut the partners on its own, so it named a background
+  // partner storage left out and omitted the important one storage kept. It names what the publisher returns.
+  it("names in its response the partners storage kept, the later-numbered important one among them", async () => {
+    const { publications, outcome } = await againstFiftyOne();
+    const kept = (await publications.inspect("D-1052"))[0]!.conflictsWith;
+    expect(kept).toHaveLength(50);
+    expect(kept).toContain("D-1051");
+    expect(kept).not.toContain("D-1050");
+    expect(outcome?.disposition?.publication).toEqual({ status: "held", public_id: "D-1052",
+      hold_reasons: ["important_conflict"], conflicts_with: kept });
+  });
+
+  // Codex's sixth review, P2 (his probe): a replay whose reader found nothing answered without the stored partners.
+  it("keeps the stored partners in the response to a replay whose reader finds no conflict", async () => {
+    const { dossiers, publications, outcome } = await againstFiftyOne();
+    const version = dossiers.snapshot()
+      .find(({ dossierNumber }) => dossierNumber === outcome?.disposition?.dossier_id)!;
+    const { publishResearchDossier } = await import("../apps/research-mcp/src/findings/dossier-publication.js");
+    const replayed = await publishResearchDossier({ publisher: publications, accountKey: ACCOUNT,
+      noticeVersion: RESEARCH_USE_NOTICE_VERSION, noticeCovering: COVERING, versionId: version.versionId,
+      dossierNumber: version.dossierNumber, stored: (await dossiers.readVersion(ACCOUNT, version.versionId))!.payload!,
+      conflictReader: NO_CONFLICT, at: NOW });
+    expect(replayed).toEqual(outcome?.disposition?.publication);
+    expect(replayed).toMatchObject({ status: "held",
+      conflicts_with: (await publications.inspect("D-1052"))[0]!.conflictsWith });
+    expect((replayed as { conflicts_with?: string[] }).conflicts_with).toHaveLength(50);
+  });
+
   it("compares a new version with the dossier's own earlier shown copy", async () => {
     const { dossiers, publications, publication } = stores();
     await saveResearchDossier(dossiers, request({ publication }));

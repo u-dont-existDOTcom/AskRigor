@@ -87,7 +87,12 @@ export const conflictCandidateId = (copy: { publicNumber: string; versionNumber:
 
 export type ResearchDossierPublishResult =
   | { outcome: "published" | "replayed"; publicNumber: string; state: ResearchDossierPublicState;
-    holdReasons: ResearchDossierHoldReason[] }
+    holdReasons: ResearchDossierHoldReason[];
+    /**
+     * The shown dossiers the copy's stored pairs name, as stored (Codex's sixth review), on a replay too: what the
+     * admission gate kept is the one source, and the server's response names these and no others.
+     */
+    conflictsWith: string[] }
   /** The payload is not exactly the saved record's public part, or a comparison lacks its group sizes. */
   | { outcome: "payload_refused" }
   /** The candidates changed since the conflict check: compare again. */
@@ -694,8 +699,9 @@ export class PostgresResearchDossierPublisher implements ResearchDossierPublishe
   async publish(input: ResearchDossierPublishInput): Promise<ResearchDossierPublishResult> {
     assertPublishInput(input);
     const result = await this.pool.query<{ outcome: string; public_number: string | null; state: string | null;
-      hold_reasons: string[] | null }>(
-      `SELECT outcome, public_number, state, hold_reasons FROM ${this.schema}.publish_research_dossier_version(
+      hold_reasons: string[] | null; conflicts_with: string[] | null }>(
+      `SELECT outcome, public_number, state, hold_reasons, conflicts_with
+         FROM ${this.schema}.publish_research_dossier_version(
          $1, $2::uuid, $3::jsonb, $4::text[], $5, $6::text[], $7::timestamptz)`,
       [input.accountKey, input.versionId, JSON.stringify(input.payload), [...input.compared], input.conflictCheck,
         [...input.conflictFindings], input.at.toISOString()],
@@ -708,11 +714,13 @@ export class PostgresResearchDossierPublisher implements ResearchDossierPublishe
     }
     if ((row.outcome !== "published" && row.outcome !== "replayed") || row.public_number === null ||
       !(RESEARCH_DOSSIER_PUBLIC_STATES as readonly string[]).includes(row.state ?? "") || row.hold_reasons === null ||
-      !row.hold_reasons.every((reason) => (RESEARCH_DOSSIER_HOLD_REASONS as readonly string[]).includes(reason))) {
+      !row.hold_reasons.every((reason) => (RESEARCH_DOSSIER_HOLD_REASONS as readonly string[]).includes(reason)) ||
+      row.conflicts_with === null || row.conflicts_with.length > 50 ||
+      !row.conflicts_with.every((number) => PUBLIC_DOSSIER_NUMBER.test(number))) {
       throw new Error("RESEARCH_DOSSIER_PUBLISH_RESULT_INVALID");
     }
     return { outcome: row.outcome, publicNumber: row.public_number, state: row.state as ResearchDossierPublicState,
-      holdReasons: row.hold_reasons as ResearchDossierHoldReason[] };
+      holdReasons: row.hold_reasons as ResearchDossierHoldReason[], conflictsWith: [...row.conflicts_with] };
   }
 
   async conflictCandidates(accountKey: string, versionId: string,
@@ -1179,7 +1187,7 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
     const existing = this.copyOfVersion(input.versionId);
     if (existing !== undefined) {
       return { outcome: "replayed", publicNumber: existing.publicNumber, state: existing.state,
-        holdReasons: [...existing.holdReasons] };
+        holdReasons: [...existing.holdReasons], conflictsWith: [...existing.conflictsWith] };
     }
     const stored = this.options.dossiers.versionPayload(input.versionId);
     if (!facts.newest || facts.closed || facts.erased || stored === null || stored === undefined) {
@@ -1247,7 +1255,8 @@ implements ResearchDossierPublisher, ResearchDossierPublicationReviewStore, Publ
       events: [{ event: admission.state, reason: admission.state === "held" ? admission.holdReasons.join(" ") : null,
         at: input.at }],
     });
-    return { outcome: "published", publicNumber, state: admission.state, holdReasons: [...admission.holdReasons] };
+    return { outcome: "published", publicNumber, state: admission.state, holdReasons: [...admission.holdReasons],
+      conflictsWith: conflictPartners(gate.kept) };
   }
 
   async conflictCandidates(accountKey: string, versionId: string,
