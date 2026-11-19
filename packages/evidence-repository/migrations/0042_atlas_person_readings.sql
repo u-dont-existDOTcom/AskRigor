@@ -237,7 +237,9 @@ BEGIN
   VALUES (p_subject_kind, p_subject_id, p_digest, p_sentences, p_at, p_model, NULL, 0, false, p_at)
   ON CONFLICT (subject_kind, subject_id) DO UPDATE SET digest = EXCLUDED.digest, sentences = EXCLUDED.sentences,
     read_at = EXCLUDED.read_at, model = EXCLUDED.model, attempt_digest = NULL, attempts = 0, parked = false,
-    claimed_until = NULL, updated_at = EXCLUDED.updated_at;
+    -- A save ends only its own digest's claim (Codex's fourth review of B).
+    claimed_until = CASE WHEN stored.attempt_digest IS NOT DISTINCT FROM EXCLUDED.digest THEN NULL ELSE stored.claimed_until END,
+    updated_at = EXCLUDED.updated_at;
 END
 $function$;
 REVOKE ALL ON FUNCTION save_atlas_person_reading(text, text, text, jsonb, text, timestamptz) FROM PUBLIC;
@@ -267,6 +269,14 @@ BEGIN
   PERFORM atlas_person_lock_subject(p_subject_kind, p_subject_id);
   SELECT stored.parked AND stored.attempt_digest = p_digest INTO was_parked FROM atlas_person_readings stored
    WHERE stored.subject_kind = p_subject_kind AND stored.subject_id = p_subject_id;
+  -- Another digest's running claim is not this caller's to end or to count against (Codex's fourth review of B).
+  IF EXISTS (SELECT 1 FROM atlas_person_readings stored WHERE stored.subject_kind = p_subject_kind
+      AND stored.subject_id = p_subject_id AND stored.attempt_digest IS DISTINCT FROM p_digest
+      AND stored.claimed_until > p_at) THEN
+    RETURN QUERY SELECT stored.attempts, stored.parked FROM atlas_person_readings stored
+      WHERE stored.subject_kind = p_subject_kind AND stored.subject_id = p_subject_id;
+    RETURN;
+  END IF;
   INSERT INTO atlas_person_readings AS stored (subject_kind, subject_id, attempt_digest, attempts, parked, last_failure,
     updated_at)
   VALUES (p_subject_kind, p_subject_id, p_digest, 1, 1 >= p_limit, p_reason, p_at)
@@ -505,6 +515,7 @@ SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 DECLARE
   removal bigint;
+  judged_at timestamptz;
 BEGIN
   IF NOT coalesce(atlas_person_subject_known(p_subject_kind, p_subject_id), false) OR p_sentence_key IS NULL
     OR p_sentence_key !~ '^[a-f0-9]{64}$' OR p_action IS NULL
@@ -518,8 +529,28 @@ BEGIN
   -- The check of an automatic removal found its finding unchanged: it stands, and is no longer listed for the check.
   IF p_action = 'confirm' THEN
     UPDATE atlas_person_disputes AS dispute SET checked_at = p_at
-     WHERE dispute.dispute_number = p_dispute AND dispute.checked_at IS NULL;
+     WHERE dispute.dispute_number = p_dispute AND dispute.checked_at IS NULL AND dispute.outcome = 'taken_off';
     RETURN FOUND;
+  END IF;
+  -- Codex's fourth review of B: a requeue acts only on the exact pending removal. It is refused once the dispute was
+  -- checked, resolved or handed on, and it puts the sentence back only while the removal is still the one that dispute
+  -- made (a later decision on the sentence changed its time), so no check can undo a newer decision.
+  IF p_action = 'requeue' THEN
+    UPDATE atlas_person_disputes AS dispute SET outcome = 'queued', checked_at = p_at
+     WHERE dispute.dispute_number = p_dispute AND dispute.subject_kind = p_subject_kind
+       AND dispute.subject_id = p_subject_id AND dispute.sentence_key = p_sentence_key AND dispute.outcome = 'taken_off'
+       AND dispute.checked_at IS NULL AND dispute.resolved_at IS NULL
+    RETURNING dispute.received_at INTO judged_at;
+    IF NOT FOUND THEN
+      RETURN false;
+    END IF;
+    UPDATE atlas_person_removals AS stored SET state = 'restored', changed_at = p_at
+     WHERE stored.subject_kind = p_subject_kind AND stored.subject_id = p_subject_id
+       AND stored.sentence_key = p_sentence_key AND stored.state = 'taken_off' AND stored.changed_at = judged_at;
+    IF FOUND THEN
+      PERFORM atlas_person_record_change(p_subject_kind, p_subject_id, 'restored', p_at);
+    END IF;
+    RETURN true;
   END IF;
   IF p_action = 'take_off' THEN
     INSERT INTO atlas_person_removals AS stored (subject_kind, subject_id, sentence_key, state, folded_names, context_keys,
@@ -542,10 +573,6 @@ BEGIN
       RETURN false;
     END IF;
     PERFORM atlas_person_record_change(p_subject_kind, p_subject_id, 'restored', p_at);
-  END IF;
-  IF p_action = 'requeue' THEN
-    UPDATE atlas_person_disputes AS dispute SET outcome = 'queued', checked_at = p_at WHERE dispute.dispute_number = p_dispute;
-    RETURN true;
   END IF;
   IF p_dispute IS NOT NULL THEN
     UPDATE atlas_person_disputes AS dispute SET resolved_at = p_at, resolution = p_resolution
@@ -644,7 +671,7 @@ AS $function$
 BEGIN
   RETURN QUERY SELECT d.dispute_number, d.subject_kind, d.subject_id, d.sentence_key, d.judged_digest, d.received_at
     FROM atlas_person_disputes d
-   WHERE d.outcome = 'taken_off' AND d.checked_at IS NULL
+   WHERE d.outcome = 'taken_off' AND d.checked_at IS NULL AND d.resolved_at IS NULL
    ORDER BY d.dispute_number
    LIMIT least(greatest(coalesce(p_limit, 50), 1), 500);
 END

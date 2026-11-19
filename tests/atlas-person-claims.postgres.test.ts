@@ -105,6 +105,9 @@ describe.skipIf(URL === undefined)("migration 0042 on PostgreSQL", () => {
         [key("sentence 1")])).rows[0]).toEqual({ done: true });
       expect((await client.query("SELECT outcome, resolved_at FROM atlas_person_disputes WHERE dispute_number = 2")).rows[0])
         .toEqual({ outcome: "queued", resolved_at: null });
+      // Round 4: a second check of the same removal is refused.
+      expect((await client.query("SELECT decide_atlas_person_claim('news', 'N-12', $1, 'requeue', NULL, ARRAY[]::text[], ARRAY[]::text[], 2, 'changed', now()) AS done",
+        [key("sentence 1")])).rows[0]).toEqual({ done: false });
       expect((await client.query("SELECT removal_number FROM atlas_person_removed_texts_for(ARRAY[1, 2, 3]::bigint[])")).rows)
         .toEqual([{ removal_number: "3" }]);
       expect((await client.query("SELECT context_keys FROM atlas_person_removals WHERE removal_number = 3")).rows[0])
@@ -118,11 +121,11 @@ describe.skipIf(URL === undefined)("migration 0042 on PostgreSQL", () => {
       // Every other dispute reached the owner too, each once: the next take never repeats a leased notice.
       const next = (await client.query("SELECT notice_number, kind FROM take_atlas_person_notices(500, '2026-11-19T13:00:00Z')")).rows;
       expect(next.map(({ kind }) => kind)).toEqual(Array(27).fill("dispute"));
-      // Automatic removals not yet checked again: 20 taken off, less the one put back by requeue.
-      expect((await client.query("SELECT count(*)::int AS n FROM list_atlas_person_unchecked_removals(500)")).rows[0]).toEqual({ n: 19 });
+      // Automatic removals not yet checked again: 20 taken off, less the one requeued and the one the main session resolved.
+      expect((await client.query("SELECT count(*)::int AS n FROM list_atlas_person_unchecked_removals(500)")).rows[0]).toEqual({ n: 18 });
       expect((await client.query("SELECT decide_atlas_person_claim('news', 'N-12', $1, 'confirm', NULL, ARRAY[]::text[], ARRAY[]::text[], 4, 'unchanged', now()) AS done",
         [key("sentence 2")])).rows[0]).toEqual({ done: true });
-      expect((await client.query("SELECT count(*)::int AS n FROM list_atlas_person_unchecked_removals(500)")).rows[0]).toEqual({ n: 18 });
+      expect((await client.query("SELECT count(*)::int AS n FROM list_atlas_person_unchecked_removals(500)")).rows[0]).toEqual({ n: 17 });
       const legal = notices[0]!.notice_number as string;
       expect((await client.query("SELECT record_atlas_person_notice($1, 'delivered', NULL, '2026-11-19T13:00:01Z') AS done", [legal])).rows[0]).toEqual({ done: true });
       expect((await client.query("SELECT record_atlas_person_notice($1, 'acknowledged', 'owner', '2026-11-19T14:00:00Z') AS done", [legal])).rows[0]).toEqual({ done: true });

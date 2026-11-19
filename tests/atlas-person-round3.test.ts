@@ -335,3 +335,50 @@ describe("the live test's spend after a transport error (Codex's second review, 
     expect(personChargedUsd({ failure: "refusal", costUsd: 0.002 }, 0.08)).toBe(0.002);
   });
 });
+
+describe("Codex's fourth review of B", () => {
+  const COI_KEY = personSentenceKey(COI);
+  async function removed() {
+    const store = new InMemoryAtlasPersonClaims();
+    const finding = personFinding({ claim: COI });
+    const reading = readingFor(finding, coiRule);
+    await store.saveReading({ publicationNumber: "P-1001", digest: reading.digest!, sentences: reading.sentences,
+      model: "claude-opus-5-5", at: NOW.toISOString() });
+    const result = await store.submitDispute({ idempotencyKey: "pending-removal-0001", publicationNumber: "P-1001",
+      sentenceKey: COI_KEY, kind: "wrong", wanted: "taken_off", legal: false, addressKey: "a".repeat(64),
+      foldedNames: ["invented zentaro"], contextKeys: [], sentence: COI, whatIsWrong: "False.", sourceLink: null, email: null,
+      at: NOW.toISOString(), readingDigest: reading.digest, contentDigest: "d".repeat(64) });
+    expect(result.outcome).toBe("taken_off");
+    const decide = (action: "requeue" | "take_off", at: string, disputeNumber: number | null) => store.decide({
+      publicationNumber: "P-1001", sentenceKey: COI_KEY, action, sentence: action === "take_off" ? COI : null,
+      foldedNames: [], contextKeys: [], disputeNumber, resolution: action, at });
+    const state = async () => (await store.pageReads(SINCE).readRemovals(["P-1001"]))[0]!.state;
+    return { store, decide, state, dispute: result.disputeNumber! };
+  }
+
+  it("never lets a removal's check undo a newer decision, nor act twice", async () => {
+    const owner = await removed();
+    // The owner takes the sentence off himself before the check runs: the check can no longer put it back.
+    expect(await owner.decide("take_off", "2026-11-19T13:05:00.000Z", owner.dispute)).toBe(true);
+    expect(await owner.store.listUncheckedRemovals(10)).toEqual([]);
+    expect(await owner.decide("requeue", "2026-11-19T13:06:00.000Z", owner.dispute)).toBe(false);
+    expect(await owner.state()).toBe("taken_off");
+    // Two checks of one pending removal: the first hands it back, the second does nothing.
+    const twice = await removed();
+    expect(await twice.decide("requeue", "2026-11-19T13:05:00.000Z", twice.dispute)).toBe(true);
+    expect(await twice.state()).toBe("restored");
+    expect(await twice.decide("requeue", "2026-11-19T13:06:00.000Z", twice.dispute)).toBe(false);
+  });
+
+  it("lets no failure or save of one digest end another digest's running call", async () => {
+    const store = new InMemoryAtlasPersonClaims();
+    const at = NOW.toISOString();
+    expect((await store.claimReading({ publicationNumber: "P-1001", digest: "a".repeat(64), again: false, at, limit: 3,
+      leaseSeconds: 660 })).claimed).toBe(true);
+    await store.recordFailure({ publicationNumber: "P-1001", digest: "b".repeat(64), at, limit: 3, reason: "too_long" });
+    await store.saveReading({ publicationNumber: "P-1001", digest: "c".repeat(64), sentences: [], model: "m", at });
+    expect((await store.claimReading({ publicationNumber: "P-1001", digest: "b".repeat(64), again: false, at, limit: 3,
+      leaseSeconds: 660 })).claimed).toBe(false);
+  });
+});
+

@@ -509,6 +509,7 @@ export class InMemoryAtlasPersonClaims implements AtlasPersonClaimStore {
   private readonly notices: Array<AtlasPersonNotice & { nextAttemptAt: string | null; acknowledgedAt: string | null;
     acknowledgedBy: string | null }> = [];
   private readonly unchecked = new Map<number, string | null>();
+  private readonly judgedAt = new Map<number, string>();
   /** Publications the owner checked (an F number), for the recheck notices; the tests set them. */
   readonly ownerChecked = new Set<string>();
 
@@ -553,14 +554,18 @@ export class InMemoryAtlasPersonClaims implements AtlasPersonClaimStore {
 
   async saveReading(input: Parameters<AtlasPersonClaimStore["saveReading"]>[0]): Promise<void> {
     if (!SUBJECT.test(input.publicationNumber) || !SHA256.test(input.digest)) throw new AtlasPersonClaimQueryError();
+    const prior = this.readings.get(input.publicationNumber);
     this.readings.set(input.publicationNumber, { publicationNumber: input.publicationNumber, digest: input.digest,
       sentences: structuredClone(input.sentences), readAt: input.at, model: input.model, attemptDigest: null, attempts: 0,
-      parked: false });
+      parked: false, claimedUntil: prior?.attemptDigest === input.digest ? null : prior?.claimedUntil ?? null });
   }
 
   async recordFailure(input: Parameters<AtlasPersonClaimStore["recordFailure"]>[0]) {
     const current = this.readings.get(input.publicationNumber) ?? { publicationNumber: input.publicationNumber,
       digest: null, sentences: [], readAt: null, model: null, attemptDigest: null, attempts: 0, parked: false };
+    if (current.attemptDigest !== input.digest && (current.claimedUntil ?? "") > input.at) {
+      return { attempts: current.attempts, parked: current.parked };
+    }
     const wasParked = current.parked && current.attemptDigest === input.digest;
     const attempts = current.attemptDigest === input.digest ? current.attempts + (input.reason === "attempt" ? 1 : 0) : 1;
     const parked = attempts >= input.limit;
@@ -702,7 +707,10 @@ export class InMemoryAtlasPersonClaims implements AtlasPersonClaimStore {
       addressKey: input.addressKey, foldedNames: input.foldedNames, resolvedAt: null, hintTakenAt: null,
       hintLeasedUntil: null });
     this.notify(input.legal ? "legal" : "dispute", input.publicationNumber, disputeNumber, null, input.at);
-    if (outcome === "taken_off") this.unchecked.set(disputeNumber, input.contentDigest);
+    if (outcome === "taken_off") {
+      this.unchecked.set(disputeNumber, input.contentDigest);
+      this.judgedAt.set(disputeNumber, input.at);
+    }
     return { outcome, disputeNumber, duplicate: false };
   }
 
@@ -716,6 +724,20 @@ export class InMemoryAtlasPersonClaims implements AtlasPersonClaimStore {
 
   async decide(input: Parameters<AtlasPersonClaimStore["decide"]>[0]): Promise<boolean> {
     if (input.action === "confirm") return this.unchecked.delete(input.disputeNumber ?? 0);
+    if (input.action === "requeue") {
+      // Only the exact pending removal (Codex's fourth review of B): refused once checked or resolved, and the sentence
+      // is put back only while the removal is still the one that dispute made.
+      const pending = this.disputes.find((item) => item.disputeNumber === input.disputeNumber);
+      if (pending === undefined || !this.unchecked.has(pending.disputeNumber) || pending.resolvedAt !== null) return false;
+      this.unchecked.delete(pending.disputeNumber);
+      pending.outcome = "queued";
+      const removal = this.removals.find((item) => item.publicationNumber === input.publicationNumber &&
+        item.sentenceKey === input.sentenceKey);
+      if (removal?.state === "taken_off" && removal.changedAt === this.judgedAt.get(pending.disputeNumber)) {
+        this.setRemoval(input.publicationNumber, input.sentenceKey, "restored", [], input.at, null);
+      }
+      return true;
+    }
     const existing = this.removals.find((item) => item.publicationNumber === input.publicationNumber &&
       item.sentenceKey === input.sentenceKey);
     if (input.action === "take_off") {
@@ -727,12 +749,10 @@ export class InMemoryAtlasPersonClaims implements AtlasPersonClaimStore {
       this.setRemoval(input.publicationNumber, input.sentenceKey, "restored", [], input.at, null);
     }
     const dispute = this.disputes.find(({ disputeNumber }) => disputeNumber === input.disputeNumber);
-    if (input.action === "requeue") {
-      if (dispute !== undefined) dispute.outcome = "queued";
-      this.unchecked.delete(input.disputeNumber ?? 0);
-      return true;
+    if (dispute !== undefined) {
+      dispute.resolvedAt = input.at;
+      this.unchecked.delete(dispute.disputeNumber);
     }
-    if (dispute !== undefined) dispute.resolvedAt = input.at;
     return true;
   }
 

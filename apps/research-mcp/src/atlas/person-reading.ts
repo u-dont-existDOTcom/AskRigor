@@ -282,16 +282,14 @@ export class AtlasPersonReadingWorker {
         const { finding, digest } = candidate;
         const at = this.now().toISOString();
         const bundleSize = personSentencesOf(finding).length;
-        if (bundleSize > PERSON_MAX_SENTENCES || bundleSize === 0) {
+        // Too long to read, or too much memory to read with all of it (Codex's third review): never read in part. The
+        // attempt is counted by a claim, like any other, so this writes nothing over another process's call (round 4).
+        if (bundleSize > PERSON_MAX_SENTENCES || bundleSize === 0 || candidate.relevant.length > PERSON_MAX_REMOVALS) {
+          const claim = await this.options.store.claimReading({ publicationNumber: finding.publicationNumber, digest,
+            again: candidate.hintKey !== null, at, limit: PERSON_READING_ATTEMPTS, leaseSeconds: PERSON_READING_LEASE_SECONDS });
+          if (!claim.claimed) continue;
           const failure = await this.options.store.recordFailure({ publicationNumber: finding.publicationNumber, digest,
-            at, limit: PERSON_READING_ATTEMPTS, reason: "attempt" });
-          report.failed.push({ publicationNumber: finding.publicationNumber, failure: "too_long", parked: failure.parked });
-          continue;
-        }
-        // Never read with part of its memory (Codex's third review of B): too many relevant removals, and it waits.
-        if (candidate.relevant.length > PERSON_MAX_REMOVALS) {
-          const failure = await this.options.store.recordFailure({ publicationNumber: finding.publicationNumber, digest,
-            at, limit: PERSON_READING_ATTEMPTS, reason: "attempt" });
+            at, limit: PERSON_READING_ATTEMPTS, reason: "too_long" });
           report.failed.push({ publicationNumber: finding.publicationNumber, failure: "too_long", parked: failure.parked });
           continue;
         }
