@@ -19,7 +19,9 @@ import {
   relevantRemovalNumbers,
   type PersonClaimContext,
 } from "../apps/research-mcp/src/atlas/person-claims.js";
-import { deliverAtlasPersonNotices, personChargedUsd, personOwnerChannelFromEnv } from "../apps/research-mcp/src/atlas/person-reading.js";
+import { countAtlasPersonNotices, personChargedUsd } from "../apps/research-mcp/src/atlas/person-reading.js";
+import { AtlasReview } from "../apps/research-mcp/src/findings/atlas-review.js";
+import { researchContributionReviewRuntimeOutputSchema } from "../apps/research-mcp/src/research-contribution-review-tool.js";
 import { personFinding, quoteLine, researchSource, ruleReply, type PersonRule } from "./helpers/atlas-person-fixtures.js";
 
 // Atlas Release B, Codex's second review ("do not release") and the run-6 case: each of these failed before the
@@ -202,14 +204,16 @@ describe("a source's words copied into another sentence's note (Codex's second r
 });
 
 describe("text the pages show outside the reading (Codex's second review, partly fixed)", () => {
-  it("reads a finding's public change note with it, and marks an allegation in it on every route", () => {
+  it("reads a finding's public change note with it, and leaves an allegation in it out on every route", () => {
     const note = `Corrected after a reader's report. ${COI}`;
     const finding = personFinding({ claim: "Zentarine halved the tremor score.",
       ownerTexts: [{ path: "change.corrected.2026-11-19T11:00:00.000Z", text: note }] });
     const reading = readingFor(finding, coiRule);
     expect(reading.sentences.some(({ label }) => label === "person")).toBe(true);
     const shown = view(finding, reading)!;
-    expect(shown.ownerTexts![0]!.text).toMatch(/^Corrected after a reader's report\. \[Unverified claim of a conflict of interest · The AI/u);
+    // The owner's own note never gets the line about the AI that wrote the finding (Fable's recheck of B, change 4).
+    expect(shown.ownerTexts![0]!.text).toBe("Corrected after a reader's report. [A claim about a named person was left " +
+      "out because no source supports it.]");
     expect(machineFinding(shown).ownerTexts![0]!.text).not.toContain("Zentaro sells");
     expect(shown.personClaims!.noindex).toBe(true);
     // A new note changes the digest, so it waits for its reading rather than showing plain.
@@ -266,47 +270,31 @@ describe("owner delivery, the public change history and owner rechecks (Codex's 
       sourceLink: "https://example.org/private", email: "me@example.org", at: NOW.toISOString(), readingDigest: digest,
       contentDigest: digest === null ? null : "f".repeat(64) });
 
-  it("sends a legal notice to the owner's channel, signed and without the dispute's words, until he acknowledges it", async () => {
+  it("lists a legal notice for the owner's Inbox under his login, without the dispute's words, until he acknowledges it", async () => {
+    // Fable's recheck of B, the default for where notices go: the review tool's actions, no webhook.
     const store = new InMemoryAtlasPersonClaims();
     await dispute(store, "legal-dispute-000001", true, null);
-    expect((await store.listNotices(10)).map(({ kind }) => kind)).toEqual(["legal"]);
-    const secret = Buffer.alloc(32, 7).toString("base64url");
-    const channel = personOwnerChannelFromEnv({ ASKRIGOR_ATLAS_PERSON_NOTICE_URL: "https://owner.example/hook",
-      ASKRIGOR_ATLAS_PERSON_NOTICE_SECRET: secret })!;
-    expect(personOwnerChannelFromEnv({ ASKRIGOR_ATLAS_PERSON_NOTICE_URL: "http://owner.example/hook",
-      ASKRIGOR_ATLAS_PERSON_NOTICE_SECRET: secret })).toBeUndefined();
-    const sent: Array<{ body: string; signature: string }> = [];
-    let up = false;
-    const fetch = (async (_url: string, init: RequestInit) => {
-      sent.push({ body: String(init.body), signature: String((init.headers as Record<string, string>)["x-askrigor-signature"]) });
-      return new Response(null, { status: up ? 204 : 503 });
-    }) as unknown as typeof globalThis.fetch;
-    let clock = NOW.getTime();
-    const now = () => new Date(clock);
-    expect(await deliverAtlasPersonNotices(store, channel, { fetch, now, log: () => undefined })).toEqual({ delivered: 0, failed: 1 });
-    // The failed send waits, then goes again.
-    expect(await deliverAtlasPersonNotices(store, channel, { fetch, now, log: () => undefined })).toEqual({ delivered: 0, failed: 0 });
-    up = true;
-    clock += 3 * 60_000;
-    expect(await deliverAtlasPersonNotices(store, channel, { fetch, now, log: () => undefined })).toEqual({ delivered: 1, failed: 0 });
-    expect(sent).toHaveLength(2);
-    expect(sent[1]!.body).not.toMatch(/solicitor|Private|example\.org|Zentaro/u);
-    expect(JSON.parse(sent[1]!.body)).toMatchObject({ kind: "legal", subject: "P-1001", dispute: 1 });
-    expect(sent[1]!.signature).toMatch(/^sha256=[a-f0-9]{64}$/u);
-    // Delivered but not acknowledged: again a day later; acknowledged: never again.
-    clock += 60 * 60_000;
-    expect((await deliverAtlasPersonNotices(store, channel, { fetch, now, log: () => undefined })).delivered).toBe(0);
-    clock += 24 * 60 * 60_000;
-    expect((await deliverAtlasPersonNotices(store, channel, { fetch, now, log: () => undefined })).delivered).toBe(1);
-    expect(await store.recordNotice(1, "acknowledged", "owner", now().toISOString())).toBe(true);
-    clock += 48 * 60 * 60_000;
-    expect((await deliverAtlasPersonNotices(store, channel, { fetch, now, log: () => undefined })).delivered).toBe(0);
-    expect(await store.listNotices(10)).toEqual([]);
-    // With no channel, nothing is sent and the log says what waits.
+    const review = new AtlasReview({ personNotices: store, now: () => NOW } as unknown as ConstructorParameters<typeof AtlasReview>[0]);
+    const run = async (request: Record<string, unknown>) => await review.run(request as never, {} as never);
+    const listed = await run({ action: "list_person_notices" });
+    expect(listed).toMatchObject({ ok: true, outcome: "person_notices_listed" });
+    expect(listed.personNotices!.open).toEqual([expect.objectContaining({ notice: 1, kind: "legal", legal: true,
+      subject: "P-1001", dispute: 1 })]);
+    expect(listed.text).toContain("notice 1 (LEGAL)");
+    expect(JSON.stringify(listed)).not.toMatch(/solicitor|Private|example\.org|Zentaro/u);
+    expect(() => researchContributionReviewRuntimeOutputSchema.parse({ ok: true, outcome: listed.outcome,
+      personNotices: listed.personNotices, canonicalEvidenceChangedByThisCall: false })).not.toThrow();
+    expect((await run({ action: "ack_person_notice", personNotice: 1 })).personNotices)
+      .toEqual({ acknowledged: { notice: 1, done: true } });
+    expect((await run({ action: "list_person_notices" })).personNotices!.open).toEqual([]);
+    expect((await run({ action: "ack_person_notice", personNotice: 1 })).personNotices)
+      .toEqual({ acknowledged: { notice: 1, done: false } });
+    expect(await run({ action: "ack_person_notice" })).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    // Nothing is sent anywhere: the log counts what is open.
     await dispute(store, "legal-dispute-000002", true, null);
     const log: string[] = [];
-    await deliverAtlasPersonNotices(store, undefined, { now, log: (line) => log.push(line) });
-    expect(log).toEqual(["owner_channel_not_set waiting=1 legal=1"]);
+    expect(await countAtlasPersonNotices(store, (line) => log.push(line))).toBe(1);
+    expect(log).toEqual(["open_notices count=1 legal=1"]);
   });
 
   it("records each removal in the public history, and puts a finding the owner checked back before him", async () => {

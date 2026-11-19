@@ -14,7 +14,6 @@
  *   under its own daily limit (Fable 4.6c).
  * - A refusal is logged with its category, never the text: the owner asked to hear of every guardrail block (19 Nov).
  */
-import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -79,6 +78,12 @@ const PRICES: Readonly<Record<string, Prices>> = {
 };
 const EFFORTS = new Set(["low", "medium", "high"]);
 export const PERSON_READING_DEFAULT_CAP_USD = 1;
+/**
+ * The backfill (Fable's recheck of B, the default): for the first day after the switch the cap is USD 5 (inside the
+ * owner's USD 7 a day), so the findings already public are read in hours, not days; then the daily cap again. That
+ * day's spend counts under the switch's own date, so the first 24 hours never pass USD 5. A cap of 0 stops it too.
+ */
+export const PERSON_BACKFILL_CAP_USD = 5;
 export const PERSON_READING_ATTEMPTS = 3;
 /** How long one process's claim on a digest holds: the longest call the settings allow, and a minute. */
 export const PERSON_READING_LEASE_SECONDS = 660;
@@ -223,6 +228,8 @@ export interface PersonReadingWorkerOptions {
   store: AtlasPersonClaimStore;
   reader: PersonReader;
   capUsd: number;
+  /** When the mark was switched on: the first day after it has the backfill's cap. */
+  since?: string;
   signal?: AtlasChangeSignal;
   now?: () => Date;
   log?: (line: string) => void;
@@ -269,7 +276,11 @@ export class AtlasPersonReadingWorker {
     this.running = true;
     try {
       const now = this.now();
-      const day = now.toISOString().slice(0, 10);
+      const switchedOn = this.options.since === undefined ? Number.NaN : Date.parse(this.options.since);
+      const backfill = now.getTime() >= switchedOn && now.getTime() < switchedOn + DAY;
+      const day = backfill ? this.options.since!.slice(0, 10) : now.toISOString().slice(0, 10);
+      const capUsd = backfill && this.options.capUsd > 0 ? Math.max(this.options.capUsd, PERSON_BACKFILL_CAP_USD)
+        : this.options.capUsd;
       // Only publications here: a news item's hints are the news pages' (the news design v3, 3.8).
       const hints = new Map((await this.options.store.takeHints("publication", 5, now.toISOString()))
         .map(({ publicationNumber, sentenceKey, disputeNumber }) => [publicationNumber, { sentenceKey, disputeNumber }]));
@@ -297,13 +308,13 @@ export class AtlasPersonReadingWorker {
         const removed = candidate.relevant.length === 0 ? [] : await this.options.store.removedTexts(candidate.relevant);
         const bundle = personBundleOf(finding, removed, candidate.hintKey);
         const reserved = this.options.reader.reserveUsd(bundle);
-        const allowed = await this.options.store.reserveSpend({ day, amountUsd: reserved, capUsd: this.options.capUsd,
+        const allowed = await this.options.store.reserveSpend({ day, amountUsd: reserved, capUsd,
           hint: candidate.hintKey !== null, hintCap: ATLAS_PERSON_HINTS_PER_DAY });
         if (!allowed) {
           report.atCap = true;
           if (this.capLoggedOn !== day) {
             this.capLoggedOn = day;
-            this.log(`daily_cap_reached cap_usd=${this.options.capUsd} waiting=${candidates.length}`);
+            this.log(`daily_cap_reached cap_usd=${capUsd} waiting=${candidates.length}`);
           }
           if (candidate.hintKey === null) break;
           continue;
@@ -428,74 +439,25 @@ export function startAtlasPersonReconciler(store: AtlasPersonClaimStore, source:
   return () => clearInterval(timer);
 }
 
-/** The owner's channel for notices: an https address and a 32-byte base64url secret that signs each one. */
-export interface PersonOwnerChannel { url: string; secret: string }
-
-export function personOwnerChannelFromEnv(env: NodeJS.ProcessEnv = process.env): PersonOwnerChannel | undefined {
-  const url = env.ASKRIGOR_ATLAS_PERSON_NOTICE_URL?.trim();
-  const secret = env.ASKRIGOR_ATLAS_PERSON_NOTICE_SECRET?.trim();
-  if (url === undefined || url === "" || secret === undefined || !/^[A-Za-z0-9_-]{43}$/u.test(secret)) return undefined;
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol !== "https:" || parsed.username !== "" || parsed.password !== "" ? undefined
-      : { url: parsed.href, secret };
-  } catch {
-    return undefined;
-  }
-}
-
 /**
- * One delivery pass (Codex's reviews of B, owner delivery): each due notice goes to the owner's channel, signed, with
- * only its kind, subject, dispute number and class (no dispute's words, names, link or email address); a 2xx reply is
- * its receipt. Unacknowledged, it goes again a day later. Without a channel, nothing is sent and the log says how many
- * wait, at most hourly.
+ * The owner's notices (Fable's recheck of B, the default for where they go): each stays in the private table, written in
+ * the transaction of what it reports, until the owner acknowledges it. The review tool's list_person_notices lists the
+ * open ones and ack_person_notice acknowledges one, under the owner's login, so the daily scheduled check can put each
+ * in his Inbox. Nothing is sent anywhere; the log counts what is open, hourly.
  */
-export async function deliverAtlasPersonNotices(store: AtlasPersonClaimStore, channel: PersonOwnerChannel | undefined,
-  options: { fetch?: typeof fetch; now?: () => Date; log?: (line: string) => void } = {}):
-  Promise<{ delivered: number; failed: number }> {
-  const now = options.now ?? (() => new Date());
-  const log = options.log ?? ((line: string) => console.error(`atlas person notices: ${line}`));
-  if (channel === undefined) {
-    const waiting = (await store.listNotices(500)).filter(({ deliveredAt }) => deliveredAt === null || deliveredAt === undefined);
-    if (waiting.length > 0) log(`owner_channel_not_set waiting=${waiting.length} legal=${waiting.filter(({ kind }) => kind === "legal").length}`);
-    return { delivered: 0, failed: 0 };
-  }
-  const send = options.fetch ?? fetch;
-  let delivered = 0;
-  let failed = 0;
-  for (const notice of await store.takeNotices(20, now().toISOString())) {
-    const body = JSON.stringify(noticeBody(notice));
-    const signature = createHmac("sha256", Buffer.from(channel.secret, "base64url")).update(body).digest("hex");
-    try {
-      const response = await send(channel.url, { method: "POST", body, redirect: "error",
-        headers: { "content-type": "application/json", "x-askrigor-signature": `sha256=${signature}` },
-        signal: AbortSignal.timeout(10_000) });
-      if (response.ok) {
-        await store.recordNotice(notice.noticeNumber, "delivered", null, now().toISOString());
-        delivered += 1;
-      } else {
-        failed += 1;
-      }
-    } catch {
-      failed += 1;
-    }
-  }
-  if (failed > 0) log(`delivery_failed count=${failed}`);
-  return { delivered, failed };
+export async function countAtlasPersonNotices(store: AtlasPersonClaimStore,
+  log: (line: string) => void = (line) => console.error(`atlas person notices: ${line}`)): Promise<number> {
+  const open = await store.listNotices(500);
+  if (open.length > 0) log(`open_notices count=${open.length} legal=${open.filter(({ kind }) => kind === "legal").length}`);
+  return open.length;
 }
 
-const noticeBody = (notice: AtlasPersonNotice) => ({ type: "askrigor.atlas.person_notice", notice: notice.noticeNumber,
-  kind: notice.kind, subjectKind: notice.subjectKind, subject: notice.publicationNumber, dispute: notice.disputeNumber,
-  detail: notice.detail, createdAt: notice.createdAt, attempt: notice.attempts,
-  acknowledge: `node apps/research-mcp/dist/atlas/person-claims-admin.js ack ${notice.noticeNumber} owner` });
-
-/** The owner's notices: a delivery pass every minute with a channel, else an hourly count in the log. */
-export function startAtlasPersonNotices(store: AtlasPersonClaimStore, channel: PersonOwnerChannel | undefined,
-  options: Parameters<typeof deliverAtlasPersonNotices>[2] = {}): () => void {
-  const log = options.log ?? ((line: string) => console.error(`atlas person notices: ${line}`));
-  const run = () => { void deliverAtlasPersonNotices(store, channel, options).catch(() => log("pass_failed")); };
+/** The hourly count of the owner's open notices, in the log. */
+export function startAtlasPersonNotices(store: AtlasPersonClaimStore,
+  log: (line: string) => void = (line) => console.error(`atlas person notices: ${line}`)): () => void {
+  const run = () => { void countAtlasPersonNotices(store, log).catch(() => log("count_failed")); };
   run();
-  const timer = setInterval(run, channel === undefined ? 60 * 60_000 : 60_000);
+  const timer = setInterval(run, 60 * 60_000);
   timer.unref?.();
   return () => clearInterval(timer);
 }
@@ -516,7 +478,7 @@ export function startAtlasPersonRetentionFromEnv(env: NodeJS.ProcessEnv = proces
   const store = new PostgresAtlasPersonClaimStore({ connectionString: review.connectionString, schema: review.schema,
     ssl: review.ssl as never });
   const stopPurge = startAtlasPersonPurge(store);
-  const stopNotices = startAtlasPersonNotices(store, personOwnerChannelFromEnv(env));
+  const stopNotices = startAtlasPersonNotices(store);
   return { store, stop: () => { stopPurge(); stopNotices(); } };
 }
 
@@ -562,7 +524,9 @@ export function startAtlasPersonClaimsFromEnv(env: NodeJS.ProcessEnv, source: At
   const stopReconciler = startAtlasPersonReconciler(store, source);
   const reader = createPersonReader({ env });
   if (reader === undefined) return { store, stop: stopReconciler };
-  const worker = new AtlasPersonReadingWorker({ source, store, reader, capUsd: personReadingCapFromEnv(env) });
+  const since = personMarkSinceFromEnv(env, () => undefined);
+  const worker = new AtlasPersonReadingWorker({ source, store, reader, capUsd: personReadingCapFromEnv(env),
+    ...(since === undefined ? {} : { since }) });
   const stopWorker = worker.start();
   return { store, stop: () => { stopReconciler(); stopWorker(); } };
 }

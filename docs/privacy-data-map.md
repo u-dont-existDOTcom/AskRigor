@@ -2363,10 +2363,13 @@ Off until `ASKRIGOR_ATLAS_PERSON_MARK` names the instant it was switched on (des
   `atlas_person_changes` (the public history: subject, state, date; no words, no names) is the reader's, for the changes
   page. `atlas_person_owner_notices` (kind, subject, dispute number, a class such as `refusal:cyber`, delivery and
   acknowledgement times) is refused to the reader.
-- **The owner's channel.** Each notice (a legal letter or data request, a refusal, a parked finding, a claim taken off
-  or disputed on a finding the owner checked) is posted, signed, to `ASKRIGOR_ATLAS_PERSON_NOTICE_URL` (https) until it
-  is delivered, and again daily until acknowledged. The post holds only the notice's kind, subject, dispute number and
-  class: never a dispute's message, link, email address, names or the sentence.
+- **The owner's notices.** Each notice (a legal letter or data request, a refusal, a parked finding, a claim taken off
+  or disputed on a finding the owner checked) stays in `atlas_person_owner_notices` until the owner acknowledges it.
+  Nothing is sent anywhere: the review tool's `list_person_notices` (under the owner's login) lists the open ones for
+  the daily scheduled check to put in his Inbox, and `ack_person_notice` records his acknowledgement. A notice holds
+  only its kind, subject, dispute number and class: never a dispute's message, link, email address, names or the
+  sentence. The automatic reading never receives a dispute's message, link or email address; the operator's Claude
+  session (Anthropic) reads disputes for the owner from the queue.
 - **Deletion.** A dispute's message, link and email go after 90 days (a purge that runs whenever the review role is
   configured, pages or mark on or off); its short record
   (date, publication, sentence, outcome, whether it read as a legal or data request) stays. A taken-off sentence's

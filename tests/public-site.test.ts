@@ -208,8 +208,11 @@ describe("AskRigor public site", () => {
       "about you) is checked for personal details by an AI model from Anthropic, on AskRigor’s own account. Each " +
       "submission first enters");
     // Two AI readings by Anthropic, each disclosed once: this one, and Atlas Release B's reading for claims about named
-    // people (design of 19 Nov 2026, section 6; Codex's red team: "Anthropic also receives that memory").
-    expect(privacy.match(/Anthropic/gu)).toHaveLength(2);
+    // people (design of 19 Nov 2026, section 6; Codex's red team: "Anthropic also receives that memory"); and, once,
+    // the Claude session that reads disputes for the owner (Fable's recheck of B, change 5).
+    expect(privacy.match(/Anthropic/gu)).toHaveLength(3);
+    expect(privacy).toContain("AskRigor’s operator handles disputes with Claude, an AI model from Anthropic, which reads " +
+      "disputes, with any link and email address given with them, for AskRigor’s owner.");
     expect(privacy).toContain("To find claims about people, AskRigor sends each finding’s text, the sentences it quotes " +
       "from its sources and any taken-off claims about the names in it to an AI model from Anthropic, on AskRigor’s own " +
       "account.");

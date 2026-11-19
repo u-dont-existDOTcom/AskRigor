@@ -70,6 +70,8 @@ describe("the sentences a reading labels, and the digest it is bound to", () => 
       ["Conflicts of interest", ["research.0.lines.0.sentenceSection"]], ["It is one trial.", ["research.0.lines.0.against"]],
       ["People say it calms the hands.", ["forum.mechanism"]], ["Guidelines advise against it.", ["challenge.usualView"]],
       ["A guideline", ["challenge.sourceLabel"]],
+      // The topic's name and key (the key read as words), which the AI that saved the card wrote (Codex's final P1).
+      ["Velmor syndrome", ["topic.label"]], ["velmor-syndrome velmor syndrome", ["topic.key"]],
     ]);
     // A contested finding's disagreement is the owner's link text, outside the reading.
     expect(texts.flat(2)).not.toContain("The dose differs.");
@@ -87,7 +89,7 @@ describe("the sentences a reading labels, and the digest it is bound to", () => 
 });
 
 describe("strict validation of a reading (design 4.7)", () => {
-  const finding = personFinding({ claim: `Zentarine halved the tremor score. ${COI}` });
+  const finding = personFinding({ claim: `Zentarine halved the tremor score. ${COI}`, topic: null });
   const bundle = personBundleOf(finding, []);
   it("rejects a reply that doesn't parse, or misses, repeats or adds a number, or leaves a set", () => {
     for (const [reply, problem] of [
@@ -177,7 +179,8 @@ describe("the server's verdict and its fixed words (design 4.2-4.4; the owner's 
     const finding = personFinding({ claim: sentences.join(" ") });
     const shown = view(finding, readingFor(finding, (text) => text.includes("convicted") ? "person|crime|-|-|-|n|n|n|-|Dr Ada Velmor"
       : text.includes("cancer") ? "person|health|-|-|-|n|n|n|-|Dr Ada Velmor"
-        : text.includes("affair") ? "person|sex|-|-|-|n|n|n|-|Dr Ada Velmor" : "person|fraud|-|-|-|n|n|y|-|u/tremorfan"))!;
+        : text.includes("affair") ? "person|sex|-|-|-|n|n|n|-|Dr Ada Velmor"
+          : text.includes("tremorfan") ? "person|fraud|-|-|-|n|n|y|-|u/tremorfan" : undefined))!;
     for (const sentence of sentences) expect(shown.claim).toContain(`${IT_MIGHT_BE_FALSE}] ${sentence}`);
     expect(shown.personClaims!.neutralTitle).toBe("Velmor syndrome: a finding with an unverified claim about a named person");
   });
@@ -194,7 +197,9 @@ describe("unread, stale, disputed and machine-read (Fable's changes 1, 2, 4; des
     const finding = personFinding({ claim: `Zentarine halved the tremor score. ${COI}`, publishedAt: "2026-11-01T09:00:00.000Z" });
     const shown = view(finding, undefined, { removedNames: ["dr invented zentaro"] })!;
     expect(shown.personClaims).toMatchObject({ state: "unread", banner: PERSON_UNREAD_BANNER, noindex: true,
-      neutralTitle: "Velmor syndrome: a finding not yet checked for claims about people" });
+      // Its topic is unread too, and would head pages and lists with no banner: it shows without one (Codex's final P1).
+      neutralTitle: "The Atlas: a finding not yet checked for claims about people" });
+    expect(shown.topic).toBeNull();
     // The owner's fail-safe rule (round 3): an unread finding's claim carries the banner wherever it shows, lists too.
     expect(shown.claim).toBe(`[${PERSON_UNREAD_BANNER}] Zentarine halved the tremor score. [${PERSON_WAITING}]`);
     expect(machineFinding(shown).claim).toBe(`[${PERSON_UNREAD_BANNER}] Zentarine halved the tremor score. [${PERSON_WAITING}]`);

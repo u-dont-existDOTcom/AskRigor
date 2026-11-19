@@ -225,12 +225,14 @@ reprovision the review role (this folder's `provision-research-review-role.sh` g
 `ASKRIGOR_ATLAS_PERSON_MARK` names the instant it was switched on (an ISO time, such as `2026-11-20T09:00:00Z`): findings
 published before it show under a banner until the worker has read them, later ones only once read. The reading uses
 `ASKRIGOR_ATLAS_PERSON_READING_KEY_FILE` and `_WORKSPACE_ID` (by default the meaning judge's) and
-`ASKRIGOR_ATLAS_PERSON_READING_DAILY_CAP_USD` (default 1). Set the owner's channel before the mark:
-`ASKRIGOR_ATLAS_PERSON_NOTICE_URL` (an https address the owner reads, such as his own automation's webhook) and
-`ASKRIGOR_ATLAS_PERSON_NOTICE_SECRET` (32 random bytes, base64url; each post carries `x-askrigor-signature: sha256=`
-its HMAC). Legal letters, data requests, refusals, parked findings and changes on findings the owner checked are posted
-there until delivered and daily until acknowledged (`person-claims-admin.js notices`, then `ack <notice> owner`); with
-no channel the log counts what waits, hourly. Publish the privacy and terms text with the setting, not before. Roll back only to a build that has Release B: an older image shows these claims without their mark, on lists,
+`ASKRIGOR_ATLAS_PERSON_READING_DAILY_CAP_USD` (default 1; for the first 24 hours after the switch the cap is USD 5,
+counted under the switch's date, unless the setting is 0). The owner's notices (legal letters, data requests,
+refusals, parked findings and changes on findings the owner checked) stay in the private table until he acknowledges
+them; nothing is sent. Before the mark, give the daily scheduled check that writes his Inbox a step that calls the
+review tool's `list_person_notices` under the owner's login, writes one Inbox item per open notice (kind, finding,
+dispute number; a legal one flagged), and calls `ack_person_notice` with `later_inputs.personNotice` when he has
+answered it (the shell route is `person-claims-admin.js notices` and `ack <notice> owner`); the log counts what is
+open, hourly. The old `ASKRIGOR_ATLAS_PERSON_NOTICE_URL` and `_SECRET` settings are gone. Publish the privacy and terms text with the setting, not before. Roll back only to a build that has Release B: an older image shows these claims without their mark, on lists,
 kept pages and lookups alike. If an older image is unavoidable: pause the writers (no saves and no `show_on_pages`), and
 with the mark still on, withdraw every publication `node apps/research-mcp/dist/atlas/person-claims-admin.js
 rollback-list` prints (unread findings, findings with a marked claim, and findings with a sentence taken off or left

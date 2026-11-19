@@ -31,6 +31,8 @@ import {
   type AtlasPersonSupport,
 } from "@askrigor/evidence-repository";
 
+import { topicKeyText } from "../findings/topic-key.js";
+
 import type { ShownFinding } from "./page-data.js";
 import { atlasSearchFold } from "./search.js";
 
@@ -66,6 +68,11 @@ export const PERSON_UNREAD_BANNER = "AskRigor hasn’t yet checked this finding 
   "treat any such claim here as unconfirmed.";
 export const PERSON_WAITING = "A sentence here is waiting for AskRigor’s check for claims about people.";
 export const PERSON_LEFT_OUT = "A claim about a named person was left out because no source supports it.";
+/**
+ * Fable's recheck of B, change 3: a finding from before the switch shows under the banner only while it can still be
+ * read; once its reading is parked, or this long after the switch, it is not shown until it is read.
+ */
+export const PERSON_UNREAD_SHOWN_MS = 7 * 24 * 60 * 60 * 1_000;
 export const personTakenOff = (day: string) =>
   `A claim about a named person was taken off here after it was disputed (${day}). It comes back only if a source ` +
   "supports it.";
@@ -183,6 +190,16 @@ function slotsOf(finding: ShownFinding): Slot[] {
     add("challenge.sourceLabel", finding.challenge.sourceLabel,
       (target, text) => { target.challenge!.sourceLabel = text; });
   }
+  // The topic's name and key, and each search's query (Codex's final pass of B; Fable's recheck, change 1): the AI that
+  // saved the card wrote all three, and the topic heads its page's title, description and address, the lists, the map,
+  // the sitemap and the lookup. The key is read as words, as the privacy screen reads it. A topic is never rewritten:
+  // a finding whose topic doesn't read plain shows without one.
+  if (finding.topic !== null) {
+    add("topic.label", finding.topic.label, () => undefined);
+    add("topic.key", topicKeyText(finding.topic.key), () => undefined);
+  }
+  finding.searches.forEach((search, index) => add(`searches.${index}.query`, search.query,
+    (target, text) => { target.searches[index]!.query = text; }));
   // The owner's own texts the pages show with it (its public change notes; a curated scorecard row's texts), read with
   // it like any other text (Codex's second review of B).
   (finding.ownerTexts ?? []).forEach((owner, index) => add(`owner.${owner.path}`, owner.text,
@@ -467,8 +484,11 @@ export function personVerdictOf(entry: AtlasPersonSentenceReading, finding: Show
   if (origin === null) return unverified({ type: "no_source" });
   if (origin.type === "forum") {
     const signal = finding.forumSignal;
+    // A thread is linked only when it is the one thread read (Fable's recheck of B, change 4): of several, the reading
+    // never saw which says it, and their posters are real people.
+    const thread = signal !== null && signal.threadsRead === 1 && signal.threads.length === 1 ? signal.threads[0]! : null;
     return unverified({ type: "forum", reddit: signal !== null && signal.communities.length > 0 &&
-      signal.communities.every((community) => /^r\//u.test(community)) }, signal?.threads[0] ?? null);
+      signal.communities.every((community) => /^r\//u.test(community)) }, thread);
   }
   if (origin.type === "video") return unverified({ type: "video" }, finding.namedVideos[origin.index] ?? null);
   if (origin.type === "cited") {
@@ -499,7 +519,9 @@ export function personVerdictOf(entry: AtlasPersonSentenceReading, finding: Show
 
 export type PersonSegment =
   | { type: "text"; text: string }
-  | { type: "mark"; head: string; line: string; href: string | null; text: string }
+  | { type: "mark"; head: string; line: string; href: string | null; text: string;
+    /** What the link says: "the thread" or "the video" (Fable's recheck of B, change 4). */
+    hrefText?: "the thread" | "the video" }
   | { type: "note"; text: string };
 
 export interface PersonViewSentence {
@@ -584,7 +606,13 @@ export function applyPersonClaims(finding: ShownFinding, context: PersonClaimCon
   const elsewhere = new Map((context.globalRemovals ?? []).filter(({ state: removalState }) => removalState === "taken_off")
     .map((removal) => [removal.sentenceKey, removal]));
   const before = shownBeforeMark(finding.publishedAt, context.since, context.now);
-  if (state === "unread" && (!before || context.hideUnread === true)) return undefined;
+  if (state === "unread") {
+    // Fable's recheck of B, change 3: not once its reading is parked (the owner has the "parked" notice), nor once it is
+    // still unread seven days after the switch.
+    const parked = context.reading?.parked === true && context.reading.attemptDigest === personDigestOf(finding, relevant);
+    const late = context.now.getTime() - Date.parse(context.since) >= PERSON_UNREAD_SHOWN_MS;
+    if (!before || context.hideUnread === true || parked || late) return undefined;
+  }
   const evidence = personEvidenceKey(finding);
   const entries = new Map((context.reading?.sentences ?? []).filter((entry) => state === "read" ||
     entry.label === "none" || entry.evidence === evidence).map((entry) => [entry.key, entry]));
@@ -720,10 +748,19 @@ export function applyPersonClaims(finding: ShownFinding, context: PersonClaimCon
   let unverifiedPerson = false;
   let waiting = false;
   const unread = state === "unread";
+  // An unread finding's topic, like a marked one, would head pages and lists that carry no banner: it shows only read
+  // and plain (Fable's recheck of B, change 1).
+  let topicShows = !unread;
   for (const slot of slotsOf(finding)) {
     const parts: PersonSegment[] = [];
     let page = "";
     let machineText = "";
+    const topicSlot = slot.path === "topic.label" || slot.path === "topic.key";
+    const querySlot = /^searches\.\d+\.query$/u.test(slot.path);
+    const ownerSlot = slot.path.startsWith("owner.");
+    // A query that holds a claim about a person no source supports, or a taken-off or waiting sentence, is replaced
+    // whole by the fixed line (Fable's recheck of B, change 1).
+    let queryOut: PersonVerdict | undefined;
     for (const piece of piecesOf(slot.text)) {
       if (piece.key === "") {
         page += piece.segment;
@@ -732,6 +769,11 @@ export function applyPersonClaims(finding: ShownFinding, context: PersonClaimCon
       }
       const verdict = verdicts.get(piece.key)!;
       const removal = removals.get(piece.key);
+      if (topicSlot && verdict.kind !== "plain") topicShows = false;
+      if (querySlot && (verdict.kind === "taken_off" || verdict.kind === "waiting" || verdict.kind === "left_out" ||
+        (verdict.kind === "unverified" && verdict.aboutPerson)) && RANK[verdict.kind] >= RANK[queryOut?.kind ?? "plain"]) {
+        queryOut = verdict;
+      }
       let pagePart: string;
       let machinePart: string;
       switch (verdict.kind) {
@@ -741,8 +783,8 @@ export function applyPersonClaims(finding: ShownFinding, context: PersonClaimCon
           break;
         case "sourced": {
           const disputed = removal?.state === "disputed" ? `[${personDisputed(removal.changedAt.slice(0, 10))}] ` : "";
-          if (verdict.bare === true) {
-            // A kept quote shown as the quote it is; a dispute's mark still shows before it.
+          if (verdict.bare === true || querySlot) {
+            // A kept quote shown as the quote it is, or a supported query as typed; a dispute's mark still shows before it.
             pagePart = machinePart = `${disputed}${piece.text}`;
             if (disputed !== "") parts.push({ type: "note", text: disputed.trim() });
             parts.push({ type: "text", text: piece.text });
@@ -754,12 +796,22 @@ export function applyPersonClaims(finding: ShownFinding, context: PersonClaimCon
           break;
         }
         case "unverified": {
+          if (verdict.aboutPerson) unverifiedPerson = true;
+          if (ownerSlot) {
+            // The owner's own text (Fable's recheck of B, change 4): no origin line about the AI that wrote the finding is
+            // true of it. A claim about a person no source supports is left out with the fixed line, as in his curated
+            // rows; a claim about a company shows as he wrote it.
+            pagePart = machinePart = verdict.aboutPerson ? `[${PERSON_LEFT_OUT}]` : piece.text;
+            parts.push(verdict.aboutPerson ? { type: "note", text: pagePart } : { type: "text", text: piece.text });
+            break;
+          }
           const head = PERSON_MARK_HEADS[verdict.claimKind];
           const line = `${originLineText(verdict.origin)} ${IT_MIGHT_BE_FALSE}`;
           pagePart = `[${head} · ${line}] ${piece.text}`;
           machinePart = verdict.aboutPerson ? `[${personMachineLeftOut(verdict.claimKind)}]` : pagePart;
-          if (verdict.aboutPerson) unverifiedPerson = true;
-          parts.push({ type: "mark", head, line, href: verdict.href, text: piece.text });
+          parts.push({ type: "mark", head, line, href: verdict.href, text: piece.text,
+            ...(verdict.href === null ? {} : { hrefText: verdict.origin.type === "video" ? "the video" as const
+              : "the thread" as const }) });
           break;
         }
         case "taken_off":
@@ -785,16 +837,22 @@ export function applyPersonClaims(finding: ShownFinding, context: PersonClaimCon
       page = `[${PERSON_UNREAD_BANNER}] ${page}`;
       machineText = `[${PERSON_UNREAD_BANNER}] ${machineText}`;
     }
+    if (queryOut !== undefined) {
+      page = machineText = queryOut.kind === "taken_off" ? `[${personTakenOff(queryOut.day)}]`
+        : queryOut.kind === "waiting" ? `[${PERSON_WAITING}]` : `[${PERSON_LEFT_OUT}]`;
+    }
     slot.set(shown, page);
     if (machineText !== page) machine[slot.path] = machineText;
     if (STYLED_PATHS.has(slot.path)) segments[slot.path] = parts;
   }
+  if (!topicShows) shown.topic = null;
   const banner = unread ? PERSON_UNREAD_BANNER : null;
   const noindex = unread || waiting || unverifiedPerson;
   shown.personClaims = {
     state, readingDigest: state === "read" ? context.reading?.digest ?? null : null, contentDigest: personDigestOf(finding),
     banner, noindex,
-    neutralTitle: noindex ? personNeutralTitle(finding, unread || (waiting && !unverifiedPerson)) : null,
+    // The topic as shown: a hidden one is never a title (Fable's recheck of B, change 1).
+    neutralTitle: noindex ? personNeutralTitle(shown, unread || (waiting && !unverifiedPerson)) : null,
     neutralDescription: noindex ? unread || (waiting && !unverifiedPerson) ? PERSON_UNREAD_DESCRIPTION
       : PERSON_NEUTRAL_DESCRIPTION : null,
     segments, machine, sentences: viewSentences,

@@ -1373,7 +1373,8 @@ function personText(finding: ShownFinding, path: "claim" | "question" | "usualAn
   return joined(segments.map((segment) => segment.type === "text" ? html`${segment.text}`
     : segment.type === "note" ? html`<span class="person-note">${segment.text}</span>`
       : html`<span class="person-mark"><strong>${segment.head}</strong> · ${segment.line}${segment.href === null ? ""
-        : html` <a href="${segment.href}" rel="nofollow ugc">(the thread)</a>`}</span> ${segment.text}`), " ");
+        : html` <a href="${segment.href}" rel="nofollow ugc">(${segment.hrefText ?? "the thread"})</a>`}</span> ${segment.text}`),
+  " ");
 }
 
 function personBanner(finding: ShownFinding): SafeHtml | "" {
