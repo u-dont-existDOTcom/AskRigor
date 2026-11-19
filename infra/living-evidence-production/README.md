@@ -219,6 +219,19 @@ reprovision the access role before serving the image that reads the setting. The
 off before a run and on afterwards, recording both. An earlier image ignores the setting, so rollback to it
 requires pausing regressions to avoid saving their cards again; the column and choice can remain in place.
 
+Atlas Release B (19 Nov 2026): migration `0042_atlas_person_readings` adds the readings that mark unverified claims
+about named people, the disputed sentences, the private disputes and the reading's daily spend, and its functions;
+reprovision the review role (this folder's `provision-research-review-role.sh` grants them). The mark stays off until
+`ASKRIGOR_ATLAS_PERSON_MARK` names the instant it was switched on (an ISO time, such as `2026-11-20T09:00:00Z`): findings
+published before it show under a banner until the worker has read them, later ones only once read. The reading uses
+`ASKRIGOR_ATLAS_PERSON_READING_KEY_FILE` and `_WORKSPACE_ID` (by default the meaning judge's) and
+`ASKRIGOR_ATLAS_PERSON_READING_DAILY_CAP_USD` (default 1). Publish the privacy and terms text with the setting, not
+before. Roll back only to a build that has Release B: an older image shows these claims without their mark, on lists,
+kept pages and lookups alike. If an older image is unavoidable, first unset `ASKRIGOR_ATLAS_PERSON_MARK`, then
+withdraw every publication `node apps/research-mcp/dist/atlas/person-claims-admin.js rollback-list` prints (run with
+the mark still set in that one command's environment), with the owner's `unpublish_finding`, before the older image
+serves. The same tool lists the open disputes (`queue`) and takes a sentence off or puts it back (`take-off`, `restore`).
+
 Earlier notice v3 (owner answers 159, 1b and 7, and 160b, 2026-10-22): the free
 contributor notice's third version, `free-contributor-v3-2026-10-22`, says that findings
 the owner accepts may be published in the public Atlas and what deleting a

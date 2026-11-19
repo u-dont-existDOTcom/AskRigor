@@ -2342,6 +2342,29 @@ people's own reports of what they tried for a health problem and what happened, 
 - **Stated limits.** A report is health information its author chose to publish; the Atlas cannot check that it is
   true. Research attached by a person's own AI is checked for its shape and links, not redone, before it is shown.
 
+## Atlas claims about named people (Release B, 19 November 2026)
+
+Off until `ASKRIGOR_ATLAS_PERSON_MARK` names the instant it was switched on (design: the owner's 352b, 353b and 356a;
+`apps/research-mcp/src/atlas/person-claims.ts`). While it is on:
+
+- **The reading call.** After every save, a worker in the research server sends one Claude API call per publication
+  (Opus 5.5, low effort, AskRigor's own key and workspace): the finding's sentences as the pages show them (numbered),
+  its sources' titles, identifiers and check states, its kept backing quotes with their sections, whether forum threads
+  or videos are named (never their content or posters), and the taken-off sentences whose folded names its text holds.
+  The reply is labels only; the server writes every public word. No dispute, email address or reader data is sent.
+- **Tables (migration 0042).** `atlas_person_readings` (per publication: the digest read, a label per sentence with
+  the names as written, folded), `atlas_person_removals` (per disputed sentence: its key, state, folded names, date):
+  both readable by the public runtime's reader, which needs them to render. `atlas_person_removed_texts` (a taken-off
+  sentence's words), `atlas_person_disputes` (message, optional link and email, a daily key of the sender's address,
+  never the address) and `atlas_person_reading_spend`: refused to the reader; the review role reaches them only through
+  the migration's SECURITY DEFINER functions.
+- **Deletion.** A dispute's message, link and email go after 90 days (the worker's daily purge); its short record
+  (date, publication, sentence, outcome, whether it read as a legal or data request) stays. A taken-off sentence's
+  words and folded names go after three years.
+- **Pages.** An unverified claim about a person shows with its fixed mark, is never in a title, description or the
+  sitemap, keeps its page out of search engines, and is left out of the Atlas lookup with a line saying so. A finding
+  first published after the switch-on is not shown until it is read.
+
 ## Research data not persistently stored
 
 - Raw OAuth subjects, account email/contact fields, access tokens, passwords,
