@@ -810,8 +810,9 @@ async function withChangeNotes(reads: AtlasPageReads, shown: ShownFinding[]): Pr
   }
   for (const finding of shown) {
     if (finding.status.kind === "unreviewed") continue;
-    const own = notes.get(finding.status.atlasNumber);
-    if (own !== undefined) finding.ownerTexts = [...(finding.ownerTexts ?? []), ...own.map((note) => ({ ...note }))];
+    const have = new Set((finding.ownerTexts ?? []).map(({ path }) => path));
+    const own = (notes.get(finding.status.atlasNumber) ?? []).filter(({ path }) => !have.has(path));
+    if (own.length > 0) finding.ownerTexts = [...(finding.ownerTexts ?? []), ...own.map((note) => ({ ...note }))];
   }
 }
 
@@ -863,6 +864,9 @@ export async function markedFindings(reads: AtlasPageReads, shown: readonly Show
   options: Pick<PersonClaimContext, "leaveOutUnverified" | "hideUnread"> = {}): Promise<ShownFinding[]> {
   const person = reads.personClaims;
   if (person === undefined || shown.length === 0) return [...shown];
+  // The same complete raw view on every path (Codex's third review of B): the direct page's findings carry their change
+  // notes too, as the worker's and the lists' do (the notes are attached once).
+  await withChangeNotes(reads, shown as ShownFinding[]);
   const numbers = unique(shown.map(({ publicationNumber }) => publicationNumber));
   const readings = new Map<string, AtlasPersonReading>();
   const removals: AtlasPersonRemoval[] = [];

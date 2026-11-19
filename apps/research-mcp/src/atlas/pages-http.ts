@@ -1212,13 +1212,14 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     // The page is read again after it; a change to its texts or evidence puts the sentence back and hands the dispute
     // to the main session (the transaction itself held the reading's row against a new reading).
     if (result.outcome === "taken_off" && !result.duplicate && result.disputeNumber !== null) {
+      // Recorded as unchecked in the same transaction: if this check never runs, the reconciliation pass makes it.
       const after = await loadAtlasFinding(source, publicationNumber);
-      if (after?.finding.personClaims?.contentDigest !== model.finding.personClaims.contentDigest) {
-        await store.decide({ publicationNumber, sentenceKey: parsed.input.sentenceKey, action: "requeue", sentence: null,
-          foldedNames: [], contextKeys: [], disputeNumber: result.disputeNumber,
-          resolution: "the finding changed while the dispute was judged", at: new Date().toISOString() });
-        result = { ...result, outcome: "queued" };
-      }
+      const unchanged = after?.finding.personClaims?.contentDigest === model.finding.personClaims.contentDigest;
+      await store.decide({ publicationNumber, sentenceKey: parsed.input.sentenceKey,
+        action: unchanged ? "confirm" : "requeue", sentence: null, foldedNames: [], contextKeys: [],
+        disputeNumber: result.disputeNumber, resolution: unchanged ? "checked again: unchanged"
+          : "the finding changed while the dispute was judged", at: new Date().toISOString() });
+      if (!unchanged) result = { ...result, outcome: "queued" };
     }
     if (result.outcome === "taken_off" || result.outcome === "marked_disputed") {
       cache.clear();

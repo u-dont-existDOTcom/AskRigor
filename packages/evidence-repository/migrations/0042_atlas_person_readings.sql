@@ -92,7 +92,11 @@ CREATE TABLE IF NOT EXISTS atlas_person_disputes (
   hint_taken_at timestamptz,
   hint_leased_until timestamptz,
   resolved_at timestamptz,
-  resolution text CHECK (resolution IS NULL OR length(resolution) <= 500)
+  resolution text CHECK (resolution IS NULL OR length(resolution) <= 500),
+  -- An automatic removal is checked again against the finding it was judged on (Codex's third review of B): the digest
+  -- of that finding's texts and evidence, and when the check ran. Until then it is listed for the check.
+  judged_digest text CHECK (judged_digest IS NULL OR judged_digest ~ '^[a-f0-9]{64}$'),
+  checked_at timestamptz
 );
 CREATE INDEX IF NOT EXISTS atlas_person_disputes_received ON atlas_person_disputes (received_at);
 
@@ -118,7 +122,7 @@ CREATE INDEX IF NOT EXISTS atlas_person_changes_changed ON atlas_person_changes 
 
 CREATE TABLE IF NOT EXISTS atlas_person_owner_notices (
   notice_number bigserial PRIMARY KEY,
-  kind text NOT NULL CHECK (kind IN ('legal', 'refusal', 'parked', 'recheck')),
+  kind text NOT NULL CHECK (kind IN ('legal', 'dispute', 'refusal', 'parked', 'recheck')),
   subject_kind text NOT NULL CHECK (subject_kind IN ('publication', 'news', 'glance')),
   subject_id text NOT NULL,
   CHECK ((subject_kind = 'publication' AND subject_id ~ '^P-[1-9][0-9]{3,}$')
@@ -315,8 +319,10 @@ BEGIN
    WHERE stored.subject_kind = p_subject_kind AND stored.subject_id = p_subject_id
      FOR UPDATE;
   -- A missed-claim report reads a digest again although it is read (p_again); parking and a running claim still hold.
-  IF (NOT p_again AND stored_row.digest IS NOT DISTINCT FROM p_digest) OR (stored_row.attempt_digest IS NOT DISTINCT FROM p_digest
-      AND (stored_row.parked OR coalesce(stored_row.claimed_until > p_at, false))) THEN
+  -- One call at a time on a subject, whatever its digest (Codex's third review of B): a running claim on another digest
+  -- also refuses, so no claim can replace another's while its call runs.
+  IF (NOT p_again AND stored_row.digest IS NOT DISTINCT FROM p_digest) OR coalesce(stored_row.claimed_until > p_at, false)
+    OR (stored_row.attempt_digest IS NOT DISTINCT FROM p_digest AND stored_row.parked) THEN
     RETURN QUERY SELECT false, stored_row.attempts, stored_row.parked;
     RETURN;
   END IF;
@@ -382,7 +388,7 @@ CREATE OR REPLACE FUNCTION submit_atlas_person_dispute(p_key text, p_subject_kin
   p_sentence_key text, p_kind text, p_wanted text, p_legal boolean, p_address text, p_names text[], p_context text[],
   p_sentence text, p_what text, p_link text,
   p_email text, p_at timestamptz, p_ceiling integer, p_per_address integer, p_per_sentence integer, p_per_name integer,
-  p_reading_digest text)
+  p_reading_digest text, p_content_digest text)
 RETURNS TABLE (outcome text, dispute_number bigint, duplicate boolean)
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -405,7 +411,8 @@ BEGIN
     OR length(p_sentence) NOT BETWEEN 1 AND 4000 OR p_what IS NULL OR length(p_what) NOT BETWEEN 1 AND 4000
     OR (p_link IS NOT NULL AND length(p_link) NOT BETWEEN 1 AND 600)
     OR (p_email IS NOT NULL AND length(p_email) NOT BETWEEN 3 AND 254) OR p_at IS NULL OR p_ceiling IS NULL
-    OR p_per_address IS NULL OR p_per_sentence IS NULL OR p_per_name IS NULL THEN
+    OR p_per_address IS NULL OR p_per_sentence IS NULL OR p_per_name IS NULL
+    OR (p_content_digest IS NOT NULL AND p_content_digest !~ '^[a-f0-9]{64}$') THEN
     RAISE EXCEPTION 'ATLAS_PERSON_DISPUTE_INVALID';
   END IF;
   IF NOT coalesce(atlas_person_subject_known(p_subject_kind, p_subject_id), false) THEN
@@ -445,7 +452,7 @@ BEGIN
       WHERE reading.subject_kind = p_subject_kind AND reading.subject_id = p_subject_id
         AND p_reading_digest IS NOT NULL AND reading.digest = p_reading_digest
       FOR UPDATE;
-    IF NOT FOUND THEN
+    IF NOT FOUND OR p_content_digest IS NULL THEN
       chosen := 'queued';
     END IF;
   END IF;
@@ -471,19 +478,19 @@ BEGIN
     PERFORM atlas_person_record_change(p_subject_kind, p_subject_id, 'disputed', p_at);
   END IF;
   INSERT INTO atlas_person_disputes AS stored (idempotency_key, subject_kind, subject_id, sentence_key, kind, outcome,
-    legal, address_key, folded_names, what_is_wrong, source_link, email, sentence, received_at)
+    legal, address_key, folded_names, what_is_wrong, source_link, email, sentence, received_at, judged_digest)
   VALUES (p_key, p_subject_kind, p_subject_id, p_sentence_key, p_kind, chosen, p_legal, p_address, p_names, p_what, p_link, p_email,
-    p_sentence, p_at)
+    p_sentence, p_at, CASE WHEN chosen = 'taken_off' THEN p_content_digest END)
   RETURNING stored.dispute_number INTO stored_number;
-  -- Fable 4.7: a legal letter or data request reaches the owner's channel, in this transaction (Codex's review of B).
-  IF p_legal THEN
-    PERFORM atlas_person_notify('legal', p_subject_kind, p_subject_id, stored_number, NULL, p_at);
-  END IF;
+  -- Fable 4.7 and Codex's reviews of B: every dispute reaches the owner's channel in this transaction, a legal letter or
+  -- data request flagged as one; a request in any language is therefore delivered, whatever the classifier saw.
+  PERFORM atlas_person_notify(CASE WHEN p_legal THEN 'legal' ELSE 'dispute' END, p_subject_kind, p_subject_id,
+    stored_number, NULL, p_at);
   RETURN QUERY SELECT chosen, stored_number, false;
 END
 $function$;
 REVOKE ALL ON FUNCTION submit_atlas_person_dispute(text, text, text, text, text, text, boolean, text, text[], text[], text,
-  text, text, text, timestamptz, integer, integer, integer, integer, text) FROM PUBLIC;
+  text, text, text, timestamptz, integer, integer, integer, integer, text, text) FROM PUBLIC;
 
 -- The main session's or the owner's decision on a sentence: take it off, or put it back (which also clears a dispute
 -- mark). Every state can be reversed (design 4.6). "requeue" is the dispute form's own: an automatic removal whose
@@ -501,13 +508,19 @@ DECLARE
 BEGIN
   IF NOT coalesce(atlas_person_subject_known(p_subject_kind, p_subject_id), false) OR p_sentence_key IS NULL
     OR p_sentence_key !~ '^[a-f0-9]{64}$' OR p_action IS NULL
-    OR p_action NOT IN ('take_off', 'restore', 'clear_dispute', 'requeue') OR p_names IS NULL OR p_context IS NULL
+    OR p_action NOT IN ('take_off', 'restore', 'clear_dispute', 'requeue', 'confirm') OR p_names IS NULL OR p_context IS NULL
     OR cardinality(p_context) > 40 OR p_resolution IS NULL OR length(p_resolution) > 500 OR p_at IS NULL
-    OR (p_action = 'requeue' AND p_dispute IS NULL)
+    OR (p_action IN ('requeue', 'confirm') AND p_dispute IS NULL)
     OR (p_action = 'take_off' AND (p_sentence IS NULL OR length(p_sentence) NOT BETWEEN 1 AND 4000)) THEN
     RAISE EXCEPTION 'ATLAS_PERSON_DECISION_INVALID';
   END IF;
   PERFORM atlas_person_lock_subject(p_subject_kind, p_subject_id);
+  -- The check of an automatic removal found its finding unchanged: it stands, and is no longer listed for the check.
+  IF p_action = 'confirm' THEN
+    UPDATE atlas_person_disputes AS dispute SET checked_at = p_at
+     WHERE dispute.dispute_number = p_dispute AND dispute.checked_at IS NULL;
+    RETURN FOUND;
+  END IF;
   IF p_action = 'take_off' THEN
     INSERT INTO atlas_person_removals AS stored (subject_kind, subject_id, sentence_key, state, folded_names, context_keys,
       changed_at)
@@ -531,7 +544,7 @@ BEGIN
     PERFORM atlas_person_record_change(p_subject_kind, p_subject_id, 'restored', p_at);
   END IF;
   IF p_action = 'requeue' THEN
-    UPDATE atlas_person_disputes AS dispute SET outcome = 'queued' WHERE dispute.dispute_number = p_dispute;
+    UPDATE atlas_person_disputes AS dispute SET outcome = 'queued', checked_at = p_at WHERE dispute.dispute_number = p_dispute;
     RETURN true;
   END IF;
   IF p_dispute IS NOT NULL THEN
@@ -614,11 +627,29 @@ BEGIN
     FROM atlas_person_removals removal
     JOIN atlas_person_removed_texts kept ON kept.removal_number = removal.removal_number
    WHERE removal.state = 'taken_off' AND removal.removal_number = ANY (coalesce(p_numbers, '{}'::bigint[]))
-   ORDER BY removal.removal_number
-   LIMIT 50;
+   ORDER BY removal.removal_number;
 END
 $function$;
 REVOKE ALL ON FUNCTION atlas_person_removed_texts_for(bigint[]) FROM PUBLIC;
+
+-- The automatic removals not yet checked again against the finding they were judged on: the dispute form checks each at
+-- once, and a reconciliation pass checks what a crash or a failed read left (Codex's third review of B).
+CREATE OR REPLACE FUNCTION list_atlas_person_unchecked_removals(p_limit integer)
+RETURNS TABLE (dispute_number bigint, subject_kind text, subject_id text, sentence_key text, judged_digest text,
+  received_at timestamptz)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
+AS $function$
+BEGIN
+  RETURN QUERY SELECT d.dispute_number, d.subject_kind, d.subject_id, d.sentence_key, d.judged_digest, d.received_at
+    FROM atlas_person_disputes d
+   WHERE d.outcome = 'taken_off' AND d.checked_at IS NULL
+   ORDER BY d.dispute_number
+   LIMIT least(greatest(coalesce(p_limit, 50), 1), 500);
+END
+$function$;
+REVOKE ALL ON FUNCTION list_atlas_person_unchecked_removals(integer) FROM PUBLIC;
 
 -- The owner's channel (Codex's reviews of B, owner delivery): each notice not yet acknowledged is handed out to be sent
 -- until it is delivered, and again each day until the owner acknowledges it; a failed send waits longer each time (at

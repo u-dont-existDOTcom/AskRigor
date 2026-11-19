@@ -17,9 +17,21 @@ import { pathToFileURL } from "node:url";
 import { PostgresAtlasPageSource, PostgresAtlasPersonClaimStore, type AtlasPageSource } from "@askrigor/evidence-repository";
 
 import { livingEvidenceReuseConfigFromEnv, researchContributionReviewConfigFromEnv } from "../config.js";
-import { allShown, type ShownFinding } from "./page-data.js";
+import { allShown, glanceSubjectOf, markedFindings, type ShownFinding } from "./page-data.js";
 import { personContextKeys, personSentencesOf } from "./person-claims.js";
 import { personMarkSinceFromEnv } from "./person-reading.js";
+
+/**
+ * What a rollback to an image without Release B must withdraw first: every subject whose marked view is missing
+ * (unread) or shows anything but plain or sourced text: publications and the owner's curated rows alike (Codex, B).
+ */
+export function personRollbackNumbers(raw: readonly ShownFinding[], marked: ReadonlyMap<string, ShownFinding>): string[] {
+  return raw.filter((finding) => {
+    const shown = marked.get(finding.publicationNumber);
+    return shown === undefined || shown.personClaims?.noindex === true ||
+      shown.personClaims?.sentences.some(({ verdict }) => verdict !== "plain" && verdict !== "sourced") === true;
+  }).map(({ publicationNumber }) => publicationNumber);
+}
 
 async function findings(source: AtlasPageSource, raw: boolean): Promise<ShownFinding[]> {
   return await source.read(async (reads) => {
@@ -67,12 +79,15 @@ export async function runPersonClaimsAdmin(argv: readonly string[], env: NodeJS.
     }
     if (command === "rollback-list") {
       const marked = new Map((await findings(source, false)).map((finding) => [finding.publicationNumber, finding]));
-      for (const finding of await findings(source, true)) {
-        const shown = marked.get(finding.publicationNumber);
-        // Unread, marked, or with a sentence taken off: an older image would show any of them unmarked (Codex, B).
-        if (shown === undefined || shown.personClaims?.noindex === true ||
-          shown.personClaims?.sentences.some(({ verdict }) => verdict === "taken_off")) out(finding.publicationNumber);
-      }
+      // Unread, marked, or with a sentence taken off or left out: an older image would show any of them unmarked.
+      for (const number of personRollbackNumbers(await findings(source, true), marked)) out(number);
+      // The owner's curated rows (G-numbers) too: withdraw each with the glance review before an older image serves.
+      for (const id of await source.read(async (reads) => {
+        const rows = (await reads.listGlanceRows()).map(glanceSubjectOf);
+        const shownRows = new Map((await markedFindings(reads, rows, { leaveOutUnverified: true, hideUnread: true }))
+          .map((row) => [row.publicationNumber, row]));
+        return personRollbackNumbers(rows, shownRows);
+      })) out(id);
       return 0;
     }
     if ((command === "take-off" || command === "restore") && publicationNumber !== undefined && sentenceKey !== undefined) {

@@ -112,7 +112,8 @@ export function personDisputeOf(form: URLSearchParams, finding: ShownFinding, ad
     legal: form.get("legal") === "yes" || PERSON_LEGAL_WORDS.test(what),
     // A key for the day's limits only: the address itself is never stored, and days can't be linked.
     addressKey: createHash("sha256").update(`atlas-person-dispute\n${day}\n${addressKey}`).digest("hex"),
-    foldedNames: sentence.foldedNames, contextKeys: personContextKeys(finding), sentence: sentence.text, whatIsWrong: what,
+    foldedNames: sentence.foldedNames, contextKeys: personContextKeys(finding),
+    contentDigest: finding.personClaims?.contentDigest ?? null, sentence: sentence.text, whatIsWrong: what,
     sourceLink: link,
     email: rawEmail === "" ? null : rawEmail, at: now.toISOString(),
     readingDigest: finding.personClaims?.readingDigest ?? null,

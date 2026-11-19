@@ -233,8 +233,9 @@ there until delivered and daily until acknowledged (`person-claims-admin.js noti
 no channel the log counts what waits, hourly. Publish the privacy and terms text with the setting, not before. Roll back only to a build that has Release B: an older image shows these claims without their mark, on lists,
 kept pages and lookups alike. If an older image is unavoidable: pause the writers (no saves and no `show_on_pages`), and
 with the mark still on, withdraw every publication `node apps/research-mcp/dist/atlas/person-claims-admin.js
-rollback-list` prints (unread findings, findings with a marked claim, and findings with a sentence taken off) with the
-owner's `unpublish_finding`; only then unset `ASKRIGOR_ATLAS_PERSON_MARK` and let the older image serve. The same tool lists the open disputes (`queue`) and takes a sentence off or puts it back (`take-off`, `restore`).
+rollback-list` prints (unread findings, findings with a marked claim, and findings with a sentence taken off or left
+out) with the owner's `unpublish_finding`, and every curated scorecard row (G-number) it prints with the glance review's
+withdrawal; only then unset `ASKRIGOR_ATLAS_PERSON_MARK` and let the older image serve. The same tool lists the open disputes (`queue`) and takes a sentence off or puts it back (`take-off`, `restore`).
 
 Earlier notice v3 (owner answers 159, 1b and 7, and 160b, 2026-10-22): the free
 contributor notice's third version, `free-contributor-v3-2026-10-22`, says that findings

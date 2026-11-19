@@ -2434,6 +2434,7 @@ const ATLAS_SHOW_FUNCTIONS = ["show_atlas_publications"] as const;
 // Atlas Release B (migration 0042): the person-claim readings, claims, disputes, decisions, notices and spend.
 const ATLAS_PERSON_FUNCTIONS = ["ack_atlas_person_hint", "atlas_person_removed_texts_for", "claim_atlas_person_reading",
   "decide_atlas_person_claim", "fail_atlas_person_reading", "list_atlas_person_notices", "list_atlas_person_queue",
+  "list_atlas_person_unchecked_removals",
   "purge_atlas_person_disputes", "record_atlas_person_notice", "reserve_atlas_person_spend", "save_atlas_person_reading",
   "settle_atlas_person_spend", "submit_atlas_person_dispute", "take_atlas_person_hints", "take_atlas_person_notices"] as const;
 const ATLAS_PARTICIPATION_FUNCTIONS = [

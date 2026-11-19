@@ -127,17 +127,19 @@ describe.skipIf(!LIVE)("the reading on 20 findings through the Claude API (live;
       // A call that failed in transport may still have been charged: it counts at its whole reservation (Codex, B).
       spent += personChargedUsd(call, reserve);
       const errors: string[] = [];
-      let verdicts: Array<{ text: string; verdict: string; label: string | null }> = [];
+      let verdicts: Array<{ text: string; verdict: string; label: string | null; bare: boolean }> = [];
       if (call.sentences !== null) {
         const reading = { publicationNumber: item.finding.publicationNumber, digest: personDigestOf(item.finding),
           sentences: call.sentences, readAt: null, model: reader!.model, attemptDigest: null, attempts: 0, parked: false };
         const shown = applyPersonClaims(item.finding, { since: "2026-01-01T00:00:00.000Z", reading, removals: [],
           removedNames: [], now: new Date() })!;
-        verdicts = shown.personClaims!.sentences.map(({ text, verdict, label }) => ({ text, verdict, label }));
-        for (const { text, verdict, label } of verdicts) {
+        verdicts = shown.personClaims!.sentences.map(({ text, verdict, label, bare }) => ({ text, verdict, label,
+          bare: bare === true }));
+        for (const { text, verdict, label, bare } of verdicts) {
           const want = item.expected[text];
           // By what the page shows: a labelled kept quote shown as the quote it is counts as no mark.
-          const got = verdict === "sourced" ? "s" : verdict === "unverified" || verdict === "taken_off" ||
+          // A kept quote its source states in its own voice is sourced but shown bare: no mark (Codex, round 3).
+          const got = verdict === "sourced" && !bare ? "s" : verdict === "unverified" || verdict === "taken_off" ||
             verdict === "left_out" ? "c" : "n";
           void label;
           if ((want ?? "n") !== got) errors.push(`${want === undefined ? "false mark" : got === "n" ? "missed" : "wrong verdict"}: ${got} for "${text}"`);

@@ -31,7 +31,7 @@ import {
 import { researchContributionReviewConfigFromEnv } from "../config.js";
 import { keyFromSecretFile, type MeaningJudgeClient } from "../meaning-judge.js";
 import { atlasChanges, type AtlasChangeSignal } from "./change-signal.js";
-import { allShown, glanceSubjectOf, type ShownFinding } from "./page-data.js";
+import { allShown, glanceSubjectOf, loadAtlasFinding, type ShownFinding } from "./page-data.js";
 import {
   PERSON_MAX_SENTENCES,
   PERSON_READING_OUTPUT_SCHEMA,
@@ -82,6 +82,8 @@ export const PERSON_READING_DEFAULT_CAP_USD = 1;
 export const PERSON_READING_ATTEMPTS = 3;
 /** How long one process's claim on a digest holds: the longest call the settings allow, and a minute. */
 export const PERSON_READING_LEASE_SECONDS = 660;
+/** More taken-off sentences than this relevant to one finding: it is not read with part of them (Codex, round 3). */
+export const PERSON_MAX_REMOVALS = 200;
 
 /**
  * What a call counts as having cost: one that failed in transport may still have been charged, so its whole
@@ -286,6 +288,13 @@ export class AtlasPersonReadingWorker {
           report.failed.push({ publicationNumber: finding.publicationNumber, failure: "too_long", parked: failure.parked });
           continue;
         }
+        // Never read with part of its memory (Codex's third review of B): too many relevant removals, and it waits.
+        if (candidate.relevant.length > PERSON_MAX_REMOVALS) {
+          const failure = await this.options.store.recordFailure({ publicationNumber: finding.publicationNumber, digest,
+            at, limit: PERSON_READING_ATTEMPTS, reason: "attempt" });
+          report.failed.push({ publicationNumber: finding.publicationNumber, failure: "too_long", parked: failure.parked });
+          continue;
+        }
         // The taken-off sentences its names or its context make relevant (Codex's second review of B), by number.
         const removed = candidate.relevant.length === 0 ? [] : await this.options.store.removedTexts(candidate.relevant);
         const bundle = personBundleOf(finding, removed, candidate.hintKey);
@@ -388,6 +397,37 @@ export class AtlasPersonReadingWorker {
       return { candidates, parkedHints };
     });
   }
+}
+
+/**
+ * The check of automatic removals (Codex's third review of B): each removal is recorded unchecked in its own transaction,
+ * the dispute form checks it at once, and this pass checks what a crash or a failed read left, against the finding's
+ * texts and evidence as they were judged. A changed finding puts the sentence back and hands the dispute on.
+ */
+export async function reconcileAtlasPersonRemovals(store: AtlasPersonClaimStore, source: AtlasPageSource,
+  now: () => Date = () => new Date()): Promise<{ confirmed: number; requeued: number }> {
+  let confirmed = 0;
+  let requeued = 0;
+  for (const removal of await store.listUncheckedRemovals(100)) {
+    const model = await loadAtlasFinding(source, removal.publicationNumber);
+    const unchanged = removal.judgedDigest !== null && model?.finding.personClaims?.contentDigest === removal.judgedDigest;
+    await store.decide({ publicationNumber: removal.publicationNumber, sentenceKey: removal.sentenceKey,
+      action: unchanged ? "confirm" : "requeue", sentence: null, foldedNames: [], contextKeys: [],
+      disputeNumber: removal.disputeNumber, resolution: unchanged ? "checked again: unchanged"
+        : "the finding changed while the dispute was judged", at: now().toISOString() });
+    if (unchanged) confirmed += 1;
+    else requeued += 1;
+  }
+  return { confirmed, requeued };
+}
+
+export function startAtlasPersonReconciler(store: AtlasPersonClaimStore, source: AtlasPageSource,
+  log: (line: string) => void = (line) => console.error(`atlas person disputes: ${line}`)): () => void {
+  const run = () => { void reconcileAtlasPersonRemovals(store, source).catch(() => log("reconcile_failed")); };
+  run();
+  const timer = setInterval(run, 60_000);
+  timer.unref?.();
+  return () => clearInterval(timer);
 }
 
 /** The owner's channel for notices: an https address and a 32-byte base64url secret that signs each one. */
@@ -520,8 +560,11 @@ export function startAtlasPersonClaimsFromEnv(env: NodeJS.ProcessEnv, source: At
   store: AtlasPersonClaimStore | undefined, markOn = true): { store?: AtlasPersonClaimStore; stop?: () => void } {
   if (store === undefined) return {};
   if (!markOn || source === undefined) return { store };
+  // The removals' check runs whether or not the reading is configured.
+  const stopReconciler = startAtlasPersonReconciler(store, source);
   const reader = createPersonReader({ env });
-  if (reader === undefined) return { store };
+  if (reader === undefined) return { store, stop: stopReconciler };
   const worker = new AtlasPersonReadingWorker({ source, store, reader, capUsd: personReadingCapFromEnv(env) });
-  return { store, stop: worker.start() };
+  const stopWorker = worker.start();
+  return { store, stop: () => { stopReconciler(); stopWorker(); } };
 }

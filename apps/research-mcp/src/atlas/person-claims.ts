@@ -440,7 +440,7 @@ export function parsePersonReply(reply: unknown, finding: ShownFinding, bundle: 
 
 export type PersonVerdict =
   | { kind: "plain" }
-  | { kind: "sourced"; title: string | null; year: number | null; quote: string }
+  | { kind: "sourced"; title: string | null; year: number | null; quote: string; bare?: boolean }
   | { kind: "unverified"; claimKind: AtlasPersonKind; origin: PersonOriginLine; href: string | null;
     aboutPerson: boolean }
   | { kind: "taken_off"; day: string }
@@ -511,6 +511,8 @@ export interface PersonViewSentence {
   favourable: boolean;
   foldedNames: string[];
   disputed: boolean;
+  /** A kept quote its source states in its own voice: shown as the quote it is, yet sourced for disputes (Codex, B). */
+  bare?: boolean;
 }
 
 export interface PersonClaimView {
@@ -551,12 +553,6 @@ export interface PersonClaimContext {
 }
 
 const QUOTE_PATH = /^research\.\d+\.lines\.\d+\.(?:sentence|conclusion)$/u;
-/**
- * Words by which a source attributes a claim to someone else. A kept quote about a person that holds one is marked as
- * the claim its source reports, whatever the reading said (run 6 of the live set: "Critics have alleged that ...").
- * Fail-safe only: it adds marks, never removes one; the reading's own label covers every language.
- */
-export const PERSON_REPORTED_WORDS = /\b(?:alleg\w*|accus\w*|claim(?:s|ed|ing)?|reportedly|purported\w*|rumou?r\w*|suspected|critics?|aleg\w*|acus\w*|presunt\w*|angeblich\w*|behaupt\w*|vorgeworfen|prétendu\w*|présum\w*)\b|according to|(?:is|was|were|are) said to|据称|据报道|被指控|指控|声称|涉嫌/iu;
 const TITLE_PATH = /^(?:sources\.\d+\.title|research\.\d+\.title|numbers\.\d+\.source\.title)$/u;
 const STYLED_PATHS = new Set(["claim", "question", "usualAnswer", "appliesTo", "subject", "whyNotUsual",
   "whatWouldChangeIt"]);
@@ -656,9 +652,14 @@ export function applyPersonClaims(finding: ShownFinding, context: PersonClaimCon
     if (sentence.paths.every((path) => QUOTE_PATH.test(path)) && entry !== undefined &&
       (verdict.kind === "sourced" || verdict.kind === "unverified")) {
       const aboutPerson = entry.label !== "organization";
-      const settled = verdict.kind === "sourced" && !PERSON_REPORTED_WORDS.test(sentence.text);
-      verdict = aboutPerson ? settled ? { kind: "plain" } : reported(entry, researchOfPath(sentence.paths[0]!))
-        : verdict.kind === "sourced" || entry.support !== "reported_claim" ? { kind: "plain" }
+      // Structural checks only (Codex's third review of B: no word lists): the reading's own verdict is "sourced", and
+      // from this very quote. Whether the source speaks in its own voice is the reading's judgment (its rubric says how).
+      const backing = entry.backing;
+      const ownQuote = verdict.kind === "sourced" && backing !== null && sentence.paths.some((path) =>
+        path === `research.${backing.source}.lines.${backing.line}.${backing.part}`);
+      verdict = aboutPerson ? ownQuote ? { ...(verdict as Extract<PersonVerdict, { kind: "sourced" }>), bare: true }
+        : reported(entry, researchOfPath(sentence.paths[0]!))
+        : verdict.kind === "sourced" ? { ...verdict, bare: true } : entry.support !== "reported_claim" ? { kind: "plain" }
           : reported(entry, researchOfPath(sentence.paths[0]!));
     }
     verdicts.set(sentence.key, guarded(verdict, entry));
@@ -686,11 +687,32 @@ export function applyPersonClaims(finding: ShownFinding, context: PersonClaimCon
       changed = true;
     }
   }
+  // A source's title is printed in a line or a note only as the page finally shows it (Codex's third review of B): a
+  // title whose own sentence ended taken off, left out, waiting or marked is "a source" everywhere else.
+  const blocked = new Set<string>();
+  for (const raw of [...finding.research.map(({ source }) => source.title), ...finding.sources.map(({ title }) => title),
+    ...finding.numbers.map(({ source }) => source?.title ?? null)]) {
+    if (raw !== null && piecesOf(raw).some(({ key }) => key !== "" && RANK[verdicts.get(key)?.kind ?? "waiting"] > 0)) {
+      blocked.add(shortTitle(raw)!);
+    }
+  }
+  if (blocked.size > 0) {
+    for (const [key, verdict] of verdicts) {
+      if (verdict.kind === "sourced" && verdict.title !== null && blocked.has(verdict.title)) {
+        verdicts.set(key, { ...verdict, title: null });
+      } else if (verdict.kind === "unverified" && "title" in verdict.origin && verdict.origin.title !== null &&
+        blocked.has(verdict.origin.title)) {
+        verdicts.set(key, { ...verdict, origin: { ...verdict.origin, title: null } as PersonOriginLine });
+      }
+    }
+  }
   const viewSentences: PersonViewSentence[] = sentences.map((sentence) => {
     const entry = entries.get(sentence.key);
-    return { key: sentence.key, text: sentence.text, verdict: verdicts.get(sentence.key)!.kind,
+    const verdict = verdicts.get(sentence.key)!;
+    return { key: sentence.key, text: sentence.text, verdict: verdict.kind,
       label: entry?.label ?? null, favourable: entry?.favourable === true, foldedNames: entry?.foldedNames ?? [],
-      disputed: removals.get(sentence.key)?.state === "disputed" };
+      disputed: removals.get(sentence.key)?.state === "disputed",
+      ...(verdict.kind === "sourced" && verdict.bare === true ? { bare: true } : {}) };
   });
   const shown = structuredClone(finding);
   const segments: Record<string, PersonSegment[]> = {};
@@ -719,6 +741,13 @@ export function applyPersonClaims(finding: ShownFinding, context: PersonClaimCon
           break;
         case "sourced": {
           const disputed = removal?.state === "disputed" ? `[${personDisputed(removal.changedAt.slice(0, 10))}] ` : "";
+          if (verdict.bare === true) {
+            // A kept quote shown as the quote it is; a dispute's mark still shows before it.
+            pagePart = machinePart = `${disputed}${piece.text}`;
+            if (disputed !== "") parts.push({ type: "note", text: disputed.trim() });
+            parts.push({ type: "text", text: piece.text });
+            break;
+          }
           pagePart = machinePart = `${disputed}${piece.text} [${sourcedNote(verdict)}]`;
           if (disputed !== "") parts.push({ type: "note", text: disputed.trim() });
           parts.push({ type: "text", text: piece.text }, { type: "note", text: `[${sourcedNote(verdict)}]` });

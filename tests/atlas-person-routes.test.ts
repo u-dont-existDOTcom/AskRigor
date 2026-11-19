@@ -18,7 +18,7 @@ import { lookupAtlas } from "../apps/research-mcp/src/atlas/lookup-tool.js";
 import { createAtlasPagesHandler, type CreateAtlasPagesHandlerOptions } from "../apps/research-mcp/src/atlas/pages-http.js";
 import { loadAtlasFinding } from "../apps/research-mcp/src/atlas/page-data.js";
 import { personContextKeys, personSentenceKey } from "../apps/research-mcp/src/atlas/person-claims.js";
-import { AtlasPersonReadingWorker, createPersonReader } from "../apps/research-mcp/src/atlas/person-reading.js";
+import { AtlasPersonReadingWorker, createPersonReader, reconcileAtlasPersonRemovals } from "../apps/research-mcp/src/atlas/person-reading.js";
 import { AtlasCardPublisher } from "../apps/research-mcp/src/atlas/publication.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 import { recordOf } from "./helpers/atlas-participation-fixture.js";
@@ -376,6 +376,30 @@ describe("Codex's second review of B, across the routes (the round-3 fixes)", ()
     expect(finding.personClaims!.sentences.find(({ text }) => text === PLANTED)!.verdict).toBe("unverified");
   });
 
+  it("checks again a removal whose own check never ran, and hands it back if the finding changed", async () => {
+    const { person, source, numbers, now } = await scenario();
+    await new AtlasPersonReadingWorker({ source, store: person, reader: ruleReader(rule), capUsd: 1, now,
+      log: () => undefined }).pass();
+    const model = (await loadAtlasFinding(source, numbers.person!))!;
+    const submit = async (key: string, sentence: string) => (await person.submitDispute({ idempotencyKey: key,
+      publicationNumber: numbers.person!, sentenceKey: personSentenceKey(sentence), kind: "wrong", wanted: "taken_off",
+      legal: false, addressKey: "f".repeat(64), foldedNames: ["invented zentaro"], contextKeys: [], sentence,
+      whatIsWrong: "False.", sourceLink: null, email: null, at: now().toISOString(),
+      readingDigest: model.finding.personClaims!.readingDigest, contentDigest: model.finding.personClaims!.contentDigest })).outcome;
+    // The process stops after the commit, before its own check: the pass finds the removal unchecked.
+    expect(await submit("crash-dispute-000001", PLANTED)).toBe("taken_off");
+    expect(await reconcileAtlasPersonRemovals(person, source, now)).toEqual({ confirmed: 1, requeued: 0 });
+    expect(await person.listUncheckedRemovals(10)).toEqual([]);
+    expect(await submit("crash-dispute-000002", PLANTED_TOO)).toBe("taken_off");
+    const changed = { read: async (work: Parameters<AtlasPageSource["read"]>[0]) => await source.read(async (reads) =>
+      await work({ ...reads, listPublications: async (query) => (await reads.listPublications(query))
+        .map((row) => row.publicationNumber !== numbers.person ? row
+          : JSON.parse(JSON.stringify(row).replace("halved the tremor score", "halved the tremor score (corrected)"))) })) } as
+      unknown as AtlasPageSource;
+    expect(await reconcileAtlasPersonRemovals(person, changed, now)).toEqual({ confirmed: 0, requeued: 1 });
+    expect((await person.listQueue(10)).map(({ outcome }) => outcome)).toEqual(["taken_off", "queued"]);
+  });
+
   it("reads a finding of the same topic again with a removal's words, though it shares no name with it", async () => {
     const { person, source, numbers, now } = await scenario();
     await new AtlasPersonReadingWorker({ source, store: person, reader: ruleReader(rule), capUsd: 1, now,
@@ -385,7 +409,8 @@ describe("Codex's second review of B, across the routes (the round-3 fixes)", ()
       sentenceKey: personSentenceKey(PLANTED), kind: "wrong", wanted: "taken_off", legal: false, addressKey: "c".repeat(64),
       foldedNames: ["invented zentaro"], contextKeys: personContextKeys(model.finding), sentence: PLANTED,
       whatIsWrong: "False.", sourceLink: null, email: null, at: now().toISOString(),
-      readingDigest: model.finding.personClaims!.readingDigest })).outcome).toBe("taken_off");
+      readingDigest: model.finding.personClaims!.readingDigest, contentDigest: model.finding.personClaims!.contentDigest }))
+      .outcome).toBe("taken_off");
     const removed = new Map<string, string>();
     const reader = ruleReader(rule);
     const read = reader.read.bind(reader);

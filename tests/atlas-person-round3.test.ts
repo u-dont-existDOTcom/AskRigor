@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { InMemoryAtlasPersonClaims, type AtlasPersonReading, type AtlasPersonRemoval } from "@askrigor/evidence-repository";
+import { readFile } from "node:fs/promises";
 
-import type { ShownFinding } from "../apps/research-mcp/src/atlas/page-data.js";
+import { InMemoryAtlasPersonClaims, type AtlasPageReads, type AtlasPersonReading, type AtlasPersonRemoval } from "@askrigor/evidence-repository";
+
+import { glanceSubjectOf, markedFindings, type ShownFinding } from "../apps/research-mcp/src/atlas/page-data.js";
+import { personRollbackNumbers } from "../apps/research-mcp/src/atlas/person-claims-admin.js";
 import {
-  PERSON_REPORTED_WORDS,
+  PERSON_READING_RUBRIC,
   applyPersonClaims,
+  personDisputeWanted,
   machineFinding,
   parsePersonReply,
   personBundleOf,
@@ -36,7 +40,7 @@ function readingFor(finding: ShownFinding, rule: PersonRule, removals: number[] 
 const view = (finding: ShownFinding, reading: AtlasPersonReading | undefined, extra: Partial<PersonClaimContext> = {}) =>
   applyPersonClaims(finding, { since: SINCE, reading, removals: [], removedNames: [], now: NOW, ...extra });
 
-describe("a kept quote that repeats an allegation (run 6 of the live set): fail safe, never plain", () => {
+describe("a kept quote that repeats an allegation (run 6 of the live set), judged by the reading, never by a word list", () => {
   const HADDAD = "Critics have alleged that Dr Omar Haddad concealed two serious adverse events.";
   const DECLARED = "Dr Ada Velmor holds shares in Zentara Ltd.";
   const CLAIM = "Dr Omar Haddad hid two serious adverse events from the trial's safety board.";
@@ -44,9 +48,9 @@ describe("a kept quote that repeats an allegation (run 6 of the live set): fail 
     researchSource("Questions over a supplement trial", [quoteLine(HADDAD, "News")], "10.1000/news.1"),
     researchSource("Zentarine for Velmor tremor", [quoteLine(DECLARED)], "10.1000/velmor.1")] });
 
-  it("marks the quote as the accusation its source reports, even when the reading calls it the source's own words", () => {
-    // Run 6's labels: the quote is the source's own statement, fully supported; the finding's claim only reported.
-    const rule: PersonRule = (text) => text === HADDAD ? "person|misconduct|S1|S1.1a|own|y|n|n|-|Dr Omar Haddad"
+  it("tells the reading how to label a kept quote, and marks one it says its source only reports", () => {
+    expect(PERSON_READING_RUBRIC).toContain("repeating an allegation does not support it");
+    const rule: PersonRule = (text) => text === HADDAD ? "person|misconduct|S1|S1.1a|reported|n|n|n|-|Dr Omar Haddad"
       : text === CLAIM ? "person|misconduct|S1|S1.1a|reported|n|n|n|-|Dr Omar Haddad"
         : text === DECLARED ? "person|coi|S2|S2.1a|own|y|n|n|-|Dr Ada Velmor" : undefined;
     const shown = view(finding, readingFor(finding, rule))!;
@@ -57,18 +61,114 @@ describe("a kept quote that repeats an allegation (run 6 of the live set): fail 
     expect(machineFinding(shown).research[0]!.lines[0]!.sentence).not.toContain(HADDAD);
     expect(shown.personClaims!.noindex).toBe(true);
     // A declaration in the person's own source, in its own voice, stays the quote it is: no false mark.
-    expect(verdicts.get(DECLARED)).toBe("plain");
     expect(shown.research[1]!.lines[0]!.sentence).toBe(DECLARED);
   });
 
-  it("marks a quote about a person whose reading is doubtful (no source, not found, part only)", () => {
+  it("marks a quote about a person whose reading is doubtful (no source, not found, part only, or backed by another quote)", () => {
     for (const line of ["person|misconduct|-|-|-|n|n|n|-|Dr Omar Haddad", "person|misconduct|S1|-|notfound|n|n|n|-|Dr Omar Haddad",
       "unsure|other|S1|S1.1a|own|n|n|n|-|Dr Omar Haddad"]) {
       const shown = view(finding, readingFor(finding, (text) => text === HADDAD ? line : undefined))!;
       expect(shown.personClaims!.sentences.find(({ text }) => text === HADDAD)!.verdict, line).toBe("unverified");
     }
-    expect(PERSON_REPORTED_WORDS.test("Los críticos han alegado que el Dr Haddad ocultó dos eventos.")).toBe(true);
-    expect(PERSON_REPORTED_WORDS.test(DECLARED)).toBe(false);
+    const two = personFinding({ claim: CLAIM, research: [researchSource("Questions over a supplement trial",
+      [quoteLine(HADDAD, "News"), quoteLine("The trial's board met twice.", "News")], "10.1000/news.1")] });
+    const other = view(two, readingFor(two, (text) => text === HADDAD ? "person|misconduct|S1|S1.2a|own|y|n|n|-|Dr Omar Haddad"
+      : undefined))!;
+    expect(other.personClaims!.sentences.find(({ text }) => text === HADDAD)!.verdict).toBe("unverified");
+  });
+
+  it("never marks a quote for its words alone (Codex's third review: no word lists)", () => {
+    const EXPENSES = "Dr Ada Velmor claimed travel expenses from Zentara Ltd.";
+    const own = personFinding({ claim: "Zentarine halved the tremor score.",
+      research: [researchSource("Zentarine for Velmor tremor", [quoteLine(EXPENSES)])] });
+    const shown = view(own, readingFor(own, (text) => text === EXPENSES ? "person|coi|S1|S1.1a|own|y|n|n|-|Dr Ada Velmor"
+      : undefined))!;
+    expect(shown.research[0]!.lines[0]!.sentence).toBe(EXPENSES);
+    // Shown as the quote it is, yet sourced: a dispute marks it as disputed rather than waiting unseen (Codex, round 3).
+    const sentence = shown.personClaims!.sentences.find(({ text }) => text === EXPENSES)!;
+    expect(sentence).toMatchObject({ verdict: "sourced", bare: true });
+    expect(personDisputeWanted(sentence).wanted).toBe("marked_disputed");
+    const disputed: AtlasPersonRemoval = { removalNumber: 3, publicationNumber: "P-1001", sentenceKey: personSentenceKey(EXPENSES),
+      state: "disputed", foldedNames: [], changedAt: "2026-11-19T12:00:00.000Z" };
+    expect(view(own, readingFor(own, (text) => text === EXPENSES ? "person|coi|S1|S1.1a|own|y|n|n|-|Dr Ada Velmor" : undefined),
+      { removals: [disputed] })!.research[0]!.lines[0]!.sentence).toBe(
+      `[Disputed (2026-11-19): someone told AskRigor this is wrong; AskRigor is rechecking it.] ${EXPENSES}`);
+  });
+});
+
+describe("Codex's third review of B", () => {
+  it("prints a source's title in another line only as the page finally shows it", () => {
+    const TITLE = "Dr Ada Velmor holds shares in Zentara Ltd.";
+    const QUOTE = "Dr Ada Velmor declared shares in Zentara Ltd.";
+    const OTHER = "Dr Ada Velmor sells zentarine to her patients.";
+    const finding = personFinding({ claim: OTHER, research: [researchSource(TITLE, [quoteLine(QUOTE)])] });
+    const rule: PersonRule = (text) => text === TITLE || text === QUOTE ? "person|coi|S1|S1.1a|own|y|n|n|-|Dr Ada Velmor"
+      : text === OTHER ? "person|coi|S1|-|notfound|n|n|n|-|Dr Ada Velmor" : undefined;
+    const reading = readingFor(finding, rule);
+    expect(view(finding, reading)!.claim).toContain(`The finding cites ${TITLE}, but AskRigor didn’t find this in it.`);
+    // The quote that sourced the title is taken off elsewhere: the title follows it off, and no line prints it.
+    const elsewhere: AtlasPersonRemoval = { removalNumber: 8, publicationNumber: "P-2002", sentenceKey: personSentenceKey(QUOTE),
+      state: "taken_off", foldedNames: ["ada velmor"], changedAt: "2026-11-19T12:00:00.000Z" };
+    const shown = view(finding, reading, { globalRemovals: [elsewhere] })!;
+    expect(shown.claim).toContain("The finding cites a source, but AskRigor didn’t find this in it.");
+    expect(JSON.stringify([shown.claim, shown.research, machineFinding(shown).claim])).not.toContain(TITLE);
+  });
+
+  it("gives the direct page a finding's change notes too, so its reading is current there", async () => {
+    const store = new InMemoryAtlasPersonClaims();
+    const note = `Corrected after a reader's report. ${COI}`;
+    const accepted = personFinding({ claim: "Zentarine halved the tremor score.",
+      status: { kind: "accepted", atlasNumber: "F-1001" } as unknown as ShownFinding["status"] });
+    const withNote = { ...accepted, ownerTexts: [{ path: "change.corrected.2026-11-19T11:00:00.000Z", text: note }] };
+    const reading = readingFor(withNote, coiRule);
+    await store.saveReading({ publicationNumber: "P-1001", digest: reading.digest!, sentences: reading.sentences,
+      model: "claude-opus-5-5", at: NOW.toISOString() });
+    const reads = { personClaims: store.pageReads(SINCE), listChanges: async () => [{ atlasNumber: "F-1001",
+      kind: "corrected", labelBefore: null, labelAfter: "checked", publicNote: note, decidedAt: "2026-11-19T11:00:00.000Z" }] } as
+      unknown as AtlasPageReads;
+    const [shown] = await markedFindings(reads, [structuredClone(accepted)]);
+    expect(shown!.personClaims!.state).toBe("read");
+    expect(shown!.personClaims!.readingDigest).toBe(reading.digest);
+    expect(shown!.personClaims!.sentences.map(({ text }) => text)).toContain(COI);
+  });
+
+  it("never reads a finding with part of its removal memory", async () => {
+    const migration = await readFile(new URL("../packages/evidence-repository/migrations/0042_atlas_person_readings.sql",
+      import.meta.url), "utf8");
+    const removed = migration.slice(migration.indexOf("CREATE OR REPLACE FUNCTION atlas_person_removed_texts_for"),
+      migration.indexOf("REVOKE ALL ON FUNCTION atlas_person_removed_texts_for"));
+    expect(removed).not.toMatch(/LIMIT/u);
+  });
+
+  it("sends every dispute to the owner, a legal one flagged, whatever its language", async () => {
+    const store = new InMemoryAtlasPersonClaims();
+    await store.submitDispute({ idempotencyKey: "french-erasure-00001", publicationNumber: "P-1001",
+      sentenceKey: personSentenceKey(COI), kind: "wrong", wanted: "queued", legal: false, addressKey: "e".repeat(64),
+      foldedNames: [], contextKeys: [], sentence: COI, whatIsWrong: "Je demande l'effacement de mes données.",
+      sourceLink: null, email: null, at: NOW.toISOString(), readingDigest: null, contentDigest: null });
+    expect((await store.listNotices(10)).map(({ kind, disputeNumber }) => [kind, disputeNumber])).toEqual([["dispute", 1]]);
+  });
+
+  it("lets one call at a time run on a subject, whatever its digest", async () => {
+    const store = new InMemoryAtlasPersonClaims();
+    const claim = (digest: string) => store.claimReading({ publicationNumber: "P-1001", digest, again: false,
+      at: NOW.toISOString(), limit: 3, leaseSeconds: 660 });
+    expect((await claim("a".repeat(64))).claimed).toBe(true);
+    expect((await claim("b".repeat(64))).claimed).toBe(false);
+  });
+
+  it("lists the owner's curated rows for withdrawal before a rollback, unread or with a claim left out", () => {
+    const row = glanceSubjectOf({ publicId: "G-1001", categoryKey: "health", subcategoryKey: "sleep", rowClass: "practitioner",
+      what: "The clinic programme", result: COI, comparison: null, followUp: null, limits: "One clinic.", sources: [],
+      namesAPerson: false, state: "shown", proposedAt: NOW.toISOString(), shownAt: NOW.toISOString() });
+    expect(personRollbackNumbers([row], new Map())).toEqual(["G-1001"]);
+    const read = applyPersonClaims(row, { since: SINCE, reading: readingFor(row, coiRule), removals: [], removedNames: [],
+      now: NOW, leaveOutUnverified: true, hideUnread: true })!;
+    expect(read.personClaims!.sentences.some(({ verdict }) => verdict === "left_out")).toBe(true);
+    expect(personRollbackNumbers([row], new Map([["G-1001", read]]))).toEqual(["G-1001"]);
+    const plain = applyPersonClaims(row, { since: SINCE, reading: readingFor(row, () => undefined), removals: [],
+      removedNames: [], now: NOW, leaveOutUnverified: true, hideUnread: true })!;
+    expect(personRollbackNumbers([row], new Map([["G-1001", plain]]))).toEqual([]);
   });
 });
 
@@ -152,7 +252,8 @@ describe("the race between a removal and a change (Codex's second review, partly
     const result = await store.submitDispute({ idempotencyKey: "race-dispute-0000001", publicationNumber: "P-1001",
       sentenceKey: personSentenceKey(COI), kind: "wrong", wanted: "taken_off", legal: false, addressKey: "a".repeat(64),
       foldedNames: ["invented zentaro"], contextKeys: [], sentence: COI, whatIsWrong: "False.", sourceLink: null,
-      email: null, at: NOW.toISOString(), readingDigest: shown.personClaims!.readingDigest });
+      email: null, at: NOW.toISOString(), readingDigest: shown.personClaims!.readingDigest,
+      contentDigest: shown.personClaims!.contentDigest });
     expect(result.outcome).toBe("queued");
   });
 });
@@ -162,7 +263,8 @@ describe("owner delivery, the public change history and owner rechecks (Codex's 
     store.submitDispute({ idempotencyKey: key, publicationNumber: "P-1001", sentenceKey: personSentenceKey(COI),
       kind: "wrong", wanted: "taken_off", legal, addressKey: "b".repeat(64), foldedNames: ["invented zentaro"],
       contextKeys: ["topic:velmor-syndrome"], sentence: COI, whatIsWrong: "My solicitor will write. Private words.",
-      sourceLink: "https://example.org/private", email: "me@example.org", at: NOW.toISOString(), readingDigest: digest });
+      sourceLink: "https://example.org/private", email: "me@example.org", at: NOW.toISOString(), readingDigest: digest,
+      contentDigest: digest === null ? null : "f".repeat(64) });
 
   it("sends a legal notice to the owner's channel, signed and without the dispute's words, until he acknowledges it", async () => {
     const store = new InMemoryAtlasPersonClaims();
@@ -219,7 +321,8 @@ describe("owner delivery, the public change history and owner rechecks (Codex's 
     expect(changes).toEqual([{ changeNumber: 1, subjectKind: "publication", publicationNumber: "P-1001", state: "taken_off",
       changedAt: NOW.toISOString() }]);
     expect(JSON.stringify(changes)).not.toMatch(/Zentaro|solicitor/u);
-    expect((await store.listNotices(10)).map(({ kind, detail }) => [kind, detail])).toEqual([["recheck", "taken_off"]]);
+    expect((await store.listNotices(10)).map(({ kind, detail }) => [kind, detail])).toEqual([["recheck", "taken_off"],
+      ["dispute", null]]);
     expect((await store.pageReads(SINCE).listTakenOffMemory())[0]!.contextKeys).toEqual(["topic:velmor-syndrome"]);
   });
 });

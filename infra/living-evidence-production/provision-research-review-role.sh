@@ -151,7 +151,8 @@ GRANT EXECUTE ON FUNCTION living_evidence.settle_atlas_person_spend(date, numeri
 GRANT EXECUTE ON FUNCTION living_evidence.claim_atlas_person_reading(text, text, text, boolean, timestamptz, integer,
   integer) TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.submit_atlas_person_dispute(text, text, text, text, text, text, boolean, text,
-  text[], text[], text, text, text, text, timestamptz, integer, integer, integer, integer, text) TO askrigor_research_review;
+  text[], text[], text, text, text, text, timestamptz, integer, integer, integer, integer, text, text)
+  TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.decide_atlas_person_claim(text, text, text, text, text, text[], text[], bigint,
   text, timestamptz) TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.list_atlas_person_queue(integer) TO askrigor_research_review;
@@ -162,6 +163,7 @@ GRANT EXECUTE ON FUNCTION living_evidence.take_atlas_person_notices(integer, tim
 GRANT EXECUTE ON FUNCTION living_evidence.record_atlas_person_notice(bigint, text, text, timestamptz)
   TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.list_atlas_person_notices(integer) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.list_atlas_person_unchecked_removals(integer) TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.purge_atlas_person_disputes(timestamptz) TO askrigor_research_review;
 ALTER ROLE askrigor_research_review SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_review SET idle_in_transaction_session_timeout = '5s';
