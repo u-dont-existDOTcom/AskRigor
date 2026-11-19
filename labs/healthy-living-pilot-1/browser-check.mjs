@@ -77,6 +77,7 @@ async function call(sessionId, fn, ...args) {
   return r.result.value;
 }
 const HIDDEN = `function (sel) { const el = document.querySelector(sel); return !el || el.hidden || el.closest("[hidden]") !== null; }`;
+const SHOWN = `function (sel) { const el = document.querySelector(sel); return !!el && el.getClientRects().length > 0; }`;
 const KEY = "askrigor-healthy-living-pilot-1";
 const LOCK = KEY + "-lock";
 const TYPE = `function (words) { const t = document.querySelector("#own-words"); t.value = words; t.dispatchEvent(new Event("input", { bubbles: true })); }`;
@@ -95,7 +96,7 @@ try {
   check("no red line on a fresh page", await call(a, HIDDEN, "#save-failed"));
 
   // 2. Type, choose, wait, reload: everything is still there; Saved here only after a real save.
-  await js(a, `(() => { const t = document.querySelector("#own-words"); t.value = "test words"; t.dispatchEvent(new Event("input", { bubbles: true })); document.querySelector('input[name=area][value=sleep]').click(); })()`);
+  await js(a, `(() => { const t = document.querySelector("#own-words"); t.value = "test words"; t.dispatchEvent(new Event("input", { bubbles: true })); document.querySelector('input[name=q-water][value=tap]').click(); })()`);
   const saving = await js(a, `document.querySelector("#stamp").textContent`);
   await sleep(600);
   const saved = await js(a, `document.querySelector("#stamp").textContent`);
@@ -103,14 +104,15 @@ try {
   check("stamp goes Saving then Saved here", saving === "Saving\u2026" && /^Saved here \d\d:\d\d$/.test(saved) && !!storedRaw, saving + " / " + saved);
   await reload(a);
   check("typed words survive a reload", (await js(a, `document.querySelector("#own-words").value`)) === "test words");
-  check("chosen area survives and opens first", await js(a, `document.querySelector('input[name=area][value=sleep]').checked && document.querySelector("#areas").firstElementChild.id === "area-sleep"`));
+  check("a chosen answer survives a reload, and the steps keep the guides' order", await js(a, `document.querySelector('input[name=q-water][value=tap]').checked && [...document.querySelectorAll("#areas > section.step")].map((s) => s.id).join() === "step-1,step-2,step-3,step-4,step-5"`));
 
   // 3. Skipped questions wait; answers show or hide.
-  check("apnea card waits while its questions are skipped", await js(a, `!document.querySelector('[data-sugg=apnea] .waits').hidden && document.querySelector('[data-sugg=apnea] .sugg-body').hidden`));
-  await js(a, `document.querySelector('input[name=q-snore][value=no]').click(); document.querySelector('input[name=q-day][value=no]').click();`);
-  check("apnea card hides for no and no", await js(a, `document.querySelector('[data-sugg=apnea]').hidden`));
-  await js(a, `document.querySelector('input[name=q-snore][value=yes]').click();`);
-  check("apnea card shows for snoring", await js(a, `!document.querySelector('[data-sugg=apnea]').hidden && !document.querySelector('[data-sugg=apnea] .sugg-body').hidden`));
+  check("mold card waits while its question is skipped", await js(a, `!document.querySelector('[data-sugg=mold] .waits').hidden && document.querySelector('[data-sugg=mold] .sugg-body').hidden`));
+  await js(a, `document.querySelector('input[name=q-mold][value=no]').click();`);
+  check("mold card hides for no", await js(a, `document.querySelector('[data-sugg=mold]').hidden`));
+  await js(a, `document.querySelector('input[name=q-mold][value=yes]').click();`);
+  check("mold card shows for yes", await js(a, `!document.querySelector('[data-sugg=mold]').hidden && !document.querySelector('[data-sugg=mold] .sugg-body').hidden`));
+  check("the apnea check shows for everyone, as in the sleep guide", await js(a, `!document.querySelector('[data-sugg=apnea]').hidden && !document.querySelector('[data-sugg=apnea] .sugg-body').hidden`));
 
   // 4. Worse shows the stop line.
   await js(a, `document.querySelector('[data-log=exhale][data-c=worse]').click()`);
@@ -118,7 +120,7 @@ try {
 
   // 5. Emergency line: message, banner, pause, Show anyway, actions, This has passed.
   await js(a, `document.querySelector('[data-em="4"]').click()`);
-  check("line 4 opens its message", !(await call(a, HIDDEN, "#msg-4")));
+  check("line 4 opens its message", await call(a, SHOWN, "#msg-4"));
   check("banner on top while ticked", !(await call(a, HIDDEN, "#em-banner")));
   check("areas paused while ticked", (await call(a, HIDDEN, "#areas")) && !(await call(a, HIDDEN, "#paused")));
   await js(a, `document.querySelector('[data-show-anyway]').click()`);
@@ -152,7 +154,7 @@ try {
   check("clear empties this tab", (await js(a, `document.querySelector("#own-words").value`)) === "" && (await js(a, `!document.querySelector('#cleared-note').hidden`)));
   check("clear empties the other tab, pending save included", (await js(b, `document.querySelector("#own-words").value`)) === "" && (await js(b, `localStorage.getItem("askrigor-healthy-living-pilot-1")`)) === null);
   await reload(a);
-  check("nothing comes back after reload", (await js(a, `document.querySelector("#own-words").value`)) === "" && !(await js(a, `document.querySelector('input[name=area][value=sleep]').checked`)));
+  check("nothing comes back after reload", (await js(a, `document.querySelector("#own-words").value`)) === "" && !(await js(a, `document.querySelector('input[name=q-water][value=tap]').checked`)));
 
   await closeTab(b);
 
@@ -207,9 +209,9 @@ try {
   const d1 = await openTab();
   const d2 = await openTab();
   await call(d1, TYPE, "words from one tab");
-  await js(d2, `document.querySelector('input[name=area][value=home]').click()`);
+  await js(d2, `document.querySelector('input[name=q-mold][value=yes]').click()`);
   await sleep(1200);
-  const both = (s) => js(s, `document.querySelector("#own-words").value === "words from one tab" && document.querySelector('input[name=area][value=home]').checked`);
+  const both = (s) => js(s, `document.querySelector("#own-words").value === "words from one tab" && document.querySelector('input[name=q-mold][value=yes]').checked`);
   check("two tabs editing at once: each shows both changes", (await both(d1)) && (await both(d2)));
   await reload(d1);
   check("two tabs editing at once: both changes saved", await both(d1));
@@ -290,13 +292,13 @@ try {
   const h3 = await openTab();
   await call(h3, HOLD, LOCK);
   await call(d3, TYPE, "words from tab three");
-  await js(d4, `document.querySelector('input[name=area][value=breath]').click()`);
+  await js(d4, `document.querySelector('input[name=q-smell][value=no]').click()`);
   await sleep(400);
   await js(h3, `window.__release()`);
   await sleep(400);
   for (const s of [d3, d4, h3]) await closeTab(s);
   const e3 = await openTab();
-  check("two tabs saving at once, then both closed: both changes kept", await js(e3, `document.querySelector("#own-words").value === "words from tab three" && document.querySelector('input[name=area][value=breath]').checked`));
+  check("two tabs saving at once, then both closed: both changes kept", await js(e3, `document.querySelector("#own-words").value === "words from tab three" && document.querySelector('input[name=q-smell][value=no]').checked`));
   await closeTab(e3);
 
   // 9. Keyboard: Space on the first emergency line ticks it.
@@ -304,7 +306,7 @@ try {
   await send("Input.dispatchKeyEvent", { type: "keyDown", key: " ", code: "Space", windowsVirtualKeyCode: 32 }, a);
   await send("Input.dispatchKeyEvent", { type: "keyUp", key: " ", code: "Space", windowsVirtualKeyCode: 32 }, a);
   await sleep(100);
-  check("Space ticks an emergency line", await js(a, `document.querySelector('[data-em="1"]').checked && !document.querySelector('#msg-1').hidden`));
+  check("Space ticks an emergency line", await js(a, `document.querySelector('[data-em="1"]').checked && document.querySelector('#msg-1').getClientRects().length > 0`));
   check("nothing is taken out of the tab order", (await js(a, `document.querySelectorAll('[tabindex="-1"], [onclick]').length`)) === 0);
   await js(a, `document.querySelector('[data-em="1"]').click()`);
 
@@ -324,6 +326,36 @@ try {
   const dark = await send("Page.captureScreenshot", { format: "png" }, a);
   writeFileSync(join(outDir, "phone-dark-1.png"), Buffer.from(dark.data, "base64"));
   writeFileSync(join(outDir, "page-text.txt"), await js(a, `document.body.innerText`));
+
+  // Owner's review 355: a real tap on a line opens what to do right under it, on screen, not under the top bar.
+  await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "light" }] }, a);
+  await js(a, `document.querySelector('label[for=em-2]').scrollIntoView({ block: "center" })`);
+  await sleep(150);
+  const at = await js(a, `(() => { const b = document.querySelector('label[for=em-2]').getBoundingClientRect(); return { x: Math.round(b.left + 30), y: Math.round(b.top + 8) }; })()`);
+  for (const type of ["mousePressed", "mouseReleased"]) await send("Input.dispatchMouseEvent", { type, x: at.x, y: at.y, button: "left", clickCount: 1 }, a);
+  await sleep(250);
+  const pos = await js(a, `(() => { const l = document.querySelector('label[for=em-2]').getBoundingClientRect(); const m = document.querySelector('#msg-2').getBoundingClientRect(); const h = document.querySelector('header.top').getBoundingClientRect(); return { ticked: document.querySelector('#em-2').checked, gap: Math.round(m.top - l.bottom), top: Math.round(m.top), headerBottom: Math.round(h.bottom), screen: innerHeight }; })()`);
+  check("a tap on line 2 at phone width opens its steps right under it, on screen and below the top bar", pos.ticked && pos.gap >= 0 && pos.gap < 140 && pos.top >= pos.headerBottom && pos.top < pos.screen - 100, JSON.stringify(pos));
+  const shot = await send("Page.captureScreenshot", { format: "png" }, a);
+  writeFileSync(join(outDir, "phone-ticked.png"), Buffer.from(shot.data, "base64"));
+  await js(a, `document.querySelector('#em-2').click()`);
+
+  // Owner's review 355: with the page's script switched off, ticking a line still shows what to do under it.
+  const { targetId: njTarget } = await send("Target.createTarget", { url: "about:blank" });
+  const { sessionId: nj } = await send("Target.attachToTarget", { targetId: njTarget, flatten: true });
+  targetOf.set(nj, njTarget);
+  for (const d of ["Page", "Runtime"]) await send(d + ".enable", {}, nj);
+  await send("Emulation.setScriptExecutionDisabled", { value: true }, nj);
+  const njLoaded = waitFor(nj, "Page.loadEventFired");
+  await send("Page.navigate", { url: fileUrl }, nj);
+  await njLoaded;
+  await sleep(150);
+  check("the page's script is really off in this tab", (await js(nj, `document.querySelector('[data-actions="4"]').children.length === 0 && document.querySelector('[data-log]') === null`)) === true);
+  check("without the script, no line's steps show before a tick", (await js(nj, `[...document.querySelectorAll(".em .msg")].every((m) => m.getClientRects().length === 0)`)) === true);
+  await js(nj, `document.querySelector('#em-4').click(); document.querySelector('#em-passed').click(); document.querySelector('#em-19').click();`);
+  check("without the script, ticking line 4, its passed line and line 19 shows each one's steps", await js(nj, `["#msg-4", "#msg-passed", "#msg-19"].every((s) => document.querySelector(s).getClientRects().length > 0) && document.querySelector("#msg-4").textContent.includes("Call the emergency number now") && document.querySelector("#msg-19").textContent.includes("988")`));
+  check("without the script, the other lines stay closed", await js(nj, `document.querySelector("#msg-1").getClientRects().length === 0 && document.querySelector("#msg-5").getClientRects().length === 0`));
+  await closeTab(nj);
 
   // 11. No script errors or blocked loads anywhere.
   const errors = events.filter((e) => e.method === "Runtime.exceptionThrown" || (e.method === "Log.entryAdded" && e.params.entry.level === "error") || (e.method === "Runtime.consoleAPICalled" && e.params.type === "error"));

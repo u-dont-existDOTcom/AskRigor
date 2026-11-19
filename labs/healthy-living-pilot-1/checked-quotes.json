@@ -1,409 +1,340 @@
 {
-  "about": "Every quotation on the pilot page (each <q> element), with the checked source that holds it word for word. tests/healthy-living-pilot.test.ts fails if the page quotes anything not listed here, or a quotation of 15 words or more. With ASKRIGOR_PILOT_QUOTE_SOURCES set to the folder holding the four sources, it also checks each entry against its source.",
+  "about": "The guides' author's words that the pilot page uses as its own text (since v3 the page does not put his words in quotation marks: owner's review 355), each with a checked source that holds it word for word. tests/healthy-living-pilot.test.ts fails if an entry is missing from the page. With ASKRIGOR_PILOT_QUOTE_SOURCES set to the folder holding the sources, it also checks each entry against its source. The exact quotations, and every place where the page differs from the guides, are in the release folder's pilot-v3/changes-from-guides.md.",
   "checked": "19 Nov 2026",
   "sources": {
     "guide-quotes-v2.md": "The guides' public pages (u-dont-exist.com), cut from the page text by a script on 17 Nov 2026.",
     "owner-notes-336.md": "The guides' author's notes on draft 1 of the pilot, 17 Nov 2026, 01:13 UTC, word for word.",
     "systema-owner-notes.md": "The guides' author's description of Systema breathing, 16 Nov 2026, 19:32 UTC, word for word.",
-    "owner-note-20261118-1549.md": "The guides' author's note of 18 Nov 2026, 15:49 UTC, word for word."
+    "owner-note-20261118-1549.md": "The guides' author's note of 18 Nov 2026, 15:49 UTC, word for word.",
+    "pilot-v3/guide-excerpts-20261119.md": "Paragraphs of the sleep, detox and inner child guides, fetched 19 Nov 2026 at 15:53 UTC, word for word."
   },
   "quotes": [
     {
-      "quote": "you can have seizures",
+      "words": "you can have seizures",
       "source": "guide-quotes-v2.md",
       "guides": [
         "detox.u-dont-exist.com"
       ]
     },
     {
-      "quote": "Benzos can be dangerous to quit cold turkey.",
-      "source": "guide-quotes-v2.md",
-      "guides": [
-        "innerchild.u-dont-exist.com"
-      ]
-    },
-    {
-      "quote": "get another human being involved",
-      "source": "guide-quotes-v2.md",
-      "guides": [
-        "innerchild.u-dont-exist.com"
-      ]
-    },
-    {
-      "quote": "put some distance between you and the means",
-      "source": "guide-quotes-v2.md",
-      "guides": [
-        "innerchild.u-dont-exist.com"
-      ]
-    },
-    {
-      "quote": "even if the person on the other end is a total stranger",
-      "source": "guide-quotes-v2.md",
-      "guides": [
-        "innerchild.u-dont-exist.com"
-      ]
-    },
-    {
-      "quote": "losing a treatment window or missing a bleed",
+      "words": "spiritually process a body that is going under",
       "source": "guide-quotes-v2.md",
       "guides": [
         "badtrips.u-dont-exist.com"
       ]
     },
     {
-      "quote": "Calling for help is not the same thing as receiving good care.",
+      "words": "get another human being involved",
+      "source": "guide-quotes-v2.md",
+      "guides": [
+        "innerchild.u-dont-exist.com"
+      ]
+    },
+    {
+      "words": "even if the person on the other end is a total stranger",
+      "source": "guide-quotes-v2.md",
+      "guides": [
+        "innerchild.u-dont-exist.com"
+      ]
+    },
+    {
+      "words": "calling for help is not the same thing as receiving good care",
       "source": "guide-quotes-v2.md",
       "guides": [
         "badtrips.u-dont-exist.com"
       ]
     },
     {
-      "quote": "it's allergy & sensitivity testing, common sense for everything",
-      "source": "owner-note-20261118-1549.md"
-    },
-    {
-      "quote": "you don't start nebulizing",
-      "source": "owner-note-20261118-1549.md"
-    },
-    {
-      "quote": "until you are fine with smelling it",
-      "source": "owner-note-20261118-1549.md"
-    },
-    {
-      "quote": "A few preliminaries",
-      "source": "guide-quotes-v2.md",
-      "guides": [
-        "badtrips.u-dont-exist.com"
-      ]
-    },
-    {
-      "quote": "tap water is almost never drinkable these days",
+      "words": "tap water is almost never drinkable these days",
       "source": "guide-quotes-v2.md",
       "guides": [
         "detox.u-dont-exist.com"
       ]
     },
     {
-      "quote": "a good R/O system",
+      "words": "so you aren't poisoning yourself in the shower and when washing dishes",
       "source": "guide-quotes-v2.md",
       "guides": [
         "detox.u-dont-exist.com"
       ]
     },
     {
-      "quote": "(but add minerals sometimes)",
-      "source": "guide-quotes-v2.md",
+      "words": "You might feel like you breathe fine right now, but the real test is when you're asleep.",
+      "source": "pilot-v3/guide-excerpts-20261119.md",
       "guides": [
-        "detox.u-dont-exist.com"
+        "sleep.u-dont-exist.com"
       ]
     },
     {
-      "quote": "tested spring/well/rain water",
-      "source": "guide-quotes-v2.md",
-      "guides": [
-        "detox.u-dont-exist.com"
-      ]
-    },
-    {
-      "quote": "if you're not worried about criminals or outside pollution",
-      "source": "guide-quotes-v2.md",
-      "guides": [
-        "detox.u-dont-exist.com"
-      ]
-    },
-    {
-      "quote": "can backfire if not done intelligently",
-      "source": "guide-quotes-v2.md",
-      "guides": [
-        "detox.u-dont-exist.com"
-      ]
-    },
-    {
-      "quote": "Prevent breathing in the mold that's there",
-      "source": "guide-quotes-v2.md",
-      "guides": [
-        "detox.u-dont-exist.com"
-      ]
-    },
-    {
-      "quote": "The cheapo fix is just to open all the windows and doors",
-      "source": "guide-quotes-v2.md",
-      "guides": [
-        "detox.u-dont-exist.com"
-      ]
-    },
-    {
-      "quote": "Mold grows best above 50-60% humidity.",
-      "source": "guide-quotes-v2.md",
-      "guides": [
-        "detox.u-dont-exist.com"
-      ]
-    },
-    {
-      "quote": "Stop using dish sponges, switch to nylon brushes",
-      "source": "guide-quotes-v2.md",
-      "guides": [
-        "detox.u-dont-exist.com"
-      ]
-    },
-    {
-      "quote": "Nasal irrigation with Quinton Seawater",
-      "source": "guide-quotes-v2.md",
-      "guides": [
-        "detox.u-dont-exist.com"
-      ]
-    },
-    {
-      "quote": "First, thing's first, though, which is fixing underlying medical problems",
+      "words": "If you hear snoring or pauses in breathing, that's a huge clue.",
       "source": "guide-quotes-v2.md",
       "guides": [
         "sleep.u-dont-exist.com"
       ]
     },
     {
-      "quote": "sleepy driving is as dangerous as drunk driving",
+      "words": "not a true cure",
       "source": "guide-quotes-v2.md",
       "guides": [
         "sleep.u-dont-exist.com"
       ]
     },
     {
-      "quote": "You can do your own sleep study with a simple microphone",
+      "words": "sleepy driving is as dangerous as drunk driving",
       "source": "guide-quotes-v2.md",
       "guides": [
         "sleep.u-dont-exist.com"
       ]
     },
     {
-      "quote": "confirm the apnea subtype and severity",
+      "words": "caffeine is a fake fix",
       "source": "guide-quotes-v2.md",
       "guides": [
         "sleep.u-dont-exist.com"
       ]
     },
     {
-      "quote": "not a true cure",
+      "words": "Your sleep will be sabotaged by infinite emotional problems if you don't love yourself.",
+      "source": "pilot-v3/guide-excerpts-20261119.md",
+      "guides": [
+        "sleep.u-dont-exist.com"
+      ]
+    },
+    {
+      "words": "Loving kindness meditation is awesome, but inner child therapy is often where it starts.",
+      "source": "pilot-v3/guide-excerpts-20261119.md",
+      "guides": [
+        "sleep.u-dont-exist.com"
+      ]
+    },
+    {
+      "words": "track the basics for 14 days",
       "source": "guide-quotes-v2.md",
       "guides": [
         "sleep.u-dont-exist.com"
       ]
     },
     {
-      "quote": "Lose weight if overweight",
+      "words": "Keep a consistent wake time",
       "source": "guide-quotes-v2.md",
       "guides": [
         "sleep.u-dont-exist.com"
       ]
     },
     {
-      "quote": "consider myofunctional therapy",
+      "words": "the most important anchor is usually what time you wake up, not what time you go to bed",
       "source": "guide-quotes-v2.md",
       "guides": [
         "sleep.u-dont-exist.com"
       ]
     },
     {
-      "quote": "Do not abruptly stop prescribed medication to improve sleep.",
+      "words": "Let sunrise wake you.",
       "source": "guide-quotes-v2.md",
       "guides": [
         "sleep.u-dont-exist.com"
       ]
     },
     {
-      "quote": "Put a bag of it in your pillow!",
+      "words": "Do not abruptly stop prescribed medication to improve sleep",
       "source": "guide-quotes-v2.md",
       "guides": [
         "sleep.u-dont-exist.com"
       ]
     },
     {
-      "quote": "nobody has studied this skin-contact-thru-bag method",
+      "words": "Put a bag of it in your pillow!",
       "source": "guide-quotes-v2.md",
       "guides": [
         "sleep.u-dont-exist.com"
       ]
     },
     {
-      "quote": "track the basics for 14 days",
-      "source": "guide-quotes-v2.md",
-      "guides": [
-        "sleep.u-dont-exist.com"
-      ]
-    },
-    {
-      "quote": "before taking anything for sleep, first build a baseline",
-      "source": "guide-quotes-v2.md",
-      "guides": [
-        "sleep.u-dont-exist.com"
-      ]
-    },
-    {
-      "quote": "Keep a consistent wake time.",
-      "source": "guide-quotes-v2.md",
-      "guides": [
-        "sleep.u-dont-exist.com"
-      ]
-    },
-    {
-      "quote": "Avoid all stimulant drugs, including caffeine, completely, 100%.",
-      "source": "guide-quotes-v2.md",
-      "guides": [
-        "sleep.u-dont-exist.com"
-      ]
-    },
-    {
-      "quote": "Let sunrise wake you.",
-      "source": "guide-quotes-v2.md",
-      "guides": [
-        "sleep.u-dont-exist.com"
-      ]
-    },
-    {
-      "quote": "Vagal Blitz is the insta-fix for sleep",
-      "source": "guide-quotes-v2.md",
-      "guides": [
-        "sleep.u-dont-exist.com"
-      ]
-    },
-    {
-      "quote": "It only takes a minute to check your BOLT score",
+      "words": "It only takes a minute to check your BOLT score",
       "source": "guide-quotes-v2.md",
       "guides": [
         "breathwork.u-dont-exist.com"
       ]
     },
     {
-      "quote": "A healthy adult has a score of 40+.",
+      "words": "A healthy adult has a score of 40+.",
       "source": "guide-quotes-v2.md",
       "guides": [
         "breathwork.u-dont-exist.com"
       ]
     },
     {
-      "quote": "feels a bit anxiogenic for the first 20 seconds or so",
+      "words": "Below 20 is a sure indicator of chronic anxiety, sleep and health problems.",
+      "source": "guide-quotes-v2.md",
+      "guides": [
+        "breathwork.u-dont-exist.com"
+      ]
+    },
+    {
+      "words": "but after that, you'll feel much calmer",
       "source": "guide-quotes-v2.md",
       "guides": [
         "somatic.u-dont-exist.com"
       ]
     },
     {
-      "quote": "after that, you'll feel much calmer",
+      "words": "You can use this any time, not just",
       "source": "guide-quotes-v2.md",
       "guides": [
         "somatic.u-dont-exist.com"
       ]
     },
     {
-      "quote": "You can use this any time",
-      "source": "guide-quotes-v2.md",
-      "guides": [
-        "somatic.u-dont-exist.com"
-      ]
-    },
-    {
-      "quote": "one of the root causes",
+      "words": "one of the root causes of sleep apnea",
       "source": "guide-quotes-v2.md",
       "guides": [
         "breathwork.u-dont-exist.com"
       ]
     },
     {
-      "quote": "much easier for people to understand",
+      "words": "much easier for people to understand",
       "source": "owner-notes-336.md"
     },
     {
-      "quote": "it's a background process",
-      "source": "systema-owner-notes.md"
-    },
-    {
-      "quote": "light natural breathing",
-      "source": "systema-owner-notes.md"
-    },
-    {
-      "quote": "45-80% of a full deep breath",
-      "source": "owner-note-20261118-1549.md"
-    },
-    {
-      "quote": "you don't fully exhale, you don't fully inhale either",
-      "source": "owner-note-20261118-1549.md"
-    },
-    {
-      "quote": "the only control is that you make sure you are not pausing",
-      "source": "systema-owner-notes.md"
-    },
-    {
-      "quote": "even better than just breathing less is circular breathing, Systema style",
+      "words": "Even better than just breathing less is circular breathing, Systema style",
       "source": "guide-quotes-v2.md",
       "guides": [
         "breathwork.u-dont-exist.com"
       ]
     },
     {
-      "quote": "Systema continuous breathing is great!",
+      "words": "it can put you into the flow state very quickly",
+      "source": "guide-quotes-v2.md",
+      "guides": [
+        "breathwork.u-dont-exist.com"
+      ]
+    },
+    {
+      "words": "Systema continuous breathing is great!",
       "source": "guide-quotes-v2.md",
       "guides": [
         "innerchild.u-dont-exist.com"
       ]
     },
     {
-      "quote": "try it just barely and forget it",
-      "source": "systema-owner-notes.md"
-    },
-    {
-      "quote": "so they really can't cheat",
+      "words": "45-80% of a full deep breath, so you don't fully exhale, you don't fully inhale either",
       "source": "owner-note-20261118-1549.md"
     },
     {
-      "quote": "light slaps to the face that don't hurt",
+      "words": "the only control is that you make sure you are not pausing",
+      "source": "systema-owner-notes.md"
+    },
+    {
+      "words": "it's a background process",
+      "source": "systema-owner-notes.md"
+    },
+    {
+      "words": "try it just barely and forget it",
+      "source": "systema-owner-notes.md"
+    },
+    {
+      "words": "so they really can't cheat",
+      "source": "owner-note-20261118-1549.md"
+    },
+    {
+      "words": "light slaps to the face that don't hurt",
       "source": "owner-notes-336.md"
     },
     {
-      "quote": "PAINLESS",
+      "words": "even if the strikes don't land, it can still work usually",
       "source": "owner-notes-336.md"
     },
     {
-      "quote": "even if the strikes don't land, it can still work usually",
+      "words": "the idea is to do something that instills fear, with safety ensured",
       "source": "owner-notes-336.md"
     },
     {
-      "quote": "the idea is to do something that instills fear, with safety ensured",
-      "source": "owner-notes-336.md"
-    },
-    {
-      "quote": "so it's like desensitization therapies",
-      "source": "owner-notes-336.md"
-    },
-    {
-      "quote": "i'm also not a systema master yet",
-      "source": "owner-notes-336.md"
-    },
-    {
-      "quote": "clinical reports or small trials but no strong modern outcome evidence",
+      "words": "Prevent breathing in the mold that's there",
       "source": "guide-quotes-v2.md",
       "guides": [
-        "badtrips.u-dont-exist.com"
+        "detox.u-dont-exist.com"
       ]
     },
     {
-      "quote": "what I have repeatedly observed in myself or other people",
+      "words": "if you're not worried about criminals or outside pollution",
       "source": "guide-quotes-v2.md",
       "guides": [
-        "badtrips.u-dont-exist.com"
+        "detox.u-dont-exist.com"
       ]
     },
     {
-      "quote": "Medical help and field rescue can happen in parallel.",
+      "words": "can be super expensive",
       "source": "guide-quotes-v2.md",
       "guides": [
-        "badtrips.u-dont-exist.com"
+        "detox.u-dont-exist.com"
       ]
     },
     {
-      "quote": "Please don't spiritually process a body that is going under.",
+      "words": "can backfire if not done intelligently",
       "source": "guide-quotes-v2.md",
       "guides": [
-        "badtrips.u-dont-exist.com"
+        "detox.u-dont-exist.com"
       ]
+    },
+    {
+      "words": "Mold grows best above 50-60% humidity",
+      "source": "guide-quotes-v2.md",
+      "guides": [
+        "detox.u-dont-exist.com"
+      ]
+    },
+    {
+      "words": "Try to aim for the lowest humidity that doesn't cause your sinuses to feel too dry",
+      "source": "guide-quotes-v2.md",
+      "guides": [
+        "detox.u-dont-exist.com"
+      ]
+    },
+    {
+      "words": "in closets regularly, even if unused, especially if they smell at all off",
+      "source": "guide-quotes-v2.md",
+      "guides": [
+        "detox.u-dont-exist.com"
+      ]
+    },
+    {
+      "words": "Air conditioners are a huge mold problem",
+      "source": "guide-quotes-v2.md",
+      "guides": [
+        "detox.u-dont-exist.com"
+      ]
+    },
+    {
+      "words": "Artificial scents, air fresheners, are designed to kill you!",
+      "source": "guide-quotes-v2.md",
+      "guides": [
+        "detox.u-dont-exist.com"
+      ]
+    },
+    {
+      "words": "Stop using dish sponges, switch to nylon brushes",
+      "source": "guide-quotes-v2.md",
+      "guides": [
+        "detox.u-dont-exist.com"
+      ]
+    },
+    {
+      "words": "Nasal irrigation with Quinton Seawater is one of the best solutions",
+      "source": "guide-quotes-v2.md",
+      "guides": [
+        "detox.u-dont-exist.com"
+      ]
+    },
+    {
+      "words": "Sweating is a toxin clearance system par excellence",
+      "source": "pilot-v3/guide-excerpts-20261119.md",
+      "guides": [
+        "detox.u-dont-exist.com"
+      ]
+    },
+    {
+      "words": "it's allergy & sensitivity testing, common sense for everything",
+      "source": "owner-note-20261118-1549.md"
     }
   ]
 }

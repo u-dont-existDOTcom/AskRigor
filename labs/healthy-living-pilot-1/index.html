@@ -3,7 +3,8 @@
   AskRigor healthy-living page, pilot 1. One offline file: it loads nothing,
   sends nothing, and keeps answers only in this browser's local storage.
   Built 19 Nov 2026 from draft v2 as the owner approved it on 18 Nov 2026
-  (owner answer 345a), with his additions of 18 Nov. Not published: putting
+  (owner answer 345a), with his additions of 18 Nov; revised as v3 after his
+  review of 19 Nov (owner answer 355b). Not published: putting
   it anywhere online is a separate decision of the owner's.
   Checks: tests/healthy-living-pilot.test.ts.
 -->
@@ -13,7 +14,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
-<meta name="description" content="A pilot that turns the guides' own words into short things to consider for one adult, after a check for emergencies. Not medical advice.">
+<meta name="description" content="A pilot that gives one author's health guides, in his order, as short steps for one adult, after a check for emergencies. Not medical advice.">
 <title>Healthy living, pilot 1</title>
 <style>
 :root {
@@ -56,7 +57,7 @@ header.top .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 6px
 h1 { font-size: 1.75rem; line-height: 1.2; margin: 1.2rem 0 .6rem; }
 h2 { font-size: 1.35rem; line-height: 1.25; margin: 2rem 0 .6rem; }
 h3 { font-size: 1.1rem; line-height: 1.3; margin: 1.2rem 0 .4rem; }
-section.card, details.area, .sugg { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+section.card, section.step, details.area, .sugg { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
 .pilot { border-left: 6px solid var(--accent); }
 .lead p { margin: .35rem 0; font-weight: 600; }
 button { font: inherit; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--accent); background: var(--card); color: var(--accent); cursor: pointer; min-height: 44px; }
@@ -70,6 +71,15 @@ ol.em input { width: 1.2rem; height: 1.2rem; vertical-align: -0.2rem; margin-rig
 .group { font-weight: 700; margin: 1rem 0 .2rem; color: var(--muted); }
 .msg { background: var(--warn-bg); color: var(--fg); border: 1px solid var(--warn-line); border-radius: 8px; padding: 8px 12px; margin: 6px 0 10px; }
 .msg > p:first-child { margin-top: 0; }
+/* Owner's review 355: what to do opens right under a ticked box, by CSS alone, so it shows even if the script never runs. */
+.em .msg { display: none; }
+.em input:checked ~ .msg { display: block; }
+.act { margin: .15rem 0 .2rem; font-weight: 700; color: var(--warn-fg); }
+.sub { margin: .5rem 0 .3rem; padding: .3rem 0 .3rem .7rem; border-left: 3px solid var(--warn-line); }
+.now { background: var(--warn-bg); color: var(--warn-fg); border: 2px solid var(--warn-line); border-radius: 8px; padding: 8px 12px; margin: .6rem 0; }
+.now a { color: inherit; }
+section.step, #breathing, #help, #today, #order { scroll-margin-top: 6rem; }
+h3.part { font-size: 1.15rem; margin-top: 1.6rem; }
 .msg h3 { margin-top: .2rem; color: var(--warn-fg); }
 .steps { padding-left: 1.2rem; margin: .4rem 0; }
 .steps li { margin: .3rem 0; }
@@ -126,9 +136,9 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
 
 <section class="card pilot" id="pilot" aria-labelledby="pilot-title">
   <h1 id="pilot-title">Small things to try for sleep, stress, and your home's air and water</h1>
-  <p><b>Start with the <a href="#help">safety check</a> just below. Then pick one area and see a few things to try.</b></p>
+  <p class="now"><b>Emergency? If anything in the <a href="#help">safety check</a> below is happening now, call the emergency number now: 911 in the US, 112 in Europe, 999 in the UK. One sign is enough.</b></p>
   <p><b>This is a pilot</b>, a first test version: it has not yet been tried by real users. <b>It is not personal medical advice.</b> It cannot examine you or tell you what is wrong, and it does not replace a doctor.</p>
-  <p>The ideas come from free health guides by one author, linked at the bottom. Words in quotation marks are his own. Each idea says how well it has been studied.</p>
+  <p>The steps come from free health guides by one author, in his order (links at the bottom). Each step says how well it has been studied.</p>
 </section>
 
 <section class="card lead" id="start" aria-label="Before you start">
@@ -152,168 +162,76 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
 
 <section class="card" id="help" aria-labelledby="help-title">
   <h2 id="help-title">Safety check: is any of this happening now?</h2>
-  <p class="small">Tick any line that is happening now, and what to do appears right under it. If none is, press None of these at the end.</p>
-
+  <p class="now"><b>If any one of these is happening now, call the emergency number now: 911 in the US, 112 in Europe, 999 in the UK. Or get someone to call. One is enough: call first, read later.</b> A few lines say what else to do, on the line itself.</p>
+  <p class="small">Tick a line, and what to do opens right under it. If none is happening, press None of these at the end.</p>
   <p class="group">Breathing</p>
   <ol class="em" start="1">
-    <li><label><input type="checkbox" data-em="1"> Hard to breathe, choking, breathing very slow, or lips turning blue or grey.</label><div class="msg" id="msg-1" hidden data-callmsg></div></li>
-    <li><label><input type="checkbox" data-em="2"> Coughing up more than streaks of blood.</label><div class="msg" id="msg-2" hidden data-callmsg></div></li>
+    <li><input type="checkbox" id="em-1" data-em="1"><label for="em-1">Hard to breathe, choking, breathing very slow, or lips turning blue or grey.</label>
+      <div class="msg" id="msg-1" data-callmsg><ul class="steps"><li><b>Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.</b> <span class="why">Why: some of these signs get worse fast, and some treatments work only if they start early.</span></li><li><b>Don't drive yourself.</b> <span class="why">Why: you could get worse at the wheel.</span></li><li><b>Use what first aid you know while help comes.</b> <span class="why">Why: medical help and first aid can happen at the same time.</span></li><li><b>Don't wait to see if a remedy works.</b> <span class="why">Why: waiting uses up the time when treatment works best. Don't spiritually process a body that is going under.</span></li></ul><div data-actions="1"></div></div></li>
+    <li><input type="checkbox" id="em-2" data-em="2"><label for="em-2">Coughing up blood: more than a few small spots or streaks (for example a spoonful, a clot, or phlegm that is mostly blood). Or any blood with hard breathing, a very fast heartbeat, or pain in the chest or upper back.</label><p class="small">Only a few small spots or streaks of blood in your phlegm? That is not an emergency call, but it is not normal either: get seen today (Get seen today, below).</p>
+      <div class="msg" id="msg-2" data-callmsg><ul class="steps"><li><b>Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.</b> <span class="why">Why: some of these signs get worse fast, and some treatments work only if they start early.</span></li><li><b>Don't drive yourself.</b> <span class="why">Why: you could get worse at the wheel.</span></li><li><b>Use what first aid you know while help comes.</b> <span class="why">Why: medical help and first aid can happen at the same time.</span></li><li><b>Don't wait to see if a remedy works.</b> <span class="why">Why: waiting uses up the time when treatment works best. Don't spiritually process a body that is going under.</span></li></ul><details class="fold"><summary>What the NHS says about coughing up blood</summary><p>Call 999 or go to A&amp;E if you are coughing up more than just a few spots or streaks of blood, or coughing up any blood with hard breathing, a very fast heartbeat, or pain in your chest or upper back. A few small spots, flecks or streaks of blood, or blood in your phlegm: get an urgent appointment with a doctor the same day. The NHS gives no amount. The US MedlinePlus says to get help right away for more than a few teaspoons. <a href="https://www.nhs.uk/symptoms/coughing-up-blood/" target="_blank" rel="noopener noreferrer">NHS: Coughing up blood</a> (online).</p></details><div data-actions="2"></div></div></li>
   </ol>
   <p class="group">Chest</p>
   <ol class="em" start="3">
-    <li><label><input type="checkbox" data-em="3"> Chest pain or pressure that is severe, spreading, worsening, brought on by effort, or comes with breathlessness, sweating or faintness. Or sudden chest discomfort or pressure that does not go away, even if mild.</label><div class="msg" id="msg-3" hidden data-callmsg></div></li>
+    <li><input type="checkbox" id="em-3" data-em="3"><label for="em-3">Chest pain or pressure that is severe, spreading, getting worse, comes on when you exert yourself, or comes with breathlessness, sweating or faintness. Or sudden chest discomfort or pressure that does not go away, even if mild.</label>
+      <div class="msg" id="msg-3" data-callmsg><ul class="steps"><li><b>Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.</b> <span class="why">Why: some of these signs get worse fast, and some treatments work only if they start early.</span></li><li><b>Don't drive yourself.</b> <span class="why">Why: you could get worse at the wheel.</span></li><li><b>Use what first aid you know while help comes.</b> <span class="why">Why: medical help and first aid can happen at the same time.</span></li><li><b>Don't wait to see if a remedy works.</b> <span class="why">Why: waiting uses up the time when treatment works best. Don't spiritually process a body that is going under.</span></li></ul><div data-actions="3"></div></div></li>
   </ol>
   <p class="group">Brain</p>
   <ol class="em" start="4">
-    <li><label><input type="checkbox" data-em="4"> Face drooping, one side weak or numb, speech slurred or gone, sudden loss of sight or balance, or a sudden worst-ever headache.</label>
-      <div class="msg" id="msg-4" hidden data-callmsg>
-        <ul class="steps extra">
-          <li><b>Note the time it started.</b> <span class="why">Why: some stroke treatments can only be given within hours of the start.</span></li>
-        </ul>
-        <details class="fold"><summary>Why the time matters, in numbers</summary>
-          <p>In the trials of the clot-dissolving drug (a drug that breaks up the blood clot blocking the brain), people treated within 3 hours did best: 33 in 100 recovered with little or no disability, against 23 in 100 without it. After 4.5 hours those trials showed no clear gain. The drug also caused a deadly bleed in the brain in about 3 in 100 people, against fewer than 1 in 100 without it, which is why hospitals scan the brain first. Other stroke treatments have other time limits. Sooner is better for all of them.</p>
-        </details>
-      </div></li>
-    <li><label><input type="checkbox" data-em="5"> Collapsed, can't be woken, suddenly very confused, a first seizure (fit), a seizure lasting five minutes, or seizures one after another.</label><div class="msg" id="msg-5" hidden data-callmsg></div></li>
+    <li><input type="checkbox" id="em-4" data-em="4"><label for="em-4">Face drooping, an arm or leg weak or numb on one side, speech slurred or gone, sudden loss of sight or balance, or a sudden worst-ever headache.</label>
+      <div class="msg" id="msg-4" data-callmsg><ul class="steps"><li><b>Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.</b> <span class="why">Why: some of these signs get worse fast, and some treatments work only if they start early.</span></li><li><b>Don't drive yourself.</b> <span class="why">Why: you could get worse at the wheel.</span></li><li><b>Use what first aid you know while help comes.</b> <span class="why">Why: medical help and first aid can happen at the same time.</span></li><li><b>Don't wait to see if a remedy works.</b> <span class="why">Why: waiting uses up the time when treatment works best. Don't spiritually process a body that is going under.</span></li></ul><ul class="steps"><li><b>Note the time it started.</b> <span class="why">Why: some stroke treatments can only be given within hours of the start.</span></li></ul><details class="fold"><summary>Why the time matters, in numbers</summary><p>In the trials of the clot-dissolving drug (a drug that breaks up the blood clot blocking the brain), people treated within 3 hours did best: 33 in 100 recovered with little or no disability, against 23 in 100 without it. After 4.5 hours those trials showed no clear gain. The drug also caused a deadly bleed in the brain in about 3 in 100 people, against fewer than 1 in 100 without it, which is why hospitals scan the brain first. Other stroke treatments have other time limits. Sooner is better for all of them.</p></details><div data-actions="4"></div></div>
+      <div class="sub"><input type="checkbox" id="em-passed" data-em="passed"><label for="em-passed">These signs came and went, even for minutes.</label><p class="act">Call now, even though it passed.</p>
+        <div class="msg" id="msg-passed"><h3 id="stroke-passed">Call now, even though it passed</h3><p>Sudden weakness, a drooping face, trouble speaking, or sudden loss of sight or balance can warn of a stroke, even if it stops within minutes. Doctors call this a warning stroke.</p><p>The first days after carry the most risk; in one UK study, fast care cut strokes in the next 3 months from 10 in 100 to 2 in 100.</p><p>Many callers turn out not to have had a stroke, often about half, and that is expected.</p><p>A false alarm usually means a scan and some tests; a missed warning can mean a stroke.</p><ul class="steps"><li><b>If the signs stopped only minutes or hours ago, or it was a sudden worst-ever headache, call the emergency number now (911 in the US, 112 in Europe, 999 in the UK).</b> <span class="why">Why: health services ask for an emergency call for stroke signs even when they go away, and a sudden worst-ever headache can be bleeding in the brain even after it eases.</span></li><li><b>Otherwise, phone an emergency department or a stroke clinic now and say: possible warning stroke.</b> <span class="why">Why: those words tell them what to check, and UK guidance asks for a stroke specialist within 24 hours.</span></li><li><b>Go where they send you.</b> <span class="why">Why: they know which place can do the tests soonest.</span></li><li><b>Don't drive yourself.</b> <span class="why">Why: the signs could come back at the wheel.</span></li><li><b>If any sign comes back, call the emergency number (911 in the US, 112 in Europe, 999 in the UK).</b> <span class="why">Why: signs happening now are an emergency (line 4, just above), and some treatments work only within hours.</span></li></ul><details class="fold"><summary>Why call when it has passed, in numbers</summary><p>A warning stroke means stroke signs that pass. After one, about 5 in 100 people have a stroke within a week. It was 11 in 100 where nobody treated it urgently, and 1 in 100 where a specialist stroke service treated it as an emergency (18 studies, 10,126 people).</p><p>The UK study was in Oxford. Seeing people within a day instead of about three, and starting treatment at once, went with a fall in strokes over the next 3 months from 10 in 100 to 2 in 100. It compared before with after; it was not a fair test where chance decides who gets what.</p><p>Why a false alarm is expected: the face, arm and speech signs catch strokes, but they do not rule out other causes. Of 100 people who call after signs pass, 40 to 67 turn out to have had a warning stroke or a small stroke (three studies). The others usually get a brain scan and tests, and often learn the real cause, such as an infection, a faint or a migraine. The clot-dissolving drug (it breaks up a clot in the brain) is given only while signs last, so people whose signs have passed almost never get it.</p><p>Most strokes give no signs anyone notices: one US estimate counted about 11 million silent strokes in one year (1998), against 770,000 with signs. This line is about the ones that do give signs.</p><p>The bigger risk is losing the hours when a treatment still works, or missing bleeding in the brain, because the signs eased enough to feel reassuring.</p><p>If it was more than a week ago, it is less pressing, but UK stroke guidance still asks for a specialist within seven days.</p></details><details class="fold"><summary>What to ask when you are seen</summary><p class="why">Why ask: calling for help is not the same thing as receiving good care.</p><ul class="plain"><li>What caused it? If you don't know yet, what test comes next?</li><li>What treatment starts now, while you look for the cause?</li><li>Will you check my heart rhythm, with a heart tracing (ECG) and, if that is normal, a monitor I wear for some days?</li><li>Will you check the arteries in my neck for a narrowing, with an ultrasound (a sound-wave picture) or a CT scan (a detailed X-ray picture)?</li><li>Will I have a brain scan, to see whether it was a clot, a bleed, or neither?</li><li>Will you check my blood pressure, blood sugar and cholesterol?</li><li>What lowers my risk this week, and what are the risks of that?</li></ul></details><div data-actions="passed"></div></div></div></li>
+    <li><input type="checkbox" id="em-5" data-em="5"><label for="em-5">Collapsed, can't be woken, suddenly very confused, a first seizure (fit), a seizure lasting five minutes, or seizures one after another.</label>
+      <div class="msg" id="msg-5" data-callmsg><ul class="steps"><li><b>Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.</b> <span class="why">Why: some of these signs get worse fast, and some treatments work only if they start early.</span></li><li><b>Don't drive yourself.</b> <span class="why">Why: you could get worse at the wheel.</span></li><li><b>Use what first aid you know while help comes.</b> <span class="why">Why: medical help and first aid can happen at the same time.</span></li><li><b>Don't wait to see if a remedy works.</b> <span class="why">Why: waiting uses up the time when treatment works best. Don't spiritually process a body that is going under.</span></li></ul><div data-actions="5"></div></div></li>
   </ol>
   <p class="group">Infection</p>
   <p class="small"><b>You don't need to know it is an infection. Don't wait for a fever, a rash, or every sign: any one is enough.</b></p>
   <ol class="em" start="6">
-    <li><label><input type="checkbox" data-em="6"> Might be an infection, even if no one has said so, and even without fever: breathing fast, skin blotchy or cold, or new confusion.</label>
-      <div class="msg" id="msg-6" hidden data-callmsg>
-        <details class="fold"><summary>Why this line is here</summary>
-          <p>This can be sepsis: the body being overwhelmed by an infection. It is on this list because it can come with no fever. In older people with a serious infection, fever is missing or weak 20 to 30 times in 100. So watch for confusion, fast breathing, and blotchy or cold skin, not the thermometer.</p>
-          <p>Sepsis is involved in about 1 in 5 deaths worldwide (11 million deaths among 49 million cases in 2017). In 49,331 hospital patients in New York, each hour's delay in getting antibiotics (infection-fighting drugs) went with a slightly higher risk of dying.</p>
-        </details>
-      </div></li>
-    <li><label><input type="checkbox" data-em="7"> A severe headache with a stiff neck, or with light hurting your eyes; a fever with a stiff neck; or a rash that doesn't fade when pressed.</label><div class="msg" id="msg-7" hidden data-callmsg></div></li>
+    <li><input type="checkbox" id="em-6" data-em="6"><label for="em-6">Might be an infection, even if no one has said so, and even without fever: breathing fast, skin blotchy or cold, or new confusion.</label>
+      <div class="msg" id="msg-6" data-callmsg><ul class="steps"><li><b>Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.</b> <span class="why">Why: some of these signs get worse fast, and some treatments work only if they start early.</span></li><li><b>Don't drive yourself.</b> <span class="why">Why: you could get worse at the wheel.</span></li><li><b>Use what first aid you know while help comes.</b> <span class="why">Why: medical help and first aid can happen at the same time.</span></li><li><b>Don't wait to see if a remedy works.</b> <span class="why">Why: waiting uses up the time when treatment works best. Don't spiritually process a body that is going under.</span></li></ul><details class="fold"><summary>Why this line is here</summary><p>This can be sepsis: the body being overwhelmed by an infection. It is on this list because it can come with no fever. In older people with a serious infection, fever is missing or weak 20 to 30 times in 100. So watch for confusion, fast breathing, and blotchy or cold skin, not the thermometer.</p><p>Sepsis is involved in about 1 in 5 deaths worldwide (11 million deaths among 49 million cases in 2017). In 49,331 hospital patients in New York, each hour's delay in getting antibiotics (infection-fighting drugs) went with a slightly higher risk of dying.</p></details><div data-actions="6"></div></div></li>
+    <li><input type="checkbox" id="em-7" data-em="7"><label for="em-7">A severe headache with a stiff neck, or with light hurting your eyes; a fever with a stiff neck; or a rash that doesn't fade when pressed.</label>
+      <div class="msg" id="msg-7" data-callmsg><ul class="steps"><li><b>Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.</b> <span class="why">Why: some of these signs get worse fast, and some treatments work only if they start early.</span></li><li><b>Don't drive yourself.</b> <span class="why">Why: you could get worse at the wheel.</span></li><li><b>Use what first aid you know while help comes.</b> <span class="why">Why: medical help and first aid can happen at the same time.</span></li><li><b>Don't wait to see if a remedy works.</b> <span class="why">Why: waiting uses up the time when treatment works best. Don't spiritually process a body that is going under.</span></li></ul><div data-actions="7"></div></div></li>
   </ol>
   <p class="group">Body</p>
   <ol class="em" start="8">
-    <li><label><input type="checkbox" data-em="8"> Throat tight, lips or tongue swelling, wheezing or faint after a food, sting or medicine.</label>
-      <div class="msg" id="msg-8" hidden>
-        <ul class="steps">
-          <li><b>Use your adrenaline (epinephrine) pen, such as an EpiPen, now if you have one.</b> <span class="why">Why: it is made for exactly this, and it works best given early. Don't wait to see if the reaction passes.</span></li>
-          <li><b>Then call the emergency number (911 in the US, 112 in Europe, 999 in the UK), or get someone to call. Say you think it is anaphylaxis (a severe allergic reaction). Call even if you start to feel better.</b> <span class="why">Why: it can come back, and help may take time to arrive.</span></li>
-          <li><b>Lie down flat. If breathing is hard, sit up instead. If you are pregnant, lie on your left side.</b> <span class="why">Why: lying down helps the blood reach your heart and brain; sitting up makes breathing easier; lying on the left keeps the womb off a large vein.</span></li>
-          <li><b>Don't stand up or walk, even if you feel better. Let help come to you.</b> <span class="why">Why: standing up during a severe allergic reaction can make the blood pressure fall dangerously.</span></li>
-          <li><b>Don't drive yourself.</b> <span class="why">Why: you could get worse at the wheel.</span></li>
-        </ul>
-        <div data-actions="8"></div>
-      </div></li>
-    <li><label><input type="checkbox" data-em="9"> Vomiting blood or vomiting that won't stop, black, tar-like poo with faintness, bleeding that won't stop, no urine all day, or sudden severe belly pain.</label><div class="msg" id="msg-9" hidden data-callmsg></div></li>
-    <li><label><input type="checkbox" data-em="10"> Swelling of the face or jaw spreading toward the eye or neck, or trouble swallowing.</label><div class="msg" id="msg-10" hidden data-callmsg></div></li>
-    <li><label><input type="checkbox" data-em="11"> A serious injury, or a hard blow to the head or back.</label><div class="msg" id="msg-11" hidden data-callmsg></div></li>
-    <li><label><input type="checkbox" data-em="12"> Overheated, and confused or faint.</label>
-      <div class="msg" id="msg-12" hidden data-callmsg>
-        <ul class="steps extra">
-          <li><b>Cool down while you call the emergency number. Don't wait for a thermometer.</b> <span class="why">Why: the guides warn that above 105°F (40.5°C) <q>you can have seizures</q> (fits).</span></li>
-        </ul>
-      </div></li>
-    <li><label><input type="checkbox" data-em="13"> Vomiting with deep, fast breathing, even if you have never been diagnosed with diabetes. Great thirst, peeing a lot, or breath that smells fruity are more clues, but you don't need them. Or diabetes, and confused or hard to wake.</label><div class="msg" id="msg-13" hidden data-callmsg></div></li>
+    <li><input type="checkbox" id="em-8" data-em="8"><label for="em-8">Throat tight, lips or tongue swelling, wheezing or faint after a food, sting or medicine.</label><p class="act">Use your adrenaline pen now if you have one, then call.</p>
+      <div class="msg" id="msg-8"><ul class="steps"><li><b>Use your adrenaline (epinephrine) pen, such as an EpiPen, now if you have one.</b> <span class="why">Why: it is made for exactly this, and it works best given early. Don't wait to see if the reaction passes.</span></li><li><b>Then call the emergency number (911 in the US, 112 in Europe, 999 in the UK), or get someone to call. Say you think it is anaphylaxis (a severe allergic reaction). Call even if you start to feel better.</b> <span class="why">Why: it can come back, and help may take time to arrive.</span></li><li><b>Lie down flat. If breathing is hard, sit up instead. If you are pregnant, lie on your left side.</b> <span class="why">Why: lying down helps the blood reach your heart and brain; sitting up makes breathing easier; lying on the left keeps the womb off a large vein.</span></li><li><b>Don't stand up or walk, even if you feel better. Let help come to you.</b> <span class="why">Why: standing up during a severe allergic reaction can make the blood pressure fall dangerously.</span></li><li><b>Don't drive yourself.</b> <span class="why">Why: you could get worse at the wheel.</span></li></ul><div data-actions="8"></div></div></li>
+    <li><input type="checkbox" id="em-9" data-em="9"><label for="em-9">Vomiting blood or vomiting that won't stop, black, tar-like poo with faintness, bleeding that won't stop, no urine all day, or sudden severe belly pain.</label>
+      <div class="msg" id="msg-9" data-callmsg><ul class="steps"><li><b>Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.</b> <span class="why">Why: some of these signs get worse fast, and some treatments work only if they start early.</span></li><li><b>Don't drive yourself.</b> <span class="why">Why: you could get worse at the wheel.</span></li><li><b>Use what first aid you know while help comes.</b> <span class="why">Why: medical help and first aid can happen at the same time.</span></li><li><b>Don't wait to see if a remedy works.</b> <span class="why">Why: waiting uses up the time when treatment works best. Don't spiritually process a body that is going under.</span></li></ul><div data-actions="9"></div></div></li>
+    <li><input type="checkbox" id="em-10" data-em="10"><label for="em-10">Swelling of the face or jaw spreading toward the eye or neck, or trouble swallowing.</label>
+      <div class="msg" id="msg-10" data-callmsg><ul class="steps"><li><b>Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.</b> <span class="why">Why: some of these signs get worse fast, and some treatments work only if they start early.</span></li><li><b>Don't drive yourself.</b> <span class="why">Why: you could get worse at the wheel.</span></li><li><b>Use what first aid you know while help comes.</b> <span class="why">Why: medical help and first aid can happen at the same time.</span></li><li><b>Don't wait to see if a remedy works.</b> <span class="why">Why: waiting uses up the time when treatment works best. Don't spiritually process a body that is going under.</span></li></ul><div data-actions="10"></div></div></li>
+    <li><input type="checkbox" id="em-11" data-em="11"><label for="em-11">A serious injury, or a hard blow to the head or back.</label>
+      <div class="msg" id="msg-11" data-callmsg><ul class="steps"><li><b>Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.</b> <span class="why">Why: some of these signs get worse fast, and some treatments work only if they start early.</span></li><li><b>Don't drive yourself.</b> <span class="why">Why: you could get worse at the wheel.</span></li><li><b>Use what first aid you know while help comes.</b> <span class="why">Why: medical help and first aid can happen at the same time.</span></li><li><b>Don't wait to see if a remedy works.</b> <span class="why">Why: waiting uses up the time when treatment works best. Don't spiritually process a body that is going under.</span></li></ul><div data-actions="11"></div></div></li>
+    <li><input type="checkbox" id="em-12" data-em="12"><label for="em-12">Overheated, and confused or faint.</label>
+      <div class="msg" id="msg-12" data-callmsg><ul class="steps"><li><b>Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.</b> <span class="why">Why: some of these signs get worse fast, and some treatments work only if they start early.</span></li><li><b>Don't drive yourself.</b> <span class="why">Why: you could get worse at the wheel.</span></li><li><b>Use what first aid you know while help comes.</b> <span class="why">Why: medical help and first aid can happen at the same time.</span></li><li><b>Don't wait to see if a remedy works.</b> <span class="why">Why: waiting uses up the time when treatment works best. Don't spiritually process a body that is going under.</span></li></ul><ul class="steps"><li><b>Cool down while you call the emergency number. Don't wait for a thermometer.</b> <span class="why">Why: above 105°F (40.5°C) you can have seizures (fits).</span></li></ul><div data-actions="12"></div></div></li>
+    <li><input type="checkbox" id="em-13" data-em="13"><label for="em-13">Vomiting with deep, fast breathing, even if you have never been diagnosed with diabetes. Great thirst, peeing a lot, or breath that smells fruity are more clues, but you don't need them. Or diabetes, and confused or hard to wake.</label>
+      <div class="msg" id="msg-13" data-callmsg><ul class="steps"><li><b>Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.</b> <span class="why">Why: some of these signs get worse fast, and some treatments work only if they start early.</span></li><li><b>Don't drive yourself.</b> <span class="why">Why: you could get worse at the wheel.</span></li><li><b>Use what first aid you know while help comes.</b> <span class="why">Why: medical help and first aid can happen at the same time.</span></li><li><b>Don't wait to see if a remedy works.</b> <span class="why">Why: waiting uses up the time when treatment works best. Don't spiritually process a body that is going under.</span></li></ul><div data-actions="13"></div></div></li>
   </ol>
   <p class="group">Pregnancy and the year after</p>
   <ol class="em" start="14">
-    <li><label><input type="checkbox" data-em="14"> Pregnant, or gave birth in the last year: heavy bleeding, or passing clots bigger than an egg, or tissue; severe belly pain, or severe shoulder or back pain; a severe headache; blurred or double sight, flashing lights, blind spots, or losing your sight for a while; chest pain, pressure or tightness; breathlessness (even if only when lying flat) or a tight throat; a painful swollen leg or arm; fainting, a fit, or a gap in time you can't remember; or confusion, racing thoughts or hearing voices.</label>
-      <div class="msg" id="msg-14" hidden data-callmsg>
-        <details class="fold"><summary>Why the year after the birth</summary>
-          <p>Some dangers of pregnancy come after the birth, up to a year later. Of US deaths caused by pregnancy in 2011 to 2015, about 1 in 3 came between one week and one year after the birth, and about 3 in 5 could have been prevented. The leading causes were heart conditions, infection and bleeding.</p>
-        </details>
-      </div></li>
-    <li><label><input type="checkbox" data-em="15"> Pregnant, or gave birth in the last year: a fever of 38°C (100.4°F) or more; very swollen hands or face, or swollen or numb lips or mouth; a new racing or uneven heartbeat, a pounding heart, or skipped beats; discharge from the vagina that smells bad; dizziness or light-headedness that won't go away or keeps coming back; a headache that won't go away or keeps getting worse; belly pain that won't go away or keeps getting worse; severe sickness or vomiting, worse than ordinary morning sickness, or you can't keep fluids down, or you haven't been able to drink for 8 hours or eat for 24 hours; swelling, pain, redness or warmth in a leg or arm, often on one side; overwhelming tiredness, not like ordinary tiredness (for example, too tired to get through the day or to get up for your baby, sleep doesn't refresh you, or you feel sad since the birth); or thoughts of harming yourself or your baby, or frightening thoughts that come unwanted or are hard to get rid of. Or pregnant, and bleeding more than spotting, the baby moving less than before or not at all, or fluid leaking.</label>
-      <div class="msg" id="msg-15" hidden>
-        <ul class="steps">
-          <li><b>Call your maternity unit or midwife (the team looking after your pregnancy, or your recovery from the birth) now.</b> <span class="why">Why: these can be early signs of a serious problem, and they can check you, and the baby, the same day.</span></li>
-          <li><b>If you can't reach them, call the emergency number (911 in the US, 112 in Europe, 999 in the UK).</b> <span class="why">Why: this should not wait until they answer.</span></li>
-          <li><b>If you might act on thoughts of harming yourself or your baby, call the emergency number now, and get another person with you.</b> <span class="why">Why: that danger can't wait for a call back.</span></li>
-        </ul>
-        <div data-actions="15"></div>
-      </div></li>
+    <li><input type="checkbox" id="em-14" data-em="14"><label for="em-14">Pregnant, or gave birth in the last year: heavy bleeding, or passing clots bigger than an egg, or tissue; severe belly pain, or severe shoulder or back pain; a severe headache; blurred or double sight, flashing lights, blind spots, or losing your sight for a while; chest pain, pressure or tightness; breathlessness (even if only when lying flat) or a tight throat; a painful swollen leg or arm; fainting, a fit, or a gap in time you can't remember; or confusion, racing thoughts or hearing voices.</label>
+      <div class="msg" id="msg-14" data-callmsg><ul class="steps"><li><b>Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.</b> <span class="why">Why: some of these signs get worse fast, and some treatments work only if they start early.</span></li><li><b>Don't drive yourself.</b> <span class="why">Why: you could get worse at the wheel.</span></li><li><b>Use what first aid you know while help comes.</b> <span class="why">Why: medical help and first aid can happen at the same time.</span></li><li><b>Don't wait to see if a remedy works.</b> <span class="why">Why: waiting uses up the time when treatment works best. Don't spiritually process a body that is going under.</span></li></ul><details class="fold"><summary>Why the year after the birth</summary><p>Some dangers of pregnancy come after the birth, up to a year later. Of US deaths caused by pregnancy in 2011 to 2015, about 1 in 3 came between one week and one year after the birth, and about 3 in 5 could have been prevented. The leading causes were heart conditions, infection and bleeding.</p></details><div data-actions="14"></div></div></li>
+    <li><input type="checkbox" id="em-15" data-em="15"><label for="em-15">Pregnant, or gave birth in the last year: a fever of 38°C (100.4°F) or more; very swollen hands or face, or swollen or numb lips or mouth; a new racing or uneven heartbeat, a pounding heart, or skipped beats; discharge from the vagina that smells bad; dizziness or light-headedness that won't go away or keeps coming back; a headache that won't go away or keeps getting worse; belly pain that won't go away or keeps getting worse; severe sickness or vomiting, worse than ordinary morning sickness, or you can't keep fluids down, or you haven't been able to drink for 8 hours or eat for 24 hours; swelling, pain, redness or warmth in a leg or arm, often on one side; overwhelming tiredness, not like ordinary tiredness (for example, too tired to get through the day or to get up for your baby, sleep doesn't refresh you, or you feel sad since the birth); or thoughts of harming yourself or your baby, or frightening thoughts that come unwanted or are hard to get rid of. Or pregnant, and bleeding more than spotting, the baby moving less than before or not at all, or fluid leaking.</label><p class="act">Call your maternity unit or midwife now. If you can't reach them, call the emergency number.</p>
+      <div class="msg" id="msg-15"><ul class="steps"><li><b>Call your maternity unit or midwife (the team looking after your pregnancy, or your recovery from the birth) now.</b> <span class="why">Why: these can be early signs of a serious problem, and they can check you, and the baby, the same day.</span></li><li><b>If you can't reach them, call the emergency number (911 in the US, 112 in Europe, 999 in the UK).</b> <span class="why">Why: this should not wait until they answer.</span></li><li><b>If you might act on thoughts of harming yourself or your baby, call the emergency number now, and get another person with you.</b> <span class="why">Why: that danger can't wait for a call back.</span></li></ul><div data-actions="15"></div></div></li>
   </ol>
   <p class="small">These two lines cover every sign on the US CDC's list of <a href="https://www.cdc.gov/hearher/maternal-warning-signs/index.html" target="_blank" rel="noopener noreferrer">urgent maternal warning signs</a>: any one is enough. Whoever you call, say that you are pregnant or gave birth in the last year. The list does not cover every symptom: if something feels wrong, or you aren't sure, call your maternity unit or midwife.</p>
   <p class="group">Drugs and medicines</p>
   <ol class="em" start="16">
-    <li><label><input type="checkbox" data-em="16"> Took too much of something, swallowed something dangerous, or very hot, stiff or twitching after mixing drugs.</label>
-      <div class="msg" id="msg-16" hidden data-callmsg>
-        <ul class="steps extra">
-          <li><b>The poison line (US 1-800-222-1222) can tell you what to do. Keep the bottle or packet.</b> <span class="why">Why: the label tells them exactly what was taken.</span></li>
-        </ul>
-      </div></li>
-    <li><label><input type="checkbox" data-em="17"> Stopped heavy daily drinking or benzodiazepines (sleeping or anxiety pills such as Valium, Xanax or Ativan) in the last few days, and now shaking hard, confused, seeing things, or had a seizure.</label>
-      <div class="msg" id="msg-17" hidden data-callmsg>
-        <details class="fold"><summary>Why this line is here</summary>
-          <p>Stopping heavy daily drinking or benzodiazepines suddenly can cause seizures (fits). This reaction to stopping can kill. Most people who stop drinking do not get this: across 14 hospital studies, 1,355 of 71,295 patients at risk did. That is a count of hospital patients, not anyone's personal odds.</p>
-          <p>The guides say it too: <q>Benzos can be dangerous to quit cold turkey.</q> (Benzos are these pills; cold turkey means all at once.)</p>
-        </details>
-      </div></li>
+    <li><input type="checkbox" id="em-16" data-em="16"><label for="em-16">Took too much of something, swallowed something dangerous, or very hot, stiff or twitching after mixing drugs.</label>
+      <div class="msg" id="msg-16" data-callmsg><ul class="steps"><li><b>Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.</b> <span class="why">Why: some of these signs get worse fast, and some treatments work only if they start early.</span></li><li><b>Don't drive yourself.</b> <span class="why">Why: you could get worse at the wheel.</span></li><li><b>Use what first aid you know while help comes.</b> <span class="why">Why: medical help and first aid can happen at the same time.</span></li><li><b>Don't wait to see if a remedy works.</b> <span class="why">Why: waiting uses up the time when treatment works best. Don't spiritually process a body that is going under.</span></li></ul><ul class="steps"><li><b>The poison line (US 1-800-222-1222) can tell you what to do. Keep the bottle or packet.</b> <span class="why">Why: the label tells them exactly what was taken.</span></li></ul><div data-actions="16"></div></div></li>
+    <li><input type="checkbox" id="em-17" data-em="17"><label for="em-17">Stopped heavy daily drinking or benzodiazepines (sleeping or anxiety pills such as Valium, Xanax or Ativan) in the last few days, and now shaking hard, confused, seeing things, or had a seizure.</label>
+      <div class="msg" id="msg-17" data-callmsg><ul class="steps"><li><b>Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.</b> <span class="why">Why: some of these signs get worse fast, and some treatments work only if they start early.</span></li><li><b>Don't drive yourself.</b> <span class="why">Why: you could get worse at the wheel.</span></li><li><b>Use what first aid you know while help comes.</b> <span class="why">Why: medical help and first aid can happen at the same time.</span></li><li><b>Don't wait to see if a remedy works.</b> <span class="why">Why: waiting uses up the time when treatment works best. Don't spiritually process a body that is going under.</span></li></ul><details class="fold"><summary>Why this line is here</summary><p>Stopping heavy daily drinking or benzodiazepines suddenly can cause seizures (fits). This reaction to stopping can kill. Most people who stop drinking do not get this: across 14 hospital studies, 1,355 of 71,295 patients at risk did. That is a count of hospital patients, not anyone's personal odds. Benzodiazepines can be dangerous to quit all at once (cold turkey).</p></details><div data-actions="17"></div></div></li>
   </ol>
   <p class="group">Mind and safety</p>
   <ol class="em" start="18">
-    <li><label><input type="checkbox" data-em="18"> You might act on thoughts of ending your life or hurting someone, or a voice is telling you to.</label>
-      <div class="msg" id="msg-18" hidden>
-        <ul class="steps">
-          <li><b>Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.</b> <span class="why">Why: you deserve help right now, not later.</span></li>
-          <li><b>Get another person with you now, and move away from anything you could use to hurt yourself or someone else.</b> <span class="why">Why, in the guides' words: <q>get another human being involved</q>, and <q>put some distance between you and the means</q>.</span></li>
-        </ul>
-        <div data-actions="18"></div>
-      </div></li>
-    <li><label><input type="checkbox" data-em="19"> Thoughts of ending your life, even if you would not act on them.</label>
-      <div class="msg" id="msg-19" hidden>
-        <ul class="steps">
-          <li><b>Reach a person now: someone you trust, or a crisis line. US: call or text 988. Elsewhere: findahelpline.com.</b> <span class="why">Why, in the guides' words: a crisis line can work <q>even if the person on the other end is a total stranger</q>.</span></li>
-        </ul>
-        <div data-actions="19"></div>
-      </div></li>
-    <li><label><input type="checkbox" data-em="20"> Someone is putting you in danger right now.</label>
-      <div class="msg" id="msg-20" hidden>
-        <ul class="steps">
-          <li><b>If you can call safely, call the emergency number (911 in the US, 112 in Europe, 999 in the UK).</b> <span class="why">Why: your safety comes before anything on this page.</span></li>
-        </ul>
-        <div class="row"><button type="button" class="danger" data-leave>Leave this page</button></div>
-        <p class="small">Leaving this page erases no traces on the device: the browser's history and this page's saved answers stay.</p>
-        <div data-actions="20"></div>
-      </div></li>
+    <li><input type="checkbox" id="em-18" data-em="18"><label for="em-18">You might act on thoughts of ending your life or hurting someone, or a voice is telling you to.</label>
+      <div class="msg" id="msg-18"><ul class="steps"><li><b>Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.</b> <span class="why">Why: you deserve help right now, not later.</span></li><li><b>Get another person with you now, and put some distance between you and anything you could use to hurt yourself or someone else.</b> <span class="why">Why: before anything else, get another human being involved.</span></li></ul><div data-actions="18"></div></div></li>
+    <li><input type="checkbox" id="em-19" data-em="19"><label for="em-19">Thoughts of ending your life, even if you would not act on them.</label><p class="act">Reach a person now: someone you trust, or a crisis line (US: call or text 988).</p>
+      <div class="msg" id="msg-19"><ul class="steps"><li><b>Reach a person now: someone you trust, or a crisis line. US: call or text 988. Elsewhere: findahelpline.com.</b> <span class="why">Why: a crisis line can work, even if the person on the other end is a total stranger.</span></li></ul><div data-actions="19"></div></div></li>
+    <li><input type="checkbox" id="em-20" data-em="20"><label for="em-20">Someone is putting you in danger right now.</label><p class="act">Call the emergency number if you can do it safely.</p>
+      <div class="msg" id="msg-20"><ul class="steps"><li><b>If you can call safely, call the emergency number (911 in the US, 112 in Europe, 999 in the UK).</b> <span class="why">Why: your safety comes before anything on this page.</span></li></ul><div class="row"><button type="button" class="danger" data-leave>Leave this page</button></div><p class="small">Leaving this page erases no traces on the device: the browser's history and this page's saved answers stay.</p><div data-actions="20"></div></div></li>
   </ol>
-
-  <p class="group">It happened, and it passed</p>
-  <ul class="plain">
-    <li><label><input type="checkbox" data-em="passed"> The signs in line 4 came and went, even for minutes.</label>
-      <div class="msg" id="msg-passed" hidden>
-        <h3 id="stroke-passed">Call now, even though it passed</h3>
-        <p>Sudden weakness, a drooping face, trouble speaking, or sudden loss of sight or balance can warn of a stroke, even if it stops within minutes. Doctors call this a warning stroke.</p>
-        <p>The first days after carry the most risk; in one UK study, fast care cut strokes in the next 3 months from 10 in 100 to 2 in 100.</p>
-        <p>Many callers turn out not to have had a stroke, often about half, and that is expected.</p>
-        <p>A false alarm usually means a scan and some tests; a missed warning can mean a stroke.</p>
-        <ul class="steps">
-          <li><b>If the signs stopped only minutes or hours ago, or it was a sudden worst-ever headache, call the emergency number now (911 in the US, 112 in Europe, 999 in the UK).</b> <span class="why">Why: health services ask for an emergency call for stroke signs even when they go away, and a sudden worst-ever headache can be bleeding in the brain even after it eases.</span></li>
-          <li><b>Otherwise, phone an emergency department or a stroke clinic now and say: possible warning stroke.</b> <span class="why">Why: those words tell them what to check, and UK guidance asks for a stroke specialist within 24 hours.</span></li>
-          <li><b>Go where they send you.</b> <span class="why">Why: they know which place can do the tests soonest.</span></li>
-          <li><b>Don't drive yourself.</b> <span class="why">Why: the signs could come back at the wheel.</span></li>
-          <li><b>If any sign comes back, call the emergency number (911 in the US, 112 in Europe, 999 in the UK).</b> <span class="why">Why: signs happening now are an emergency (line 4), and some treatments work only within hours.</span></li>
-        </ul>
-        <details class="fold"><summary>Why call when it has passed, in numbers</summary>
-          <p>A warning stroke means stroke signs that pass. After one, about 5 in 100 people have a stroke within a week. It was 11 in 100 where nobody treated it urgently, and 1 in 100 where a specialist stroke service treated it as an emergency (18 studies, 10,126 people).</p>
-          <p>The UK study was in Oxford. Seeing people within a day instead of about three, and starting treatment at once, went with a fall in strokes over the next 3 months from 10 in 100 to 2 in 100. It compared before with after; it was not a fair test where chance decides who gets what.</p>
-          <p>Why a false alarm is expected: the face, arm and speech signs catch strokes, but they do not rule out other causes. Of 100 people who call after signs pass, 40 to 67 turn out to have had a warning stroke or a small stroke (three studies). The others usually get a brain scan and tests, and often learn the real cause, such as an infection, a faint or a migraine. The clot-dissolving drug (it breaks up a clot in the brain) is given only while signs last, so people whose signs have passed almost never get it.</p>
-          <p>Most strokes give no signs anyone notices: one US estimate counted about 11 million silent strokes in one year (1998), against 770,000 with signs. This line is about the ones that do give signs.</p>
-          <p>The guides say the larger risk is <q>losing a treatment window or missing a bleed</q> because the symptoms eased: losing the hours when a treatment still works, or missing bleeding in the brain.</p>
-          <p>If it was more than a week ago, it is less pressing, but UK stroke guidance still asks for a specialist within seven days.</p>
-        </details>
-        <details class="fold"><summary>What to ask when you are seen</summary>
-          <p class="why">Why ask: in the guides' words, <q>Calling for help is not the same thing as receiving good care.</q></p>
-          <ul class="plain">
-            <li>What caused it? If you don't know yet, what test comes next?</li>
-            <li>What treatment starts now, while you look for the cause?</li>
-            <li>Will you check my heart rhythm, with a heart tracing (ECG) and, if that is normal, a monitor I wear for some days?</li>
-            <li>Will you check the arteries in my neck for a narrowing, with an ultrasound (a sound-wave picture) or a CT scan (a detailed X-ray picture)?</li>
-            <li>Will I have a brain scan, to see whether it was a clot, a bleed, or neither?</li>
-            <li>Will you check my blood pressure, blood sugar and cholesterol?</li>
-            <li>What lowers my risk this week, and what are the risks of that?</li>
-          </ul>
-        </details>
-        <div data-actions="passed"></div>
-      </div></li>
-  </ul>
 
   <div class="row">
     <button type="button" class="primary" data-none>None of these</button>
@@ -326,7 +244,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     <p><b>If it gets worse while you wait, call the emergency number.</b> <span class="why">Why: getting worse moves it onto the list above.</span></p>
     <ul class="plain">
       <li>Black, tar-like poo, or blood in your poo.</li>
-      <li>Coughing up streaks of blood.</li>
+      <li>Coughing up a few small spots or streaks of blood, or blood in your phlegm. (More than that: line 2, call now.)</li>
       <li>A fever or chest infection that got better, then worse.</li>
       <li>Tooth pain with a swollen face, or with fever: a dentist or a doctor, today.
         <details class="fold"><summary>Why the tooth line</summary><p>A tooth infection left alone can spread. In US hospital records over nine years, 66 people died among 61,439 hospital stays for an infected tooth root. How many untreated infections end in hospital was not measured.</p></details></li>
@@ -338,110 +256,59 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
   </details>
 </section>
 
-<section class="card" id="choose" aria-labelledby="choose-title">
-  <h2 id="choose-title">What do you want help with first?</h2>
-  <fieldset data-qset="area"><legend>Choose one area</legend>
-    <label><input type="radio" name="area" value="home" data-q="area"> Where I live: water, air, mold</label>
-    <label><input type="radio" name="area" value="sleep" data-q="area"> Sleep</label>
-    <label><input type="radio" name="area" value="breath" data-q="area"> Stress and breathing</label>
-  </fieldset>
+<section class="card" id="order" aria-labelledby="order-title">
+  <h2 id="order-title">Where to start</h2>
+  <p><b>Go through the basics in this order: 1, water. 2, sleep and breathing. 3, mold. 4, smell. 5, exercise.</b></p>
+  <p>That is the order of the detox guide, where the guides start. Each step below has a few short questions you can skip, and things to try.</p>
+  <h3>Or start from what bothers you</h3>
+  <ul class="plain sym">
+    <li>Snoring, gasping, or someone saw you stop breathing in your sleep: <a href="#step-2">step 2</a>, where the sleep apnea check comes first.</li>
+    <li>Trouble falling or staying asleep, waking tired, or sleepy by day: <a href="#step-2">step 2</a>.</li>
+    <li>Stress or anxiety, breathing through your mouth, or sighing a lot: <a href="#breathing">step 2, breathing</a>.</li>
+    <li>Damp, mold or a musty smell at home: <a href="#step-3">step 3</a>.</li>
+    <li>A weaker sense of smell, or sinus trouble: <a href="#step-4">step 4</a>, and mold in <a href="#step-3">step 3</a>.</li>
+    <li>Feeling unwell without a clear reason: start at <a href="#step-1">step 1</a>.</li>
+  </ul>
   <label for="own-words"><b>In your own words: what's going on?</b></label>
   <textarea id="own-words" data-t="own-words"></textarea>
   <p class="small">You can skip any question. If an idea needs an answer you skipped, it shows only its title and says which question to answer.</p>
 </section>
 
 <section class="card" id="rules" aria-labelledby="rules-title">
-  <h2 id="rules-title">On every suggestion</h2>
+  <h2 id="rules-title">How to change things</h2>
   <ul class="steps">
-    <li><b>Pick one. Try it for two weeks. Stop if you feel worse.</b> <span class="why">Why: one change at a time shows you what helped.</span></li>
-    <li><b>Start everything at the lowest dose. Stop if you react badly.</b> <span class="why">Why, in the guides' author's words: <q>it's allergy &amp; sensitivity testing, common sense for everything</q>. Starting small can show an early bad reaction. Feeling fine does not show that more is safe.</span></li>
-    <li><b>Nothing on this page is breathed in as a mist. Tolerating a smell does not show that breathing the substance as a mist is safe.</b> <span class="why">The guides' author's view, which studies have not tested: <q>you don't start nebulizing</q> (breathing a fine mist from a machine) <q>until you are fine with smelling it</q>. That is a reason to wait, not a sign that going on is safe.</span></li>
-    <li><b>Nothing on the get-help lists waits two weeks.</b> <span class="why">Why: those signs need help now or today.</span></li>
+    <li><b>Change everything that is obviously harmful now, all at once, as soon as it is safe: tap water, junk food, caffeine, drugs such as cocaine, sleeping in a moldy room.</b> <span class="why">Why: there is no point waiting weeks between these.</span></li>
+    <li><b>Where stopping fast is not safe, go slowly, with a plan from whoever prescribes it or a clinic: heavy daily drinking, sleeping or anxiety pills (benzodiazepines), opioids, and any prescribed medicine.</b> <span class="why">Why: stopping some of these suddenly can cause seizures or severe withdrawal.</span></li>
+    <li><b>Try things that might or might not help, such as supplements, one at a time.</b> <span class="why">Why: if you start several at once, you can't tell which one helped, or which one made you worse.</span></li>
+    <li><b>Start everything at the lowest dose. Stop if you react badly.</b> <span class="why">Why: it's allergy &amp; sensitivity testing, common sense for everything. So don't start breathing anything in as a mist until you are fine with smelling it.</span></li>
+    <li><b>Nothing on the get-help lists waits.</b> <span class="why">Why: those signs need help now or today.</span></li>
   </ul>
-  <p class="small">Each suggestion has buttons to save what you did, with the date: I'll try this; Tried it: helped, no change, or worse; Not for me.</p>
+  <p class="small">Each idea has buttons to save what you did, with the date: I'll try this; Tried it: helped, no change, or worse; Not for me.</p>
 </section>
 
-<p id="paused" class="msg" hidden><b>Paused while this is happening.</b> The three areas below are folded away while a line above is ticked. <button type="button" data-show-anyway>Show anyway</button></p>
+<p id="paused" class="msg" hidden><b>Paused while this is happening.</b> The steps below are folded away while a line above is ticked. <button type="button" data-show-anyway>Show anyway</button></p>
 
 <div id="areas">
 
-<details class="area" id="area-home">
-  <summary>Where I live: water, air, mold</summary>
-  <p class="small">From the detox guide (on clearing toxins from your life), its opening section, <q>A few preliminaries</q>.</p>
+<section class="step" id="step-1" aria-labelledby="step-1-title">
+  <h2 id="step-1-title">Step 1. Drink pure water</h2>
   <fieldset data-qset="water"><legend>What do you drink most days?</legend>
     <label><input type="radio" name="q-water" value="tap" data-q="water"> Tap water</label>
     <label><input type="radio" name="q-water" value="filtered" data-q="water"> Filtered water</label>
     <label><input type="radio" name="q-water" value="bottled" data-q="water"> Bottled or spring water</label>
-    <label><input type="radio" name="q-water" value="other" data-q="water"> Something else</label>
+    <label><input type="radio" name="q-water" value="other" data-q="water"> Mostly other drinks, not water</label>
   </fieldset>
-  <fieldset data-qset="mold"><legend>Any damp, mold or musty smell at home?</legend>
-    <label><input type="radio" name="q-mold" value="yes" data-q="mold"> Yes</label>
-    <label><input type="radio" name="q-mold" value="no" data-q="mold"> No</label>
-    <label><input type="radio" name="q-mold" value="unsure" data-q="mold"> Not sure</label>
-    <label class="small" for="mold-where">Where?</label>
-    <input type="text" id="mold-where" data-t="mold-where">
-  </fieldset>
-  <fieldset data-qset="smell"><legend>Is your sense of smell weaker than it was?</legend>
-    <label><input type="radio" name="q-smell" value="yes" data-q="smell"> Yes</label>
-    <label><input type="radio" name="q-smell" value="no" data-q="smell"> No</label>
-    <label><input type="radio" name="q-smell" value="unsure" data-q="smell"> Not sure</label>
-  </fieldset>
-
-  <div class="sugg" data-sugg="water" data-show="water=tap" data-needs="What do you drink most days?">
-    <h3>Filter the water you drink.</h3>
+  <div class="sugg" data-sugg="water" data-show="water=tap,bottled,other" data-needs="What do you drink most days?">
+    <h3>Drink filtered water. Tap water is almost never drinkable these days.</h3>
     <div class="sugg-body">
-      <div class="door">
-        <div><b>Quick fix</b>Today, drink from a source you have checked: a good filter, or tested spring water.</div>
-        <div><b>Root cause</b>Find out what is in your tap water. Then fit what removes it.</div>
-      </div>
-      <details class="fold"><summary>Why</summary><p>In the guide's words, <q>tap water is almost never drinkable these days</q>. He names <q>a good R/O system</q> (reverse osmosis: a filter that pushes water through a very fine sheet), distilled water (boiled to steam and cooled again, so it has no minerals) <q>(but add minerals sometimes)</q>, or <q>tested spring/well/rain water</q>.</p></details>
-      <details class="fold"><summary>How well studied</summary><p>Personal field signal: what he and others have noticed, not tested in studies.</p></details>
-      <details class="fold"><summary>Background</summary><p>In 2015 nearly 21 million Americans were on water systems that broke health standards. At least one PFAS chemical (known as forever chemicals: man-made chemicals that barely break down) can be found in about 45% of US tap samples. These show that contamination is common. They do not show "almost never drinkable", and they say nothing about your tap.</p></details>
-      <details class="fold"><summary>Where most doctors and officials differ</summary><p>Regulators call water that meets their standards safe.</p></details>
-      <details class="fold"><summary>Risk</summary><p>Everyday risk: widely done, with no serious harm on record.</p></details>
+      <div class="door"><div><b>Quick fix</b>Today, drink water from a good reverse-osmosis (R/O) filter, distilled water, or tested spring, well or rain water.</div><div><b>Root cause</b>Fit a good R/O filter for drinking, and a whole-house filter, so you aren't poisoning yourself in the shower and when washing dishes.</div></div><details class="fold"><summary>Why</summary><p>Water must be filtered correctly. Tap water can carry fluoride, chlorine, microplastics, PFAS, lead, arsenic and nitrate. Drink water itself, not only other drinks: many people hardly drink water at all. Distilled water (boiled to steam and cooled again) has no minerals, so add minerals sometimes. Bottled water can take on its plastic: try smelling the water in an older plastic bottle.</p></details><details class="fold"><summary>How well studied</summary><p>Personal field signal: what the author and others have noticed, not tested in studies.</p></details><details class="fold"><summary>Background</summary><p>In 2015 nearly 21 million Americans were on water systems that broke health standards. At least one PFAS chemical (known as forever chemicals: man-made chemicals that barely break down) can be found in about 45% of US tap samples. These show that contamination is common. They don't show how often tap water is unsafe to drink, and they say nothing about your own tap.</p></details><details class="fold"><summary>Where most doctors and officials differ</summary><p>Regulators call tap water that meets their standards safe to drink.</p></details><details class="fold"><summary>Risk</summary><p>Everyday risk: widely done, with no serious harm on record.</p></details>
     </div>
   </div>
+</section>
 
-  <div class="sugg" data-sugg="mold" data-show="mold=yes,unsure" data-needs="Any damp, mold or musty smell at home?">
-    <h3>First, stop breathing in the mold. Start with the bedroom.</h3>
-    <div class="sugg-body">
-      <div class="door">
-        <div><b>Quick fix</b>Tonight, open the windows if the air and the street outside allow. If not, run a true HEPA filter (a certified fine-dust air filter) by the bed.</div>
-        <div><b>Root cause</b>Find the damp and dry it out. Get a humidity meter.</div>
-      </div>
-      <ul class="steps">
-        <li><b>Open windows only if the street is safe and the outside air is clean.</b> <span class="why">Why: his own condition for the open window is <q>if you're not worried about criminals or outside pollution</q>.</span></li>
-        <li><b>Don't scrub or tear out mold yourself without a plan.</b> <span class="why">Why: it stirs the mold into the air; in his words, clearing it <q>can backfire if not done intelligently</q>.</span></li>
-      </ul>
-      <details class="fold"><summary>Why</summary><p><q>Prevent breathing in the mold that's there</q>. <q>The cheapo fix is just to open all the windows and doors</q>. <q>Mold grows best above 50-60% humidity.</q> Below 40%, the moist lining of the nose dries out. So aim for about 40 to 50% indoors. Wash stored clothes and linens. Check the air conditioner, which can hold mold.</p></details>
-      <details class="fold"><summary>How well studied</summary><p>Personal field signal: what he and others have noticed, not tested in studies.</p></details>
-      <details class="fold"><summary>Background</summary><p>Homes with damp or mold go with 30-50% more breathing and asthma problems. That shows only that the two go together; it does not test these steps.</p></details>
-      <details class="fold"><summary>Risk</summary><p>Everyday risk: widely done, with no serious harm on record.</p></details>
-    </div>
-  </div>
-
-  <div class="sugg" data-sugg="smell" data-show="smell=yes,unsure" data-needs="Is your sense of smell weaker than it was?">
-    <h3>Weaker sense of smell? Clear away strong scents first.</h3>
-    <div class="sugg-body">
-      <div class="door">
-        <div><b>Quick fix</b>Today, no air fresheners or scented laundry products. Swap the dish sponge for a nylon brush.</div>
-        <div><b>Root cause</b>Find what weakened your sense of smell: mold, sinus trouble, or cooking oil gone bad (rancid).</div>
-      </div>
-      <ul class="steps">
-        <li><b>If you rinse your nose, use ready-made sterile saline sold for the nose, or a nasal-rinse sachet mixed as its packet says with distilled or sterile water, or with tap water boiled for 3 to 5 minutes and cooled. Never use water straight from the tap. After each rinse, clean the device with the same kind of water and let it air-dry.</b> <span class="why">Why: tap water in the nose has, rarely, carried a brain infection.</span></li>
-      </ul>
-      <details class="fold"><summary>Why</summary><p><q>Stop using dish sponges, switch to nylon brushes</q>. For sinus trouble he rinses the nose: <q>Nasal irrigation with Quinton Seawater</q> (a seawater product).</p></details>
-      <details class="fold"><summary>How well studied</summary><p>Personal field signal: what he and others have noticed, not tested in studies. The nose rinse: Limited human evidence (two small trials of salt-water rinsing in 116 adults; seawater itself was not tested).</p></details>
-      <details class="fold"><summary>Background</summary><p>Among 3,005 Americans aged 57 to 85, those who could not smell died at four times the rate over the next five years. That shows only that the two go together; it does not show that clearing scents helps.</p></details>
-      <details class="fold"><summary>Where most doctors and officials differ</summary><p>A loss of smell that lasts deserves a doctor's look.</p></details>
-      <details class="fold"><summary>Risk</summary><p>Everyday risk: widely done, with no serious harm on record. The nose rinse is a small risk: side effects are common but pass, and a rare serious one can be avoided. In one six-month trial of a strong salt-water rinse, 23 in 100 had side effects, nosebleeds among them. The brain infection by tiny water organisms (amoebas) after nose rinsing: 10 US cases from 1994 to 2022, all in people with weak immune systems, many using tap water. No rate per rinse exists.</p></details>
-    </div>
-  </div>
-</details>
-
-<details class="area" id="area-sleep">
-  <summary>Sleep</summary>
-  <p class="small">From the sleep guide. His order: <q>First, thing's first, though, which is fixing underlying medical problems</q>.</p>
+<section class="step" id="step-2" aria-labelledby="step-2-title">
+  <h2 id="step-2-title">Step 2. Get deep sleep, and stop over-breathing</h2>
+  <p>Deep sleep is the body's main detox and healing time, and it gets harder to get every year. First, fix underlying medical problems, starting with sleep apnea. Then keep a two-week log and build steady habits. And stop over-breathing and mouth-breathing: many people breathe through the mouth at night, and over-breathe in the day partly because of it.</p>
   <fieldset data-qset="snore"><legend>Do you snore, or has anyone heard you stop breathing or gasp in your sleep?</legend>
     <label><input type="radio" name="q-snore" value="yes" data-q="snore"> Yes</label>
     <label><input type="radio" name="q-snore" value="no" data-q="snore"> No</label>
@@ -460,55 +327,31 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     <label><input type="radio" name="q-caffeine" value="yes" data-q="caffeine"> Yes</label>
     <label><input type="radio" name="q-caffeine" value="no" data-q="caffeine"> No</label>
   </fieldset>
-
   <div class="sugg" data-sugg="wheel" data-show="day=wheel" data-needs="Sleepy by day?">
     <h3>Falling asleep at the wheel? Don't drive while you are this sleepy.</h3>
     <div class="sugg-body">
-      <p class="why">Why, in the guide's words: <q>sleepy driving is as dangerous as drunk driving</q>.</p>
+      <p class="why">Sleepy driving is as dangerous as drunk driving, and caffeine is a fake fix.</p>
     </div>
   </div>
-
-  <div class="sugg" data-sugg="apnea" data-show="snore=yes,unsure|day=sleepy,wheel" data-needs="the questions on snoring and on being sleepy by day">
-    <h3>Check for sleep apnea (breathing that stops and starts in sleep) before anything else.</h3>
+  <div class="sugg" data-sugg="apnea">
+    <h3>First, check for sleep apnea: breathing that stops and starts in your sleep.</h3>
     <div class="sugg-body">
-      <div class="door">
-        <div><b>Quick fix</b>Ask for a sleep test. Record your breathing tonight as a first clue. A prescribed breathing machine (CPAP: it blows air through a mask to keep the airway open) can ease sleepiness from the first night.</div>
-        <div><b>Root cause</b>Work on why the airway closes: weight, alcohol and sedatives (calming or sleeping pills), mouth breathing, the shape of the airway.</div>
-      </div>
-      <ul class="steps">
-        <li><b>Ask for a sleep test even if your recording sounds quiet.</b> <span class="why">Why: a quiet recording does not rule apnea out.</span></li>
-      </ul>
-      <details class="fold"><summary>Why</summary><p><q>You can do your own sleep study with a simple microphone</q>; then <q>confirm the apnea subtype and severity</q> (which kind of apnea, and how bad). He calls the machine <q>not a true cure</q>, and lists what to consider first: <q>Lose weight if overweight</q>, less alcohol and sedatives, Yin yoga (slow yoga with long, held stretches), <q>consider myofunctional therapy</q> (exercises for the tongue, mouth and face), and fixing what blocks the airway.</p></details>
-      <details class="fold"><summary>How well studied</summary><p>The machine: Limited human evidence. In before-and-after studies the car-crash rate was about 70% lower on it, and sleepiness eased after one night. That is not a promise for any one person. His list for the root cause: Personal field signal (noticed by him and others, not tested in studies).</p></details>
-      <details class="fold"><summary>Background</summary><p>Drivers with sleep apnea crash 1.2 to 4.9 times as often (several studies of drivers, combined).</p></details>
-      <details class="fold"><summary>Risk</summary><p>Everyday risk: widely done, with no serious harm on record.</p></details>
+      <div class="door"><div><b>Quick fix</b>Tonight, record your breathing through the night with a simple microphone: your own sleep study. If you hear snoring or pauses in breathing, that's a huge clue. Also film yourself to see if your mouth is open, and ask your partner if you snore, or use a phone app.</div><div><b>Root cause</b>If you do have apnea, confirm which kind and how severe it is: a sleep test shows this. Then work on why the airway closes: lose weight if overweight, less alcohol and sedatives (calming or sleeping pills), more exercise (Yin yoga especially: slow yoga with long, held stretches), myofunctional therapy (exercises for the tongue, mouth and face), and fixing what blocks the airway.</div></div><details class="fold"><summary>Why</summary><p>You might feel like you breathe fine right now, but the real test is when you're asleep. The most common medical treatment is a CPAP machine, which forces air in through a mask (it needs a prescription). Many people can't tolerate it, and it's not a true cure, so consider the root-cause steps first.</p></details><details class="fold"><summary>How well studied</summary><p>Recording yourself and listening: Personal field signal, not tested in studies. The machine (CPAP): Limited human evidence. In before-and-after studies the car-crash rate was about 70% lower on it, and sleepiness eased after one night. That is not a promise for any one person. The root-cause list: Personal field signal.</p></details><details class="fold"><summary>Background</summary><p>Drivers with sleep apnea crash 1.2 to 4.9 times as often (several studies of drivers, combined).</p></details><details class="fold"><summary>Risk</summary><p>Everyday risk: widely done, with no serious harm on record.</p></details>
     </div>
   </div>
-
-  <div class="sugg" data-sugg="sleep-baseline" data-show="insomnia=yes" data-needs="Trouble falling asleep or staying asleep?">
+  <div class="sugg" data-sugg="selflove">
+    <h3>Love yourself. Without it, emotional problems sabotage your sleep.</h3>
+    <div class="sugg-body">
+      <div class="door"><div><b>Quick fix</b>Before bed, sitting up: loving-kindness (metta). Wish all beings, yourself among them, to be loving, peaceful and free.</div><div><b>Root cause</b>Inner child therapy is often where self-love starts: the inner child guide, linked at the bottom.</div></div><details class="fold"><summary>Why</summary><p>Your sleep will be sabotaged by infinite emotional problems if you don't love yourself. Loving kindness meditation is awesome, but inner child therapy is often where it starts. Loving-kindness also comes first in the guide on meditation retreats: it is the groundwork before deeper practice.</p></details><details class="fold"><summary>How well studied</summary><p>Not checked yet: not looked up for this page.</p></details><details class="fold"><summary>Risk</summary><p>Not checked yet: not looked up for this page.</p></details>
+    </div>
+  </div>
+  <div class="sugg" data-sugg="sleep-baseline">
     <h3>Fix tonight's room first. Then build steady sleep habits.</h3>
     <div class="sugg-body">
-      <div class="door">
-        <div><b>Quick fix</b>Tonight: lights off, cool room, screens off a few hours before bed, write down what is on your mind.</div>
-        <div><b>Root cause</b>Keep a two-week log of your sleep and habits. Then, in his order: same wake time every day, no caffeine, morning sun.</div>
-      </div>
-      <ul class="steps">
-        <li><b>On a prescribed sleep medicine? Don't stop it suddenly; ask whoever prescribed it how to stop.</b> <span class="why">Why: stopping some sleep medicines suddenly can be dangerous. The guide: <q>Do not abruptly stop prescribed medication to improve sleep.</q></span></li>
-        <li class="caffeine-line"><b>Stopping caffeine? Expect a headache for a few days.</b> <span class="why">Why: it is common and passes; knowing that helps you not give up.</span></li>
-      </ul>
-      <details class="fold"><summary>A quick idea of his: a bag of zeolite, a mineral powder, in the pillow</summary><p><q>Put a bag of it in your pillow!</q> He means cleaned zeolite, a mineral powder, in a bag against the skin. In his words, <q>nobody has studied this skin-contact-thru-bag method</q>. Risk: no harm found, not studied. Dust from a leaking bag has not been measured.</p></details>
-      <details class="fold"><summary>Why</summary><p><q>track the basics for 14 days</q>. <q>before taking anything for sleep, first build a baseline</q> (steady basic habits). <q>Keep a consistent wake time.</q> <q>Avoid all stimulant drugs, including caffeine, completely, 100%.</q> <q>Let sunrise wake you.</q></p></details>
-      <details class="fold"><summary>How well studied</summary><p>Personal field signal: what he and others have noticed, not tested in studies. Not checked yet: a fixed wake time is one part of the standard talking-and-habits treatment for poor sleep (called CBT-I); by itself it was not checked here.</p></details>
-      <details class="fold"><summary>Where most doctors and officials differ</summary><p>Morning caffeine is usually thought fine.</p></details>
-      <details class="fold"><summary>Risk</summary><p>Everyday risk: widely done, with no serious harm on record. Stopping caffeine is a small risk: side effects are common but pass. In experiments, about half of regular users got a headache on stopping, and 13 in 100 had distress or trouble functioning that the researchers counted as significant. It starts within a day and lasts 2 to 9 days.</p></details>
-      <p class="small">Not in this pilot: <q>Vagal Blitz is the insta-fix for sleep</q>, a fast, strong breathing method. It is not gentle, and comes later.</p>
+      <div class="door"><div><b>Quick fix</b>Tonight: lights off, a cool room, screens and alerts off a few hours before bed, and write down everything on your mind.</div><div><b>Root cause</b>Stop caffeine and other stimulants now, completely (prescribed ones only with whoever prescribes them). Keep a two-week log of your sleep and habits. Then keep the same wake time every day, let sunrise wake you, and get early sun on as much skin as you can.</div></div><ul class="steps"><li><b>On a prescribed sleep medicine? Do not abruptly stop prescribed medication to improve sleep: ask whoever prescribed it how to stop safely.</b> <span class="why">Why: stopping some sleep medicines suddenly can be dangerous, and combining sleep drugs, or taking too much, can stop your breathing.</span></li></ul><ul class="steps"><li class="caffeine-line"><b>Stopping caffeine? Expect a headache for a few days.</b> <span class="why">Why: it is common and passes; knowing that helps you not give up.</span></li></ul><details class="fold"><summary>A quick idea: a bag of zeolite in the pillow</summary><p>Put a bag of it in your pillow! That is cleaned zeolite, a mineral powder, in a bag against the skin; the author found it cured his insomnia quickly. There is research on zeolite taken by mouth for sleep, but nobody has studied this through-a-bag method. Risk: no harm found, not studied. Dust from a leaking bag has not been measured.</p></details><details class="fold"><summary>Why</summary><p>Track the basics for 14 days. Before taking anything for sleep, build a baseline that gives your body a fair chance. Keep a consistent wake time: the most important anchor is usually what time you wake up, not what time you go to bed. Avoid all stimulant drugs, including caffeine, completely: even taken in the morning, they can subtly disrupt your sleep at night. Let sunrise wake you.</p></details><details class="fold"><summary>How well studied</summary><p>Personal field signal: what the author and others have noticed, not tested in studies. Not checked yet: a fixed wake time is one part of the standard talking-and-habits treatment for poor sleep (called CBT-I); by itself it was not checked here.</p></details><details class="fold"><summary>Background</summary><p>In a 2023 review of 24 studies, caffeine cut sleep by about 45 minutes a night; a cup of coffee shortened sleep unless it was drunk at least 8.8 hours before bed. In one small study of 9 healthy men, 200 mg of caffeine taken at 7 in the morning still reduced sleep the next night.</p></details><details class="fold"><summary>Where most doctors and officials differ</summary><p>They don't ask everyone to give up caffeine. For poor sleep, the NHS lists caffeine as one cause, and says no tea or coffee in the 6 hours before bed. The US FDA says up to 400 mg of caffeine a day is not generally linked to harm for most adults, but some conditions and medicines make people more sensitive. Europe's food safety body says up to 200 mg a day in pregnancy. None of them says anything about caffeine and sleep apnea.</p></details><details class="fold"><summary>Risk</summary><p>Everyday risk: widely done, with no serious harm on record. Stopping caffeine is a small risk: side effects are common but pass. In experiments, about half of regular users got a headache on stopping, and 13 in 100 had distress or trouble functioning that the researchers counted as significant. It starts within a day and lasts 2 to 9 days.</p></details><p class="small">Not in this pilot: Vagal Blitz, a fast, strong breathing method that the sleep guide calls the insta-fix for sleep. It is not gentle, and comes later.</p>
     </div>
   </div>
-</details>
-
-<details class="area" id="area-breath">
-  <summary>Stress and breathing</summary>
-  <p class="small">From the guides on breathing, on body-based therapy (somatic) and on the inner child (feelings carried from childhood), and from the author's own notes.</p>
+  <h3 id="breathing" class="part">Stop over-breathing and mouth-breathing</h3>
   <fieldset data-qset="stress"><legend>How much stress on most days, from 0 (none) to 10 (the worst)?</legend>
     <select data-q="stress" aria-label="Stress on most days, 0 to 10">
       <option value="">Skip</option>
@@ -521,81 +364,86 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     <label><input type="radio" name="q-mouth" value="unsure" data-q="mouth"> Not sure</label>
   </fieldset>
   <details class="fold" id="bolt"><summary>Optional: your BOLT score (Body Oxygen Level Test), a one-minute breath test</summary>
-    <p>BOLT comes from the Buteyko method (Step 1 below). In the guide's words, <q>It only takes a minute to check your BOLT score</q>.</p>
-    <ul class="steps">
-      <li><b>Sit still. After a normal breath out through your nose, pinch your nose shut. Count the seconds until you first want to breathe.</b> <span class="why">Why: that first urge is the score, not how long you can hold out.</span></li>
-      <li><b>Let go at the first urge, and breathe calmly. Skip this if holding your breath makes you anxious.</b> <span class="why">Why: it is a quick measure, not a breath-holding practice.</span></li>
-    </ul>
+    <p>It only takes a minute to check your BOLT score, to see if you are over-breathing. BOLT comes from the Buteyko method (Step 1 below).</p>
+    <ul class="steps"><li><b>Sit still. After a normal breath out through your nose, pinch your nose shut. Count the seconds until you first want to breathe.</b> <span class="why">Why: that first urge is the score, not how long you can hold out.</span></li><li><b>Let go at the first urge, and breathe calmly. Skip this if holding your breath makes you anxious.</b> <span class="why">Why: it is a quick measure, not a breath-holding practice.</span></li></ul>
     <label for="bolt-seconds">Seconds, if you tried it:</label>
     <input type="text" inputmode="numeric" id="bolt-seconds" data-t="bolt">
-    <p class="small">The guide says <q>A healthy adult has a score of 40+.</q> That number is the guide's own. The test has not been shown to measure over-breathing, as it claims: researchers who tried it in 49 athletes say it has not been scientifically validated.</p>
+    <p class="small">A healthy adult has a score of 40+. Below 20 is a sure indicator of chronic anxiety, sleep and health problems. These are the guide's numbers. The test itself has not been shown to measure over-breathing: researchers who tried it in 49 athletes say it has not been scientifically validated.</p>
   </details>
-
   <div class="sugg" data-sugg="exhale">
-    <h3>Quick fix. Stressed right now? Breathe out slowly through pursed (nearly closed) lips. Don't take a bigger breath in afterwards.</h3>
+    <h3>Stressed right now? Purse your lips and slow down the breath out. Don't breathe in more to make up for it.</h3>
     <div class="sugg-body">
-      <ul class="steps">
-        <li><b>Don't hold your breath.</b> <span class="why">Why: this practice only slows the breath out; it never stops it.</span></li>
-        <li><b>Dizzy or tingly? Stop the exercise, sit or lie down, and breathe normally.</b> <span class="why">Why: breathing too much can cause this, but so can other things. If it doesn't pass, or it gets worse, get help; if a sign from the safety check appears, follow it now.</span></li>
-        <li><b>Prone to panic? Go gentler.</b> <span class="why">Why: the first seconds of slight air hunger (a mild wish for more air) can feel like panic.</span></li>
-      </ul>
-      <details class="fold"><summary>How it feels, as he writes it</summary><p>The slight air hunger (a mild wish for more air) <q>feels a bit anxiogenic for the first 20 seconds or so</q> (it makes you a little anxious); <q>after that, you'll feel much calmer</q>. <b>People differ.</b></p></details>
-      <details class="fold"><summary>What it is</summary><p>This is Buteyko reduced breathing: breathing a little less than you feel you need (Step 1 below). <q>You can use this any time</q>.</p></details>
-      <details class="fold"><summary>Risk</summary><p>No harm found, not studied for this use.</p></details>
+      <ul class="steps"><li><b>Don't hold your breath.</b> <span class="why">Why: this only slows the breath out; it never stops it.</span></li><li><b>Dizzy or tingly? Stop the exercise, sit or lie down, and breathe normally.</b> <span class="why">Why: breathing too much can cause this, but so can other things. If it doesn't pass, or it gets worse, get help; if a sign from the safety check appears, follow it now.</span></li></ul><details class="fold"><summary>Why</summary><p>Slower breaths out, without breathing more on the way in, mean less breathing overall. The slight air hunger (a mild wish for more air) makes you a little anxious for the first 20 seconds or so, but after that, you'll feel much calmer. This targets one actual cause of anxiety: over-breathing. You can use this any time, not just in a therapy session. It is Buteyko reduced breathing (Step 1 below).</p></details><details class="fold"><summary>How well studied</summary><p>Personal field signal: what the author and others have noticed. No trial of it for calming was found.</p></details><details class="fold"><summary>Risk</summary><p>No harm found, not studied for this use. Prone to panic? Go gentler at first: the first seconds of air hunger can feel like panic.</p></details>
     </div>
   </div>
-
   <div class="sugg" data-sugg="allday">
     <h3>Longer-term breathing practice to try: change how you breathe all day. Step 1: Buteyko. Step 2: Systema.</h3>
     <div class="sugg-body">
-      <p class="small"><b>Whether this helps stress or sleep is not established by the evidence cited here.</b></p>
-      <details class="fold"><summary>Why he suggests it</summary><p>His explanation, not a tested one: in the guide's words, over-breathing (breathing more air than the body needs) is <q>one of the root causes</q> of poor sleep and anxiety.</p></details>
+      <details class="fold"><summary>Why</summary><p>Over-breathing (breathing more air than the body needs) is one of the root causes of sleep apnea, a dripping nose at the back of the throat, poor sleep, anxiety that starts in the body (and can loop into the mind), asthma, and poor health in general.</p></details><details class="fold"><summary>How well studied</summary><p>Whether this helps stress or sleep is not established by the evidence cited here. That over-breathing causes these problems is the author's explanation, not a tested one.</p></details>
     </div>
   </div>
-
   <div class="sugg" data-sugg="buteyko">
     <h3>Step 1: Buteyko. Breathe a little less, through the nose, as a habit.</h3>
     <div class="sugg-body">
-      <p class="small">Buteyko is a method of breathing a little less than you feel you need, through the nose.</p>
-      <ul class="steps">
-        <li><b>Prone to panic? Go gentler at first.</b> <span class="why">Why: breathing less brings a mild wish for more air, which can feel like panic.</span></li>
-      </ul>
-      <details class="fold"><summary>Why it comes first</summary><p>It is <q>much easier for people to understand</q>.</p></details>
-      <details class="fold"><summary>How well studied</summary><p>Limited human evidence, for asthma only: breathing exercises improved quality of life (a review of 22 trials, 2,880 people; two of the trials used Buteyko), and a 60-person Buteyko trial cut inhaler use by about a fifth. For calming and sleep: Personal field signal (noticed by him and others); no trial was found.</p></details>
-      <details class="fold"><summary>Risk</summary><p>No harm found, not studied for this use. The review did not assess side effects, so it cannot tell us how often harms occur.</p></details>
+      <p class="small">Buteyko is a method of breathing a little less than you feel you need, through the nose. It comes first because it is much easier for people to understand.</p><details class="fold"><summary>How well studied</summary><p>Limited human evidence, for asthma only: breathing exercises improved quality of life (a review of 22 trials, 2,880 people; two of the trials used Buteyko), and a 60-person Buteyko trial cut inhaler use by about a fifth. For calming and sleep: Personal field signal (noticed by the author and others); no trial was found.</p></details><details class="fold"><summary>Risk</summary><p>No harm found, not studied for this use. The review did not assess side effects, so it cannot tell us how often harms occur. Prone to panic? Go gentler at first: breathing less brings a mild wish for more air, which can feel like panic.</p></details>
     </div>
   </div>
-
   <div class="sugg" data-sugg="systema">
     <h3>Step 2: Systema. Breathe lightly and never pause. Keep it going under everything you do.</h3>
     <div class="sugg-body">
-      <p class="small">Systema is a martial art built on relaxed breathing. Its breathing has no pause between breathing in and breathing out.</p>
-      <ul class="steps">
-        <li><b>Learn it sitting or lying down first.</b> <span class="why">Why: beginners sometimes breathe too big and get dizzy.</span></li>
-        <li><b>Once it is light and steady, keep it going all day.</b> <span class="why">Why: in his words, <q>it's a background process</q>.</span></li>
-      </ul>
-      <details class="fold"><summary>How, in his words</summary><p><q>light natural breathing</q>. Each breath is <q>45-80% of a full deep breath</q>: <q>you don't fully exhale, you don't fully inhale either</q>. <q>the only control is that you make sure you are not pausing</q>. Feel where the body is tense, and imagine the breath dissolving it.</p></details>
-      <details class="fold"><summary>Why</summary><p><q>even better than just breathing less is circular breathing, Systema style</q>. For anxiety: <q>Systema continuous breathing is great!</q> Most people <q>try it just barely and forget it</q>, so the buttons below keep a dated log of what you tried.</p></details>
-      <details class="fold"><summary>A video of Systema breathing</summary><p>The one his somatic guide links to; he is not sure it is the best one: <a href="https://www.youtube.com/watch?v=Nar2-nvomAk" target="_blank" rel="noopener noreferrer">youtube.com/watch?v=Nar2-nvomAk</a>. It opens on YouTube, online.</p></details>
-      <details class="fold"><summary>How well studied</summary><p>Personal field signal: what he and the Systema community have noticed. No studies found.</p></details>
-      <details class="fold"><summary>Risk</summary><p>No harm found, not studied. Breathing that turns big and fast can bring dizziness or tingling. If it does, stop the exercise, sit or lie down, and breathe normally. Other causes are possible: if it doesn't pass, or it gets worse, get help, and if a sign from the safety check appears, follow it now.</p></details>
+      <p class="small">Systema is a martial art built on relaxed breathing. Its breathing has no pause between breathing in and breathing out.</p><ul class="steps"><li><b>Keep it going all day, under everything you do.</b> <span class="why">Why: it's a background process, not a task you focus on.</span></li></ul><details class="fold"><summary>How</summary><p>Light natural breathing, not something you try to control. Each breath is 45-80% of a full deep breath, so you don't fully exhale, you don't fully inhale either. The only control is that you make sure you are not pausing. Feel any tension in the body as you breathe, and imagine the breath dissolving it.</p></details><details class="fold"><summary>Why</summary><p>Even better than just breathing less is circular breathing, Systema style: it can put you into the flow state very quickly. For anxiety, Systema continuous breathing is great! Most people who hear about it try it just barely and forget it, so the buttons below keep a dated log of what you tried.</p></details><details class="fold"><summary>A video of Systema breathing</summary><p>The one the somatic guide links to, though it may not be the best one: <a href="https://www.youtube.com/watch?v=Nar2-nvomAk" target="_blank" rel="noopener noreferrer">youtube.com/watch?v=Nar2-nvomAk</a>. It opens on YouTube, online.</p></details><details class="fold"><summary>How well studied</summary><p>Personal field signal: what the author and the Systema community have noticed. No studies found.</p></details><details class="fold"><summary>Risk</summary><p>No harm found, not studied. Learn it sitting or lying down first: beginners sometimes breathe too big and get dizzy. Breathing that turns big and fast can bring dizziness or tingling. If it does, stop the exercise, sit or lie down, and breathe normally. Other causes are possible: if it doesn't pass, or it gets worse, get help, and if a sign from the safety check appears, follow it now.</p></details>
     </div>
   </div>
-
   <div class="sugg" data-sugg="taps">
     <h3>Later, with someone you trust: painless taps, to practise staying calm through fear.</h3>
     <div class="sugg-body">
-      <ul class="steps">
-        <li><b>Keep breathing lightly through every tap.</b> <span class="why">Why: staying relaxed and breathing through the fear is the practice.</span></li>
-        <li><b>The person receiving closes their eyes.</b> <span class="why">Why: in his words, <q>so they really can't cheat</q>: they can't see whether the next tap is coming.</span></li>
-      </ul>
-      <details class="fold"><summary>What</summary><p>Light taps to the belly, or <q>light slaps to the face that don't hurt</q>. They are <q>PAINLESS</q>. You don't know whether the next one will land: <q>even if the strikes don't land, it can still work usually</q>.</p></details>
-      <details class="fold"><summary>Why</summary><p><q>the idea is to do something that instills fear, with safety ensured</q>. You learn to stay relaxed through fear. <q>so it's like desensitization therapies</q> (therapies that get you used to a fear step by step), without going back to a painful memory first.</p></details>
-      <details class="fold"><summary>How well studied</summary><p>Personal field signal: what he has noticed, not tested in studies. He says <q>i'm also not a systema master yet</q>, and there is no written guide for this yet.</p></details>
-      <details class="fold"><summary>Risk</summary><p>No harm found, not studied. Painless is the intent; a tap can land harder than meant, and fear can bring back old, painful fears. No rate exists for either.</p></details>
+      <ul class="steps"><li><b>Keep breathing lightly through every tap.</b> <span class="why">Why: staying relaxed and breathing through the fear is the practice.</span></li><li><b>The person receiving closes their eyes.</b> <span class="why">Why: so they really can't cheat: they can't see whether the next tap is coming.</span></li></ul><details class="fold"><summary>What</summary><p>Light taps to the belly, or light slaps to the face that don't hurt. They are PAINLESS. You don't know whether the next one will land, and even if the strikes don't land, it can still work usually.</p></details><details class="fold"><summary>Why</summary><p>The idea is to do something that instills fear, with safety ensured: you learn to stay relaxed through fear. It is like desensitization therapies (getting used to a fear step by step), except there is no need to go back to a painful memory first.</p></details><details class="fold"><summary>How well studied</summary><p>Personal field signal: what the author has noticed, not tested in studies. He is not a Systema master yet, and there is no written guide for this yet.</p></details><details class="fold"><summary>Risk</summary><p>No harm found, not studied. Painless is the intent; a tap can land harder than meant, and fear can bring back old, painful fears. No rate exists for either.</p></details>
     </div>
   </div>
-</details>
+</section>
+
+<section class="step" id="step-3" aria-labelledby="step-3-title">
+  <h2 id="step-3-title">Step 3. Get rid of mold</h2>
+  <fieldset data-qset="mold"><legend>Any damp, mold or musty smell at home?</legend>
+    <label><input type="radio" name="q-mold" value="yes" data-q="mold"> Yes</label>
+    <label><input type="radio" name="q-mold" value="no" data-q="mold"> No</label>
+    <label><input type="radio" name="q-mold" value="unsure" data-q="mold"> Not sure</label>
+    <label class="small" for="mold-where">Where?</label>
+    <input type="text" id="mold-where" data-t="mold-where">
+  </fieldset>
+  <div class="sugg" data-sugg="mold" data-show="mold=yes,unsure" data-needs="Any damp, mold or musty smell at home?">
+    <h3>First, stop breathing in the mold. Bedrooms and laundry rooms first.</h3>
+    <div class="sugg-body">
+      <div class="door"><div><b>Quick fix</b>Tonight, run a third-party certified True HEPA air filter (a fine-dust filter) in the bedroom. The cheap fix is to open all the windows and doors, if you're not worried about criminals or outside pollution.</div><div><b>Root cause</b>Dehumidify, but keep enough humidity for your nose and sinuses, with a humidity meter (hygrometer) by your bed. If the mold is in the walls, think first: remediating a moldy house can be super expensive and can backfire if not done intelligently, and moving to a house without mold is sometimes cheaper.</div></div><details class="fold"><summary>Why</summary><p>Prevent breathing in the mold that's there, above all in the bedroom: you need fresh clean air to heal while in deep sleep. Ideally the filter is connected to a ventilator that brings in filtered fresh air from outside, since even filtered indoor air can still be stale. Mold grows best above 50-60% humidity, and below 40% most people get problems from irritated noses and sinuses. Try to aim for the lowest humidity that doesn't cause your sinuses to feel too dry; a small humidifier near your bed can help while the rest of the house stays drier. Wash all clothes and linens in closets regularly, even if unused, especially if they smell at all off. Sunlight won't do it: it doesn't remove the mold's toxins (mycotoxins). Air conditioners are a huge mold problem: even self-cleaning ones need checking every so often for mold in the water trays, tubes and cooling fins.</p></details><details class="fold"><summary>How well studied</summary><p>Personal field signal: what the author and others have noticed, not tested in studies.</p></details><details class="fold"><summary>Background</summary><p>Homes with damp or mold go with 30-50% more breathing and asthma problems. That shows only that the two go together; it does not test these steps.</p></details><details class="fold"><summary>Risk</summary><p>Everyday risk: widely done, with no serious harm on record.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="step" id="step-4" aria-labelledby="step-4-title">
+  <h2 id="step-4-title">Step 4. Get your sense of smell back</h2>
+  <fieldset data-qset="smell"><legend>Is your sense of smell weaker than it was?</legend>
+    <label><input type="radio" name="q-smell" value="yes" data-q="smell"> Yes</label>
+    <label><input type="radio" name="q-smell" value="no" data-q="smell"> No</label>
+    <label><input type="radio" name="q-smell" value="unsure" data-q="smell"> Not sure</label>
+  </fieldset>
+  <div class="sugg" data-sugg="smell">
+    <h3>Clear away artificial scents. Then find what weakened your smell.</h3>
+    <div class="sugg-body">
+      <div class="door"><div><b>Quick fix</b>Today, no air fresheners or scented laundry products. Stop using dish sponges, switch to nylon brushes.</div><div><b>Root cause</b>Find what weakened your sense of smell: mold (step 3), sinus trouble, or cooking oils gone bad (rancid seed oils). For sinus trouble, nasal irrigation with Quinton Seawater is one of the best solutions: it is not just salt water.</div></div><ul class="steps"><li><b>If you rinse your nose, use ready-made sterile saline sold for the nose, or a nasal-rinse sachet mixed as its packet says with distilled or sterile water, or with tap water boiled for 3 to 5 minutes and cooled. Never use water straight from the tap. After each rinse, clean the device with the same kind of water and let it air-dry.</b> <span class="why">Why: tap water in the nose has, rarely, carried a brain infection.</span></li></ul><details class="fold"><summary>Why</summary><p>Almost tied with improving sleep is improving your sense of smell and taste. If your sense of smell is bad, you can't tell when things are moldy or plastic-y; some people still can, but are so used to it that they no longer notice. Artificial scents, air fresheners, are designed to kill you!</p></details><details class="fold"><summary>How well studied</summary><p>Personal field signal: what the author and others have noticed, not tested in studies. The claim about artificial scents: Not checked yet. The nose rinse: Limited human evidence (two small trials of salt-water rinsing in 116 adults; seawater itself was not tested).</p></details><details class="fold"><summary>Background</summary><p>Among 3,005 Americans aged 57 to 85, those who could not smell died at four times the rate over the next five years. That shows only that the two go together; it does not show that clearing scents helps.</p></details><details class="fold"><summary>Where most doctors and officials differ</summary><p>A loss of smell that lasts deserves a doctor's look.</p></details><details class="fold"><summary>Risk</summary><p>Everyday risk: widely done, with no serious harm on record. The nose rinse is a small risk: side effects are common but pass, and a rare serious one can be avoided. In one six-month trial of a strong salt-water rinse, 23 in 100 had side effects, nosebleeds among them. The brain infection by tiny water organisms (amoebas) after nose rinsing: 10 US cases from 1994 to 2022, all in people with weak immune systems, many using tap water. No rate per rinse exists.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="step" id="step-5" aria-labelledby="step-5-title">
+  <h2 id="step-5-title">Step 5. Exercise</h2>
+  <div class="sugg" data-sugg="exercise">
+    <h3>Move every day: aerobic exercise and strength training.</h3>
+    <div class="sugg-body">
+      <div class="door"><div><b>Quick fix</b>Today, walk briskly, swim or work out, long enough to sweat.</div><div><b>Root cause</b>Make aerobic exercise and strength training part of every week. Cut down on carbs, sugary drinks (liquid fructose), and especially alcohol, which build fat around the organs.</div></div><ul class="steps"><li><b>Chest pain, pressure, faintness or unusual breathlessness when you exert yourself? Stop, and follow line 3 of the safety check now.</b> <span class="why">Why: it can be the heart.</span></li></ul><details class="fold"><summary>Why</summary><p>Exercise does things that no diet or supplement can copy. Movement is the main pump of the lymph system, which carries waste away from the tissues. Aerobic exercise and strength training help the liver, and reduce the fat around the liver and other organs, fat that also stores toxins. Sweating is a toxin clearance system par excellence: sweat from exercise clears toxic metals like lead and cadmium better than sitting in a hot car. Working out also speeds up the brain's own waste clearance.</p></details><details class="fold"><summary>How well studied</summary><p>Not checked yet: not looked up for this page.</p></details><details class="fold"><summary>Risk</summary><p>Not checked yet: not looked up for this page.</p></details>
+    </div>
+  </div>
+  <p class="small">Next in the detox guide: mercury fillings and root canals, then supplements. This pilot doesn't cover them yet.</p>
+</section>
 
 </div>
 
@@ -621,12 +469,12 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
 
 <section class="card" id="about" aria-labelledby="about-title">
   <h2 id="about-title">About this page</h2>
-  <details class="fold"><summary>How well studied: the labels, in the guides' own terms</summary>
+  <details class="fold"><summary>How well studied: the labels, from the author's own guide</summary>
     <ul class="plain">
       <li><b>Established</b>: standard treatment with strong evidence.</li>
-      <li><b>Limited human evidence</b>: <q>clinical reports or small trials but no strong modern outcome evidence</q>: some reports and small studies in people, but no strong recent proof that it helps.</li>
+      <li><b>Limited human evidence</b>: clinical reports or small trials, but no strong modern evidence that it helps.</li>
       <li><b>Mechanism or preclinical evidence</b>: effects shown mainly in cells or animals.</li>
-      <li><b>Personal field signal</b>: <q>what I have repeatedly observed in myself or other people</q>. It cannot say how often something helps.</li>
+      <li><b>Personal field signal</b>: what the author has repeatedly observed in himself or other people. It cannot say how often something helps.</li>
       <li><b>Not checked yet</b>: not looked up for this page.</li>
       <li><b>Where most doctors and officials differ</b>: what they say instead. It states their view and nothing more.</li>
     </ul>
@@ -637,25 +485,29 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       <li><b>Everyday risk</b>: widely done or tested, with no serious harm on record.</li>
       <li><b>No harm found, not studied</b>: no report of harm was found at this use, and nobody has measured it. It does not mean safe.</li>
       <li><b>Small risk</b>: short-lived side effects are common, or a rare serious harm has a known cause that can be avoided.</li>
+      <li><b>Not checked yet</b>: the risk was not looked up for this page.</li>
     </ul>
     <p>Finding no report of harm is not proof of safety.</p>
   </details>
   <details class="fold"><summary>What is not in this pilot, and why</summary>
     <ul class="plain">
+      <li>Mercury fillings and root canals, the sixth step in the detox guide. Why: not built yet.</li>
       <li>Anything swallowed or injected: supplements and medicines. Why: the basics come first.</li>
       <li>The smelling and mist practices in the guides. Why: they come in a later version, in a part on breathing problems, and will start with smelling, the lowest dose.</li>
       <li>Fast, strong breathing methods (Vagal Blitz, Wim Hof). Why: they are not gentle.</li>
+      <li>The gut guide's phases, self-hypnosis, and the inner child guide's practices. Why: each needs its own questions and safety checks first.</li>
       <li>Children, and people answering for someone else. Why: the page is built for one adult answering for themselves.</li>
       <li>Anything sent online, and looking up new studies as you go. Why: this pilot keeps everything in this browser.</li>
     </ul>
   </details>
   <details class="fold"><summary>Where the words come from</summary>
-    <p>Words in quotation marks are the guides' author's own, from his guides or from notes he wrote for this page. His guides:
+    <p>The steps are the guides' author's: his order, and his words, made plainer where a sentence needed it. The folds under each step (How well studied, Background, Where most doctors and officials differ, Risk) are this page's own checks. His guides:
       <a href="https://detox.u-dont-exist.com" target="_blank" rel="noopener noreferrer">detox.u-dont-exist.com</a> (clearing toxins),
       <a href="https://sleep.u-dont-exist.com" target="_blank" rel="noopener noreferrer">sleep.u-dont-exist.com</a> (sleep),
       <a href="https://breathwork.u-dont-exist.com" target="_blank" rel="noopener noreferrer">breathwork.u-dont-exist.com</a> (breathing),
       <a href="https://somatic.u-dont-exist.com" target="_blank" rel="noopener noreferrer">somatic.u-dont-exist.com</a> (body-based therapy),
       <a href="https://innerchild.u-dont-exist.com" target="_blank" rel="noopener noreferrer">innerchild.u-dont-exist.com</a> (inner child therapy),
+      <a href="https://goenka.u-dont-exist.com" target="_blank" rel="noopener noreferrer">goenka.u-dont-exist.com</a> (meditation retreats, and loving-kindness first),
       <a href="https://badtrips.u-dont-exist.com" target="_blank" rel="noopener noreferrer">badtrips.u-dont-exist.com</a> (helping someone through a frightening drug experience). They open online.</p>
   </details>
   <details class="fold"><summary>Every number on this page, and where it comes from</summary>
@@ -685,14 +537,17 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       <li>Breathing exercises in asthma: 22 trials, 2,880 people, two of Buteyko; side effects not reviewed. Santino, Cochrane 2020 (32212422).</li>
       <li>Buteyko trial: 60 adults with asthma; inhaler use down about 20%. Vagedes, European Journal of Medical Research 2024 (38212823).</li>
       <li>BOLT breath test: not scientifically validated, say researchers who tried it in 49 athletes. Kowalski, Frontiers in Physiology 2024 (39290618).</li>
-      <li>The 45-80% breath, the 20 seconds, the 14 days and the BOLT score of 40+ are the guides' author's own figures.</li>
+      <li>Coughing up blood: NHS, "Coughing up blood (blood in phlegm)", <a href="https://www.nhs.uk/symptoms/coughing-up-blood/" target="_blank" rel="noopener noreferrer">nhs.uk/symptoms/coughing-up-blood</a>, reviewed 13 June 2024, read 19 Nov 2026; MedlinePlus, "Coughing up blood", reviewed 1 April 2025 (web pages, not studies).</li>
+      <li>Caffeine and sleep: 24 studies; about 45 minutes less sleep; coffee at least 8.8 hours before bed. Gardiner, Sleep Medicine Reviews (36870101). 200 mg at 07:10 reduced that night's sleep, 9 healthy men. Landolt, Brain Research (7796154).</li>
+      <li>Caffeine, what the bodies say: NHS insomnia page, no tea or coffee at least 6 hours before bed (<a href="https://www.nhs.uk/conditions/insomnia/" target="_blank" rel="noopener noreferrer">nhs.uk/conditions/insomnia</a>, reviewed 19 March 2024); US FDA, 400 mg a day for most adults (<a href="https://www.fda.gov/consumers/consumer-updates/spilling-beans-how-much-caffeine-too-much" target="_blank" rel="noopener noreferrer">fda.gov, Spilling the Beans</a>, current as of 28 Aug 2024); European Food Safety Authority, up to 200 mg a day in pregnancy (<a href="https://www.efsa.europa.eu/en/topics/topic/caffeine" target="_blank" rel="noopener noreferrer">efsa.europa.eu, caffeine</a>). Web pages, not studies; read 19 Nov 2026.</li>
+      <li>The 45-80% breath, the 20 seconds, the 14 days, the BOLT scores of 40+ and below 20, and 105°F are the guides' author's own figures.</li>
     </ul>
   </details>
 </section>
 
 </main>
 <footer class="wrap">
-  <p>AskRigor healthy-living page, pilot 1. Built 19 Nov 2026. A local test file: it is not published anywhere.</p>
+  <p>AskRigor healthy-living page, pilot 1, version 3. Built 19 Nov 2026, revised the same day after the author's review. A local test file: it is not published anywhere.</p>
 </footer>
 <pre id="print-area" aria-hidden="true"></pre>
 
@@ -749,12 +604,12 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
   const failLine = $("#save-failed");
   const CALL = "Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.";
   const SHORT = {
-    "8": "Use your adrenaline pen now if you have one, then call the emergency number. Lie down (sit up if breathing is hard); don't stand or walk.",
+    "8": "Use your adrenaline pen now if you have one, then call the emergency number. Lie down; don't stand or walk.",
     "15": "Call your maternity unit or midwife now. If you can't reach them, or you might act on thoughts of harming yourself or your baby, call the emergency number.",
     "18": "Call the emergency number now, and get another person with you.",
     "19": "Reach a person now: someone you trust, or a crisis line (US: call or text 988).",
     "20": "If you can call safely, call the emergency number.",
-    "passed": "Call now, even though it passed. Stopped minutes or hours ago, or a sudden worst-ever headache: call the emergency number. Otherwise phone an emergency department or a stroke clinic and say: possible warning stroke."
+    "passed": "Call now, even though it passed: the emergency number if it stopped minutes or hours ago; otherwise an emergency department or stroke clinic."
   };
   const ACT = { called: "I called", seen: "I've been seen", declined: "I'm choosing not to" };
   const LOGNAME = { try: "I'll try this", helped: "Tried it: helped", same: "Tried it: no change", worse: "Tried it: worse", no: "Not for me" };
@@ -774,23 +629,10 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     failLine.hidden = kind !== "failed";
   }
 
-  // The emergency message shared by lines 1 to 7, 9 to 14, 16 and 17, built once so every line says the same.
-  // Line 8 has its own order: the adrenaline pen comes before the call.
+  // Every emergency line's steps are written into the page, right under its box, and CSS shows them as soon as
+  // the box is ticked, even if this script never runs (owner's review 355: the message must open right under it).
+  // The script adds only the buttons that save what the person did.
   function buildCallMessages() {
-    $$("[data-callmsg]").forEach((box) => {
-      const id = box.id.replace("msg-", "");
-      const list = document.createElement("ul");
-      list.className = "steps";
-      list.innerHTML =
-        '<li><b>' + CALL + '</b> <span class="why">Why: some of these signs get worse fast, and some treatments work only if they start early.</span></li>' +
-        '<li><b>Don\'t drive yourself.</b> <span class="why">Why: you could get worse at the wheel.</span></li>' +
-        '<li><b>Use what first aid you know while help comes.</b> <span class="why">Why, in the guides\' words: <q>Medical help and field rescue can happen in parallel.</q></span></li>' +
-        '<li><b>Don\'t wait to see if a remedy works.</b> <span class="why">Why: waiting uses up the time when treatment works best. The guides: <q>Please don\'t spiritually process a body that is going under.</q></span></li>';
-      box.insertBefore(list, box.firstChild);
-      const acts = document.createElement("div");
-      acts.dataset.actions = id;
-      box.appendChild(acts);
-    });
     $$("[data-actions]").forEach((box) => {
       const id = box.dataset.actions;
       const off = id === "passed" ? "Untick this line" : "This has passed";
@@ -901,8 +743,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       } catch (e) { setStamp("failed", "Not saved"); }
       loaded = true;
       render();
-      orderAreas(true);
-    }, () => { loaded = true; render(); orderAreas(true); });
+    }, () => { loaded = true; render(); });
   }
 
   function scheduleSave() {
@@ -1012,15 +853,6 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     return unknown ? "wait" : "hide";
   }
 
-  function orderAreas(openChosen) {
-    const order = ["home", "sleep", "breath"];
-    const first = state.answers.area;
-    const seq = first ? [first].concat(order.filter((a) => a !== first)) : order;
-    const box = $("#areas");
-    seq.forEach((a) => box.appendChild(document.getElementById("area-" + a)));
-    if (openChosen && first) seq.forEach((a) => { document.getElementById("area-" + a).open = a === first; });
-  }
-
   function render() {
     $$("[data-q]").forEach((el) => {
       const v = state.answers[el.dataset.q] || "";
@@ -1034,7 +866,6 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       const id = el.dataset.em;
       const s = state.emergency[id];
       el.checked = !!(s && s.on);
-      document.getElementById("msg-" + id).hidden = !el.checked;
       if (el.checked) on.push(id);
     });
     $$("[data-em-log]").forEach((el) => {
@@ -1045,7 +876,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     banner.hidden = on.length === 0;
     if (on.length) {
       const texts = [];
-      on.forEach((id) => { const t = SHORT[id] || CALL + " Don't drive yourself."; if (!texts.includes(t)) texts.push(t); });
+      on.forEach((id) => { const t = SHORT[id] || CALL; if (!texts.includes(t)) texts.push(t); });
       $("[data-banner-text]", banner).textContent = texts.join(" ");
     }
     const paused = on.length > 0 && !showAnyway;
@@ -1065,7 +896,6 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       $("[data-worse=\"" + id + "\"]", card).hidden = !(log.length && log[log.length - 1].c === "worse");
     });
     $$(".caffeine-line").forEach((el) => { el.hidden = state.answers.caffeine === "no"; });
-    orderAreas(false);
     preview();
   }
 
@@ -1141,7 +971,6 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     if (el.dataset.q) {
       state.answers[el.dataset.q] = el.value;
       touch("a:" + el.dataset.q);
-      if (el.dataset.q === "area") orderAreas(true);
     } else if (el.dataset.t) {
       state.texts[el.dataset.t] = el.value;
       touch("x:" + el.dataset.t);
@@ -1191,7 +1020,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       (state.log[id] = state.log[id] || []).push({ c: el.dataset.c, at: nowIso() });
     } else if (el.hasAttribute("data-none")) {
       state.noneAt = nowIso();
-      $("#choose").scrollIntoView();
+      $("#order").scrollIntoView();
     } else if (el.hasAttribute("data-open-today")) {
       const today = $("#today");
       today.open = true;

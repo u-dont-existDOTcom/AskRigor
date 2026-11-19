@@ -61,12 +61,10 @@ describe("healthy-living pilot 1", () => {
     expect(html).not.toMatch(/\bJoel\b/);
   });
 
-  it("shows all twenty emergency lines and the passed line without a fold", () => {
+  // Owner's review 355: the line for stroke signs that passed sits right at line 4, not at the end.
+  it("shows all twenty emergency lines without a fold, with the passed stroke line at line 4", () => {
     const lines = [...html.matchAll(/data-em="([^"]+)"/g)];
-    expect(lines.map((match) => match[1])).toEqual([
-      ...Array.from({ length: 20 }, (_, index) => String(index + 1)),
-      "passed"
-    ]);
+    expect(lines.map((match) => match[1])).toEqual(["1", "2", "3", "4", "passed", ...Array.from({ length: 16 }, (_, index) => String(index + 5))]);
     for (const match of lines) expect(insideDetails(html, match.index ?? 0), `line ${match[1]}`).toBe(false);
     for (const match of lines) expect(html).toContain(`id="msg-${match[1]}"`);
   });
@@ -82,20 +80,20 @@ describe("healthy-living pilot 1", () => {
 
   it("keeps the owner's 18 Nov additions, the mist idea as his view and not as permission", () => {
     expect(html).toContain("Start everything at the lowest dose");
-    expect(html).toContain("Tolerating a smell does not show that breathing the substance as a mist is safe.");
+    expect(html).toContain("don't start breathing anything in as a mist until you are fine with smelling it");
     expect(html).not.toMatch(/only smell first|Go on to the mist|build up only as you are fine/);
     expect(html).toContain("The person receiving closes their eyes.");
     expect(html).toContain("45-80% of a full deep breath");
   });
 
   // Codex's review of 19 Nov 2026 (P1s): no emergency line may wait on a diagnosis, a fever or every sign.
-  const label = (line: string) => html.match(new RegExp(`data-em="${line}">([^<]*)</label>`))?.[1] ?? "";
+  const label = (line: string) => html.match(new RegExp(`<label for="em-${line}">([^<]*)</label>`))?.[1] ?? "";
 
   it("asks no diagnosis, fever or full set of signs before an emergency line", () => {
     expect(label("3")).toContain("Or sudden chest discomfort or pressure that does not go away, even if mild.");
     expect(label("6")).toContain("even if no one has said so, and even without fever");
-    expect(label("7")).toMatch(/^ A severe headache with a stiff neck, or with light hurting your eyes/);
-    expect(label("13")).toMatch(/^ Vomiting with deep, fast breathing, even if you have never been diagnosed with diabetes\./);
+    expect(label("7")).toMatch(/^A severe headache with a stiff neck, or with light hurting your eyes/);
+    expect(label("13")).toMatch(/^Vomiting with deep, fast breathing, even if you have never been diagnosed with diabetes\./);
     expect(label("13")).toContain("but you don't need them");
     expect(html).toContain("Don't wait for a fever, a rash, or every sign: any one is enough.");
   });
@@ -167,7 +165,7 @@ describe("healthy-living pilot 1", () => {
   });
 
   it("keeps the emergency number for stroke signs that only just stopped and for a worst-ever headache", () => {
-    const box = html.slice(html.indexOf('id="msg-passed"'), html.indexOf("data-none"));
+    const box = html.slice(html.indexOf('id="msg-passed"'), html.indexOf('data-em="5"'));
     expect(box).toContain("If the signs stopped only minutes or hours ago, or it was a sudden worst-ever headache, call the emergency number now");
     expect(box).toContain("Otherwise, phone an emergency department or a stroke clinic now and say: possible warning stroke.");
   });
@@ -219,21 +217,75 @@ describe("healthy-living pilot 1", () => {
     expect(html).toContain("it has not been scientifically validated");
   });
 
-  // The guides' author's words are quoted only where a checked source holds them word for word
-  // (draft v2's rule: every quote in the checked guide quotes or his notes, and under 15 words).
-  it("quotes only checked words, each under 15 words", async () => {
+  // Owner's review 355: the page says what his guide says, in its own voice, without quotation marks around his
+  // words; the words it takes from him are listed with a source that holds them word for word.
+  it("speaks in the guide's own voice, with his words checked against their sources", async () => {
+    expect(html).not.toMatch(/<q[\s>]/);
+    expect(html).not.toMatch(/in (?:the guide's|the guides'|his|the guides' author's) words|as he writes it|He calls|his own condition|Words in quotation marks/i);
     const checked = JSON.parse(await readFile(resolve(root, "labs/healthy-living-pilot-1/checked-quotes.json"), "utf8")) as CheckedQuotes;
-    const listed = new Set(checked.quotes.map((entry) => entry.quote));
-    const onPage = [...html.matchAll(/<q>([\s\S]*?)<\/q>/g)].map((match) => normalizeQuote(match[1]));
-    expect(onPage.length).toBeGreaterThan(50);
-    for (const quote of onPage) {
-      expect(listed.has(quote), quote).toBe(true);
-      expect(quote.split(" ").length, quote).toBeLessThan(15);
-    }
+    const text = normalizeQuote(html.slice(html.indexOf("<body>"), html.indexOf("<script>")).replace(/<[^>]+>/g, " ")).toLowerCase();
+    expect(checked.quotes.length).toBeGreaterThan(40);
     for (const entry of checked.quotes) {
-      expect(onPage, `listed but not on the page: ${entry.quote}`).toContain(entry.quote);
+      expect(text, entry.words).toContain(normalizeQuote(entry.words).toLowerCase());
       expect(Object.keys(checked.sources)).toContain(entry.source);
     }
+  });
+
+  // Owner's review 355b (19 Nov 2026).
+  it("tells people at the top to call if any one sign applies, and opens each line's steps under its box without the script", () => {
+    const first = html.indexOf('data-em="1"');
+    expect(html.indexOf("call the emergency number now: 911 in the US, 112 in Europe, 999 in the UK. One sign is enough.")).toBeGreaterThan(-1);
+    expect(html.indexOf("If any one of these is happening now, call the emergency number now")).toBeLessThan(first);
+    expect(html).toContain(".em input:checked ~ .msg { display: block; }");
+    const lines = [...html.matchAll(/<input type="checkbox" id="em-([^"]+)" data-em="\1"><label for="em-\1">/g)].map((match) => match[1]);
+    expect(lines).toHaveLength(21);
+    for (const line of lines) {
+      const start = html.indexOf(`id="msg-${line}"`);
+      const box = html.slice(start, html.indexOf(`data-actions="${line}"`, start));
+      expect(box, `line ${line}`).toMatch(/<li><b>(?:Call|Use your adrenaline|If the signs stopped|Reach a person|If you can call safely)/);
+      expect(html.slice(start - 400, start), `line ${line}`).not.toMatch(/hidden[^>]*$/);
+    }
+    expect(html).not.toMatch(/The signs in line \d/);
+    const passed = html.indexOf('data-em="passed"');
+    expect(passed).toBeGreaterThan(html.indexOf('data-em="4"'));
+    expect(passed).toBeLessThan(html.indexOf('data-em="5"'));
+  });
+
+  it("says in plain words what to do about coughing up any blood, with the NHS page", () => {
+    expect(label("2")).toContain("more than a few small spots or streaks");
+    expect(label("2")).toContain("Or any blood with hard breathing, a very fast heartbeat, or pain in the chest or upper back.");
+    expect(html).not.toContain("Coughing up more than streaks of blood.");
+    expect(html).toContain("Coughing up a few small spots or streaks of blood, or blood in your phlegm.");
+    expect(html).toContain('<a href="https://www.nhs.uk/symptoms/coughing-up-blood/" target="_blank" rel="noopener noreferrer">');
+  });
+
+  it("follows the guides' order, step 1 to 5, and lets a symptom lead into it", () => {
+    const steps = [...html.matchAll(/<section class="step" id="step-(\d)"/g)].map((match) => match[1]);
+    expect(steps).toEqual(["1", "2", "3", "4", "5"]);
+    expect(html).not.toContain("What do you want help with first?");
+    expect(html).not.toMatch(/name="area"/);
+    expect(html).toContain("Go through the basics in this order: 1, water. 2, sleep and breathing. 3, mold. 4, smell. 5, exercise.");
+    for (const target of ["#step-1", "#step-2", "#breathing", "#step-3", "#step-4"]) expect(html).toContain(`href="${target}"`);
+    // The apnea check and the sleep habits are for everyone, as in the sleep guide.
+    expect(html).toMatch(/<div class="sugg" data-sugg="apnea">/);
+    expect(html).toMatch(/<div class="sugg" data-sugg="sleep-baseline">/);
+  });
+
+  it("changes the obvious harms at once, slowly only where that is unsafe, and tries uncertain things one at a time", () => {
+    const rules = html.slice(html.indexOf('id="rules"'), html.indexOf('id="paused"'));
+    expect(rules).toContain("Change everything that is obviously harmful now, all at once, as soon as it is safe");
+    expect(rules).toContain("Where stopping fast is not safe, go slowly");
+    expect(rules).toContain("such as supplements, one at a time");
+    expect(html).not.toMatch(/Pick one\. Try it for two weeks|one change at a time shows you what helped/);
+  });
+
+  it("keeps the recording as his own sleep study, and states the mainstream caffeine view as the bodies give it", () => {
+    expect(html).toContain("your own sleep study. If you hear snoring or pauses in breathing, that's a huge clue.");
+    expect(html).not.toMatch(/quiet recording does not rule|even if your recording sounds quiet/);
+    expect(html).not.toContain("Morning caffeine is usually thought fine.");
+    expect(html).toContain("says no tea or coffee in the 6 hours before bed");
+    expect(html).toContain("up to 400 mg of caffeine a day is not generally linked to harm for most adults");
+    expect(html).toContain("None of them says anything about caffeine and sleep apnea.");
   });
 
   it.skipIf(!process.env.ASKRIGOR_PILOT_QUOTE_SOURCES)("finds each checked quote word for word in its source", async () => {
@@ -241,13 +293,13 @@ describe("healthy-living pilot 1", () => {
     const folder = process.env.ASKRIGOR_PILOT_QUOTE_SOURCES ?? "";
     const texts = new Map<string, string>();
     for (const name of Object.keys(checked.sources)) texts.set(name, normalizeQuote(await readFile(resolve(folder, name), "utf8")));
-    for (const entry of checked.quotes) expect(texts.get(entry.source), entry.quote).toContain(entry.quote);
+    for (const entry of checked.quotes) expect(texts.get(entry.source)?.toLowerCase(), entry.words).toContain(normalizeQuote(entry.words).toLowerCase());
   });
 });
 
 interface CheckedQuotes {
   sources: Record<string, string>;
-  quotes: { quote: string; source: string; guides?: string[] }[];
+  quotes: { words: string; source: string; guides?: string[] }[];
 }
 
 // Same reading as the page shows it: entities decoded (&amp; last, so nothing is decoded twice), curly quotes straightened, a JS-escaped
