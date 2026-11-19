@@ -146,6 +146,11 @@ describe("healthy-living pilot 1", () => {
     const script = inlineScripts(html)[0];
     expect(script).toContain("(p.gen || \"\") !== mark");
     expect(script).not.toMatch(/state = Object\.assign\(blank\(\), parsed\)/);
+    // Recheck of 19 Nov: loading, saving, clearing and removing old copies share one cross-tab lock,
+    // and a late notice of a clear this tab already knew of resets nothing.
+    expect(script).toContain("locks.request(LOCK");
+    for (const step of ["return locked(() => {", "locked(save)", "locked(() => onStorage(key))"]) expect(script).toContain(step);
+    expect(script).toContain("if (key === CLEARED) return;");
   });
 
   it("leaves out what the approved defaults leave out", () => {

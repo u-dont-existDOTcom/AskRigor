@@ -1,7 +1,8 @@
 // Runs the healthy-living pilot page in headless Chromium (over the DevTools protocol) and checks
 // what draft v2 part 10 asks for: zero network requests, save and reload, the emergency pause,
 // skipped questions, the copy against its preview, Clear everything across two tabs (also a clear
-// landing in the middle of another tab's save, two tabs editing at once, a clear that fails), blocked
+// landing in the middle of another tab's save, two tabs editing at once, a clear that fails, a tab
+// stopped mid-save, a tab opened mid-clear, two saves at once and both tabs closed), blocked
 // storage, phone width and the keyboard. Usage: node browser-check.mjs <chrome> <page.html> <outdir>
 import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
@@ -41,9 +42,12 @@ const waitFor = (sessionId, method, ms = 10000) => new Promise((ok, fail) => {
 });
 const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
 
+const targetOf = new Map();
+const closeTab = (sessionId) => send("Target.closeTarget", { targetId: targetOf.get(sessionId) });
 async function openTab(preload) {
   const { targetId } = await send("Target.createTarget", { url: "about:blank" });
   const { sessionId } = await send("Target.attachToTarget", { targetId, flatten: true });
+  targetOf.set(sessionId, targetId);
   for (const d of ["Page", "Runtime", "Network", "Log"]) await send(d + ".enable", {}, sessionId);
   if (preload) await send("Page.addScriptToEvaluateOnNewDocument", { source: preload }, sessionId);
   const loaded = waitFor(sessionId, "Page.loadEventFired");
@@ -73,6 +77,14 @@ async function call(sessionId, fn, ...args) {
   return r.result.value;
 }
 const HIDDEN = `function (sel) { const el = document.querySelector(sel); return !el || el.hidden || el.closest("[hidden]") !== null; }`;
+const KEY = "askrigor-healthy-living-pilot-1";
+const LOCK = KEY + "-lock";
+const TYPE = `function (words) { const t = document.querySelector("#own-words"); t.value = words; t.dispatchEvent(new Event("input", { bubbles: true })); }`;
+// Holds the page's lock from a tab, as a tab stopped in the middle of a save would; window.__release() lets go.
+const HOLD = `function (name) { return new Promise((held) => { navigator.locks.request(name, () => new Promise((release) => { window.__release = release; held(true); })); }); }`;
+const LATE = `function (key, words) { const mark = localStorage.getItem(key + "-cleared") || ""; localStorage.setItem(key, JSON.stringify({ v: 2, gen: mark, answers: {}, texts: { "own-words": words }, log: {}, emergency: {}, noneAt: "", t: {} })); return true; }`;
+const FAILDEL_FN = `function () { const del = Storage.prototype.removeItem; Storage.prototype.removeItem = function (k) { if (window.__failRemove) throw new DOMException("blocked", "SecurityError"); return del.call(this, k); }; return true; }`;
+const FAILDEL = `(${FAILDEL_FN})();`;
 
 try {
   // 1. Load, and count every request the page makes.
@@ -142,38 +154,49 @@ try {
   await reload(a);
   check("nothing comes back after reload", (await js(a, `document.querySelector("#own-words").value`)) === "" && !(await js(a, `document.querySelector('input[name=area][value=sleep]').checked`)));
 
-  // 8. Blocked storage shows the red line.
+  await closeTab(b);
+
+  // 8. Blocked storage shows the red line; Clear everything then says it failed and keeps the answers.
   const c = await openTab(`Object.defineProperty(window, "localStorage", { get() { throw new DOMException("blocked", "SecurityError"); } });`);
   check("blocked storage: Not saved and the red line", (await js(c, `document.querySelector("#stamp").textContent`)) === "Not saved" && !(await call(c, HIDDEN, "#save-failed")));
+  await call(c, TYPE, "blocked words");
+  await js(c, `window.confirm = () => true; document.querySelector('[data-clear]').click();`);
+  await sleep(200);
+  check("blocked storage: Clear everything says it failed and keeps the answers", (await js(c, `document.querySelector("#own-words").value === "blocked words" && document.querySelector("#stamp").textContent === "Clearing failed"`)) && !(await call(c, HIDDEN, "#clear-failed")) && (await call(c, HIDDEN, "#cleared-note")) && (await call(c, HIDDEN, "#save-failed")));
+  await closeTab(c);
 
-  // 8b. Another tab's Clear everything lands between a save's check and its write (made to happen here:
+  // 8b. A clear that skips the lock and lands between a save's check and its write (made to happen here:
   // the clear runs just before the write). The late write must not bring the answers back.
   const r = await openTab(`(() => { const set = Storage.prototype.setItem, del = Storage.prototype.removeItem;
     Storage.prototype.setItem = function (k, v) {
       if (window.__raceOnce && k === "askrigor-healthy-living-pilot-1") { window.__raceOnce = false; set.call(this, k + "-cleared", "other-tab-" + Date.now()); del.call(this, k); }
       return set.call(this, k, v);
     }; })();`);
-  await js(r, `(() => { window.__raceOnce = true; const t = document.querySelector("#own-words"); t.value = "race words"; t.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+  await js(r, `window.__raceOnce = true;`);
+  await call(r, TYPE, "race words");
   await sleep(700);
   check("a clear landing mid-save leaves nothing stored", (await js(r, `localStorage.getItem("askrigor-healthy-living-pilot-1")`)) === null);
   check("a clear landing mid-save clears this tab too", (await js(r, `document.querySelector("#own-words").value`)) === "" && !(await call(r, HIDDEN, "#cleared-note")));
   await reload(r);
   check("nothing comes back after a clear landing mid-save", (await js(r, `document.querySelector("#own-words").value`)) === "");
+  await closeTab(r);
 
   // 8c. Two tabs editing at once: both changes are kept.
   const d1 = await openTab();
   const d2 = await openTab();
-  await js(d1, `(() => { const t = document.querySelector("#own-words"); t.value = "words from one tab"; t.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+  await call(d1, TYPE, "words from one tab");
   await js(d2, `document.querySelector('input[name=area][value=home]').click()`);
   await sleep(1200);
   const both = (s) => js(s, `document.querySelector("#own-words").value === "words from one tab" && document.querySelector('input[name=area][value=home]').checked`);
   check("two tabs editing at once: each shows both changes", (await both(d1)) && (await both(d2)));
   await reload(d1);
   check("two tabs editing at once: both changes saved", await both(d1));
+  await closeTab(d1);
+  await closeTab(d2);
 
   // 8d. A clear that fails says so, keeps the answers on the page, and claims no success.
-  const f = await openTab(`(() => { const del = Storage.prototype.removeItem; Storage.prototype.removeItem = function (k) { if (window.__failRemove) throw new DOMException("blocked", "SecurityError"); return del.call(this, k); }; })();`);
-  await js(f, `(() => { const t = document.querySelector("#own-words"); t.value = "keep these words"; t.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+  const f = await openTab(FAILDEL);
+  await call(f, TYPE, "keep these words");
   await sleep(600);
   await js(f, `window.__failRemove = true; window.confirm = () => true; document.querySelector('[data-clear]').click();`);
   await sleep(300);
@@ -182,6 +205,77 @@ try {
   await js(f, `window.__failRemove = false; document.querySelector('[data-clear]').click();`);
   await sleep(300);
   check("clearing again once it works says cleared, and nothing is stored", (await js(f, `document.querySelector("#own-words").value === "" && localStorage.getItem("askrigor-healthy-living-pilot-1") === null`)) && !(await call(f, HIDDEN, "#cleared-note")) && (await call(f, HIDDEN, "#clear-failed")));
+  await closeTab(f);
+
+  // 8e. Another tab's clear when no tab can delete the old copy: this tab says so too and keeps its answers.
+  await call(a, FAILDEL_FN);
+  const x = await openTab(FAILDEL);
+  const y = await openTab(FAILDEL);
+  await call(x, TYPE, "x words");
+  await sleep(600);
+  for (const s of [a, x, y]) await js(s, `window.__failRemove = true; window.confirm = () => true;`);
+  await js(y, `document.querySelector('[data-clear]').click()`);
+  await sleep(400);
+  check("clearing tab: Clearing failed when the old copy cannot be deleted", await js(y, `document.querySelector("#stamp").textContent === "Clearing failed"`));
+  check("other tab: Clearing failed too, its answers kept, no saving warning", (await js(x, `document.querySelector("#stamp").textContent === "Clearing failed" && document.querySelector("#own-words").value === "x words"`)) && !(await call(x, HIDDEN, "#clear-failed")) && (await call(x, HIDDEN, "#cleared-note")) && (await call(x, HIDDEN, "#save-failed")));
+  for (const s of [a, x, y]) await js(s, `window.__failRemove = false;`);
+  await js(y, `document.querySelector('[data-clear]').click()`);
+  await sleep(400);
+  check("once deleting works, both tabs say cleared and nothing is stored", (await js(x, `document.querySelector("#own-words").value === "" && localStorage.getItem("askrigor-healthy-living-pilot-1") === null`)) && !(await call(x, HIDDEN, "#cleared-note")) && !(await call(y, HIDDEN, "#cleared-note")));
+  await closeTab(x);
+  await closeTab(y);
+
+  // 8f. A late notice of a clear this tab already knew of clears nothing saved since.
+  const p = await openTab();
+  await call(p, TYPE, "after clear words");
+  await sleep(600);
+  await call(p, `function (key) { window.dispatchEvent(new StorageEvent("storage", { key: key + "-cleared", newValue: localStorage.getItem(key + "-cleared"), storageArea: localStorage })); return true; }`, KEY);
+  await sleep(300);
+  check("a late notice of a known clear keeps the answers saved since", await js(p, `document.querySelector("#own-words").value === "after clear words" && JSON.parse(localStorage.getItem("askrigor-healthy-living-pilot-1")).texts["own-words"] === "after clear words"`));
+
+  // 8g. A tab stopped in the middle of its save (here: holding the page's lock) delays a clear. The clear
+  // reports success only after it, and removes its late write, even when both tabs then close.
+  const h = await openTab();
+  await call(h, HOLD, LOCK);
+  await js(p, `window.confirm = () => true; document.querySelector('[data-clear]').click();`);
+  await sleep(300);
+  check("a clear waits while another tab is mid-save", (await js(p, `document.querySelector("#stamp").textContent === "Clearing…" && document.querySelector("#own-words").value === "after clear words"`)) && (await call(p, HIDDEN, "#cleared-note")));
+  await call(h, LATE, KEY, "late words");
+  await js(h, `window.__release()`);
+  await sleep(300);
+  check("then the clear completes, the late write included", (await js(p, `document.querySelector("#own-words").value === "" && localStorage.getItem("askrigor-healthy-living-pilot-1") === null`)) && !(await call(p, HIDDEN, "#cleared-note")));
+  await closeTab(h);
+  await closeTab(p);
+  const n = await openTab();
+  check("nothing comes back once both tabs have closed", await js(n, `document.querySelector("#own-words").value === "" && localStorage.getItem("askrigor-healthy-living-pilot-1") === null`));
+
+  // 8h. A tab opened while a clear is under way waits for it, and never shows the answers being cleared.
+  await call(n, TYPE, "loading words");
+  await sleep(600);
+  const h2 = await openTab();
+  await call(h2, HOLD, LOCK);
+  const l = await openTab();
+  check("a tab opened during a clear shows no saved answers", (await js(l, `document.querySelector("#own-words").value`)) === "");
+  await call(h2, `function (key) { localStorage.setItem(key + "-cleared", "harness-" + Date.now()); localStorage.removeItem(key); return true; }`, KEY);
+  await js(h2, `window.__release()`);
+  await sleep(300);
+  check("and after the clear it still shows none", await js(l, `document.querySelector("#own-words").value === "" && localStorage.getItem("askrigor-healthy-living-pilot-1") === null`));
+  for (const s of [n, h2, l]) await closeTab(s);
+
+  // 8i. Two tabs save at the same moment and both close straight after: both changes are kept.
+  const d3 = await openTab();
+  const d4 = await openTab();
+  const h3 = await openTab();
+  await call(h3, HOLD, LOCK);
+  await call(d3, TYPE, "words from tab three");
+  await js(d4, `document.querySelector('input[name=area][value=breath]').click()`);
+  await sleep(400);
+  await js(h3, `window.__release()`);
+  await sleep(400);
+  for (const s of [d3, d4, h3]) await closeTab(s);
+  const e3 = await openTab();
+  check("two tabs saving at once, then both closed: both changes kept", await js(e3, `document.querySelector("#own-words").value === "words from tab three" && document.querySelector('input[name=area][value=breath]').checked`));
+  await closeTab(e3);
 
   // 9. Keyboard: Space on the first emergency line ticks it.
   await js(a, `document.querySelector('[data-em="1"]').focus()`);

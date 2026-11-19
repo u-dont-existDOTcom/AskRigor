@@ -614,7 +614,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
   <p class="small"><b>A copy is an ordinary file. It can stay in your Downloads folder, in backups, in folders that sync to other devices, or at the printer. This page cannot clear it.</b></p>
   <p><b>Clear everything</b> removes this page's saved answers, choices and dated log from this browser (not your browser history). <button type="button" class="danger" data-clear>Clear everything</button></p>
   <p id="cleared-note" class="logline" hidden role="status">This page's saved answers were cleared here. Copies, and traces such as your browser history, may remain.</p>
-  <p id="clear-failed" class="worse" hidden role="alert">Clearing failed; saved answers may remain. Everything is still on this page: make a copy, or press Clear everything again.</p>
+  <p id="clear-failed" class="worse" hidden role="alert">Clearing failed; saved answers may remain. Your answers are still on this page, and saving is paused: make a copy if you need one, then try Clear everything again.</p>
 </section>
 
 <section class="card" id="about" aria-labelledby="about-title">
@@ -699,20 +699,33 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
   "use strict";
   const KEY = "askrigor-healthy-living-pilot-1";
   const CLEARED = KEY + "-cleared";
+  const LOCK = KEY + "-lock";
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
   let store = null;
   try { store = window.localStorage; store.getItem(KEY); } catch (e) { store = null; }
 
-  // Each saved copy carries the clear mark it was written under (gen) and the time of each answer (t).
-  // A copy written under an older mark was saved by a slow tab before a Clear everything: no tab shows
-  // it, and any tab that sees it removes it. Two tabs' changes merge answer by answer, the later one
-  // winning, and the dated logs add up, so one tab's save never drops what another tab saved.
+  // Saving works in steps that two tabs must never interleave. One lock shared by every tab of this
+  // page (the browser's Web Locks API) makes loading, saving (read, merge, write, check), clearing and
+  // removing an old copy each run whole, and a clear reports success only once it has finished.
+  // Each saved copy also carries the clear mark it was written under (gen) and the time of each answer
+  // (t): two tabs' changes merge answer by answer, the later one winning, and a copy written before a
+  // clear is never shown. Browsers without the lock run the steps unlocked, protected by the marks only.
+  const locks = (() => { try { return navigator.locks && typeof navigator.locks.request === "function" ? navigator.locks : null; } catch (e) { return null; } })();
+  const SETTLE = 20; // ms, inside the lock, for another tab's last change to reach this tab
+  function locked(fn) {
+    const run = () => new Promise((ok) => { setTimeout(ok, SETTLE); }).then(fn);
+    if (!locks) return run();
+    let started = false;
+    return locks.request(LOCK, () => { started = true; return run(); }).catch(() => (started ? undefined : run()));
+  }
+
   const TAB = Math.random().toString(36).slice(2, 8);
   const blank = () => ({ v: 2, gen: "", answers: {}, texts: {}, log: {}, emergency: {}, noneAt: "", t: {} });
   let state = blank();
   let clearMark = "";
+  let loaded = false;
   let timer = 0;
   let held = false;
   let showAnyway = false;
@@ -848,25 +861,33 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       return s;
     } catch (e) { return null; }
   }
-  // Removes a saved copy written under an older clear mark: a late save from another tab.
-  function dropStale(mark) {
+  // Removes a saved copy written under an older clear mark (a late save from another tab).
+  // True once no such copy is left.
+  function removeStale(mark) {
     try {
       const raw = store.getItem(KEY);
-      if (raw !== null && !readRecord(raw, mark)) store.removeItem(KEY);
-    } catch (e) { /* the next load refuses it all the same */ }
+      if (raw === null || readRecord(raw, mark)) return true;
+      store.removeItem(KEY);
+      return store.getItem(KEY) === null;
+    } catch (e) { return false; }
   }
 
   function load() {
-    if (!store) { setStamp("failed", "Not saved"); return; }
-    try {
-      clearMark = store.getItem(CLEARED) || "";
-      const raw = store.getItem(KEY);
-      const rec = readRecord(raw, clearMark);
-      if (rec) {
-        state = rec;
-        setStamp("saved", "Saved here " + hhmm(new Date(rec.savedAt || Date.now())));
-      } else if (raw !== null) dropStale(clearMark);
-    } catch (e) { setStamp("failed", "Not saved"); }
+    if (!store) { setStamp("failed", "Not saved"); loaded = true; return Promise.resolve(); }
+    return locked(() => {
+      try {
+        clearMark = store.getItem(CLEARED) || "";
+        const raw = store.getItem(KEY);
+        const rec = readRecord(raw, clearMark);
+        if (rec) {
+          state = merge(state, rec); // keeps anything typed while the page waited to load
+          setStamp("saved", "Saved here " + hhmm(new Date(rec.savedAt || Date.now())));
+        } else if (raw !== null) removeStale(clearMark);
+      } catch (e) { setStamp("failed", "Not saved"); }
+      loaded = true;
+      render();
+      orderAreas(true);
+    });
   }
 
   function scheduleSave() {
@@ -874,14 +895,15 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     if (held) return; // after a failed clear, the answers kept on this page wait for the person's next change
     setStamp("saving", "Saving…");
     clearTimeout(timer);
-    timer = setTimeout(save, 250);
+    timer = setTimeout(() => { timer = 0; locked(save); }, 250);
   }
 
   function save() {
-    timer = 0;
+    if (held) return;
+    if (!loaded) { scheduleSave(); return; }
     try {
       const mark = store.getItem(CLEARED) || "";
-      if (mark !== clearMark) { clearedElsewhere(); return; }
+      if (mark !== clearMark) { applyRemoteClear(); return; }
       const before = content(state);
       const there = readRecord(store.getItem(KEY), mark);
       if (there) state = merge(state, there);
@@ -889,12 +911,9 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       state.savedAt = nowIso();
       const raw = JSON.stringify(state);
       store.setItem(KEY, raw);
-      // A Clear everything in another tab can land between the check above and this write. Then this
-      // copy carries the old mark, so no tab shows it; remove it, and clear this tab too.
-      if ((store.getItem(CLEARED) || "") !== mark) { clearedElsewhere(); return; }
-      const back = store.getItem(KEY);
-      if (back === raw) setStamp("saved", "Saved here " + hhmm(new Date()));
-      else if (readRecord(back, mark)) scheduleSave(); // another tab saved in between: merge again
+      // Under the lock no clear can land meanwhile; this check is for browsers without it.
+      if ((store.getItem(CLEARED) || "") !== mark) { applyRemoteClear(); return; }
+      if (store.getItem(KEY) === raw) setStamp("saved", "Saved here " + hhmm(new Date()));
       else setStamp("failed", "Not saved");
       if (content(state) !== before) render();
     } catch (e) { setStamp("failed", "Not saved"); }
@@ -916,42 +935,55 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     render();
   }
 
-  // Another tab cleared (or this tab's save found that a clear had landed): empty this tab, store nothing.
-  function clearedElsewhere() {
-    clearTimeout(timer);
-    timer = 0;
-    try { clearMark = store.getItem(CLEARED) || ""; } catch (e) { clearMark = ""; }
-    dropStale(clearMark);
-    setStamp("idle", "Nothing saved");
-    showCleared();
+  // A clear that could not be confirmed: keep the answers on this page (the copy that can still be
+  // recovered), pause saving them, and say so, with no success line and no saving warning.
+  function clearFailed() {
+    held = true;
+    setStamp("clear-failed", "Clearing failed");
+    $("#cleared-note").hidden = true;
+    $("#clear-failed").hidden = false;
   }
 
-  // Clear everything: a new clear mark first, so no tab accepts a copy written before it, then the answers.
-  // Success is said only once nothing is left; otherwise the page says so and keeps the answers here.
+  // Another tab cleared (this tab found a new clear mark): remove any copy from before it, then empty this tab.
+  function applyRemoteClear() {
+    clearTimeout(timer);
+    timer = 0;
+    let gone = false;
+    try { clearMark = store.getItem(CLEARED) || ""; gone = removeStale(clearMark); } catch (e) { gone = false; }
+    if (!gone) { clearFailed(); return; }
+    setStamp("idle", "Nothing saved");
+    showCleared();
+    let rec = null;
+    try { rec = readRecord(store.getItem(KEY), clearMark); } catch (e) { rec = null; }
+    if (rec) { // answers another tab saved after that clear
+      state = rec;
+      render();
+      setStamp("saved", "Saved here " + hhmm(new Date(rec.savedAt || Date.now())));
+    }
+  }
+
+  // Clear everything: under the lock, a new clear mark first (from then on no tab accepts an older copy),
+  // then the answers. Success is said only once nothing is left; otherwise clearFailed.
   function clearAll() {
     clearTimeout(timer);
     timer = 0;
-    if (store) {
+    if (!store) { clearFailed(); return Promise.resolve(); }
+    setStamp("saving", "Clearing…");
+    $("#cleared-note").hidden = true;
+    $("#clear-failed").hidden = true;
+    return locked(() => {
       const mark = String(Date.now()) + "-" + Math.random().toString(36).slice(2);
       let done = false;
       try {
         store.setItem(CLEARED, mark);
         store.removeItem(KEY);
-        if (store.getItem(KEY) !== null) dropStale(mark);
         done = store.getItem(KEY) === null && store.getItem(CLEARED) === mark;
       } catch (e) { done = false; }
-      if (!done) {
-        try { clearMark = store.getItem(CLEARED) || ""; } catch (e) { /* keep the old mark */ }
-        held = true;
-        setStamp("clear-failed", "Clearing failed");
-        $("#cleared-note").hidden = true;
-        $("#clear-failed").hidden = false;
-        return;
-      }
-      clearMark = mark;
+      try { clearMark = store.getItem(CLEARED) || ""; } catch (e) { /* keep the old mark */ }
+      if (!done) { clearFailed(); return; }
       setStamp("idle", "Nothing saved");
-    } else setStamp("failed", "Not saved");
-    showCleared();
+      showCleared();
+    });
   }
 
   function rule(r) {
@@ -1181,17 +1213,18 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     if (toPassed) $("#msg-passed").scrollIntoView({ block: "center" });
   }
 
-  window.addEventListener("storage", (e) => {
-    if (!store) return;
-    if (e.key === null || e.key === CLEARED) { clearedElsewhere(); return; }
-    if (e.key !== KEY) return;
+  // Another tab changed or cleared the answers: handled under the lock, from the copy as it is now.
+  function onStorage(key) {
     let mark = "";
     try { mark = store.getItem(CLEARED) || ""; } catch (err) { return; }
-    if (mark !== clearMark) { clearedElsewhere(); return; }
-    const rec = readRecord(e.newValue, mark);
+    if (key === null || mark !== clearMark) { applyRemoteClear(); return; }
+    if (key === CLEARED) return; // a clear this tab already knew of: answers saved since then stay
+    let raw = null;
+    try { raw = store.getItem(KEY); } catch (err) { return; }
+    const rec = readRecord(raw, mark);
     if (!rec) {
-      // Removed, or a late copy written before a clear: never shown. Remove it, and save this tab's answers again.
-      if (e.newValue !== null) dropStale(mark);
+      // Removed, or a copy from before a clear: never shown. Remove it, and save this tab's answers again.
+      if (raw !== null) removeStale(mark);
       if (content(state) !== EMPTY) scheduleSave();
       return;
     }
@@ -1200,16 +1233,21 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     state = merged;
     render();
     if (news) scheduleSave();
+  }
+
+  window.addEventListener("storage", (e) => {
+    if (!store || (e.key !== null && e.key !== KEY && e.key !== CLEARED)) return;
+    const key = e.key;
+    locked(() => onStorage(key));
   });
 
   buildCallMessages();
   buildLogButtons();
-  load();
   render();
-  orderAreas(true);
   document.addEventListener("input", onInput);
   document.addEventListener("change", onInput);
   document.addEventListener("click", onClick);
+  load();
 })();
 </script>
 </body>
