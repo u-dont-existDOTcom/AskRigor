@@ -11,16 +11,17 @@ const pages = [
   ["site/index.html", "AskRigor | Evidence-first research retrieval", "https://askrigor.com/"],
   ["site/privacy/index.html", "Privacy | AskRigor", "https://askrigor.com/privacy"],
   ["site/terms/index.html", "Terms | AskRigor", "https://askrigor.com/terms"],
-  ["site/support/index.html", "Support | AskRigor", "https://askrigor.com/support"]
+  ["site/support/index.html", "Support | AskRigor", "https://askrigor.com/support"],
+  ["site/how-to-research/index.html", "How to research | AskRigor", "https://askrigor.com/how-to-research"]
 ] as const;
 
 const pageHtml = async (file: string) => readFile(rootFile(file), "utf8");
 
 describe("AskRigor public site", () => {
-  it("ships exactly eight complete public pages", async () => {
+  it("ships exactly nine complete public pages", async () => {
     const result = await validatePublicSite(rootFile("site/"));
     expect(result.errors).toEqual([]);
-    expect(result.pages).toBe(8);
+    expect(result.pages).toBe(9);
     expect(result.internalLinks).toBeGreaterThanOrEqual(16);
   });
 
@@ -45,8 +46,27 @@ describe("AskRigor public site", () => {
 
   it("counts only same-origin anchor navigation links", async () => {
     const result = await validatePublicSite(rootFile("site/"));
-    // 105 since 16 Nov 2026: the new inositol Atlas overview link in the roadmap adds one to the previous 104.
-    expect(result.internalLinks).toBe(105);
+    // 125 since 19 Nov 2026: the How to research page's own 12 (brand, menu, footer) and its menu item on the eight
+    // other pages add 20 to the previous 105 (the inositol Atlas overview link in the roadmap, 16 Nov 2026).
+    expect(result.internalLinks).toBe(125);
+  });
+
+  it("puts the approved cautions on the How to research page, linked from every page's menu (owner answer 365 1a)", async () => {
+    const page = await pageHtml("site/how-to-research/index.html");
+    // The draft's page text only: its review notes and sources table stay with the draft.
+    for (const note of ["Draft for", "owner library", "Not used, because", "this session"]) expect(page).not.toContain(note);
+    // Every in-page link lands on a part of the page.
+    const ids = [...page.matchAll(/\sid="([^"]+)"/gu)].map((match) => match[1]);
+    const targets = [...page.matchAll(/href="#([^"]+)"/gu)].map((match) => match[1]);
+    expect(targets).toHaveLength(6);
+    for (const target of targets) expect(ids).toContain(target);
+    // Each number's source is linked, over HTTPS: the draft's 35 links (the canonical <link> is not one).
+    const external = [...page.matchAll(/<a href="(https?:[^"]+)"/gu)].map((match) => match[1]);
+    expect(external).toHaveLength(35);
+    for (const url of external) expect(url).toMatch(/^https:\/\//u);
+    for (const file of ["site/index.html", "site/roadmap/index.html", "site/compare/free-chatgpt/index.html"]) {
+      expect(await pageHtml(file)).toContain('<li><a href="/how-to-research">How to research</a></li>');
+    }
   });
 
   it("discloses connected research and the bounded legacy checkpoint", async () => {

@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { relative, resolve } from "node:path";
 
 export interface SiteValidationResult {
-  pages: 8;
+  pages: 9;
   internalLinks: number;
   errors: string[];
 }
@@ -128,6 +128,28 @@ const pageRequirements = [
       "Neither answer is medical advice",
       '<link rel="stylesheet" href="/assets/compare.css">'
     ]
+  },
+  {
+    // The cautions the owner approved for the "How to research" page (owner answer 365 1a, Inbox 19 Nov 2026): the
+    // draft's page text word for word, every number linked to its source.
+    path: "how-to-research/index.html",
+    title: "How to research | AskRigor",
+    canonical: "https://askrigor.com/how-to-research",
+    fragments: [
+      "<h1>How to research: general cautions</h1>",
+      '<section id="before-you-trust">',
+      "Before you trust a single study",
+      "These are reasons for care, not for distrusting science.",
+      "1. Money ties that aren't declared",
+      "So, is it 80%?",
+      "2. Findings that don't hold up when repeated",
+      "So, are most studies not reproducible?",
+      "3. Claims that grow on the way to the headline",
+      "4. Missing studies and switched outcomes",
+      "Careful, not cynical",
+      'href="https://doi.org/10.1016/j.jclinepi.2020.06.040"',
+      'href="https://openpaymentsdata.cms.gov"'
+    ]
   }
 ] as const;
 
@@ -176,6 +198,8 @@ const commonFragments = [
   '<li><a href="/compare">Compare</a></li>',
   '<li><a href="/add">Add AskRigor</a></li>',
   '<li><a href="/roadmap">Roadmap</a></li>',
+  // The menu item for the cautions page (owner answer 365 1a, 19 Nov 2026).
+  '<li><a href="/how-to-research">How to research</a></li>',
   'aria-label="Footer navigation"'
 ] as const;
 
@@ -349,10 +373,10 @@ export async function validatePublicSite(root: URL): Promise<SiteValidationResul
   try {
     rootStatus = await lstat(rootPath);
   } catch {
-    return { pages: 8, internalLinks: 0, errors: [pathError(".", "site root is missing or unreadable")] };
+    return { pages: 9, internalLinks: 0, errors: [pathError(".", "site root is missing or unreadable")] };
   }
   if (!rootStatus.isDirectory() || rootStatus.isSymbolicLink()) {
-    return { pages: 8, internalLinks: 0, errors: [pathError(".", "site root must be a real directory")] };
+    return { pages: 9, internalLinks: 0, errors: [pathError(".", "site root must be a real directory")] };
   }
 
   const { files, errors: fileErrors } = await collectFiles(rootPath);
@@ -412,7 +436,7 @@ export async function validatePublicSite(root: URL): Promise<SiteValidationResul
     }
   }
 
-  return { pages: 8, internalLinks, errors: errors.sort((left, right) => left.localeCompare(right)) };
+  return { pages: 9, internalLinks, errors: errors.sort((left, right) => left.localeCompare(right)) };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
