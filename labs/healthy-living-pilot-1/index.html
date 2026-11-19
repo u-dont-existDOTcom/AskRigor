@@ -510,6 +510,16 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     <label><input type="radio" name="q-mouth" value="no" data-q="mouth"> No</label>
     <label><input type="radio" name="q-mouth" value="unsure" data-q="mouth"> Not sure</label>
   </fieldset>
+  <details class="fold" id="bolt"><summary>Optional: your BOLT score, a one-minute breath test</summary>
+    <p>BOLT comes from the Buteyko method (Step 1 below). In the guide's words, <q>It only takes a minute to check your BOLT score</q>.</p>
+    <ul class="steps">
+      <li><b>Sit still. Breathe in and out normally through your nose, then pinch your nose. Count the seconds until you first want to breathe.</b> <span class="why">Why: that first urge is the score, not how long you can hold out.</span></li>
+      <li><b>Let go at the first urge, and breathe calmly. Skip this if holding your breath makes you anxious.</b> <span class="why">Why: it is a quick measure, not a breath-holding practice.</span></li>
+    </ul>
+    <label for="bolt-seconds">Seconds, if you tried it:</label>
+    <input type="text" inputmode="numeric" id="bolt-seconds" data-t="bolt">
+    <p class="small">The guide says <q>A healthy adult has a score of 40+.</q> That number is the guide's own. The test has not been shown to measure what it claims: researchers who tried it in 49 athletes say it has not been scientifically validated.</p>
+  </details>
 
   <div class="sugg" data-sugg="exhale">
     <h3>Quick fix. Stressed right now? Breathe out slowly through pursed lips. Don't breathe in more to make up.</h3>
@@ -555,7 +565,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       </ul>
       <details class="fold"><summary>How, in his words</summary><p><q>light natural breathing</q>. Each breath is <q>45-80% of a full deep breath</q>: <q>you don't fully exhale, you don't fully inhale either</q>. <q>the only control is that you make sure you are not pausing</q>. Feel where the body is tense, and imagine the breath dissolving it.</p></details>
       <details class="fold"><summary>Why</summary><p><q>even better than just breathing less is circular breathing, Systema style</q>. For anxiety: <q>Systema continuous breathing is great!</q> Most people <q>try it just barely and forget it</q>, so the buttons below keep a dated log of what you tried.</p></details>
-      <details class="fold"><summary>The video he points people to</summary><p>The one on his somatic guide; he is not sure it is the best one: <a href="https://www.youtube.com/watch?v=Nar2-nvomAk" target="_blank" rel="noopener noreferrer">youtube.com/watch?v=Nar2-nvomAk</a>. It opens on YouTube, online.</p></details>
+      <details class="fold"><summary>A video of Systema breathing</summary><p>The one his somatic guide links to; he is not sure it is the best one: <a href="https://www.youtube.com/watch?v=Nar2-nvomAk" target="_blank" rel="noopener noreferrer">youtube.com/watch?v=Nar2-nvomAk</a>. It opens on YouTube, online.</p></details>
       <details class="fold"><summary>Label</summary><p>Personal field signal (his, and the Systema community's). No studies found.</p></details>
       <details class="fold"><summary>Risk</summary><p>No harm found, not studied. If light breathing turns big and fast: dizziness and tingling, which pass when the breathing settles.</p></details>
     </div>
@@ -659,7 +669,8 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       <li>Stopping caffeine: headache in 50%, significant distress or impairment in 13%; 57 experiments. Juliano and Griffiths, Psychopharmacology 2004 (15448977).</li>
       <li>Breathing exercises in asthma: 22 trials, 2,880 people, two of Buteyko; side effects not reviewed. Santino, Cochrane 2020 (32212422).</li>
       <li>Buteyko trial: 60 adults with asthma; inhaler use down about 20%. Vagedes, European Journal of Medical Research 2024 (38212823).</li>
-      <li>The 45-80% breath, the 20 seconds and the 14 days are the guides' author's own figures.</li>
+      <li>BOLT breath test: not scientifically validated, say researchers who tried it in 49 athletes. Kowalski, Frontiers in Physiology 2024 (39290618).</li>
+      <li>The 45-80% breath, the 20 seconds, the 14 days and the BOLT score of 40+ are the guides' author's own figures.</li>
     </ul>
   </details>
 </section>
@@ -918,6 +929,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
         lines.push("- " + legend + " " + shown);
       });
       if (state.texts["mold-where"]) { any = true; lines.push("- Where the damp or mold is: " + state.texts["mold-where"]); }
+      if (state.texts.bolt) { any = true; lines.push("- BOLT score, seconds: " + state.texts.bolt); }
       if (!any) lines.push("(no answers)");
     }
     if (parts.log) {

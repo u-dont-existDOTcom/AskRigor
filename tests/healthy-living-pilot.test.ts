@@ -92,4 +92,50 @@ describe("healthy-living pilot 1", () => {
     expect(html).not.toMatch(/either person stops it with a word/i);
     expect(html).not.toMatch(/\b(?:TBD|TODO)\b/);
   });
+
+  it("keeps the BOLT score optional, folded and marked as not validated", () => {
+    const bolt = html.indexOf('id="bolt"');
+    expect(bolt).toBeGreaterThan(-1);
+    expect(insideDetails(html, html.indexOf('data-t="bolt"'))).toBe(true);
+    expect(html).toContain("it has not been scientifically validated");
+  });
+
+  // The guides' author's words are quoted only where a checked source holds them word for word
+  // (draft v2's rule: every quote in the checked guide quotes or his notes, and under 15 words).
+  it("quotes only checked words, each under 15 words", async () => {
+    const checked = JSON.parse(await readFile(resolve(root, "labs/healthy-living-pilot-1/checked-quotes.json"), "utf8")) as CheckedQuotes;
+    const listed = new Set(checked.quotes.map((entry) => entry.quote));
+    const onPage = [...html.matchAll(/<q>([\s\S]*?)<\/q>/g)].map((match) => normalizeQuote(match[1]));
+    expect(onPage.length).toBeGreaterThan(50);
+    for (const quote of onPage) {
+      expect(listed.has(quote), quote).toBe(true);
+      expect(quote.split(" ").length, quote).toBeLessThan(15);
+    }
+    for (const entry of checked.quotes) {
+      expect(onPage, `listed but not on the page: ${entry.quote}`).toContain(entry.quote);
+      expect(Object.keys(checked.sources)).toContain(entry.source);
+    }
+  });
+
+  it.skipIf(!process.env.ASKRIGOR_PILOT_QUOTE_SOURCES)("finds each checked quote word for word in its source", async () => {
+    const checked = JSON.parse(await readFile(resolve(root, "labs/healthy-living-pilot-1/checked-quotes.json"), "utf8")) as CheckedQuotes;
+    const folder = process.env.ASKRIGOR_PILOT_QUOTE_SOURCES ?? "";
+    const texts = new Map<string, string>();
+    for (const name of Object.keys(checked.sources)) texts.set(name, normalizeQuote(await readFile(resolve(folder, name), "utf8")));
+    for (const entry of checked.quotes) expect(texts.get(entry.source), entry.quote).toContain(entry.quote);
+  });
 });
+
+interface CheckedQuotes {
+  sources: Record<string, string>;
+  quotes: { quote: string; source: string; guides?: string[] }[];
+}
+
+// Same reading as the page shows it: entities decoded, curly quotes straightened, a JS-escaped
+// apostrophe unescaped, quote-block marks and runs of spaces collapsed.
+function normalizeQuote(text: string): string {
+  return text
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/\\'/g, "'").replace(/[‘’]/g, "'").replace(/[“”]/g, '"')
+    .replace(/^\s*>\s?/gm, " ").replace(/\s+/g, " ").trim();
+}
