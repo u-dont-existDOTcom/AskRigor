@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
@@ -34,6 +35,8 @@ const ATLAS_REPORT_REVIEW_FUNCTIONS = ["inspect_atlas_reports", "decide_atlas_re
 const ATLAS_GLANCE_FUNCTIONS = ["propose_atlas_glance_row", "set_atlas_glance_row_state", "inspect_atlas_glance_rows"];
 // The owner, 6 Nov: migration 0030's two functions for findings that challenge the usual view, for the review role.
 const ATLAS_CHALLENGE_FUNCTIONS = ["mark_atlas_challenges", "inspect_atlas_challenges"];
+// Codex's third review of 17 Nov 2026, finding 2: migration 0041's showing that records how, for the review role.
+const ATLAS_SHOW_FUNCTIONS = ["show_atlas_publications"];
 const ATLAS_PARTICIPATION_FUNCTIONS = [
   "inspect_atlas_participant", "set_atlas_display_name", "set_atlas_vote", "post_atlas_comment", "delete_atlas_comment",
   "report_atlas_comment", "end_atlas_sessions", "atlas_session_current", "forget_atlas_participant",
@@ -280,9 +283,9 @@ describe("production living-evidence deployment", () => {
     );
     // The three contribution functions, then migration 0017's five Atlas functions (Atlas phase 2), migration 0019's
     // six held YouTube findings functions (owner answer 173), migration 0021's six publication functions and migration
-    // 0022's five moderation functions (decision 171), and since then 0024's, 0025's, 0026's, 0027's and 0030's, and
-    // 0037's dossier erasure (AskRigor#477 stage 1).
-    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(37);
+    // 0022's five moderation functions (decision 171), and since then 0024's, 0025's, 0026's, 0027's and 0030's,
+    // 0037's dossier erasure (AskRigor#477 stage 1) and 0041's showing that records how.
+    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(38);
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failure_code text");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failed_at timestamptz");
     expect(migration).toContain("(status = 'FAILED' AND completed_at IS NULL");
@@ -574,7 +577,7 @@ describe("production living-evidence deployment", () => {
       '"0031_research_notice_acceptance",\n      "0032_research_call_record",\n      "0033_research_steering",\n      ' +
       '"0034_research_call_record_plan_next",\n      "0035_research_menu_learning",\n      ' +
       '"0036_research_use_notice_v6",\n      "0037_research_dossiers",\n      ' +
-      '"0038_research_proposal_idempotency_index",\n    ]');
+      '"0038_research_proposal_idempotency_index",\n      "0041_atlas_show_saved_findings",\n    ]');
     // append_only_guard on exactly the eight canonical tables; the two private review tables are not among them.
     const guarded = migration.slice(migration.indexOf("FOREACH table_name IN ARRAY ARRAY["));
     expect([...guarded.slice(0, guarded.indexOf("] LOOP")).matchAll(/'([a-z_]+)'/gu)].map(([, table]) => table))
@@ -636,9 +639,9 @@ describe("production living-evidence deployment", () => {
     expect(granted.filter((name) => name!.includes("atlas")))
       .toEqual([...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
         ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS,
-        ...ATLAS_CHALLENGE_FUNCTIONS]);
+        ...ATLAS_CHALLENGE_FUNCTIONS, ...ATLAS_SHOW_FUNCTIONS]);
     // With the three contribution functions, migration 0019's six (owner answer 173) and 0037's dossier erasure.
-    expect(granted).toHaveLength(37);
+    expect(granted).toHaveLength(38);
     // Each grant names the function's exact signature, as the migration's REVOKE does.
     const signature = (text: string, prefix: string) => {
       const start = text.indexOf(prefix) + prefix.length;
@@ -944,14 +947,16 @@ describe("production living-evidence deployment", () => {
     // people's reports (owner answer 229a), 0027, a problem's rows at a glance, 0028, notice version 5 (owner answer
     // 253a), 0029, the research behind each finding (owner answers 254a and 255a), and 0030, the findings that challenge
     // the usual view (the owner, 6 November 2026). After the account migrations 0031 to 0035 comes 0036, notice
-    // version 6 (owner answer 307b), then 0037, the private research dossiers (AskRigor#477 stage 1), and last 0038,
-    // the index for the proposal lookup by idempotency key.
-    expect(order.slice(-18)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
+    // version 6 (owner answer 307b), then 0037, the private research dossiers (AskRigor#477 stage 1), 0038, the index
+    // for the proposal lookup by idempotency key, and last 0041, how a publication reached the pages (Codex's review of
+    // 17 Nov 2026, finding 4; 0039 and 0040 are other branches').
+    expect(order.slice(-19)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
       "0023_research_findings_save_switch", "0024_atlas_kept_for_research", "0025_atlas_placements", "0026_atlas_reports",
       "0027_atlas_glance_rows", "0028_research_use_notice_v5", "0029_atlas_research_behind", "0030_atlas_challenges",
       "0031_research_notice_acceptance", "0032_research_call_record",
       "0033_research_steering", "0034_research_call_record_plan_next", "0035_research_menu_learning",
-      "0036_research_use_notice_v6", "0037_research_dossiers", "0038_research_proposal_idempotency_index"]);
+      "0036_research_use_notice_v6", "0037_research_dossiers", "0038_research_proposal_idempotency_index",
+      "0041_atlas_show_saved_findings"]);
     // One table and its sequence, safe to run again; the reason lists replaced on every run.
     expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS atlas_publication_number_seq AS bigint START WITH 1001");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS atlas_publications (");
@@ -1124,11 +1129,12 @@ describe("production living-evidence deployment", () => {
     const review = await read("infra/living-evidence-production/provision-research-review-role.sh");
     const gaps = await read("infra/living-evidence-production/provision-evidence-gap-role.sh");
     const reader = await read("infra/living-evidence-production/init-reader.sh");
-    // Right after 0034 in the migrate list; only 0036 (notice version 6, owner answer 307b), 0037 and 0038 follow it.
+    // Right after 0034 in the migrate list; only 0036 (notice version 6, owner answer 307b), 0037, 0038 and 0041 follow it.
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
-    expect(order.slice(-5)).toEqual(["0034_research_call_record_plan_next", "0035_research_menu_learning",
-      "0036_research_use_notice_v6", "0037_research_dossiers", "0038_research_proposal_idempotency_index"]);
+    expect(order.slice(-6)).toEqual(["0034_research_call_record_plan_next", "0035_research_menu_learning",
+      "0036_research_use_notice_v6", "0037_research_dossiers", "0038_research_proposal_idempotency_index",
+      "0041_atlas_show_saved_findings"]);
     // Safe to run again: the columns, the table and the index come once, and every check is added by its name only
     // when it is missing.
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS learn_menu_choices boolean NOT NULL DEFAULT false");
@@ -1185,7 +1191,8 @@ describe("production living-evidence deployment", () => {
     const runbook = await read("infra/living-evidence-production/README.md");
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
-    expect(order.slice(-2)).toEqual(["0037_research_dossiers", "0038_research_proposal_idempotency_index"]);
+    expect(order.slice(-3)).toEqual(["0037_research_dossiers", "0038_research_proposal_idempotency_index",
+      "0041_atlas_show_saved_findings"]);
     // Additive: new objects only, each made once; nothing existing is dropped or altered but one trigger it owns.
     expect(migration).not.toMatch(/DROP (?!TRIGGER IF EXISTS)|ALTER TABLE|CREATE TABLE (?!IF NOT EXISTS)/u);
     expect([...migration.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)/gu)].map(([, name]) => name)).toEqual([
@@ -1288,7 +1295,7 @@ describe("production living-evidence deployment", () => {
     const runbook = await read("infra/living-evidence-production/README.md");
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
-    expect(order.at(-1)).toBe("0038_research_proposal_idempotency_index");
+    expect(order.slice(-2)).toEqual(["0038_research_proposal_idempotency_index", "0041_atlas_show_saved_findings"]);
     // One index, made once; no table, row, constraint, trigger, function or grant, and not CONCURRENTLY, which migrate()'s
     // single transaction cannot run.
     const statements = migration.replace(/--[^\n]*\n/gu, "").split(";").map((part) => part.trim()).filter(Boolean);
@@ -1311,6 +1318,97 @@ describe("production living-evidence deployment", () => {
     expect(section).toContain("Leave the index in place on a rollback");
     expect(section).toContain("SELECT count(*), pg_size_pretty(pg_total_relation_size('living_evidence.research_contribution_proposals'))");
     expect(section).toContain("research_contribution_proposals_idempotency_idx");
+  });
+});
+
+// Codex's review of 17 Nov 2026, finding 4, and its later reviews: how a publication reached the pages and the owner's
+// decision, stored with it. The owner, 19 Nov 2026 (352b): findings that name a living person are shown like any other,
+// so nothing of #488's hold is here: no table, trigger or lock, and no edit of a released migration.
+describe("migration 0041", () => {
+  it("adds only nullable columns with their checks and three functions in their own shapes, granted as they need", async () => {
+    const migration = await read("packages/evidence-repository/migrations/0041_atlas_show_saved_findings.sql");
+    const original = await read("packages/evidence-repository/migrations/0021_atlas_publications.sql");
+    const kept = await read("packages/evidence-repository/migrations/0024_atlas_kept_for_research.sql");
+    const repository = await read("packages/evidence-repository/src/postgres.ts");
+    const review = await read("infra/living-evidence-production/provision-research-review-role.sh");
+    const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
+    const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
+    expect(order.at(-1)).toBe("0041_atlas_show_saved_findings");
+    // 0021 is released: byte for byte as main has it, so an earlier image's migrate still passes this database.
+    expect(createHash("sha256").update(original).digest("hex"))
+      .toBe("f52a42ebd1a31f2adcef2ee267ab1a611e24d26afe44a3d9b04e2e7198d08443");
+    // Four nullable columns, each held by a check added by name.
+    for (const column of ["shown_by text", "shown_test_verdict text", "owner_decision text", "owner_decided_at timestamptz"]) {
+      expect(migration).toContain(`ALTER TABLE atlas_publications ADD COLUMN IF NOT EXISTS ${column};`);
+    }
+    // Each ends at its type, so none is NOT NULL or has a default, and there is no other.
+    expect(migration.match(/ADD COLUMN/gu)).toHaveLength(4);
+    expect(migration).toContain("ADD CONSTRAINT atlas_publications_v1_shown_by_check CHECK (\n" +
+      "  shown_by IS NULL OR shown_by IN ('owner_action', 'quick_answer_test', 'automatic_showing')\n);");
+    expect(migration).toContain("ADD CONSTRAINT atlas_publications_v1_shown_test_verdict_check CHECK (\n" +
+      "  (shown_by IS NOT DISTINCT FROM 'quick_answer_test') = (shown_test_verdict IS NOT NULL)\n" +
+      "  AND (shown_test_verdict IS NULL OR shown_test_verdict IN ('pass', 'headline', 'fail'))\n);");
+    expect(migration).toContain("ADD CONSTRAINT atlas_publications_v1_owner_decision_check CHECK (\n" +
+      "  (owner_decision IS NULL) = (owner_decided_at IS NULL)\n" +
+      "  AND (owner_decision IS NULL OR owner_decision IN ('published', 'shown'))\n);");
+    expect(migration.match(/ADD CONSTRAINT/gu)).toHaveLength(3);
+    // No table, trigger, lock, sequence or index, nothing dropped but the checks it adds again, and no other reason held.
+    expect(migration).not.toMatch(/CREATE (TABLE|TRIGGER|CONSTRAINT TRIGGER|INDEX|SEQUENCE)|advisory|DROP (FUNCTION|COLUMN|TABLE|TRIGGER)/iu);
+    // #488's hold words, joined here so that a search of the code for them finds none (the design of 19 Nov 2026).
+    const holdWords = new RegExp(["liv" + "ing", "claim" + "_key", "held_check", "kept" + "Reason", "advisory"].join("|"), "iu");
+    expect(migration).not.toMatch(holdWords);
+    // Three functions: 0021's and 0024's in their own shapes, so their grants stand, and one new one, granted.
+    const functions = migration.split("CREATE OR REPLACE FUNCTION ").slice(1);
+    expect(functions.map((chunk) => chunk.slice(0, chunk.indexOf("("))))
+      .toEqual(["publish_atlas_findings", "keep_atlas_publications", "show_atlas_publications"]);
+    const header = (text: string, name: string) => {
+      const start = text.indexOf(`CREATE OR REPLACE FUNCTION ${name}(`);
+      return text.slice(start, text.indexOf("LANGUAGE plpgsql", start));
+    };
+    expect(header(migration, "publish_atlas_findings")).toBe(header(original, "publish_atlas_findings"));
+    expect(header(migration, "keep_atlas_publications")).toBe(header(kept, "keep_atlas_publications"));
+    expect(migration.match(/SECURITY DEFINER\nSET search_path = __SCHEMA__, pg_catalog, pg_temp/gu)).toHaveLength(3);
+    for (const signature of ["publish_atlas_findings(integer, text, jsonb, timestamptz, boolean)",
+      "keep_atlas_publications(text[], text[], boolean, text, timestamptz)",
+      "show_atlas_publications(text[], text[], text, text, timestamptz)"]) {
+      expect(migration).toContain(`REVOKE ALL ON FUNCTION ${signature} FROM PUBLIC;`);
+      expect(review).toContain(`GRANT EXECUTE ON FUNCTION living_evidence.${signature}\n  TO askrigor_research_review;`);
+    }
+    // A draft's route: the save's automatic_showing only unreviewed, the owner's on a draft that shows; a revived one
+    // takes the draft's, none when it comes back held, and the owner's decision is stored only with his route.
+    expect(migration).toContain("(draft_shown_by = '\"automatic_showing\"'::jsonb AND draft_state = 'unreviewed')\n" +
+      "             OR (draft_shown_by = '\"owner_action\"'::jsonb AND draft_state IN ('unreviewed', 'accepted', 'edited'))");
+    expect(migration).toContain("shown_by = CASE WHEN draft_state = 'held' THEN NULL ELSE coalesce(draft_shown_by #>> '{}', stored.shown_by) END,");
+    expect(migration).toContain("owner_decision = CASE WHEN draft_shown_by = '\"owner_action\"'::jsonb THEN 'published'\n" +
+      "                                   ELSE stored.owner_decision END,");
+    // 0024's keep: showing again through it records no route; keeping never clears the owner's decision, not even when
+    // it brings back a finding he unpublished (Codex's red team of 19 Nov 2026).
+    const keep = migration.slice(migration.indexOf("CREATE OR REPLACE FUNCTION keep_atlas_publications("),
+      migration.indexOf("REVOKE ALL ON FUNCTION keep_atlas_publications"));
+    expect(keep).toContain("SET kept_for_research_at = NULL, kept_reason = NULL, shown_by = NULL, shown_test_verdict = NULL");
+    expect(keep).not.toContain("owner_decision");
+    // The showing that says how: the owner's or the test's with its verdict, only for a kept one, and the owner's
+    // decision only with his route.
+    const show = migration.slice(migration.indexOf("CREATE OR REPLACE FUNCTION show_atlas_publications("),
+      migration.indexOf("REVOKE ALL ON FUNCTION show_atlas_publications"));
+    expect(show).toContain("OR shown_route IS NULL OR shown_route NOT IN ('owner_action', 'quick_answer_test')");
+    expect(show).toContain("IF target.kept_for_research_at IS NOT NULL THEN");
+    expect(show).toContain("owner_decision = CASE WHEN shown_route = 'owner_action' THEN 'shown' ELSE stored.owner_decision END,");
+    // The pages read the route and the test's verdict, never the owner's decision.
+    const pages = await read("packages/evidence-repository/src/atlas-pages.ts");
+    const columns = pages.slice(pages.indexOf("const PAGE_PUBLICATION_COLUMNS"), pages.indexOf("function publicationsSql"));
+    expect(columns).toContain("listed.shown_by, listed.shown_test_verdict");
+    expect(columns).not.toContain("owner_decision");
+  });
+
+  it("says the setting stays off, who must say who acts at release, and how a rollback stays safe", async () => {
+    const readme = await read("infra/living-evidence-production/README.md");
+    expect(readme).toContain("Leave it unset, which is off, for now: it goes on only once the later release\n" +
+      "that marks an unconfirmed claim about a named person \"Unverifiable\"");
+    expect(readme).not.toContain("The recommended value is `enabled`");
+    expect(readme).toContain("whatever calls `show_on_pages` or `publish_cards` says who acts in\n`later_inputs.shown_by`");
+    expect(readme).toContain("To roll back to the image before this release, leave the setting off.");
+    expect(readme).not.toMatch(new RegExp(["living" + "_person", "LIVING" + "_PERSON", "atlas-hold-" + "living"].join("|"), "u"));
   });
 });
 
