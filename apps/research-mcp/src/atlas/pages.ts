@@ -1468,7 +1468,8 @@ ${sources}</ul>
   return page({
     path: findingPath(finding.publicationNumber),
     // Kept for research only: out of search engines, like every page no list links to (owner answers 229a and 231a).
-    noindex: finding.status.kind === "unreviewed" || finding.kept || finding.personClaims?.noindex === true,
+    noindex: finding.status.kind === "unreviewed" || finding.kept || finding.personClaims?.noindex === true ||
+      model.siblings.some(({ personClaims }) => personClaims?.noindex === true),
     reader,
     // Atlas Release B: an unverified claim about a person is never a title or a description (design 4.4).
     title: `${finding.publicationNumber}: ${finding.personClaims?.neutralTitle ?? shortened(finding.claim, 70)} | AskRigor Atlas`,

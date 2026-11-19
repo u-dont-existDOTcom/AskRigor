@@ -1163,35 +1163,42 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
   const personClaimRoute = async (publicationNumber: string, request: IncomingMessage, response: ServerResponse,
     source: AtlasPageSource, addressKey: string, now: Date) => {
     const back = findingPath(publicationNumber);
-    const model = options.personClaims === undefined ? undefined : await loadAtlasFinding(source, publicationNumber);
+    if (options.personClaims === undefined) {
+      await failurePage(request, response, 404, renderAtlasNotFound);
+      return;
+    }
+    // A dispute is judged on the page as it stands after its form arrived (Codex's review of B), never an earlier one.
+    let form: URLSearchParams | undefined;
+    const store = options.personClaims.store;
+    if (request.method === "POST") {
+      if (store === undefined) {
+        await requestMessage(request, response, 503, "Not taken right now", "AskRigor can’t take reports here right now. " +
+          "Please write to joel@askrigor.com instead.", back);
+        return;
+      }
+      if (!sameSitePost(request, options.publicOrigin ?? "https://askrigor.com")) {
+        await requestMessage(request, response, 403, "Form refused",
+          "The form did not come from the Atlas pages, so nothing was changed.", back);
+        return;
+      }
+      try {
+        form = await readForm(request);
+      } catch (error) {
+        if (!(error instanceof AtlasFormError)) throw error;
+        write(response, error.status, TEXT, error.status === 413 ? "Request too large\n" : "Bad request\n",
+          { connection: "close", "cache-control": PRIVATE });
+        return;
+      }
+    }
+    const model = await loadAtlasFinding(source, publicationNumber);
     if (model === undefined || model.finding.personClaims === undefined) {
       await failurePage(request, response, 404, renderAtlasNotFound);
       return;
     }
-    if (request.method !== "POST") {
+    if (form === undefined || store === undefined) {
       const rendered = checked({ status: 200, html: renderAtlasPersonDispute(model.finding, newPersonDisputeToken()) });
       write(response, 200, HTML, request.method === "HEAD" ? "" : rendered.html,
         { "cache-control": PRIVATE, "referrer-policy": "no-referrer" });
-      return;
-    }
-    const store = options.personClaims?.store;
-    if (store === undefined) {
-      await requestMessage(request, response, 503, "Not taken right now", "AskRigor can’t take reports here right now. " +
-        "Please write to joel@askrigor.com instead.", back);
-      return;
-    }
-    if (!sameSitePost(request, options.publicOrigin ?? "https://askrigor.com")) {
-      await requestMessage(request, response, 403, "Form refused",
-        "The form did not come from the Atlas pages, so nothing was changed.", back);
-      return;
-    }
-    let form: URLSearchParams;
-    try {
-      form = await readForm(request);
-    } catch (error) {
-      if (!(error instanceof AtlasFormError)) throw error;
-      write(response, error.status, TEXT, error.status === 413 ? "Request too large\n" : "Bad request\n",
-        { connection: "close", "cache-control": PRIVATE });
       return;
     }
     const parsed = personDisputeOf(form, model.finding, addressKey, now);
@@ -1694,17 +1701,16 @@ export function createAtlasPagesHandlerFromEnv(env: NodeJS.ProcessEnv = process.
   } catch {
     source = undefined;
   }
-  let personClaims: { store?: AtlasPersonClaimStore } | undefined;
-  if (personSince !== undefined && source !== undefined) {
-    let review: { connectionString: string; schema: string; ssl?: unknown } | undefined;
-    try {
-      review = researchContributionReviewConfigFromEnv(env) as typeof review;
-    } catch {
-      review = undefined;
-    }
-    const started = startAtlasPersonClaimsFromEnv(env, source, review);
-    personClaims = started.store === undefined ? {} : { store: started.store };
+  let review: { connectionString: string; schema: string; ssl?: unknown } | undefined;
+  try {
+    review = researchContributionReviewConfigFromEnv(env) as typeof review;
+  } catch {
+    review = undefined;
   }
+  // The dispute texts' 90-day deletion runs whenever the review role is configured, the mark on or off.
+  const started = startAtlasPersonClaimsFromEnv(env, source, review, personSince !== undefined);
+  const personClaims: { store?: AtlasPersonClaimStore } | undefined = personSince === undefined || source === undefined
+    ? undefined : started.store === undefined ? {} : { store: started.store };
   const participation = atlasParticipationFromEnv(env, shared);
   // The proxy's secret, as the other secrets: 32 random bytes in canonical base64url, else none.
   const proxySecret = secretFromBase64Url(env.ASKRIGOR_ATLAS_PROXY_SECRET) === undefined ? null

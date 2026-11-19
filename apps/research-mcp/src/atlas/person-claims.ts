@@ -149,16 +149,29 @@ function slotsOf(finding: ShownFinding): Slot[] {
   add("subject", finding.subject, (target, text) => { target.subject = text; });
   add("whyNotUsual", finding.whyNotUsual, (target, text) => { target.whyNotUsual = text; });
   add("whatWouldChangeIt", finding.whatWouldChangeIt, (target, text) => { target.whatWouldChangeIt = text; });
-  finding.contested.forEach((entry, index) => add(`contested.${index}.disagreement`, entry.disagreement,
-    (target, text) => { target.contested[index]!.disagreement = text; }));
+  // A contested finding's disagreement is the owner's link text, and only its own page resolves it: outside the reading.
   finding.sources.forEach((source, index) => add(`sources.${index}.title`, source.title,
     (target, text) => { target.sources[index]!.title = text; }));
-  finding.numbers.forEach((number, index) => add(`numbers.${index}.source.title`, number.source?.title,
-    (target, text) => { target.numbers[index]!.source!.title = text; }));
+  finding.numbers.forEach((number, index) => {
+    add(`numbers.${index}.outcome`, number.outcome, (target, text) => { target.numbers[index]!.outcome = text; });
+    add(`numbers.${index}.option`, number.option, (target, text) => { target.numbers[index]!.option = text; });
+    add(`numbers.${index}.comparator`, number.comparator, (target, text) => { target.numbers[index]!.comparator = text; });
+    add(`numbers.${index}.followUp`, number.followUp, (target, text) => { target.numbers[index]!.followUp = text; });
+    add(`numbers.${index}.source.title`, number.source?.title, (target, text) => { target.numbers[index]!.source!.title = text; });
+  });
   finding.research.forEach((research, index) => {
     add(`research.${index}.title`, research.source.title, (target, text) => { target.research[index]!.source.title = text; });
-    research.lines.forEach((line, lineIndex) => add(`research.${index}.lines.${lineIndex}.against`, line.against,
-      (target, text) => { target.research[index]!.lines[lineIndex]!.against = text; }));
+    research.lines.forEach((line, lineIndex) => {
+      // The kept quotes are shown too (Codex's review of B): a quote that repeats an allegation is marked like any text.
+      const at = (target: ShownFinding) => target.research[index]!.lines[lineIndex]!;
+      add(`research.${index}.lines.${lineIndex}.sentence`, line.sentence, (target, text) => { at(target).sentence = text; });
+      add(`research.${index}.lines.${lineIndex}.sentenceSection`, line.sentenceSection,
+        (target, text) => { at(target).sentenceSection = text; });
+      add(`research.${index}.lines.${lineIndex}.conclusion`, line.conclusion, (target, text) => { at(target).conclusion = text; });
+      add(`research.${index}.lines.${lineIndex}.conclusionSection`, line.conclusionSection,
+        (target, text) => { at(target).conclusionSection = text; });
+      add(`research.${index}.lines.${lineIndex}.against`, line.against, (target, text) => { at(target).against = text; });
+    });
   });
   if (finding.forumSignal !== null) {
     add("forum.mechanism", finding.forumSignal.mechanism, (target, text) => { target.forumSignal!.mechanism = text; });
@@ -220,11 +233,24 @@ export function personEvidenceKey(finding: ShownFinding): string {
   })}`);
 }
 
-/** The digest a reading is bound to: every sentence every route shows, where it shows, and the evidence (design 4.7). */
-export function personDigestOf(finding: ShownFinding): string {
+/**
+ * The digest a reading is bound to: every sentence every route shows, where it shows, the evidence (design 4.7), and
+ * the taken-off sentences whose names the finding holds, so a removal makes such findings be read again with it
+ * (Codex's review of B).
+ */
+export function personDigestOf(finding: ShownFinding, removals: readonly number[] = []): string {
   const sentences = personSentencesOf(finding);
   return sha256(`atlas-person-digest\n${JSON.stringify({ sentences: sentences.map(({ key, paths }) => [key, paths]),
-    evidence: personEvidenceKey(finding) })}`);
+    evidence: personEvidenceKey(finding), ...(removals.length === 0 ? {} : { removals: [...removals].sort((a, b) => a - b) }) })}`);
+}
+
+/** The taken-off sentences whose folded names a finding's text holds, by number. */
+export function relevantRemovalNumbers(finding: ShownFinding,
+  memory: ReadonlyArray<{ removalNumber: number; foldedNames: readonly string[] }>): number[] {
+  if (memory.length === 0) return [];
+  const folded = personFoldedText(finding);
+  return memory.filter(({ foldedNames }) => foldedNames.some((name) => name.length >= 4 && folded.includes(name)))
+    .map(({ removalNumber }) => removalNumber);
 }
 
 // The reading's bundle, instructions and reply ------------------------------------------------------------------------
@@ -467,6 +493,8 @@ export interface PersonViewSentence {
 
 export interface PersonClaimView {
   state: "read" | "stale" | "unread";
+  /** The reading this view was built from: a dispute's automatic removal is bound to it. */
+  readingDigest: string | null;
   banner: string | null;
   /** Kept out of search engines, with a neutral title and description (design 4.4). */
   noindex: boolean;
@@ -486,8 +514,13 @@ export interface PersonClaimContext {
   /** The folded names taken off anywhere: needed only while a finding is unread. */
   removedNames: readonly string[];
   now: Date;
+  /** Every taken-off sentence's number and folded names, for the digest (as the worker reads it). */
+  memory?: ReadonlyArray<{ removalNumber: number; foldedNames: readonly string[] }>;
+  /** Sentences taken off on any publication, by key: the same sentence stays off everywhere. */
+  globalRemovals?: readonly AtlasPersonRemoval[];
 }
 
+const QUOTE_PATH = /^research\.\d+\.lines\.\d+\.(?:sentence|conclusion)$/u;
 const TITLE_PATH = /^(?:sources\.\d+\.title|research\.\d+\.title|numbers\.\d+\.source\.title)$/u;
 const STYLED_PATHS = new Set(["claim", "question", "usualAnswer", "appliesTo", "subject", "whyNotUsual",
   "whatWouldChangeIt"]);
@@ -503,10 +536,10 @@ export function shownBeforeMark(publishedAt: string, since: string, now: Date): 
 }
 
 /** Whether a reading of a finding is current, stale or missing, as the worker and the pages both read it. */
-export function personReadingState(finding: ShownFinding, reading: AtlasPersonReading | undefined):
-  "read" | "stale" | "unread" {
+export function personReadingState(finding: ShownFinding, reading: AtlasPersonReading | undefined,
+  removals: readonly number[] = []): "read" | "stale" | "unread" {
   if (reading === undefined || reading.digest === null) return "unread";
-  return reading.digest === personDigestOf(finding) ? "read" : "stale";
+  return reading.digest === personDigestOf(finding, removals) ? "read" : "stale";
 }
 
 /**
@@ -514,7 +547,9 @@ export function personReadingState(finding: ShownFinding, reading: AtlasPersonRe
  * parked unread) and first published after the mark was switched on (Fable 1).
  */
 export function applyPersonClaims(finding: ShownFinding, context: PersonClaimContext): ShownFinding | undefined {
-  const state = personReadingState(finding, context.reading);
+  const state = personReadingState(finding, context.reading, relevantRemovalNumbers(finding, context.memory ?? []));
+  const elsewhere = new Map((context.globalRemovals ?? []).filter(({ state: removalState }) => removalState === "taken_off")
+    .map((removal) => [removal.sentenceKey, removal]));
   const before = shownBeforeMark(finding.publishedAt, context.since, context.now);
   if (state === "unread" && !before) return undefined;
   const evidence = personEvidenceKey(finding);
@@ -528,7 +563,7 @@ export function applyPersonClaims(finding: ShownFinding, context: PersonClaimCon
   const verdicts = new Map<string, PersonVerdict>();
   const unverifiedTexts = new Set<string>();
   const firstPass = (sentence: PersonSentence): PersonVerdict => {
-    const removal = removals.get(sentence.key);
+    const removal = removals.get(sentence.key)?.state === "taken_off" ? removals.get(sentence.key) : elsewhere.get(sentence.key);
     if (removal?.state === "taken_off") return { kind: "taken_off", day: removal.changedAt.slice(0, 10) };
     if (state === "unread") {
       const folded = atlasSearchFold(sentence.text);
@@ -540,7 +575,10 @@ export function applyPersonClaims(finding: ShownFinding, context: PersonClaimCon
   };
   for (const sentence of sentences) {
     const verdict = firstPass(sentence);
-    if (verdict.kind === "unverified" && verdict.aboutPerson) unverifiedTexts.add(sentence.text);
+    // A title that is marked, taken off, waiting or a repeat is never quoted in another sentence's line (Codex, B).
+    if ((verdict.kind !== "plain" && verdict.kind !== "sourced") || (entries.get(sentence.key)?.repeats ?? null) !== null) {
+      unverifiedTexts.add(sentence.text);
+    }
     verdicts.set(sentence.key, verdict);
   }
   const titleShows = (title: string | null) => title === null ||
@@ -554,6 +592,10 @@ export function applyPersonClaims(finding: ShownFinding, context: PersonClaimCon
     if (verdict.kind === "unverified" && sentence.paths.every((path) => TITLE_PATH.test(path))) {
       verdict = { ...verdict, origin: { type: "title" }, href: null };
     }
+    // A kept quote is its source's own words, found word for word: it is shown as the quote it is, and marked only when
+    // the reading says the source merely reports someone else's claim ("An accusation made in [source] ...").
+    if (sentence.paths.every((path) => QUOTE_PATH.test(path)) && (verdict.kind === "sourced" ||
+      (verdict.kind === "unverified" && entry?.support !== "reported_claim"))) verdict = { kind: "plain" };
     if (verdict.kind === "unverified" && entry !== undefined) {
       const repeated = entry.repeats === null ? undefined
         : context.removals.find(({ removalNumber, state: removalState }) => removalNumber === entry.repeats &&
@@ -633,7 +675,7 @@ export function applyPersonClaims(finding: ShownFinding, context: PersonClaimCon
   if (unread) machine.claim = `[${PERSON_UNREAD_BANNER}] ${machine.claim ?? shown.claim}`;
   const noindex = unread || waiting || unverifiedPerson;
   shown.personClaims = {
-    state, banner, noindex,
+    state, readingDigest: context.reading?.digest ?? null, banner, noindex,
     neutralTitle: noindex ? personNeutralTitle(finding, unread || (waiting && !unverifiedPerson)) : null,
     neutralDescription: noindex ? unread || (waiting && !unverifiedPerson) ? PERSON_UNREAD_DESCRIPTION
       : PERSON_NEUTRAL_DESCRIPTION : null,
@@ -671,6 +713,8 @@ export function personDisputeWanted(sentence: PersonViewSentence): { kind: "wron
     return { kind: "wrong", wanted: sentence.label !== "organization" && !sentence.favourable ? "taken_off" : "queued" };
   }
   if (sentence.verdict === "sourced") return { kind: "wrong", wanted: "marked_disputed" };
+  // Not read yet: a report is read again by its key, and waits.
+  if (sentence.label === null) return { kind: "missed", wanted: "queued" };
   if (sentence.label === "none") return { kind: "missed", wanted: "queued" };
   return { kind: "wrong", wanted: "queued" };
 }

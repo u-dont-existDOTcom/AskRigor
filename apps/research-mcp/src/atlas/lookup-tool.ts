@@ -7,6 +7,7 @@ import { searchResearchFrontiers, researchFrontierSearchOutputSchema, type Resea
 import { issueResearchReceipt, researchTargetDigest, type ResearchReceiptOptions } from "../research-receipts.js";
 import { loadAtlasFindings, loadAtlasSearch, loadAtlasTopic, NOT_CHECKED_LABEL, type ShownFinding } from "./page-data.js";
 import { machineFinding } from "./person-claims.js";
+import { personMarkSinceFromEnv } from "./person-reading.js";
 import { atlasSearchQuery } from "./search.js";
 import { atlasPageUrl, atlasReceiptFinding } from "./reuse.js";
 
@@ -61,7 +62,10 @@ export interface AtlasLookupDependencies {
 export function configuredAtlasLookupSource(env: NodeJS.ProcessEnv = process.env): AtlasPageSource | undefined {
   try {
     const config = livingEvidenceReuseConfigFromEnv(env);
-    return config === undefined ? undefined : new PostgresAtlasPageSource(config);
+    // Atlas Release B: the lookup reads through the same mark as the pages (Codex's review of B).
+    const since = personMarkSinceFromEnv(env);
+    return config === undefined ? undefined
+      : new PostgresAtlasPageSource(since === undefined ? config : { ...config, personClaimsSince: since });
   } catch { return undefined; }
 }
 let lastReceiptOrder = 0;

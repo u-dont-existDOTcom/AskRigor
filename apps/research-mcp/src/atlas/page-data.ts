@@ -43,7 +43,8 @@ import {
 } from "./search.js";
 
 import { ATLAS_TOPIC_FAMILIES, atlasSearchFamily, atlasTopicFamily, type AtlasTopicFamily } from "./topic-families.js";
-import { applyPersonClaims, personKeptOutOfSearch, personReadingState, type PersonClaimView } from "./person-claims.js";
+import { applyPersonClaims, personKeptOutOfSearch, personReadingState, personSentencesOf, relevantRemovalNumbers,
+  type PersonClaimView } from "./person-claims.js";
 
 /**
  * What the public Atlas pages show (decision 171, section 4C; plan
@@ -809,12 +810,16 @@ async function markedFindings(reads: AtlasPageReads, shown: readonly ShownFindin
   if (repeats.some((removal) => !known.has(removal))) {
     removals.push(...(await person.readRemovalsByNumber(unique(repeats))).filter(({ removalNumber }) => !known.has(removalNumber)));
   }
-  const unread = shown.some((finding) => personReadingState(finding, readings.get(finding.publicationNumber)) === "unread");
+  const memory = await person.listTakenOffMemory();
+  const keys = unique(shown.flatMap((finding) => personSentencesOf(finding).map(({ key }) => key)));
+  const globalRemovals = keys.length === 0 ? [] : await person.readRemovalsBySentenceKeys(keys);
+  const unread = shown.some((finding) => personReadingState(finding, readings.get(finding.publicationNumber),
+    relevantRemovalNumbers(finding, memory)) === "unread");
   const removedNames = unread ? await person.listRemovedNames() : [];
   const now = new Date();
   return shown.flatMap((finding) => {
     const marked = applyPersonClaims(finding, { since: person.since, reading: readings.get(finding.publicationNumber),
-      removals, removedNames, now });
+      removals, removedNames, now, memory, globalRemovals });
     return marked === undefined ? [] : [marked];
   });
 }
@@ -1032,8 +1037,10 @@ export async function loadAtlasSitemap(source: AtlasPageSource): Promise<AtlasSi
     // Atlas Release B: a page kept out of search engines for a claim about a person is never listed, nor a topic page
     // that shows one.
     const outOfSearch = new Set<string>();
+    const noindexNumbers = new Set<string>();
     for await (const finding of allShown(reads)) {
       if (finding.personClaims?.noindex === true) {
+        noindexNumbers.add(finding.publicationNumber);
         if (finding.topic !== null) outOfSearch.add(finding.topic.key);
         continue;
       }
@@ -1043,6 +1050,14 @@ export async function loadAtlasSitemap(source: AtlasPageSource): Promise<AtlasSi
     const entries: AtlasSitemapEntry[] = [{ path: "/atlas/topics", lastModified: null }];
     const personOn = reads.personClaims !== undefined;
     if (once.length === 0) return { entries, personOn };
+    // A finding's page also prints its card's other findings: one with a marked claim keeps it out (Codex, B).
+    const siblingOut = new Set<string>();
+    if (personOn && noindexNumbers.size > 0) {
+      for (let start = 0; start < once.length; start += READ_CHUNK) {
+        for (const { publicationNumber, siblingNumber } of await reads.listCardSiblings(once.slice(start, start + READ_CHUNK)
+          .map((finding) => finding.publicationNumber))) if (noindexNumbers.has(siblingNumber)) siblingOut.add(publicationNumber);
+      }
+    }
     const newest = once.reduce((day, { status }) => status.checkedOn > day ? status.checkedOn : day, "");
     entries.push({ path: "/atlas", lastModified: newest }, { path: "/atlas/changes", lastModified: newest });
     const topics = new Map<string, string>();
@@ -1055,6 +1070,7 @@ export async function loadAtlasSitemap(source: AtlasPageSource): Promise<AtlasSi
       if (!outOfSearch.has(key)) entries.push({ path: `/atlas/topics/${key}`, lastModified: day });
     }
     for (const finding of once.sort((left, right) => numberOf(left.publicationNumber) - numberOf(right.publicationNumber))) {
+      if (siblingOut.has(finding.publicationNumber)) continue;
       entries.push({ path: `/atlas/findings/${finding.publicationNumber}`, lastModified: finding.status.checkedOn });
     }
     return { entries, personOn };

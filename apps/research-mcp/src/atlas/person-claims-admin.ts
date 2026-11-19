@@ -53,7 +53,9 @@ export async function runPersonClaimsAdmin(argv: readonly string[], env: NodeJS.
       const marked = new Map((await findings(source, false)).map((finding) => [finding.publicationNumber, finding]));
       for (const finding of await findings(source, true)) {
         const shown = marked.get(finding.publicationNumber);
-        if (shown === undefined || shown.personClaims?.noindex === true) out(finding.publicationNumber);
+        // Unread, marked, or with a sentence taken off: an older image would show any of them unmarked (Codex, B).
+        if (shown === undefined || shown.personClaims?.noindex === true ||
+          shown.personClaims?.sentences.some(({ verdict }) => verdict === "taken_off")) out(finding.publicationNumber);
       }
       return 0;
     }

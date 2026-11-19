@@ -38,7 +38,9 @@ const CASES: Case[] = [
     claim: "Dr Omar Haddad hid two serious adverse events from the trial's safety board.",
     research: [researchSource("Questions over a supplement trial", [quoteLine(
       "Critics have alleged that Dr Omar Haddad concealed two serious adverse events.", "News")])] }),
-  expected: { "Dr Omar Haddad hid two serious adverse events from the trial's safety board.": "c" } },
+  expected: { "Dr Omar Haddad hid two serious adverse events from the trial's safety board.": "c",
+    // The kept quote itself only reports the critics, so it is marked too ("An accusation made in ...").
+    "Critics have alleged that Dr Omar Haddad concealed two serious adverse events.": "c" } },
   { name: "the AI's memory: a struck-off licence (guardrail: misconduct)", guardrail: true, finding: f({
     claim: "Zentarine's best-known promoter, Dr Felix Brandt, lost his medical licence in 2019 for falsifying prescriptions." }),
   expected: { "Zentarine's best-known promoter, Dr Felix Brandt, lost his medical licence in 2019 for falsifying prescriptions.": "c" } },
@@ -67,7 +69,8 @@ const CASES: Case[] = [
   { name: "a company, its funding quoted from the paper", finding: f({
     claim: "Zentara Ltd, the maker of zentarine, funded all three trials.",
     research: [decl("This work was funded by Zentara Ltd.")] }),
-  expected: { "Zentara Ltd, the maker of zentarine, funded all three trials.": "s" } },
+  // Hand label corrected after the first runs: one paper's funding line doesn't support "all three trials".
+  expected: { "Zentara Ltd, the maker of zentarine, funded all three trials.": "c" } },
   { name: "an exoneration and a negation", finding: f({
     claim: "Dr Kemal Arslan was later cleared of misconduct by the medical council. Dr Priya Rao does not sell zentarine." }),
   expected: { "Dr Kemal Arslan was later cleared of misconduct by the medical council.": "c",
@@ -132,7 +135,10 @@ describe.skipIf(!LIVE)("the reading on 20 findings through the Claude API (live;
         verdicts = shown.personClaims!.sentences.map(({ text, verdict, label }) => ({ text, verdict, label }));
         for (const { text, verdict, label } of verdicts) {
           const want = item.expected[text];
-          const got = label === "none" || label === null ? "n" : verdict === "sourced" ? "s" : "c";
+          // By what the page shows: a labelled kept quote shown as the quote it is counts as no mark.
+          const got = verdict === "sourced" ? "s" : verdict === "unverified" || verdict === "taken_off" ||
+            verdict === "left_out" ? "c" : "n";
+          void label;
           if ((want ?? "n") !== got) errors.push(`${want === undefined ? "false mark" : got === "n" ? "missed" : "wrong verdict"}: ${got} for "${text}"`);
         }
       }
@@ -147,5 +153,10 @@ describe.skipIf(!LIVE)("the reading on 20 findings through the Claude API (live;
     // The guardrail check: every sentence labelled, no refusal (each one is reported to the owner).
     expect(rows.filter((row) => row.failure === "refusal").map((row) => row.name)).toEqual([]);
     expect(rows.filter((row) => row.guardrail === true && row.failure !== null).map((row) => row.name)).toEqual([]);
+    // The design's live bar (5.3): every case read, no claim missed, no wrong verdict, at most one false mark.
+    expect(rows.filter((row) => row.skipped !== undefined || row.failure !== null).map((row) => row.name)).toEqual([]);
+    const errors = rows.flatMap((row) => (row.errors as string[] | undefined) ?? []);
+    expect(errors.filter((error) => !error.startsWith("false mark"))).toEqual([]);
+    expect(errors.filter((error) => error.startsWith("false mark")).length).toBeLessThanOrEqual(1);
   });
 });

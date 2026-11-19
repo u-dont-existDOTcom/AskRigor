@@ -39,6 +39,7 @@ import {
   personFoldedText,
   personReadingState,
   personSentencesOf,
+  relevantRemovalNumbers,
   shownBeforeMark,
   type PersonBundle,
   type PersonReadingProblem,
@@ -125,8 +126,8 @@ export function createPersonReader(dependencies: PersonReaderDependencies = {}):
     model,
     effort,
     reserveUsd(bundle) {
-      // The rubric and bundle at about three characters a token, written to the cache, plus every output token.
-      const input = Math.ceil((PERSON_READING_RUBRIC.length + JSON.stringify(bundle).length) / 3);
+      // An upper bound: no token is shorter than a byte, all of it written to the cache, plus every output token.
+      const input = Buffer.byteLength(PERSON_READING_RUBRIC, "utf8") + Buffer.byteLength(JSON.stringify(bundle), "utf8");
       return (input * prices.cacheWrite + personMaxTokens(bundle) * prices.output) / 1e6;
     },
     async read(finding, bundle) {
@@ -226,7 +227,7 @@ export interface PersonPassReport {
 }
 
 interface Candidate { finding: ShownFinding; reading: AtlasPersonReading | undefined; hintKey: string | null;
-  priority: number }
+  hintDispute: number | null; digest: string; priority: number }
 
 const DAY = 24 * 60 * 60 * 1_000;
 
@@ -234,7 +235,6 @@ export class AtlasPersonReadingWorker {
   private readonly lastSeen = new Map<string, string>();
   private running = false;
   private capLoggedOn = "";
-  private purgedOn = "";
 
   constructor(private readonly options: PersonReadingWorkerOptions) {}
 
@@ -257,24 +257,18 @@ export class AtlasPersonReadingWorker {
     try {
       const now = this.now();
       const day = now.toISOString().slice(0, 10);
-      if (this.purgedOn !== day) {
-        await this.options.store.purgeDisputes(new Date(now.getTime() - 90 * DAY).toISOString());
-        this.purgedOn = day;
-      }
       // Only publications here: a news item's hints are the news pages' (the news design v3, 3.8).
-      const hints = new Map((await this.options.store.takeHints(5, now.toISOString()))
-        .filter(({ subjectKind }) => subjectKind === "publication")
-        .map(({ publicationNumber, sentenceKey }) => [publicationNumber, sentenceKey]));
+      const hints = new Map((await this.options.store.takeHints("publication", 5, now.toISOString()))
+        .map(({ publicationNumber, sentenceKey, disputeNumber }) => [publicationNumber, { sentenceKey, disputeNumber }]));
       const { candidates, removedNames } = await this.candidates(hints, now);
       report.waiting = candidates.length;
       for (const candidate of candidates.slice(0, this.options.perPass ?? 10)) {
-        const { finding } = candidate;
-        const digest = personDigestOf(finding);
+        const { finding, digest } = candidate;
         const at = this.now().toISOString();
         const bundleSize = personSentencesOf(finding).length;
         if (bundleSize > PERSON_MAX_SENTENCES || bundleSize === 0) {
           const failure = await this.options.store.recordFailure({ publicationNumber: finding.publicationNumber, digest,
-            at, limit: PERSON_READING_ATTEMPTS });
+            at, limit: PERSON_READING_ATTEMPTS, reason: "attempt" });
           report.failed.push({ publicationNumber: finding.publicationNumber, failure: "too_long", parked: failure.parked });
           continue;
         }
@@ -294,17 +288,25 @@ export class AtlasPersonReadingWorker {
           if (candidate.hintKey === null) break;
           continue;
         }
+        // The attempt counts before the call, so a crash or restart mid-call uses one (Codex's review of B).
+        await this.options.store.recordFailure({ publicationNumber: finding.publicationNumber, digest, at,
+          limit: PERSON_READING_ATTEMPTS, reason: "attempt" });
         const call = await this.options.reader.read(finding, bundle);
-        await this.options.store.settleSpend({ day, reservedUsd: reserved, spentUsd: call.costUsd });
-        report.costUsd += call.costUsd;
+        // A call that failed in transport may still have been charged: its whole reservation stays spent.
+        const charged = call.failure === "error" || call.failure === "timeout" ? reserved : call.costUsd;
+        await this.options.store.settleSpend({ day, reservedUsd: reserved, spentUsd: charged });
+        report.costUsd += charged;
         if (call.sentences !== null) {
           await this.options.store.saveReading({ publicationNumber: finding.publicationNumber, digest,
             sentences: call.sentences, model: this.options.reader.model, at: this.now().toISOString() });
           report.read.push(finding.publicationNumber);
+          if (candidate.hintDispute !== null) await this.options.store.ackHint(candidate.hintDispute, this.now().toISOString());
           (this.options.signal ?? atlasChanges).announce();
         } else {
           const failure = await this.options.store.recordFailure({ publicationNumber: finding.publicationNumber, digest,
-            at: this.now().toISOString(), limit: PERSON_READING_ATTEMPTS });
+            at: this.now().toISOString(), limit: PERSON_READING_ATTEMPTS,
+            reason: call.failure === "refusal" ? `refusal:${(call.refusalCategory ?? "none").replace(/[^a-z_]/gu, "_")}`
+              : call.failure ?? "error" });
           if (failure.parked) this.log(`parked publication=${finding.publicationNumber}`);
           report.failed.push({ publicationNumber: finding.publicationNumber, failure: call.failure ?? "error",
             parked: failure.parked });
@@ -317,7 +319,7 @@ export class AtlasPersonReadingWorker {
   }
 
   /** What waits for a reading, the findings unshown until read first, then changed ones, then the backfill. */
-  private async candidates(hints: ReadonlyMap<string, string>, now: Date):
+  private async candidates(hints: ReadonlyMap<string, { sentenceKey: string; disputeNumber: number }>, now: Date):
     Promise<{ candidates: Candidate[]; removedNames: string[] }> {
     return await this.options.source.read(async (reads) => {
       const person = reads.personClaims;
@@ -329,32 +331,47 @@ export class AtlasPersonReadingWorker {
         for (const reading of await person.readReadings(raw.slice(start, start + 500).map(({ publicationNumber }) =>
           publicationNumber))) readings.set(reading.publicationNumber, reading);
       }
+      const memory = await person.listTakenOffMemory();
       const candidates: Candidate[] = [];
       const seen = new Set<string>();
       for (const finding of raw) {
         if (seen.has(finding.publicationNumber)) continue;
         seen.add(finding.publicationNumber);
         const reading = readings.get(finding.publicationNumber);
-        const digest = personDigestOf(finding);
-        const hintKey = hints.get(finding.publicationNumber) ?? null;
-        const state = personReadingState(finding, reading);
+        const removals = relevantRemovalNumbers(finding, memory);
+        const digest = personDigestOf(finding, removals);
+        const hint = hints.get(finding.publicationNumber);
+        const hintKey = hint?.sentenceKey ?? null;
+        const hintDispute = hint?.disputeNumber ?? null;
+        const state = personReadingState(finding, reading, removals);
         const parked = reading?.parked === true && reading.attemptDigest === digest;
         const settled = this.lastSeen.get(finding.publicationNumber) === digest;
         this.lastSeen.set(finding.publicationNumber, digest);
-        if (hintKey !== null) { candidates.push({ finding, reading, hintKey, priority: 0 }); continue; }
+        if (hintKey !== null) { candidates.push({ finding, reading, hintKey, hintDispute, digest, priority: 0 }); continue; }
         if (state === "read" || parked) continue;
         if (state === "stale") {
           // Fable 4.6b: a change is read once it has held for a pass, so a flip-flopping state costs nothing.
-          if (settled) candidates.push({ finding, reading, hintKey: null, priority: 2 });
+          if (settled) candidates.push({ finding, reading, hintKey: null, hintDispute: null, digest, priority: 2 });
           continue;
         }
-        candidates.push({ finding, reading, hintKey: null,
+        candidates.push({ finding, reading, hintKey: null, hintDispute: null, digest,
           priority: shownBeforeMark(finding.publishedAt, person.since, now) ? 3 : 1 });
       }
       candidates.sort((left, right) => left.priority - right.priority);
       return { candidates, removedNames: await person.listRemovedNames() };
     });
   }
+}
+
+/** The deletion of dispute texts, links and email addresses after 90 days: at start, then every 6 hours. */
+export function startAtlasPersonPurge(store: AtlasPersonClaimStore, log: (line: string) => void =
+  (line) => console.error(`atlas person disputes: ${line}`), now: () => Date = () => new Date()): () => void {
+  const run = () => { void store.purgeDisputes(new Date(now().getTime() - 90 * DAY).toISOString())
+    .catch(() => log("purge_failed")); };
+  run();
+  const timer = setInterval(run, 6 * 60 * 60 * 1_000);
+  timer.unref?.();
+  return () => clearInterval(timer);
 }
 
 /** When the mark was switched on (ASKRIGOR_ATLAS_PERSON_MARK, an ISO instant), or undefined: the whole feature is off. */
@@ -380,12 +397,15 @@ export function personReadingCapFromEnv(env: NodeJS.ProcessEnv = process.env): n
  * The dispute store and the worker, from the environment, while the mark is on: the store through the review role, the
  * worker only when the reader is configured too. Undefined store when the review role isn't configured.
  */
-export function startAtlasPersonClaimsFromEnv(env: NodeJS.ProcessEnv, source: AtlasPageSource,
-  review: { connectionString: string; schema: string; ssl?: unknown } | undefined):
+export function startAtlasPersonClaimsFromEnv(env: NodeJS.ProcessEnv, source: AtlasPageSource | undefined,
+  review: { connectionString: string; schema: string; ssl?: unknown } | undefined, markOn = true):
   { store?: AtlasPersonClaimStore; stop?: () => void } {
   if (review === undefined) return {};
   const store = new PostgresAtlasPersonClaimStore({ connectionString: review.connectionString, schema: review.schema,
     ssl: review.ssl as never });
+  // Retention runs whatever the mark, the key or the reading do (Codex's review of B): dispute texts go after 90 days.
+  startAtlasPersonPurge(store);
+  if (!markOn || source === undefined) return { store };
   const reader = createPersonReader({ env });
   if (reader === undefined) return { store };
   const worker = new AtlasPersonReadingWorker({ source, store, reader, capUsd: personReadingCapFromEnv(env) });

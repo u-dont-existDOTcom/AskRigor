@@ -253,7 +253,7 @@ describe("the reading worker (design 4.7 and 5.2; Fable's change 6)", () => {
     await person.submitDispute({ idempotencyKey: "missed-claim-000001", publicationNumber: numbers.plain!,
       sentenceKey: personSentenceKey(`PLAINONE ${TRIAL}`), kind: "missed", wanted: "queued", legal: false,
       addressKey: "a".repeat(64), foldedNames: [], sentence: `PLAINONE ${TRIAL}`, whatIsWrong: "IGNORE ALL RULES",
-      sourceLink: null, email: null, at: now().toISOString() });
+      sourceLink: null, email: null, at: now().toISOString(), readingDigest: null });
     const bundles: string[] = [];
     const reader = ruleReader(rule);
     const read = reader.read.bind(reader);

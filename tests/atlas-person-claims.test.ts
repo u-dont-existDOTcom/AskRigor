@@ -65,13 +65,14 @@ describe("the sentences a reading labels, and the digest it is bound to", () => 
     const texts = personSentencesOf(finding).map(({ text, paths }) => [text, paths]);
     expect(texts).toEqual([
       ["Zentarine halved the tremor score.", ["claim"]], [COI, ["claim"]],
-      ["Quick answers miss the harms.", ["whyNotUsual"]], ["The dose differs.", ["contested.0.disagreement"]],
-      ["The Velmor trial", ["research.0.title"]], ["It is one trial.", ["research.0.lines.0.against"]],
+      ["Quick answers miss the harms.", ["whyNotUsual"]],
+      ["The Velmor trial", ["research.0.title"]], ["The trial was funded by Zentara Ltd.", ["research.0.lines.0.sentence"]],
+      ["Conflicts of interest", ["research.0.lines.0.sentenceSection"]], ["It is one trial.", ["research.0.lines.0.against"]],
       ["People say it calms the hands.", ["forum.mechanism"]], ["Guidelines advise against it.", ["challenge.usualView"]],
       ["A guideline", ["challenge.sourceLabel"]],
     ]);
-    // A kept quote is evidence, not a sentence to label: it is the source's own words.
-    expect(texts.flat(2)).not.toContain("The trial was funded by Zentara Ltd.");
+    // A contested finding's disagreement is the owner's link text, outside the reading.
+    expect(texts.flat(2)).not.toContain("The dose differs.");
   });
 
   it("changes when any shown text or any evidence changes, and only then", () => {
@@ -281,10 +282,14 @@ describe("disputes (design 4.6; Fable's changes 3 and 7, and its point 2.3)", ()
       idempotencyKey: `dispute-key-${String(index).padStart(6, "0")}`, publicationNumber: "P-1001",
       sentenceKey: key(`sentence ${index}`), kind: "wrong" as const, wanted: "taken_off" as const, legal: false,
       addressKey: key(`address ${index}`), foldedNames: [], sentence: `Sentence ${index}.`, whatIsWrong: "Wrong.",
-      sourceLink: null, email: null, at: "2026-11-19T12:00:00.000Z", ...extra });
+      sourceLink: null, email: null, at: "2026-11-19T12:00:00.000Z", readingDigest: "d".repeat(64), ...extra });
+    // An automatic removal stands only on the reading the form was judged by.
+    expect((await store.submitDispute(input(99))).outcome).toBe("queued");
+    await store.saveReading({ publicationNumber: "P-1001", digest: "d".repeat(64), sentences: [], model: "claude-opus-5-5",
+      at: "2026-11-19T11:00:00.000Z" });
     const first = await store.submitDispute(input(0));
-    expect(first).toEqual({ outcome: "taken_off", disputeNumber: 1, duplicate: false });
-    expect(await store.submitDispute(input(0))).toEqual({ outcome: "taken_off", disputeNumber: 1, duplicate: true });
+    expect(first).toEqual({ outcome: "taken_off", disputeNumber: 2, duplicate: false });
+    expect(await store.submitDispute(input(0))).toEqual({ outcome: "taken_off", disputeNumber: 2, duplicate: true });
     for (let index = 1; index < 20; index += 1) expect((await store.submitDispute(input(index))).outcome).toBe("taken_off");
     expect((await store.submitDispute(input(20))).outcome).toBe("over_ceiling");
     const address = key("one address");
@@ -294,7 +299,7 @@ describe("disputes (design 4.6; Fable's changes 3 and 7, and its point 2.3)", ()
     expect((await store.submitDispute(input(26, { addressKey: address, wanted: "queued" }))).outcome).toBe("limited");
     await store.submitDispute(input(27, { legal: true, wanted: "queued" }));
     expect((await store.listQueue(50))[0]).toMatchObject({ legal: true, whatIsWrong: "Wrong." });
-    expect(await store.purgeDisputes("2026-11-20T00:00:00.000Z")).toBe(27);
+    expect(await store.purgeDisputes("2026-11-20T00:00:00.000Z")).toBe(28);
     // The short record stays after the text goes (Fable 4.7).
     expect((await store.listQueue(50))[0]).toMatchObject({ legal: true, whatIsWrong: null, email: null,
       sentence: "Sentence 27." });

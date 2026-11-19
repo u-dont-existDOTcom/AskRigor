@@ -44,7 +44,7 @@ export function renderAtlasPersonDispute(finding: ShownFinding, token: string, r
 <h1>${PERSON_DISPUTE_LINK}</h1>
 <p>If a sentence in ${finding.publicationNumber} says something wrong about you or someone else, or names a person and isn’t marked, tell AskRigor here. You don’t need to sign in. Nobody else sees what you write.</p>
 <ul>
-<li>A claim about a named person that no source AskRigor could open supports comes off the pages at once, unless it speaks in the person’s favour; then AskRigor’s operator reads your report first.</li>
+<li>A claim about a named person that no source AskRigor could open supports comes off the pages at once, unless it speaks in the person’s favour, or more than 20 have come off across the Atlas that day; then AskRigor’s operator reads your report first.</li>
 <li>A claim a source supports stays, marked as disputed, while AskRigor rechecks it against what you send.</li>
 <li>AskRigor deletes your message, link and email address after 90 days. It keeps a short record: the date, the sentence and what was done.</li>
 </ul>
@@ -113,6 +113,7 @@ export function personDisputeOf(form: URLSearchParams, finding: ShownFinding, ad
     addressKey: createHash("sha256").update(`atlas-person-dispute\n${day}\n${addressKey}`).digest("hex"),
     foldedNames: sentence.foldedNames, sentence: sentence.text, whatIsWrong: what, sourceLink: link,
     email: rawEmail === "" ? null : rawEmail, at: now.toISOString(),
+    readingDigest: finding.personClaims?.readingDigest ?? null,
   } };
 }
 
