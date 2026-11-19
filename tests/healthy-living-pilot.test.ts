@@ -199,6 +199,11 @@ describe("healthy-living pilot 1", () => {
     expect(script).toContain("locks.request(LOCK");
     for (const step of ["return locked(() => {", "locked(save)", "locked(() => onStorage(key))"]) expect(script).toContain(step);
     expect(script).toContain("if (key === CLEARED) return;");
+    // Codex's final check of 19 Nov: no step runs without the lock; then the page saves nothing and a clear says it failed.
+    expect(script).not.toMatch(/if \(!locks\) return run\(\)|started \? undefined : run\(\)\)/);
+    expect(script).toContain("if (!locks || unlocked) return Promise.resolve().then(refused);");
+    expect(script).toContain('if (!store || unlocked) { setStamp("failed", "Not saved"); return; }');
+    expect(script).toContain("}, clearFailed);");
   });
 
   it("leaves out what the approved defaults leave out", () => {

@@ -156,6 +156,28 @@ try {
 
   await closeTab(b);
 
+  // 8n. Without the page's lock (no Web Locks API, or the browser refuses it) no step runs: nothing is saved
+  // or removed, the red line shows, and Clear everything says it failed and keeps the answers.
+  const STORED = `function (key) { return localStorage.getItem(key); }`;
+  for (const [how, preload] of [
+    ["no lock API", `Object.defineProperty(Navigator.prototype, "locks", { configurable: true, get() { return undefined; } });`],
+    ["lock refused", `LockManager.prototype.request = function () { return Promise.reject(new DOMException("refused", "SecurityError")); };`]
+  ]) {
+    const n = await openTab(preload);
+    await sleep(200);
+    const before = await call(n, STORED, KEY);
+    check(how + ": Not saved and the red line", (await js(n, `document.querySelector("#stamp").textContent`)) === "Not saved" && !(await call(n, HIDDEN, "#save-failed")));
+    await call(n, TYPE, "unlocked words");
+    await sleep(600);
+    check(how + ": typing saves nothing", (await call(n, STORED, KEY)) === before && (await js(n, `document.querySelector("#stamp").textContent`)) === "Not saved");
+    await js(n, `window.confirm = () => true; document.querySelector('[data-clear]').click();`);
+    await sleep(300);
+    check(how + ": Clear everything says it failed, keeps the answers, removes nothing",
+      !(await call(n, HIDDEN, "#clear-failed")) && (await call(n, HIDDEN, "#cleared-note")) &&
+      (await js(n, `document.querySelector("#own-words").value`)) === "unlocked words" && (await call(n, STORED, KEY)) === before);
+    await closeTab(n);
+  }
+
   // 8. Blocked storage shows the red line; Clear everything then says it failed and keeps the answers.
   const c = await openTab(`Object.defineProperty(window, "localStorage", { get() { throw new DOMException("blocked", "SecurityError"); } });`);
   check("blocked storage: Not saved and the red line", (await js(c, `document.querySelector("#stamp").textContent`)) === "Not saved" && !(await call(c, HIDDEN, "#save-failed")));

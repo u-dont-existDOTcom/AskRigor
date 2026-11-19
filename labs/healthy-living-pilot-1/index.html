@@ -713,14 +713,27 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
   // removing an old copy each run whole, and a clear reports success only once it has finished.
   // Each saved copy also carries the clear mark it was written under (gen) and the time of each answer
   // (t): two tabs' changes merge answer by answer, the later one winning, and a copy written before a
-  // clear is never shown. Browsers without the lock run the steps unlocked, protected by the marks only.
+  // clear is never shown. Without the lock no step runs at all: see locked() below.
   const locks = (() => { try { return navigator.locks && typeof navigator.locks.request === "function" ? navigator.locks : null; } catch (e) { return null; } })();
   const SETTLE = 20; // ms, inside the lock, for another tab's last change to reach this tab
-  function locked(fn) {
+  // Without that lock (no Web Locks API, or the browser refuses it) two tabs could interleave their steps,
+  // so no step runs unlocked (Codex's final check, 19 Nov): this tab saves, loads and removes nothing, keeps
+  // its answers on the page and shows the red line, and a clear says it failed. `without` runs instead.
+  let unlocked = false;
+  function locked(fn, without) {
     const run = () => new Promise((ok) => { setTimeout(ok, SETTLE); }).then(fn);
-    if (!locks) return run();
+    const refused = () => {
+      unlocked = true;
+      clearTimeout(timer);
+      timer = 0;
+      setStamp("failed", "Not saved");
+      return without ? without() : undefined;
+    };
+    if (!locks || unlocked) return Promise.resolve().then(refused);
     let started = false;
-    return locks.request(LOCK, () => { started = true; return run(); }).catch(() => (started ? undefined : run()));
+    let asked;
+    try { asked = locks.request(LOCK, () => { started = true; return run(); }); } catch (e) { asked = Promise.reject(e); }
+    return asked.catch(() => (started ? undefined : refused()));
   }
 
   const TAB = Math.random().toString(36).slice(2, 8);
@@ -889,11 +902,11 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       loaded = true;
       render();
       orderAreas(true);
-    });
+    }, () => { loaded = true; render(); orderAreas(true); });
   }
 
   function scheduleSave() {
-    if (!store) { setStamp("failed", "Not saved"); return; }
+    if (!store || unlocked) { setStamp("failed", "Not saved"); return; }
     if (held) return; // after a failed clear, the answers kept on this page wait for the person's next change
     setStamp("saving", "Saving…");
     clearTimeout(timer);
@@ -985,7 +998,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       if (!done) { clearFailed(); return; }
       setStamp("idle", "Nothing saved");
       showCleared();
-    });
+    }, clearFailed);
   }
 
   function rule(r) {
