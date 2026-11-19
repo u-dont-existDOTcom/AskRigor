@@ -25,6 +25,7 @@ import {
   findingsCardSchema,
   findingsSavedLine,
   findingsSaveOffer,
+  laterFindingsCardSchema,
   researchMapSavedLine,
   withoutYouTubeData,
 } from "../apps/research-mcp/src/findings/card.js";
@@ -49,6 +50,9 @@ import {
   type UnsavedCardResult,
 } from "../apps/research-mcp/src/findings/service.js";
 import { unsavedCardNote } from "../apps/research-mcp/src/findings/unsaved-card.js";
+import {
+  FINDINGS_CARD_REMINDER, FINDINGS_CARD_REQUEST_START, findingsCardReminder,
+} from "../apps/research-mcp/src/findings/card-reminder.js";
 import type { LessonAttemptLimiter } from "../apps/research-mcp/src/lessons/rate-limit.js";
 import {
   OTHER_TOOLS_SENTENCE,
@@ -59,8 +63,13 @@ import {
   type RegisterToolsOptions,
 } from "../apps/research-mcp/src/register-tools.js";
 import type { MeaningJudge, MeaningJudgeBundle } from "../apps/research-mcp/src/meaning-judge.js";
-import { issueResearchReceipt, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import {
+  discoveryQueryDigest, issueResearchReceipt, researchTargetDigest, verifyResearchReceipt,
+} from "../apps/research-mcp/src/research-receipts.js";
+import {
+  finalizeResearch,
+  findingsCardRequested,
+  forumThreadDigest,
   RESEARCH_BEHIND_NOTE,
   RESEARCH_MAP_OFFERED,
   researchMapReminder,
@@ -1002,6 +1011,142 @@ describe("finalize_research, save_research_findings and the findings library", (
       findings_card: { status: "absent" },
     });
     expect(calls).toEqual([]);
+  });
+
+  // AskRigor#475: the card was asked for only in a note a passing check puts off "for a later answer", so a safety
+  // finding reached the Atlas only when the owner asked. A free contributor's first pass with no card now says the
+  // card belongs to this answer, in its text and in what an app reading only the structured content sees.
+  it("asks a free contributor's first pass with no card for it in this turn, and saves the card the next call sends", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { calls, findingsSave } = recorder();
+    const service = await accessService();
+    const finalize = connectorTool("finalize_research", { researchContributorAccessService: service, findingsLibrary: true, findingsSave });
+    const { findings_card: card, ...withoutCard } = request();
+    const first = await finalize(withoutCard, "auth0|free");
+    const output = first.structuredContent as unknown as FinalizeResearchOutput & { round_token?: string };
+    expect(output).toMatchObject({ status: "ready_with_limits",
+      findings_card: { status: "absent", problems: [FINDINGS_CARD_REMINDER] } });
+    expect(output.notes?.some((note) => note.startsWith(FINDINGS_CARD_REQUEST_START))).toBe(true);
+    expect(output).not.toHaveProperty("turn_already_passed");
+    expect((first.content as Array<{ text: string }>)[0]!.text).toContain(`\nFindings card: ${FINDINGS_CARD_REMINDER}`);
+    expect(FINDINGS_CARD_REMINDER).toContain("Harms and safety signals the research found count, even outside the question");
+    expect(calls).toEqual([]);
+    // The call it asks for: the same draft, with the card, in this turn. The repeat pass still signs its receipt, so the
+    // card is checked and saved, and the reminder is not given again.
+    const second = await finalize({ ...withoutCard, findings_card: card,
+      ...(output.carry_forward === undefined ? {} : { carried_state: output.carry_forward }),
+      ...(output.round_token === undefined ? {} : { round_token: output.round_token }) }, "auth0|free");
+    expect(second.structuredContent).toMatchObject({ status: "ready_with_limits",
+      findings_card: { status: "checked", problems: [], saved: { status: "saved", card_id: "ARF-0042" } } });
+    expect(calls).toHaveLength(1);
+    // None for a paid private answer, whose save waits for the person's yes, or a call marked findings_save off.
+    const paid = await finalize(withoutCard, "auth0|paid");
+    expect((paid.structuredContent as unknown as FinalizeResearchOutput).findings_card.problems).toEqual([]);
+    const marked = await finalize({ ...withoutCard, later_inputs: { findings_save: "off" } }, "auth0|free");
+    expect((marked.structuredContent as unknown as FinalizeResearchOutput).findings_card).toMatchObject({ status: "absent",
+      problems: [] });
+    expect(calls).toHaveLength(1);
+  });
+
+  // Codex's review of 17 Nov 2026, finding 5: a check that did not pass asked for the card, so the turn's note
+  // deduplication left the request out of the first pass's notes, and the reminder, reading only the notes shown, said
+  // nothing. The request is carried as its own fact and used on the turn's first pass.
+  it("reminds the turn's first pass when an earlier check that did not pass asked for the card", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { calls, findingsSave } = recorder();
+    const service = await accessService();
+    const finalize = connectorTool("finalize_research", { researchContributorAccessService: service, findingsLibrary: true, findingsSave });
+    const { findings_card: _card, ...withoutCard } = request();
+    // A key source the research has no receipt for leaves the check open.
+    const unfinished = { ...withoutCard, key_sources: [...withoutCard.key_sources,
+      { read_depth: "abstract_only", answer_marker: "Other", id: "PMID:31000001", status: "validated" }] };
+    const first = await finalize(unfinished, "auth0|free");
+    const open = first.structuredContent as unknown as FinalizeResearchOutput & { round_token?: string };
+    expect(open.status).toBe("not_ready");
+    expect(open.notes?.some((note) => note.startsWith(FINDINGS_CARD_REQUEST_START))).toBe(true);
+    expect(open.findings_card.problems).toEqual([]);
+    const carried = {
+      ...(open.carry_forward === undefined ? {} : { carried_state: open.carry_forward }),
+      ...(open.round_token === undefined ? {} : { round_token: open.round_token }),
+    };
+    const passed = await finalize({ ...withoutCard, ...carried }, "auth0|free");
+    const output = passed.structuredContent as unknown as FinalizeResearchOutput & { round_token?: string };
+    expect(output.status).toBe("ready_with_limits");
+    // The request itself is not shown again in this turn, and the first pass still says the card belongs to this answer.
+    expect(output.notes?.some((note) => note.startsWith(FINDINGS_CARD_REQUEST_START)) ?? false).toBe(false);
+    expect(output).not.toHaveProperty("turn_already_passed");
+    expect(output.findings_card).toMatchObject({ status: "absent", problems: [FINDINGS_CARD_REMINDER] });
+    expect((passed.content as Array<{ text: string }>)[0]!.text).toContain(`\nFindings card: ${FINDINGS_CARD_REMINDER}`);
+    // A repeat pass, still with no card, gets none.
+    const again = await finalize({ ...withoutCard,
+      ...(output.carry_forward === undefined ? {} : { carried_state: output.carry_forward }),
+      ...(output.round_token === undefined ? {} : { round_token: output.round_token }) }, "auth0|free");
+    expect(again.structuredContent).toMatchObject({ status: "ready_with_limits", turn_already_passed: true,
+      findings_card: { status: "absent", problems: [] } });
+    expect(calls).toEqual([]);
+  });
+
+  // Codex's review of 19 Nov 2026 (AskRigor#491, P1): an answer resting only on forum reports AskRigor's reader read can
+  // hold a card (a finding's forum_signal), but the check never asked for one, so the reminder never ran for it. Owner
+  // answer 354b, after Codex's recheck: it is asked only when it can hold such a finding, which the card check takes with
+  // no study only as support_not_located, by a literature search passed here; a simple question about a thread read
+  // here is not asked.
+  const forumThread = "https://www.reddit.com/r/synthetic/comments/abc123/";
+  const forumQuery = "synthetic tonic nausea";
+  const forumRead = issueResearchReceipt("forum_thread_read", { u: forumThreadDigest(forumThread), n: 2, v: "reddit",
+    c: "synthetic", e: "1" }, { secret: SECRET });
+  const forumSearch = issueResearchReceipt("literature_search", { src: "pubmed", q: discoveryQueryDigest([forumQuery]),
+    ret: 0, n: 0 }, { secret: SECRET });
+  const forumReport = "Two public forum participants reported nausea; these reports do not establish causation.";
+  const forumNotFound = "A PubMed search found no study of nausea with the synthetic tonic.";
+  const forumInput = (receipts: string[], answer = `${forumReport} ${forumNotFound}`) => ({
+    research_target: "Synthetic forum experience",
+    answer_draft: answer,
+    receipts,
+    key_sources: [], binary_results: [], safety_claims: [], retraction_checks: [], limitations: [],
+    community_skip_reason: "This synthetic check is limited to the supplied public thread.",
+  });
+  const forumReminder = (result: FinalizeResearchOutput) => findingsCardReminder({ findings: "save", savingOn: true,
+    status: result.status, cardStatus: result.findings_card.status, turnAlreadyPassed: result.turn_already_passed === true,
+    cardRequested: findingsCardRequested(result) });
+
+  it("asks a forum-only first pass that can hold a finding for its card, and a repeat pass without one gets no second reminder", () => {
+    const input = forumInput([forumRead, forumSearch]);
+    const first = finalizeResearch(input, { secret: SECRET, findings: "save" });
+    expect(first).toMatchObject({ status: "ready_with_limits", findings_card: { status: "absent" } });
+    expect(first).not.toHaveProperty("turn_already_passed");
+    expect(first.notes?.some((note) => note.startsWith(FINDINGS_CARD_REQUEST_START))).toBe(true);
+    expect(findingsCardRequested(first)).toBe(true);
+    expect(forumReminder(first)).toBe(FINDINGS_CARD_REMINDER);
+    // A repeat pass in the same turn, still with no card, gets no reminder.
+    const again = finalizeResearch({ ...input, round_token: first.round_token }, { secret: SECRET, findings: "save" });
+    expect(again).toMatchObject({ status: "ready_with_limits", turn_already_passed: true, findings_card: { status: "absent" } });
+    expect(forumReminder(again)).toBeUndefined();
+    // The card asked for, a finding resting on those reports alone, is one the check takes.
+    const carded = finalizeResearch({ ...input, findings_card: laterFindingsCardSchema.parse({
+      question: "Do people report nausea with the synthetic tonic?",
+      usual_answer: "Nothing is known about the synthetic tonic.",
+      findings: [{ claim: forumReport, certainty: "very_low", applies_to: "Adults taking the synthetic tonic",
+        answer_quote: forumReport, sources: [], why_not_usual: "Quick answers don't read what people report.", tags: [],
+        what_would_change_it: "A trial of the synthetic tonic recording nausea.", kind: "harm",
+        subject: "Synthetic tonic", subject_type: "supplement", direction: "harm", numbers: [],
+        forum_signal: { threads: [forumThread], people: { better: 0, no_change: 0, worse: 2, mixed: 0 },
+          report_quality: { detailed: 0, measured: 0, bare: 2 }, studies: "support_not_located", search_query: forumQuery } }],
+      public_value: { scope: "public", who_else: "People taking the synthetic tonic", what_it_changes: "A harm to watch for." },
+      topic: { key: "synthetic-tonic", label: "Synthetic tonic" }, open_leads: [],
+    }) }, { secret: SECRET, findings: "save" });
+    expect(carded.findings_card).toMatchObject({ status: "checked", beyond_quick_answer: 1 });
+    // The same research with no forum receipt read no thread, and is not asked for a card.
+    const unread = finalizeResearch({ ...input, receipts: [forumSearch] }, { secret: SECRET, findings: "save" });
+    expect(findingsCardRequested(unread)).toBe(false);
+  });
+
+  it("asks a simple question about a thread read here, with no search for studies, for no card", () => {
+    const simple = finalizeResearch(forumInput([forumRead], forumReport), { secret: SECRET, findings: "save" });
+    expect(simple).toMatchObject({ status: "ready_with_limits", findings_card: { status: "absent" } });
+    expect(simple.notes?.some((note) => note.startsWith(FINDINGS_CARD_REQUEST_START)) ?? false).toBe(false);
+    expect(findingsCardRequested(simple)).toBe(false);
+    expect(forumReminder(simple)).toBeUndefined();
   });
 
   it("reports a save that did not happen without holding back the answer", async () => {

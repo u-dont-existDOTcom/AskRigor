@@ -285,7 +285,8 @@ const CLAIMS_PROMPT = [
     "Return an empty list only when none are given.",
   "on_screen_citations: each study, paper, website or other source shown on screen, as written, with its start " +
     "time.",
-  "spoken_language: the main spoken language as a BCP 47 tag, for example en, fr or pt-BR."
+  "spoken_language: the main spoken language as a BCP 47 tag, for example en, fr or pt-BR, or zxx when nobody " +
+    "speaks in the video."
 ].join("\n");
 
 function momentPrompt(atSeconds: number): string {

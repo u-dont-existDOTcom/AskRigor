@@ -1,4 +1,6 @@
 import { registerForumTools } from "./forum-tools.js";
+import { findingsCardReminder } from "./findings/card-reminder.js";
+import { resultSizeDeclarationsFromEnv, resultSizeMeta } from "./result-size-limits.js";
 import type { RedditReaderClient } from "./reddit-reader-client.js";
 import type { readForumPage } from "@askrigor/sources";
 import {
@@ -309,6 +311,7 @@ import {
   parseFinalizeResearchInput,
   finalizeResearchOutputSchema,
   finalizeResearchPublishedOutputSchema,
+  findingsCardRequested,
   meaningJudgeSourceOf,
   sourceLineRequestsOf,
   studyMapRequestsOf,
@@ -1016,6 +1019,11 @@ export interface RegisterToolsOptions {
   /** How long finalize_research waits for a findings save; replaced for tests. */
   findingsSaveDeadlineMilliseconds?: number;
   mcpSurface?: McpSurface;
+  /**
+   * Whether tools/list declares Claude Code's larger result sizes (result-size-limits.ts); defaults to
+   * ASKRIGOR_DECLARE_RESULT_SIZES, off, as the tool list is frozen (owner answer 189a).
+   */
+  declareResultSizes?: boolean;
   /** The versions this server runs, returned by get_protocol_manifest. */
   runningVersions?: RunningVersions;
   /** This surface's tool list version (toolListVersionOf), which a call's tool_list_version is compared with. */
@@ -2905,6 +2913,15 @@ function defineResearchOperations(
           addLateNote(unsavedCardNote(kept.card_id), { checker: "call", call: true });
         }
       }
+      // AskRigor#475: a free contributor's first pass with no card, though the check's note asked for one, says the card
+      // belongs to this answer, harms and safety signals included (findings/card-reminder.ts).
+      const cardReminder = findingsCardReminder({ findings: finalizeOptions.findings,
+        savingOn: account?.findingsSave === true && !callSavingOff, status: result.status,
+        cardStatus: result.findings_card.status, turnAlreadyPassed: result.turn_already_passed === true,
+        cardRequested: findingsCardRequested(result) });
+      if (cardReminder !== undefined) {
+        result.findings_card.problems = [...result.findings_card.problems, cardReminder];
+      }
       // Owner answer 143a: a free answer whose research map was filed ends by saying what was saved, the card's id
       // included when its save confirmed.
       if (researcher?.mode === "FREE_CONTRIBUTOR" && result.research_map?.status === "filed") {
@@ -3098,7 +3115,8 @@ function defineResearchOperations(
           (result.previous_check === undefined ? "" :
             `\nThe previous final check in this conversation did not pass (${result.previous_check.open.join(", ") || "steps open"}), ` +
               "so an answer given after it went out unchecked; if one did, this answer says what changed from it.") +
-          (card.status === "absent" || card.status === "private"
+          (cardReminder !== undefined ? `\nFindings card: ${cardReminder}`
+            : card.status === "absent" || card.status === "private"
             ? ""
             : `\nFindings card: ${card.status}` +
               (card.saved !== undefined
@@ -4724,6 +4742,9 @@ function collectResearchOperations(
         throw new Error(`Incomplete research operation definition: ${name}`);
       }
       const annotations = Object.freeze({ ...config.annotations });
+      // Server fix 3 (17 Nov 2026): a larger result size for Claude Code, only while declarations are on.
+      const sizeMeta = resultSizeMeta(name, { declare: options.declareResultSizes ?? resultSizeDeclarationsFromEnv(),
+        gemini: options.mcpSurface === "/mcp/gemini" });
       const _meta = PRIVATE_MCP_OPERATION_NAMES.has(name)
         ? evidenceGapReviewSecurityMetadata()
         : PUBLIC_READ_OPERATION_NAMES.has(name)
@@ -4777,7 +4798,7 @@ function collectResearchOperations(
         inputSchema: evolving.inputSchema,
         outputSchema,
         annotations,
-        _meta: Object.freeze({ ...config._meta, ..._meta }),
+        _meta: Object.freeze({ ...config._meta, ..._meta, ...sizeMeta }),
       });
       operations.push(Object.freeze({
         name,
