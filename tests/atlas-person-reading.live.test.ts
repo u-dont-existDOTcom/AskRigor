@@ -3,7 +3,7 @@ import { writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { applyPersonClaims, personBundleOf, personDigestOf } from "../apps/research-mcp/src/atlas/person-claims.js";
-import { createPersonReader } from "../apps/research-mcp/src/atlas/person-reading.js";
+import { createPersonReader, personChargedUsd } from "../apps/research-mcp/src/atlas/person-reading.js";
 import type { ShownFinding } from "../apps/research-mcp/src/atlas/page-data.js";
 import { forumSignal, personFinding, quoteLine, researchSource } from "./helpers/atlas-person-fixtures.js";
 
@@ -124,7 +124,8 @@ describe.skipIf(!LIVE)("the reading on 20 findings through the Claude API (live;
       const reserve = reader!.reserveUsd(bundle);
       if (spent + reserve > CAP_USD) { rows.push({ name: item.name, skipped: "cap" }); save(); continue; }
       const call = await reader!.read(item.finding, bundle);
-      spent += call.costUsd;
+      // A call that failed in transport may still have been charged: it counts at its whole reservation (Codex, B).
+      spent += personChargedUsd(call, reserve);
       const errors: string[] = [];
       let verdicts: Array<{ text: string; verdict: string; label: string | null }> = [];
       if (call.sentences !== null) {

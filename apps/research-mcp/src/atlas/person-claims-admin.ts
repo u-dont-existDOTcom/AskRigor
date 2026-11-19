@@ -18,7 +18,7 @@ import { PostgresAtlasPageSource, PostgresAtlasPersonClaimStore, type AtlasPageS
 
 import { livingEvidenceReuseConfigFromEnv, researchContributionReviewConfigFromEnv } from "../config.js";
 import { allShown, type ShownFinding } from "./page-data.js";
-import { personSentencesOf } from "./person-claims.js";
+import { personContextKeys, personSentencesOf } from "./person-claims.js";
 import { personMarkSinceFromEnv } from "./person-reading.js";
 
 async function findings(source: AtlasPageSource, raw: boolean): Promise<ShownFinding[]> {
@@ -49,6 +49,22 @@ export async function runPersonClaimsAdmin(argv: readonly string[], env: NodeJS.
       for (const item of await store.listQueue(200)) out(JSON.stringify(item));
       return 0;
     }
+    // The owner's notices not yet acknowledged, with their delivery state; "ack" records his acknowledgement.
+    if (command === "notices") {
+      for (const notice of await store.listNotices(200)) out(JSON.stringify(notice));
+      return 0;
+    }
+    if (command === "ack" && publicationNumber !== undefined) {
+      const notice = Number(publicationNumber);
+      const by = (sentenceKey ?? "owner").toLowerCase();
+      if (!Number.isSafeInteger(notice) || notice < 1 || !/^[a-z0-9_-]{1,40}$/u.test(by)) {
+        out("usage: ack <notice number> [who]");
+        return 2;
+      }
+      const done = await store.recordNotice(notice, "acknowledged", by, at);
+      out(done ? "ack: done" : "ack: nothing to change");
+      return done ? 0 : 1;
+    }
     if (command === "rollback-list") {
       const marked = new Map((await findings(source, false)).map((finding) => [finding.publicationNumber, finding]));
       for (const finding of await findings(source, true)) {
@@ -65,20 +81,23 @@ export async function runPersonClaimsAdmin(argv: readonly string[], env: NodeJS.
       const resolution = why.join(" ").slice(0, 500) || `${command} by the main session`;
       let sentence: string | null = null;
       let foldedNames: string[] = [];
+      let contextKeys: string[] = [];
       if (command === "take-off") {
         const finding = (await findings(source, true)).find((item) => item.publicationNumber === publicationNumber);
         sentence = finding === undefined ? null
           : personSentencesOf(finding).find(({ key }) => key === sentenceKey)?.text ?? null;
         if (sentence === null) { out("no such sentence on that publication's pages"); return 1; }
+        contextKeys = personContextKeys(finding!);
         foldedNames = await source.read(async (reads) => (await reads.personClaims!.readReadings([publicationNumber]))[0]
           ?.sentences.find(({ key }) => key === sentenceKey)?.foldedNames ?? []);
       }
       const done = await store.decide({ publicationNumber, sentenceKey,
-        action: command === "take-off" ? "take_off" : "restore", sentence, foldedNames, disputeNumber, resolution, at });
+        action: command === "take-off" ? "take_off" : "restore", sentence, foldedNames, contextKeys, disputeNumber,
+        resolution, at });
       out(done ? `${command}: done` : `${command}: nothing to change`);
       return done ? 0 : 1;
     }
-    out("commands: queue | take-off P-1234 <sentence key> [dispute] [why] | restore P-1234 <sentence key> [dispute] [why] | rollback-list");
+    out("commands: queue | notices | ack <notice> [who] | take-off P-1234 <sentence key> [dispute] [why] | restore P-1234 <sentence key> [dispute] [why] | rollback-list");
     return 2;
   } finally {
     await store.close();

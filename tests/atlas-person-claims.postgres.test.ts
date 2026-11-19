@@ -30,6 +30,9 @@ describe.skipIf(URL === undefined)("migration 0042 on PostgreSQL", () => {
       expect(await can("atlas_person_disputes")).toBe(false);
       expect(await can("atlas_person_removed_texts")).toBe(false);
       expect(await can("atlas_person_reading_spend")).toBe(false);
+      // Round 3: the public history is the reader's; the owner's notices are not.
+      expect(await can("atlas_person_changes")).toBe(true);
+      expect(await can("atlas_person_owner_notices")).toBe(false);
       await client.query("SET search_path TO living_evidence, pg_catalog");
       // A publication that doesn't exist is refused; a news item's number is taken by its form until the news release.
       await expect(client.query("SELECT save_atlas_person_reading('publication', 'P-9999', $1, '[]'::jsonb, 'm', now())",
@@ -43,6 +46,18 @@ describe.skipIf(URL === undefined)("migration 0042 on PostgreSQL", () => {
       expect(await fail()).toEqual({ attempts: 1, parked: false });
       await fail();
       expect(await fail()).toEqual({ attempts: 3, parked: true });
+      // Round 3: one claim on a digest across processes: refused while it runs, once parked, or once read.
+      const claim = async (digest: string, again = false) => (await client.query<{ claimed: boolean; attempts: number; parked: boolean }>(
+        "SELECT * FROM claim_atlas_person_reading('news', 'N-12', $1, $2, '2026-11-19T12:00:00Z', 3, 60)", [digest, again])).rows[0]!;
+      expect(await claim("b".repeat(64))).toEqual({ claimed: false, attempts: 3, parked: true });
+      expect(await claim("c".repeat(64))).toEqual({ claimed: true, attempts: 1, parked: false });
+      expect(await claim("c".repeat(64))).toEqual({ claimed: false, attempts: 1, parked: false });
+      expect((await claim("a".repeat(64))).claimed).toBe(false);
+      expect(await claim("a".repeat(64), true)).toEqual({ claimed: true, attempts: 1, parked: false });
+      await client.query("SELECT * FROM fail_atlas_person_reading('news', 'N-12', $1, 'refusal:cyber', now(), 3)", ["a".repeat(64)]);
+      expect(await claim("a".repeat(64), true)).toEqual({ claimed: true, attempts: 2, parked: false });
+      await expect(client.query("SELECT atlas_person_subject_known('glance', 'G-9999') AS known")).resolves
+        .toMatchObject({ rows: [{ known: false }] });
       // The spend: reserved under the cap, settled after; a hint has its own limit.
       const reserve = async (amount: string, hint = false) => (await client.query<{ ok: boolean }>(
         "SELECT reserve_atlas_person_spend('2026-11-19', $1::numeric, 1.00, $2, 1) AS ok", [amount, hint])).rows[0]!.ok;
@@ -55,7 +70,8 @@ describe.skipIf(URL === undefined)("migration 0042 on PostgreSQL", () => {
       const submit = async (index: number, extra: { address?: string; wanted?: string; legal?: boolean; kind?: string } = {}) =>
         (await client.query<{ outcome: string; duplicate: boolean }>(
           `SELECT outcome, duplicate FROM submit_atlas_person_dispute($1, 'news', 'N-12', $2, $6, $3, $4, $5,
-            ARRAY[]::text[], 'A sentence.', 'Wrong.', NULL, 'me@example.org', '2026-11-19T12:00:00Z', 20, 5, 3, 10, $7)`,
+            ARRAY[]::text[], ARRAY['topic:velmor-syndrome']::text[], 'A sentence.', 'Wrong.', NULL, 'me@example.org',
+            '2026-11-19T12:00:00Z', 20, 5, 3, 10, $7)`,
           [`dispute-key-${String(index).padStart(6, "0")}`, key(`sentence ${index}`), extra.wanted ?? "taken_off",
             extra.legal ?? false, extra.address ?? key(`address ${index}`), extra.kind ?? "wrong", "a".repeat(64)])).rows[0]!;
       expect(await submit(0)).toEqual({ outcome: "taken_off", duplicate: false });
@@ -79,8 +95,29 @@ describe.skipIf(URL === undefined)("migration 0042 on PostgreSQL", () => {
       expect(await client.query("SELECT count(*)::int AS n FROM atlas_person_removals WHERE subject_kind = 'news'"))
         .toMatchObject({ rows: [{ n: 20 }] });
       // Put back, by the main session; then the 90-day purge keeps the short record.
-      expect((await client.query("SELECT decide_atlas_person_claim('news', 'N-12', $1, 'restore', NULL, ARRAY[]::text[], 1, 'source found', now()) AS done",
+      expect((await client.query("SELECT decide_atlas_person_claim('news', 'N-12', $1, 'restore', NULL, ARRAY[]::text[], ARRAY[]::text[], 1, 'source found', now()) AS done",
         [key("sentence 0")])).rows[0]).toEqual({ done: true });
+      // Round 3: a removal whose finding changed while it was judged is put back, its dispute handed back unresolved.
+      expect((await client.query("SELECT decide_atlas_person_claim('news', 'N-12', $1, 'requeue', NULL, ARRAY[]::text[], ARRAY[]::text[], 2, 'changed', now()) AS done",
+        [key("sentence 1")])).rows[0]).toEqual({ done: true });
+      expect((await client.query("SELECT outcome, resolved_at FROM atlas_person_disputes WHERE dispute_number = 2")).rows[0])
+        .toEqual({ outcome: "queued", resolved_at: null });
+      expect((await client.query("SELECT removal_number FROM atlas_person_removed_texts_for(ARRAY[1, 2, 3]::bigint[])")).rows)
+        .toEqual([{ removal_number: "3" }]);
+      expect((await client.query("SELECT context_keys FROM atlas_person_removals WHERE removal_number = 3")).rows[0])
+        .toEqual({ context_keys: ["topic:velmor-syndrome"] });
+      // The public history: 20 taken off, then two put back; no words.
+      expect((await client.query("SELECT state, count(*)::int AS n FROM atlas_person_changes GROUP BY state ORDER BY state")).rows)
+        .toEqual([{ state: "restored", n: 2 }, { state: "taken_off", n: 20 }]);
+      // The owner's notices: the parked digest, the legal letter and the refusal; leased once, delivered, acknowledged.
+      const notices = (await client.query("SELECT notice_number, kind FROM take_atlas_person_notices(10, '2026-11-19T13:00:00Z')")).rows;
+      expect(notices.map(({ kind }) => kind)).toEqual(["legal", "parked", "refusal"]);
+      expect((await client.query("SELECT * FROM take_atlas_person_notices(10, '2026-11-19T13:00:00Z')")).rows).toEqual([]);
+      const legal = notices[0]!.notice_number as string;
+      expect((await client.query("SELECT record_atlas_person_notice($1, 'delivered', NULL, '2026-11-19T13:00:01Z') AS done", [legal])).rows[0]).toEqual({ done: true });
+      expect((await client.query("SELECT record_atlas_person_notice($1, 'acknowledged', 'owner', '2026-11-19T14:00:00Z') AS done", [legal])).rows[0]).toEqual({ done: true });
+      expect((await client.query("SELECT record_atlas_person_notice($1, 'acknowledged', 'owner', '2026-11-19T14:00:00Z') AS done", [legal])).rows[0]).toEqual({ done: false });
+      expect((await client.query("SELECT kind FROM list_atlas_person_notices(10)")).rows.map(({ kind }) => kind)).toEqual(["parked", "refusal"]);
       expect((await client.query("SELECT purge_atlas_person_disputes('2026-11-20T00:00:00Z') AS purged")).rows[0]).toEqual({ purged: 28 });
       expect((await client.query("SELECT count(*)::int AS n FROM atlas_person_disputes WHERE email IS NULL AND what_is_wrong IS NULL AND sentence = 'A sentence.'")).rows[0]).toEqual({ n: 28 });
     } finally {

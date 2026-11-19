@@ -195,7 +195,8 @@ describe("unread, stale, disputed and machine-read (Fable's changes 1, 2, 4; des
     const shown = view(finding, undefined, { removedNames: ["dr invented zentaro"] })!;
     expect(shown.personClaims).toMatchObject({ state: "unread", banner: PERSON_UNREAD_BANNER, noindex: true,
       neutralTitle: "Velmor syndrome: a finding not yet checked for claims about people" });
-    expect(shown.claim).toBe(`Zentarine halved the tremor score. [${PERSON_WAITING}]`);
+    // The owner's fail-safe rule (round 3): an unread finding's claim carries the banner wherever it shows, lists too.
+    expect(shown.claim).toBe(`[${PERSON_UNREAD_BANNER}] Zentarine halved the tremor score. [${PERSON_WAITING}]`);
     expect(machineFinding(shown).claim).toBe(`[${PERSON_UNREAD_BANNER}] Zentarine halved the tremor score. [${PERSON_WAITING}]`);
   });
 

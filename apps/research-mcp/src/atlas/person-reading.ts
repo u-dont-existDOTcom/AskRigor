@@ -14,6 +14,7 @@
  *   under its own daily limit (Fable 4.6c).
  * - A refusal is logged with its category, never the text: the owner asked to hear of every guardrail block (19 Nov).
  */
+import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -22,13 +23,15 @@ import {
   PostgresAtlasPersonClaimStore,
   type AtlasPageSource,
   type AtlasPersonClaimStore,
+  type AtlasPersonNotice,
   type AtlasPersonReading,
   type AtlasPersonSentenceReading,
 } from "@askrigor/evidence-repository";
 
+import { researchContributionReviewConfigFromEnv } from "../config.js";
 import { keyFromSecretFile, type MeaningJudgeClient } from "../meaning-judge.js";
 import { atlasChanges, type AtlasChangeSignal } from "./change-signal.js";
-import { allShown, type ShownFinding } from "./page-data.js";
+import { allShown, glanceSubjectOf, type ShownFinding } from "./page-data.js";
 import {
   PERSON_MAX_SENTENCES,
   PERSON_READING_OUTPUT_SCHEMA,
@@ -36,7 +39,6 @@ import {
   parsePersonReply,
   personBundleOf,
   personDigestOf,
-  personFoldedText,
   personReadingState,
   personSentencesOf,
   relevantRemovalNumbers,
@@ -78,6 +80,15 @@ const PRICES: Readonly<Record<string, Prices>> = {
 const EFFORTS = new Set(["low", "medium", "high"]);
 export const PERSON_READING_DEFAULT_CAP_USD = 1;
 export const PERSON_READING_ATTEMPTS = 3;
+/** How long one process's claim on a digest holds: the longest call the settings allow, and a minute. */
+export const PERSON_READING_LEASE_SECONDS = 660;
+
+/**
+ * What a call counts as having cost: one that failed in transport may still have been charged, so its whole
+ * reservation (the worker and the live test both use this; Codex's second review of B).
+ */
+export const personChargedUsd = (call: Pick<PersonReadingCall, "failure" | "costUsd">, reservedUsd: number) =>
+  call.failure === "error" || call.failure === "timeout" ? Math.max(reservedUsd, call.costUsd) : call.costUsd;
 const DEFAULT_TIMEOUT_SECONDS = 120;
 
 /** Room for thinking and one short line per sentence (Fable's estimate: nearer 800 tokens out than 300). */
@@ -227,7 +238,7 @@ export interface PersonPassReport {
 }
 
 interface Candidate { finding: ShownFinding; reading: AtlasPersonReading | undefined; hintKey: string | null;
-  hintDispute: number | null; digest: string; priority: number }
+  hintDispute: number | null; digest: string; priority: number; relevant: number[] }
 
 const DAY = 24 * 60 * 60 * 1_000;
 
@@ -260,7 +271,10 @@ export class AtlasPersonReadingWorker {
       // Only publications here: a news item's hints are the news pages' (the news design v3, 3.8).
       const hints = new Map((await this.options.store.takeHints("publication", 5, now.toISOString()))
         .map(({ publicationNumber, sentenceKey, disputeNumber }) => [publicationNumber, { sentenceKey, disputeNumber }]));
-      const { candidates, removedNames } = await this.candidates(hints, now);
+      const { candidates, parkedHints } = await this.candidates(hints, now);
+      // A report on a parked finding runs no call (Codex's second review of B): it stays in the main session's queue, and
+      // the owner heard of the parking.
+      for (const dispute of parkedHints) await this.options.store.ackHint(dispute, now.toISOString());
       report.waiting = candidates.length;
       for (const candidate of candidates.slice(0, this.options.perPass ?? 10)) {
         const { finding, digest } = candidate;
@@ -272,9 +286,8 @@ export class AtlasPersonReadingWorker {
           report.failed.push({ publicationNumber: finding.publicationNumber, failure: "too_long", parked: failure.parked });
           continue;
         }
-        const folded = personFoldedText(finding);
-        const names = removedNames.filter((name) => name.length >= 4 && folded.includes(name));
-        const removed = names.length === 0 ? [] : await this.options.store.removedTexts(names);
+        // The taken-off sentences its names or its context make relevant (Codex's second review of B), by number.
+        const removed = candidate.relevant.length === 0 ? [] : await this.options.store.removedTexts(candidate.relevant);
         const bundle = personBundleOf(finding, removed, candidate.hintKey);
         const reserved = this.options.reader.reserveUsd(bundle);
         const allowed = await this.options.store.reserveSpend({ day, amountUsd: reserved, capUsd: this.options.capUsd,
@@ -288,12 +301,17 @@ export class AtlasPersonReadingWorker {
           if (candidate.hintKey === null) break;
           continue;
         }
-        // The attempt counts before the call, so a crash or restart mid-call uses one (Codex's review of B).
-        await this.options.store.recordFailure({ publicationNumber: finding.publicationNumber, digest, at,
-          limit: PERSON_READING_ATTEMPTS, reason: "attempt" });
+        // The one claim on this digest across processes (Codex's second review of B): refused while another process's
+        // call runs, once parked, or once read; its attempt counts before the call, so a crash mid-call uses one.
+        const claim = await this.options.store.claimReading({ publicationNumber: finding.publicationNumber, digest,
+          again: candidate.hintKey !== null, at, limit: PERSON_READING_ATTEMPTS, leaseSeconds: PERSON_READING_LEASE_SECONDS });
+        if (!claim.claimed) {
+          await this.options.store.settleSpend({ day, reservedUsd: reserved, spentUsd: 0 });
+          continue;
+        }
         const call = await this.options.reader.read(finding, bundle);
         // A call that failed in transport may still have been charged: its whole reservation stays spent.
-        const charged = call.failure === "error" || call.failure === "timeout" ? reserved : call.costUsd;
+        const charged = personChargedUsd(call, reserved);
         await this.options.store.settleSpend({ day, reservedUsd: reserved, spentUsd: charged });
         report.costUsd += charged;
         if (call.sentences !== null) {
@@ -320,12 +338,14 @@ export class AtlasPersonReadingWorker {
 
   /** What waits for a reading, the findings unshown until read first, then changed ones, then the backfill. */
   private async candidates(hints: ReadonlyMap<string, { sentenceKey: string; disputeNumber: number }>, now: Date):
-    Promise<{ candidates: Candidate[]; removedNames: string[] }> {
+    Promise<{ candidates: Candidate[]; parkedHints: number[] }> {
     return await this.options.source.read(async (reads) => {
       const person = reads.personClaims;
-      if (person === undefined) return { candidates: [], removedNames: [] };
+      if (person === undefined) return { candidates: [], parkedHints: [] };
       const raw: ShownFinding[] = [];
       for await (const finding of allShown(reads, undefined, true, true)) raw.push(finding);
+      // The owner's curated scorecard rows are read like findings (Codex's second review of B); none shows unread.
+      for (const row of await reads.listGlanceRows()) raw.push(glanceSubjectOf(row));
       const readings = new Map<string, AtlasPersonReading>();
       for (let start = 0; start < raw.length; start += 500) {
         for (const reading of await person.readReadings(raw.slice(start, start + 500).map(({ publicationNumber }) =>
@@ -333,6 +353,7 @@ export class AtlasPersonReadingWorker {
       }
       const memory = await person.listTakenOffMemory();
       const candidates: Candidate[] = [];
+      const parkedHints: number[] = [];
       const seen = new Set<string>();
       for (const finding of raw) {
         if (seen.has(finding.publicationNumber)) continue;
@@ -347,20 +368,118 @@ export class AtlasPersonReadingWorker {
         const parked = reading?.parked === true && reading.attemptDigest === digest;
         const settled = this.lastSeen.get(finding.publicationNumber) === digest;
         this.lastSeen.set(finding.publicationNumber, digest);
-        if (hintKey !== null) { candidates.push({ finding, reading, hintKey, hintDispute, digest, priority: 0 }); continue; }
+        // A parked digest takes no more calls, a report's included (Codex's second review of B).
+        if (hintKey !== null && parked && hintDispute !== null) parkedHints.push(hintDispute);
+        if (hintKey !== null && !parked) {
+          candidates.push({ finding, reading, hintKey, hintDispute, digest, priority: 0, relevant: removals });
+          continue;
+        }
         if (state === "read" || parked) continue;
         if (state === "stale") {
           // Fable 4.6b: a change is read once it has held for a pass, so a flip-flopping state costs nothing.
-          if (settled) candidates.push({ finding, reading, hintKey: null, hintDispute: null, digest, priority: 2 });
+          if (settled) candidates.push({ finding, reading, hintKey: null, hintDispute: null, digest, priority: 2, relevant: removals });
           continue;
         }
-        candidates.push({ finding, reading, hintKey: null, hintDispute: null, digest,
-          priority: shownBeforeMark(finding.publishedAt, person.since, now) ? 3 : 1 });
+        candidates.push({ finding, reading, hintKey: null, hintDispute: null, digest, relevant: removals,
+          priority: finding.publicationNumber.startsWith("G-") || !shownBeforeMark(finding.publishedAt, person.since, now)
+            ? 1 : 3 });
       }
       candidates.sort((left, right) => left.priority - right.priority);
-      return { candidates, removedNames: await person.listRemovedNames() };
+      return { candidates, parkedHints };
     });
   }
+}
+
+/** The owner's channel for notices: an https address and a 32-byte base64url secret that signs each one. */
+export interface PersonOwnerChannel { url: string; secret: string }
+
+export function personOwnerChannelFromEnv(env: NodeJS.ProcessEnv = process.env): PersonOwnerChannel | undefined {
+  const url = env.ASKRIGOR_ATLAS_PERSON_NOTICE_URL?.trim();
+  const secret = env.ASKRIGOR_ATLAS_PERSON_NOTICE_SECRET?.trim();
+  if (url === undefined || url === "" || secret === undefined || !/^[A-Za-z0-9_-]{43}$/u.test(secret)) return undefined;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol !== "https:" || parsed.username !== "" || parsed.password !== "" ? undefined
+      : { url: parsed.href, secret };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * One delivery pass (Codex's reviews of B, owner delivery): each due notice goes to the owner's channel, signed, with
+ * only its kind, subject, dispute number and class (no dispute's words, names, link or email address); a 2xx reply is
+ * its receipt. Unacknowledged, it goes again a day later. Without a channel, nothing is sent and the log says how many
+ * wait, at most hourly.
+ */
+export async function deliverAtlasPersonNotices(store: AtlasPersonClaimStore, channel: PersonOwnerChannel | undefined,
+  options: { fetch?: typeof fetch; now?: () => Date; log?: (line: string) => void } = {}):
+  Promise<{ delivered: number; failed: number }> {
+  const now = options.now ?? (() => new Date());
+  const log = options.log ?? ((line: string) => console.error(`atlas person notices: ${line}`));
+  if (channel === undefined) {
+    const waiting = (await store.listNotices(500)).filter(({ deliveredAt }) => deliveredAt === null || deliveredAt === undefined);
+    if (waiting.length > 0) log(`owner_channel_not_set waiting=${waiting.length} legal=${waiting.filter(({ kind }) => kind === "legal").length}`);
+    return { delivered: 0, failed: 0 };
+  }
+  const send = options.fetch ?? fetch;
+  let delivered = 0;
+  let failed = 0;
+  for (const notice of await store.takeNotices(20, now().toISOString())) {
+    const body = JSON.stringify(noticeBody(notice));
+    const signature = createHmac("sha256", Buffer.from(channel.secret, "base64url")).update(body).digest("hex");
+    try {
+      const response = await send(channel.url, { method: "POST", body, redirect: "error",
+        headers: { "content-type": "application/json", "x-askrigor-signature": `sha256=${signature}` },
+        signal: AbortSignal.timeout(10_000) });
+      if (response.ok) {
+        await store.recordNotice(notice.noticeNumber, "delivered", null, now().toISOString());
+        delivered += 1;
+      } else {
+        failed += 1;
+      }
+    } catch {
+      failed += 1;
+    }
+  }
+  if (failed > 0) log(`delivery_failed count=${failed}`);
+  return { delivered, failed };
+}
+
+const noticeBody = (notice: AtlasPersonNotice) => ({ type: "askrigor.atlas.person_notice", notice: notice.noticeNumber,
+  kind: notice.kind, subjectKind: notice.subjectKind, subject: notice.publicationNumber, dispute: notice.disputeNumber,
+  detail: notice.detail, createdAt: notice.createdAt, attempt: notice.attempts,
+  acknowledge: `node apps/research-mcp/dist/atlas/person-claims-admin.js ack ${notice.noticeNumber} owner` });
+
+/** The owner's notices: a delivery pass every minute with a channel, else an hourly count in the log. */
+export function startAtlasPersonNotices(store: AtlasPersonClaimStore, channel: PersonOwnerChannel | undefined,
+  options: Parameters<typeof deliverAtlasPersonNotices>[2] = {}): () => void {
+  const log = options.log ?? ((line: string) => console.error(`atlas person notices: ${line}`));
+  const run = () => { void deliverAtlasPersonNotices(store, channel, options).catch(() => log("pass_failed")); };
+  run();
+  const timer = setInterval(run, channel === undefined ? 60 * 60_000 : 60_000);
+  timer.unref?.();
+  return () => clearInterval(timer);
+}
+
+/**
+ * Retention and the owner's notices, whenever the review role is configured, before the pages' own switch is read: the
+ * pages, the mark, the key and the reading may each be off, and both still run (Codex's second review of B).
+ */
+export function startAtlasPersonRetentionFromEnv(env: NodeJS.ProcessEnv = process.env):
+  { store?: PostgresAtlasPersonClaimStore; stop: () => void } {
+  let review: ReturnType<typeof researchContributionReviewConfigFromEnv>;
+  try {
+    review = researchContributionReviewConfigFromEnv(env);
+  } catch {
+    review = undefined;
+  }
+  if (review === undefined) return { stop: () => undefined };
+  const store = new PostgresAtlasPersonClaimStore({ connectionString: review.connectionString, schema: review.schema,
+    ssl: review.ssl as never });
+  const stopPurge = startAtlasPersonPurge(store);
+  const stopNotices = startAtlasPersonNotices(store, personOwnerChannelFromEnv(env));
+  return { store, stop: () => { stopPurge(); stopNotices(); } };
 }
 
 /** The deletion of dispute texts, links and email addresses after 90 days: at start, then every 6 hours. */
@@ -394,17 +513,12 @@ export function personReadingCapFromEnv(env: NodeJS.ProcessEnv = process.env): n
 }
 
 /**
- * The dispute store and the worker, from the environment, while the mark is on: the store through the review role, the
- * worker only when the reader is configured too. Undefined store when the review role isn't configured.
+ * The dispute store and the worker, from the environment, while the mark is on: the store is retention's (the review
+ * role), the worker runs only when the reader is configured too. Undefined store when the review role isn't configured.
  */
 export function startAtlasPersonClaimsFromEnv(env: NodeJS.ProcessEnv, source: AtlasPageSource | undefined,
-  review: { connectionString: string; schema: string; ssl?: unknown } | undefined, markOn = true):
-  { store?: AtlasPersonClaimStore; stop?: () => void } {
-  if (review === undefined) return {};
-  const store = new PostgresAtlasPersonClaimStore({ connectionString: review.connectionString, schema: review.schema,
-    ssl: review.ssl as never });
-  // Retention runs whatever the mark, the key or the reading do (Codex's review of B): dispute texts go after 90 days.
-  startAtlasPersonPurge(store);
+  store: AtlasPersonClaimStore | undefined, markOn = true): { store?: AtlasPersonClaimStore; stop?: () => void } {
+  if (store === undefined) return {};
   if (!markOn || source === undefined) return { store };
   const reader = createPersonReader({ env });
   if (reader === undefined) return { store };

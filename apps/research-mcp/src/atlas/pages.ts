@@ -1497,6 +1497,13 @@ function changeWords(entry: AtlasChangeEntry): SafeHtml {
         : html`Label changed from ${LABEL_WORDS[entry.labelBefore]} to ${LABEL_WORDS[entry.labelAfter]}`;
     case "withdrawn":
       return html`Withdrawn`;
+    // Atlas Release B (design 4.6): fixed words only; the finding's own page says what is there now.
+    case "person_taken_off":
+      return html`A claim about a named person was taken off after it was disputed`;
+    case "person_disputed":
+      return html`A claim about a named person was disputed; AskRigor is rechecking it`;
+    case "person_restored":
+      return html`A claim about a named person was put back`;
   }
 }
 

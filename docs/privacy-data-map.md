@@ -2358,13 +2358,24 @@ Off until `ASKRIGOR_ATLAS_PERSON_MARK` names the instant it was switched on (des
   both readable by the public runtime's reader, which needs them to render. `atlas_person_removed_texts` (a taken-off
   sentence's words), `atlas_person_disputes` (message, optional link and email, a daily key of the sender's address,
   never the address) and `atlas_person_reading_spend`: refused to the reader; the review role reaches them only through
-  the migration's SECURITY DEFINER functions.
-- **Deletion.** A dispute's message, link and email go after 90 days (the worker's daily purge); its short record
+  the migration's SECURITY DEFINER functions. A removal also keeps its finding's context (the topic key and its
+  sources' identifiers, no personal data), so findings sharing it are read again with the removed words.
+  `atlas_person_changes` (the public history: subject, state, date; no words, no names) is the reader's, for the changes
+  page. `atlas_person_owner_notices` (kind, subject, dispute number, a class such as `refusal:cyber`, delivery and
+  acknowledgement times) is refused to the reader.
+- **The owner's channel.** Each notice (a legal letter or data request, a refusal, a parked finding, a claim taken off
+  or disputed on a finding the owner checked) is posted, signed, to `ASKRIGOR_ATLAS_PERSON_NOTICE_URL` (https) until it
+  is delivered, and again daily until acknowledged. The post holds only the notice's kind, subject, dispute number and
+  class: never a dispute's message, link, email address, names or the sentence.
+- **Deletion.** A dispute's message, link and email go after 90 days (a purge that runs whenever the review role is
+  configured, pages or mark on or off); its short record
   (date, publication, sentence, outcome, whether it read as a legal or data request) stays. A taken-off sentence's
   words and folded names go after three years.
 - **Pages.** An unverified claim about a person shows with its fixed mark, is never in a title, description or the
   sitemap, keeps its page out of search engines, and is left out of the Atlas lookup with a line saying so. A finding
-  first published after the switch-on is not shown until it is read.
+  first published after the switch-on is not shown until it is read; an earlier one shows its banner wherever its claim
+  shows. The owner's public change notes and curated scorecard rows are read the same way; a curated row shows only once
+  read, with an unverified claim about a person left out.
 
 ## Research data not persistently stored
 

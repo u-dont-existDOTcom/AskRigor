@@ -33,7 +33,7 @@ import {
   personDisputeReply,
   renderAtlasPersonDispute,
 } from "./person-dispute-pages.js";
-import { personMarkSinceFromEnv, startAtlasPersonClaimsFromEnv } from "./person-reading.js";
+import { personMarkSinceFromEnv, startAtlasPersonClaimsFromEnv, startAtlasPersonRetentionFromEnv } from "./person-reading.js";
 import {
   addressLimitKey,
   createTokenBucketLimiter,
@@ -1207,7 +1207,19 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         personDisputePath(publicationNumber));
       return;
     }
-    const result = await store.submitDispute(parsed.input);
+    let result = await store.submitDispute(parsed.input);
+    // Codex's second review of B: an automatic removal stands only if the finding did not change while it was judged.
+    // The page is read again after it; a change to its texts or evidence puts the sentence back and hands the dispute
+    // to the main session (the transaction itself held the reading's row against a new reading).
+    if (result.outcome === "taken_off" && !result.duplicate && result.disputeNumber !== null) {
+      const after = await loadAtlasFinding(source, publicationNumber);
+      if (after?.finding.personClaims?.contentDigest !== model.finding.personClaims.contentDigest) {
+        await store.decide({ publicationNumber, sentenceKey: parsed.input.sentenceKey, action: "requeue", sentence: null,
+          foldedNames: [], contextKeys: [], disputeNumber: result.disputeNumber,
+          resolution: "the finding changed while the dispute was judged", at: new Date().toISOString() });
+        result = { ...result, outcome: "queued" };
+      }
+    }
     if (result.outcome === "taken_off" || result.outcome === "marked_disputed") {
       cache.clear();
       searchIndex.clear();
@@ -1683,6 +1695,9 @@ export function atlasOwnerFromEnv(env: NodeJS.ProcessEnv, settings: AtlasPartici
  */
 export function createAtlasPagesHandlerFromEnv(env: NodeJS.ProcessEnv = process.env, shared: AtlasPagesSharedParts = {}):
   AtlasPagesHandler {
+  // Atlas Release B: the dispute texts' 90-day deletion and the owner's notices run whenever the review role is
+  // configured, before the pages' own switch is read (Codex's second review of B): pages or mark off, they still run.
+  const retention = startAtlasPersonRetentionFromEnv(env);
   if (!atlasPagesEnabledFromEnv(env.ASKRIGOR_ATLAS_PAGES)) return createAtlasPagesHandler({ enabled: false });
   let source: AtlasPageSource | undefined;
   // Atlas Release B: the whole feature is off until ASKRIGOR_ATLAS_PERSON_MARK names when it was switched on.
@@ -1701,14 +1716,7 @@ export function createAtlasPagesHandlerFromEnv(env: NodeJS.ProcessEnv = process.
   } catch {
     source = undefined;
   }
-  let review: { connectionString: string; schema: string; ssl?: unknown } | undefined;
-  try {
-    review = researchContributionReviewConfigFromEnv(env) as typeof review;
-  } catch {
-    review = undefined;
-  }
-  // The dispute texts' 90-day deletion runs whenever the review role is configured, the mark on or off.
-  const started = startAtlasPersonClaimsFromEnv(env, source, review, personSince !== undefined);
+  const started = startAtlasPersonClaimsFromEnv(env, source, retention.store, personSince !== undefined);
   const personClaims: { store?: AtlasPersonClaimStore } | undefined = personSince === undefined || source === undefined
     ? undefined : started.store === undefined ? {} : { store: started.store };
   const participation = atlasParticipationFromEnv(env, shared);

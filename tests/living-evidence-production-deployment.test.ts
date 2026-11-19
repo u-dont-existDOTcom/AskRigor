@@ -40,8 +40,9 @@ const ATLAS_SHOW_FUNCTIONS = ["show_atlas_publications"];
 // Atlas Release B (migration 0042): the person-claim readings, disputes, decisions, spend and the 90-day purge of
 // dispute texts that the privacy notice promises.
 const ATLAS_PERSON_FUNCTIONS = ["save_atlas_person_reading", "fail_atlas_person_reading", "reserve_atlas_person_spend",
-  "settle_atlas_person_spend", "submit_atlas_person_dispute", "decide_atlas_person_claim", "list_atlas_person_queue",
-  "take_atlas_person_hints", "ack_atlas_person_hint", "atlas_person_removed_texts_for", "purge_atlas_person_disputes"];
+  "settle_atlas_person_spend", "claim_atlas_person_reading", "submit_atlas_person_dispute", "decide_atlas_person_claim",
+  "list_atlas_person_queue", "take_atlas_person_hints", "ack_atlas_person_hint", "atlas_person_removed_texts_for",
+  "take_atlas_person_notices", "record_atlas_person_notice", "list_atlas_person_notices", "purge_atlas_person_disputes"];
 const ATLAS_PARTICIPATION_FUNCTIONS = [
   "inspect_atlas_participant", "set_atlas_display_name", "set_atlas_vote", "post_atlas_comment", "delete_atlas_comment",
   "report_atlas_comment", "end_atlas_sessions", "atlas_session_current", "forget_atlas_participant",
@@ -291,7 +292,7 @@ describe("production living-evidence deployment", () => {
     // 0022's five moderation functions (decision 171), and since then 0024's, 0025's, 0026's, 0027's and 0030's,
     // 0037's dossier erasure (AskRigor#477 stage 1), 0041's showing that records how, and 0042's ten person-claim
     // functions (Atlas Release B).
-    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(49);
+    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(53);
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failure_code text");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failed_at timestamptz");
     expect(migration).toContain("(status = 'FAILED' AND completed_at IS NULL");
@@ -648,7 +649,7 @@ describe("production living-evidence deployment", () => {
         ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS,
         ...ATLAS_CHALLENGE_FUNCTIONS, ...ATLAS_SHOW_FUNCTIONS, ...ATLAS_PERSON_FUNCTIONS]);
     // With the three contribution functions, migration 0019's six (owner answer 173) and 0037's dossier erasure.
-    expect(granted).toHaveLength(49);
+    expect(granted).toHaveLength(53);
     // Each grant names the function's exact signature, as the migration's REVOKE does.
     const signature = (text: string, prefix: string) => {
       const start = text.indexOf(prefix) + prefix.length;

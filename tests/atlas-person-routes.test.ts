@@ -3,8 +3,10 @@ import type { AddressInfo } from "node:net";
 import { describe, expect, it } from "vitest";
 
 import {
+  InMemoryAtlasGlanceRows,
   InMemoryAtlasPageSource,
   InMemoryAtlasPersonClaims,
+  type AtlasPageSource,
   InMemoryAtlasPublicationStore,
   RESEARCH_USE_NOTICE_VERSION,
 } from "@askrigor/evidence-repository";
@@ -14,7 +16,8 @@ import { HEALTH } from "../apps/research-mcp/src/atlas/health-tree.js";
 import { AtlasKeptReview } from "../apps/research-mcp/src/atlas/kept-review.js";
 import { lookupAtlas } from "../apps/research-mcp/src/atlas/lookup-tool.js";
 import { createAtlasPagesHandler, type CreateAtlasPagesHandlerOptions } from "../apps/research-mcp/src/atlas/pages-http.js";
-import { personSentenceKey } from "../apps/research-mcp/src/atlas/person-claims.js";
+import { loadAtlasFinding } from "../apps/research-mcp/src/atlas/page-data.js";
+import { personContextKeys, personSentenceKey } from "../apps/research-mcp/src/atlas/person-claims.js";
 import { AtlasPersonReadingWorker, createPersonReader } from "../apps/research-mcp/src/atlas/person-reading.js";
 import { AtlasCardPublisher } from "../apps/research-mcp/src/atlas/publication.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
@@ -68,6 +71,10 @@ async function scenario() {
   const source = new InMemoryAtlasPageSource({ publications, personClaims: { since: MARK_SINCE, store: person } });
   return { publications, person, source, numbers, now };
 }
+
+const settle = async (done: () => boolean) => {
+  for (let tick = 0; tick < 200 && !done(); tick += 1) await new Promise((resolve) => setTimeout(resolve, 1));
+};
 
 async function serve(options: CreateAtlasPagesHandlerOptions, work: (base: string) => Promise<void>) {
   const server = createAskRigorHttpServer({ publicServerEnabled: false,
@@ -295,5 +302,143 @@ describe("the reading call (design 5.2; the owner's standing request on refusals
     expect(body).not.toHaveProperty("thinking");
     expect(body).not.toHaveProperty("temperature");
     expect(JSON.stringify(body)).not.toContain("sk-ant-");
+  });
+});
+
+describe("Codex's second review of B, across the routes (the round-3 fixes)", () => {
+  it("reads the owner's curated scorecard rows before they show, and leaves an unverified claim about a person out", async () => {
+    const { person, publications, now } = await scenario();
+    const glance = new InMemoryAtlasGlanceRows();
+    const sub = HEALTH.subcategories[0]!.key;
+    const at = "2026-11-19T09:30:00.000Z";
+    const id = await glance.propose({ categoryKey: HEALTH.key, subcategoryKey: sub, rowClass: "practitioner",
+      what: "The clinic programme", result: "Dr Invented Zentaro faked the clinic results to sell it.", comparison: null,
+      followUp: null, limits: "One clinic, no comparison group.", sources: ["https://example.org/clinic-report"],
+      namesAPerson: false }, at);
+    await glance.setState(id, "shown", at);
+    const source = new InMemoryAtlasPageSource({ publications, glance, personClaims: { since: MARK_SINCE, store: person } });
+    const page = async () => {
+      let body = "";
+      await serve({ enabled: true, source, signal: new AtlasChangeSignal(), personClaims: { store: person } }, async (base) => {
+        body = await (await fetch(`${base}/atlas/health/${sub}`)).text();
+      });
+      return body;
+    };
+    // Unread, the row is not shown at all; read, its unverified claim about a person is left out, its other text shows.
+    expect(await page()).not.toContain("faked the clinic");
+    const reader = ruleReader(rule);
+    await new AtlasPersonReadingWorker({ source, store: person, reader, capUsd: 1, now, log: () => undefined }).pass();
+    expect(reader.calls).toContain(id);
+    const after = await page();
+    expect(after).not.toContain("faked the clinic");
+    expect(after).toContain("A claim about a named person was left out because no source supports it.");
+    expect(after).toContain("The clinic programme");
+  });
+
+  it("lists removals on the changes page in fixed words, and hands back a removal whose finding changed meanwhile", async () => {
+    const { person, source, numbers, now } = await scenario();
+    await new AtlasPersonReadingWorker({ source, store: person, reader: ruleReader(rule), capUsd: 1, now,
+      log: () => undefined }).pass();
+    let changed = false;
+    const store = new Proxy(person, { get(target, property) {
+      if (property === "submitDispute") {
+        return async (input: Parameters<InMemoryAtlasPersonClaims["submitDispute"]>[0]) => {
+          const result = await target.submitDispute(input);
+          changed = true;
+          return result;
+        };
+      }
+      const value = Reflect.get(target, property) as unknown;
+      return typeof value === "function" ? (value as (...args: unknown[]) => unknown).bind(target) : value;
+    } });
+    // The finding's text changes between the form's judgment and the removal's commit.
+    const changing = { read: async (work: Parameters<AtlasPageSource["read"]>[0]) => await source.read(async (reads) =>
+      await work(!changed ? reads : { ...reads, listPublications: async (query) => (await reads.listPublications(query))
+        .map((row) => row.publicationNumber !== numbers.person ? row
+          : JSON.parse(JSON.stringify(row).replace("halved the tremor score", "halved the tremor score (corrected)"))) })) } as
+      unknown as AtlasPageSource;
+    await serve({ enabled: true, source: changing, signal: new AtlasChangeSignal(), personClaims: { store } }, async (base) => {
+      const form = await (await fetch(`${base}/atlas/findings/${numbers.person}/person`)).text();
+      const token = /name="token" value="([A-Za-z0-9_-]+)"/u.exec(form)![1]!;
+      const posted = await fetch(`${base}/atlas/findings/${numbers.person}/person`, { method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded", origin: "https://askrigor.com" },
+        body: new URLSearchParams({ token, sentence: personSentenceKey(PLANTED), what: "False: I sell nothing." }).toString() });
+      expect(posted.status).toBe(200);
+      expect(changed).toBe(true);
+      const queue = await person.listQueue(10);
+      expect(queue.map(({ outcome, sentenceKey }) => [outcome, sentenceKey])).toEqual([["queued", personSentenceKey(PLANTED)]]);
+      const changes = await (await fetch(`${base}/atlas/changes`)).text();
+      expect(changes).toContain("A claim about a named person was taken off after it was disputed");
+      expect(changes).toContain("A claim about a named person was put back");
+      expect(changes).not.toContain("False: I sell nothing");
+    });
+    const finding = (await loadAtlasFinding(source, numbers.person!))!.finding;
+    expect(finding.personClaims!.sentences.find(({ text }) => text === PLANTED)!.verdict).toBe("unverified");
+  });
+
+  it("reads a finding of the same topic again with a removal's words, though it shares no name with it", async () => {
+    const { person, source, numbers, now } = await scenario();
+    await new AtlasPersonReadingWorker({ source, store: person, reader: ruleReader(rule), capUsd: 1, now,
+      log: () => undefined }).pass();
+    const model = (await loadAtlasFinding(source, numbers.person!))!;
+    expect((await person.submitDispute({ idempotencyKey: "context-dispute-00001", publicationNumber: numbers.person!,
+      sentenceKey: personSentenceKey(PLANTED), kind: "wrong", wanted: "taken_off", legal: false, addressKey: "c".repeat(64),
+      foldedNames: ["invented zentaro"], contextKeys: personContextKeys(model.finding), sentence: PLANTED,
+      whatIsWrong: "False.", sourceLink: null, email: null, at: now().toISOString(),
+      readingDigest: model.finding.personClaims!.readingDigest })).outcome).toBe("taken_off");
+    const removed = new Map<string, string>();
+    const reader = ruleReader(rule);
+    const read = reader.read.bind(reader);
+    reader.read = async (finding, bundle) => {
+      removed.set(finding.publicationNumber, JSON.stringify(bundle.taken_off));
+      return await read(finding, bundle);
+    };
+    const worker = new AtlasPersonReadingWorker({ source, store: person, reader, capUsd: 1, now, log: () => undefined });
+    await worker.pass();
+    await worker.pass();
+    expect(removed.get(numbers.plain!)).toContain(PLANTED);
+  });
+
+  it("runs no call on a parked finding for a missed-claim report, and lets one process at a time read a digest", async () => {
+    const { person, source, numbers, now } = await scenario();
+    const failing = new AtlasPersonReadingWorker({ source, store: person, reader: ruleReader(rule), capUsd: 1, now,
+      log: () => undefined });
+    for (let pass = 0; pass < 3; pass += 1) await failing.pass();
+    const legacy = () => person.allReadings().find(({ publicationNumber }) => publicationNumber === numbers.legacy)!;
+    expect(legacy()).toMatchObject({ parked: true, attempts: 3 });
+    expect((await person.listNotices(10)).filter(({ kind }) => kind === "parked").map(({ publicationNumber }) => publicationNumber)
+      .sort()).toEqual([numbers.fresh, numbers.legacy].sort());
+    const sentence = "Dr Legacy Orvane runs the only clinic that sells it.";
+    await person.submitDispute({ idempotencyKey: "parked-missed-000001", publicationNumber: numbers.legacy!,
+      sentenceKey: personSentenceKey(sentence), kind: "missed", wanted: "queued", legal: false, addressKey: "d".repeat(64),
+      foldedNames: [], contextKeys: [], sentence, whatIsWrong: "It names him.", sourceLink: null, email: null,
+      at: now().toISOString(), readingDigest: null });
+    const hinted = ruleReader(rule);
+    await new AtlasPersonReadingWorker({ source, store: person, reader: hinted, capUsd: 1, now, log: () => undefined }).pass();
+    expect(hinted.calls).not.toContain(numbers.legacy);
+    expect(legacy().attempts).toBe(3);
+    // Two processes: while one's call on a digest runs, the other's claim on it is refused.
+    const second = await scenario();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let inFlight: string | undefined;
+    const slow = ruleReader(rule);
+    const slowRead = slow.read.bind(slow);
+    slow.read = async (finding, bundle) => {
+      inFlight ??= finding.publicationNumber;
+      await gate;
+      return await slowRead(finding, bundle);
+    };
+    const first = new AtlasPersonReadingWorker({ source: second.source, store: second.person, reader: slow, capUsd: 1,
+      now: second.now, log: () => undefined, perPass: 1 }).pass();
+    await settle(() => inFlight !== undefined);
+    expect(inFlight).toBeDefined();
+    const other = ruleReader(rule);
+    await new AtlasPersonReadingWorker({ source: second.source, store: second.person, reader: other, capUsd: 1,
+      now: second.now, log: () => undefined }).pass();
+    expect(other.calls).not.toContain(inFlight);
+    release();
+    await first;
+    expect(slow.calls).toEqual([inFlight]);
   });
 });

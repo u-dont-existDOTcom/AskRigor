@@ -183,6 +183,10 @@ function slotsOf(finding: ShownFinding): Slot[] {
     add("challenge.sourceLabel", finding.challenge.sourceLabel,
       (target, text) => { target.challenge!.sourceLabel = text; });
   }
+  // The owner's own texts the pages show with it (its public change notes; a curated scorecard row's texts), read with
+  // it like any other text (Codex's second review of B).
+  (finding.ownerTexts ?? []).forEach((owner, index) => add(`owner.${owner.path}`, owner.text,
+    (target, text) => { target.ownerTexts![index]!.text = text; }));
   return slots;
 }
 
@@ -244,18 +248,35 @@ export function personDigestOf(finding: ShownFinding, removals: readonly number[
     evidence: personEvidenceKey(finding), ...(removals.length === 0 ? {} : { removals: [...removals].sort((a, b) => a - b) }) })}`);
 }
 
-/** The taken-off sentences whose folded names a finding's text holds, by number. */
-export function relevantRemovalNumbers(finding: ShownFinding,
-  memory: ReadonlyArray<{ removalNumber: number; foldedNames: readonly string[] }>): number[] {
+/**
+ * A finding's context, as kept with a removal: its topic and its sources' identifiers. A paraphrase of a taken-off claim
+ * under another name or a role ("the study's lead author") shares no name with it, but shares its topic or sources.
+ */
+export function personContextKeys(finding: ShownFinding): string[] {
+  const ids = [...finding.research.map(({ source }) => source.identifiers), ...finding.sources.map(({ identifiers }) => identifiers)]
+    .flat().map(({ scheme, value }) => `id:${scheme}:${value}`.toLowerCase().slice(0, 200));
+  return [...new Set([...(finding.topic === null ? [] : [`topic:${finding.topic.key}`]), ...ids])].sort().slice(0, 40);
+}
+
+export interface PersonRemovalMemory { removalNumber: number; foldedNames: readonly string[]; contextKeys?: readonly string[] }
+
+/**
+ * The taken-off sentences a finding must be read with, by number: those whose folded names its text holds, and those
+ * taken off a finding of the same topic or sources (Codex's second review of B: identity and context, not names alone).
+ */
+export function relevantRemovalNumbers(finding: ShownFinding, memory: readonly PersonRemovalMemory[]): number[] {
   if (memory.length === 0) return [];
   const folded = personFoldedText(finding);
-  return memory.filter(({ foldedNames }) => foldedNames.some((name) => name.length >= 4 && folded.includes(name)))
+  const context = new Set(personContextKeys(finding));
+  return memory.filter(({ foldedNames, contextKeys }) =>
+    foldedNames.some((name) => name.length >= 4 && folded.includes(name)) ||
+    (contextKeys ?? []).some((key) => context.has(key)))
     .map(({ removalNumber }) => removalNumber);
 }
 
 // The reading's bundle, instructions and reply ------------------------------------------------------------------------
 
-export const PERSON_READING_VERSION = "2026-11-19.1";
+export const PERSON_READING_VERSION = "2026-11-19.2";
 
 export interface PersonBundle {
   sentences: Array<{ n: number; text: string }>;
@@ -312,6 +333,7 @@ For each claim, give:
 - quote: the ref of the kept quote that bears on it (S1.2a, ...), or -.
 - support, for that quote: own (the quote is the source's own statement of what the sentence says: authors declaring their conflicts, a register's entry, the person's own words), reported (the source only reports that someone else claims it), else (the quote says something else: consulting fees are not sales), otherwise (it says the opposite), notfound (the source is the origin but no kept quote says it), or - when there is no source.
 - all: y only if that quote supports every claim about a person in the sentence; one unsupported claim makes it n.
+A sentence that is itself one of the kept quotes is that source's own words: label what it says about the person. Its support is own only when the source states the claim in its own voice (its authors declaring their interests, a register's entry, a result stated as fact, the person's own words), and reported when the source attributes the claim to someone else ("critics have alleged", "he was accused of", "according to", "reportedly"): repeating an allegation does not support it.
 - fav: y if the sentence is favourable to the person (clears them, denies a wrong, credits them), else n.
 - private: y for a private individual (a forum user, a patient, a relative), n for people acting in public (authors, sellers, doctors, public figures).
 - repeats: the taken_off ref this sentence repeats in substance, or -.
@@ -493,8 +515,13 @@ export interface PersonViewSentence {
 
 export interface PersonClaimView {
   state: "read" | "stale" | "unread";
-  /** The reading this view was built from: a dispute's automatic removal is bound to it. */
+  /**
+   * The reading this view was built from, only while it is current for what the page shows: a dispute's automatic
+   * removal is bound to it, and a stale page gives none, so its disputes wait for the main session (Codex, B).
+   */
   readingDigest: string | null;
+  /** The digest of the texts and evidence alone: a dispute checks it again after its removal, to catch a change. */
+  contentDigest: string;
   banner: string | null;
   /** Kept out of search engines, with a neutral title and description (design 4.4). */
   noindex: boolean;
@@ -514,13 +541,22 @@ export interface PersonClaimContext {
   /** The folded names taken off anywhere: needed only while a finding is unread. */
   removedNames: readonly string[];
   now: Date;
-  /** Every taken-off sentence's number and folded names, for the digest (as the worker reads it). */
-  memory?: ReadonlyArray<{ removalNumber: number; foldedNames: readonly string[] }>;
+  /** Every taken-off sentence's number, folded names and context, for the digest (as the worker reads it). */
+  memory?: readonly PersonRemovalMemory[];
+  /** A curated scorecard row: an unverified claim about a person is left out, and an unread row is not shown at all. */
+  leaveOutUnverified?: boolean;
+  hideUnread?: boolean;
   /** Sentences taken off on any publication, by key: the same sentence stays off everywhere. */
   globalRemovals?: readonly AtlasPersonRemoval[];
 }
 
 const QUOTE_PATH = /^research\.\d+\.lines\.\d+\.(?:sentence|conclusion)$/u;
+/**
+ * Words by which a source attributes a claim to someone else. A kept quote about a person that holds one is marked as
+ * the claim its source reports, whatever the reading said (run 6 of the live set: "Critics have alleged that ...").
+ * Fail-safe only: it adds marks, never removes one; the reading's own label covers every language.
+ */
+export const PERSON_REPORTED_WORDS = /\b(?:alleg\w*|accus\w*|claim(?:s|ed|ing)?|reportedly|purported\w*|rumou?r\w*|suspected|critics?|aleg\w*|acus\w*|presunt\w*|angeblich\w*|behaupt\w*|vorgeworfen|prétendu\w*|présum\w*)\b|according to|(?:is|was|were|are) said to|据称|据报道|被指控|指控|声称|涉嫌/iu;
 const TITLE_PATH = /^(?:sources\.\d+\.title|research\.\d+\.title|numbers\.\d+\.source\.title)$/u;
 const STYLED_PATHS = new Set(["claim", "question", "usualAnswer", "appliesTo", "subject", "whyNotUsual",
   "whatWouldChangeIt"]);
@@ -547,11 +583,12 @@ export function personReadingState(finding: ShownFinding, reading: AtlasPersonRe
  * parked unread) and first published after the mark was switched on (Fable 1).
  */
 export function applyPersonClaims(finding: ShownFinding, context: PersonClaimContext): ShownFinding | undefined {
-  const state = personReadingState(finding, context.reading, relevantRemovalNumbers(finding, context.memory ?? []));
+  const relevant = relevantRemovalNumbers(finding, context.memory ?? []);
+  const state = personReadingState(finding, context.reading, relevant);
   const elsewhere = new Map((context.globalRemovals ?? []).filter(({ state: removalState }) => removalState === "taken_off")
     .map((removal) => [removal.sentenceKey, removal]));
   const before = shownBeforeMark(finding.publishedAt, context.since, context.now);
-  if (state === "unread" && !before) return undefined;
+  if (state === "unread" && (!before || context.hideUnread === true)) return undefined;
   const evidence = personEvidenceKey(finding);
   const entries = new Map((context.reading?.sentences ?? []).filter((entry) => state === "read" ||
     entry.label === "none" || entry.evidence === evidence).map((entry) => [entry.key, entry]));
@@ -583,7 +620,27 @@ export function applyPersonClaims(finding: ShownFinding, context: PersonClaimCon
   }
   const titleShows = (title: string | null) => title === null ||
     !piecesOf(title).some(({ text }) => unverifiedTexts.has(text));
-  const viewSentences: PersonViewSentence[] = [];
+  // A repeat of a taken-off claim stays off; the sensitive group, or a curated row, leaves an unverified one out.
+  const guarded = (verdict: PersonVerdict, entry: AtlasPersonSentenceReading | undefined): PersonVerdict => {
+    if (verdict.kind !== "unverified" || entry === undefined) return verdict;
+    const repeated = entry.repeats === null ? undefined
+      : context.removals.find(({ removalNumber, state: removalState }) => removalNumber === entry.repeats &&
+        removalState === "taken_off");
+    if (repeated !== undefined) return { kind: "taken_off", day: repeated.changedAt.slice(0, 10) };
+    if (verdict.aboutPerson && (context.leaveOutUnverified === true || (ATLAS_PERSON_SENSITIVE_GROUP === "leave_out" &&
+      (ATLAS_PERSON_SENSITIVE_KINDS.has(verdict.claimKind) || entry.privateIndividual)))) return { kind: "left_out" };
+    return verdict;
+  };
+  // What a source reports, as its own line: for a kept quote about a person that the reading or its own words leave in
+  // doubt, and for a sentence whose "source says" note would quote words the page does not show plain.
+  const reported = (entry: AtlasPersonSentenceReading, researchIndex: number | undefined): PersonVerdict => {
+    const kind = entry.kind ?? "other";
+    const research = researchIndex === undefined ? undefined : finding.research[researchIndex];
+    const title = research === undefined || !titleShows(research.source.title) ? null : shortTitle(research.source.title);
+    return { kind: "unverified", claimKind: kind, origin: { type: "reported", title, accusation: ACCUSATIONS.has(kind) },
+      href: null, aboutPerson: entry.label !== "organization" };
+  };
+  const researchOfPath = (path: string) => Number(/^research\.(\d+)\./u.exec(path)?.[1] ?? Number.NaN);
   for (const sentence of sentences) {
     const entry = entries.get(sentence.key);
     let verdict = verdicts.get(sentence.key)!;
@@ -592,28 +649,55 @@ export function applyPersonClaims(finding: ShownFinding, context: PersonClaimCon
     if (verdict.kind === "unverified" && sentence.paths.every((path) => TITLE_PATH.test(path))) {
       verdict = { ...verdict, origin: { type: "title" }, href: null };
     }
-    // A kept quote is its source's own words, found word for word: it is shown as the quote it is, and marked only when
-    // the reading says the source merely reports someone else's claim ("An accusation made in [source] ...").
-    if (sentence.paths.every((path) => QUOTE_PATH.test(path)) && (verdict.kind === "sourced" ||
-      (verdict.kind === "unverified" && entry?.support !== "reported_claim"))) verdict = { kind: "plain" };
-    if (verdict.kind === "unverified" && entry !== undefined) {
-      const repeated = entry.repeats === null ? undefined
-        : context.removals.find(({ removalNumber, state: removalState }) => removalNumber === entry.repeats &&
-          removalState === "taken_off");
-      if (repeated !== undefined) verdict = { kind: "taken_off", day: repeated.changedAt.slice(0, 10) };
-      else if (verdict.aboutPerson && ATLAS_PERSON_SENSITIVE_GROUP === "leave_out" &&
-        (ATLAS_PERSON_SENSITIVE_KINDS.has(verdict.claimKind) || entry.privateIndividual)) verdict = { kind: "left_out" };
+    // A kept quote is its source's own words, found word for word. About a person, it shows as the quote it is only when
+    // the reading says the source states it in its own voice, fully, and its words attribute it to no one else; anything
+    // doubtful is marked as the claim its source reports (Codex's second review of B; run 6 of the live set). A
+    // company's quote is marked only when the reading says the source merely reports it.
+    if (sentence.paths.every((path) => QUOTE_PATH.test(path)) && entry !== undefined &&
+      (verdict.kind === "sourced" || verdict.kind === "unverified")) {
+      const aboutPerson = entry.label !== "organization";
+      const settled = verdict.kind === "sourced" && !PERSON_REPORTED_WORDS.test(sentence.text);
+      verdict = aboutPerson ? settled ? { kind: "plain" } : reported(entry, researchOfPath(sentence.paths[0]!))
+        : verdict.kind === "sourced" || entry.support !== "reported_claim" ? { kind: "plain" }
+          : reported(entry, researchOfPath(sentence.paths[0]!));
     }
-    verdicts.set(sentence.key, verdict);
-    viewSentences.push({ key: sentence.key, text: sentence.text, verdict: verdict.kind, label: entry?.label ?? null,
-      favourable: entry?.favourable === true, foldedNames: entry?.foldedNames ?? [],
-      disputed: removals.get(sentence.key)?.state === "disputed" });
+    verdicts.set(sentence.key, guarded(verdict, entry));
   }
+  // A "source says" note quotes its words only as the page shows them (Codex's second review of B): when any sentence of
+  // the quote is taken off, left out, waiting or marked, the note gives the quote up, and its sentence takes the most
+  // guarded of those states, so removed or marked words never come back inside another sentence's note.
+  const RANK: Readonly<Record<PersonVerdict["kind"], number>> = { plain: 0, sourced: 0, unverified: 1, waiting: 2,
+    left_out: 3, taken_off: 4 };
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const sentence of sentences) {
+      const verdict = verdicts.get(sentence.key)!;
+      if (verdict.kind !== "sourced") continue;
+      let strongest: PersonVerdict | undefined;
+      for (const piece of piecesOf(verdict.quote)) {
+        if (piece.key === "") continue;
+        const shownAs = verdicts.get(piece.key) ?? { kind: "waiting" as const };
+        if (RANK[shownAs.kind] > (strongest === undefined ? 0 : RANK[strongest.kind])) strongest = shownAs;
+      }
+      if (strongest === undefined) continue;
+      const entry = entries.get(sentence.key)!;
+      verdicts.set(sentence.key, strongest.kind === "unverified"
+        ? guarded(reported(entry, entry.origin?.type === "research" ? entry.origin.index : undefined), entry) : strongest);
+      changed = true;
+    }
+  }
+  const viewSentences: PersonViewSentence[] = sentences.map((sentence) => {
+    const entry = entries.get(sentence.key);
+    return { key: sentence.key, text: sentence.text, verdict: verdicts.get(sentence.key)!.kind,
+      label: entry?.label ?? null, favourable: entry?.favourable === true, foldedNames: entry?.foldedNames ?? [],
+      disputed: removals.get(sentence.key)?.state === "disputed" };
+  });
   const shown = structuredClone(finding);
   const segments: Record<string, PersonSegment[]> = {};
   const machine: Record<string, string> = {};
   let unverifiedPerson = false;
   let waiting = false;
+  const unread = state === "unread";
   for (const slot of slotsOf(finding)) {
     const parts: PersonSegment[] = [];
     let page = "";
@@ -666,16 +750,21 @@ export function applyPersonClaims(finding: ShownFinding, context: PersonClaimCon
       page += piece.segment.replace(piece.text, () => pagePart);
       machineText += piece.segment.replace(piece.text, () => machinePart);
     }
+    // An unread finding's text never shows plain (the owner's fail-safe rule for this round): its claim carries the
+    // banner wherever it is shown, lists and machine output too; its own page shows the banner apart.
+    if (unread && slot.path === "claim") {
+      page = `[${PERSON_UNREAD_BANNER}] ${page}`;
+      machineText = `[${PERSON_UNREAD_BANNER}] ${machineText}`;
+    }
     slot.set(shown, page);
     if (machineText !== page) machine[slot.path] = machineText;
     if (STYLED_PATHS.has(slot.path)) segments[slot.path] = parts;
   }
-  const unread = state === "unread";
   const banner = unread ? PERSON_UNREAD_BANNER : null;
-  if (unread) machine.claim = `[${PERSON_UNREAD_BANNER}] ${machine.claim ?? shown.claim}`;
   const noindex = unread || waiting || unverifiedPerson;
   shown.personClaims = {
-    state, readingDigest: context.reading?.digest ?? null, banner, noindex,
+    state, readingDigest: state === "read" ? context.reading?.digest ?? null : null, contentDigest: personDigestOf(finding),
+    banner, noindex,
     neutralTitle: noindex ? personNeutralTitle(finding, unread || (waiting && !unverifiedPerson)) : null,
     neutralDescription: noindex ? unread || (waiting && !unverifiedPerson) ? PERSON_UNREAD_DESCRIPTION
       : PERSON_NEUTRAL_DESCRIPTION : null,

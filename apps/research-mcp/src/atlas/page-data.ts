@@ -19,6 +19,7 @@ import type {
   AtlasPageSource,
   AtlasPageSourceIdentifiers,
   AtlasPageSourceScheme,
+  AtlasGlanceRow,
   AtlasPersonReading,
   AtlasPersonRemoval,
   AtlasPublicationRoute,
@@ -44,7 +45,7 @@ import {
 
 import { ATLAS_TOPIC_FAMILIES, atlasSearchFamily, atlasTopicFamily, type AtlasTopicFamily } from "./topic-families.js";
 import { applyPersonClaims, personKeptOutOfSearch, personReadingState, personSentencesOf, relevantRemovalNumbers,
-  type PersonClaimView } from "./person-claims.js";
+  type PersonClaimContext, type PersonClaimView } from "./person-claims.js";
 
 /**
  * What the public Atlas pages show (decision 171, section 4C; plan
@@ -226,6 +227,11 @@ export interface ShownFinding {
    * above are then the pages' own, each unsupported claim about a named person with its mark before it.
    */
   personClaims?: PersonClaimView;
+  /**
+   * Atlas Release B, while the mark is on: the owner's own texts shown with it (its public change notes; a curated
+   * scorecard row's texts), read with it like its other texts (Codex's second review of B).
+   */
+  ownerTexts?: Array<{ path: string; text: string }>;
 }
 
 /** A finding's challenge mark as its pages show it: never who marked it. */
@@ -337,7 +343,9 @@ export interface AtlasFindingParticipationView {
   olderHref: string | null;
 }
 
-export type AtlasChangeEntryKind = "published" | AtlasPageChangeKind;
+/** Atlas Release B: a claim about a named person taken off, disputed or put back (the public history, design 4.6). */
+export type AtlasPersonChangeEntryKind = "person_taken_off" | "person_disputed" | "person_restored";
+export type AtlasChangeEntryKind = "published" | AtlasPageChangeKind | AtlasPersonChangeEntryKind;
 
 export interface AtlasChangeEntry {
   at: string;
@@ -784,7 +792,66 @@ async function shownFindings(reads: AtlasPageReads, publications: readonly Atlas
     const finding = shownFindingOf(publication, findings);
     return finding === undefined ? [] : [finding];
   });
+  // Atlas Release B, while the mark is on: a finding's public change notes are read with it, on every path alike.
+  if (reads.personClaims !== undefined) await withChangeNotes(reads, shown);
   return raw ? shown : await markedFindings(reads, shown);
+}
+
+/** Where one public change note sits among a finding's owner texts: stable as more notes come. */
+export const changeNotePath = (change: { kind: string; decidedAt: string }) => `change.${change.kind}.${change.decidedAt}`;
+
+async function withChangeNotes(reads: AtlasPageReads, shown: ShownFinding[]): Promise<void> {
+  if (!shown.some(({ status }) => status.kind !== "unreviewed")) return;
+  const notes = new Map<string, Array<{ path: string; text: string }>>();
+  for (const change of [...await reads.listChanges(CHANGES_READ)].reverse()) {
+    if (change.kind === "withdrawn" || change.publicNote === null || !passesPageGuard(change.publicNote)) continue;
+    notes.set(change.atlasNumber, [...(notes.get(change.atlasNumber) ?? []),
+      { path: changeNotePath(change), text: change.publicNote }]);
+  }
+  for (const finding of shown) {
+    if (finding.status.kind === "unreviewed") continue;
+    const own = notes.get(finding.status.atlasNumber);
+    if (own !== undefined) finding.ownerTexts = [...(finding.ownerTexts ?? []), ...own.map((note) => ({ ...note }))];
+  }
+}
+
+/** One of the owner's curated scorecard rows as a subject the reading reads like a finding (Codex's second review). */
+export function glanceSubjectOf(row: AtlasGlanceRow): ShownFinding {
+  const at = row.shownAt ?? row.proposedAt;
+  const texts: Array<[string, string | null]> = [["what", row.what], ["result", row.result],
+    ["comparison", row.comparison], ["followUp", row.followUp], ["limits", row.limits]];
+  return {
+    publicationNumber: row.publicId, question: null, usualAnswer: null, links: {} as ShownFinding["links"],
+    status: { kind: "unreviewed" }, topic: null, claim: "", certainty: null, appliesTo: null, kind: null, subject: null,
+    subjectType: null, direction: null, numbers: [], searches: [], sources: [], whyNotUsual: null, whatWouldChangeIt: null,
+    verifiedBases: [], savedOn: at.slice(0, 10), researchCheckedOn: null, askrigorVersion: null, contested: [],
+    replacedBy: [], publishedAt: at, stateChangedAt: at, kept: false, research: [], forumSignal: null, namedVideos: [],
+    aiReadings: null, challenge: null, shownBy: null, shownTestVerdict: null,
+    ownerTexts: texts.flatMap(([path, text]) => text === null ? [] : [{ path: `glance.${path}`, text }]),
+  };
+}
+
+/**
+ * The owner's curated scorecard rows as the pages show them while the mark is on: each read like a finding first (not
+ * shown until it is), and an unverified claim about a person in one left out (no dispute form serves these rows).
+ */
+export async function markedGlanceRows(reads: AtlasPageReads, rows: readonly AtlasGlanceRow[]): Promise<AtlasGlanceRow[]> {
+  if (reads.personClaims === undefined || rows.length === 0) return [...rows];
+  const marked = new Map((await markedFindings(reads, rows.map(glanceSubjectOf),
+    { leaveOutUnverified: true, hideUnread: true })).map((subject) => [subject.publicationNumber, subject]));
+  return rows.flatMap((row) => {
+    const subject = marked.get(row.publicId);
+    if (subject === undefined) return [];
+    const text = (path: string) => subject.ownerTexts?.find((owner) => owner.path === `glance.${path}`)?.text;
+    const what = text("what");
+    const result = text("result");
+    const limits = text("limits");
+    const comparison = row.comparison === null ? null : text("comparison");
+    const followUp = row.followUp === null ? null : text("followUp");
+    if (what === undefined || result === undefined || limits === undefined || comparison === undefined ||
+      followUp === undefined) return [];
+    return [{ ...row, what, result, limits, comparison, followUp }];
+  });
 }
 
 /**
@@ -792,7 +859,8 @@ async function shownFindings(reads: AtlasPageReads, publications: readonly Atlas
  * (applyPersonClaims), in the page's own snapshot; unchanged while the mark is off. A finding first published after the
  * mark was switched on and not yet read is left out (Fable's recheck, change 1).
  */
-async function markedFindings(reads: AtlasPageReads, shown: readonly ShownFinding[]): Promise<ShownFinding[]> {
+export async function markedFindings(reads: AtlasPageReads, shown: readonly ShownFinding[],
+  options: Pick<PersonClaimContext, "leaveOutUnverified" | "hideUnread"> = {}): Promise<ShownFinding[]> {
   const person = reads.personClaims;
   if (person === undefined || shown.length === 0) return [...shown];
   const numbers = unique(shown.map(({ publicationNumber }) => publicationNumber));
@@ -819,7 +887,7 @@ async function markedFindings(reads: AtlasPageReads, shown: readonly ShownFindin
   const now = new Date();
   return shown.flatMap((finding) => {
     const marked = applyPersonClaims(finding, { since: person.since, reading: readings.get(finding.publicationNumber),
-      removals, removedNames, now, memory, globalRemovals });
+      removals, removedNames, now, memory, globalRemovals, ...options });
     return marked === undefined ? [] : [marked];
   });
 }
@@ -1503,6 +1571,11 @@ export async function loadAtlasChanges(source: AtlasPageSource): Promise<AtlasCh
       .map((publication) => [publication.publicationNumber, publication])).values()];
     const shown = new Map((await shownFindings(reads, publications))
       .map((finding) => [finding.publicationNumber, finding]));
+    // Atlas Release B, while the mark is on: a note shows only as its finding's reading shows it (Codex's second review).
+    const personOn = reads.personClaims !== undefined;
+    const noteOf = (finding: ShownFinding | null, change: { kind: string; decidedAt: string; publicNote: string | null }) =>
+      !personOn ? change.publicNote : finding === null || change.publicNote === null ? null
+        : finding.ownerTexts?.find(({ path }) => path === changeNotePath(change))?.text ?? null;
     const byAtlasNumber = new Map<string, ShownFinding>();
     for (const publication of [...changedPublications].sort(byPublicationNumber)) {
       const finding = shown.get(publication.publicationNumber);
@@ -1533,7 +1606,7 @@ export async function loadAtlasChanges(source: AtlasPageSource): Promise<AtlasCh
         if (onPages.has(change.atlasNumber)) {
           entries.push({
             at: change.decidedAt, kind: "withdrawn", atlasNumber: change.atlasNumber, finding: null,
-            labelBefore: change.labelBefore, labelAfter: change.labelAfter, note: change.publicNote,
+            labelBefore: change.labelBefore, labelAfter: change.labelAfter, note: noteOf(null, change),
           });
         }
         continue;
@@ -1542,8 +1615,25 @@ export async function loadAtlasChanges(source: AtlasPageSource): Promise<AtlasCh
       if (finding === undefined) continue;
       entries.push({
         at: change.decidedAt, kind: change.kind, atlasNumber: change.atlasNumber, finding,
-        labelBefore: change.labelBefore, labelAfter: change.labelAfter, note: change.publicNote,
+        labelBefore: change.labelBefore, labelAfter: change.labelAfter, note: noteOf(finding, change),
       });
+    }
+    // Atlas Release B: each claim about a named person taken off, disputed or put back, in fixed words (design 4.6).
+    if (reads.personClaims !== undefined) {
+      const personChanges = (await reads.personClaims.listPersonChanges(ATLAS_CHANGE_ENTRIES))
+        .filter(({ subjectKind }) => subjectKind === "publication");
+      const missing = unique(personChanges.map(({ publicationNumber }) => publicationNumber)).filter((number) => !shown.has(number));
+      for (let start = 0; start < missing.length; start += READ_CHUNK) {
+        const more = await reads.listPublications({ publicationNumbers: missing.slice(start, start + READ_CHUNK),
+          limit: READ_CHUNK });
+        for (const finding of await shownFindings(reads, more)) shown.set(finding.publicationNumber, finding);
+      }
+      for (const change of personChanges) {
+        const finding = shown.get(change.publicationNumber);
+        if (finding === undefined) continue;
+        entries.push({ at: change.changedAt, kind: `person_${change.state}`, finding, labelBefore: null, labelAfter: null,
+          atlasNumber: finding.status.kind === "unreviewed" ? null : finding.status.atlasNumber, note: null });
+      }
     }
     entries.sort((left, right) => Date.parse(right.at) - Date.parse(left.at));
     return { entries: entries.slice(0, ATLAS_CHANGE_ENTRIES) };
