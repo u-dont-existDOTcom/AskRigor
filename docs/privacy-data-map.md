@@ -2352,7 +2352,8 @@ Off until `ASKRIGOR_ATLAS_PERSON_MARK` names the instant it was switched on (des
   its sources' titles, identifiers and check states, its kept backing quotes with their sections, whether forum threads
   or videos are named (never their content or posters), and the taken-off sentences whose folded names its text holds.
   The reply is labels only; the server writes every public word. No dispute, email address or reader data is sent.
-- **Tables (migration 0042).** `atlas_person_readings` (per publication: the digest read, a label per sentence with
+- **Tables (migration 0042),** each row keyed by a general subject (`subject_kind`, `subject_id`): a publication now,
+  a news item later with no table change (the Atlas news design v3, 3.8). `atlas_person_readings` (per publication: the digest read, a label per sentence with
   the names as written, folded), `atlas_person_removals` (per disputed sentence: its key, state, folded names, date):
   both readable by the public runtime's reader, which needs them to render. `atlas_person_removed_texts` (a taken-off
   sentence's words), `atlas_person_disputes` (message, optional link and email, a daily key of the sender's address,

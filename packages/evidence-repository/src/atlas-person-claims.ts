@@ -13,6 +13,14 @@ import type { Pool, PoolClient } from "pg";
 
 import { assertSafeAtlasSchema, atlasPool, type PostgresAtlasStoreOptions } from "./atlas-findings.js";
 
+/**
+ * The general subject every row is keyed by (the Atlas news design v3, 3.8): a publication now, a news item ("news",
+ * N-12) from the news release on, with no change to migration 0042's tables. The pages and the worker here act on
+ * publications only.
+ */
+export type AtlasPersonSubjectKind = "publication" | "news";
+export const ATLAS_PERSON_PUBLICATION: AtlasPersonSubjectKind = "publication";
+
 export const ATLAS_PERSON_LABELS = ["none", "person", "organization", "unsure"] as const;
 export type AtlasPersonLabel = typeof ATLAS_PERSON_LABELS[number];
 /** The owner's kinds (19 Nov 2026, 13:17 and 356a): the reading picks one; the server writes its words. */
@@ -130,6 +138,8 @@ export const ATLAS_PERSON_HINTS_PER_DAY = 10;
 
 export interface AtlasPersonQueueItem {
   disputeNumber: number;
+  subjectKind: AtlasPersonSubjectKind;
+  /** The subject's id: a publication number, or a news item's N-number. */
   publicationNumber: string;
   sentenceKey: string;
   kind: "wrong" | "missed";
@@ -143,7 +153,8 @@ export interface AtlasPersonQueueItem {
   sentence: string | null;
 }
 
-export interface AtlasPersonHint { disputeNumber: number; publicationNumber: string; sentenceKey: string }
+export interface AtlasPersonHint { disputeNumber: number; subjectKind: AtlasPersonSubjectKind; publicationNumber: string;
+  sentenceKey: string }
 
 /** The worker's, the dispute form's and the main session's writes, through the review role's functions. */
 export interface AtlasPersonClaimStore {
@@ -190,7 +201,7 @@ const dayOf = (at: string) => at.slice(0, 10);
 
 function readingOf(row: Record<string, unknown>): AtlasPersonReading {
   return {
-    publicationNumber: String(row.publication_number),
+    publicationNumber: String(row.subject_id),
     digest: typeof row.digest === "string" ? row.digest : null,
     sentences: Array.isArray(row.sentences) ? row.sentences as AtlasPersonSentenceReading[] : [],
     readAt: row.read_at === null || row.read_at === undefined ? null : iso(row.read_at as Date),
@@ -204,7 +215,7 @@ function readingOf(row: Record<string, unknown>): AtlasPersonReading {
 function removalOf(row: Record<string, unknown>): AtlasPersonRemoval {
   return {
     removalNumber: Number(row.removal_number),
-    publicationNumber: String(row.publication_number),
+    publicationNumber: String(row.subject_id),
     sentenceKey: String(row.sentence_key),
     state: row.state as AtlasPersonRemovalState,
     foldedNames: Array.isArray(row.folded_names) ? (row.folded_names as unknown[]).map(String) : [],
@@ -219,22 +230,23 @@ export function postgresPersonClaimReads(client: PoolClient, since: string): Atl
     async readReadings(raw) {
       const numbers = validNumbers(raw);
       if (numbers.length === 0) return [];
-      return (await client.query(`SELECT publication_number, digest, sentences, read_at, model, attempt_digest, attempts,
-        parked FROM atlas_person_readings WHERE publication_number = ANY($1::text[])`, [numbers])).rows.map(readingOf);
+      return (await client.query(`SELECT subject_id, digest, sentences, read_at, model, attempt_digest, attempts, parked
+        FROM atlas_person_readings WHERE subject_kind = 'publication' AND subject_id = ANY($1::text[])`, [numbers])).rows
+        .map(readingOf);
     },
     async readRemovals(raw) {
       const numbers = validNumbers(raw);
       if (numbers.length === 0) return [];
-      return (await client.query(`SELECT removal_number, publication_number, sentence_key, state, folded_names, changed_at
-        FROM atlas_person_removals WHERE publication_number = ANY($1::text[]) ORDER BY removal_number`, [numbers])).rows
-        .map(removalOf);
+      return (await client.query(`SELECT removal_number, subject_id, sentence_key, state, folded_names, changed_at
+        FROM atlas_person_removals WHERE subject_kind = 'publication' AND subject_id = ANY($1::text[])
+        ORDER BY removal_number`, [numbers])).rows.map(removalOf);
     },
     async readRemovalsByNumber(raw) {
       const numbers = [...new Set(raw)].filter((number) => Number.isSafeInteger(number) && number > 0).slice(0, 2_000);
       if (numbers.length === 0) return [];
-      return (await client.query(`SELECT removal_number, publication_number, sentence_key, state, folded_names, changed_at
-        FROM atlas_person_removals WHERE removal_number = ANY($1::bigint[]) ORDER BY removal_number`, [numbers])).rows
-        .map(removalOf);
+      return (await client.query(`SELECT removal_number, subject_id, sentence_key, state, folded_names, changed_at
+        FROM atlas_person_removals WHERE subject_kind = 'publication' AND removal_number = ANY($1::bigint[])
+        ORDER BY removal_number`, [numbers])).rows.map(removalOf);
     },
     async listRemovedNames() {
       return (await client.query<{ name: string }>(`SELECT DISTINCT unnest(folded_names) AS name FROM atlas_person_removals
@@ -265,14 +277,14 @@ export class PostgresAtlasPersonClaimStore implements AtlasPersonClaimStore {
 
   async saveReading(input: Parameters<AtlasPersonClaimStore["saveReading"]>[0]): Promise<void> {
     if (!PUBLICATION.test(input.publicationNumber) || !SHA256.test(input.digest)) throw new AtlasPersonClaimQueryError();
-    await this.call("SELECT save_atlas_person_reading($1, $2, $3::jsonb, $4, $5::timestamptz)",
+    await this.call("SELECT save_atlas_person_reading('publication', $1, $2, $3::jsonb, $4, $5::timestamptz)",
       [input.publicationNumber, input.digest, JSON.stringify(input.sentences), input.model, input.at]);
   }
 
   async recordFailure(input: Parameters<AtlasPersonClaimStore["recordFailure"]>[0]) {
     if (!PUBLICATION.test(input.publicationNumber) || !SHA256.test(input.digest)) throw new AtlasPersonClaimQueryError();
     const [row] = await this.call<{ attempts: number; parked: boolean }>(
-      "SELECT attempts, parked FROM fail_atlas_person_reading($1, $2, $3::timestamptz, $4)",
+      "SELECT attempts, parked FROM fail_atlas_person_reading('publication', $1, $2, $3::timestamptz, $4)",
       [input.publicationNumber, input.digest, input.at, input.limit]);
     return { attempts: Number(row?.attempts ?? input.limit), parked: row?.parked !== false };
   }
@@ -293,7 +305,7 @@ export class PostgresAtlasPersonClaimStore implements AtlasPersonClaimStore {
     const limits = ATLAS_PERSON_DISPUTE_LIMITS;
     const [row] = await this.call<{ outcome: AtlasPersonDisputeOutcome; dispute_number: string | null;
       duplicate: boolean }>(
-      `SELECT outcome, dispute_number, duplicate FROM submit_atlas_person_dispute($1, $2, $3, $4, $5, $6, $7, $8::text[],
+      `SELECT outcome, dispute_number, duplicate FROM submit_atlas_person_dispute($1, 'publication', $2, $3, $4, $5, $6, $7, $8::text[],
         $9, $10, $11, $12, $13::timestamptz, $14, $15, $16, $17)`,
       [input.idempotencyKey, input.publicationNumber, input.sentenceKey, input.kind, input.wanted, input.legal,
         input.addressKey, input.foldedNames, input.sentence, input.whatIsWrong, input.sourceLink, input.email, input.at,
@@ -305,7 +317,7 @@ export class PostgresAtlasPersonClaimStore implements AtlasPersonClaimStore {
 
   async decide(input: Parameters<AtlasPersonClaimStore["decide"]>[0]): Promise<boolean> {
     const [row] = await this.call<{ done: boolean }>(
-      "SELECT decide_atlas_person_claim($1, $2, $3, $4, $5::text[], $6, $7, $8::timestamptz) AS done",
+      "SELECT decide_atlas_person_claim('publication', $1, $2, $3, $4, $5::text[], $6, $7, $8::timestamptz) AS done",
       [input.publicationNumber, input.sentenceKey, input.action, input.sentence, input.foldedNames, input.disputeNumber,
         input.resolution, input.at]);
     return row?.done === true;
@@ -313,7 +325,8 @@ export class PostgresAtlasPersonClaimStore implements AtlasPersonClaimStore {
 
   async listQueue(limit: number): Promise<AtlasPersonQueueItem[]> {
     return (await this.call<Record<string, unknown>>("SELECT * FROM list_atlas_person_queue($1)", [limit])).map((row) => ({
-      disputeNumber: Number(row.dispute_number), publicationNumber: String(row.publication_number),
+      disputeNumber: Number(row.dispute_number), subjectKind: row.subject_kind as AtlasPersonSubjectKind,
+      publicationNumber: String(row.subject_id),
       sentenceKey: String(row.sentence_key), kind: row.kind as "wrong" | "missed",
       outcome: row.outcome as AtlasPersonDisputeOutcome, legal: row.legal === true, receivedAt: iso(row.received_at as Date),
       whatIsWrong: (row.what_is_wrong as string | null) ?? null, sourceLink: (row.source_link as string | null) ?? null,
@@ -324,7 +337,8 @@ export class PostgresAtlasPersonClaimStore implements AtlasPersonClaimStore {
   async takeHints(limit: number, at: string): Promise<AtlasPersonHint[]> {
     return (await this.call<Record<string, unknown>>("SELECT * FROM take_atlas_person_hints($1, $2::timestamptz)",
       [limit, at])).map((row) => ({ disputeNumber: Number(row.dispute_number),
-      publicationNumber: String(row.publication_number), sentenceKey: String(row.sentence_key) }));
+      subjectKind: row.subject_kind as AtlasPersonSubjectKind, publicationNumber: String(row.subject_id),
+      sentenceKey: String(row.sentence_key) }));
   }
 
   async removedTexts(foldedNames: readonly string[]) {
@@ -463,7 +477,8 @@ export class InMemoryAtlasPersonClaims implements AtlasPersonClaimStore {
       }
     }
     const disputeNumber = this.disputes.length + 1;
-    this.disputes.push({ disputeNumber, idempotencyKey: input.idempotencyKey, publicationNumber: input.publicationNumber,
+    this.disputes.push({ disputeNumber, subjectKind: ATLAS_PERSON_PUBLICATION, idempotencyKey: input.idempotencyKey,
+      publicationNumber: input.publicationNumber,
       sentenceKey: input.sentenceKey, kind: input.kind, outcome, legal: input.legal, receivedAt: input.at,
       whatIsWrong: input.whatIsWrong, sourceLink: input.sourceLink, email: input.email, sentence: input.sentence,
       addressKey: input.addressKey, foldedNames: input.foldedNames, resolvedAt: null, hintTakenAt: null });
@@ -490,16 +505,16 @@ export class InMemoryAtlasPersonClaims implements AtlasPersonClaimStore {
       (dispute.legal || dispute.outcome !== "taken_off" || dispute.kind === "missed"))
       .sort((left, right) => Number(right.legal) - Number(left.legal) || left.disputeNumber - right.disputeNumber)
       .slice(0, limit).map(({ disputeNumber, publicationNumber, sentenceKey, kind, outcome, legal, receivedAt, whatIsWrong,
-        sourceLink, email, sentence }) => ({ disputeNumber, publicationNumber, sentenceKey, kind, outcome, legal,
-        receivedAt, whatIsWrong, sourceLink, email, sentence }));
+        sourceLink, email, sentence }) => ({ disputeNumber, subjectKind: ATLAS_PERSON_PUBLICATION, publicationNumber,
+        sentenceKey, kind, outcome, legal, receivedAt, whatIsWrong, sourceLink, email, sentence }));
   }
 
   async takeHints(limit: number, at: string): Promise<AtlasPersonHint[]> {
     const hints = this.disputes.filter((dispute) => dispute.hintTakenAt === null && dispute.outcome !== "limited" &&
       (dispute.kind === "missed" || dispute.outcome === "queued")).slice(0, limit);
     for (const hint of hints) hint.hintTakenAt = at;
-    return hints.map(({ disputeNumber, publicationNumber, sentenceKey }) => ({ disputeNumber, publicationNumber,
-      sentenceKey }));
+    return hints.map(({ disputeNumber, publicationNumber, sentenceKey }) => ({ disputeNumber,
+      subjectKind: ATLAS_PERSON_PUBLICATION, publicationNumber, sentenceKey }));
   }
 
   async removedTexts(foldedNames: readonly string[]) {

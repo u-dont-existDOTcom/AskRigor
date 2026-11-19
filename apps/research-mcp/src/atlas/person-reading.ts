@@ -261,7 +261,9 @@ export class AtlasPersonReadingWorker {
         await this.options.store.purgeDisputes(new Date(now.getTime() - 90 * DAY).toISOString());
         this.purgedOn = day;
       }
+      // Only publications here: a news item's hints are the news pages' (the news design v3, 3.8).
       const hints = new Map((await this.options.store.takeHints(5, now.toISOString()))
+        .filter(({ subjectKind }) => subjectKind === "publication")
         .map(({ publicationNumber, sentenceKey }) => [publicationNumber, sentenceKey]));
       const { candidates, removedNames } = await this.candidates(hints, now);
       report.waiting = candidates.length;
