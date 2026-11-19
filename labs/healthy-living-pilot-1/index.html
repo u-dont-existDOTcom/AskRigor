@@ -97,6 +97,7 @@ footer { color: var(--muted); font-size: .9rem; padding: 24px 0 40px; }
 q { quotes: "\201C" "\201D" "\2018" "\2019"; }
 @media (max-width: 40rem) {
   .door { grid-template-columns: 1fr; }
+  .brand { display: none; }
   h1 { font-size: 1.5rem; }
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
@@ -124,16 +125,16 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
 <main id="content" class="wrap">
 
 <section class="card pilot" id="pilot" aria-labelledby="pilot-title">
-  <h1 id="pilot-title">Healthy living: pilot 1</h1>
-  <p><b>This is a pilot: a first test version, being tried before anyone relies on it.</b> It has not yet been tested with the people it is meant for.</p>
-  <p><b>It is not personal medical advice.</b> It does not know you, cannot examine you, and cannot tell you what is wrong. It is not a diagnosis, and it does not replace a doctor.</p>
-  <p>What it is: short things to consider, taken from the health guides of the guides' author, for one adult answering for themselves. Each one shows how well it has been studied.</p>
+  <h1 id="pilot-title">Small things to try for sleep, stress, and your home's air and water</h1>
+  <p><b>Start with the <a href="#help">safety check</a> just below. Then pick one area and see a few things to try.</b></p>
+  <p><b>This is a pilot</b>, a first test version: it has not yet been tried by real users. <b>It is not personal medical advice.</b> It cannot examine you or tell you what is wrong, and it does not replace a doctor.</p>
+  <p>The ideas come from free health guides by one author, linked at the bottom. Words in quotation marks are his own. Each idea says how well it has been studied.</p>
 </section>
 
 <section class="card lead" id="start" aria-label="Before you start">
   <p>Everything you type is saved in this browser as you go.</p>
   <p>Anyone who uses this browser on this computer can read it. Press Clear everything when you finish. <button type="button" class="danger" data-clear>Clear everything</button></p>
-  <p>Nothing is sent online. A private window, or clearing the browser, erases it.</p>
+  <p>Nothing is sent online. A private (incognito) window, or clearing the browser, erases it.</p>
   <p>For adults, answering for themselves. Things to consider, not medical advice.</p>
   <details class="fold"><summary>Why it saves as you go</summary>
     <p>People type a lot, lose it all, and give up. So this page keeps what you type, and tells you so first.</p>
@@ -144,14 +145,14 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       <li>Each browser keeps its own copy; another browser or computer will not have it.</li>
       <li>A private window can save for a while and still lose everything when it closes. The page cannot tell when that will happen.</li>
       <li>A copy you make with Make a copy is an ordinary file, beyond this page's reach.</li>
-      <li>Leaving the page erases no traces on the device, and the page cannot stop monitoring software.</li>
+      <li>Leaving the page erases no traces on the device, such as your browser history, and the page cannot stop spying software someone may have put on this device.</li>
     </ul>
   </details>
 </section>
 
 <section class="card" id="help" aria-labelledby="help-title">
-  <h2 id="help-title">First: is any of this happening now?</h2>
-  <p class="small">Tick any line that is happening now. Its message opens right under it.</p>
+  <h2 id="help-title">Safety check: is any of this happening now?</h2>
+  <p class="small">Tick any line that is happening now, and what to do appears right under it. If none is, press None of these at the end.</p>
 
   <p class="group">Breathing</p>
   <ol class="em" start="1">
@@ -191,23 +192,23 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     <li><label><input type="checkbox" data-em="8"> Throat tight, lips or tongue swelling, wheezing or faint after a food, sting or medicine.</label>
       <div class="msg" id="msg-8" hidden data-callmsg>
         <ul class="steps extra">
-          <li><b>Use an adrenaline pen (an allergy auto-injector) now if you have one.</b> <span class="why">Why: it is made for exactly this, and help may take time to arrive.</span></li>
+          <li><b>Use an adrenaline (epinephrine) pen, such as an EpiPen, now if you have one.</b> <span class="why">Why: it is made for exactly this, and help may take time to arrive.</span></li>
         </ul>
       </div></li>
-    <li><label><input type="checkbox" data-em="9"> Vomiting blood or vomiting that won't stop, black stools with faintness, bleeding that won't stop, no urine all day, or sudden severe belly pain.</label><div class="msg" id="msg-9" hidden data-callmsg></div></li>
+    <li><label><input type="checkbox" data-em="9"> Vomiting blood or vomiting that won't stop, black, tar-like poo with faintness, bleeding that won't stop, no urine all day, or sudden severe belly pain.</label><div class="msg" id="msg-9" hidden data-callmsg></div></li>
     <li><label><input type="checkbox" data-em="10"> Swelling of the face or jaw spreading toward the eye or neck, or trouble swallowing.</label><div class="msg" id="msg-10" hidden data-callmsg></div></li>
     <li><label><input type="checkbox" data-em="11"> A serious injury, or a hard blow to the head or back.</label><div class="msg" id="msg-11" hidden data-callmsg></div></li>
     <li><label><input type="checkbox" data-em="12"> Overheated, and confused or faint.</label>
       <div class="msg" id="msg-12" hidden data-callmsg>
         <ul class="steps extra">
-          <li><b>Cool down while you call. Don't wait for a thermometer.</b> <span class="why">Why: the guides warn that above 105°F <q>you can have seizures</q>.</span></li>
+          <li><b>Cool down while you call the emergency number. Don't wait for a thermometer.</b> <span class="why">Why: the guides warn that above 105°F (40.5°C) <q>you can have seizures</q> (fits).</span></li>
         </ul>
       </div></li>
     <li><label><input type="checkbox" data-em="13"> Diabetes, and confused or hard to wake, or vomiting with deep, fast breathing.</label><div class="msg" id="msg-13" hidden data-callmsg></div></li>
   </ol>
   <p class="group">Pregnancy and the year after</p>
   <ol class="em" start="14">
-    <li><label><input type="checkbox" data-em="14"> Pregnant, or gave birth in the last year: heavy bleeding, severe belly pain, a severe headache or blurred sight, chest pain, breathlessness, a painful swollen leg, a fit, or confusion, racing thoughts or voices.</label>
+    <li><label><input type="checkbox" data-em="14"> Pregnant, or gave birth in the last year: heavy bleeding, severe belly pain, a severe headache or blurred sight, chest pain, breathlessness, a painful swollen leg, a fit, or confusion, racing thoughts or hearing voices.</label>
       <div class="msg" id="msg-14" hidden data-callmsg>
         <details class="fold"><summary>Why the year after the birth</summary>
           <p>Some dangers of pregnancy come after the birth, up to a year later. Of US deaths caused by pregnancy in 2011 to 2015, about 1 in 3 came between one week and one year after the birth, and about 3 in 5 could have been prevented. The leading causes were heart conditions, infection and bleeding.</p>
@@ -224,17 +225,17 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
   </ol>
   <p class="group">Drugs and medicines</p>
   <ol class="em" start="16">
-    <li><label><input type="checkbox" data-em="16"> Took too much of something, swallowed something dangerous, or burning hot and stiff or twitching after mixing drugs.</label>
+    <li><label><input type="checkbox" data-em="16"> Took too much of something, swallowed something dangerous, or very hot, stiff or twitching after mixing drugs.</label>
       <div class="msg" id="msg-16" hidden data-callmsg>
         <ul class="steps extra">
           <li><b>The poison line (US 1-800-222-1222) can tell you what to do. Keep the bottle or packet.</b> <span class="why">Why: the label tells them exactly what was taken.</span></li>
         </ul>
       </div></li>
-    <li><label><input type="checkbox" data-em="17"> Stopped heavy daily drinking or benzodiazepines (sleeping or anxiety pills such as diazepam, alprazolam or lorazepam) in the last few days, and now shaking hard, confused, seeing things, or had a seizure.</label>
+    <li><label><input type="checkbox" data-em="17"> Stopped heavy daily drinking or benzodiazepines (sleeping or anxiety pills such as Valium, Xanax or Ativan) in the last few days, and now shaking hard, confused, seeing things, or had a seizure.</label>
       <div class="msg" id="msg-17" hidden data-callmsg>
         <details class="fold"><summary>Why this line is here</summary>
-          <p>Stopping heavy daily drinking or benzodiazepines suddenly can cause seizures. These withdrawals can kill. Most people who stop drinking do not get this: across 14 hospital studies, 1,355 of 71,295 patients at risk did. That is a count of hospital patients, not anyone's personal odds.</p>
-          <p>The guides say it too: <q>Benzos can be dangerous to quit cold turkey.</q></p>
+          <p>Stopping heavy daily drinking or benzodiazepines suddenly can cause seizures (fits). This reaction to stopping can kill. Most people who stop drinking do not get this: across 14 hospital studies, 1,355 of 71,295 patients at risk did. That is a count of hospital patients, not anyone's personal odds.</p>
+          <p>The guides say it too: <q>Benzos can be dangerous to quit cold turkey.</q> (Benzos are these pills; cold turkey means all at once.)</p>
         </details>
       </div></li>
   </ol>
@@ -244,7 +245,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       <div class="msg" id="msg-18" hidden>
         <ul class="steps">
           <li><b>Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.</b> <span class="why">Why: you deserve help right now, not later.</span></li>
-          <li><b>Get another person with you now, and put distance between you and the means.</b> <span class="why">Why, in the guides' words: <q>get another human being involved</q>, and <q>put some distance between you and the means</q>.</span></li>
+          <li><b>Get another person with you now, and move away from anything you could use to hurt yourself or someone else.</b> <span class="why">Why, in the guides' words: <q>get another human being involved</q>, and <q>put some distance between you and the means</q>.</span></li>
         </ul>
         <div data-actions="18"></div>
       </div></li>
@@ -271,7 +272,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     <li><label><input type="checkbox" data-em="passed"> The signs in line 4 came and went, even for minutes.</label>
       <div class="msg" id="msg-passed" hidden>
         <h3 id="stroke-passed">Call now, even though it passed</h3>
-        <p>Sudden weakness, a drooping face, trouble speaking, or sudden loss of sight or balance can warn of a stroke, even if it stops within minutes.</p>
+        <p>Sudden weakness, a drooping face, trouble speaking, or sudden loss of sight or balance can warn of a stroke, even if it stops within minutes. Doctors call this a warning stroke.</p>
         <p>The first days after carry the most risk; in one UK study, fast care cut strokes in the next 3 months from 10 in 100 to 2 in 100.</p>
         <p>Many callers turn out not to have had a stroke, often about half, and that is expected.</p>
         <p>A false alarm usually means a scan and some tests; a missed warning can mean a stroke.</p>
@@ -279,13 +280,13 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
           <li><b>Phone an emergency department or a stroke clinic now and say: possible warning stroke.</b> <span class="why">Why: those words tell them what to check, and UK guidance asks for a stroke specialist within 24 hours.</span></li>
           <li><b>Go where they send you.</b> <span class="why">Why: they know which place can do the tests soonest.</span></li>
           <li><b>Don't drive yourself.</b> <span class="why">Why: the signs could come back at the wheel.</span></li>
-          <li><b>If any sign comes back, call the emergency number (911 in the US, 112 in Europe, 999 in the UK).</b> <span class="why">Why: signs happening now are line 4, and some treatments then work only within hours.</span></li>
+          <li><b>If any sign comes back, call the emergency number (911 in the US, 112 in Europe, 999 in the UK).</b> <span class="why">Why: signs happening now are an emergency (line 4), and some treatments work only within hours.</span></li>
         </ul>
         <details class="fold"><summary>Why call when it has passed, in numbers</summary>
           <p>A warning stroke means stroke signs that pass. After one, about 5 in 100 people have a stroke within a week. It was 11 in 100 where nobody treated it urgently, and 1 in 100 where a specialist stroke service treated it as an emergency (18 studies, 10,126 people).</p>
           <p>The UK study was in Oxford. Seeing people within a day instead of about three, and starting treatment at once, went with a fall in strokes over the next 3 months from 10 in 100 to 2 in 100. It compared before with after; it was not a fair test where chance decides who gets what.</p>
-          <p>Why a false alarm is expected: the face, arm and speech signs catch strokes, but they do not rule out other causes. Of 100 people who call after signs pass, 40 to 67 turn out to have had a warning stroke or a small stroke (three studies). The others usually get a brain scan and tests, and often learn the real cause, such as an infection, a faint or a migraine. The clot-dissolving drug is given only while signs last, so people whose signs have passed almost never get it.</p>
-          <p>Most strokes give no signs anyone notices: one US estimate counted about 11 million silent strokes (a 1998 estimate), against 770,000 with signs. This line is about the ones that do give signs.</p>
+          <p>Why a false alarm is expected: the face, arm and speech signs catch strokes, but they do not rule out other causes. Of 100 people who call after signs pass, 40 to 67 turn out to have had a warning stroke or a small stroke (three studies). The others usually get a brain scan and tests, and often learn the real cause, such as an infection, a faint or a migraine. The clot-dissolving drug (it breaks up a clot in the brain) is given only while signs last, so people whose signs have passed almost never get it.</p>
+          <p>Most strokes give no signs anyone notices: one US estimate counted about 11 million silent strokes in one year (1998), against 770,000 with signs. This line is about the ones that do give signs.</p>
           <p>The guides say the larger risk is <q>losing a treatment window or missing a bleed</q> because the symptoms eased: losing the hours when a treatment still works, or missing bleeding in the brain.</p>
           <p>If it was more than a week ago, it is less pressing, but UK stroke guidance still asks for a specialist within seven days.</p>
         </details>
@@ -294,10 +295,10 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
           <ul class="plain">
             <li>What caused it? If you don't know yet, what test comes next?</li>
             <li>What treatment starts now, while you look for the cause?</li>
-            <li>My heart rhythm: a heart tracing, and a monitor worn for days if the tracing is normal.</li>
-            <li>My neck arteries: an ultrasound (a sound-wave picture) or a CT scan (a detailed X-ray picture), looking for a narrowing.</li>
-            <li>A brain scan: was it a clot, a bleed, or neither?</li>
-            <li>My blood pressure, blood sugar and cholesterol.</li>
+            <li>Will you check my heart rhythm, with a heart tracing (ECG) and, if that is normal, a monitor I wear for some days?</li>
+            <li>Will you check the arteries in my neck for a narrowing, with an ultrasound (a sound-wave picture) or a CT scan (a detailed X-ray picture)?</li>
+            <li>Will I have a brain scan, to see whether it was a clot, a bleed, or neither?</li>
+            <li>Will you check my blood pressure, blood sugar and cholesterol?</li>
             <li>What lowers my risk this week, and what are the risks of that?</li>
           </ul>
         </details>
@@ -315,14 +316,14 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     <p><b>Any of these? Get seen today: a same-day doctor, urgent care, or an emergency department. Not a routine appointment.</b> <span class="why">Why: these can turn serious within days.</span></p>
     <p><b>If it gets worse while you wait, call the emergency number.</b> <span class="why">Why: getting worse moves it onto the list above.</span></p>
     <ul class="plain">
-      <li>Black, tarry stools, or blood in the stool.</li>
+      <li>Black, tar-like poo, or blood in your poo.</li>
       <li>Coughing up streaks of blood.</li>
       <li>A fever or chest infection that got better, then worse.</li>
       <li>Tooth pain with a swollen face, or with fever: a dentist or a doctor, today.
         <details class="fold"><summary>Why the tooth line</summary><p>A tooth infection left alone can spread. In US hospital records over nine years, 66 people died among 61,439 hospital stays for an infected tooth root. How many untreated infections end in hospital was not measured.</p></details></li>
-      <li>Yellow eyes or skin, with pale stools or dark urine.</li>
+      <li>Yellow eyes or skin, with pale poo or dark urine.</li>
       <li>Days without sleep; or, new for you, racing energy with no need for sleep, or hearing or seeing things others don't.</li>
-      <li>Nodding off at the wheel. Don't drive while you are this sleepy.</li>
+      <li>Falling asleep at the wheel. Don't drive while you are this sleepy.</li>
     </ul>
     <p><b>Before you stop daily drinking, benzodiazepines or any prescribed medicine, get a plan from whoever prescribes it or a clinic. Don't stop suddenly by yourself.</b> <span class="why">Why: stopping some of these suddenly can cause seizures.</span></p>
   </details>
@@ -331,21 +332,21 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
 <section class="card" id="choose" aria-labelledby="choose-title">
   <h2 id="choose-title">What do you want help with first?</h2>
   <fieldset data-qset="area"><legend>Choose one area</legend>
-    <label><input type="radio" name="area" value="home" data-q="area"> Where I live</label>
+    <label><input type="radio" name="area" value="home" data-q="area"> Where I live: water, air, mold</label>
     <label><input type="radio" name="area" value="sleep" data-q="area"> Sleep</label>
     <label><input type="radio" name="area" value="breath" data-q="area"> Stress and breathing</label>
   </fieldset>
   <label for="own-words"><b>In your own words: what's going on?</b></label>
   <textarea id="own-words" data-t="own-words"></textarea>
-  <p class="small">Any question here can be skipped. A suggestion that depends on a skipped question waits, and says which answer it needs.</p>
+  <p class="small">You can skip any question. If an idea needs an answer you skipped, it shows only its title and says which question to answer.</p>
 </section>
 
 <section class="card" id="rules" aria-labelledby="rules-title">
   <h2 id="rules-title">On every suggestion</h2>
   <ul class="steps">
     <li><b>Pick one. Try it for two weeks. Stop if you feel worse.</b> <span class="why">Why: one change at a time shows you what helped.</span></li>
-    <li><b>Start everything at the lowest dose, and build up only as you are fine with it.</b> <span class="why">Why, in the guides' author's words: <q>it's allergy &amp; sensitivity testing, common sense for everything</q>.</span></li>
-    <li><b>Anything you might later breathe in as a mist, only smell first. Go on to the mist only once smelling it is fine.</b> <span class="why">Why: smelling is the lowest dose; in his words, <q>you don't start nebulizing</q> (breathing a fine mist from a machine) <q>until you are fine with smelling it</q>.</span></li>
+    <li><b>Start everything at the lowest dose, and build up only as you are fine with it.</b> <span class="why">Why, in the guides' author's words: <q>it's allergy &amp; sensitivity testing, common sense for everything</q>. Starting small shows whether you react badly.</span></li>
+    <li><b>If you ever breathe something in as a mist (nothing on this page does), only smell first. Go on to the mist only once smelling it is fine.</b> <span class="why">Why: smelling is the lowest dose; in his words, <q>you don't start nebulizing</q> (breathing a fine mist from a machine) <q>until you are fine with smelling it</q>.</span></li>
     <li><b>Nothing on the get-help lists waits two weeks.</b> <span class="why">Why: those signs need help now or today.</span></li>
   </ul>
   <p class="small">Each suggestion has buttons to save what you did, with the date: I'll try this; Tried it: helped, no change, or worse; Not for me.</p>
@@ -356,8 +357,8 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
 <div id="areas">
 
 <details class="area" id="area-home">
-  <summary>Where I live</summary>
-  <p class="small">From the detox guide, <q>A few preliminaries</q>.</p>
+  <summary>Where I live: water, air, mold</summary>
+  <p class="small">From the detox guide (on clearing toxins from your life), its opening section, <q>A few preliminaries</q>.</p>
   <fieldset data-qset="water"><legend>What do you drink most days?</legend>
     <label><input type="radio" name="q-water" value="tap" data-q="water"> Tap water</label>
     <label><input type="radio" name="q-water" value="filtered" data-q="water"> Filtered water</label>
@@ -384,16 +385,16 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
         <div><b>Quick fix</b>Today, drink from a source you have checked: a good filter, or tested spring water.</div>
         <div><b>Root cause</b>Find out what is in your tap water. Then fit what removes it.</div>
       </div>
-      <details class="fold"><summary>Why</summary><p>In the guide's words, <q>tap water is almost never drinkable these days</q>. He names <q>a good R/O system</q> (reverse osmosis: a filter that pushes water through a very fine sheet), distilled water <q>(but add minerals sometimes)</q>, or <q>tested spring/well/rain water</q>.</p></details>
-      <details class="fold"><summary>Label</summary><p>Personal field signal.</p></details>
-      <details class="fold"><summary>Background</summary><p>In 2015 nearly 21 million Americans were on water systems that broke health standards. At least one PFAS chemical ("forever chemicals": man-made chemicals that barely break down) can be found in about 45% of US tap samples. These show that contamination is common. They do not show "almost never drinkable", and they say nothing about your tap.</p></details>
-      <details class="fold"><summary>Where mainstream differs</summary><p>Regulators call water that meets their standards safe.</p></details>
-      <details class="fold"><summary>Risk</summary><p>Everyday.</p></details>
+      <details class="fold"><summary>Why</summary><p>In the guide's words, <q>tap water is almost never drinkable these days</q>. He names <q>a good R/O system</q> (reverse osmosis: a filter that pushes water through a very fine sheet), distilled water (boiled to steam and cooled again, so it has no minerals) <q>(but add minerals sometimes)</q>, or <q>tested spring/well/rain water</q>.</p></details>
+      <details class="fold"><summary>How well studied</summary><p>Personal field signal: what he and others have noticed, not tested in studies.</p></details>
+      <details class="fold"><summary>Background</summary><p>In 2015 nearly 21 million Americans were on water systems that broke health standards. At least one PFAS chemical (known as forever chemicals: man-made chemicals that barely break down) can be found in about 45% of US tap samples. These show that contamination is common. They do not show "almost never drinkable", and they say nothing about your tap.</p></details>
+      <details class="fold"><summary>Where most doctors and officials differ</summary><p>Regulators call water that meets their standards safe.</p></details>
+      <details class="fold"><summary>Risk</summary><p>Everyday risk: widely done, with no serious harm on record.</p></details>
     </div>
   </div>
 
   <div class="sugg" data-sugg="mold" data-show="mold=yes,unsure" data-needs="Any damp, mold or musty smell at home?">
-    <h3>Stop breathing the mold first. Start with the bedroom.</h3>
+    <h3>First, stop breathing in the mold. Start with the bedroom.</h3>
     <div class="sugg-body">
       <div class="door">
         <div><b>Quick fix</b>Tonight, open the windows if the air and the street outside allow. If not, run a true HEPA filter (a certified fine-dust air filter) by the bed.</div>
@@ -403,28 +404,28 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
         <li><b>Open windows only if the street is safe and the outside air is clean.</b> <span class="why">Why: his own condition for the open window is <q>if you're not worried about criminals or outside pollution</q>.</span></li>
         <li><b>Don't scrub or tear out mold yourself without a plan.</b> <span class="why">Why: it stirs the mold into the air; in his words, clearing it <q>can backfire if not done intelligently</q>.</span></li>
       </ul>
-      <details class="fold"><summary>Why</summary><p><q>Prevent breathing in the mold that's there</q>. <q>The cheapo fix is just to open all the windows and doors</q>. <q>Mold grows best above 50-60% humidity.</q> Below 40%, the moist lining of the nose dries out. Wash stored clothes and linens. Check the air conditioner, which can hold mold.</p></details>
-      <details class="fold"><summary>Label</summary><p>Personal field signal.</p></details>
-      <details class="fold"><summary>Background</summary><p>Homes with damp or mold go with 30-50% more breathing and asthma problems. That is an observed link; it does not test these steps.</p></details>
-      <details class="fold"><summary>Risk</summary><p>Everyday.</p></details>
+      <details class="fold"><summary>Why</summary><p><q>Prevent breathing in the mold that's there</q>. <q>The cheapo fix is just to open all the windows and doors</q>. <q>Mold grows best above 50-60% humidity.</q> Below 40%, the moist lining of the nose dries out. So aim for about 40 to 50% indoors. Wash stored clothes and linens. Check the air conditioner, which can hold mold.</p></details>
+      <details class="fold"><summary>How well studied</summary><p>Personal field signal: what he and others have noticed, not tested in studies.</p></details>
+      <details class="fold"><summary>Background</summary><p>Homes with damp or mold go with 30-50% more breathing and asthma problems. That shows only that the two go together; it does not test these steps.</p></details>
+      <details class="fold"><summary>Risk</summary><p>Everyday risk: widely done, with no serious harm on record.</p></details>
     </div>
   </div>
 
   <div class="sugg" data-sugg="smell" data-show="smell=yes,unsure" data-needs="Is your sense of smell weaker than it was?">
-    <h3>Clear the smells that hide other smells.</h3>
+    <h3>Weaker sense of smell? Clear away strong scents first.</h3>
     <div class="sugg-body">
       <div class="door">
         <div><b>Quick fix</b>Today, no air fresheners or scented laundry products. Swap the dish sponge for a nylon brush.</div>
-        <div><b>Root cause</b>Find what dulled it: mold, sinus trouble, or rancid cooking oil.</div>
+        <div><b>Root cause</b>Find what weakened your sense of smell: mold, sinus trouble, or cooking oil gone bad (rancid).</div>
       </div>
       <ul class="steps">
         <li><b>If you rinse your nose, use a sealed sterile product, or water boiled and then cooled; never water straight from the tap.</b> <span class="why">Why: tap water in the nose has, rarely, carried a brain infection.</span></li>
       </ul>
       <details class="fold"><summary>Why</summary><p><q>Stop using dish sponges, switch to nylon brushes</q>. For sinus trouble he rinses the nose: <q>Nasal irrigation with Quinton Seawater</q> (a seawater product).</p></details>
-      <details class="fold"><summary>Label</summary><p>Personal field signal. The nose rinse: Limited human evidence (two small trials of salt-water rinsing in 116 adults; seawater itself was not tested).</p></details>
-      <details class="fold"><summary>Background</summary><p>Among 3,005 Americans aged 57 to 85, those who could not smell died at four times the rate over the next five years. That is an observed link; it does not show that clearing scents helps.</p></details>
-      <details class="fold"><summary>Where mainstream differs</summary><p>A loss of smell that lasts deserves a doctor's look.</p></details>
-      <details class="fold"><summary>Risk</summary><p>Everyday. The nose rinse: Small. In one six-month trial of a strong salt-water rinse, 23 in 100 had side effects, nosebleeds among them. The brain infection by tiny water organisms (amoebas) after nose rinsing: 10 US cases from 1994 to 2022, all in people with weak immune systems, many using tap water. No rate per rinse exists.</p></details>
+      <details class="fold"><summary>How well studied</summary><p>Personal field signal: what he and others have noticed, not tested in studies. The nose rinse: Limited human evidence (two small trials of salt-water rinsing in 116 adults; seawater itself was not tested).</p></details>
+      <details class="fold"><summary>Background</summary><p>Among 3,005 Americans aged 57 to 85, those who could not smell died at four times the rate over the next five years. That shows only that the two go together; it does not show that clearing scents helps.</p></details>
+      <details class="fold"><summary>Where most doctors and officials differ</summary><p>A loss of smell that lasts deserves a doctor's look.</p></details>
+      <details class="fold"><summary>Risk</summary><p>Everyday risk: widely done, with no serious harm on record. The nose rinse is a small risk: side effects are common but pass, and a rare serious one can be avoided. In one six-month trial of a strong salt-water rinse, 23 in 100 had side effects, nosebleeds among them. The brain infection by tiny water organisms (amoebas) after nose rinsing: 10 US cases from 1994 to 2022, all in people with weak immune systems, many using tap water. No rate per rinse exists.</p></details>
     </div>
   </div>
 </details>
@@ -440,7 +441,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
   <fieldset data-qset="day"><legend>Sleepy by day?</legend>
     <label><input type="radio" name="q-day" value="no" data-q="day"> No</label>
     <label><input type="radio" name="q-day" value="sleepy" data-q="day"> Yes, sleepy by day</label>
-    <label><input type="radio" name="q-day" value="wheel" data-q="day"> I nod off at the wheel, or nearly</label>
+    <label><input type="radio" name="q-day" value="wheel" data-q="day"> I fall asleep at the wheel, or nearly</label>
   </fieldset>
   <fieldset data-qset="insomnia"><legend>Trouble falling asleep or staying asleep?</legend>
     <label><input type="radio" name="q-insomnia" value="yes" data-q="insomnia"> Yes</label>
@@ -452,13 +453,13 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
   </fieldset>
 
   <div class="sugg" data-sugg="wheel" data-show="day=wheel" data-needs="Sleepy by day?">
-    <h3>Nodding off at the wheel? Don't drive while you are this sleepy.</h3>
+    <h3>Falling asleep at the wheel? Don't drive while you are this sleepy.</h3>
     <div class="sugg-body">
       <p class="why">Why, in the guide's words: <q>sleepy driving is as dangerous as drunk driving</q>.</p>
     </div>
   </div>
 
-  <div class="sugg" data-sugg="apnea" data-show="snore=yes,unsure|day=sleepy,wheel" data-needs="the snoring question and Sleepy by day?">
+  <div class="sugg" data-sugg="apnea" data-show="snore=yes,unsure|day=sleepy,wheel" data-needs="the questions on snoring and on being sleepy by day">
     <h3>Check for sleep apnea (breathing that stops and starts in sleep) before anything else.</h3>
     <div class="sugg-body">
       <div class="door">
@@ -468,29 +469,29 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       <ul class="steps">
         <li><b>Ask for a sleep test even if your recording sounds quiet.</b> <span class="why">Why: a quiet recording does not rule apnea out.</span></li>
       </ul>
-      <details class="fold"><summary>Why</summary><p><q>You can do your own sleep study with a simple microphone</q>; then <q>confirm the apnea subtype and severity</q>. He calls the machine <q>not a true cure</q>, and lists what to consider first: <q>Lose weight if overweight</q>, less alcohol and sedatives, Yin yoga (slow yoga with long, held stretches), <q>consider myofunctional therapy</q> (exercises for the tongue, mouth and face), and fixing what blocks the airway.</p></details>
-      <details class="fold"><summary>Label</summary><p>The machine: Limited human evidence. In before-and-after studies the crash rate was about 70% lower on it, and sleepiness eased after one night. That is not a promise for any one person. His list for the root cause: Personal field signal.</p></details>
-      <details class="fold"><summary>Background</summary><p>Drivers with sleep apnea crash 1.2 to 4.9 times as often (studies that observed drivers, pooled).</p></details>
-      <details class="fold"><summary>Risk</summary><p>Everyday.</p></details>
+      <details class="fold"><summary>Why</summary><p><q>You can do your own sleep study with a simple microphone</q>; then <q>confirm the apnea subtype and severity</q> (which kind of apnea, and how bad). He calls the machine <q>not a true cure</q>, and lists what to consider first: <q>Lose weight if overweight</q>, less alcohol and sedatives, Yin yoga (slow yoga with long, held stretches), <q>consider myofunctional therapy</q> (exercises for the tongue, mouth and face), and fixing what blocks the airway.</p></details>
+      <details class="fold"><summary>How well studied</summary><p>The machine: Limited human evidence. In before-and-after studies the car-crash rate was about 70% lower on it, and sleepiness eased after one night. That is not a promise for any one person. His list for the root cause: Personal field signal (noticed by him and others, not tested in studies).</p></details>
+      <details class="fold"><summary>Background</summary><p>Drivers with sleep apnea crash 1.2 to 4.9 times as often (several studies of drivers, combined).</p></details>
+      <details class="fold"><summary>Risk</summary><p>Everyday risk: widely done, with no serious harm on record.</p></details>
     </div>
   </div>
 
   <div class="sugg" data-sugg="sleep-baseline" data-show="insomnia=yes" data-needs="Trouble falling asleep or staying asleep?">
-    <h3>Fix tonight's room. Then build the baseline.</h3>
+    <h3>Fix tonight's room first. Then build steady sleep habits.</h3>
     <div class="sugg-body">
       <div class="door">
         <div><b>Quick fix</b>Tonight: lights off, cool room, screens off a few hours before bed, write down what is on your mind.</div>
-        <div><b>Root cause</b>Keep a two-week log. Then, in his order: same wake time every day, no caffeine, morning sun.</div>
+        <div><b>Root cause</b>Keep a two-week log of your sleep and habits. Then, in his order: same wake time every day, no caffeine, morning sun.</div>
       </div>
       <ul class="steps">
         <li><b>On a prescribed sleep medicine? Don't stop it suddenly; ask whoever prescribed it how to stop.</b> <span class="why">Why: stopping some sleep medicines suddenly can be dangerous. The guide: <q>Do not abruptly stop prescribed medication to improve sleep.</q></span></li>
         <li class="caffeine-line"><b>Stopping caffeine? Expect a headache for a few days.</b> <span class="why">Why: it is common and passes; knowing that helps you not give up.</span></li>
       </ul>
-      <details class="fold"><summary>His fast one: a bag of zeolite in the pillow</summary><p><q>Put a bag of it in your pillow!</q> He means cleaned zeolite, a mineral powder, in a bag against the skin. In his words, <q>nobody has studied this skin-contact-thru-bag method</q>. Risk: no harm found, not studied. Dust from a leaking bag has not been measured.</p></details>
-      <details class="fold"><summary>Why</summary><p><q>track the basics for 14 days</q>. <q>before taking anything for sleep, first build a baseline</q>. <q>Keep a consistent wake time.</q> <q>Avoid all stimulant drugs, including caffeine, completely, 100%.</q> <q>Let sunrise wake you.</q></p></details>
-      <details class="fold"><summary>Label</summary><p>Personal field signal. Not checked yet: a fixed wake time is one part of the standard talking-and-habits treatment for poor sleep (called CBT-I); by itself it was not checked here.</p></details>
-      <details class="fold"><summary>Where mainstream differs</summary><p>Morning caffeine is usually thought fine.</p></details>
-      <details class="fold"><summary>Risk</summary><p>Everyday. Stopping caffeine: Small. In experiments, about half of regular users got a headache on stopping, and 13 in 100 had distress or trouble functioning that the researchers counted as significant. It starts within a day and lasts 2 to 9 days.</p></details>
+      <details class="fold"><summary>A quick idea of his: a bag of zeolite, a mineral powder, in the pillow</summary><p><q>Put a bag of it in your pillow!</q> He means cleaned zeolite, a mineral powder, in a bag against the skin. In his words, <q>nobody has studied this skin-contact-thru-bag method</q>. Risk: no harm found, not studied. Dust from a leaking bag has not been measured.</p></details>
+      <details class="fold"><summary>Why</summary><p><q>track the basics for 14 days</q>. <q>before taking anything for sleep, first build a baseline</q> (steady basic habits). <q>Keep a consistent wake time.</q> <q>Avoid all stimulant drugs, including caffeine, completely, 100%.</q> <q>Let sunrise wake you.</q></p></details>
+      <details class="fold"><summary>How well studied</summary><p>Personal field signal: what he and others have noticed, not tested in studies. Not checked yet: a fixed wake time is one part of the standard talking-and-habits treatment for poor sleep (called CBT-I); by itself it was not checked here.</p></details>
+      <details class="fold"><summary>Where most doctors and officials differ</summary><p>Morning caffeine is usually thought fine.</p></details>
+      <details class="fold"><summary>Risk</summary><p>Everyday risk: widely done, with no serious harm on record. Stopping caffeine is a small risk: side effects are common but pass. In experiments, about half of regular users got a headache on stopping, and 13 in 100 had distress or trouble functioning that the researchers counted as significant. It starts within a day and lasts 2 to 9 days.</p></details>
       <p class="small">Not in this pilot: <q>Vagal Blitz is the insta-fix for sleep</q>, a fast, strong breathing method. It is not gentle, and comes later.</p>
     </div>
   </div>
@@ -498,7 +499,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
 
 <details class="area" id="area-breath">
   <summary>Stress and breathing</summary>
-  <p class="small">From the breathwork, somatic and inner child guides, and the guides' author's own notes.</p>
+  <p class="small">From the guides on breathing, on body-based therapy (somatic) and on the inner child (feelings carried from childhood), and from the author's own notes.</p>
   <fieldset data-qset="stress"><legend>How much stress on most days, from 0 (none) to 10 (the worst)?</legend>
     <select data-q="stress" aria-label="Stress on most days, 0 to 10">
       <option value="">Skip</option>
@@ -510,27 +511,27 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     <label><input type="radio" name="q-mouth" value="no" data-q="mouth"> No</label>
     <label><input type="radio" name="q-mouth" value="unsure" data-q="mouth"> Not sure</label>
   </fieldset>
-  <details class="fold" id="bolt"><summary>Optional: your BOLT score, a one-minute breath test</summary>
+  <details class="fold" id="bolt"><summary>Optional: your BOLT score (Body Oxygen Level Test), a one-minute breath test</summary>
     <p>BOLT comes from the Buteyko method (Step 1 below). In the guide's words, <q>It only takes a minute to check your BOLT score</q>.</p>
     <ul class="steps">
-      <li><b>Sit still. Breathe in and out normally through your nose, then pinch your nose. Count the seconds until you first want to breathe.</b> <span class="why">Why: that first urge is the score, not how long you can hold out.</span></li>
+      <li><b>Sit still. After a normal breath out through your nose, pinch your nose shut. Count the seconds until you first want to breathe.</b> <span class="why">Why: that first urge is the score, not how long you can hold out.</span></li>
       <li><b>Let go at the first urge, and breathe calmly. Skip this if holding your breath makes you anxious.</b> <span class="why">Why: it is a quick measure, not a breath-holding practice.</span></li>
     </ul>
     <label for="bolt-seconds">Seconds, if you tried it:</label>
     <input type="text" inputmode="numeric" id="bolt-seconds" data-t="bolt">
-    <p class="small">The guide says <q>A healthy adult has a score of 40+.</q> That number is the guide's own. The test has not been shown to measure what it claims: researchers who tried it in 49 athletes say it has not been scientifically validated.</p>
+    <p class="small">The guide says <q>A healthy adult has a score of 40+.</q> That number is the guide's own. The test has not been shown to measure over-breathing, as it claims: researchers who tried it in 49 athletes say it has not been scientifically validated.</p>
   </details>
 
   <div class="sugg" data-sugg="exhale">
-    <h3>Quick fix. Stressed right now? Breathe out slowly through pursed lips. Don't breathe in more to make up.</h3>
+    <h3>Quick fix. Stressed right now? Breathe out slowly through pursed (nearly closed) lips. Don't take a bigger breath in afterwards.</h3>
     <div class="sugg-body">
       <ul class="steps">
         <li><b>Don't hold your breath.</b> <span class="why">Why: this practice only slows the breath out; it never stops it.</span></li>
         <li><b>Ease off if you feel dizzy or tingly.</b> <span class="why">Why: it means the breathing got too big, and it passes when the breathing settles.</span></li>
-        <li><b>Prone to panic? Go gentler.</b> <span class="why">Why: the first seconds of slight air hunger can feel like panic.</span></li>
+        <li><b>Prone to panic? Go gentler.</b> <span class="why">Why: the first seconds of slight air hunger (a mild wish for more air) can feel like panic.</span></li>
       </ul>
-      <details class="fold"><summary>How it feels, as he writes it</summary><p>The slight air hunger <q>feels a bit anxiogenic for the first 20 seconds or so</q> (it makes you a little anxious); <q>after that, you'll feel much calmer</q>. <b>People differ.</b></p></details>
-      <details class="fold"><summary>What it is</summary><p>This is Buteyko reduced breathing. <q>You can use this any time</q>.</p></details>
+      <details class="fold"><summary>How it feels, as he writes it</summary><p>The slight air hunger (a mild wish for more air) <q>feels a bit anxiogenic for the first 20 seconds or so</q> (it makes you a little anxious); <q>after that, you'll feel much calmer</q>. <b>People differ.</b></p></details>
+      <details class="fold"><summary>What it is</summary><p>This is Buteyko reduced breathing: breathing a little less than you feel you need (Step 1 below). <q>You can use this any time</q>.</p></details>
       <details class="fold"><summary>Risk</summary><p>No harm found, not studied for this use.</p></details>
     </div>
   </div>
@@ -538,7 +539,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
   <div class="sugg" data-sugg="allday">
     <h3>Root cause. Change how you breathe all day. Step 1: Buteyko. Step 2: Systema.</h3>
     <div class="sugg-body">
-      <details class="fold"><summary>Why this is the root-cause door</summary><p>In the guide's words, over-breathing is <q>one of the root causes</q> of poor sleep and anxiety.</p></details>
+      <details class="fold"><summary>Why this is the root-cause door</summary><p>In the guide's words, over-breathing (breathing more air than the body needs) is <q>one of the root causes</q> of poor sleep and anxiety.</p></details>
     </div>
   </div>
 
@@ -547,10 +548,10 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     <div class="sugg-body">
       <p class="small">Buteyko is a method of breathing a little less than you feel you need, through the nose.</p>
       <ul class="steps">
-        <li><b>Prone to panic? Go gentler at first.</b> <span class="why">Why: breathing less brings a slight air hunger, which can feel like panic.</span></li>
+        <li><b>Prone to panic? Go gentler at first.</b> <span class="why">Why: breathing less brings a mild wish for more air, which can feel like panic.</span></li>
       </ul>
       <details class="fold"><summary>Why it comes first</summary><p>It is <q>much easier for people to understand</q>.</p></details>
-      <details class="fold"><summary>Label</summary><p>Limited human evidence, for asthma only: breathing exercises improved quality of life (22 trials, 2,880 people; two of the trials used Buteyko), and a 60-person Buteyko trial cut inhaler use by about a fifth. For calming and sleep: Personal field signal; no trial was found.</p></details>
+      <details class="fold"><summary>How well studied</summary><p>Limited human evidence, for asthma only: breathing exercises improved quality of life (22 trials, 2,880 people; two of the trials used Buteyko), and a 60-person Buteyko trial cut inhaler use by about a fifth. For calming and sleep: Personal field signal (noticed by him and others); no trial was found.</p></details>
       <details class="fold"><summary>Risk</summary><p>No harm found, not studied for this use. The asthma trials recorded no harm, but their review did not count side effects.</p></details>
     </div>
   </div>
@@ -566,21 +567,22 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       <details class="fold"><summary>How, in his words</summary><p><q>light natural breathing</q>. Each breath is <q>45-80% of a full deep breath</q>: <q>you don't fully exhale, you don't fully inhale either</q>. <q>the only control is that you make sure you are not pausing</q>. Feel where the body is tense, and imagine the breath dissolving it.</p></details>
       <details class="fold"><summary>Why</summary><p><q>even better than just breathing less is circular breathing, Systema style</q>. For anxiety: <q>Systema continuous breathing is great!</q> Most people <q>try it just barely and forget it</q>, so the buttons below keep a dated log of what you tried.</p></details>
       <details class="fold"><summary>A video of Systema breathing</summary><p>The one his somatic guide links to; he is not sure it is the best one: <a href="https://www.youtube.com/watch?v=Nar2-nvomAk" target="_blank" rel="noopener noreferrer">youtube.com/watch?v=Nar2-nvomAk</a>. It opens on YouTube, online.</p></details>
-      <details class="fold"><summary>Label</summary><p>Personal field signal (his, and the Systema community's). No studies found.</p></details>
+      <details class="fold"><summary>How well studied</summary><p>Personal field signal: what he and the Systema community have noticed. No studies found.</p></details>
       <details class="fold"><summary>Risk</summary><p>No harm found, not studied. If light breathing turns big and fast: dizziness and tingling, which pass when the breathing settles.</p></details>
     </div>
   </div>
 
   <div class="sugg" data-sugg="taps">
-    <h3>Later, with someone you trust: painless taps while you keep breathing. The fear is the practice.</h3>
+    <h3>Later, with someone you trust: painless taps, to practise staying calm through fear.</h3>
     <div class="sugg-body">
       <ul class="steps">
+        <li><b>Keep breathing lightly through every tap.</b> <span class="why">Why: staying relaxed and breathing through the fear is the practice.</span></li>
         <li><b>The person receiving closes their eyes.</b> <span class="why">Why: in his words, <q>so they really can't cheat</q>: they can't see whether the next tap is coming.</span></li>
       </ul>
       <details class="fold"><summary>What</summary><p>Light taps to the belly, or <q>light slaps to the face that don't hurt</q>. They are <q>PAINLESS</q>. You don't know whether the next one will land: <q>even if the strikes don't land, it can still work usually</q>.</p></details>
       <details class="fold"><summary>Why</summary><p><q>the idea is to do something that instills fear, with safety ensured</q>. You learn to stay relaxed through fear. <q>so it's like desensitization therapies</q> (therapies that get you used to a fear step by step), without going back to a painful memory first.</p></details>
-      <details class="fold"><summary>Label</summary><p>Personal field signal. He says <q>i'm also not a systema master yet</q>, and there is no written guide for this yet.</p></details>
-      <details class="fold"><summary>Risk</summary><p>No harm found, not studied. Painless is the intent; a tap can land harder than meant, and fear can stir old fear. No rate exists for either.</p></details>
+      <details class="fold"><summary>How well studied</summary><p>Personal field signal: what he has noticed, not tested in studies. He says <q>i'm also not a systema master yet</q>, and there is no written guide for this yet.</p></details>
+      <details class="fold"><summary>Risk</summary><p>No harm found, not studied. Painless is the intent; a tap can land harder than meant, and fear can bring back old, painful fears. No rate exists for either.</p></details>
     </div>
   </div>
 </details>
@@ -598,55 +600,55 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
   </fieldset>
   <pre id="preview" aria-label="Preview of the copy"></pre>
   <div class="row">
-    <button type="button" data-save-text>Save as text</button>
+    <button type="button" data-save-text>Save as a text file</button>
     <button type="button" data-print>Print</button>
   </div>
-  <p class="small"><b>A copy is an ordinary file. It can end up in Downloads, the clipboard, backups, a synced folder or a printer queue. This page cannot clear it.</b></p>
-  <p><b>Clear everything</b> removes this page's saved answers, choices and history from this browser. <button type="button" class="danger" data-clear>Clear everything</button></p>
-  <p id="cleared-note" class="logline" hidden role="status">This page's saved answers were cleared here. Copies and device traces may remain.</p>
+  <p class="small"><b>A copy is an ordinary file. It can stay in your Downloads folder, in backups, in folders that sync to other devices, or at the printer. This page cannot clear it.</b></p>
+  <p><b>Clear everything</b> removes this page's saved answers, choices and dated log from this browser (not your browser history). <button type="button" class="danger" data-clear>Clear everything</button></p>
+  <p id="cleared-note" class="logline" hidden role="status">This page's saved answers were cleared here. Copies, and traces such as your browser history, may remain.</p>
 </section>
 
 <section class="card" id="about" aria-labelledby="about-title">
   <h2 id="about-title">About this page</h2>
-  <details class="fold"><summary>The labels, in the guides' own terms</summary>
+  <details class="fold"><summary>How well studied: the labels, in the guides' own terms</summary>
     <ul class="plain">
       <li><b>Established</b>: standard treatment with strong evidence.</li>
-      <li><b>Limited human evidence</b>: <q>clinical reports or small trials but no strong modern outcome evidence</q>.</li>
+      <li><b>Limited human evidence</b>: <q>clinical reports or small trials but no strong modern outcome evidence</q>: some reports and small studies in people, but no strong recent proof that it helps.</li>
       <li><b>Mechanism or preclinical evidence</b>: effects shown mainly in cells or animals.</li>
-      <li><b>Personal field signal</b>: <q>what I have repeatedly observed in myself or other people</q>. It does not turn into a rate.</li>
+      <li><b>Personal field signal</b>: <q>what I have repeatedly observed in myself or other people</q>. It cannot say how often something helps.</li>
       <li><b>Not checked yet</b>: not looked up for this page.</li>
-      <li><b>Where mainstream differs</b>: what most doctors or regulators say instead. It states a position and nothing more.</li>
+      <li><b>Where most doctors and officials differ</b>: what they say instead. It states their view and nothing more.</li>
     </ul>
-    <p>A label speaks only to the suggestion: does doing this help? A link that studies have observed goes under Background and labels nothing.</p>
+    <p>A label answers one question: does doing this help? When studies show only that two things go together, that goes under Background and gets no label.</p>
   </details>
   <details class="fold"><summary>The risk words</summary>
     <ul class="plain">
-      <li><b>Everyday</b>: widely done or tested, with no serious harm on record.</li>
+      <li><b>Everyday risk</b>: widely done or tested, with no serious harm on record.</li>
       <li><b>No harm found, not studied</b>: no report of harm was found at this use, and nobody has measured it. It does not mean safe.</li>
-      <li><b>Small</b>: short-lived side effects are common, or a rare serious harm has a known cause that can be avoided.</li>
+      <li><b>Small risk</b>: short-lived side effects are common, or a rare serious harm has a known cause that can be avoided.</li>
     </ul>
     <p>Finding no report of harm is not proof of safety.</p>
   </details>
   <details class="fold"><summary>What is not in this pilot, and why</summary>
     <ul class="plain">
       <li>Anything swallowed or injected: supplements and medicines. Why: the basics come first.</li>
-      <li>The smelling and mist practices in the guides. Why: they come later, with breathing problems, and then start with smelling, the lowest dose.</li>
+      <li>The smelling and mist practices in the guides. Why: they come in a later version, in a part on breathing problems, and will start with smelling, the lowest dose.</li>
       <li>Fast, strong breathing methods (Vagal Blitz, Wim Hof). Why: they are not gentle.</li>
       <li>Children, and people answering for someone else. Why: the page is built for one adult answering for themselves.</li>
-      <li>Anything sent online, and live research. Why: this pilot keeps everything in this browser.</li>
+      <li>Anything sent online, and looking up new studies as you go. Why: this pilot keeps everything in this browser.</li>
     </ul>
   </details>
   <details class="fold"><summary>Where the words come from</summary>
-    <p>Words in quotation marks are the guides' author's own, from his guides or his notes. His guides:
-      <a href="https://detox.u-dont-exist.com" target="_blank" rel="noopener noreferrer">detox.u-dont-exist.com</a>,
-      <a href="https://sleep.u-dont-exist.com" target="_blank" rel="noopener noreferrer">sleep.u-dont-exist.com</a>,
-      <a href="https://breathwork.u-dont-exist.com" target="_blank" rel="noopener noreferrer">breathwork.u-dont-exist.com</a>,
-      <a href="https://somatic.u-dont-exist.com" target="_blank" rel="noopener noreferrer">somatic.u-dont-exist.com</a>,
-      <a href="https://innerchild.u-dont-exist.com" target="_blank" rel="noopener noreferrer">innerchild.u-dont-exist.com</a>,
-      <a href="https://badtrips.u-dont-exist.com" target="_blank" rel="noopener noreferrer">badtrips.u-dont-exist.com</a>. They open online.</p>
+    <p>Words in quotation marks are the guides' author's own, from his guides or from notes he wrote for this page. His guides:
+      <a href="https://detox.u-dont-exist.com" target="_blank" rel="noopener noreferrer">detox.u-dont-exist.com</a> (clearing toxins),
+      <a href="https://sleep.u-dont-exist.com" target="_blank" rel="noopener noreferrer">sleep.u-dont-exist.com</a> (sleep),
+      <a href="https://breathwork.u-dont-exist.com" target="_blank" rel="noopener noreferrer">breathwork.u-dont-exist.com</a> (breathing),
+      <a href="https://somatic.u-dont-exist.com" target="_blank" rel="noopener noreferrer">somatic.u-dont-exist.com</a> (body-based therapy),
+      <a href="https://innerchild.u-dont-exist.com" target="_blank" rel="noopener noreferrer">innerchild.u-dont-exist.com</a> (inner child therapy),
+      <a href="https://badtrips.u-dont-exist.com" target="_blank" rel="noopener noreferrer">badtrips.u-dont-exist.com</a> (helping someone through a frightening drug experience). They open online.</p>
   </details>
   <details class="fold"><summary>Every number on this page, and where it comes from</summary>
-    <p class="small">Read from the published summaries on PubMed (a library of medical research), not the full papers, unless a line says otherwise. The number in brackets is the PubMed ID.</p>
+    <p class="small">Read from the published summaries on PubMed (a library of medical research), not the full papers, unless a line says otherwise. Each line ends with the study's first author, the journal and usually the year, then its PubMed number in brackets.</p>
     <ul class="plain small">
       <li>Warning stroke, then stroke within a week: 5 in 100; 1 in 100 with emergency specialist care, 11 in 100 without urgent treatment; 18 studies, 10,126 people. Giles, Lancet Neurology 2007 (17993293).</li>
       <li>Oxford, fast care: strokes over 3 months 10.3 in 100 before, 2.1 after; before-and-after study. Rothwell, Lancet 2007 (17928046).</li>
@@ -664,7 +666,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       <li>Smell and death: 3,005 adults aged 57-85; four times the five-year death rate without smell. Pinto, PLoS One (25271633).</li>
       <li>Salt-water nose rinse: two trials, 116 adults; 23% side effects with a strong rinse. Chong, Cochrane 2016 (27115216).</li>
       <li>Amoebas after nose rinsing: 10 patients, 1994-2022, all with weak immune systems. Haston, Emerging Infectious Diseases 2024 (38526242).</li>
-      <li>Sleep apnea and crashes: 1.21 to 4.89 times the crash rate; pooled observational studies. Tregear, Journal of Clinical Sleep Medicine 2009 (20465027).</li>
+      <li>Sleep apnea and crashes: 1.21 to 4.89 times the crash rate; studies that only watched drivers, combined. Tregear, Journal of Clinical Sleep Medicine 2009 (20465027).</li>
       <li>Breathing machine and crashes: risk about 72% lower in 9 before-and-after studies; sleepiness better after one night. Tregear, Sleep 2010 (21061860).</li>
       <li>Stopping caffeine: headache in 50%, significant distress or impairment in 13%; 57 experiments. Juliano and Griffiths, Psychopharmacology 2004 (15448977).</li>
       <li>Breathing exercises in asthma: 22 trials, 2,880 people, two of Buteyko; side effects not reviewed. Santino, Cochrane 2020 (32212422).</li>
@@ -769,7 +771,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       if (card.dataset.show) {
         const wait = document.createElement("p");
         wait.className = "waits";
-        wait.textContent = "Waits for your answer above to: " + card.dataset.needs;
+        wait.textContent = "To see this, answer above: " + card.dataset.needs;
         card.insertBefore(wait, body);
       }
     });
