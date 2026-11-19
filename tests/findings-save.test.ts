@@ -49,7 +49,9 @@ import {
   type UnsavedCardResult,
 } from "../apps/research-mcp/src/findings/service.js";
 import { unsavedCardNote } from "../apps/research-mcp/src/findings/unsaved-card.js";
-import { FINDINGS_CARD_REMINDER, FINDINGS_CARD_REQUEST_START } from "../apps/research-mcp/src/findings/card-reminder.js";
+import {
+  FINDINGS_CARD_REMINDER, FINDINGS_CARD_REQUEST_START, findingsCardReminder,
+} from "../apps/research-mcp/src/findings/card-reminder.js";
 import type { LessonAttemptLimiter } from "../apps/research-mcp/src/lessons/rate-limit.js";
 import {
   OTHER_TOOLS_SENTENCE,
@@ -62,6 +64,9 @@ import {
 import type { MeaningJudge, MeaningJudgeBundle } from "../apps/research-mcp/src/meaning-judge.js";
 import { issueResearchReceipt, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import {
+  finalizeResearch,
+  findingsCardRequested,
+  forumThreadDigest,
   RESEARCH_BEHIND_NOTE,
   RESEARCH_MAP_OFFERED,
   researchMapReminder,
@@ -1076,6 +1081,36 @@ describe("finalize_research, save_research_findings and the findings library", (
     expect(again.structuredContent).toMatchObject({ status: "ready_with_limits", turn_already_passed: true,
       findings_card: { status: "absent", problems: [] } });
     expect(calls).toEqual([]);
+  });
+
+  // Codex's review of 19 Nov 2026 (AskRigor#491, P1): an answer resting only on a forum thread AskRigor's reader read
+  // can hold a card (a finding's forum_signal), but the check never asked for one, so the reminder never ran for it.
+  it("asks a forum-only first pass for its card, and a repeat pass still without one gets no second reminder", () => {
+    const thread = "https://www.reddit.com/r/synthetic/comments/abc123/";
+    const input = {
+      research_target: "Synthetic forum experience",
+      answer_draft: "Two public forum participants reported nausea; these reports do not establish causation.",
+      receipts: [issueResearchReceipt("forum_thread_read", { u: forumThreadDigest(thread), n: 2, v: "reddit", c: "synthetic",
+        e: "1" }, { secret: SECRET })],
+      key_sources: [], binary_results: [], safety_claims: [], retraction_checks: [], limitations: [],
+      community_skip_reason: "This synthetic check is limited to the supplied public thread.",
+    };
+    const reminderFor = (result: FinalizeResearchOutput) => findingsCardReminder({ findings: "save", savingOn: true,
+      status: result.status, cardStatus: result.findings_card.status, turnAlreadyPassed: result.turn_already_passed === true,
+      cardRequested: findingsCardRequested(result) });
+    const first = finalizeResearch(input, { secret: SECRET, findings: "save" });
+    expect(first).toMatchObject({ status: "ready_with_limits", findings_card: { status: "absent" } });
+    expect(first).not.toHaveProperty("turn_already_passed");
+    expect(first.notes?.some((note) => note.startsWith(FINDINGS_CARD_REQUEST_START))).toBe(true);
+    expect(findingsCardRequested(first)).toBe(true);
+    expect(reminderFor(first)).toBe(FINDINGS_CARD_REMINDER);
+    // A repeat pass in the same turn, still with no card, gets no reminder.
+    const again = finalizeResearch({ ...input, round_token: first.round_token }, { secret: SECRET, findings: "save" });
+    expect(again).toMatchObject({ status: "ready_with_limits", turn_already_passed: true, findings_card: { status: "absent" } });
+    expect(reminderFor(again)).toBeUndefined();
+    // The same reading with no receipt is not a forum read, and is not asked for a card.
+    const unread = finalizeResearch({ ...input, receipts: [] }, { secret: SECRET, findings: "save" });
+    expect(findingsCardRequested(unread)).toBe(false);
   });
 
   it("reports a save that did not happen without holding back the answer", async () => {

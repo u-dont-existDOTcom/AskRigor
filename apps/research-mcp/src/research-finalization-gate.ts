@@ -4297,12 +4297,16 @@ export function finalizeResearch(
       rule`Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final check reads it.`
     );
   } else {
-    // A card's findings each cite a study audited or read as a lead here, or a
-    // video audited here, so an answer resting on none of them (a handoff, a
-    // correction, a question about given figures) has nothing a card can hold
-    // and is not asked for one (the 2026-10-15 owner regressions).
+    // A card's findings each cite a study audited or read as a lead here, a
+    // video audited here, or a forum thread AskRigor's reader read here (in a
+    // finding's forum_signal, by its verified forum_thread_read receipt), so an
+    // answer resting on none of them (a handoff, a correction, a question about
+    // given figures) has nothing a card can hold and is not asked for one (the
+    // 2026-10-15 owner regressions). Codex's review of 19 Nov 2026 (AskRigor#491,
+    // P1): a forum-only answer was never asked, so AskRigor#475's reminder never
+    // ran for it.
     const citable = validatedIds.size > 0 || leadSources.length > 0 || auditedAtAll.size > 0 ||
-      materialVideos.length > 0;
+      materialVideos.length > 0 || forumThreads.size > 0;
     if (findingsOpen(options) && input.findings_card === undefined && !parsed.droppedFindingsCard && citable) {
       cardRequested = true;
       requireDeclaration(
