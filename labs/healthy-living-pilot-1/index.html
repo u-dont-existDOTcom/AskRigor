@@ -214,21 +214,23 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
   </ol>
   <p class="group">Pregnancy and the year after</p>
   <ol class="em" start="14">
-    <li><label><input type="checkbox" data-em="14"> Pregnant, or gave birth in the last year: heavy bleeding, severe belly pain, a severe headache or blurred sight, chest pain, breathlessness, a painful swollen leg, a fit, or confusion, racing thoughts or hearing voices.</label>
+    <li><label><input type="checkbox" data-em="14"> Pregnant, or gave birth in the last year: heavy bleeding, or passing clots bigger than an egg, or tissue; severe belly pain, or severe shoulder or back pain; a severe headache; blurred or double sight, flashing lights, blind spots, or losing your sight for a while; chest pain, pressure or tightness; breathlessness (even if only when lying flat) or a tight throat; a painful swollen leg or arm; fainting, a fit, or a gap in time you can't remember; or confusion, racing thoughts or hearing voices.</label>
       <div class="msg" id="msg-14" hidden data-callmsg>
         <details class="fold"><summary>Why the year after the birth</summary>
           <p>Some dangers of pregnancy come after the birth, up to a year later. Of US deaths caused by pregnancy in 2011 to 2015, about 1 in 3 came between one week and one year after the birth, and about 3 in 5 could have been prevented. The leading causes were heart conditions, infection and bleeding.</p>
         </details>
       </div></li>
-    <li><label><input type="checkbox" data-em="15"> Pregnant, or gave birth in the last year: a fever of 38°C (100.4°F) or more, very swollen hands or face, a new racing or uneven heartbeat, or discharge from the vagina that smells bad. Or pregnant, and bleeding more than spotting, the baby moving less, or fluid leaking.</label>
+    <li><label><input type="checkbox" data-em="15"> Pregnant, or gave birth in the last year: a fever of 38°C (100.4°F) or more; very swollen hands or face, or swollen or numb lips or mouth; a new racing or uneven heartbeat, a pounding heart, or skipped beats; discharge from the vagina that smells bad; dizziness or light-headedness that won't go away or keeps coming back; a headache that won't go away or keeps getting worse; belly pain that won't go away or keeps getting worse; severe sickness or vomiting, worse than ordinary morning sickness, or you can't keep fluids down, or you haven't been able to drink for 8 hours or eat for 24 hours; swelling, pain, redness or warmth in a leg or arm, often on one side; overwhelming tiredness, not like ordinary tiredness (for example, too tired to get through the day or to get up for your baby, sleep doesn't refresh you, or you feel sad since the birth); or thoughts of harming yourself or your baby, or frightening thoughts that come unwanted or are hard to get rid of. Or pregnant, and bleeding more than spotting, the baby moving less than before or not at all, or fluid leaking.</label>
       <div class="msg" id="msg-15" hidden>
         <ul class="steps">
           <li><b>Call your maternity unit or midwife (the team looking after your pregnancy, or your recovery from the birth) now.</b> <span class="why">Why: these can be early signs of a serious problem, and they can check you, and the baby, the same day.</span></li>
           <li><b>If you can't reach them, call the emergency number (911 in the US, 112 in Europe, 999 in the UK).</b> <span class="why">Why: this should not wait until they answer.</span></li>
+          <li><b>If you might act on thoughts of harming yourself or your baby, call the emergency number now, and get another person with you.</b> <span class="why">Why: that danger can't wait for a call back.</span></li>
         </ul>
         <div data-actions="15"></div>
       </div></li>
   </ol>
+  <p class="small">These two lines cover every sign on the US CDC's list of <a href="https://www.cdc.gov/hearher/maternal-warning-signs/index.html" target="_blank" rel="noopener noreferrer">urgent maternal warning signs</a>: any one is enough. Whoever you call, say that you are pregnant or gave birth in the last year. The list does not cover every symptom: if something feels wrong, or you aren't sure, call your maternity unit or midwife.</p>
   <p class="group">Drugs and medicines</p>
   <ol class="em" start="16">
     <li><label><input type="checkbox" data-em="16"> Took too much of something, swallowed something dangerous, or very hot, stiff or twitching after mixing drugs.</label>
@@ -667,7 +669,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       <li>UK stroke guidance: a specialist within 24 hours of a suspected warning stroke (NICE NG128); within 7 days if it was more than a week ago (National Clinical Guideline for Stroke).</li>
       <li>Sepsis: 48.9 million cases and 11.0 million deaths in 2017, 19.7% of all deaths. Rudd, Lancet 2020 (31954465). Fever missing or weak in older people: 20-30%. Norman, Clinical Infectious Diseases 2000 (10913413). Delay and antibiotics: 49,331 patients. Seymour, New England Journal of Medicine 2017 (28528569).</li>
       <li>Deaths around pregnancy, US 2011-2015: 21.4% at 7-42 days and 11.7% at 43-365 days after the birth; about 60% preventable. Petersen, MMWR 2019 (31071074).</li>
-      <li>Warning signs in pregnancy and the year after that need care now, a fever of 38°C (100.4°F) or more among them: US Centers for Disease Control and Prevention, Hear Her campaign (a web page, not a study).</li>
+      <li>Urgent warning signs in pregnancy and the year after, a fever of 38°C (100.4°F) or more among them: US Centers for Disease Control and Prevention, Hear Her campaign, <a href="https://www.cdc.gov/hearher/maternal-warning-signs/index.html" target="_blank" rel="noopener noreferrer">cdc.gov/hearher/maternal-warning-signs</a>, page dated 15 May 2024, read 19 Nov 2026 (a web page, not a study; its list comes from the Alliance for Innovation on Maternal Health).</li>
       <li>Alcohol withdrawal: 14 studies, 71,295 hospital patients, 1,355 severe cases. Wood, JAMA 2018 (30167704).</li>
       <li>Infected tooth root: 61,439 hospital stays, 66 deaths, US 2000-2008. Shah, Journal of Endodontics 2013 (23953280).</li>
       <li>Water systems: nearly 21 million people on systems with health-based violations in 2015. Allaire, PNAS 2018 (29440421).</li>
@@ -735,7 +737,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
   const CALL = "Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.";
   const SHORT = {
     "8": "Use your adrenaline pen now if you have one, then call the emergency number. Lie down (sit up if breathing is hard); don't stand or walk.",
-    "15": "Call your maternity unit or midwife now. If you can't reach them, call the emergency number.",
+    "15": "Call your maternity unit or midwife now. If you can't reach them, or you might act on thoughts of harming yourself or your baby, call the emergency number.",
     "18": "Call the emergency number now, and get another person with you.",
     "19": "Reach a person now: someone you trust, or a crisis line (US: call or text 988).",
     "20": "If you can call safely, call the emergency number.",

@@ -118,6 +118,54 @@ describe("healthy-living pilot 1", () => {
     expect(html.slice(html.indexOf('id="msg-14"'), html.indexOf('data-em="15"'))).toContain("data-callmsg");
   });
 
+  // Final pass of 19 Nov 2026: every sign on the CDC's urgent maternal warning signs page (dated 15 May 2024,
+  // read 19 Nov 2026), in plain words, inside the pregnancy part; the severe ones still go to the emergency number.
+  it("covers every CDC urgent maternal warning sign in the pregnancy lines, with the link and no dose", () => {
+    const emergency = label("14");
+    const maternity = label("15");
+    // [the CDC's sign, the line that carries it, the page's words]
+    const signs: [string, "14" | "15", string][] = [
+      ["Headache that won't go away or gets worse over time", "14", "a severe headache"],
+      ["Headache that won't go away or gets worse over time", "15", "a headache that won't go away or keeps getting worse"],
+      ["Dizziness or fainting", "14", "fainting, a fit, or a gap in time you can't remember"],
+      ["Dizziness or fainting", "15", "dizziness or light-headedness that won't go away or keeps coming back"],
+      ["Changes in your vision", "14", "blurred or double sight, flashing lights, blind spots, or losing your sight for a while"],
+      ["Fever of 100.4°F or higher", "15", "a fever of 38°C (100.4°F) or more"],
+      ["Extreme swelling of your hands or face", "15", "very swollen hands or face, or swollen or numb lips or mouth"],
+      ["Thoughts about harming yourself or your baby", "15", "thoughts of harming yourself or your baby, or frightening thoughts that come unwanted or are hard to get rid of"],
+      ["Trouble breathing", "14", "breathlessness (even if only when lying flat) or a tight throat"],
+      ["Chest pain or fast-beating heart", "14", "chest pain, pressure or tightness"],
+      ["Chest pain or fast-beating heart", "15", "a new racing or uneven heartbeat, a pounding heart, or skipped beats"],
+      ["Severe nausea and throwing up", "15", "severe sickness or vomiting, worse than ordinary morning sickness, or you can't keep fluids down"],
+      ["Severe belly pain that doesn't go away", "14", "severe belly pain, or severe shoulder or back pain"],
+      ["Severe belly pain that doesn't go away", "15", "belly pain that won't go away or keeps getting worse"],
+      ["Baby's movement stopping or slowing during pregnancy", "15", "the baby moving less than before or not at all"],
+      ["Vaginal bleeding or fluid leaking during pregnancy", "15", "bleeding more than spotting"],
+      ["Vaginal bleeding or fluid leaking during pregnancy", "15", "or fluid leaking"],
+      ["Vaginal bleeding or discharge after pregnancy", "14", "heavy bleeding, or passing clots bigger than an egg, or tissue"],
+      ["Vaginal bleeding or discharge after pregnancy", "15", "discharge from the vagina that smells bad"],
+      ["Severe swelling, redness, or pain of your leg or arm", "14", "a painful swollen leg or arm"],
+      ["Severe swelling, redness, or pain of your leg or arm", "15", "swelling, pain, redness or warmth in a leg or arm"],
+      ["Overwhelming tiredness", "15", "overwhelming tiredness, not like ordinary tiredness"]
+    ];
+    for (const [sign, line, words] of signs) expect(line === "14" ? emergency : maternity, sign).toContain(words);
+    expect(new Set(signs.map(([sign]) => sign)).size).toBe(15);
+    // Line 14 keeps every sign it had, and its call to the emergency number.
+    for (const kept of ["heavy bleeding", "severe belly pain", "a severe headache", "blurred", "chest pain", "breathlessness", "a painful swollen leg", "a fit", "confusion, racing thoughts or hearing voices"]) {
+      expect(emergency, kept).toContain(kept);
+    }
+    expect(html.slice(html.indexOf('id="msg-14"'), html.indexOf('data-em="15"'))).toContain("data-callmsg");
+    // Line 15: maternity care now; the emergency number if they can't be reached, or if harm might follow.
+    const box = html.slice(html.indexOf('id="msg-15"'), html.indexOf('data-em="16"'));
+    expect(box).toContain("If you can't reach them, call the emergency number");
+    expect(box).toContain("If you might act on thoughts of harming yourself or your baby, call the emergency number now");
+    // The link sits inside the pregnancy part, and that part names no dose.
+    const part = html.slice(html.indexOf('<p class="group">Pregnancy and the year after</p>'), html.indexOf('<p class="group">Drugs and medicines</p>'));
+    expect(part).toContain('<a href="https://www.cdc.gov/hearher/maternal-warning-signs/index.html" target="_blank" rel="noopener noreferrer">');
+    expect(part).toContain("any one is enough");
+    expect(part).not.toMatch(/\d\s*(?:mg|mcg|µg|ml|units?|tablets?|pills?|puffs?|drops?)\b/i);
+  });
+
   it("keeps the emergency number for stroke signs that only just stopped and for a worst-ever headache", () => {
     const box = html.slice(html.indexOf('id="msg-passed"'), html.indexOf("data-none"));
     expect(box).toContain("If the signs stopped only minutes or hours ago, or it was a sudden worst-ever headache, call the emergency number now");
