@@ -1,6 +1,7 @@
 // Runs the healthy-living pilot page in headless Chromium (over the DevTools protocol) and checks
 // what draft v2 part 10 asks for: zero network requests, save and reload, the emergency pause,
-// skipped questions, the copy against its preview, Clear everything across two tabs, blocked
+// skipped questions, the copy against its preview, Clear everything across two tabs (also a clear
+// landing in the middle of another tab's save, two tabs editing at once, a clear that fails), blocked
 // storage, phone width and the keyboard. Usage: node browser-check.mjs <chrome> <page.html> <outdir>
 import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
@@ -113,7 +114,11 @@ try {
   await js(a, `document.querySelector('[data-em-act=called][data-line="4"]').click()`);
   check("I called is saved and the line stays ticked", await js(a, `document.querySelector('[data-em-log="4"]').textContent.startsWith("Saved: I called") && document.querySelector('[data-em="4"]').checked`));
   await js(a, `document.querySelector('[data-em-passed="4"]').click()`);
-  check("This has passed unticks and drops the banner", await js(a, `!document.querySelector('[data-em="4"]').checked`) && (await call(a, HIDDEN, "#em-banner")));
+  check("This has passed on line 4 opens the advice for signs that passed and keeps the banner", (await js(a, `!document.querySelector('[data-em="4"]').checked && document.querySelector('[data-em="passed"]').checked && document.querySelector("[data-banner-text]").textContent.includes("even though it passed")`)) && !(await call(a, HIDDEN, "#msg-passed")) && !(await call(a, HIDDEN, "#em-banner")));
+  await js(a, `document.querySelector('[data-em-passed="passed"]').click()`);
+  check("only the person unticks the passed line, and then the banner goes", (await js(a, `!document.querySelector('[data-em="passed"]').checked`)) && (await call(a, HIDDEN, "#em-banner")));
+  await js(a, `document.querySelector('[data-em="4"]').click(); document.querySelector('[data-em="4"]').click();`);
+  check("unticking line 4 itself also opens the advice for signs that passed", (await js(a, `!document.querySelector('[data-em="4"]').checked && document.querySelector('[data-em="passed"]').checked`)) && !(await call(a, HIDDEN, "#em-banner")));
 
   // 6. The copy matches its preview; safety answers only when ticked.
   const copy = await js(a, `new Promise((ok) => { const orig = URL.createObjectURL; URL.createObjectURL = (b) => { b.text().then(ok); URL.createObjectURL = orig; return orig.call(URL, b); }; HTMLAnchorElement.prototype.click = function () {}; document.querySelector('[data-save-text]').click(); })`);
@@ -140,6 +145,43 @@ try {
   // 8. Blocked storage shows the red line.
   const c = await openTab(`Object.defineProperty(window, "localStorage", { get() { throw new DOMException("blocked", "SecurityError"); } });`);
   check("blocked storage: Not saved and the red line", (await js(c, `document.querySelector("#stamp").textContent`)) === "Not saved" && !(await call(c, HIDDEN, "#save-failed")));
+
+  // 8b. Another tab's Clear everything lands between a save's check and its write (made to happen here:
+  // the clear runs just before the write). The late write must not bring the answers back.
+  const r = await openTab(`(() => { const set = Storage.prototype.setItem, del = Storage.prototype.removeItem;
+    Storage.prototype.setItem = function (k, v) {
+      if (window.__raceOnce && k === "askrigor-healthy-living-pilot-1") { window.__raceOnce = false; set.call(this, k + "-cleared", "other-tab-" + Date.now()); del.call(this, k); }
+      return set.call(this, k, v);
+    }; })();`);
+  await js(r, `(() => { window.__raceOnce = true; const t = document.querySelector("#own-words"); t.value = "race words"; t.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+  await sleep(700);
+  check("a clear landing mid-save leaves nothing stored", (await js(r, `localStorage.getItem("askrigor-healthy-living-pilot-1")`)) === null);
+  check("a clear landing mid-save clears this tab too", (await js(r, `document.querySelector("#own-words").value`)) === "" && !(await call(r, HIDDEN, "#cleared-note")));
+  await reload(r);
+  check("nothing comes back after a clear landing mid-save", (await js(r, `document.querySelector("#own-words").value`)) === "");
+
+  // 8c. Two tabs editing at once: both changes are kept.
+  const d1 = await openTab();
+  const d2 = await openTab();
+  await js(d1, `(() => { const t = document.querySelector("#own-words"); t.value = "words from one tab"; t.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+  await js(d2, `document.querySelector('input[name=area][value=home]').click()`);
+  await sleep(1200);
+  const both = (s) => js(s, `document.querySelector("#own-words").value === "words from one tab" && document.querySelector('input[name=area][value=home]').checked`);
+  check("two tabs editing at once: each shows both changes", (await both(d1)) && (await both(d2)));
+  await reload(d1);
+  check("two tabs editing at once: both changes saved", await both(d1));
+
+  // 8d. A clear that fails says so, keeps the answers on the page, and claims no success.
+  const f = await openTab(`(() => { const del = Storage.prototype.removeItem; Storage.prototype.removeItem = function (k) { if (window.__failRemove) throw new DOMException("blocked", "SecurityError"); return del.call(this, k); }; })();`);
+  await js(f, `(() => { const t = document.querySelector("#own-words"); t.value = "keep these words"; t.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+  await sleep(600);
+  await js(f, `window.__failRemove = true; window.confirm = () => true; document.querySelector('[data-clear]').click();`);
+  await sleep(300);
+  check("a failed clear says Clearing failed, not cleared", (await js(f, `document.querySelector("#clear-failed").textContent.startsWith("Clearing failed; saved answers may remain") && document.querySelector("#stamp").textContent === "Clearing failed"`)) && !(await call(f, HIDDEN, "#clear-failed")) && (await call(f, HIDDEN, "#cleared-note")));
+  check("a failed clear keeps the answers on the page, without the saving warning", (await js(f, `document.querySelector("#own-words").value`)) === "keep these words" && (await call(f, HIDDEN, "#save-failed")));
+  await js(f, `window.__failRemove = false; document.querySelector('[data-clear]').click();`);
+  await sleep(300);
+  check("clearing again once it works says cleared, and nothing is stored", (await js(f, `document.querySelector("#own-words").value === "" && localStorage.getItem("askrigor-healthy-living-pilot-1") === null`)) && !(await call(f, HIDDEN, "#cleared-note")) && (await call(f, HIDDEN, "#clear-failed")));
 
   // 9. Keyboard: Space on the first emergency line ticks it.
   await js(a, `document.querySelector('[data-em="1"]').focus()`);

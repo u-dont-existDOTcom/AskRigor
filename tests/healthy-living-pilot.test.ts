@@ -80,11 +80,72 @@ describe("healthy-living pilot 1", () => {
     expect(html).toContain("Don't drive yourself.");
   });
 
-  it("keeps the owner's 18 Nov additions", () => {
+  it("keeps the owner's 18 Nov additions, the mist idea as his view and not as permission", () => {
     expect(html).toContain("Start everything at the lowest dose");
-    expect(html).toContain("only smell first");
+    expect(html).toContain("Tolerating a smell does not show that breathing the substance as a mist is safe.");
+    expect(html).not.toMatch(/only smell first|Go on to the mist|build up only as you are fine/);
     expect(html).toContain("The person receiving closes their eyes.");
     expect(html).toContain("45-80% of a full deep breath");
+  });
+
+  // Codex's review of 19 Nov 2026 (P1s): no emergency line may wait on a diagnosis, a fever or every sign.
+  const label = (line: string) => html.match(new RegExp(`data-em="${line}">([^<]*)</label>`))?.[1] ?? "";
+
+  it("asks no diagnosis, fever or full set of signs before an emergency line", () => {
+    expect(label("3")).toContain("Or sudden chest discomfort or pressure that does not go away, even if mild.");
+    expect(label("6")).toContain("even if no one has said so, and even without fever");
+    expect(label("7")).toMatch(/^ A severe headache with a stiff neck, or with light hurting your eyes/);
+    expect(label("13")).toMatch(/^ Vomiting with deep, fast breathing, even if you have never been diagnosed with diabetes\./);
+    expect(label("13")).toContain("but you don't need them");
+    expect(html).toContain("Don't wait for a fever, a rash, or every sign: any one is enough.");
+  });
+
+  it("puts the adrenaline pen before the call, then lying down and not standing", () => {
+    const box = html.slice(html.indexOf('id="msg-8"'), html.indexOf('data-em="9"'));
+    expect(box).not.toContain("data-callmsg");
+    const pen = box.indexOf("adrenaline (epinephrine) pen");
+    expect(pen).toBeGreaterThan(-1);
+    expect(box.indexOf("call the emergency number")).toBeGreaterThan(pen);
+    expect(box).toContain("If breathing is hard, sit up instead. If you are pregnant, lie on your left side.");
+    expect(box).toContain("Don't stand up or walk, even if you feel better.");
+  });
+
+  it("sends the further pregnancy warning signs to maternity care now, the severe ones still to the emergency number", () => {
+    for (const sign of ["38°C (100.4°F) or more", "very swollen hands or face", "a new racing or uneven heartbeat", "smells bad", "bleeding more than spotting", "the baby moving less"]) {
+      expect(label("15"), sign).toContain(sign);
+    }
+    expect(html).toContain("Call your maternity unit or midwife");
+    expect(html.slice(html.indexOf('id="msg-14"'), html.indexOf('data-em="15"'))).toContain("data-callmsg");
+  });
+
+  it("keeps the emergency number for stroke signs that only just stopped and for a worst-ever headache", () => {
+    const box = html.slice(html.indexOf('id="msg-passed"'), html.indexOf("data-none"));
+    expect(box).toContain("If the signs stopped only minutes or hours ago, or it was a sudden worst-ever headache, call the emergency number now");
+    expect(box).toContain("Otherwise, phone an emergency department or a stroke clinic now and say: possible warning stroke.");
+  });
+
+  it("gives dizziness and tingling no certain harmless cause", () => {
+    expect(html).not.toMatch(/it means the breathing got too big|pass(es)? when the breathing settles/);
+    expect(html.match(/stop the exercise, sit or lie down, and breathe normally/gi)).toHaveLength(2);
+    expect(html).toContain("but so can other things");
+  });
+
+  it("says no more for the evidence than it shows (P2s of 19 Nov)", () => {
+    expect(html).toContain("Longer-term breathing practice to try");
+    expect(html).toContain("Whether this helps stress or sleep is not established by the evidence cited here.");
+    expect(html).not.toContain("Root cause. Change how you breathe");
+    expect(html).toContain("The review did not assess side effects, so it cannot tell us how often harms occur.");
+    expect(html).not.toContain("The asthma trials recorded no harm");
+    expect(html).toContain("sterile saline sold for the nose");
+    expect(html).toContain("let it air-dry");
+  });
+
+  it("says Clearing failed when a clear fails, and accepts no saved copy from before a clear", () => {
+    expect(html).toContain('id="clear-failed"');
+    expect(html).toContain("Clearing failed; saved answers may remain.");
+    const script = inlineScripts(html)[0];
+    expect(script).toContain("(p.gen || \"\") !== mark");
+    expect(script).not.toMatch(/state = Object\.assign\(blank\(\), parsed\)/);
   });
 
   it("leaves out what the approved defaults leave out", () => {

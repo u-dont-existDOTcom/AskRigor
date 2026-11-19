@@ -49,7 +49,7 @@ header.top { position: sticky; top: 0; z-index: 10; background: var(--bg); borde
 header.top .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding-top: 8px; padding-bottom: 8px; }
 .brand { font-weight: 700; margin-right: auto; }
 .stamp { font-size: .9rem; color: var(--muted); }
-.stamp[data-state="failed"] { color: var(--warn-fg); font-weight: 700; }
+.stamp[data-state="failed"], .stamp[data-state="clear-failed"] { color: var(--warn-fg); font-weight: 700; }
 #save-failed { background: var(--warn-bg); color: var(--warn-fg); border-bottom: 2px solid var(--warn-line); font-weight: 700; padding: 8px 16px; margin: 0; }
 #em-banner { background: var(--warn-bg); color: var(--warn-fg); border-bottom: 2px solid var(--warn-line); padding: 8px 0; }
 #em-banner p { margin: 0; }
@@ -161,7 +161,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
   </ol>
   <p class="group">Chest</p>
   <ol class="em" start="3">
-    <li><label><input type="checkbox" data-em="3"> Chest pain or pressure that is severe, spreading, worsening, brought on by effort, or comes with breathlessness, sweating or faintness.</label><div class="msg" id="msg-3" hidden data-callmsg></div></li>
+    <li><label><input type="checkbox" data-em="3"> Chest pain or pressure that is severe, spreading, worsening, brought on by effort, or comes with breathlessness, sweating or faintness. Or sudden chest discomfort or pressure that does not go away, even if mild.</label><div class="msg" id="msg-3" hidden data-callmsg></div></li>
   </ol>
   <p class="group">Brain</p>
   <ol class="em" start="4">
@@ -177,23 +177,29 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     <li><label><input type="checkbox" data-em="5"> Collapsed, can't be woken, suddenly very confused, a first seizure (fit), a seizure lasting five minutes, or seizures one after another.</label><div class="msg" id="msg-5" hidden data-callmsg></div></li>
   </ol>
   <p class="group">Infection</p>
+  <p class="small"><b>You don't need to know it is an infection. Don't wait for a fever, a rash, or every sign: any one is enough.</b></p>
   <ol class="em" start="6">
-    <li><label><input type="checkbox" data-em="6"> With an infection, even without fever: breathing fast, skin blotchy or cold, new confusion.</label>
+    <li><label><input type="checkbox" data-em="6"> Might be an infection, even if no one has said so, and even without fever: breathing fast, skin blotchy or cold, or new confusion.</label>
       <div class="msg" id="msg-6" hidden data-callmsg>
         <details class="fold"><summary>Why this line is here</summary>
           <p>This can be sepsis: the body being overwhelmed by an infection. It is on this list because it can come with no fever. In older people with a serious infection, fever is missing or weak 20 to 30 times in 100. So watch for confusion, fast breathing, and blotchy or cold skin, not the thermometer.</p>
           <p>Sepsis is involved in about 1 in 5 deaths worldwide (11 million deaths among 49 million cases in 2017). In 49,331 hospital patients in New York, each hour's delay in getting antibiotics (infection-fighting drugs) went with a slightly higher risk of dying.</p>
         </details>
       </div></li>
-    <li><label><input type="checkbox" data-em="7"> Fever with a stiff neck, or a rash that doesn't fade when pressed.</label><div class="msg" id="msg-7" hidden data-callmsg></div></li>
+    <li><label><input type="checkbox" data-em="7"> A severe headache with a stiff neck, or with light hurting your eyes; a fever with a stiff neck; or a rash that doesn't fade when pressed.</label><div class="msg" id="msg-7" hidden data-callmsg></div></li>
   </ol>
   <p class="group">Body</p>
   <ol class="em" start="8">
     <li><label><input type="checkbox" data-em="8"> Throat tight, lips or tongue swelling, wheezing or faint after a food, sting or medicine.</label>
-      <div class="msg" id="msg-8" hidden data-callmsg>
-        <ul class="steps extra">
-          <li><b>Use an adrenaline (epinephrine) pen, such as an EpiPen, now if you have one.</b> <span class="why">Why: it is made for exactly this, and help may take time to arrive.</span></li>
+      <div class="msg" id="msg-8" hidden>
+        <ul class="steps">
+          <li><b>Use your adrenaline (epinephrine) pen, such as an EpiPen, now if you have one.</b> <span class="why">Why: it is made for exactly this, and it works best given early. Don't wait to see if the reaction passes.</span></li>
+          <li><b>Then call the emergency number (911 in the US, 112 in Europe, 999 in the UK), or get someone to call. Say you think it is anaphylaxis (a severe allergic reaction). Call even if you start to feel better.</b> <span class="why">Why: it can come back, and help may take time to arrive.</span></li>
+          <li><b>Lie down flat. If breathing is hard, sit up instead. If you are pregnant, lie on your left side.</b> <span class="why">Why: lying down helps the blood reach your heart and brain; sitting up makes breathing easier; lying on the left keeps the womb off a large vein.</span></li>
+          <li><b>Don't stand up or walk, even if you feel better. Let help come to you.</b> <span class="why">Why: standing up during a severe allergic reaction can make the blood pressure fall dangerously.</span></li>
+          <li><b>Don't drive yourself.</b> <span class="why">Why: you could get worse at the wheel.</span></li>
         </ul>
+        <div data-actions="8"></div>
       </div></li>
     <li><label><input type="checkbox" data-em="9"> Vomiting blood or vomiting that won't stop, black, tar-like poo with faintness, bleeding that won't stop, no urine all day, or sudden severe belly pain.</label><div class="msg" id="msg-9" hidden data-callmsg></div></li>
     <li><label><input type="checkbox" data-em="10"> Swelling of the face or jaw spreading toward the eye or neck, or trouble swallowing.</label><div class="msg" id="msg-10" hidden data-callmsg></div></li>
@@ -204,7 +210,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
           <li><b>Cool down while you call the emergency number. Don't wait for a thermometer.</b> <span class="why">Why: the guides warn that above 105°F (40.5°C) <q>you can have seizures</q> (fits).</span></li>
         </ul>
       </div></li>
-    <li><label><input type="checkbox" data-em="13"> Diabetes, and confused or hard to wake, or vomiting with deep, fast breathing.</label><div class="msg" id="msg-13" hidden data-callmsg></div></li>
+    <li><label><input type="checkbox" data-em="13"> Vomiting with deep, fast breathing, even if you have never been diagnosed with diabetes. Great thirst, peeing a lot, or breath that smells fruity are more clues, but you don't need them. Or diabetes, and confused or hard to wake.</label><div class="msg" id="msg-13" hidden data-callmsg></div></li>
   </ol>
   <p class="group">Pregnancy and the year after</p>
   <ol class="em" start="14">
@@ -214,10 +220,10 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
           <p>Some dangers of pregnancy come after the birth, up to a year later. Of US deaths caused by pregnancy in 2011 to 2015, about 1 in 3 came between one week and one year after the birth, and about 3 in 5 could have been prevented. The leading causes were heart conditions, infection and bleeding.</p>
         </details>
       </div></li>
-    <li><label><input type="checkbox" data-em="15"> Pregnant, and the baby is moving less, or fluid is leaking.</label>
+    <li><label><input type="checkbox" data-em="15"> Pregnant, or gave birth in the last year: a fever of 38°C (100.4°F) or more, very swollen hands or face, a new racing or uneven heartbeat, or discharge from the vagina that smells bad. Or pregnant, and bleeding more than spotting, the baby moving less, or fluid leaking.</label>
       <div class="msg" id="msg-15" hidden>
         <ul class="steps">
-          <li><b>Call your maternity unit (the hospital team looking after your pregnancy) now.</b> <span class="why">Why: they can check the baby the same day.</span></li>
+          <li><b>Call your maternity unit or midwife (the team looking after your pregnancy, or your recovery from the birth) now.</b> <span class="why">Why: these can be early signs of a serious problem, and they can check you, and the baby, the same day.</span></li>
           <li><b>If you can't reach them, call the emergency number (911 in the US, 112 in Europe, 999 in the UK).</b> <span class="why">Why: this should not wait until they answer.</span></li>
         </ul>
         <div data-actions="15"></div>
@@ -277,7 +283,8 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
         <p>Many callers turn out not to have had a stroke, often about half, and that is expected.</p>
         <p>A false alarm usually means a scan and some tests; a missed warning can mean a stroke.</p>
         <ul class="steps">
-          <li><b>Phone an emergency department or a stroke clinic now and say: possible warning stroke.</b> <span class="why">Why: those words tell them what to check, and UK guidance asks for a stroke specialist within 24 hours.</span></li>
+          <li><b>If the signs stopped only minutes or hours ago, or it was a sudden worst-ever headache, call the emergency number now (911 in the US, 112 in Europe, 999 in the UK).</b> <span class="why">Why: health services ask for an emergency call for stroke signs even when they go away, and a sudden worst-ever headache can be bleeding in the brain even after it eases.</span></li>
+          <li><b>Otherwise, phone an emergency department or a stroke clinic now and say: possible warning stroke.</b> <span class="why">Why: those words tell them what to check, and UK guidance asks for a stroke specialist within 24 hours.</span></li>
           <li><b>Go where they send you.</b> <span class="why">Why: they know which place can do the tests soonest.</span></li>
           <li><b>Don't drive yourself.</b> <span class="why">Why: the signs could come back at the wheel.</span></li>
           <li><b>If any sign comes back, call the emergency number (911 in the US, 112 in Europe, 999 in the UK).</b> <span class="why">Why: signs happening now are an emergency (line 4), and some treatments work only within hours.</span></li>
@@ -345,8 +352,8 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
   <h2 id="rules-title">On every suggestion</h2>
   <ul class="steps">
     <li><b>Pick one. Try it for two weeks. Stop if you feel worse.</b> <span class="why">Why: one change at a time shows you what helped.</span></li>
-    <li><b>Start everything at the lowest dose, and build up only as you are fine with it.</b> <span class="why">Why, in the guides' author's words: <q>it's allergy &amp; sensitivity testing, common sense for everything</q>. Starting small shows whether you react badly.</span></li>
-    <li><b>If you ever breathe something in as a mist (nothing on this page does), only smell first. Go on to the mist only once smelling it is fine.</b> <span class="why">Why: smelling is the lowest dose; in his words, <q>you don't start nebulizing</q> (breathing a fine mist from a machine) <q>until you are fine with smelling it</q>.</span></li>
+    <li><b>Start everything at the lowest dose. Stop if you react badly.</b> <span class="why">Why, in the guides' author's words: <q>it's allergy &amp; sensitivity testing, common sense for everything</q>. Starting small can show an early bad reaction. Feeling fine does not show that more is safe.</span></li>
+    <li><b>Nothing on this page is breathed in as a mist. Tolerating a smell does not show that breathing the substance as a mist is safe.</b> <span class="why">The guides' author's view, which studies have not tested: <q>you don't start nebulizing</q> (breathing a fine mist from a machine) <q>until you are fine with smelling it</q>. That is a reason to wait, not a sign that going on is safe.</span></li>
     <li><b>Nothing on the get-help lists waits two weeks.</b> <span class="why">Why: those signs need help now or today.</span></li>
   </ul>
   <p class="small">Each suggestion has buttons to save what you did, with the date: I'll try this; Tried it: helped, no change, or worse; Not for me.</p>
@@ -419,7 +426,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
         <div><b>Root cause</b>Find what weakened your sense of smell: mold, sinus trouble, or cooking oil gone bad (rancid).</div>
       </div>
       <ul class="steps">
-        <li><b>If you rinse your nose, use a sealed sterile product, or water boiled and then cooled; never water straight from the tap.</b> <span class="why">Why: tap water in the nose has, rarely, carried a brain infection.</span></li>
+        <li><b>If you rinse your nose, use ready-made sterile saline sold for the nose, or a nasal-rinse sachet mixed as its packet says with distilled or sterile water, or with tap water boiled for 3 to 5 minutes and cooled. Never use water straight from the tap. After each rinse, clean the device with the same kind of water and let it air-dry.</b> <span class="why">Why: tap water in the nose has, rarely, carried a brain infection.</span></li>
       </ul>
       <details class="fold"><summary>Why</summary><p><q>Stop using dish sponges, switch to nylon brushes</q>. For sinus trouble he rinses the nose: <q>Nasal irrigation with Quinton Seawater</q> (a seawater product).</p></details>
       <details class="fold"><summary>How well studied</summary><p>Personal field signal: what he and others have noticed, not tested in studies. The nose rinse: Limited human evidence (two small trials of salt-water rinsing in 116 adults; seawater itself was not tested).</p></details>
@@ -527,7 +534,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     <div class="sugg-body">
       <ul class="steps">
         <li><b>Don't hold your breath.</b> <span class="why">Why: this practice only slows the breath out; it never stops it.</span></li>
-        <li><b>Ease off if you feel dizzy or tingly.</b> <span class="why">Why: it means the breathing got too big, and it passes when the breathing settles.</span></li>
+        <li><b>Dizzy or tingly? Stop the exercise, sit or lie down, and breathe normally.</b> <span class="why">Why: breathing too much can cause this, but so can other things. If it doesn't pass, or it gets worse, get help; if a sign from the safety check appears, follow it now.</span></li>
         <li><b>Prone to panic? Go gentler.</b> <span class="why">Why: the first seconds of slight air hunger (a mild wish for more air) can feel like panic.</span></li>
       </ul>
       <details class="fold"><summary>How it feels, as he writes it</summary><p>The slight air hunger (a mild wish for more air) <q>feels a bit anxiogenic for the first 20 seconds or so</q> (it makes you a little anxious); <q>after that, you'll feel much calmer</q>. <b>People differ.</b></p></details>
@@ -537,9 +544,10 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
   </div>
 
   <div class="sugg" data-sugg="allday">
-    <h3>Root cause. Change how you breathe all day. Step 1: Buteyko. Step 2: Systema.</h3>
+    <h3>Longer-term breathing practice to try: change how you breathe all day. Step 1: Buteyko. Step 2: Systema.</h3>
     <div class="sugg-body">
-      <details class="fold"><summary>Why this is the root-cause door</summary><p>In the guide's words, over-breathing (breathing more air than the body needs) is <q>one of the root causes</q> of poor sleep and anxiety.</p></details>
+      <p class="small"><b>Whether this helps stress or sleep is not established by the evidence cited here.</b></p>
+      <details class="fold"><summary>Why he suggests it</summary><p>His explanation, not a tested one: in the guide's words, over-breathing (breathing more air than the body needs) is <q>one of the root causes</q> of poor sleep and anxiety.</p></details>
     </div>
   </div>
 
@@ -551,8 +559,8 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
         <li><b>Prone to panic? Go gentler at first.</b> <span class="why">Why: breathing less brings a mild wish for more air, which can feel like panic.</span></li>
       </ul>
       <details class="fold"><summary>Why it comes first</summary><p>It is <q>much easier for people to understand</q>.</p></details>
-      <details class="fold"><summary>How well studied</summary><p>Limited human evidence, for asthma only: breathing exercises improved quality of life (22 trials, 2,880 people; two of the trials used Buteyko), and a 60-person Buteyko trial cut inhaler use by about a fifth. For calming and sleep: Personal field signal (noticed by him and others); no trial was found.</p></details>
-      <details class="fold"><summary>Risk</summary><p>No harm found, not studied for this use. The asthma trials recorded no harm, but their review did not count side effects.</p></details>
+      <details class="fold"><summary>How well studied</summary><p>Limited human evidence, for asthma only: breathing exercises improved quality of life (a review of 22 trials, 2,880 people; two of the trials used Buteyko), and a 60-person Buteyko trial cut inhaler use by about a fifth. For calming and sleep: Personal field signal (noticed by him and others); no trial was found.</p></details>
+      <details class="fold"><summary>Risk</summary><p>No harm found, not studied for this use. The review did not assess side effects, so it cannot tell us how often harms occur.</p></details>
     </div>
   </div>
 
@@ -568,7 +576,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       <details class="fold"><summary>Why</summary><p><q>even better than just breathing less is circular breathing, Systema style</q>. For anxiety: <q>Systema continuous breathing is great!</q> Most people <q>try it just barely and forget it</q>, so the buttons below keep a dated log of what you tried.</p></details>
       <details class="fold"><summary>A video of Systema breathing</summary><p>The one his somatic guide links to; he is not sure it is the best one: <a href="https://www.youtube.com/watch?v=Nar2-nvomAk" target="_blank" rel="noopener noreferrer">youtube.com/watch?v=Nar2-nvomAk</a>. It opens on YouTube, online.</p></details>
       <details class="fold"><summary>How well studied</summary><p>Personal field signal: what he and the Systema community have noticed. No studies found.</p></details>
-      <details class="fold"><summary>Risk</summary><p>No harm found, not studied. If light breathing turns big and fast: dizziness and tingling, which pass when the breathing settles.</p></details>
+      <details class="fold"><summary>Risk</summary><p>No harm found, not studied. Breathing that turns big and fast can bring dizziness or tingling. If it does, stop the exercise, sit or lie down, and breathe normally. Other causes are possible: if it doesn't pass, or it gets worse, get help, and if a sign from the safety check appears, follow it now.</p></details>
     </div>
   </div>
 
@@ -606,6 +614,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
   <p class="small"><b>A copy is an ordinary file. It can stay in your Downloads folder, in backups, in folders that sync to other devices, or at the printer. This page cannot clear it.</b></p>
   <p><b>Clear everything</b> removes this page's saved answers, choices and dated log from this browser (not your browser history). <button type="button" class="danger" data-clear>Clear everything</button></p>
   <p id="cleared-note" class="logline" hidden role="status">This page's saved answers were cleared here. Copies, and traces such as your browser history, may remain.</p>
+  <p id="clear-failed" class="worse" hidden role="alert">Clearing failed; saved answers may remain. Everything is still on this page: make a copy, or press Clear everything again.</p>
 </section>
 
 <section class="card" id="about" aria-labelledby="about-title">
@@ -658,6 +667,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       <li>UK stroke guidance: a specialist within 24 hours of a suspected warning stroke (NICE NG128); within 7 days if it was more than a week ago (National Clinical Guideline for Stroke).</li>
       <li>Sepsis: 48.9 million cases and 11.0 million deaths in 2017, 19.7% of all deaths. Rudd, Lancet 2020 (31954465). Fever missing or weak in older people: 20-30%. Norman, Clinical Infectious Diseases 2000 (10913413). Delay and antibiotics: 49,331 patients. Seymour, New England Journal of Medicine 2017 (28528569).</li>
       <li>Deaths around pregnancy, US 2011-2015: 21.4% at 7-42 days and 11.7% at 43-365 days after the birth; about 60% preventable. Petersen, MMWR 2019 (31071074).</li>
+      <li>Warning signs in pregnancy and the year after that need care now, a fever of 38°C (100.4°F) or more among them: US Centers for Disease Control and Prevention, Hear Her campaign (a web page, not a study).</li>
       <li>Alcohol withdrawal: 14 studies, 71,295 hospital patients, 1,355 severe cases. Wood, JAMA 2018 (30167704).</li>
       <li>Infected tooth root: 61,439 hospital stays, 66 deaths, US 2000-2008. Shah, Journal of Endodontics 2013 (23953280).</li>
       <li>Water systems: nearly 21 million people on systems with health-based violations in 2015. Allaire, PNAS 2018 (29440421).</li>
@@ -666,6 +676,7 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       <li>Smell and death: 3,005 adults aged 57-85; four times the five-year death rate without smell. Pinto, PLoS One (25271633).</li>
       <li>Salt-water nose rinse: two trials, 116 adults; 23% side effects with a strong rinse. Chong, Cochrane 2016 (27115216).</li>
       <li>Amoebas after nose rinsing: 10 patients, 1994-2022, all with weak immune systems. Haston, Emerging Infectious Diseases 2024 (38526242).</li>
+      <li>Water for a nose rinse: distilled or sterile, or tap water boiled for 3 to 5 minutes and cooled; clean the device and let it air-dry. US Food and Drug Administration, advice on rinsing your sinuses (a web page, not a study).</li>
       <li>Sleep apnea and crashes: 1.21 to 4.89 times the crash rate; studies that only watched drivers, combined. Tregear, Journal of Clinical Sleep Medicine 2009 (20465027).</li>
       <li>Breathing machine and crashes: risk about 72% lower in 9 before-and-after studies; sleepiness better after one night. Tregear, Sleep 2010 (21061860).</li>
       <li>Stopping caffeine: headache in 50%, significant distress or impairment in 13%; 57 experiments. Juliano and Griffiths, Psychopharmacology 2004 (15448977).</li>
@@ -694,26 +705,34 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
   let store = null;
   try { store = window.localStorage; store.getItem(KEY); } catch (e) { store = null; }
 
-  const blank = () => ({ v: 1, answers: {}, texts: {}, log: {}, emergency: {}, noneAt: "" });
+  // Each saved copy carries the clear mark it was written under (gen) and the time of each answer (t).
+  // A copy written under an older mark was saved by a slow tab before a Clear everything: no tab shows
+  // it, and any tab that sees it removes it. Two tabs' changes merge answer by answer, the later one
+  // winning, and the dated logs add up, so one tab's save never drops what another tab saved.
+  const TAB = Math.random().toString(36).slice(2, 8);
+  const blank = () => ({ v: 2, gen: "", answers: {}, texts: {}, log: {}, emergency: {}, noneAt: "", t: {} });
   let state = blank();
   let clearMark = "";
   let timer = 0;
+  let held = false;
   let showAnyway = false;
 
   const stamp = $("#stamp");
   const failLine = $("#save-failed");
   const CALL = "Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.";
   const SHORT = {
-    "15": "Call your maternity unit now. If you can't reach them, call the emergency number.",
+    "8": "Use your adrenaline pen now if you have one, then call the emergency number. Lie down (sit up if breathing is hard); don't stand or walk.",
+    "15": "Call your maternity unit or midwife now. If you can't reach them, call the emergency number.",
     "18": "Call the emergency number now, and get another person with you.",
     "19": "Reach a person now: someone you trust, or a crisis line (US: call or text 988).",
     "20": "If you can call safely, call the emergency number.",
-    "passed": "Call now, even though it passed: phone an emergency department or a stroke clinic and say: possible warning stroke."
+    "passed": "Call now, even though it passed. Stopped minutes or hours ago, or a sudden worst-ever headache: call the emergency number. Otherwise phone an emergency department or a stroke clinic and say: possible warning stroke."
   };
   const ACT = { called: "I called", seen: "I've been seen", declined: "I'm choosing not to" };
   const LOGNAME = { try: "I'll try this", helped: "Tried it: helped", same: "Tried it: no change", worse: "Tried it: worse", no: "Not for me" };
 
   function nowIso() { return new Date().toISOString(); }
+  function touch(k) { state.t[k] = nowIso() + "#" + TAB; }
   function two(n) { return String(n).padStart(2, "0"); }
   function hhmm(d) { return two(d.getHours()) + ":" + two(d.getMinutes()); }
   function when(iso) {
@@ -727,7 +746,8 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     failLine.hidden = kind !== "failed";
   }
 
-  // The emergency message shared by lines 1 to 14, 16 and 17, built once so every line says the same.
+  // The emergency message shared by lines 1 to 7, 9 to 14, 16 and 17, built once so every line says the same.
+  // Line 8 has its own order: the adrenaline pen comes before the call.
   function buildCallMessages() {
     $$("[data-callmsg]").forEach((box) => {
       const id = box.id.replace("msg-", "");
@@ -745,13 +765,15 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     });
     $$("[data-actions]").forEach((box) => {
       const id = box.dataset.actions;
+      const off = id === "passed" ? "Untick this line" : "This has passed";
       box.innerHTML =
         '<div class="row">' +
         '<button type="button" data-em-act="called" data-line="' + id + '">I called</button>' +
         '<button type="button" data-em-act="seen" data-line="' + id + '">I\'ve been seen</button>' +
         '<button type="button" data-em-act="declined" data-line="' + id + '">I\'m choosing not to</button>' +
-        '<button type="button" class="primary" data-em-passed="' + id + '">This has passed</button>' +
-        '</div><p class="small">Saving what you did does not clear this line. Only you can untick it, with This has passed.</p>' +
+        '<button type="button" class="primary" data-em-passed="' + id + '">' + off + '</button>' +
+        '</div><p class="small">Saving what you did does not clear this line. Only you can untick it, with ' + off + '.' +
+        (id === "4" ? " Then the advice for signs that came and went opens: they still need a call." : "") + '</p>' +
         '<p class="logline" data-em-log="' + id + '"></p>';
     });
   }
@@ -777,23 +799,79 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     });
   }
 
+  function keysOf(a, b) { return Array.from(new Set(Object.keys(a || {}).concat(Object.keys(b || {})))); }
+  function stampOf(s, k) { return (s.t && s.t[k]) || ""; }
+  function has(o, k) { return !!o && Object.prototype.hasOwnProperty.call(o, k); }
+  function unionBy(a, b, key) {
+    const seen = new Map();
+    (a || []).concat(b || []).forEach((x) => { if (x && !seen.has(key(x))) seen.set(key(x), x); });
+    return Array.from(seen.values()).sort((x, y) => (x.at < y.at ? -1 : x.at > y.at ? 1 : key(x) < key(y) ? -1 : 1));
+  }
+  // This tab's answers and another tab's, answer by answer: the later change wins; logs and actions add up.
+  function merge(mine, theirs) {
+    const out = blank();
+    [["answers", "a:"], ["texts", "x:"]].forEach(([bag, pre]) => {
+      keysOf(mine[bag], theirs[bag]).forEach((k) => {
+        const src = has(theirs[bag], k) && (!has(mine[bag], k) || stampOf(theirs, pre + k) > stampOf(mine, pre + k)) ? theirs : mine;
+        out[bag][k] = src[bag][k];
+        if (stampOf(src, pre + k)) out.t[pre + k] = stampOf(src, pre + k);
+      });
+    });
+    keysOf(mine.emergency, theirs.emergency).forEach((id) => {
+      const a = mine.emergency[id];
+      const b = theirs.emergency[id];
+      const src = b && (!a || stampOf(theirs, "e:" + id) > stampOf(mine, "e:" + id)) ? theirs : mine;
+      const win = src.emergency[id];
+      out.emergency[id] = { on: !!win.on, at: win.at || "", acts: unionBy(a && a.acts, b && b.acts, (x) => x.a + "@" + x.at) };
+      if (stampOf(src, "e:" + id)) out.t["e:" + id] = stampOf(src, "e:" + id);
+    });
+    keysOf(mine.log, theirs.log).forEach((id) => { out.log[id] = unionBy(mine.log[id], theirs.log[id], (x) => x.c + "@" + x.at); });
+    out.noneAt = (theirs.noneAt || "") > (mine.noneAt || "") ? theirs.noneAt : mine.noneAt || "";
+    return out;
+  }
+  function canon(x) {
+    if (Array.isArray(x)) return "[" + x.map(canon).join(",") + "]";
+    if (x && typeof x === "object") return "{" + Object.keys(x).sort().map((k) => JSON.stringify(k) + ":" + canon(x[k])).join(",") + "}";
+    return JSON.stringify(x === undefined ? null : x);
+  }
+  function content(s) { return canon({ answers: s.answers, texts: s.texts, log: s.log, emergency: s.emergency, noneAt: s.noneAt || "", t: s.t || {} }); }
+  const EMPTY = content(blank());
+
+  // A saved copy, only if it was written under the current clear mark.
+  function readRecord(raw, mark) {
+    if (!raw) return null;
+    try {
+      const p = JSON.parse(raw);
+      if (!p || (p.v !== 1 && p.v !== 2) || (p.gen || "") !== mark) return null;
+      const s = Object.assign(blank(), p);
+      s.t = Object.assign({}, p.t);
+      return s;
+    } catch (e) { return null; }
+  }
+  // Removes a saved copy written under an older clear mark: a late save from another tab.
+  function dropStale(mark) {
+    try {
+      const raw = store.getItem(KEY);
+      if (raw !== null && !readRecord(raw, mark)) store.removeItem(KEY);
+    } catch (e) { /* the next load refuses it all the same */ }
+  }
+
   function load() {
     if (!store) { setStamp("failed", "Not saved"); return; }
     try {
       clearMark = store.getItem(CLEARED) || "";
       const raw = store.getItem(KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && parsed.v === 1) {
-          state = Object.assign(blank(), parsed);
-          setStamp("saved", "Saved here " + hhmm(new Date(parsed.savedAt || Date.now())));
-        }
-      }
+      const rec = readRecord(raw, clearMark);
+      if (rec) {
+        state = rec;
+        setStamp("saved", "Saved here " + hhmm(new Date(rec.savedAt || Date.now())));
+      } else if (raw !== null) dropStale(clearMark);
     } catch (e) { setStamp("failed", "Not saved"); }
   }
 
   function scheduleSave() {
     if (!store) { setStamp("failed", "Not saved"); return; }
+    if (held) return; // after a failed clear, the answers kept on this page wait for the person's next change
     setStamp("saving", "Saving…");
     clearTimeout(timer);
     timer = setTimeout(save, 250);
@@ -802,12 +880,23 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
   function save() {
     timer = 0;
     try {
-      if ((store.getItem(CLEARED) || "") !== clearMark) { wipe(false); return; }
+      const mark = store.getItem(CLEARED) || "";
+      if (mark !== clearMark) { clearedElsewhere(); return; }
+      const before = content(state);
+      const there = readRecord(store.getItem(KEY), mark);
+      if (there) state = merge(state, there);
+      state.gen = mark;
       state.savedAt = nowIso();
       const raw = JSON.stringify(state);
       store.setItem(KEY, raw);
-      if (store.getItem(KEY) === raw) setStamp("saved", "Saved here " + hhmm(new Date()));
+      // A Clear everything in another tab can land between the check above and this write. Then this
+      // copy carries the old mark, so no tab shows it; remove it, and clear this tab too.
+      if ((store.getItem(CLEARED) || "") !== mark) { clearedElsewhere(); return; }
+      const back = store.getItem(KEY);
+      if (back === raw) setStamp("saved", "Saved here " + hhmm(new Date()));
+      else if (readRecord(back, mark)) scheduleSave(); // another tab saved in between: merge again
       else setStamp("failed", "Not saved");
+      if (content(state) !== before) render();
     } catch (e) { setStamp("failed", "Not saved"); }
   }
 
@@ -817,24 +906,52 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
     $$("select").forEach((el) => { el.selectedIndex = 0; });
   }
 
-  function wipe(here) {
-    clearTimeout(timer);
-    timer = 0;
+  function showCleared() {
     state = blank();
     showAnyway = false;
+    held = false;
     resetFields();
-    if (here && store) {
-      try {
-        store.removeItem(KEY);
-        clearMark = String(Date.now()) + "-" + Math.random().toString(36).slice(2);
-        store.setItem(CLEARED, clearMark);
-      } catch (e) { setStamp("failed", "Not saved"); }
-    } else if (store) {
-      try { clearMark = store.getItem(CLEARED) || ""; } catch (e) { clearMark = ""; }
-    }
-    if (!failLine.hidden && here) { /* keep the red line if clearing itself failed */ } else setStamp("idle", "Nothing saved");
+    $("#clear-failed").hidden = true;
     $("#cleared-note").hidden = false;
     render();
+  }
+
+  // Another tab cleared (or this tab's save found that a clear had landed): empty this tab, store nothing.
+  function clearedElsewhere() {
+    clearTimeout(timer);
+    timer = 0;
+    try { clearMark = store.getItem(CLEARED) || ""; } catch (e) { clearMark = ""; }
+    dropStale(clearMark);
+    setStamp("idle", "Nothing saved");
+    showCleared();
+  }
+
+  // Clear everything: a new clear mark first, so no tab accepts a copy written before it, then the answers.
+  // Success is said only once nothing is left; otherwise the page says so and keeps the answers here.
+  function clearAll() {
+    clearTimeout(timer);
+    timer = 0;
+    if (store) {
+      const mark = String(Date.now()) + "-" + Math.random().toString(36).slice(2);
+      let done = false;
+      try {
+        store.setItem(CLEARED, mark);
+        store.removeItem(KEY);
+        if (store.getItem(KEY) !== null) dropStale(mark);
+        done = store.getItem(KEY) === null && store.getItem(CLEARED) === mark;
+      } catch (e) { done = false; }
+      if (!done) {
+        try { clearMark = store.getItem(CLEARED) || ""; } catch (e) { /* keep the old mark */ }
+        held = true;
+        setStamp("clear-failed", "Clearing failed");
+        $("#cleared-note").hidden = true;
+        $("#clear-failed").hidden = false;
+        return;
+      }
+      clearMark = mark;
+      setStamp("idle", "Nothing saved");
+    } else setStamp("failed", "Not saved");
+    showCleared();
   }
 
   function rule(r) {
@@ -960,34 +1077,53 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
 
   function preview() { $("#preview").textContent = copyText(); }
 
+  // Stroke signs that stop still need a call: when line 4 is unticked, the advice for signs that came and went opens.
+  function openPassed() {
+    const p = state.emergency.passed || { on: false, at: "", acts: [] };
+    p.on = true;
+    p.at = nowIso();
+    state.emergency.passed = p;
+    touch("e:passed");
+    showAnyway = false;
+    return true;
+  }
+
   function onInput(e) {
     const el = e.target;
+    let toPassed = false;
     if (el.dataset.q) {
       state.answers[el.dataset.q] = el.value;
+      touch("a:" + el.dataset.q);
       if (el.dataset.q === "area") orderAreas(true);
     } else if (el.dataset.t) {
       state.texts[el.dataset.t] = el.value;
+      touch("x:" + el.dataset.t);
     } else if (el.dataset.em) {
       const id = el.dataset.em;
       const s = state.emergency[id] || { on: false, at: "", acts: [] };
       s.on = el.checked;
       s.at = nowIso();
       state.emergency[id] = s;
+      touch("e:" + id);
       if (el.checked) showAnyway = false;
+      else if (id === "4") toPassed = openPassed();
     } else if (el.dataset.part) {
       preview();
       return;
     } else return;
+    held = false;
     $("#cleared-note").hidden = true;
     render();
     scheduleSave();
+    if (toPassed) $("#msg-passed").scrollIntoView({ block: "center" });
   }
 
   function onClick(e) {
     const el = e.target.closest("button");
     if (!el) return;
+    let toPassed = false;
     if (el.hasAttribute("data-clear")) {
-      if (window.confirm("Clear everything this page saved in this browser?")) wipe(true);
+      if (window.confirm("Clear everything this page saved in this browser?")) clearAll();
       return;
     }
     if (el.dataset.emAct) {
@@ -996,10 +1132,13 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       s.acts = s.acts || [];
       s.acts.push({ a: el.dataset.emAct, at: nowIso() });
     } else if (el.dataset.emPassed) {
-      const s = state.emergency[el.dataset.emPassed];
+      const id = el.dataset.emPassed;
+      const s = state.emergency[id];
       if (!s) return;
       s.on = false;
       s.at = nowIso();
+      touch("e:" + id);
+      if (id === "4") toPassed = openPassed();
     } else if (el.dataset.log) {
       const id = el.dataset.log;
       (state.log[id] = state.log[id] || []).push({ c: el.dataset.c, at: nowIso() });
@@ -1035,16 +1174,32 @@ q { quotes: "\201C" "\201D" "\2018" "\2019"; }
       document.body.classList.remove("print-copy");
       return;
     } else return;
+    held = false;
     $("#cleared-note").hidden = true;
     render();
     scheduleSave();
+    if (toPassed) $("#msg-passed").scrollIntoView({ block: "center" });
   }
 
   window.addEventListener("storage", (e) => {
-    if (e.key === null || e.key === CLEARED || (e.key === KEY && e.newValue === null)) { wipe(false); return; }
-    if (e.key === KEY && e.newValue && !timer) {
-      try { const parsed = JSON.parse(e.newValue); if (parsed && parsed.v === 1) { state = Object.assign(blank(), parsed); render(); } } catch (err) { /* ignore a broken copy from another tab */ }
+    if (!store) return;
+    if (e.key === null || e.key === CLEARED) { clearedElsewhere(); return; }
+    if (e.key !== KEY) return;
+    let mark = "";
+    try { mark = store.getItem(CLEARED) || ""; } catch (err) { return; }
+    if (mark !== clearMark) { clearedElsewhere(); return; }
+    const rec = readRecord(e.newValue, mark);
+    if (!rec) {
+      // Removed, or a late copy written before a clear: never shown. Remove it, and save this tab's answers again.
+      if (e.newValue !== null) dropStale(mark);
+      if (content(state) !== EMPTY) scheduleSave();
+      return;
     }
+    const merged = merge(state, rec);
+    const news = content(merged) !== content(rec);
+    state = merged;
+    render();
+    if (news) scheduleSave();
   });
 
   buildCallMessages();
