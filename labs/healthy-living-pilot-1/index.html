@@ -1,0 +1,1047 @@
+<!doctype html>
+<!--
+  AskRigor healthy-living page, pilot 1. One offline file: it loads nothing,
+  sends nothing, and keeps answers only in this browser's local storage.
+  Built 19 Nov 2026 from draft v2 as the owner approved it on 18 Nov 2026
+  (owner answer 345a), with his additions of 18 Nov. Not published: putting
+  it anywhere online is a separate decision of the owner's.
+  Checks: tests/healthy-living-pilot.test.ts.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<meta name="description" content="A pilot that turns the guides' own words into short things to consider for one adult, after a check for emergencies. Not medical advice.">
+<title>Healthy living, pilot 1</title>
+<style>
+:root {
+  --bg: #fbfaf7; --fg: #1d1d1b; --muted: #57564f; --card: #ffffff; --line: #d8d4c8;
+  --accent: #1d5b85; --accent-fg: #ffffff; --soft: #eef3f7;
+  --warn-bg: #fff0ee; --warn-fg: #8a1c12; --warn-line: #e3a59c;
+  --focus: #c0590a; --ok: #2c6a38;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #151514; --fg: #ecebe6; --muted: #aeaca3; --card: #1f1f1d; --line: #3b3a35;
+    --accent: #86bde6; --accent-fg: #0d1b26; --soft: #1c252c;
+    --warn-bg: #3a1714; --warn-fg: #ffb6aa; --warn-line: #7c3b33;
+    --focus: #ffab66; --ok: #93d3a1;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #151514; --fg: #ecebe6; --muted: #aeaca3; --card: #1f1f1d; --line: #3b3a35;
+  --accent: #86bde6; --accent-fg: #0d1b26; --soft: #1c252c;
+  --warn-bg: #3a1714; --warn-fg: #ffb6aa; --warn-line: #7c3b33;
+  --focus: #ffab66; --ok: #93d3a1;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 1.0625rem/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow-wrap: break-word; }
+.wrap { max-width: 46rem; margin: 0 auto; padding: 0 16px; }
+a { color: var(--accent); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.skip { position: absolute; left: -999px; }
+.skip:focus { left: 16px; top: 8px; background: var(--card); padding: 6px 10px; z-index: 20; }
+header.top { position: sticky; top: 0; z-index: 10; background: var(--bg); border-bottom: 1px solid var(--line); }
+header.top .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding-top: 8px; padding-bottom: 8px; }
+.brand { font-weight: 700; margin-right: auto; }
+.stamp { font-size: .9rem; color: var(--muted); }
+.stamp[data-state="failed"] { color: var(--warn-fg); font-weight: 700; }
+#save-failed { background: var(--warn-bg); color: var(--warn-fg); border-bottom: 2px solid var(--warn-line); font-weight: 700; padding: 8px 16px; margin: 0; }
+#em-banner { background: var(--warn-bg); color: var(--warn-fg); border-bottom: 2px solid var(--warn-line); padding: 8px 0; }
+#em-banner p { margin: 0; }
+h1 { font-size: 1.75rem; line-height: 1.2; margin: 1.2rem 0 .6rem; }
+h2 { font-size: 1.35rem; line-height: 1.25; margin: 2rem 0 .6rem; }
+h3 { font-size: 1.1rem; line-height: 1.3; margin: 1.2rem 0 .4rem; }
+section.card, details.area, .sugg { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+.pilot { border-left: 6px solid var(--accent); }
+.lead p { margin: .35rem 0; font-weight: 600; }
+button { font: inherit; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--accent); background: var(--card); color: var(--accent); cursor: pointer; min-height: 44px; }
+button.primary { background: var(--accent); color: var(--accent-fg); }
+button.danger { border-color: var(--warn-fg); color: var(--warn-fg); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+ol.em, ul.plain { padding-left: 1.6rem; margin: .3rem 0; }
+ol.em > li { margin: .45rem 0; }
+ol.em label { cursor: pointer; }
+ol.em input { width: 1.2rem; height: 1.2rem; vertical-align: -0.2rem; margin-right: .4rem; }
+.group { font-weight: 700; margin: 1rem 0 .2rem; color: var(--muted); }
+.msg { background: var(--warn-bg); color: var(--fg); border: 1px solid var(--warn-line); border-radius: 8px; padding: 8px 12px; margin: 6px 0 10px; }
+.msg > p:first-child { margin-top: 0; }
+.msg h3 { margin-top: .2rem; color: var(--warn-fg); }
+.steps { padding-left: 1.2rem; margin: .4rem 0; }
+.steps li { margin: .3rem 0; }
+.why { color: var(--muted); }
+details > summary { cursor: pointer; font-weight: 600; }
+details.fold { margin: .35rem 0; }
+details.fold > summary { font-weight: 500; color: var(--accent); }
+details.fold > *:not(summary) { margin-left: .2rem; }
+details.area > summary { font-size: 1.2rem; font-weight: 700; }
+.door { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0; }
+.door > div { background: var(--soft); border-radius: 8px; padding: 8px 10px; }
+.door b { display: block; font-size: .85rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 10px 0; padding: 8px 12px; }
+legend { font-weight: 600; padding: 0 4px; }
+fieldset label { display: inline-block; margin: 4px 14px 4px 0; cursor: pointer; }
+textarea, input[type="text"], select { font: inherit; width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); }
+textarea { min-height: 6rem; }
+.waits { color: var(--muted); font-style: italic; }
+.logline { font-size: .9rem; color: var(--ok); margin: 4px 0 0; }
+.worse { color: var(--warn-fg); font-weight: 700; }
+.small { font-size: .92rem; color: var(--muted); }
+pre#preview { white-space: pre-wrap; background: var(--soft); border-radius: 8px; padding: 10px; font-size: .9rem; max-height: 22rem; overflow: auto; }
+#print-area { display: none; }
+footer { color: var(--muted); font-size: .9rem; padding: 24px 0 40px; }
+q { quotes: "\201C" "\201D" "\2018" "\2019"; }
+@media (max-width: 40rem) {
+  .door { grid-template-columns: 1fr; }
+  h1 { font-size: 1.5rem; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+@media print {
+  body.print-copy header, body.print-copy main, body.print-copy footer, body.print-copy #em-banner, body.print-copy #save-failed { display: none !important; }
+  body.print-copy #print-area { display: block; white-space: pre-wrap; font: 11pt/1.4 system-ui, sans-serif; color: #000; }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#content">Skip to the page</a>
+<header class="top">
+  <div class="wrap">
+    <span class="brand">AskRigor · Healthy living · Pilot 1</span>
+    <a href="#help">When to get help</a>
+    <span class="stamp" id="stamp" role="status" aria-live="polite" data-state="idle">Nothing saved yet</span>
+    <button type="button" class="danger" data-clear>Clear everything</button>
+  </div>
+  <p id="save-failed" hidden>New changes are not saving. An older saved copy may remain. Keep this tab open and make a copy.</p>
+  <div id="em-banner" hidden role="alert">
+    <div class="wrap"><p><b data-banner-text></b> <a href="#help">See the message</a></p></div>
+  </div>
+</header>
+
+<main id="content" class="wrap">
+
+<section class="card pilot" id="pilot" aria-labelledby="pilot-title">
+  <h1 id="pilot-title">Healthy living: pilot 1</h1>
+  <p><b>This is a pilot: a first test version, being tried before anyone relies on it.</b> It has not yet been tested with the people it is meant for.</p>
+  <p><b>It is not personal medical advice.</b> It does not know you, cannot examine you, and cannot tell you what is wrong. It is not a diagnosis, and it does not replace a doctor.</p>
+  <p>What it is: short things to consider, taken from the health guides of the guides' author, for one adult answering for themselves. Each one shows how well it has been studied.</p>
+</section>
+
+<section class="card lead" id="start" aria-label="Before you start">
+  <p>Everything you type is saved in this browser as you go.</p>
+  <p>Anyone who uses this browser on this computer can read it. Press Clear everything when you finish. <button type="button" class="danger" data-clear>Clear everything</button></p>
+  <p>Nothing is sent online. A private window, or clearing the browser, erases it.</p>
+  <p>For adults, answering for themselves. Things to consider, not medical advice.</p>
+  <details class="fold"><summary>Why it saves as you go</summary>
+    <p>People type a lot, lose it all, and give up. So this page keeps what you type, and tells you so first.</p>
+  </details>
+  <details class="fold"><summary>What this page cannot promise</summary>
+    <ul class="plain">
+      <li>Anyone using this browser on this computer can read your answers.</li>
+      <li>Each browser keeps its own copy; another browser or computer will not have it.</li>
+      <li>A private window can save for a while and still lose everything when it closes. The page cannot tell when that will happen.</li>
+      <li>A copy you make with Make a copy is an ordinary file, beyond this page's reach.</li>
+      <li>Leaving the page erases no traces on the device, and the page cannot stop monitoring software.</li>
+    </ul>
+  </details>
+</section>
+
+<section class="card" id="help" aria-labelledby="help-title">
+  <h2 id="help-title">First: is any of this happening now?</h2>
+  <p class="small">Tick any line that is happening now. Its message opens right under it.</p>
+
+  <p class="group">Breathing</p>
+  <ol class="em" start="1">
+    <li><label><input type="checkbox" data-em="1"> Hard to breathe, choking, breathing very slow, or lips turning blue or grey.</label><div class="msg" id="msg-1" hidden data-callmsg></div></li>
+    <li><label><input type="checkbox" data-em="2"> Coughing up more than streaks of blood.</label><div class="msg" id="msg-2" hidden data-callmsg></div></li>
+  </ol>
+  <p class="group">Chest</p>
+  <ol class="em" start="3">
+    <li><label><input type="checkbox" data-em="3"> Chest pain or pressure that is severe, spreading, worsening, brought on by effort, or comes with breathlessness, sweating or faintness.</label><div class="msg" id="msg-3" hidden data-callmsg></div></li>
+  </ol>
+  <p class="group">Brain</p>
+  <ol class="em" start="4">
+    <li><label><input type="checkbox" data-em="4"> Face drooping, one side weak or numb, speech slurred or gone, sudden loss of sight or balance, or a sudden worst-ever headache.</label>
+      <div class="msg" id="msg-4" hidden data-callmsg>
+        <ul class="steps extra">
+          <li><b>Note the time it started.</b> <span class="why">Why: some stroke treatments can only be given within hours of the start.</span></li>
+        </ul>
+        <details class="fold"><summary>Why the time matters, in numbers</summary>
+          <p>In the trials of the clot-dissolving drug (a drug that breaks up the blood clot blocking the brain), people treated within 3 hours did best: 33 in 100 recovered with little or no disability, against 23 in 100 without it. After 4.5 hours those trials showed no clear gain. The drug also caused a deadly bleed in the brain in about 3 in 100 people, against fewer than 1 in 100 without it, which is why hospitals scan the brain first. Other stroke treatments have other time limits. Sooner is better for all of them.</p>
+        </details>
+      </div></li>
+    <li><label><input type="checkbox" data-em="5"> Collapsed, can't be woken, suddenly very confused, a first seizure (fit), a seizure lasting five minutes, or seizures one after another.</label><div class="msg" id="msg-5" hidden data-callmsg></div></li>
+  </ol>
+  <p class="group">Infection</p>
+  <ol class="em" start="6">
+    <li><label><input type="checkbox" data-em="6"> With an infection, even without fever: breathing fast, skin blotchy or cold, new confusion.</label>
+      <div class="msg" id="msg-6" hidden data-callmsg>
+        <details class="fold"><summary>Why this line is here</summary>
+          <p>This can be sepsis: the body being overwhelmed by an infection. It is on this list because it can come with no fever. In older people with a serious infection, fever is missing or weak 20 to 30 times in 100. So watch for confusion, fast breathing, and blotchy or cold skin, not the thermometer.</p>
+          <p>Sepsis is involved in about 1 in 5 deaths worldwide (11 million deaths among 49 million cases in 2017). In 49,331 hospital patients in New York, each hour's delay in getting antibiotics (infection-fighting drugs) went with a slightly higher risk of dying.</p>
+        </details>
+      </div></li>
+    <li><label><input type="checkbox" data-em="7"> Fever with a stiff neck, or a rash that doesn't fade when pressed.</label><div class="msg" id="msg-7" hidden data-callmsg></div></li>
+  </ol>
+  <p class="group">Body</p>
+  <ol class="em" start="8">
+    <li><label><input type="checkbox" data-em="8"> Throat tight, lips or tongue swelling, wheezing or faint after a food, sting or medicine.</label>
+      <div class="msg" id="msg-8" hidden data-callmsg>
+        <ul class="steps extra">
+          <li><b>Use an adrenaline pen (an allergy auto-injector) now if you have one.</b> <span class="why">Why: it is made for exactly this, and help may take time to arrive.</span></li>
+        </ul>
+      </div></li>
+    <li><label><input type="checkbox" data-em="9"> Vomiting blood or vomiting that won't stop, black stools with faintness, bleeding that won't stop, no urine all day, or sudden severe belly pain.</label><div class="msg" id="msg-9" hidden data-callmsg></div></li>
+    <li><label><input type="checkbox" data-em="10"> Swelling of the face or jaw spreading toward the eye or neck, or trouble swallowing.</label><div class="msg" id="msg-10" hidden data-callmsg></div></li>
+    <li><label><input type="checkbox" data-em="11"> A serious injury, or a hard blow to the head or back.</label><div class="msg" id="msg-11" hidden data-callmsg></div></li>
+    <li><label><input type="checkbox" data-em="12"> Overheated, and confused or faint.</label>
+      <div class="msg" id="msg-12" hidden data-callmsg>
+        <ul class="steps extra">
+          <li><b>Cool down while you call. Don't wait for a thermometer.</b> <span class="why">Why: the guides warn that above 105°F <q>you can have seizures</q>.</span></li>
+        </ul>
+      </div></li>
+    <li><label><input type="checkbox" data-em="13"> Diabetes, and confused or hard to wake, or vomiting with deep, fast breathing.</label><div class="msg" id="msg-13" hidden data-callmsg></div></li>
+  </ol>
+  <p class="group">Pregnancy and the year after</p>
+  <ol class="em" start="14">
+    <li><label><input type="checkbox" data-em="14"> Pregnant, or gave birth in the last year: heavy bleeding, severe belly pain, a severe headache or blurred sight, chest pain, breathlessness, a painful swollen leg, a fit, or confusion, racing thoughts or voices.</label>
+      <div class="msg" id="msg-14" hidden data-callmsg>
+        <details class="fold"><summary>Why the year after the birth</summary>
+          <p>Some dangers of pregnancy come after the birth, up to a year later. Of US deaths caused by pregnancy in 2011 to 2015, about 1 in 3 came between one week and one year after the birth, and about 3 in 5 could have been prevented. The leading causes were heart conditions, infection and bleeding.</p>
+        </details>
+      </div></li>
+    <li><label><input type="checkbox" data-em="15"> Pregnant, and the baby is moving less, or fluid is leaking.</label>
+      <div class="msg" id="msg-15" hidden>
+        <ul class="steps">
+          <li><b>Call your maternity unit (the hospital team looking after your pregnancy) now.</b> <span class="why">Why: they can check the baby the same day.</span></li>
+          <li><b>If you can't reach them, call the emergency number (911 in the US, 112 in Europe, 999 in the UK).</b> <span class="why">Why: this should not wait until they answer.</span></li>
+        </ul>
+        <div data-actions="15"></div>
+      </div></li>
+  </ol>
+  <p class="group">Drugs and medicines</p>
+  <ol class="em" start="16">
+    <li><label><input type="checkbox" data-em="16"> Took too much of something, swallowed something dangerous, or burning hot and stiff or twitching after mixing drugs.</label>
+      <div class="msg" id="msg-16" hidden data-callmsg>
+        <ul class="steps extra">
+          <li><b>The poison line (US 1-800-222-1222) can tell you what to do. Keep the bottle or packet.</b> <span class="why">Why: the label tells them exactly what was taken.</span></li>
+        </ul>
+      </div></li>
+    <li><label><input type="checkbox" data-em="17"> Stopped heavy daily drinking or benzodiazepines (sleeping or anxiety pills such as diazepam, alprazolam or lorazepam) in the last few days, and now shaking hard, confused, seeing things, or had a seizure.</label>
+      <div class="msg" id="msg-17" hidden data-callmsg>
+        <details class="fold"><summary>Why this line is here</summary>
+          <p>Stopping heavy daily drinking or benzodiazepines suddenly can cause seizures. These withdrawals can kill. Most people who stop drinking do not get this: across 14 hospital studies, 1,355 of 71,295 patients at risk did. That is a count of hospital patients, not anyone's personal odds.</p>
+          <p>The guides say it too: <q>Benzos can be dangerous to quit cold turkey.</q></p>
+        </details>
+      </div></li>
+  </ol>
+  <p class="group">Mind and safety</p>
+  <ol class="em" start="18">
+    <li><label><input type="checkbox" data-em="18"> You might act on thoughts of ending your life or hurting someone, or a voice is telling you to.</label>
+      <div class="msg" id="msg-18" hidden>
+        <ul class="steps">
+          <li><b>Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.</b> <span class="why">Why: you deserve help right now, not later.</span></li>
+          <li><b>Get another person with you now, and put distance between you and the means.</b> <span class="why">Why, in the guides' words: <q>get another human being involved</q>, and <q>put some distance between you and the means</q>.</span></li>
+        </ul>
+        <div data-actions="18"></div>
+      </div></li>
+    <li><label><input type="checkbox" data-em="19"> Thoughts of ending your life, even if you would not act on them.</label>
+      <div class="msg" id="msg-19" hidden>
+        <ul class="steps">
+          <li><b>Reach a person now: someone you trust, or a crisis line. US: call or text 988. Elsewhere: findahelpline.com.</b> <span class="why">Why, in the guides' words: a crisis line can work <q>even if the person on the other end is a total stranger</q>.</span></li>
+        </ul>
+        <div data-actions="19"></div>
+      </div></li>
+    <li><label><input type="checkbox" data-em="20"> Someone is putting you in danger right now.</label>
+      <div class="msg" id="msg-20" hidden>
+        <ul class="steps">
+          <li><b>If you can call safely, call the emergency number (911 in the US, 112 in Europe, 999 in the UK).</b> <span class="why">Why: your safety comes before anything on this page.</span></li>
+        </ul>
+        <div class="row"><button type="button" class="danger" data-leave>Leave this page</button></div>
+        <p class="small">Leaving this page erases no traces on the device: the browser's history and this page's saved answers stay.</p>
+        <div data-actions="20"></div>
+      </div></li>
+  </ol>
+
+  <p class="group">It happened, and it passed</p>
+  <ul class="plain">
+    <li><label><input type="checkbox" data-em="passed"> The signs in line 4 came and went, even for minutes.</label>
+      <div class="msg" id="msg-passed" hidden>
+        <h3 id="stroke-passed">Call now, even though it passed</h3>
+        <p>Sudden weakness, a drooping face, trouble speaking, or sudden loss of sight or balance can warn of a stroke, even if it stops within minutes.</p>
+        <p>The first days after carry the most risk; in one UK study, fast care cut strokes in the next 3 months from 10 in 100 to 2 in 100.</p>
+        <p>Many callers turn out not to have had a stroke, often about half, and that is expected.</p>
+        <p>A false alarm usually means a scan and some tests; a missed warning can mean a stroke.</p>
+        <ul class="steps">
+          <li><b>Phone an emergency department or a stroke clinic now and say: possible warning stroke.</b> <span class="why">Why: those words tell them what to check, and UK guidance asks for a stroke specialist within 24 hours.</span></li>
+          <li><b>Go where they send you.</b> <span class="why">Why: they know which place can do the tests soonest.</span></li>
+          <li><b>Don't drive yourself.</b> <span class="why">Why: the signs could come back at the wheel.</span></li>
+          <li><b>If any sign comes back, call the emergency number (911 in the US, 112 in Europe, 999 in the UK).</b> <span class="why">Why: signs happening now are line 4, and some treatments then work only within hours.</span></li>
+        </ul>
+        <details class="fold"><summary>Why call when it has passed, in numbers</summary>
+          <p>A warning stroke means stroke signs that pass. After one, about 5 in 100 people have a stroke within a week. It was 11 in 100 where nobody treated it urgently, and 1 in 100 where a specialist stroke service treated it as an emergency (18 studies, 10,126 people).</p>
+          <p>The UK study was in Oxford. Seeing people within a day instead of about three, and starting treatment at once, went with a fall in strokes over the next 3 months from 10 in 100 to 2 in 100. It compared before with after; it was not a fair test where chance decides who gets what.</p>
+          <p>Why a false alarm is expected: the face, arm and speech signs catch strokes, but they do not rule out other causes. Of 100 people who call after signs pass, 40 to 67 turn out to have had a warning stroke or a small stroke (three studies). The others usually get a brain scan and tests, and often learn the real cause, such as an infection, a faint or a migraine. The clot-dissolving drug is given only while signs last, so people whose signs have passed almost never get it.</p>
+          <p>Most strokes give no signs anyone notices: one US estimate counted about 11 million silent strokes (a 1998 estimate), against 770,000 with signs. This line is about the ones that do give signs.</p>
+          <p>The guides say the larger risk is <q>losing a treatment window or missing a bleed</q> because the symptoms eased: losing the hours when a treatment still works, or missing bleeding in the brain.</p>
+          <p>If it was more than a week ago, it is less pressing, but UK stroke guidance still asks for a specialist within seven days.</p>
+        </details>
+        <details class="fold"><summary>What to ask when you are seen</summary>
+          <p class="why">Why ask: in the guides' words, <q>Calling for help is not the same thing as receiving good care.</q></p>
+          <ul class="plain">
+            <li>What caused it? If you don't know yet, what test comes next?</li>
+            <li>What treatment starts now, while you look for the cause?</li>
+            <li>My heart rhythm: a heart tracing, and a monitor worn for days if the tracing is normal.</li>
+            <li>My neck arteries: an ultrasound (a sound-wave picture) or a CT scan (a detailed X-ray picture), looking for a narrowing.</li>
+            <li>A brain scan: was it a clot, a bleed, or neither?</li>
+            <li>My blood pressure, blood sugar and cholesterol.</li>
+            <li>What lowers my risk this week, and what are the risks of that?</li>
+          </ul>
+        </details>
+        <div data-actions="passed"></div>
+      </div></li>
+  </ul>
+
+  <div class="row">
+    <button type="button" class="primary" data-none>None of these</button>
+    <button type="button" data-open-today>Worried about something that isn't here?</button>
+  </div>
+  <p class="small">Here about a child, or someone else? This page is for adults answering for themselves. A baby under 3 months with a fever of 38°C (100.4°F) needs to be seen now. Anyone hard to wake, blue, or struggling to breathe: call the emergency number.</p>
+
+  <details class="fold" id="today"><summary>Get seen today: signs that should not wait for a routine appointment</summary>
+    <p><b>Any of these? Get seen today: a same-day doctor, urgent care, or an emergency department. Not a routine appointment.</b> <span class="why">Why: these can turn serious within days.</span></p>
+    <p><b>If it gets worse while you wait, call the emergency number.</b> <span class="why">Why: getting worse moves it onto the list above.</span></p>
+    <ul class="plain">
+      <li>Black, tarry stools, or blood in the stool.</li>
+      <li>Coughing up streaks of blood.</li>
+      <li>A fever or chest infection that got better, then worse.</li>
+      <li>Tooth pain with a swollen face, or with fever: a dentist or a doctor, today.
+        <details class="fold"><summary>Why the tooth line</summary><p>A tooth infection left alone can spread. In US hospital records over nine years, 66 people died among 61,439 hospital stays for an infected tooth root. How many untreated infections end in hospital was not measured.</p></details></li>
+      <li>Yellow eyes or skin, with pale stools or dark urine.</li>
+      <li>Days without sleep; or, new for you, racing energy with no need for sleep, or hearing or seeing things others don't.</li>
+      <li>Nodding off at the wheel. Don't drive while you are this sleepy.</li>
+    </ul>
+    <p><b>Before you stop daily drinking, benzodiazepines or any prescribed medicine, get a plan from whoever prescribes it or a clinic. Don't stop suddenly by yourself.</b> <span class="why">Why: stopping some of these suddenly can cause seizures.</span></p>
+  </details>
+</section>
+
+<section class="card" id="choose" aria-labelledby="choose-title">
+  <h2 id="choose-title">What do you want help with first?</h2>
+  <fieldset data-qset="area"><legend>Choose one area</legend>
+    <label><input type="radio" name="area" value="home" data-q="area"> Where I live</label>
+    <label><input type="radio" name="area" value="sleep" data-q="area"> Sleep</label>
+    <label><input type="radio" name="area" value="breath" data-q="area"> Stress and breathing</label>
+  </fieldset>
+  <label for="own-words"><b>In your own words: what's going on?</b></label>
+  <textarea id="own-words" data-t="own-words"></textarea>
+  <p class="small">Any question here can be skipped. A suggestion that depends on a skipped question waits, and says which answer it needs.</p>
+</section>
+
+<section class="card" id="rules" aria-labelledby="rules-title">
+  <h2 id="rules-title">On every suggestion</h2>
+  <ul class="steps">
+    <li><b>Pick one. Try it for two weeks. Stop if you feel worse.</b> <span class="why">Why: one change at a time shows you what helped.</span></li>
+    <li><b>Start everything at the lowest dose, and build up only as you are fine with it.</b> <span class="why">Why, in the guides' author's words: <q>it's allergy &amp; sensitivity testing, common sense for everything</q>.</span></li>
+    <li><b>Anything you might later breathe in as a mist, only smell first. Go on to the mist only once smelling it is fine.</b> <span class="why">Why: smelling is the lowest dose; in his words, <q>you don't start nebulizing</q> (breathing a fine mist from a machine) <q>until you are fine with smelling it</q>.</span></li>
+    <li><b>Nothing on the get-help lists waits two weeks.</b> <span class="why">Why: those signs need help now or today.</span></li>
+  </ul>
+  <p class="small">Each suggestion has buttons to save what you did, with the date: I'll try this; Tried it: helped, no change, or worse; Not for me.</p>
+</section>
+
+<p id="paused" class="msg" hidden><b>Paused while this is happening.</b> The three areas below are folded away while a line above is ticked. <button type="button" data-show-anyway>Show anyway</button></p>
+
+<div id="areas">
+
+<details class="area" id="area-home">
+  <summary>Where I live</summary>
+  <p class="small">From the detox guide, <q>A few preliminaries</q>.</p>
+  <fieldset data-qset="water"><legend>What do you drink most days?</legend>
+    <label><input type="radio" name="q-water" value="tap" data-q="water"> Tap water</label>
+    <label><input type="radio" name="q-water" value="filtered" data-q="water"> Filtered water</label>
+    <label><input type="radio" name="q-water" value="bottled" data-q="water"> Bottled or spring water</label>
+    <label><input type="radio" name="q-water" value="other" data-q="water"> Something else</label>
+  </fieldset>
+  <fieldset data-qset="mold"><legend>Any damp, mold or musty smell at home?</legend>
+    <label><input type="radio" name="q-mold" value="yes" data-q="mold"> Yes</label>
+    <label><input type="radio" name="q-mold" value="no" data-q="mold"> No</label>
+    <label><input type="radio" name="q-mold" value="unsure" data-q="mold"> Not sure</label>
+    <label class="small" for="mold-where">Where?</label>
+    <input type="text" id="mold-where" data-t="mold-where">
+  </fieldset>
+  <fieldset data-qset="smell"><legend>Is your sense of smell weaker than it was?</legend>
+    <label><input type="radio" name="q-smell" value="yes" data-q="smell"> Yes</label>
+    <label><input type="radio" name="q-smell" value="no" data-q="smell"> No</label>
+    <label><input type="radio" name="q-smell" value="unsure" data-q="smell"> Not sure</label>
+  </fieldset>
+
+  <div class="sugg" data-sugg="water" data-show="water=tap" data-needs="What do you drink most days?">
+    <h3>Filter the water you drink.</h3>
+    <div class="sugg-body">
+      <div class="door">
+        <div><b>Quick fix</b>Today, drink from a source you have checked: a good filter, or tested spring water.</div>
+        <div><b>Root cause</b>Find out what is in your tap water. Then fit what removes it.</div>
+      </div>
+      <details class="fold"><summary>Why</summary><p>In the guide's words, <q>tap water is almost never drinkable these days</q>. He names <q>a good R/O system</q> (reverse osmosis: a filter that pushes water through a very fine sheet), distilled water <q>(but add minerals sometimes)</q>, or <q>tested spring/well/rain water</q>.</p></details>
+      <details class="fold"><summary>Label</summary><p>Personal field signal.</p></details>
+      <details class="fold"><summary>Background</summary><p>In 2015 nearly 21 million Americans were on water systems that broke health standards. At least one PFAS chemical ("forever chemicals": man-made chemicals that barely break down) can be found in about 45% of US tap samples. These show that contamination is common. They do not show "almost never drinkable", and they say nothing about your tap.</p></details>
+      <details class="fold"><summary>Where mainstream differs</summary><p>Regulators call water that meets their standards safe.</p></details>
+      <details class="fold"><summary>Risk</summary><p>Everyday.</p></details>
+    </div>
+  </div>
+
+  <div class="sugg" data-sugg="mold" data-show="mold=yes,unsure" data-needs="Any damp, mold or musty smell at home?">
+    <h3>Stop breathing the mold first. Start with the bedroom.</h3>
+    <div class="sugg-body">
+      <div class="door">
+        <div><b>Quick fix</b>Tonight, open the windows if the air and the street outside allow. If not, run a true HEPA filter (a certified fine-dust air filter) by the bed.</div>
+        <div><b>Root cause</b>Find the damp and dry it out. Get a humidity meter.</div>
+      </div>
+      <ul class="steps">
+        <li><b>Open windows only if the street is safe and the outside air is clean.</b> <span class="why">Why: his own condition for the open window is <q>if you're not worried about criminals or outside pollution</q>.</span></li>
+        <li><b>Don't scrub or tear out mold yourself without a plan.</b> <span class="why">Why: it stirs the mold into the air; in his words, clearing it <q>can backfire if not done intelligently</q>.</span></li>
+      </ul>
+      <details class="fold"><summary>Why</summary><p><q>Prevent breathing in the mold that's there</q>. <q>The cheapo fix is just to open all the windows and doors</q>. <q>Mold grows best above 50-60% humidity.</q> Below 40%, the moist lining of the nose dries out. Wash stored clothes and linens. Check the air conditioner, which can hold mold.</p></details>
+      <details class="fold"><summary>Label</summary><p>Personal field signal.</p></details>
+      <details class="fold"><summary>Background</summary><p>Homes with damp or mold go with 30-50% more breathing and asthma problems. That is an observed link; it does not test these steps.</p></details>
+      <details class="fold"><summary>Risk</summary><p>Everyday.</p></details>
+    </div>
+  </div>
+
+  <div class="sugg" data-sugg="smell" data-show="smell=yes,unsure" data-needs="Is your sense of smell weaker than it was?">
+    <h3>Clear the smells that hide other smells.</h3>
+    <div class="sugg-body">
+      <div class="door">
+        <div><b>Quick fix</b>Today, no air fresheners or scented laundry products. Swap the dish sponge for a nylon brush.</div>
+        <div><b>Root cause</b>Find what dulled it: mold, sinus trouble, or rancid cooking oil.</div>
+      </div>
+      <ul class="steps">
+        <li><b>If you rinse your nose, use a sealed sterile product, or water boiled and then cooled; never water straight from the tap.</b> <span class="why">Why: tap water in the nose has, rarely, carried a brain infection.</span></li>
+      </ul>
+      <details class="fold"><summary>Why</summary><p><q>Stop using dish sponges, switch to nylon brushes</q>. For sinus trouble he rinses the nose: <q>Nasal irrigation with Quinton Seawater</q> (a seawater product).</p></details>
+      <details class="fold"><summary>Label</summary><p>Personal field signal. The nose rinse: Limited human evidence (two small trials of salt-water rinsing in 116 adults; seawater itself was not tested).</p></details>
+      <details class="fold"><summary>Background</summary><p>Among 3,005 Americans aged 57 to 85, those who could not smell died at four times the rate over the next five years. That is an observed link; it does not show that clearing scents helps.</p></details>
+      <details class="fold"><summary>Where mainstream differs</summary><p>A loss of smell that lasts deserves a doctor's look.</p></details>
+      <details class="fold"><summary>Risk</summary><p>Everyday. The nose rinse: Small. In one six-month trial of a strong salt-water rinse, 23 in 100 had side effects, nosebleeds among them. The brain infection by tiny water organisms (amoebas) after nose rinsing: 10 US cases from 1994 to 2022, all in people with weak immune systems, many using tap water. No rate per rinse exists.</p></details>
+    </div>
+  </div>
+</details>
+
+<details class="area" id="area-sleep">
+  <summary>Sleep</summary>
+  <p class="small">From the sleep guide. His order: <q>First, thing's first, though, which is fixing underlying medical problems</q>.</p>
+  <fieldset data-qset="snore"><legend>Do you snore, or has anyone heard you stop breathing or gasp in your sleep?</legend>
+    <label><input type="radio" name="q-snore" value="yes" data-q="snore"> Yes</label>
+    <label><input type="radio" name="q-snore" value="no" data-q="snore"> No</label>
+    <label><input type="radio" name="q-snore" value="unsure" data-q="snore"> Not sure</label>
+  </fieldset>
+  <fieldset data-qset="day"><legend>Sleepy by day?</legend>
+    <label><input type="radio" name="q-day" value="no" data-q="day"> No</label>
+    <label><input type="radio" name="q-day" value="sleepy" data-q="day"> Yes, sleepy by day</label>
+    <label><input type="radio" name="q-day" value="wheel" data-q="day"> I nod off at the wheel, or nearly</label>
+  </fieldset>
+  <fieldset data-qset="insomnia"><legend>Trouble falling asleep or staying asleep?</legend>
+    <label><input type="radio" name="q-insomnia" value="yes" data-q="insomnia"> Yes</label>
+    <label><input type="radio" name="q-insomnia" value="no" data-q="insomnia"> No</label>
+  </fieldset>
+  <fieldset data-qset="caffeine"><legend>Do you take caffeine (coffee, tea, cola, energy drinks) or nicotine?</legend>
+    <label><input type="radio" name="q-caffeine" value="yes" data-q="caffeine"> Yes</label>
+    <label><input type="radio" name="q-caffeine" value="no" data-q="caffeine"> No</label>
+  </fieldset>
+
+  <div class="sugg" data-sugg="wheel" data-show="day=wheel" data-needs="Sleepy by day?">
+    <h3>Nodding off at the wheel? Don't drive while you are this sleepy.</h3>
+    <div class="sugg-body">
+      <p class="why">Why, in the guide's words: <q>sleepy driving is as dangerous as drunk driving</q>.</p>
+    </div>
+  </div>
+
+  <div class="sugg" data-sugg="apnea" data-show="snore=yes,unsure|day=sleepy,wheel" data-needs="the snoring question and Sleepy by day?">
+    <h3>Check for sleep apnea (breathing that stops and starts in sleep) before anything else.</h3>
+    <div class="sugg-body">
+      <div class="door">
+        <div><b>Quick fix</b>Ask for a sleep test. Record your breathing tonight as a first clue. A prescribed breathing machine (CPAP: it blows air through a mask to keep the airway open) can ease sleepiness from the first night.</div>
+        <div><b>Root cause</b>Work on why the airway closes: weight, alcohol and sedatives (calming or sleeping pills), mouth breathing, the shape of the airway.</div>
+      </div>
+      <ul class="steps">
+        <li><b>Ask for a sleep test even if your recording sounds quiet.</b> <span class="why">Why: a quiet recording does not rule apnea out.</span></li>
+      </ul>
+      <details class="fold"><summary>Why</summary><p><q>You can do your own sleep study with a simple microphone</q>; then <q>confirm the apnea subtype and severity</q>. He calls the machine <q>not a true cure</q>, and lists what to consider first: <q>Lose weight if overweight</q>, less alcohol and sedatives, Yin yoga (slow yoga with long, held stretches), <q>consider myofunctional therapy</q> (exercises for the tongue, mouth and face), and fixing what blocks the airway.</p></details>
+      <details class="fold"><summary>Label</summary><p>The machine: Limited human evidence. In before-and-after studies the crash rate was about 70% lower on it, and sleepiness eased after one night. That is not a promise for any one person. His list for the root cause: Personal field signal.</p></details>
+      <details class="fold"><summary>Background</summary><p>Drivers with sleep apnea crash 1.2 to 4.9 times as often (studies that observed drivers, pooled).</p></details>
+      <details class="fold"><summary>Risk</summary><p>Everyday.</p></details>
+    </div>
+  </div>
+
+  <div class="sugg" data-sugg="sleep-baseline" data-show="insomnia=yes" data-needs="Trouble falling asleep or staying asleep?">
+    <h3>Fix tonight's room. Then build the baseline.</h3>
+    <div class="sugg-body">
+      <div class="door">
+        <div><b>Quick fix</b>Tonight: lights off, cool room, screens off a few hours before bed, write down what is on your mind.</div>
+        <div><b>Root cause</b>Keep a two-week log. Then, in his order: same wake time every day, no caffeine, morning sun.</div>
+      </div>
+      <ul class="steps">
+        <li><b>On a prescribed sleep medicine? Don't stop it suddenly; ask whoever prescribed it how to stop.</b> <span class="why">Why: stopping some sleep medicines suddenly can be dangerous. The guide: <q>Do not abruptly stop prescribed medication to improve sleep.</q></span></li>
+        <li class="caffeine-line"><b>Stopping caffeine? Expect a headache for a few days.</b> <span class="why">Why: it is common and passes; knowing that helps you not give up.</span></li>
+      </ul>
+      <details class="fold"><summary>His fast one: a bag of zeolite in the pillow</summary><p><q>Put a bag of it in your pillow!</q> He means cleaned zeolite, a mineral powder, in a bag against the skin. In his words, <q>nobody has studied this skin-contact-thru-bag method</q>. Risk: no harm found, not studied. Dust from a leaking bag has not been measured.</p></details>
+      <details class="fold"><summary>Why</summary><p><q>track the basics for 14 days</q>. <q>before taking anything for sleep, first build a baseline</q>. <q>Keep a consistent wake time.</q> <q>Avoid all stimulant drugs, including caffeine, completely, 100%.</q> <q>Let sunrise wake you.</q></p></details>
+      <details class="fold"><summary>Label</summary><p>Personal field signal. Not checked yet: a fixed wake time is one part of the standard talking-and-habits treatment for poor sleep (called CBT-I); by itself it was not checked here.</p></details>
+      <details class="fold"><summary>Where mainstream differs</summary><p>Morning caffeine is usually thought fine.</p></details>
+      <details class="fold"><summary>Risk</summary><p>Everyday. Stopping caffeine: Small. In experiments, about half of regular users got a headache on stopping, and 13 in 100 had distress or trouble functioning that the researchers counted as significant. It starts within a day and lasts 2 to 9 days.</p></details>
+      <p class="small">Not in this pilot: <q>Vagal Blitz is the insta-fix for sleep</q>, a fast, strong breathing method. It is not gentle, and comes later.</p>
+    </div>
+  </div>
+</details>
+
+<details class="area" id="area-breath">
+  <summary>Stress and breathing</summary>
+  <p class="small">From the breathwork, somatic and inner child guides, and the guides' author's own notes.</p>
+  <fieldset data-qset="stress"><legend>How much stress on most days, from 0 (none) to 10 (the worst)?</legend>
+    <select data-q="stress" aria-label="Stress on most days, 0 to 10">
+      <option value="">Skip</option>
+      <option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+    </select>
+  </fieldset>
+  <fieldset data-qset="mouth"><legend>Do you often breathe through your mouth, or sigh a lot?</legend>
+    <label><input type="radio" name="q-mouth" value="yes" data-q="mouth"> Yes</label>
+    <label><input type="radio" name="q-mouth" value="no" data-q="mouth"> No</label>
+    <label><input type="radio" name="q-mouth" value="unsure" data-q="mouth"> Not sure</label>
+  </fieldset>
+
+  <div class="sugg" data-sugg="exhale">
+    <h3>Quick fix. Stressed right now? Breathe out slowly through pursed lips. Don't breathe in more to make up.</h3>
+    <div class="sugg-body">
+      <ul class="steps">
+        <li><b>Don't hold your breath.</b> <span class="why">Why: this practice only slows the breath out; it never stops it.</span></li>
+        <li><b>Ease off if you feel dizzy or tingly.</b> <span class="why">Why: it means the breathing got too big, and it passes when the breathing settles.</span></li>
+        <li><b>Prone to panic? Go gentler.</b> <span class="why">Why: the first seconds of slight air hunger can feel like panic.</span></li>
+      </ul>
+      <details class="fold"><summary>How it feels, as he writes it</summary><p>The slight air hunger <q>feels a bit anxiogenic for the first 20 seconds or so</q> (it makes you a little anxious); <q>after that, you'll feel much calmer</q>. <b>People differ.</b></p></details>
+      <details class="fold"><summary>What it is</summary><p>This is Buteyko reduced breathing. <q>You can use this any time</q>.</p></details>
+      <details class="fold"><summary>Risk</summary><p>No harm found, not studied for this use.</p></details>
+    </div>
+  </div>
+
+  <div class="sugg" data-sugg="allday">
+    <h3>Root cause. Change how you breathe all day. Step 1: Buteyko. Step 2: Systema.</h3>
+    <div class="sugg-body">
+      <details class="fold"><summary>Why this is the root-cause door</summary><p>In the guide's words, over-breathing is <q>one of the root causes</q> of poor sleep and anxiety.</p></details>
+    </div>
+  </div>
+
+  <div class="sugg" data-sugg="buteyko">
+    <h3>Step 1: Buteyko. Breathe a little less, through the nose, as a habit.</h3>
+    <div class="sugg-body">
+      <p class="small">Buteyko is a method of breathing a little less than you feel you need, through the nose.</p>
+      <ul class="steps">
+        <li><b>Prone to panic? Go gentler at first.</b> <span class="why">Why: breathing less brings a slight air hunger, which can feel like panic.</span></li>
+      </ul>
+      <details class="fold"><summary>Why it comes first</summary><p>It is <q>much easier for people to understand</q>.</p></details>
+      <details class="fold"><summary>Label</summary><p>Limited human evidence, for asthma only: breathing exercises improved quality of life (22 trials, 2,880 people; two of the trials used Buteyko), and a 60-person Buteyko trial cut inhaler use by about a fifth. For calming and sleep: Personal field signal; no trial was found.</p></details>
+      <details class="fold"><summary>Risk</summary><p>No harm found, not studied for this use. The asthma trials recorded no harm, but their review did not count side effects.</p></details>
+    </div>
+  </div>
+
+  <div class="sugg" data-sugg="systema">
+    <h3>Step 2: Systema. Breathe lightly and never pause. Keep it going under everything you do.</h3>
+    <div class="sugg-body">
+      <p class="small">Systema is a martial art built on relaxed breathing. Its breathing has no pause between breathing in and breathing out.</p>
+      <ul class="steps">
+        <li><b>Learn it sitting or lying down first.</b> <span class="why">Why: beginners sometimes breathe too big and get dizzy.</span></li>
+        <li><b>Once it is light and steady, keep it going all day.</b> <span class="why">Why: in his words, <q>it's a background process</q>.</span></li>
+      </ul>
+      <details class="fold"><summary>How, in his words</summary><p><q>light natural breathing</q>. Each breath is <q>45-80% of a full deep breath</q>: <q>you don't fully exhale, you don't fully inhale either</q>. <q>the only control is that you make sure you are not pausing</q>. Feel where the body is tense, and imagine the breath dissolving it.</p></details>
+      <details class="fold"><summary>Why</summary><p><q>even better than just breathing less is circular breathing, Systema style</q>. For anxiety: <q>Systema continuous breathing is great!</q> Most people <q>try it just barely and forget it</q>, so the buttons below keep a dated log of what you tried.</p></details>
+      <details class="fold"><summary>The video he points people to</summary><p>The one on his somatic guide; he is not sure it is the best one: <a href="https://www.youtube.com/watch?v=Nar2-nvomAk" target="_blank" rel="noopener noreferrer">youtube.com/watch?v=Nar2-nvomAk</a>. It opens on YouTube, online.</p></details>
+      <details class="fold"><summary>Label</summary><p>Personal field signal (his, and the Systema community's). No studies found.</p></details>
+      <details class="fold"><summary>Risk</summary><p>No harm found, not studied. If light breathing turns big and fast: dizziness and tingling, which pass when the breathing settles.</p></details>
+    </div>
+  </div>
+
+  <div class="sugg" data-sugg="taps">
+    <h3>Later, with someone you trust: painless taps while you keep breathing. The fear is the practice.</h3>
+    <div class="sugg-body">
+      <ul class="steps">
+        <li><b>The person receiving closes their eyes.</b> <span class="why">Why: in his words, <q>so they really can't cheat</q>: they can't see whether the next tap is coming.</span></li>
+      </ul>
+      <details class="fold"><summary>What</summary><p>Light taps to the belly, or <q>light slaps to the face that don't hurt</q>. They are <q>PAINLESS</q>. You don't know whether the next one will land: <q>even if the strikes don't land, it can still work usually</q>.</p></details>
+      <details class="fold"><summary>Why</summary><p><q>the idea is to do something that instills fear, with safety ensured</q>. You learn to stay relaxed through fear. <q>so it's like desensitization therapies</q> (therapies that get you used to a fear step by step), without going back to a painful memory first.</p></details>
+      <details class="fold"><summary>Label</summary><p>Personal field signal. He says <q>i'm also not a systema master yet</q>, and there is no written guide for this yet.</p></details>
+      <details class="fold"><summary>Risk</summary><p>No harm found, not studied. Painless is the intent; a tap can land harder than meant, and fear can stir old fear. No rate exists for either.</p></details>
+    </div>
+  </div>
+</details>
+
+</div>
+
+<section class="card" id="copy" aria-labelledby="copy-title">
+  <h2 id="copy-title">Make a copy to keep or share</h2>
+  <p>Tick what goes in. Safety answers stay out unless you tick them. The preview shows exactly what will be saved.</p>
+  <fieldset><legend>What goes in the copy</legend>
+    <label><input type="checkbox" data-part="words" checked> My own words</label>
+    <label><input type="checkbox" data-part="answers" checked> My answers</label>
+    <label><input type="checkbox" data-part="log" checked> What I tried</label>
+    <label><input type="checkbox" data-part="safety"> Safety answers</label>
+  </fieldset>
+  <pre id="preview" aria-label="Preview of the copy"></pre>
+  <div class="row">
+    <button type="button" data-save-text>Save as text</button>
+    <button type="button" data-print>Print</button>
+  </div>
+  <p class="small"><b>A copy is an ordinary file. It can end up in Downloads, the clipboard, backups, a synced folder or a printer queue. This page cannot clear it.</b></p>
+  <p><b>Clear everything</b> removes this page's saved answers, choices and history from this browser. <button type="button" class="danger" data-clear>Clear everything</button></p>
+  <p id="cleared-note" class="logline" hidden role="status">This page's saved answers were cleared here. Copies and device traces may remain.</p>
+</section>
+
+<section class="card" id="about" aria-labelledby="about-title">
+  <h2 id="about-title">About this page</h2>
+  <details class="fold"><summary>The labels, in the guides' own terms</summary>
+    <ul class="plain">
+      <li><b>Established</b>: standard treatment with strong evidence.</li>
+      <li><b>Limited human evidence</b>: <q>clinical reports or small trials but no strong modern outcome evidence</q>.</li>
+      <li><b>Mechanism or preclinical evidence</b>: effects shown mainly in cells or animals.</li>
+      <li><b>Personal field signal</b>: <q>what I have repeatedly observed in myself or other people</q>. It does not turn into a rate.</li>
+      <li><b>Not checked yet</b>: not looked up for this page.</li>
+      <li><b>Where mainstream differs</b>: what most doctors or regulators say instead. It states a position and nothing more.</li>
+    </ul>
+    <p>A label speaks only to the suggestion: does doing this help? A link that studies have observed goes under Background and labels nothing.</p>
+  </details>
+  <details class="fold"><summary>The risk words</summary>
+    <ul class="plain">
+      <li><b>Everyday</b>: widely done or tested, with no serious harm on record.</li>
+      <li><b>No harm found, not studied</b>: no report of harm was found at this use, and nobody has measured it. It does not mean safe.</li>
+      <li><b>Small</b>: short-lived side effects are common, or a rare serious harm has a known cause that can be avoided.</li>
+    </ul>
+    <p>Finding no report of harm is not proof of safety.</p>
+  </details>
+  <details class="fold"><summary>What is not in this pilot, and why</summary>
+    <ul class="plain">
+      <li>Anything swallowed or injected: supplements and medicines. Why: the basics come first.</li>
+      <li>The smelling and mist practices in the guides. Why: they come later, with breathing problems, and then start with smelling, the lowest dose.</li>
+      <li>Fast, strong breathing methods (Vagal Blitz, Wim Hof). Why: they are not gentle.</li>
+      <li>Children, and people answering for someone else. Why: the page is built for one adult answering for themselves.</li>
+      <li>Anything sent online, and live research. Why: this pilot keeps everything in this browser.</li>
+    </ul>
+  </details>
+  <details class="fold"><summary>Where the words come from</summary>
+    <p>Words in quotation marks are the guides' author's own, from his guides or his notes. His guides:
+      <a href="https://detox.u-dont-exist.com" target="_blank" rel="noopener noreferrer">detox.u-dont-exist.com</a>,
+      <a href="https://sleep.u-dont-exist.com" target="_blank" rel="noopener noreferrer">sleep.u-dont-exist.com</a>,
+      <a href="https://breathwork.u-dont-exist.com" target="_blank" rel="noopener noreferrer">breathwork.u-dont-exist.com</a>,
+      <a href="https://somatic.u-dont-exist.com" target="_blank" rel="noopener noreferrer">somatic.u-dont-exist.com</a>,
+      <a href="https://innerchild.u-dont-exist.com" target="_blank" rel="noopener noreferrer">innerchild.u-dont-exist.com</a>,
+      <a href="https://badtrips.u-dont-exist.com" target="_blank" rel="noopener noreferrer">badtrips.u-dont-exist.com</a>. They open online.</p>
+  </details>
+  <details class="fold"><summary>Every number on this page, and where it comes from</summary>
+    <p class="small">Read from the published summaries on PubMed (a library of medical research), not the full papers, unless a line says otherwise. The number in brackets is the PubMed ID.</p>
+    <ul class="plain small">
+      <li>Warning stroke, then stroke within a week: 5 in 100; 1 in 100 with emergency specialist care, 11 in 100 without urgent treatment; 18 studies, 10,126 people. Giles, Lancet Neurology 2007 (17993293).</li>
+      <li>Oxford, fast care: strokes over 3 months 10.3 in 100 before, 2.1 after; before-and-after study. Rothwell, Lancet 2007 (17928046).</li>
+      <li>Warning stroke or small stroke among people whose signs passed: 40 to 67 in 100. Prabhakaran 2008 (18984948), Sadighi 2019 (31193470), Shahjouei 2022 (34985520).</li>
+      <li>Silent strokes: about 11 million against 770,000 with signs, US, 1998 estimate. Leary 2003 (12865617).</li>
+      <li>Clot-dissolving drug and time: 9 trials, 6,756 people; within 3 hours 32.9 in 100 against 23.1 with little or no disability; deadly brain bleed 2.7 against 0.4 in 100. Emberson, Lancet (25106063).</li>
+      <li>UK stroke guidance: a specialist within 24 hours of a suspected warning stroke (NICE NG128); within 7 days if it was more than a week ago (National Clinical Guideline for Stroke).</li>
+      <li>Sepsis: 48.9 million cases and 11.0 million deaths in 2017, 19.7% of all deaths. Rudd, Lancet 2020 (31954465). Fever missing or weak in older people: 20-30%. Norman, Clinical Infectious Diseases 2000 (10913413). Delay and antibiotics: 49,331 patients. Seymour, New England Journal of Medicine 2017 (28528569).</li>
+      <li>Deaths around pregnancy, US 2011-2015: 21.4% at 7-42 days and 11.7% at 43-365 days after the birth; about 60% preventable. Petersen, MMWR 2019 (31071074).</li>
+      <li>Alcohol withdrawal: 14 studies, 71,295 hospital patients, 1,355 severe cases. Wood, JAMA 2018 (30167704).</li>
+      <li>Infected tooth root: 61,439 hospital stays, 66 deaths, US 2000-2008. Shah, Journal of Endodontics 2013 (23953280).</li>
+      <li>Water systems: nearly 21 million people on systems with health-based violations in 2015. Allaire, PNAS 2018 (29440421).</li>
+      <li>PFAS: at least one found in about 45% of US tap samples. Smalling, Environment International 2023 (37356308).</li>
+      <li>Damp and mold: 30-50% more breathing and asthma problems; pooled home studies. Fisk, Indoor Air 2007 (17661925).</li>
+      <li>Smell and death: 3,005 adults aged 57-85; four times the five-year death rate without smell. Pinto, PLoS One (25271633).</li>
+      <li>Salt-water nose rinse: two trials, 116 adults; 23% side effects with a strong rinse. Chong, Cochrane 2016 (27115216).</li>
+      <li>Amoebas after nose rinsing: 10 patients, 1994-2022, all with weak immune systems. Haston, Emerging Infectious Diseases 2024 (38526242).</li>
+      <li>Sleep apnea and crashes: 1.21 to 4.89 times the crash rate; pooled observational studies. Tregear, Journal of Clinical Sleep Medicine 2009 (20465027).</li>
+      <li>Breathing machine and crashes: risk about 72% lower in 9 before-and-after studies; sleepiness better after one night. Tregear, Sleep 2010 (21061860).</li>
+      <li>Stopping caffeine: headache in 50%, significant distress or impairment in 13%; 57 experiments. Juliano and Griffiths, Psychopharmacology 2004 (15448977).</li>
+      <li>Breathing exercises in asthma: 22 trials, 2,880 people, two of Buteyko; side effects not reviewed. Santino, Cochrane 2020 (32212422).</li>
+      <li>Buteyko trial: 60 adults with asthma; inhaler use down about 20%. Vagedes, European Journal of Medical Research 2024 (38212823).</li>
+      <li>The 45-80% breath, the 20 seconds and the 14 days are the guides' author's own figures.</li>
+    </ul>
+  </details>
+</section>
+
+</main>
+<footer class="wrap">
+  <p>AskRigor healthy-living page, pilot 1. Built 19 Nov 2026. A local test file: it is not published anywhere.</p>
+</footer>
+<pre id="print-area" aria-hidden="true"></pre>
+
+<script>
+(() => {
+  "use strict";
+  const KEY = "askrigor-healthy-living-pilot-1";
+  const CLEARED = KEY + "-cleared";
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+
+  let store = null;
+  try { store = window.localStorage; store.getItem(KEY); } catch (e) { store = null; }
+
+  const blank = () => ({ v: 1, answers: {}, texts: {}, log: {}, emergency: {}, noneAt: "" });
+  let state = blank();
+  let clearMark = "";
+  let timer = 0;
+  let showAnyway = false;
+
+  const stamp = $("#stamp");
+  const failLine = $("#save-failed");
+  const CALL = "Call the emergency number now (911 in the US, 112 in Europe, 999 in the UK), or get someone to call.";
+  const SHORT = {
+    "15": "Call your maternity unit now. If you can't reach them, call the emergency number.",
+    "18": "Call the emergency number now, and get another person with you.",
+    "19": "Reach a person now: someone you trust, or a crisis line (US: call or text 988).",
+    "20": "If you can call safely, call the emergency number.",
+    "passed": "Call now, even though it passed: phone an emergency department or a stroke clinic and say: possible warning stroke."
+  };
+  const ACT = { called: "I called", seen: "I've been seen", declined: "I'm choosing not to" };
+  const LOGNAME = { try: "I'll try this", helped: "Tried it: helped", same: "Tried it: no change", worse: "Tried it: worse", no: "Not for me" };
+
+  function nowIso() { return new Date().toISOString(); }
+  function two(n) { return String(n).padStart(2, "0"); }
+  function hhmm(d) { return two(d.getHours()) + ":" + two(d.getMinutes()); }
+  function when(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return "";
+    return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) + " " + hhmm(d);
+  }
+  function setStamp(kind, text) {
+    stamp.dataset.state = kind;
+    stamp.textContent = text;
+    failLine.hidden = kind !== "failed";
+  }
+
+  // The emergency message shared by lines 1 to 14, 16 and 17, built once so every line says the same.
+  function buildCallMessages() {
+    $$("[data-callmsg]").forEach((box) => {
+      const id = box.id.replace("msg-", "");
+      const list = document.createElement("ul");
+      list.className = "steps";
+      list.innerHTML =
+        '<li><b>' + CALL + '</b> <span class="why">Why: some of these signs get worse fast, and some treatments work only if they start early.</span></li>' +
+        '<li><b>Don\'t drive yourself.</b> <span class="why">Why: you could get worse at the wheel.</span></li>' +
+        '<li><b>Use what first aid you know while help comes.</b> <span class="why">Why, in the guides\' words: <q>Medical help and field rescue can happen in parallel.</q></span></li>' +
+        '<li><b>Don\'t wait to see if a remedy works.</b> <span class="why">Why: waiting uses up the time when treatment works best. The guides: <q>Please don\'t spiritually process a body that is going under.</q></span></li>';
+      box.insertBefore(list, box.firstChild);
+      const acts = document.createElement("div");
+      acts.dataset.actions = id;
+      box.appendChild(acts);
+    });
+    $$("[data-actions]").forEach((box) => {
+      const id = box.dataset.actions;
+      box.innerHTML =
+        '<div class="row">' +
+        '<button type="button" data-em-act="called" data-line="' + id + '">I called</button>' +
+        '<button type="button" data-em-act="seen" data-line="' + id + '">I\'ve been seen</button>' +
+        '<button type="button" data-em-act="declined" data-line="' + id + '">I\'m choosing not to</button>' +
+        '<button type="button" class="primary" data-em-passed="' + id + '">This has passed</button>' +
+        '</div><p class="small">Saving what you did does not clear this line. Only you can untick it, with This has passed.</p>' +
+        '<p class="logline" data-em-log="' + id + '"></p>';
+    });
+  }
+
+  // Buttons to log each suggestion, dated.
+  function buildLogButtons() {
+    $$(".sugg").forEach((card) => {
+      const id = card.dataset.sugg;
+      const body = $(".sugg-body", card);
+      const wrap = document.createElement("div");
+      wrap.innerHTML =
+        '<div class="row">' +
+        Object.keys(LOGNAME).map((c) => '<button type="button" data-log="' + id + '" data-c="' + c + '">' + LOGNAME[c] + '</button>').join("") +
+        '</div><p class="logline" data-log-out="' + id + '"></p>' +
+        '<p class="worse" data-worse="' + id + '" hidden>Worse? Stop this practice. If anything on the get-help lists is happening, follow it now. <a href="#help">When to get help</a></p>';
+      body.appendChild(wrap);
+      if (card.dataset.show) {
+        const wait = document.createElement("p");
+        wait.className = "waits";
+        wait.textContent = "Waits for your answer above to: " + card.dataset.needs;
+        card.insertBefore(wait, body);
+      }
+    });
+  }
+
+  function load() {
+    if (!store) { setStamp("failed", "Not saved"); return; }
+    try {
+      clearMark = store.getItem(CLEARED) || "";
+      const raw = store.getItem(KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.v === 1) {
+          state = Object.assign(blank(), parsed);
+          setStamp("saved", "Saved here " + hhmm(new Date(parsed.savedAt || Date.now())));
+        }
+      }
+    } catch (e) { setStamp("failed", "Not saved"); }
+  }
+
+  function scheduleSave() {
+    if (!store) { setStamp("failed", "Not saved"); return; }
+    setStamp("saving", "Saving…");
+    clearTimeout(timer);
+    timer = setTimeout(save, 250);
+  }
+
+  function save() {
+    timer = 0;
+    try {
+      if ((store.getItem(CLEARED) || "") !== clearMark) { wipe(false); return; }
+      state.savedAt = nowIso();
+      const raw = JSON.stringify(state);
+      store.setItem(KEY, raw);
+      if (store.getItem(KEY) === raw) setStamp("saved", "Saved here " + hhmm(new Date()));
+      else setStamp("failed", "Not saved");
+    } catch (e) { setStamp("failed", "Not saved"); }
+  }
+
+  function resetFields() {
+    $$("input[type=checkbox][data-em], input[type=radio]").forEach((el) => { el.checked = false; });
+    $$("input[type=text], textarea").forEach((el) => { el.value = ""; });
+    $$("select").forEach((el) => { el.selectedIndex = 0; });
+  }
+
+  function wipe(here) {
+    clearTimeout(timer);
+    timer = 0;
+    state = blank();
+    showAnyway = false;
+    resetFields();
+    if (here && store) {
+      try {
+        store.removeItem(KEY);
+        clearMark = String(Date.now()) + "-" + Math.random().toString(36).slice(2);
+        store.setItem(CLEARED, clearMark);
+      } catch (e) { setStamp("failed", "Not saved"); }
+    } else if (store) {
+      try { clearMark = store.getItem(CLEARED) || ""; } catch (e) { clearMark = ""; }
+    }
+    if (!failLine.hidden && here) { /* keep the red line if clearing itself failed */ } else setStamp("idle", "Nothing saved");
+    $("#cleared-note").hidden = false;
+    render();
+  }
+
+  function rule(r) {
+    let unknown = false;
+    for (const part of r.split("|")) {
+      const [q, vals] = part.split("=");
+      const v = state.answers[q];
+      if (!v) { unknown = true; continue; }
+      if (vals.split(",").includes(v)) return "show";
+    }
+    return unknown ? "wait" : "hide";
+  }
+
+  function orderAreas(openChosen) {
+    const order = ["home", "sleep", "breath"];
+    const first = state.answers.area;
+    const seq = first ? [first].concat(order.filter((a) => a !== first)) : order;
+    const box = $("#areas");
+    seq.forEach((a) => box.appendChild(document.getElementById("area-" + a)));
+    if (openChosen && first) seq.forEach((a) => { document.getElementById("area-" + a).open = a === first; });
+  }
+
+  function render() {
+    $$("[data-q]").forEach((el) => {
+      const v = state.answers[el.dataset.q] || "";
+      if (el.type === "radio") el.checked = v === el.value;
+      else el.value = v;
+    });
+    $$("[data-t]").forEach((el) => { el.value = state.texts[el.dataset.t] || ""; });
+
+    const on = [];
+    $$("[data-em]").forEach((el) => {
+      const id = el.dataset.em;
+      const s = state.emergency[id];
+      el.checked = !!(s && s.on);
+      document.getElementById("msg-" + id).hidden = !el.checked;
+      if (el.checked) on.push(id);
+    });
+    $$("[data-em-log]").forEach((el) => {
+      const s = state.emergency[el.dataset.emLog];
+      el.textContent = s && s.acts && s.acts.length ? "Saved: " + s.acts.map((a) => ACT[a.a] + ", " + when(a.at)).join("; ") : "";
+    });
+    const banner = $("#em-banner");
+    banner.hidden = on.length === 0;
+    if (on.length) {
+      const texts = [];
+      on.forEach((id) => { const t = SHORT[id] || CALL + " Don't drive yourself."; if (!texts.includes(t)) texts.push(t); });
+      $("[data-banner-text]", banner).textContent = texts.join(" ");
+    }
+    const paused = on.length > 0 && !showAnyway;
+    $("#paused").hidden = !paused;
+    $("#areas").hidden = paused;
+
+    $$(".sugg").forEach((card) => {
+      const r = card.dataset.show;
+      const mode = r ? rule(r) : "show";
+      card.hidden = mode === "hide";
+      $(".sugg-body", card).hidden = mode !== "show";
+      const wait = $(".waits", card);
+      if (wait) wait.hidden = mode !== "wait";
+      const id = card.dataset.sugg;
+      const log = state.log[id] || [];
+      $("[data-log-out=\"" + id + "\"]", card).textContent = log.length ? "Saved: " + log.map((e) => LOGNAME[e.c] + ", " + when(e.at)).join("; ") : "";
+      $("[data-worse=\"" + id + "\"]", card).hidden = !(log.length && log[log.length - 1].c === "worse");
+    });
+    $$(".caffeine-line").forEach((el) => { el.hidden = state.answers.caffeine === "no"; });
+    orderAreas(false);
+    preview();
+  }
+
+  function labelOf(input) { return input.closest("label") ? input.closest("label").textContent.trim() : input.value; }
+
+  function copyText() {
+    const parts = {};
+    $$("[data-part]").forEach((el) => { parts[el.dataset.part] = el.checked; });
+    const lines = [];
+    lines.push("Healthy living, pilot 1: a copy made " + when(nowIso()) + ".");
+    lines.push("Partial, self-reported. Not medical advice.");
+    if (parts.words) {
+      lines.push("", "My own words:");
+      lines.push(state.texts["own-words"] ? state.texts["own-words"] : "(nothing written)");
+    }
+    if (parts.answers) {
+      lines.push("", "My answers:");
+      let any = false;
+      $$("[data-qset]").forEach((set) => {
+        const q = set.dataset.qset;
+        const v = state.answers[q];
+        if (!v) return;
+        any = true;
+        const legend = $("legend", set).textContent.trim();
+        const input = $("[data-q=\"" + q + "\"][value=\"" + CSS.escape(v) + "\"]", set);
+        const shown = input && input.type === "radio" ? labelOf(input) : v;
+        lines.push("- " + legend + " " + shown);
+      });
+      if (state.texts["mold-where"]) { any = true; lines.push("- Where the damp or mold is: " + state.texts["mold-where"]); }
+      if (!any) lines.push("(no answers)");
+    }
+    if (parts.log) {
+      lines.push("", "What I tried:");
+      const ids = Object.keys(state.log).filter((id) => state.log[id].length);
+      if (!ids.length) lines.push("(nothing saved)");
+      ids.forEach((id) => {
+        const card = $(".sugg[data-sugg=\"" + id + "\"] h3");
+        lines.push("- " + (card ? card.textContent.trim() : id) + " " + state.log[id].map((e) => LOGNAME[e.c] + " (" + when(e.at) + ")").join("; "));
+      });
+    }
+    if (parts.safety) {
+      lines.push("", "Safety answers:");
+      const ids = Object.keys(state.emergency);
+      if (!ids.length && !state.noneAt) lines.push("(none saved)");
+      if (state.noneAt) lines.push("- None of these, " + when(state.noneAt));
+      ids.forEach((id) => {
+        const s = state.emergency[id];
+        const name = id === "passed" ? "Signs in line 4 came and went" : "Line " + id;
+        lines.push("- " + name + ": " + (s.on ? "ticked" : "unticked") + (s.at ? ", " + when(s.at) : "") +
+          (s.acts && s.acts.length ? "; " + s.acts.map((a) => ACT[a.a] + " (" + when(a.at) + ")").join("; ") : ""));
+      });
+    }
+    return lines.join("\n") + "\n";
+  }
+
+  function preview() { $("#preview").textContent = copyText(); }
+
+  function onInput(e) {
+    const el = e.target;
+    if (el.dataset.q) {
+      state.answers[el.dataset.q] = el.value;
+      if (el.dataset.q === "area") orderAreas(true);
+    } else if (el.dataset.t) {
+      state.texts[el.dataset.t] = el.value;
+    } else if (el.dataset.em) {
+      const id = el.dataset.em;
+      const s = state.emergency[id] || { on: false, at: "", acts: [] };
+      s.on = el.checked;
+      s.at = nowIso();
+      state.emergency[id] = s;
+      if (el.checked) showAnyway = false;
+    } else if (el.dataset.part) {
+      preview();
+      return;
+    } else return;
+    $("#cleared-note").hidden = true;
+    render();
+    scheduleSave();
+  }
+
+  function onClick(e) {
+    const el = e.target.closest("button");
+    if (!el) return;
+    if (el.hasAttribute("data-clear")) {
+      if (window.confirm("Clear everything this page saved in this browser?")) wipe(true);
+      return;
+    }
+    if (el.dataset.emAct) {
+      const s = state.emergency[el.dataset.line];
+      if (!s) return;
+      s.acts = s.acts || [];
+      s.acts.push({ a: el.dataset.emAct, at: nowIso() });
+    } else if (el.dataset.emPassed) {
+      const s = state.emergency[el.dataset.emPassed];
+      if (!s) return;
+      s.on = false;
+      s.at = nowIso();
+    } else if (el.dataset.log) {
+      const id = el.dataset.log;
+      (state.log[id] = state.log[id] || []).push({ c: el.dataset.c, at: nowIso() });
+    } else if (el.hasAttribute("data-none")) {
+      state.noneAt = nowIso();
+      $("#choose").scrollIntoView();
+    } else if (el.hasAttribute("data-open-today")) {
+      const today = $("#today");
+      today.open = true;
+      today.scrollIntoView();
+      return;
+    } else if (el.hasAttribute("data-show-anyway")) {
+      showAnyway = true;
+      render();
+      return;
+    } else if (el.hasAttribute("data-leave")) {
+      window.location.replace("about:blank");
+      return;
+    } else if (el.hasAttribute("data-save-text")) {
+      const text = copyText();
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "healthy-living-copy-" + new Date().toISOString().slice(0, 10) + ".txt";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      return;
+    } else if (el.hasAttribute("data-print")) {
+      $("#print-area").textContent = copyText();
+      document.body.classList.add("print-copy");
+      window.print();
+      document.body.classList.remove("print-copy");
+      return;
+    } else return;
+    $("#cleared-note").hidden = true;
+    render();
+    scheduleSave();
+  }
+
+  window.addEventListener("storage", (e) => {
+    if (e.key === null || e.key === CLEARED || (e.key === KEY && e.newValue === null)) { wipe(false); return; }
+    if (e.key === KEY && e.newValue && !timer) {
+      try { const parsed = JSON.parse(e.newValue); if (parsed && parsed.v === 1) { state = Object.assign(blank(), parsed); render(); } } catch (err) { /* ignore a broken copy from another tab */ }
+    }
+  });
+
+  buildCallMessages();
+  buildLogButtons();
+  load();
+  render();
+  orderAreas(true);
+  document.addEventListener("input", onInput);
+  document.addEventListener("change", onInput);
+  document.addEventListener("click", onClick);
+})();
+</script>
+</body>
+</html>
