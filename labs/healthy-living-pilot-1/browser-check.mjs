@@ -64,7 +64,14 @@ async function reload(sessionId) {
 }
 const results = [];
 const check = (name, ok, detail = "") => { results.push({ name, ok: !!ok, detail }); };
-const hidden = (sel) => `(() => { const el = document.querySelector(${JSON.stringify(sel)}); return !el || el.hidden || el.closest("[hidden]") !== null; })()`;
+// Page-side checks get their values as call arguments, never pasted into code.
+async function call(sessionId, fn, ...args) {
+  const { result } = await send("Runtime.evaluate", { expression: "globalThis" }, sessionId);
+  const r = await send("Runtime.callFunctionOn", { functionDeclaration: fn, objectId: result.objectId, arguments: args.map((value) => ({ value })), returnByValue: true, awaitPromise: true }, sessionId);
+  if (r.exceptionDetails) throw new Error("page check failed: " + JSON.stringify(r.exceptionDetails).slice(0, 400));
+  return r.result.value;
+}
+const HIDDEN = `function (sel) { const el = document.querySelector(sel); return !el || el.hidden || el.closest("[hidden]") !== null; }`;
 
 try {
   // 1. Load, and count every request the page makes.
@@ -72,7 +79,7 @@ try {
   const reqA = events.filter((e) => e.sessionId === a && e.method === "Network.requestWillBeSent").map((e) => e.params.request.url);
   check("one request only, the file itself", reqA.length === 1 && reqA[0] === fileUrl, reqA.join(" "));
   check("fresh stamp says nothing saved", (await js(a, `document.querySelector("#stamp").textContent`)) === "Nothing saved yet");
-  check("no red line on a fresh page", await js(a, hidden("#save-failed")));
+  check("no red line on a fresh page", await call(a, HIDDEN, "#save-failed"));
 
   // 2. Type, choose, wait, reload: everything is still there; Saved here only after a real save.
   await js(a, `(() => { const t = document.querySelector("#own-words"); t.value = "test words"; t.dispatchEvent(new Event("input", { bubbles: true })); document.querySelector('input[name=area][value=sleep]').click(); })()`);
@@ -98,15 +105,15 @@ try {
 
   // 5. Emergency line: message, banner, pause, Show anyway, actions, This has passed.
   await js(a, `document.querySelector('[data-em="4"]').click()`);
-  check("line 4 opens its message", !(await js(a, hidden("#msg-4"))));
-  check("banner on top while ticked", !(await js(a, hidden("#em-banner"))));
-  check("areas paused while ticked", (await js(a, hidden("#areas"))) && !(await js(a, hidden("#paused"))));
+  check("line 4 opens its message", !(await call(a, HIDDEN, "#msg-4")));
+  check("banner on top while ticked", !(await call(a, HIDDEN, "#em-banner")));
+  check("areas paused while ticked", (await call(a, HIDDEN, "#areas")) && !(await call(a, HIDDEN, "#paused")));
   await js(a, `document.querySelector('[data-show-anyway]').click()`);
-  check("Show anyway brings the areas back", !(await js(a, hidden("#areas"))));
+  check("Show anyway brings the areas back", !(await call(a, HIDDEN, "#areas")));
   await js(a, `document.querySelector('[data-em-act=called][data-line="4"]').click()`);
   check("I called is saved and the line stays ticked", await js(a, `document.querySelector('[data-em-log="4"]').textContent.startsWith("Saved: I called") && document.querySelector('[data-em="4"]').checked`));
   await js(a, `document.querySelector('[data-em-passed="4"]').click()`);
-  check("This has passed unticks and drops the banner", await js(a, `!document.querySelector('[data-em="4"]').checked`) && (await js(a, hidden("#em-banner"))));
+  check("This has passed unticks and drops the banner", await js(a, `!document.querySelector('[data-em="4"]').checked`) && (await call(a, HIDDEN, "#em-banner")));
 
   // 6. The copy matches its preview; safety answers only when ticked.
   const copy = await js(a, `new Promise((ok) => { const orig = URL.createObjectURL; URL.createObjectURL = (b) => { b.text().then(ok); URL.createObjectURL = orig; return orig.call(URL, b); }; HTMLAnchorElement.prototype.click = function () {}; document.querySelector('[data-save-text]').click(); })`);
@@ -132,7 +139,7 @@ try {
 
   // 8. Blocked storage shows the red line.
   const c = await openTab(`Object.defineProperty(window, "localStorage", { get() { throw new DOMException("blocked", "SecurityError"); } });`);
-  check("blocked storage: Not saved and the red line", (await js(c, `document.querySelector("#stamp").textContent`)) === "Not saved" && !(await js(c, hidden("#save-failed"))));
+  check("blocked storage: Not saved and the red line", (await js(c, `document.querySelector("#stamp").textContent`)) === "Not saved" && !(await call(c, HIDDEN, "#save-failed")));
 
   // 9. Keyboard: Space on the first emergency line ticks it.
   await js(a, `document.querySelector('[data-em="1"]').focus()`);

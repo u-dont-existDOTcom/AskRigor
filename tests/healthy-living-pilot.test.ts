@@ -16,7 +16,7 @@ beforeAll(async () => {
 });
 
 function inlineScripts(source: string): string[] {
-  return [...source.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].map((match) => {
+  return [...source.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)].map((match) => {
     expect(match[1]).not.toMatch(/\bsrc=/i);
     return match[2];
   });
@@ -131,11 +131,11 @@ interface CheckedQuotes {
   quotes: { quote: string; source: string; guides?: string[] }[];
 }
 
-// Same reading as the page shows it: entities decoded, curly quotes straightened, a JS-escaped
+// Same reading as the page shows it: entities decoded (&amp; last, so nothing is decoded twice), curly quotes straightened, a JS-escaped
 // apostrophe unescaped, quote-block marks and runs of spaces collapsed.
 function normalizeQuote(text: string): string {
   return text
-    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&")
     .replace(/\\'/g, "'").replace(/[‘’]/g, "'").replace(/[“”]/g, '"')
     .replace(/^\s*>\s?/gm, " ").replace(/\s+/g, " ").trim();
 }
