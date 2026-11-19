@@ -802,6 +802,13 @@ async function markedFindings(reads: AtlasPageReads, shown: readonly ShownFindin
     for (const reading of await person.readReadings(chunk)) readings.set(reading.publicationNumber, reading);
     removals.push(...await person.readRemovals(chunk));
   }
+  // A sentence that repeats one taken off elsewhere stays off while that one is off.
+  const repeats = [...readings.values()].flatMap(({ sentences }) => sentences.flatMap(({ repeats: removal }) =>
+    removal === null ? [] : [removal]));
+  const known = new Set(removals.map(({ removalNumber }) => removalNumber));
+  if (repeats.some((removal) => !known.has(removal))) {
+    removals.push(...(await person.readRemovalsByNumber(unique(repeats))).filter(({ removalNumber }) => !known.has(removalNumber)));
+  }
   const unread = shown.some((finding) => personReadingState(finding, readings.get(finding.publicationNumber)) === "unread");
   const removedNames = unread ? await person.listRemovedNames() : [];
   const now = new Date();

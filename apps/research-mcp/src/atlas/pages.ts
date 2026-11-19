@@ -1520,6 +1520,8 @@ ${model.entries.length === 0 ? html`<p>Nothing has changed yet.</p>` : html`<ol 
 ${model.entries.map(changeItem)}</ol>`}`;
   return page({
     path: "/atlas/changes",
+    // Atlas Release B: out of search engines while it lists an unverified claim about a person (design 4.4).
+    noindex: personKeptOutOfSearch(model.entries.flatMap(({ finding }) => finding === null ? [] : [finding])),
     title: "What changed | AskRigor Atlas",
     description: "What changed in the AskRigor Atlas: findings published, checked, corrected and withdrawn.",
     current: "changes",

@@ -1205,7 +1205,10 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       cache.clear();
       searchIndex.clear();
     }
-    const reply = personDisputeReply(result.outcome, parsed.input.legal, parsed.input.kind === "missed");
+    // The same form sent twice is one dispute: the second changes nothing, whatever it names.
+    const reply = result.duplicate ? { status: 200, title: "Already received",
+      text: "AskRigor already has this report, so nothing more was changed. To report another sentence, open the form again." }
+      : personDisputeReply(result.outcome, parsed.input.legal, parsed.input.kind === "missed");
     await requestMessage(request, response, reply.status, reply.title, reply.text, back, [], "Back to the finding");
   };
 

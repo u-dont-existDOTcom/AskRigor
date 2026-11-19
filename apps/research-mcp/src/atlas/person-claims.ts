@@ -94,6 +94,7 @@ export type PersonOriginLine =
   | { type: "says_otherwise"; title: string | null }
   | { type: "part_only"; title: string | null }
   | { type: "cannot_open" }
+  | { type: "title" }
   | { type: "no_source" };
 
 export function originLineText(origin: PersonOriginLine): string {
@@ -118,6 +119,8 @@ export function originLineText(origin: PersonOriginLine): string {
       return `${origin.title === null ? "The source" : origin.title} supports only part of this sentence.`;
     case "cannot_open":
       return "The source cited for it can’t be opened.";
+    case "title":
+      return "It is the title of a source the finding cites; AskRigor found nothing it could open that supports it.";
     case "no_source":
       return "The AI that wrote this finding gave no source for it, and AskRigor found none.";
   }
@@ -346,9 +349,9 @@ export function parsePersonReply(reply: unknown, finding: ShownFinding, bundle: 
         everyClaimSupported: false, favourable: false, privateIndividual: false, repeats: null, foldedNames: [] });
       continue;
     }
-    if (fields.length < 12) return { ok: false, problem: "field" };
+    if (fields.length < 11) return { ok: false, problem: "field" };
     const [, , kindCode, originRef, quoteRef, supportCode, all, fav, priv, repeatsRef] = fields.map((field) => field.trim());
-    const who = fields.slice(11).join("|");
+    const who = fields.slice(10).join("|");
     const kind = KIND_CODES[kindCode!];
     const support = SUPPORT_CODES[supportCode!];
     if (kind === undefined || support === undefined || YES_NO[all!] === undefined || YES_NO[fav!] === undefined ||
@@ -485,6 +488,7 @@ export interface PersonClaimContext {
   now: Date;
 }
 
+const TITLE_PATH = /^(?:sources\.\d+\.title|research\.\d+\.title|numbers\.\d+\.source\.title)$/u;
 const STYLED_PATHS = new Set(["claim", "question", "usualAnswer", "appliesTo", "subject", "whyNotUsual",
   "whatWouldChangeIt"]);
 const sourcedNote = (verdict: Extract<PersonVerdict, { kind: "sourced" }>) => {
@@ -546,6 +550,10 @@ export function applyPersonClaims(finding: ShownFinding, context: PersonClaimCon
     const entry = entries.get(sentence.key);
     let verdict = verdicts.get(sentence.key)!;
     if (verdict.kind === "unverified" || verdict.kind === "sourced") verdict = personVerdictOf(entry!, finding, titleShows);
+    // A source's own title shown as its title: the line says so, rather than a line about the finding's sources.
+    if (verdict.kind === "unverified" && sentence.paths.every((path) => TITLE_PATH.test(path))) {
+      verdict = { ...verdict, origin: { type: "title" }, href: null };
+    }
     if (verdict.kind === "unverified" && entry !== undefined) {
       const repeated = entry.repeats === null ? undefined
         : context.removals.find(({ removalNumber, state: removalState }) => removalNumber === entry.repeats &&

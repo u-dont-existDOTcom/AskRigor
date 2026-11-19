@@ -88,6 +88,8 @@ export interface AtlasPersonClaimReads {
   readRemovals(publicationNumbers: readonly string[]): Promise<AtlasPersonRemoval[]>;
   /** The folded names of every sentence taken off and not put back (the render-time hiding while unread). */
   listRemovedNames(): Promise<string[]>;
+  /** The removals a reading says sentences repeat, by number, wherever they are. */
+  readRemovalsByNumber(removalNumbers: readonly number[]): Promise<AtlasPersonRemoval[]>;
 }
 
 export type AtlasPersonDisputeWanted = "taken_off" | "marked_disputed" | "queued";
@@ -227,6 +229,13 @@ export function postgresPersonClaimReads(client: PoolClient, since: string): Atl
         FROM atlas_person_removals WHERE publication_number = ANY($1::text[]) ORDER BY removal_number`, [numbers])).rows
         .map(removalOf);
     },
+    async readRemovalsByNumber(raw) {
+      const numbers = [...new Set(raw)].filter((number) => Number.isSafeInteger(number) && number > 0).slice(0, 2_000);
+      if (numbers.length === 0) return [];
+      return (await client.query(`SELECT removal_number, publication_number, sentence_key, state, folded_names, changed_at
+        FROM atlas_person_removals WHERE removal_number = ANY($1::bigint[]) ORDER BY removal_number`, [numbers])).rows
+        .map(removalOf);
+    },
     async listRemovedNames() {
       return (await client.query<{ name: string }>(`SELECT DISTINCT unnest(folded_names) AS name FROM atlas_person_removals
         WHERE state = 'taken_off' ORDER BY 1`)).rows.map(({ name }) => name);
@@ -364,6 +373,10 @@ export class InMemoryAtlasPersonClaims implements AtlasPersonClaimStore {
       readRemovals: async (raw) => {
         const numbers = new Set(validNumbers(raw));
         return this.removals.filter(({ publicationNumber }) => numbers.has(publicationNumber)).map((row) => ({ ...row }));
+      },
+      readRemovalsByNumber: async (raw) => {
+        const numbers = new Set(raw);
+        return this.removals.filter(({ removalNumber }) => numbers.has(removalNumber)).map((row) => ({ ...row }));
       },
       listRemovedNames: async () => [...new Set(this.removals.filter(({ state }) => state === "taken_off")
         .flatMap(({ foldedNames }) => foldedNames))].sort(),
