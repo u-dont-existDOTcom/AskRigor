@@ -68,6 +68,9 @@ export function announcingPublicationStore(
     // The owner, 6 Nov 2026: a challenge mark changes a shown finding's page and the challenges page.
     markChallenges: (change) => announcing(signal, () => store.markChallenges(change)),
     inspectChallenges: () => store.inspectChallenges(),
+    // Codex's third review of 17 Nov 2026, finding 1: holding a publication takes its page away.
+    recordLivingPerson: (change) => announcing(signal, () => store.recordLivingPerson(change)),
+    inspectLivingPersonNotes: (publicationNumbers) => store.inspectLivingPersonNotes(publicationNumbers),
   };
 }
 

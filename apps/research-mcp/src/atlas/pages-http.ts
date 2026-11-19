@@ -34,6 +34,8 @@ import {
   type AtlasFeaturesRuntime,
 } from "./account-features.js";
 import { announcingParticipationStore, atlasChanges, type AtlasChangeSignal } from "./change-signal.js";
+import { UnrecordedLivingPersonClaims, withoutUnrecordedLivingPerson } from "./living-person-pending.js";
+import { livingPersonClaimKey } from "./publication.js";
 import { loadAtlasHealth, loadAtlasSubcategory, renderAtlasHealth, renderAtlasSubcategory } from "./health-pages.js";
 import { HEALTH } from "./health-tree.js";
 import {
@@ -510,6 +512,11 @@ export interface CreateAtlasPagesHandlerOptions {
   proxySecret?: string | null;
   /** What the pages read; undefined while enabled means they are not configured, and answer 503. */
   source?: AtlasPageSource;
+  /**
+   * Codex's fifth review of 17 Nov 2026 (P0): the claims a save said name a living person whose record hasn't stored
+   * yet, which the pages don't show (living-person-pending.ts); the process's own by default.
+   */
+  unrecordedLivingPerson?: UnrecordedLivingPersonClaims;
   rateLimiter?: TokenBucketLimiter;
   /** The signal that drops the caches; the process's own by default. */
   signal?: AtlasChangeSignal;
@@ -1364,7 +1371,8 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         write(response, 400, TEXT, "Bad request\n", { connection: "close" });
         return true;
       }
-      const source = options.source;
+      const source = options.source === undefined ? undefined
+        : withoutUnrecordedLivingPerson(options.source, livingPersonClaimKey, options.unrecordedLivingPerson);
       if (route.kind === "search") {
         // Queries are transient: no cache key, cached HTML, session inspection, account data, query log or write. The
         // search index they match against holds only the pages' public text. This still uses the common address

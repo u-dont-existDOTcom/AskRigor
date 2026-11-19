@@ -97,7 +97,10 @@ export function findingsSaveToolResult(raw: FindingsSaveResult): CallToolResult 
           ? "Not saved: AskRigor's findings library is not open yet."
           : result.reason_code === "research_account_required"
             ? "Not saved: findings are saved only from a connected AskRigor research account."
-            : "Not saved: the findings library is unavailable right now.",
+            // Codex's fourth review of 17 Nov 2026 (P0s): a save whose living-person record failed says to save again.
+            : result.retryable
+              ? "Not saved: the findings library is unavailable right now; try saving again."
+              : "Not saved: the findings library is unavailable right now.",
         result,
         true,
       );

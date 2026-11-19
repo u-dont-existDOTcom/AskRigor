@@ -99,6 +99,7 @@ import {
   AtlasKeptReview,
   type AtlasKeepAction,
   type AtlasKept,
+  type AtlasKeepRequest,
 } from "../atlas/kept-review.js";
 import {
   ATLAS_CHALLENGE_ACTIONS,
@@ -471,6 +472,11 @@ export interface AtlasReviewRequest {
   usual_view_source_url?: AtlasChallengeRequest["usual_view_source_url"];
   usual_view_source_label?: AtlasChallengeRequest["usual_view_source_label"];
   quick_answer_verdict?: AtlasChallengeRequest["quick_answer_verdict"];
+  /**
+   * show_on_pages and publish_cards: who shows or publishes them, from later_inputs.shown_by (Codex's fourth and fifth
+   * reviews of 17 Nov 2026).
+   */
+  shown_by?: AtlasKeepRequest["shown_by"];
   /** The reviewer login that made the call, set by the tool after its owner check; never an input. */
   reviewer?: string;
 }
@@ -1258,6 +1264,8 @@ export class AtlasReview {
       ...(request.cardsTo === undefined ? {} : { cardsTo: request.cardsTo }),
       ...(request.topicKey === undefined ? {} : { topicKey: request.topicKey }),
       ...(request.topicLabel === undefined ? {} : { topicLabel: request.topicLabel }),
+      // Codex's fifth review of 17 Nov 2026 (P1): publish_cards says who acts, as show_on_pages does.
+      ...(request.shown_by === undefined ? {} : { shown_by: request.shown_by }),
     });
     return {
       ok: result.ok,
@@ -1282,6 +1290,10 @@ export class AtlasReview {
       ...(request.atlasNumber === undefined ? {} : { atlasNumber: request.atlasNumber }),
       ...(request.items === undefined ? {} : { items: request.items }),
       ...(request.reason === undefined ? {} : { reason: request.reason }),
+      // Codex's third review of 17 Nov 2026, finding 2: the quick-answer test's show_on_pages says so, with its verdict.
+      ...(request.quick_answer_verdict === undefined ? {} : { quick_answer_verdict: request.quick_answer_verdict }),
+      // Its fourth review (P1s): and every show_on_pages says who acts.
+      ...(request.shown_by === undefined ? {} : { shown_by: request.shown_by }),
     });
     return {
       ok: result.ok,

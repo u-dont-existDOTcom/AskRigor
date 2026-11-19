@@ -34,14 +34,20 @@ export const ATLAS_PUBLICATION_SCHEMA = "askrigor.atlas-publication.v1";
  * gives it, with its F number; edited: accepted with the owner's wording, or corrected after (the pages show the Atlas
  * finding its F number names, in its latest version); rejected: the owner rejected it and it leaves the pages;
  * withdrawn: it left the pages without a review (its card was deleted, set aside or replaced, or the owner unpublished
- * it); held: its text holds what the pages never show (contact details, a card reference or a YouTube link), so it waits
- * for the owner.
+ * it); held: its text holds what the pages never show (contact details, a card reference or a YouTube link), or it may
+ * name a living person (Codex's re-review of 17 Nov 2026, finding 1), so it waits for the owner, with no page.
  */
 export const ATLAS_PUBLICATION_STATES = ["unreviewed", "accepted", "edited", "rejected", "withdrawn", "held"] as const;
 export type AtlasPublicationState = typeof ATLAS_PUBLICATION_STATES[number];
-/** Why a publication is held: the contact-details check's kinds, a card reference (ARF-0042) or a YouTube link. */
+/**
+ * Why a publication is held: the contact-details check's kinds, a card reference (ARF-0042) or a YouTube link in its
+ * texts; or living_person_review, a finding the save would publish whose card declares that it names a living person,
+ * or that the meaning judge read as naming one (Codex's re-review of 17 Nov 2026, finding 1: claims about named living
+ * people publish only on the owner's explicit decision). In step with migration 0021's closed list, which replaces
+ * itself on every start, so a reason is added there and nowhere later.
+ */
 export const ATLAS_PUBLICATION_HOLD_REASONS = [
-  "email_address", "phone_number", "messaging_handle", "card_reference", "youtube_link",
+  "email_address", "phone_number", "messaging_handle", "card_reference", "youtube_link", "living_person_review",
 ] as const;
 export type AtlasPublicationHoldReason = typeof ATLAS_PUBLICATION_HOLD_REASONS[number];
 /** Why a publication was withdrawn without a review. */
@@ -256,6 +262,75 @@ export interface AtlasPublicationDraft {
   /** With held: why. */
   heldBecause: AtlasPublicationHoldReason[] | null;
   published: AtlasPublishedFinding;
+  /**
+   * How it reaches the pages (migration 0041): automatic_showing for an unreviewed draft the save shows at once;
+   * owner_action for one the owner publishes (publish_cards, a decision's publication), which shows. Never
+   * quick_answer_test, which only the quick-answer test's own showing records, with its verdict (keep with a route).
+   * Left out, as for every draft before it, nothing is recorded: kept, it reaches the pages once a showing says how.
+   */
+  shownBy?: AtlasPublicationRoute;
+  /**
+   * Codex's review of 17 Nov 2026, finding 1: for an unreviewed draft the save publishes but keeps off the pages for
+   * the owner's decision, the private reason it is kept for, set in the same write as the publication (migration 0041),
+   * so a later write that fails never leaves it shown. 1 to 2,000 characters, with no space at either end.
+   */
+  keptReason?: string;
+  /**
+   * Codex's fourth review of 17 Nov 2026 (P0): what the save knows of whether the finding names a living person, which
+   * the publishing stores with the card and reads back under lock (migration 0041's atlas_living_person_readings): an
+   * unreviewed or held draft whose stored reading is yes, or not_said while holdNotSaid, is published held for
+   * living_person_review, with no page, whatever the draft says. Left out, as by an earlier caller, the draft is
+   * published as it says.
+   */
+  livingPerson?: AtlasLivingPersonDraft;
+}
+
+/**
+ * Whether a finding names a living person, as its save said: yes, its card declares it or the meaning judge read it so,
+ * as the final check's receipt signed; no, its card declares it names no one and the receipt signed that; not_said
+ * otherwise. A stored yes is never lowered.
+ */
+export const ATLAS_LIVING_PERSON_READINGS = ["yes", "no", "not_said"] as const;
+export type AtlasLivingPersonReading = typeof ATLAS_LIVING_PERSON_READINGS[number];
+
+export interface AtlasLivingPersonDraft {
+  /** The sha256, in hex, of the finding's claim as the duplicate check reads it: the same for every save of the card. */
+  claimKey: string;
+  reading: AtlasLivingPersonReading;
+  /** Whether a finding stored as not_said is held (ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN, as the server read it). */
+  holdNotSaid: boolean;
+}
+
+/**
+ * How a publication reached the pages (Codex's review of 17 Nov 2026, finding 4, its re-review and its third review,
+ * finding 2), stored apart as the action that showed it said, at that moment: owner_action, the owner published it, or
+ * a show_on_pages showed it again without saying the quick-answer test did; quick_answer_test, the quick-answer test's
+ * own show_on_pages showed it again, with its verdict; automatic_showing, the save showed it at once
+ * (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS). None (null) is not recorded: a publication from before migration 0041, one an
+ * earlier image published or showed again, or one still kept since its save. Nothing is read from a kept reason's
+ * text. A page says the quick-answer test found a quick AI answer misses a finding only for quick_answer_test with the
+ * verdict pass, or from a challenge mark's stored verdict.
+ */
+export const ATLAS_PUBLICATION_ROUTES = ["owner_action", "quick_answer_test", "automatic_showing"] as const;
+export type AtlasPublicationRoute = typeof ATLAS_PUBLICATION_ROUTES[number];
+
+/**
+ * How a show_on_pages shows a kept publication again (migration 0041's show_atlas_publications): by the owner's action,
+ * or by the quick-answer test, which gives its verdict. Codex's fourth review of 17 Nov 2026 (P1s): the showing says
+ * which; the owner's is stored as his decision too, apart from the route, and no later showing replaces it.
+ */
+export type AtlasShowRoute =
+  | { by: "owner_action" }
+  | { by: "quick_answer_test"; verdict: AtlasChallengeVerdict };
+
+/**
+ * What the owner decided of a publication, stored apart from how it last reached the pages (migration 0041's
+ * owner_decision and owner_decided_at): published, his publish_cards or a decision of his published it; shown, his own
+ * show_on_pages showed it again. A later save that says it names a living person never undoes it.
+ */
+export interface AtlasOwnerDecision {
+  decision: "published" | "shown";
+  decidedAt: string;
 }
 
 export interface AtlasPublishInput {
@@ -351,7 +426,77 @@ export interface AtlasPublicationStore {
   markChallenges(change: AtlasChallengeChange): Promise<AtlasChallengeView[]>;
   /** Every publication that carries a challenge mark, kept for research or not. */
   inspectChallenges(): Promise<AtlasChallengeView[]>;
+  /**
+   * Codex's third review of 17 Nov 2026, finding 1, and its fourth review's P0s (migration 0041): in one transaction,
+   * stores what a save says of whether each of its card's findings names a living person (a yes never lowered), and
+   * for each yes holds the card's publications with that claim that the owner hasn't decided for living_person_review,
+   * with no page, and notes those he has decided (accepted or edited, or shown by his own action), which stay as they
+   * are. It throws when the transaction fails, and then nothing of it is stored.
+   */
+  recordLivingPerson(change: AtlasLivingPersonRecord): Promise<AtlasLivingPersonHoldView[]>;
+  /** Of the publications named, those a later save noted as possibly naming a living person, with when. */
+  inspectLivingPersonNotes(publicationNumbers: readonly string[]): Promise<AtlasLivingPersonNote[]>;
 }
+
+/** What a save says of its card's findings, by their claims' keys, 1 to 5, as record_atlas_living_person takes it. */
+export interface AtlasLivingPersonRecord {
+  cardNumber: number;
+  readings: ReadonlyArray<{ claimKey: string; reading: AtlasLivingPersonReading }>;
+  /**
+   * Publications of the card that the server matched to a yes by their claims (one from before claim keys were stored
+   * has none), at most ATLAS_LIVING_PERSON_MATCHES_PER_RECORD; each is held as one found by its key.
+   */
+  publicationNumbers: readonly string[];
+  at: string;
+}
+
+/**
+ * What holding for living_person_review did with a publication: held (it was unreviewed), reason_added (it was held
+ * for another reason), already_held, noted (the owner had decided it, so it stays as it is) or unchanged (rejected,
+ * withdrawn or erased, so it has no page).
+ */
+export const ATLAS_LIVING_PERSON_HOLD_OUTCOMES = ["held", "reason_added", "already_held", "noted", "unchanged"] as const;
+export type AtlasLivingPersonHoldOutcome = typeof ATLAS_LIVING_PERSON_HOLD_OUTCOMES[number];
+
+export interface AtlasLivingPersonHoldView {
+  publicationNumber: string;
+  state: AtlasPublicationState;
+  heldBecause: AtlasPublicationHoldReason[] | null;
+  outcome: AtlasLivingPersonHoldOutcome;
+}
+
+/** A later save's note on a publication the owner had decided: when it first said it may name a living person. */
+export interface AtlasLivingPersonNote {
+  publicationNumber: string;
+  notedAt: string;
+}
+
+/**
+ * Codex's fourth review of 17 Nov 2026: the review role's functions the living-person hold relies on, by their exact
+ * signatures (migrations 0021 and 0041): the publishing that reads what a save stored, the record a save makes, the
+ * read that matches older publications, the owner's notes and the showing that records his decision. The server isn't
+ * ready to serve while one is missing or the review role can't run it.
+ */
+export const ATLAS_LIVING_PERSON_HOLD_FUNCTIONS = [
+  "publish_atlas_findings(integer, text, jsonb, timestamptz, boolean)",
+  "record_atlas_living_person(integer, jsonb, text[], timestamptz)",
+  "inspect_atlas_publications(text[], integer[], text[], text[], bigint, integer)",
+  "inspect_atlas_living_person_notes(text[])",
+  "show_atlas_publications(text[], text[], text, text, timestamptz)",
+] as const;
+
+/**
+ * Codex's fifth review of 17 Nov 2026: the triggers that make the hold the table's rule (migration 0041), as
+ * "table.trigger". The server isn't ready to serve while one is missing or switched off.
+ */
+export const ATLAS_LIVING_PERSON_HOLD_TRIGGERS = [
+  "atlas_publications.atlas_publications_living_person_hold",
+  "atlas_living_person_readings.atlas_living_person_readings_hold",
+] as const;
+
+/** The most numbers one record takes beside its readings, and one notes' read, as migration 0041 does. */
+export const ATLAS_LIVING_PERSON_MATCHES_PER_RECORD = 500;
+export const ATLAS_LIVING_PERSON_NOTES_PER_READ = 500;
 
 /**
  * The quick-answer test's verdicts (docs/atlas-quick-answer-test.md): pass, the finding is really better than a quick AI
@@ -444,6 +589,11 @@ export interface AtlasKeepChange {
   keep: boolean;
   reason: string | null;
   at: string;
+  /**
+   * With keep false: how the showing shows them, recorded with each kept one it shows (Codex's third review of 17 Nov
+   * 2026, finding 2). Left out, as by an earlier caller, it records no route: not recorded.
+   */
+  route?: AtlasShowRoute;
 }
 
 export interface AtlasKeptView {
@@ -460,6 +610,12 @@ export interface AtlasKeptView {
 export const ATLAS_KEEP_NUMBERS_PER_CALL = 100;
 
 function validateKeep(change: AtlasKeepChange): void {
+  const route = change.route as { by?: unknown; verdict?: unknown } | undefined;
+  if (route !== undefined && (change.keep || typeof route !== "object" || route === null ||
+    !(route.by === "owner_action" ? route.verdict === undefined
+      : route.by === "quick_answer_test" && (ATLAS_CHALLENGE_VERDICTS as readonly unknown[]).includes(route.verdict)))) {
+    throw invalid();
+  }
   const count = change.publicationNumbers.length + change.atlasNumbers.length;
   const reasonOk = change.keep
     ? typeof change.reason === "string" && change.reason === change.reason.trim() && change.reason.length >= 1 &&
@@ -468,6 +624,33 @@ function validateKeep(change: AtlasKeepChange): void {
   if (count < 1 || count > ATLAS_KEEP_NUMBERS_PER_CALL || !reasonOk || !validInstant(change.at) ||
     !change.publicationNumbers.every((number) => PUBLICATION_NUMBER.test(number)) ||
     !change.atlasNumbers.every((number) => ATLAS_NUMBER.test(number))) throw invalid();
+}
+
+const validLivingPersonReading = (value: unknown): value is AtlasLivingPersonReading =>
+  (ATLAS_LIVING_PERSON_READINGS as readonly unknown[]).includes(value);
+
+function validateLivingPersonRecord(change: AtlasLivingPersonRecord): void {
+  if (!validCard(change.cardNumber) || !Array.isArray(change.readings) || change.readings.length < 1 ||
+    change.readings.length > 5 ||
+    !change.readings.every((entry) => typeof entry === "object" && entry !== null &&
+      SHA256_HEX.test(entry.claimKey) && validLivingPersonReading(entry.reading)) ||
+    !Array.isArray(change.publicationNumbers) ||
+    change.publicationNumbers.length > ATLAS_LIVING_PERSON_MATCHES_PER_RECORD ||
+    !change.publicationNumbers.every((number) => PUBLICATION_NUMBER.test(number)) || !validInstant(change.at)) {
+    throw invalid();
+  }
+}
+
+function validLivingPersonDraft(value: AtlasLivingPersonDraft | undefined): boolean {
+  return value === undefined || (typeof value === "object" && value !== null && SHA256_HEX.test(value.claimKey) &&
+    validLivingPersonReading(value.reading) && typeof value.holdNotSaid === "boolean");
+}
+
+function validateNotesRead(publicationNumbers: readonly string[]): void {
+  if (!Array.isArray(publicationNumbers) || publicationNumbers.length > ATLAS_LIVING_PERSON_NOTES_PER_READ ||
+    !publicationNumbers.every((number) => PUBLICATION_NUMBER.test(number))) {
+    throw invalid();
+  }
 }
 
 export class AtlasPublicationError extends Error {
@@ -508,7 +691,12 @@ function validatePublishInput(input: AtlasPublishInput): AtlasPublicationDraft[]
     if (!Number.isInteger(draft.findingNumber) || draft.findingNumber < 1 || draft.findingNumber > 5 ||
       !["unreviewed", "held", "accepted", "edited"].includes(draft.state) ||
       accepted !== (draft.atlasNumber !== null) || (draft.atlasNumber !== null && !ATLAS_NUMBER.test(draft.atlasNumber)) ||
-      (draft.state === "held") !== (draft.heldBecause !== null) || !validHeldReasons(draft.heldBecause)) {
+      (draft.state === "held") !== (draft.heldBecause !== null) || !validHeldReasons(draft.heldBecause) ||
+      (draft.shownBy !== undefined && !((draft.shownBy === "automatic_showing" && draft.state === "unreviewed") ||
+        (draft.shownBy === "owner_action" && draft.state !== "held"))) ||
+      (draft.keptReason !== undefined && (typeof draft.keptReason !== "string" || draft.keptReason !== draft.keptReason.trim() ||
+        draft.keptReason.length < 1 || draft.keptReason.length > 2_000 || draft.state !== "unreviewed")) ||
+      !validLivingPersonDraft(draft.livingPerson)) {
       throw invalid();
     }
     const parsed = atlasPublishedFindingSchema.safeParse(draft.published);
@@ -576,16 +764,58 @@ const iso = (value: string) => new Date(value).toISOString();
 export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
   private readonly rows: AtlasPublicationView[] = [];
   private nextNumber = 1_001;
+  // How each publication reached the pages, when its draft or the showing said (migration 0041's shown_by), and the
+  // quick-answer test's verdict with its route (shown_test_verdict).
+  private readonly routes = new Map<string, AtlasPublicationRoute>();
+  private readonly testVerdicts = new Map<string, AtlasChallengeVerdict>();
+  // What the owner decided of each, by his own action (migration 0041's owner_decision and owner_decided_at).
+  private readonly ownerDecisions = new Map<string, AtlasOwnerDecision>();
+
+  // Migration 0041's atlas_living_person_readings, by card number and claim key, and each publication's claim_key.
+  private readonly livingPersonReadings = new Map<string, AtlasLivingPersonReading>();
+  private readonly claimKeys = new Map<string, string>();
+
+  /** Stores a save's reading of a card's finding, a yes never lowered, and returns the stored one. */
+  private storeReading(cardNumber: number, claimKey: string, reading: AtlasLivingPersonReading): AtlasLivingPersonReading {
+    const key = `${cardNumber}:${claimKey}`;
+    const stored = this.livingPersonReadings.get(key);
+    const next = stored === undefined || reading === "yes" ? reading : stored;
+    this.livingPersonReadings.set(key, next);
+    return next;
+  }
+
+  /** The reading stored for a card's finding, for tests: undefined when no save stored one. */
+  livingPersonReadingOf(cardNumber: number, claimKey: string): AtlasLivingPersonReading | undefined {
+    return this.livingPersonReadings.get(`${cardNumber}:${claimKey}`);
+  }
 
   async publish(input: AtlasPublishInput): Promise<AtlasPublishedRow[]> {
-    const drafts = validatePublishInput(input);
+    const given = validatePublishInput(input);
     const at = iso(input.publishedAt);
     const outcomes = new Map<number, AtlasPublishedRow["outcome"]>();
+    // Every reading is stored first; then a draft whose stored reading holds it is held, whatever it says.
+    for (const { livingPerson } of given) {
+      if (livingPerson !== undefined) this.storeReading(input.cardNumber, livingPerson.claimKey, livingPerson.reading);
+    }
+    const drafts = given.map((draft): AtlasPublicationDraft => {
+      const living = draft.livingPerson;
+      const stored = living === undefined ? undefined : this.livingPersonReadingOf(input.cardNumber, living.claimKey);
+      if ((draft.state !== "unreviewed" && draft.state !== "held") ||
+        !(stored === "yes" || (stored === "not_said" && living!.holdNotSaid))) return draft;
+      const reasons = new Set<AtlasPublicationHoldReason>([...(draft.heldBecause ?? []), "living_person_review"]);
+      const { shownBy: _shownBy, keptReason: _keptReason, ...rest } = draft;
+      return { ...rest, state: "held", heldBecause: ATLAS_PUBLICATION_HOLD_REASONS.filter((reason) => reasons.has(reason)) };
+    });
     for (const draft of drafts) {
       const existing = this.rows.find((row) => row.cardSha256 === input.cardSha256 && row.findingNumber === draft.findingNumber);
       if (existing === undefined) {
+        const publicationNumber = `P-${this.nextNumber++}`;
+        if (draft.shownBy !== undefined) this.routes.set(publicationNumber, draft.shownBy);
+        if (draft.shownBy === "owner_action") this.ownerDecisions.set(publicationNumber, { decision: "published", decidedAt: at });
+        if (draft.livingPerson !== undefined) this.claimKeys.set(publicationNumber, draft.livingPerson.claimKey);
+        if (draft.keptReason !== undefined) this.kept.set(publicationNumber, { reason: draft.keptReason, at });
         this.rows.push({
-          publicationNumber: `P-${this.nextNumber++}`,
+          publicationNumber,
           cardNumber: input.cardNumber,
           cardSha256: input.cardSha256,
           findingNumber: draft.findingNumber,
@@ -614,6 +844,17 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
           cardNumber: input.cardNumber,
           stateChangedAt: later(at, existing.stateChangedAt),
         });
+        if (draft.state === "held") {
+          this.routes.delete(existing.publicationNumber);
+          this.testVerdicts.delete(existing.publicationNumber);
+        } else if (draft.shownBy !== undefined) {
+          this.routes.set(existing.publicationNumber, draft.shownBy);
+          this.testVerdicts.delete(existing.publicationNumber);
+          if (draft.shownBy === "owner_action") {
+            this.ownerDecisions.set(existing.publicationNumber, { decision: "published", decidedAt: at });
+          }
+        }
+        if (draft.livingPerson !== undefined) this.claimKeys.set(existing.publicationNumber, draft.livingPerson.claimKey);
         outcomes.set(draft.findingNumber, "revived");
       } else {
         outcomes.set(draft.findingNumber, "existing");
@@ -681,6 +922,11 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
         row.ownerReason = null;
         row.cardSha256 = null;
         row.cardForgottenAt = later(at, row.publishedAt);
+        // A claim's key and its card's readings go with the card (migration 0041's trigger).
+        this.claimKeys.delete(row.publicationNumber);
+        for (const key of [...this.livingPersonReadings.keys()]) {
+          if (key.startsWith(`${row.cardNumber}:`)) this.livingPersonReadings.delete(key);
+        }
       });
     }
     const live = new Set<AtlasPublicationState>(withdrawal.reason === "card_replaced"
@@ -703,6 +949,7 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
     return this.change((row) => row.atlasNumber === atlasNumber && row.textsErasedAt === null, (row) => {
       row.published = null;
       row.textsErasedAt = later(at, row.publishedAt);
+      this.claimKeys.delete(row.publicationNumber);
     });
   }
 
@@ -728,12 +975,21 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
     }
     for (const row of targets) {
       if (!change.keep) {
+        // Shown again: how, as the showing says, or not recorded when it doesn't (migration 0041).
+        if (this.kept.has(row.publicationNumber)) {
+          if (change.route === undefined) this.routes.delete(row.publicationNumber);
+          else this.routes.set(row.publicationNumber, change.route.by);
+          if (change.route?.by === "quick_answer_test") this.testVerdicts.set(row.publicationNumber, change.route.verdict);
+          else this.testVerdicts.delete(row.publicationNumber);
+          if (change.route?.by === "owner_action") this.ownerDecisions.set(row.publicationNumber, { decision: "shown", decidedAt: at });
+        }
         this.kept.delete(row.publicationNumber);
         continue;
       }
       if (unpublished(row)) {
         Object.assign(row, { state: "unreviewed", withdrawnBecause: null, ownerReason: null,
           stateChangedAt: at > row.stateChangedAt ? at : row.stateChangedAt });
+        this.ownerDecisions.delete(row.publicationNumber);
       }
       this.kept.set(row.publicationNumber, { reason: change.reason!, at });
     }
@@ -780,6 +1036,68 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
     return this.rows.filter((row) => this.challenges.has(row.publicationNumber))
       .sort((left, right) => atlasPublicationOrder(left.publicationNumber) - atlasPublicationOrder(right.publicationNumber))
       .map((row) => this.challengeView(row));
+  }
+
+  // When a later save noted a publication the owner had decided (migration 0041's living_person_noted_at).
+  private readonly livingPersonNotes = new Map<string, string>();
+
+  async recordLivingPerson(change: AtlasLivingPersonRecord): Promise<AtlasLivingPersonHoldView[]> {
+    validateLivingPersonRecord(change);
+    const at = iso(change.at);
+    const yes = new Set<string>();
+    for (const { claimKey, reading } of change.readings) {
+      this.storeReading(change.cardNumber, claimKey, reading);
+      if (reading === "yes") yes.add(claimKey);
+    }
+    if (yes.size === 0) return [];
+    const targets = this.rows.filter((row) => row.cardNumber === change.cardNumber &&
+      (yes.has(this.claimKeys.get(row.publicationNumber) ?? "") || change.publicationNumbers.includes(row.publicationNumber)))
+      .sort((left, right) => atlasPublicationOrder(left.publicationNumber) - atlasPublicationOrder(right.publicationNumber));
+    return targets.map((row) => {
+      let outcome: AtlasLivingPersonHoldOutcome;
+      if (row.state === "accepted" || row.state === "edited" ||
+        (row.state === "unreviewed" && this.ownerDecisions.has(row.publicationNumber))) {
+        if (!this.livingPersonNotes.has(row.publicationNumber)) this.livingPersonNotes.set(row.publicationNumber, at);
+        outcome = "noted";
+      } else if (row.state === "held" && row.heldBecause?.includes("living_person_review") === true) {
+        outcome = "already_held";
+      } else if (row.state === "held") {
+        row.heldBecause = [...(row.heldBecause ?? []), "living_person_review"];
+        row.stateChangedAt = later(at, row.stateChangedAt);
+        outcome = "reason_added";
+      } else if (row.state === "unreviewed" && row.published !== null) {
+        Object.assign(row, { state: "held", heldBecause: ["living_person_review"], stateChangedAt: later(at, row.stateChangedAt) });
+        outcome = "held";
+      } else {
+        outcome = "unchanged";
+      }
+      return { publicationNumber: row.publicationNumber, state: row.state,
+        heldBecause: row.heldBecause === null ? null : [...row.heldBecause], outcome };
+    });
+  }
+
+  async inspectLivingPersonNotes(publicationNumbers: readonly string[]): Promise<AtlasLivingPersonNote[]> {
+    validateNotesRead(publicationNumbers);
+    return this.rows.filter((row) => publicationNumbers.includes(row.publicationNumber) &&
+      this.livingPersonNotes.has(row.publicationNumber))
+      .sort((left, right) => atlasPublicationOrder(left.publicationNumber) - atlasPublicationOrder(right.publicationNumber))
+      .map((row) => ({ publicationNumber: row.publicationNumber, notedAt: this.livingPersonNotes.get(row.publicationNumber)! }));
+  }
+
+  /** How a publication reached the pages, for the in-memory pages: null for one not recorded (migration 0041). */
+  shownByOf(publicationNumber: string): AtlasPublicationRoute | null {
+    return this.routes.get(publicationNumber) ?? null;
+  }
+
+  /** What the owner decided of a publication by his own action, for tests: null when he hasn't (migration 0041). */
+  ownerDecisionOf(publicationNumber: string): AtlasOwnerDecision | null {
+    const decision = this.ownerDecisions.get(publicationNumber);
+    return decision === undefined ? null : { ...decision };
+  }
+
+  /** The quick-answer test's verdict when its own showing showed the publication, for the in-memory pages. */
+  testVerdictOf(publicationNumber: string): AtlasChallengeVerdict | null {
+    return this.testVerdicts.get(publicationNumber) ?? null;
   }
 
   /** A publication's challenge mark, for the in-memory pages; null when it carries none. */
@@ -903,12 +1221,43 @@ export class PostgresAtlasPublicationStore implements AtlasPublicationStore {
     await this.pool.end();
   }
 
+  /**
+   * Of ATLAS_LIVING_PERSON_HOLD_FUNCTIONS, in their order, each that is missing from the schema or that this role can't
+   * run, then of ATLAS_LIVING_PERSON_HOLD_TRIGGERS each that is missing or switched off (Codex's fifth review of 17 Nov
+   * 2026); an empty list when the hold can run.
+   */
+  async livingPersonHoldMissing(): Promise<string[]> {
+    const result = await this.pool.query(
+      `SELECT required.signature FROM unnest($1::text[]) WITH ORDINALITY AS required(signature, place)
+        WHERE to_regprocedure($2 || '.' || required.signature) IS NULL
+           OR NOT has_function_privilege(to_regprocedure($2 || '.' || required.signature), 'EXECUTE')
+        ORDER BY required.place`,
+      [[...ATLAS_LIVING_PERSON_HOLD_FUNCTIONS], this.schema],
+    ) as unknown as { rows: Array<{ signature: string }> };
+    const triggers = await this.pool.query(
+      `SELECT required.name FROM unnest($1::text[]) WITH ORDINALITY AS required(name, place)
+        WHERE NOT EXISTS (SELECT 1 FROM pg_catalog.pg_trigger hold
+          JOIN pg_catalog.pg_class held ON held.oid = hold.tgrelid
+          JOIN pg_catalog.pg_namespace space ON space.oid = held.relnamespace
+         WHERE space.nspname = $2 AND held.relname || '.' || hold.tgname = required.name AND hold.tgenabled <> 'D')
+        ORDER BY required.place`,
+      [[...ATLAS_LIVING_PERSON_HOLD_TRIGGERS], this.schema],
+    ) as unknown as { rows: Array<{ name: string }> };
+    return [...result.rows.map(({ signature }) => signature), ...triggers.rows.map(({ name }) => `trigger ${name}`)];
+  }
+
   async keep(change: AtlasKeepChange): Promise<AtlasKeptView[]> {
     validateKeep(change);
+    // A showing that says how shows through migration 0041's show_atlas_publications, which records it.
+    const route = change.route;
     const result = await this.call<{ kept_publication_number: string; kept_state: AtlasPublicationState;
-      kept_atlas_number: string | null; kept: boolean }>(
-      `SELECT * FROM ${this.schema}.keep_atlas_publications($1::text[], $2::text[], $3::boolean, $4::text, $5::timestamptz)`,
-      [[...change.publicationNumbers], [...change.atlasNumbers], change.keep, change.reason, change.at]);
+      kept_atlas_number: string | null; kept: boolean }>(route === undefined
+      ? `SELECT * FROM ${this.schema}.keep_atlas_publications($1::text[], $2::text[], $3::boolean, $4::text, $5::timestamptz)`
+      : `SELECT * FROM ${this.schema}.show_atlas_publications($1::text[], $2::text[], $3::text, $4::text, $5::timestamptz)`,
+    route === undefined
+      ? [[...change.publicationNumbers], [...change.atlasNumbers], change.keep, change.reason, change.at]
+      : [[...change.publicationNumbers], [...change.atlasNumbers], route.by,
+          route.by === "quick_answer_test" ? route.verdict : null, change.at]);
     return result.rows.map((row) => ({ publicationNumber: row.kept_publication_number, state: row.kept_state,
       atlasNumber: row.kept_atlas_number, kept: row.kept, reason: null, keptAt: null }));
   }
@@ -935,6 +1284,29 @@ export class PostgresAtlasPublicationStore implements AtlasPublicationStore {
   async inspectChallenges(): Promise<AtlasChallengeView[]> {
     const result = await this.call<ChallengeRow>(`SELECT * FROM ${this.schema}.inspect_atlas_challenges()`, []);
     return result.rows.map(challengeFromRow);
+  }
+
+  async recordLivingPerson(change: AtlasLivingPersonRecord): Promise<AtlasLivingPersonHoldView[]> {
+    validateLivingPersonRecord(change);
+    const result = await this.call<{ held_publication_number: string; held_state: string; held_reasons: unknown;
+      held_outcome: string }>(
+      `SELECT * FROM ${this.schema}.record_atlas_living_person($1::integer, $2::jsonb, $3::text[], $4::timestamptz)`,
+      [change.cardNumber, JSON.stringify(change.readings.map(({ claimKey, reading }) => ({ claimKey, reading }))),
+        [...change.publicationNumbers], change.at]);
+    return result.rows.map((row) => ({
+      publicationNumber: row.held_publication_number,
+      state: z.enum(ATLAS_PUBLICATION_STATES).parse(row.held_state),
+      heldBecause: row.held_reasons === null ? null : heldReasonsSchema.parse(row.held_reasons),
+      outcome: z.enum(ATLAS_LIVING_PERSON_HOLD_OUTCOMES).parse(row.held_outcome),
+    }));
+  }
+
+  async inspectLivingPersonNotes(publicationNumbers: readonly string[]): Promise<AtlasLivingPersonNote[]> {
+    validateNotesRead(publicationNumbers);
+    if (publicationNumbers.length === 0) return [];
+    const result = await this.call<{ noted_publication_number: string; noted_at: Date | string }>(
+      `SELECT * FROM ${this.schema}.inspect_atlas_living_person_notes($1::text[])`, [[...publicationNumbers]]);
+    return result.rows.map((row) => ({ publicationNumber: row.noted_publication_number, notedAt: instant(row.noted_at) }));
   }
 
   private async call<Row extends object>(sql: string, values: unknown[]): Promise<{ rows: Row[] }> {

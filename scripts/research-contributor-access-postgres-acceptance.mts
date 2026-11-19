@@ -7,6 +7,8 @@ import { isDeepStrictEqual } from "node:util";
 import { Pool } from "pg";
 
 import {
+  ATLAS_LIVING_PERSON_HOLD_FUNCTIONS,
+  ATLAS_LIVING_PERSON_HOLD_TRIGGERS,
   ATLAS_PUBLICATION_SCHEMA,
   ATLAS_PUBLICATION_SCHEMA_V2,
   ATLAS_PUBLICATION_SCHEMA_V3,
@@ -67,6 +69,11 @@ import {
   researchFrontierFixture,
   reusableStudyAuditFixture,
 } from "./living-evidence-task-acceptance.mts";
+import {
+  holdForLivingPersonReview,
+  restoreLivingPersonHolds,
+  type HoldScriptImages,
+} from "./atlas-hold-living-person-findings.mts";
 
 const SCHEMA = "living_evidence";
 const NOW = "2026-09-01T02:00:00.000Z";
@@ -709,12 +716,13 @@ async function verify(
     await verifyRelatedAndPreflight({ adminUrl, readerUrl, reviewRestricted, service, reviewService, writer, checks });
     await verifyTopicLinks({ adminUrl, readerUrl, admin, service, reviewService, writer, checks });
     await verifyAtlasMigrations({ adminUrl, schema: SCHEMA, checks });
+    await verifyLivingPersonHoldMigration({ adminUrl, schema: SCHEMA, checks });
     await verifyAtlasStorage({ adminUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
     await verifyAtlasScenario({ adminUrl, schema: SCHEMA, checks });
     await verifyAtlasCardFields({ adminUrl, schema: SCHEMA, checks });
     await verifyHeldYouTubeFindings({ adminUrl, accessUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
     await verifyAtlasPublications({ adminUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
-    await verifyAtlasPages({ adminUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
+    await verifyAtlasPages({ adminUrl, reviewUrl, readerUrl, accessUrl, schema: SCHEMA, checks });
     await verifyAtlasParticipation({ adminUrl, accessUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
 
     const racePayload = researchFrontierFixture("research-review-withdraw-race");
@@ -1232,11 +1240,11 @@ async function verifyProposalIdempotencyIndex(context: {
   }
   checks.push("proposal_lookup_by_idempotency_key_answered_from_the_0038_index");
 
-  // An earlier image (bc71b90e and before) runs its own migrations, every one but 0038, in one transaction, and checks
-  // each one's recorded digest: the index stays, unchanged.
+  // An earlier image (bc71b90e and before) runs its own migrations, every one before 0038, in one transaction, and
+  // checks each one's recorded digest: the index stays, unchanged.
   const earlier = (await readdir(migrationsDirectory))
     .filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/u.test(name) && !name.endsWith("_down.sql") &&
-      name !== "0038_research_proposal_idempotency_index.sql")
+      name < "0038_research_proposal_idempotency_index.sql")
     .sort();
   assert(earlier.at(-1) === "0037_research_dossiers.sql", "EARLIER_IMAGE_MIGRATION_LIST");
   const migrator = await admin.connect();
@@ -2429,6 +2437,11 @@ const ATLAS_REPORT_REVIEW_FUNCTIONS = ["decide_atlas_report", "inspect_atlas_rep
 const ATLAS_GLANCE_FUNCTIONS = ["inspect_atlas_glance_rows", "propose_atlas_glance_row", "set_atlas_glance_row_state"] as const;
 // The owner, 6 Nov: migration 0030's two functions for findings that challenge the usual view.
 const ATLAS_CHALLENGE_FUNCTIONS = ["inspect_atlas_challenges", "mark_atlas_challenges"] as const;
+// Codex's third review of 17 Nov 2026, finding 1, and its fourth review's P0s (migration 0041): what a save says of a
+// living person, recorded with its card, and a later save's yes.
+const ATLAS_LIVING_PERSON_FUNCTIONS = ["inspect_atlas_living_person_notes", "record_atlas_living_person"] as const;
+// Its finding 2 (migration 0041): show_on_pages records how it shows a finding.
+const ATLAS_SHOW_FUNCTIONS = ["show_atlas_publications"] as const;
 const ATLAS_PARTICIPATION_FUNCTIONS = [
   "atlas_session_current", "delete_atlas_comment", "end_atlas_sessions", "forget_atlas_participant",
   "inspect_atlas_participant", "post_atlas_comment", "report_atlas_comment", "set_atlas_display_name", "set_atlas_vote",
@@ -2686,6 +2699,118 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
     }
     checks.push("an_0016_database_with_data_upgrades_to_every_migration_keeps_its_rows_and_takes_a_finding");
   } finally {
+    await admin.end();
+  }
+}
+
+/**
+ * Codex's re-review of 17 Nov 2026, finding 1: 0021's closed list of hold reasons takes living_person_review, longest
+ * six. A database whose 0021 recorded the released digest, holding a held row, refuses the reason; this image's
+ * migrate admits that one edit and records the new digest, after which the reason, and all six, are taken and seven
+ * are not; a second migrate changes nothing. An earlier image's migrate, with the released 0021, then stops and changes
+ * nothing, as does this image's when the recorded digest is neither: so a rollback image must carry this 0021.
+ */
+export async function verifyLivingPersonHoldMigration(context: { adminUrl: string; schema: string; checks: string[] }):
+  Promise<void> {
+  const { adminUrl, checks } = context;
+  const schema = `${context.schema}_hold_edit`;
+  const admin = new Pool({ connectionString: adminUrl, max: 2 });
+  const sha = (text: string) => createHash("sha256").update(text).digest("hex");
+  const file = (id: string) => readFile(new URL(`../packages/evidence-repository/migrations/${id}.sql`, import.meta.url), "utf8");
+  const current = await file("0021_atlas_publications");
+  const released = current.replace("BETWEEN 1 AND 6\n", "BETWEEN 1 AND 5\n")
+    .replace(', "youtube_link", "living_person_review"]', ', "youtube_link"]');
+  const RELEASED = "f52a42ebd1a31f2adcef2ee267ab1a611e24d26afe44a3d9b04e2e7198d08443";
+  assert(sha(released) === RELEASED && sha(current) !== RELEASED, "RELEASED_0021_NOT_RECONSTRUCTED");
+  const recorded = async () => (await admin.query<{ migration_sha256: string }>(
+    `SELECT migration_sha256 FROM ${schema}.schema_migrations WHERE migration_id = '0021_atlas_publications'`))
+    .rows[0]?.migration_sha256;
+  const held = (reasons: readonly string[], card: number) => admin.query(
+    `INSERT INTO ${schema}.atlas_publications (publication_number, card_number, card_sha256, finding_number,
+       published_json, state, atlas_number, held_because, published_at, state_changed_at)
+     VALUES ('P-' || nextval('${schema}.atlas_publication_number_seq')::text, $1, $2, 1, '{}'::jsonb, 'held', NULL,
+       $3::jsonb, now(), now())`,
+    [card, atlasHex(`synthetic-hold-edit-card:${card}`), JSON.stringify(reasons)]);
+  const refused = async (work: () => Promise<unknown>): Promise<string> => {
+    try {
+      await work();
+      return "";
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
+    }
+  };
+  const migrateNow = async () => {
+    const repository = new PostgresEvidenceRepository({ connectionString: adminUrl, schema });
+    try {
+      await repository.migrate();
+    } finally {
+      await repository.close();
+    }
+  };
+  try {
+    // A database as the released image left it: every migration in force, with 0021 as released.
+    const client = await admin.connect();
+    try {
+      await client.query("BEGIN");
+      for (const id of await migrationsInForce()) {
+        const sql = id === "0021_atlas_publications" ? released : await file(id);
+        await client.query(sql.replaceAll("__SCHEMA__", schema));
+        await client.query(`INSERT INTO ${schema}.schema_migrations (migration_id, migration_sha256) VALUES ($1, $2)`,
+          [id, sha(sql)]);
+      }
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+    await held(["email_address"], 9101);
+    assert((await refused(() => held(["living_person_review"], 9102))).includes("atlas_publications_v1_held_check"),
+      "RELEASED_0021_TOOK_THE_NEW_REASON");
+    assert(await recorded() === RELEASED, "RELEASED_0021_DIGEST_NOT_RECORDED");
+
+    await migrateNow();
+    assert(await recorded() === sha(current), "ADMITTED_0021_EDIT_NOT_RECORDED");
+    await held(["living_person_review"], 9103);
+    await held(["email_address", "phone_number", "messaging_handle", "card_reference", "youtube_link",
+      "living_person_review"], 9104);
+    assert((await refused(() => held(["email_address", "phone_number", "messaging_handle", "card_reference",
+      "youtube_link", "living_person_review", "living_person_review"], 9105))).includes("atlas_publications_v1_held_check"),
+      "SEVEN_HOLD_REASONS_TAKEN");
+    const before = await atlasMigrationSnapshot(admin, schema);
+    await migrateNow();
+    assert(await atlasMigrationSnapshot(admin, schema) === before, "SECOND_MIGRATE_AFTER_0021_EDIT_CHANGED_SOMETHING");
+    checks.push("migration_0021_admits_only_its_verified_edit_takes_living_person_review_and_replays_unchanged");
+
+    // An earlier image's migrate: the released 0021, then its digest check, in one transaction.
+    const earlier = await admin.connect();
+    let stopped = "";
+    try {
+      await earlier.query("BEGIN");
+      await earlier.query(released.replaceAll("__SCHEMA__", schema));
+      const stored = (await earlier.query<{ migration_sha256: string }>(
+        `SELECT migration_sha256 FROM ${schema}.schema_migrations WHERE migration_id = '0021_atlas_publications'`))
+        .rows[0]?.migration_sha256;
+      if (stored !== sha(released)) throw new Error("MIGRATION_SHA256_MISMATCH migration=0021_atlas_publications");
+      await earlier.query("COMMIT");
+    } catch (error) {
+      stopped = error instanceof Error ? error.message : String(error);
+      await earlier.query("ROLLBACK");
+    } finally {
+      earlier.release();
+    }
+    assert(stopped !== "", "EARLIER_IMAGE_MIGRATE_WENT_THROUGH_AFTER_0021_EDIT");
+    assert(await atlasMigrationSnapshot(admin, schema) === before, "EARLIER_IMAGE_MIGRATE_CHANGED_SOMETHING");
+    // Any other recorded digest stops this image's migrate too, changing nothing.
+    await admin.query(`UPDATE ${schema}.schema_migrations SET migration_sha256 = $1
+      WHERE migration_id = '0021_atlas_publications'`, ["c".repeat(64)]);
+    assert((await refused(migrateNow)).includes("MIGRATION_SHA256_MISMATCH migration=0021_atlas_publications"),
+      "UNKNOWN_0021_DIGEST_ADMITTED");
+    assert(await recorded() === "c".repeat(64), "REFUSED_MIGRATE_CHANGED_THE_RECORD");
+    checks.push("earlier_image_or_unknown_0021_digest_stops_migrate_and_changes_nothing");
+  } finally {
+    await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`).catch(() => undefined);
     await admin.end();
   }
 }
@@ -3600,7 +3725,11 @@ export async function verifyAtlasPublications(context: {
     await store.publish({ cardNumber: 7002, cardSha256: digestB, findings: [draft(1), draft(2)], publishedAt: tick(),
       revive: false });
     const replaced = await store.withdraw({ reason: "card_replaced", cardNumbers: [7002], withdrawnAt: tick() });
-    const revived = await store.publish({ cardNumber: 7002, cardSha256: digestB, findings: [draft(1), draft(2)],
+    // Revived as this build's publish_cards revives them, each with its claim's key (Codex's sixth review of 17 Nov 2026:
+    // a row without one shows again only on the owner's decision; verifyLivingPersonTableRule's keyless cases).
+    const keyed = (findingNumber: number): AtlasPublicationDraft => ({ ...draft(findingNumber),
+      livingPerson: { claimKey: atlasHex(`withdrawals-${findingNumber}`), reading: "no", holdNotSaid: false } });
+    const revived = await store.publish({ cardNumber: 7002, cardSha256: digestB, findings: [keyed(1), keyed(2)],
       publishedAt: tick(), revive: true });
     const [unpublished] = await store.withdraw({ reason: "owner_unpublished",
       publicationNumbers: [revived[0]!.publicationNumber], ownerReason: "It overstates the trial.", withdrawnAt: tick() });
@@ -3874,10 +4003,12 @@ export async function verifyAtlasPages(context: {
   adminUrl: string;
   reviewUrl: string;
   readerUrl: string;
+  /** The application's research-access role, for Codex's fifth review's direct writes; skipped without it. */
+  accessUrl?: string;
   schema: string;
   checks: string[];
 }): Promise<void> {
-  const { adminUrl, reviewUrl, readerUrl, schema, checks } = context;
+  const { adminUrl, reviewUrl, readerUrl, accessUrl, schema, checks } = context;
   const admin = new Pool({ connectionString: adminUrl, max: 1 });
   const store = new PostgresAtlasPublicationStore({ connectionString: reviewUrl, schema });
   const source = new PostgresAtlasPageSource({ connectionString: readerUrl, schema });
@@ -3965,9 +4096,11 @@ export async function verifyAtlasPages(context: {
         [unreviewed, accepted, withdrawnAfter].sort().join() &&
         // kept (owner answers 229a and 231a) is whether a publication is kept for research; never the owner's reason.
         // challenge (the owner, 6 Nov 2026) is its challenge mark's usual view, source and verdict; never who marked it.
+        // shownBy (migration 0041) is how it reached the pages, with the quick-answer test's verdict when its own
+        // showing showed it; these drafts gave none, so none is recorded.
         read.listed.every((row) => columns(row) ===
-          "atlasNumber,challenge,kept,publicationNumber,published,publishedAt,state,stateChangedAt") &&
-        read.listed.every((row) => row.challenge === null),
+          "atlasNumber,challenge,kept,publicationNumber,published,publishedAt,shownBy,shownTestVerdict,state,stateChangedAt") &&
+        read.listed.every((row) => row.challenge === null && row.shownBy === null && row.shownTestVerdict === null),
       `ATLAS_PAGES_READ_WHAT_THEY_NEVER_SHOW ${JSON.stringify(read.listed.map(({ publicationNumber, state }) =>
         ({ publicationNumber, state })))}`,
     );
@@ -4030,8 +4163,767 @@ export async function verifyAtlasPages(context: {
       );
     }
     checks.push("atlas_pages_read_shown_publications_and_accepted_findings_through_the_reader_in_one_read_only_snapshot");
+
+    // Codex's re-review of 17 Nov 2026, findings 1 and 4: migration 0041's routes and kept reason, and the living-person
+    // hold, through the review role's functions and the reader, as the pages read them.
+    const routeCard = 7202;
+    const routeDigest = atlasHex("synthetic-pages-route-card");
+    const TEST_PASSED = "owner answer 240a: quick-answer test, passed, waiting for the whole picture";
+    const routed = await store.publish({
+      cardNumber: routeCard,
+      cardSha256: routeDigest,
+      findings: [
+        { ...unreviewedDraft(1, "ROUTE-OWNER claim."), shownBy: "owner_action" },
+        { ...unreviewedDraft(2, "ROUTE-AUTOMATIC claim."), shownBy: "automatic_showing" },
+        { ...unreviewedDraft(3, "ROUTE-TESTED claim."), shownBy: "automatic_showing", keptReason: TEST_PASSED },
+        { findingNumber: 4, state: "held", atlasNumber: null, heldBecause: ["email_address", "living_person_review"],
+          published: published("ROUTE-LIVING claim.") },
+        unreviewedDraft(5, "ROUTE-OLDER claim."),
+      ],
+      publishedAt: tick(),
+      revive: false,
+    });
+    const [owner, automatic, tested, living, older] = routed.map(({ publicationNumber }) => publicationNumber);
+    // Kept in the same write as its publishing, then shown by the quick-answer test's own showing, which says so with
+    // its verdict (Codex's third review of 17 Nov 2026, finding 2).
+    const keptNow = await store.inspectKept();
+    assert(keptNow.some(({ publicationNumber, reason }) => publicationNumber === tested && reason === TEST_PASSED),
+      "ATLAS_KEPT_REASON_NOT_WRITTEN_WITH_THE_PUBLICATION");
+    await store.keep({ publicationNumbers: [tested!], atlasNumbers: [], keep: false, reason: null, at: tick(),
+      route: { by: "quick_answer_test", verdict: "pass" } });
+    // The owner's publishing again of one withdrawn is the owner's action.
+    await store.withdraw({ reason: "owner_unpublished", publicationNumbers: [automatic!], ownerReason: "Synthetic.",
+      withdrawnAt: tick() });
+    await store.publish({ cardNumber: routeCard, cardSha256: routeDigest, publishedAt: tick(), revive: true,
+      findings: [{ ...unreviewedDraft(2, "ROUTE-AUTOMATIC claim."), shownBy: "owner_action" }] });
+    const routes = Object.fromEntries((await source.read((reads) => reads.listPublications({
+      publicationNumbers: routed.map(({ publicationNumber }) => publicationNumber), limit: 10 })))
+      .map(({ publicationNumber, shownBy }) => [publicationNumber, shownBy]));
+    assert(isDeepStrictEqual(routes, { [owner!]: "owner_action", [automatic!]: "owner_action",
+      [tested!]: "quick_answer_test", [older!]: null }), `ATLAS_ROUTES_MISMATCH ${JSON.stringify(routes)}`);
+    // Nothing is read from a kept reason's text: kept with the test's own pass reason and shown again by 0024's
+    // function, as an earlier image shows it, it is not recorded; shown by the owner's action, saying so, it is his.
+    const reasonCard = 7204;
+    const reasonDigest = atlasHex("synthetic-pages-route-reason-card");
+    const [unsaid, ownerSaid, headline] = (await store.publish({ cardNumber: reasonCard, cardSha256: reasonDigest,
+      publishedAt: tick(), revive: false, findings: [
+        { ...unreviewedDraft(1, "ROUTE-UNSAID claim."), keptReason: TEST_PASSED },
+        { ...unreviewedDraft(2, "ROUTE-OWNERSAID claim."), keptReason: TEST_PASSED },
+        { ...unreviewedDraft(3, "ROUTE-HEADLINE claim."), keptReason: TEST_PASSED },
+      ] })).map(({ publicationNumber }) => publicationNumber);
+    await store.keep({ publicationNumbers: [unsaid!], atlasNumbers: [], keep: false, reason: null, at: tick() });
+    await store.keep({ publicationNumbers: [ownerSaid!], atlasNumbers: [], keep: false, reason: null, at: tick(),
+      route: { by: "owner_action" } });
+    await store.keep({ publicationNumbers: [headline!], atlasNumbers: [], keep: false, reason: null, at: tick(),
+      route: { by: "quick_answer_test", verdict: "headline" } });
+    const said = (await source.read((reads) => reads.listPublications({ publicationNumbers: [unsaid!, ownerSaid!,
+      headline!, tested!], limit: 10 }))).map(({ publicationNumber, shownBy, shownTestVerdict }) =>
+      [publicationNumber, shownBy, shownTestVerdict]).sort();
+    assert(isDeepStrictEqual(said, [[unsaid!, null, null], [ownerSaid!, "owner_action", null],
+      [headline!, "quick_answer_test", "headline"], [tested!, "quick_answer_test", "pass"]].sort()),
+    `ATLAS_RECORDED_ROUTES_MISMATCH ${JSON.stringify(said)}`);
+    const pageOf = async (number: string) => {
+      const model = await loadAtlasFinding(source, number);
+      return model === undefined ? "" : renderAtlasFinding(model);
+    };
+    const testWords = "A separate AI found that a quick AI answer misses it.";
+    const routePages = { owner: await pageOf(owner!), tested: await pageOf(tested!), older: await pageOf(older!),
+      unsaid: await pageOf(unsaid!), headline: await pageOf(headline!) };
+    assert(routePages.tested.includes(testWords) && !routePages.owner.includes(testWords) &&
+      !routePages.older.includes(testWords) && !routePages.unsaid.includes(testWords) &&
+      !routePages.headline.includes(testWords) && routePages.headline.includes("ROUTE-HEADLINE claim.") &&
+      routePages.owner.includes("ROUTE-OWNER claim.") &&
+      (await loadAtlasFinding(source, living!)) === undefined,
+    "ATLAS_ROUTE_PAGES_MISMATCH");
+    const routeHome = renderAtlasHome(await loadAtlasHome(source));
+    assert(routeHome.includes("Findings reach these pages in three ways: AskRigor’s owner publishes or shows them, a " +
+      "separate AI’s quick-answer test shows them, or they show automatically once they have passed AskRigor’s " +
+      "checks. Not every finding records which of these it was, older ones in particular, and a finding’s page says " +
+      "what that test found only when the test is recorded for it."), "ATLAS_HOME_ROUTES_SENTENCE");
+    // The functions and the table refuse a route no draft may give, and one migration 0041 doesn't know.
+    const reviewPool = new Pool({ connectionString: reviewUrl, max: 1 });
+    try {
+      const refusedRoute = await reviewPool.query(
+        `SELECT * FROM ${schema}.publish_atlas_findings($1::integer, $2::text, $3::jsonb, $4::timestamptz, false)`,
+        [routeCard, routeDigest, JSON.stringify([{ ...unreviewedDraft(1, "x"), findingNumber: 1,
+          shownBy: "quick_answer_test" }]), tick()]).then(() => "", (error: Error) => error.message);
+      assert(refusedRoute.includes("ATLAS_PUBLICATION_INPUT_INVALID"), "ATLAS_DRAFT_TOOK_THE_TEST_ROUTE");
+    } finally {
+      await reviewPool.end();
+    }
+    const unknownRoute = await admin.query(`UPDATE ${schema}.atlas_publications SET shown_by = 'a_later_route'
+      WHERE publication_number = $1`, [older]).then(() => "", (error: Error) => error.message);
+    assert(unknownRoute.includes("atlas_publications_v1_shown_by_check"), "ATLAS_UNKNOWN_ROUTE_STORED");
+    // A verdict only with the test's route, and the test's route only with one.
+    for (const [route, verdict] of [["owner_action", "pass"], ["quick_answer_test", null], [null, "pass"],
+      ["quick_answer_test", "maybe"]] as const) {
+      const stored = await admin.query(`UPDATE ${schema}.atlas_publications SET shown_by = $2, shown_test_verdict = $3
+        WHERE publication_number = $1`, [older, route, verdict]).then(() => "", (error: Error) => error.message);
+      assert(stored.includes("atlas_publications_v1_shown_test_verdict_check"), `ATLAS_TEST_VERDICT_STORED ${route} ${verdict}`);
+    }
+    const reviewShow = new Pool({ connectionString: reviewUrl, max: 1 });
+    try {
+      for (const [route, verdict] of [["owner_action", "pass"], ["quick_answer_test", null], ["automatic_showing", null]]) {
+        const refusedShow = await reviewShow.query(`SELECT * FROM ${schema}.show_atlas_publications($1::text[],
+          '{}'::text[], $2::text, $3::text, $4::timestamptz)`, [[older], route, verdict, tick()])
+          .then(() => "", (error: Error) => error.message);
+        assert(refusedShow.includes("ATLAS_PUBLICATION_INPUT_INVALID"), `ATLAS_SHOW_TOOK ${route} ${verdict}`);
+      }
+    } finally {
+      await reviewShow.end();
+    }
+    checks.push("atlas_routes_stored_apart_by_the_review_functions_and_a_page_says_the_test_happened_only_from_the_record");
+
+    // Codex's third review of 17 Nov 2026, finding 1: a later save's living-person yes holds, through the review role,
+    // what the owner hasn't decided, and notes what he has, which stays as it is.
+    const laterCard = 7203;
+    const laterDigest = atlasHex("synthetic-pages-later-save-card");
+    const laterRows = await store.publish({ cardNumber: laterCard, cardSha256: laterDigest, publishedAt: tick(),
+      revive: false, findings: [
+        { ...unreviewedDraft(1, "LATER-AUTOMATIC claim."), shownBy: "automatic_showing" },
+        { ...unreviewedDraft(2, "LATER-OWNER claim."), shownBy: "owner_action" },
+        { findingNumber: 3, state: "held", atlasNumber: null, heldBecause: ["email_address"],
+          published: published("LATER-HELD claim.") },
+        { ...unreviewedDraft(4, "LATER-KEPT claim."), keptReason: "waiting for the quick-answer test (owner answer 240a)" },
+      ] });
+    const [laterAutomatic, laterOwner, laterHeld, laterKept] = laterRows.map(({ publicationNumber }) => publicationNumber);
+    // Published without claim keys, as before they were stored: the server matched them by their claims.
+    const laterNumbers = [laterAutomatic!, laterOwner!, laterHeld!, laterKept!];
+    const laterHolds = await store.recordLivingPerson({ cardNumber: laterCard, publicationNumbers: laterNumbers,
+      readings: [{ claimKey: atlasHex("LATER claim key"), reading: "yes" }], at: tick() });
+    assert(isDeepStrictEqual(Object.fromEntries(laterHolds.map(({ publicationNumber, outcome }) => [publicationNumber, outcome])),
+      { [laterAutomatic!]: "held", [laterOwner!]: "noted", [laterHeld!]: "reason_added", [laterKept!]: "held" }),
+    `LATER_SAVE_HOLD_OUTCOMES ${JSON.stringify(laterHolds)}`);
+    // Another card's publication, accepted, named among them, is not this card's: unchanged, and not noted.
+    assert((await store.recordLivingPerson({ cardNumber: laterCard, publicationNumbers: [accepted!],
+      readings: [{ claimKey: atlasHex("LATER claim key"), reading: "yes" }], at: tick() })).length === 0,
+    "LATER_SAVE_HELD_ANOTHER_CARD");
+    const laterHeldAfter = laterHolds.find(({ publicationNumber }) => publicationNumber === laterHeld)!;
+    assert(isDeepStrictEqual(laterHeldAfter.heldBecause, ["email_address", "living_person_review"]),
+      "LATER_SAVE_HOLD_REASONS_OUT_OF_ORDER");
+    assert(isDeepStrictEqual((await store.inspectLivingPersonNotes([...laterNumbers, accepted!])).map(({ publicationNumber }) =>
+      publicationNumber).sort(), [laterOwner!].sort()), "LATER_SAVE_NOTES_MISMATCH");
+    assert((await loadAtlasFinding(source, laterAutomatic!)) === undefined &&
+      (await loadAtlasFinding(source, laterKept!)) === undefined &&
+      (await pageOf(laterOwner!)).includes("LATER-OWNER claim."), "LATER_SAVE_HOLD_PAGES_MISMATCH");
+    checks.push("a_later_saves_living_person_yes_holds_what_the_owner_has_not_decided_and_notes_what_he_has");
+
+    await verifyLivingPersonEnforced({ adminUrl, reviewUrl, schema, store, source, tick, checks });
+    await verifyLivingPersonTableRule({ adminUrl, reviewUrl, accessUrl, schema, store, source, tick, checks });
+
+    // The owner's script for findings already on the pages: a dry run changes nothing; --apply holds them. It runs as
+    // the one-shot admin, on its own connection.
+    const scriptPool = new Pool({ connectionString: adminUrl, max: 1 });
+    const scriptClient = await scriptPool.connect();
+    try {
+      const before = await atlasMigrationSnapshot(admin, schema);
+      const dry = await holdForLivingPersonReview(scriptClient, { schema, publications: [owner!, living!, accepted!],
+        apply: false, at: tick() });
+      assert(await atlasMigrationSnapshot(admin, schema) === before &&
+        dry.lines.map(({ outcome }) => outcome).join() === "held,already_held,decided", "HOLD_SCRIPT_DRY_RUN_CHANGED_SOMETHING");
+      // Codex's third review of 17 Nov 2026, finding 4: --apply saves each changed row's before-image before it commits.
+      const ownerBefore = (await admin.query(`SELECT state, held_because, state_changed_at, shown_by
+        FROM ${schema}.atlas_publications WHERE publication_number = $1`, [owner])).rows[0];
+      let images: HoldScriptImages | undefined;
+      const applied = await holdForLivingPersonReview(scriptClient, { schema,
+        publications: [owner!, living!, accepted!, ownerSaid!, unsaid!], apply: true, at: tick(),
+        saveImages: async (saved) => { images = saved; } });
+      const [ownerAfter] = await store.inspect({ publicationNumbers: [owner!] });
+      const [acceptedAfter] = await store.inspect({ publicationNumbers: [accepted!] });
+      assert(applied.applied && ownerAfter?.state === "held" &&
+        isDeepStrictEqual(ownerAfter.heldBecause, ["living_person_review"]) && acceptedAfter?.state === "accepted" &&
+        (await loadAtlasFinding(source, owner!)) === undefined, "HOLD_SCRIPT_DID_NOT_HOLD");
+      assert(images?.images.map(({ publication }) => publication).join() === [owner, ownerSaid, unsaid].join() &&
+        images.images.every(({ before, after }) => before.state === "unreviewed" && after.state === "held"),
+      "HOLD_SCRIPT_BEFORE_IMAGES_MISMATCH");
+      // A save of the images that fails commits nothing.
+      const unchanged = await atlasMigrationSnapshot(admin, schema);
+      const failed = await holdForLivingPersonReview(scriptClient, { schema, publications: [laterOwner!], apply: true,
+        at: tick(), saveImages: async () => { throw new Error("SYNTHETIC_IMAGES_NOT_SAVED"); } })
+        .then(() => "", (error: Error) => error.message);
+      assert(failed === "SYNTHETIC_IMAGES_NOT_SAVED" && await atlasMigrationSnapshot(admin, schema) === unchanged,
+        "HOLD_SCRIPT_COMMITTED_WITHOUT_ITS_IMAGES");
+      // The owner then unpublishes one of them: the restore leaves that one, and puts the others back exactly.
+      await store.withdraw({ reason: "owner_unpublished", publicationNumbers: [unsaid!], ownerReason: "Synthetic.",
+        withdrawnAt: tick() });
+      const dryRestore = await restoreLivingPersonHolds(scriptClient, { images: images!, apply: false });
+      const beforeRestore = await atlasMigrationSnapshot(admin, schema);
+      assert(dryRestore.lines.map(({ outcome }) => outcome).join() === "restored,restored,changed_since" &&
+        await atlasMigrationSnapshot(admin, schema) === beforeRestore, "HOLD_SCRIPT_DRY_RESTORE_CHANGED_SOMETHING");
+      const restored = await restoreLivingPersonHolds(scriptClient, { images: images!, apply: true });
+      assert(restored.lines.map(({ outcome }) => outcome).join() === "restored,restored,changed_since",
+        `HOLD_SCRIPT_RESTORE_OUTCOMES ${restored.text}`);
+      const ownerRestored = (await admin.query(`SELECT state, held_because, state_changed_at, shown_by
+        FROM ${schema}.atlas_publications WHERE publication_number = $1`, [owner])).rows[0];
+      const [unsaidAfter] = await store.inspect({ publicationNumbers: [unsaid!] });
+      assert(isDeepStrictEqual(ownerRestored, ownerBefore) && unsaidAfter?.state === "withdrawn" &&
+        (await pageOf(owner!)).includes("ROUTE-OWNER claim."), "HOLD_SCRIPT_RESTORE_DID_NOT_PUT_BACK");
+      // Again: each is now changed since the hold, so nothing changes.
+      const again = await restoreLivingPersonHolds(scriptClient, { images: images!, apply: true });
+      assert(again.lines.every(({ outcome }) => outcome === "changed_since"), "HOLD_SCRIPT_RESTORED_TWICE");
+    } finally {
+      scriptClient.release();
+      await scriptPool.end();
+    }
+    checks.push("hold_script_dry_run_changes_nothing_and_apply_holds_only_unreviewed_findings_for_living_person_review");
+    checks.push("hold_script_saves_before_images_and_restores_only_rows_nothing_else_changed_since");
   } finally {
     await Promise.allSettled([store.close(), source.close(), admin.end()]);
+  }
+}
+
+/**
+ * Codex's fourth review of 17 Nov 2026, its two P0s, on this database through the review role. The race: the first
+ * save's publishing paused, a duplicate save saying a finding names a living person completed, and the first resumed;
+ * it published the finding unreviewed. The permission denied: PostgreSQL refused the hold, the save still answered
+ * existing_card, and the finding stayed public. Both run through the save itself, with the review role's store.
+ */
+async function verifyLivingPersonEnforced(context: {
+  adminUrl: string;
+  reviewUrl: string;
+  schema: string;
+  store: PostgresAtlasPublicationStore;
+  source: PostgresAtlasPageSource;
+  tick: () => string;
+  checks: string[];
+}): Promise<void> {
+  const { adminUrl, reviewUrl, schema, store, source, tick, checks } = context;
+  const { AtlasCardPublisher, livingPersonClaimKey } = await import("../apps/research-mcp/src/atlas/publication.js");
+  const { FindingsSaveService } = await import("../apps/research-mcp/src/findings/service.js");
+  const { findingsCardDigest, laterFindingsCardSchema } = await import("../apps/research-mcp/src/findings/card.js");
+  const { issueResearchReceipt } = await import("../apps/research-mcp/src/research-receipts.js");
+  const { VELMOR_CARD } = await import("../tests/helpers/atlas-scenario.ts");
+  const SECRET = "living-person-acceptance-secret-0123456789";
+  const pause = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+  const card = (run: string, declared: [boolean, boolean]) => ({ ...VELMOR_CARD,
+    question: `${VELMOR_CARD.question} (${run})`,
+    findings: VELMOR_CARD.findings.map((finding, index) => ({ ...finding, claim: `${finding.claim} (${run})`,
+      names_living_person: declared[index]! })) });
+  // The save path as the server runs it, on one card: the first save creates it, each later one joins it.
+  const { UnrecordedLivingPersonClaims, withoutUnrecordedLivingPerson } =
+    await import("../apps/research-mcp/src/atlas/living-person-pending.js");
+  // Codex's fifth review of 17 Nov 2026 (P0): the claims whose record failed, which this process's pages don't show.
+  const unrecorded = new UnrecordedLivingPersonClaims();
+  const pages = withoutUnrecordedLivingPerson(source, livingPersonClaimKey, unrecorded);
+  const saving = (cardNumber: number, publications: PostgresAtlasPublicationStore, showOnPages: boolean) => {
+    let saves = 0;
+    const service = new FindingsSaveService({
+      receiptSecret: () => SECRET,
+      limiter: { consume: () => ({ allowed: true }), lastBlockingReason: () => "hourly_limit" },
+      queue: { submit: async () => ({ kind: saves++ === 0 ? "created" as const : "existing" as const, issueNumber: cardNumber,
+        occurrenceCount: saves, replaced: 0, replacedCards: [], setAside: false }) },
+      protocols: async () => [{ name: "HRP", version: "20.6.32", sha256: "a".repeat(64) }],
+      version: "0.1.0",
+      build: "0123abc",
+      publisher: new AtlasCardPublisher({ store: publications, showOnPages, unrecorded }),
+    });
+    const save = (given: object, thread: string, claims: object) => {
+      const parsed = laterFindingsCardSchema.parse(given);
+      return service.save({ findings_card: given, contributor: thread.padStart(64, "0"),
+        finalization_receipt: issueResearchReceipt("finalization", { status: "ready", depth: "standard",
+          target: `${thread}0123456789ab`.slice(0, 12), findings: findingsCardDigest(parsed),
+          bases: parsed.findings.map(() => "full_text_audit"), ...claims }, { secret: SECRET }),
+      }, { surface: "/mcp", toolCatalogSha256: "b".repeat(64),
+        account: { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION } });
+    };
+    return { service, save };
+  };
+
+  // The race, with saved findings shown at once and without.
+  for (const [cardNumber, showOnPages] of [[7205, false], [7206, true]] as const) {
+    const run = `race ${cardNumber}`;
+    const gated = new PostgresAtlasPublicationStore({ connectionString: reviewUrl, schema });
+    const publish = gated.publish.bind(gated);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let paused = false;
+    gated.publish = async (input) => {
+      paused = true;
+      await gate;
+      return publish(input);
+    };
+    try {
+      const { service, save } = saving(cardNumber, gated, showOnPages);
+      const first = await save(card(run, [false, false]), "1", { nlp: ["1", "2"] });
+      assert(first.status === "saved", `RACE_FIRST_SAVE ${JSON.stringify(first)}`);
+      for (let waited = 0; !paused && waited < 5_000; waited += 20) await pause(20);
+      assert(paused, "RACE_FIRST_PUBLISHING_NEVER_STARTED");
+      // The duplicate, its claims in the other order, says the first save's finding 1 names a living person.
+      const both = card(run, [true, false]);
+      const duplicate = await save({ ...both, findings: [both.findings[1]!, both.findings[0]!] }, "2", { nlp: ["1"] });
+      assert(duplicate.status === "existing_card", `RACE_DUPLICATE_SAVE ${JSON.stringify(duplicate)}`);
+      release();
+      await service.publicationsSettled();
+      const rows = (await store.inspect({ cardNumbers: [cardNumber] })).sort((left, right) => left.findingNumber - right.findingNumber);
+      assert(isDeepStrictEqual(rows.map(({ findingNumber, state, heldBecause }) => [findingNumber, state, heldBecause]),
+        [[1, "held", ["living_person_review"]], [2, "unreviewed", null]]), `RACE_PUBLISHED_UNREVIEWED ${JSON.stringify(rows)}`);
+      assert((await loadAtlasFinding(source, rows[0]!.publicationNumber)) === undefined, "RACE_HELD_FINDING_HAS_A_PAGE");
+    } finally {
+      release();
+      await gated.close();
+    }
+  }
+  checks.push("a_duplicate_saves_yes_holds_a_publishing_paused_before_it_with_saved_findings_shown_at_once_or_not");
+
+  // The same race inside the database: each waits for the other's transaction at the reading's row, whichever is first.
+  const draft = (claim: string, claimKey: string, findingNumber = 1): AtlasPublicationDraft => ({ findingNumber,
+    state: "unreviewed", atlasNumber: null, heldBecause: null,
+    livingPerson: { claimKey, reading: "no", holdNotSaid: false }, published: {
+      schema: ATLAS_PUBLICATION_SCHEMA, topic: { key: "pages-topic", label: "A topic only the pages check uses" },
+      claim, certainty: "low", applies_to: "Adults with an invented condition", kind: null, subject: null,
+      subject_type: null, direction: null, numbers: null, searches: null, sources: ["10.0000/synthetic-pages"],
+      why_not_usual: "Quick answers miss it.", what_would_change_it: "A trial.", verified_bases: [],
+      saved_on: "2026-11-06", askrigor_version: "0.1.0" } });
+  const lockPool = new Pool({ connectionString: reviewUrl, max: 1 });
+  const lockClient = await lockPool.connect();
+  try {
+    // The publishing first, its transaction open: the yes waits for it, then holds what it published.
+    const publishingFirst = livingPersonClaimKey("LOCK-PUBLISHING-FIRST claim.");
+    await lockClient.query("BEGIN");
+    await lockClient.query(`SELECT * FROM ${schema}.publish_atlas_findings($1::integer, $2::text, $3::jsonb,
+      $4::timestamptz, false)`, [7208, atlasHex("lock-publishing-first"),
+      JSON.stringify([draft("LOCK-PUBLISHING-FIRST claim.", publishingFirst)]), tick()]);
+    let recorded = false;
+    const recording = store.recordLivingPerson({ cardNumber: 7208, publicationNumbers: [],
+      readings: [{ claimKey: publishingFirst, reading: "yes" }], at: tick() }).finally(() => { recorded = true; });
+    await pause(300);
+    assert(!recorded, "LIVING_PERSON_YES_DID_NOT_WAIT_FOR_THE_PUBLISHING");
+    await lockClient.query("COMMIT");
+    assert(isDeepStrictEqual((await recording).map(({ outcome }) => outcome), ["held"]), "LIVING_PERSON_YES_MISSED_THE_PUBLISHING");
+    // The yes first, its transaction open: the publishing waits for it, then reads it and publishes held.
+    const yesFirst = livingPersonClaimKey("LOCK-YES-FIRST claim.");
+    await lockClient.query("BEGIN");
+    await lockClient.query(`SELECT * FROM ${schema}.record_atlas_living_person($1::integer, $2::jsonb, $3::text[],
+      $4::timestamptz)`, [7209, JSON.stringify([{ claimKey: yesFirst, reading: "yes" }]), [], tick()]);
+    let published = false;
+    const publishing = store.publish({ cardNumber: 7209, cardSha256: atlasHex("lock-yes-first"), publishedAt: tick(),
+      revive: false, findings: [{ ...draft("LOCK-YES-FIRST claim.", yesFirst), shownBy: "automatic_showing" }] })
+      .finally(() => { published = true; });
+    await pause(300);
+    assert(!published, "PUBLISHING_DID_NOT_WAIT_FOR_THE_LIVING_PERSON_YES");
+    await lockClient.query("COMMIT");
+    const [lockedRow] = await publishing;
+    assert(lockedRow?.state === "held" && isDeepStrictEqual(lockedRow.heldBecause, ["living_person_review"]),
+      `PUBLISHING_MISSED_THE_LIVING_PERSON_YES ${JSON.stringify(lockedRow)}`);
+  } finally {
+    await lockClient.query("ROLLBACK").catch(() => undefined);
+    lockClient.release();
+    await lockPool.end();
+  }
+  checks.push("the_living_person_yes_and_the_publishing_wait_for_each_other_at_the_readings_lock");
+
+  // Codex's fourth review of 17 Nov 2026 (P1s): the owner shows a finding, it is kept, the quick-answer test shows it,
+  // and a later save says it names a living person. The owner's decision is stored apart from the latest showing, which
+  // the test's replaced, and stands; a finding only the test showed is held.
+  {
+    const ownerKey = livingPersonClaimKey("SEQUENCE-OWNER claim.");
+    const testKey = livingPersonClaimKey("SEQUENCE-TEST claim.");
+    const WAITING = "waiting for the quick-answer test (owner answer 240a)";
+    const sequenced = await store.publish({ cardNumber: 7212, cardSha256: atlasHex("sequence-card"), publishedAt: tick(),
+      revive: false, findings: [{ ...draft("SEQUENCE-OWNER claim.", ownerKey), keptReason: WAITING },
+        { ...draft("SEQUENCE-TEST claim.", testKey, 2), keptReason: WAITING }] });
+    const [ownerShown, testShown] = sequenced.map(({ publicationNumber }) => publicationNumber);
+    const shownAt = tick();
+    await store.keep({ publicationNumbers: [ownerShown!], atlasNumbers: [], keep: false, reason: null, at: shownAt,
+      route: { by: "owner_action" } });
+    await store.keep({ publicationNumbers: [ownerShown!], atlasNumbers: [], keep: true, at: tick(),
+      reason: "owner answer 240a: quick-answer test, passed, waiting for the whole picture" });
+    await store.keep({ publicationNumbers: [ownerShown!, testShown!], atlasNumbers: [], keep: false, reason: null, at: tick(),
+      route: { by: "quick_answer_test", verdict: "pass" } });
+    const sequenceAdmin = new Pool({ connectionString: adminUrl, max: 1 });
+    try {
+      const stored = (await sequenceAdmin.query<{ publication_number: string; shown_by: string; shown_test_verdict: string;
+        owner_decision: string | null; owner_decided_at: Date | null }>(`SELECT publication_number, shown_by,
+        shown_test_verdict, owner_decision, owner_decided_at FROM ${schema}.atlas_publications
+        WHERE publication_number = ANY($1::text[]) ORDER BY publication_number`, [[ownerShown, testShown]])).rows
+        .map((row) => [row.publication_number, row.shown_by, row.shown_test_verdict, row.owner_decision,
+          row.owner_decided_at?.toISOString() ?? null]);
+      assert(isDeepStrictEqual(stored, [[ownerShown, "quick_answer_test", "pass", "shown", shownAt],
+        [testShown, "quick_answer_test", "pass", null, null]]), `SEQUENCE_OWNER_DECISION_MISMATCH ${JSON.stringify(stored)}`);
+      // The owner decision is held to its values, and to its time.
+      for (const [decision, at] of [["kept", shownAt], ["shown", null], [null, shownAt]] as const) {
+        const refused = await sequenceAdmin.query(`UPDATE ${schema}.atlas_publications SET owner_decision = $2,
+          owner_decided_at = $3::timestamptz WHERE publication_number = $1`, [testShown, decision, at])
+          .then(() => "", (error: Error) => error.message);
+        assert(refused.includes("atlas_publications_v1_owner_decision_check"), `OWNER_DECISION_STORED ${decision} ${at}`);
+      }
+    } finally {
+      await sequenceAdmin.end();
+    }
+    const later = await store.recordLivingPerson({ cardNumber: 7212, publicationNumbers: [], at: tick(),
+      readings: [{ claimKey: ownerKey, reading: "yes" }, { claimKey: testKey, reading: "yes" }] });
+    assert(isDeepStrictEqual(later.map(({ publicationNumber, outcome }) => [publicationNumber, outcome]),
+      [[ownerShown, "noted"], [testShown, "held"]]), `SEQUENCE_LATER_YES ${JSON.stringify(later)}`);
+    assert((await loadAtlasFinding(source, ownerShown!)) !== undefined &&
+      (await loadAtlasFinding(source, testShown!)) === undefined, "SEQUENCE_PAGES_MISMATCH");
+  }
+  checks.push("the_owners_decision_to_show_stands_after_the_tests_showing_and_a_later_saves_yes");
+
+  // Permission denied: the review role can't run record_atlas_living_person (a provisioning step skipped).
+  const admin = new Pool({ connectionString: adminUrl, max: 1 });
+  const signature = `${schema}.record_atlas_living_person(integer, jsonb, text[], timestamptz)`;
+  try {
+    const { service, save } = saving(7210, store, true);
+    const clear = card("denied", [false, false]);
+    assert((await save(clear, "1", { nlp: ["1", "2"] })).status === "saved", "DENIED_FIRST_SAVE");
+    await service.publicationsSettled();
+    // Codex's fourth review of 17 Nov 2026: the server's readiness check finds the hold ready, then not.
+    assert(isDeepStrictEqual(await store.livingPersonHoldMissing(), []), "HOLD_NOT_READY_WITH_EVERY_GRANT");
+    await admin.query(`REVOKE EXECUTE ON FUNCTION ${signature} FROM askrigor_research_review`);
+    assert(isDeepStrictEqual(await store.livingPersonHoldMissing(),
+      ["record_atlas_living_person(integer, jsonb, text[], timestamptz)"]), "HOLD_READY_WITHOUT_ITS_GRANT");
+    const before = await store.inspect({ cardNumbers: [7210] });
+    const both = card("denied", [true, false]);
+    const denied = await save({ ...both, findings: [both.findings[1]!, both.findings[0]!] }, "2", { nlp: ["1"] });
+    assert(isDeepStrictEqual(denied, { status: "queue_unavailable", retryable: true, reason_code: "queue_service_unavailable" }),
+      `DENIED_SAVE_ANSWERED ${JSON.stringify(denied)}`);
+    assert(isDeepStrictEqual(await store.inspect({ cardNumbers: [7210] }), before), "DENIED_SAVE_CHANGED_THE_PUBLICATIONS");
+    // Codex's fifth review of 17 Nov 2026 (P0): the database still has finding 1 public, but this process's pages
+    // don't show it (404, where it answered 200), nor list it, until a record of the card stores the yes; finding 2,
+    // which the save didn't say names anyone, shows.
+    const deniedRows = [...before].sort((left, right) => left.findingNumber - right.findingNumber);
+    assert(deniedRows[0]?.state === "unreviewed" && (await loadAtlasFinding(source, deniedRows[0].publicationNumber)) !== undefined &&
+      (await loadAtlasFinding(pages, deniedRows[0].publicationNumber)) === undefined &&
+      (await loadAtlasFinding(pages, deniedRows[1]!.publicationNumber)) !== undefined,
+    `DENIED_SAVE_PAGE_STILL_SHOWN ${JSON.stringify(deniedRows.map(({ publicationNumber, state }) => [publicationNumber, state]))}`);
+    // A new card's save: refused, and nothing of it published.
+    const fresh = saving(7211, store, true);
+    const refused = await fresh.save(card("denied fresh", [true, false]), "3", { nlp: ["2"] });
+    await fresh.service.publicationsSettled();
+    assert(refused.status === "queue_unavailable" && refused.retryable && (await store.inspect({ cardNumbers: [7211] }))
+      .length === 0, `DENIED_NEW_CARD_PUBLISHED ${JSON.stringify(refused)}`);
+  } finally {
+    await admin.query(`GRANT EXECUTE ON FUNCTION ${signature} TO askrigor_research_review`);
+    await admin.end();
+  }
+  // Granted again (provision-research-review-role.sh), the saved again duplicate holds it.
+  const again = saving(7210, store, true);
+  await again.save(card("denied", [false, false]), "1", { nlp: ["1", "2"] });
+  const both = card("denied", [true, false]);
+  const retried = await again.save({ ...both, findings: [both.findings[1]!, both.findings[0]!] }, "2", { nlp: ["1"] });
+  const retriedRows = (await store.inspect({ cardNumbers: [7210] })).sort((left, right) => left.findingNumber - right.findingNumber);
+  assert(retried.status === "existing_card" && retriedRows[0]?.state === "held" && retriedRows[1]?.state === "unreviewed",
+    `DENIED_RETRY_DID_NOT_HOLD ${JSON.stringify(retriedRows)}`);
+  // Recorded, the database holds it: its page answers 404 from the database itself, and the process's set is empty.
+  assert(!unrecorded.has(livingPersonClaimKey(retriedRows[0]!.published!.claim)) &&
+    (await loadAtlasFinding(source, retriedRows[0]!.publicationNumber)) === undefined,
+    "DENIED_RETRY_LEFT_IT_SHOWN_OR_SUPPRESSED");
+  checks.push("a_save_whose_living_person_record_fails_keeps_that_findings_page_off_in_this_process_until_recorded");
+  checks.push("a_save_whose_living_person_record_is_denied_fails_retryable_and_publishes_nothing");
+  // A database this release never migrated has none of the functions: not ready either.
+  const unmigrated = new PostgresAtlasPublicationStore({ connectionString: reviewUrl, schema: `${schema}_never_migrated` });
+  try {
+    assert(isDeepStrictEqual(await unmigrated.livingPersonHoldMissing(), [...ATLAS_LIVING_PERSON_HOLD_FUNCTIONS,
+      ...ATLAS_LIVING_PERSON_HOLD_TRIGGERS.map((trigger) => `trigger ${trigger}`)]), "HOLD_READY_WITHOUT_ITS_FUNCTIONS");
+  } finally {
+    await unmigrated.close();
+  }
+  assert(isDeepStrictEqual(await store.livingPersonHoldMissing(), []), "HOLD_NOT_READY_AFTER_ITS_GRANT");
+  // Codex's fifth review of 17 Nov 2026: a trigger switched off is not ready either.
+  const switching = new Pool({ connectionString: adminUrl, max: 1 });
+  try {
+    await switching.query(`ALTER TABLE ${schema}.atlas_publications DISABLE TRIGGER atlas_publications_living_person_hold`);
+    assert(isDeepStrictEqual(await store.livingPersonHoldMissing(),
+      ["trigger atlas_publications.atlas_publications_living_person_hold"]), "HOLD_READY_WITH_ITS_TRIGGER_OFF");
+  } finally {
+    await switching.query(`ALTER TABLE ${schema}.atlas_publications ENABLE TRIGGER atlas_publications_living_person_hold`);
+    await switching.end();
+  }
+  assert(isDeepStrictEqual(await store.livingPersonHoldMissing(), []), "HOLD_NOT_READY_WITH_ITS_TRIGGER_ON");
+  checks.push("the_readiness_check_fails_while_a_function_the_hold_relies_on_is_missing_or_not_granted");
+}
+
+/**
+ * Codex's fifth review of 17 Nov 2026: five reviews in a row found a writer that skipped the living-person hold, so
+ * it is the table's rule (migration 0041's two triggers). One case for each writer: each tries to store a publication
+ * unreviewed with its texts, so with a page, while its stored reading is yes and the owner hasn't decided it, or to
+ * store the yes while it is. Each must end held (living_person_review) or refused, and its page must answer 404
+ * (loadAtlasFinding undefined, which the pages answer as not found).
+ */
+async function verifyLivingPersonTableRule(context: {
+  adminUrl: string;
+  reviewUrl: string;
+  accessUrl: string | undefined;
+  schema: string;
+  store: PostgresAtlasPublicationStore;
+  source: PostgresAtlasPageSource;
+  tick: () => string;
+  checks: string[];
+}): Promise<void> {
+  const { adminUrl, reviewUrl, accessUrl, schema, store, source, tick, checks } = context;
+  const { livingPersonClaimKey } = await import("../apps/research-mcp/src/atlas/publication.js");
+  const admin = new Pool({ connectionString: adminUrl, max: 1 });
+  const review = new Pool({ connectionString: reviewUrl, max: 1 });
+  const access = accessUrl === undefined ? undefined : new Pool({ connectionString: accessUrl, max: 1 });
+  // The script's own connection, apart from the admin's queries.
+  const scriptPool = new Pool({ connectionString: adminUrl, max: 1 });
+  const scriptClient = await scriptPool.connect();
+  const WAITING = "waiting for the quick-answer test (owner answer 240a)";
+  const pause = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+  // Two of the one-shot admin's connections, for two transactions at once.
+  const racePool = new Pool({ connectionString: adminUrl, max: 2 });
+  let card = 8800;
+  /**
+   * Codex's sixth review of 17 Nov 2026 (P0): each case runs again on a publication from before claim keys were stored
+   * (claim_key NULL), which no reading matches: the rule holds it when any finding of its card is stored as yes, and no
+   * UPDATE shows it that didn't show.
+   */
+  let keylessRun = false;
+  const withoutKey = async (number: string) => {
+    await scriptClient.query("BEGIN");
+    await scriptClient.query("SET LOCAL session_replication_role = replica");
+    await scriptClient.query(`UPDATE ${schema}.atlas_publications SET claim_key = NULL WHERE publication_number = $1`, [number]);
+    await scriptClient.query("COMMIT");
+  };
+  const draft = (claim: string, overrides: Partial<AtlasPublicationDraft> = {}): AtlasPublicationDraft => ({
+    findingNumber: 1, state: "unreviewed", atlasNumber: null, heldBecause: null,
+    livingPerson: { claimKey: livingPersonClaimKey(claim), reading: "no", holdNotSaid: false }, published: {
+      schema: ATLAS_PUBLICATION_SCHEMA, topic: { key: "pages-topic", label: "A topic only the pages check uses" },
+      claim, certainty: "low", applies_to: "Adults with an invented condition", kind: null, subject: null,
+      subject_type: null, direction: null, numbers: null, searches: null, sources: ["10.0000/synthetic-pages"],
+      why_not_usual: "Quick answers miss it.", what_would_change_it: "A trial.", verified_bases: [],
+      saved_on: "2026-11-06", askrigor_version: "0.1.0",
+    }, ...overrides } as AtlasPublicationDraft);
+  /** A finding of a card of its own, shown (or kept), with its card's reading no. */
+  const published = async (name: string, overrides: Partial<AtlasPublicationDraft> = {}) => {
+    const cardNumber = card += 1;
+    const claim = `TABLE-RULE ${name} claim.`;
+    const [row] = await store.publish({ cardNumber, cardSha256: atlasHex(`table-rule-${name}${keylessRun ? "-keyless" : ""}`), publishedAt: tick(),
+      revive: false, findings: [draft(claim, overrides)] });
+    if (keylessRun) await withoutKey(row!.publicationNumber);
+    return { cardNumber, claim, claimKey: livingPersonClaimKey(claim), number: row!.publicationNumber };
+  };
+  /**
+   * Codex's sixth review of 17 Nov 2026 (P0): a publication and its claim's yes in two transactions at the same moment,
+   * written by hand as the one-shot admin, so no function's lock comes first: the publication a copy of a shown one on a
+   * card of its own, the yes for its claim on that card. Whichever commits first, it ends held.
+   */
+  const twoTransactions = (order: "publication_commits_first" | "yes_commits_first") => async () => {
+    const template = await published(`two transactions ${order}`);
+    const cardNumber = card += 1;
+    const number = `P-${90_000 + cardNumber}`;
+    const a = await racePool.connect();
+    const b = await racePool.connect();
+    const insert = () => a.query(`INSERT INTO ${schema}.atlas_publications SELECT (jsonb_populate_record(
+        NULL::${schema}.atlas_publications, to_jsonb(stored.*) || $2::jsonb)).*
+      FROM ${schema}.atlas_publications stored WHERE stored.publication_number = $1`, [template.number,
+      JSON.stringify({ publication_number: number, card_number: cardNumber,
+        card_sha256: atlasHex(`two-transactions-${order}-${keylessRun}`), claim_key: keylessRun ? null : template.claimKey })]);
+    const yesWritten = () => b.query(`INSERT INTO ${schema}.atlas_living_person_readings (card_number, claim_key, reading,
+      recorded_at) VALUES ($1, $2, 'yes', $3::timestamptz)`, [cardNumber, template.claimKey, tick()]);
+    try {
+      if (order === "publication_commits_first") {
+        // Codex's case: the publication written, then the yes, whose commit comes first; it waits for the publication's.
+        await a.query("BEGIN");
+        await insert();
+        await b.query("BEGIN");
+        await yesWritten();
+        let committed = false;
+        const commit = b.query("COMMIT").finally(() => { committed = true; });
+        await pause(300);
+        assert(!committed, "TWO_TRANSACTIONS_THE_YES_DID_NOT_WAIT_FOR_THE_PUBLICATION");
+        await a.query("COMMIT");
+        await commit;
+      } else {
+        // The yes commits while the publication's transaction is open. One whose snapshot is older than the yes can't
+        // read it, so it is refused; in READ COMMITTED it reads the yes.
+        await a.query("BEGIN ISOLATION LEVEL REPEATABLE READ");
+        await a.query("SELECT 1");
+        await b.query("BEGIN");
+        await yesWritten();
+        await b.query("COMMIT");
+        const refused = await insert().then(() => "", (error: Error) => error.message);
+        await a.query("ROLLBACK");
+        assert(refused.includes("ATLAS_LIVING_PERSON_RULE_NEEDS_READ_COMMITTED"), `TWO_TRANSACTIONS_OLD_SNAPSHOT ${refused}`);
+        await a.query("BEGIN");
+        await a.query("SELECT 1");
+        await insert();
+        await a.query("COMMIT");
+      }
+    } finally {
+      await Promise.allSettled([a.query("ROLLBACK"), b.query("ROLLBACK")]);
+      a.release();
+      b.release();
+    }
+    return { number };
+  };
+  /** A later save's yes, recorded as the save records it. */
+  const yes = (finding: { cardNumber: number; claimKey: string }) => store.recordLivingPerson({
+    cardNumber: finding.cardNumber, readings: [{ claimKey: finding.claimKey, reading: "yes" }], publicationNumbers: [],
+    at: tick() });
+  /**
+   * A database from before the rule: the row put back unreviewed (shown, or kept) with its yes stored, with the
+   * triggers off for this one statement (as the one-shot admin, a superuser), as no writer can store it now.
+   */
+  const fromBefore = async (number: string, kept: boolean) => {
+    await scriptClient.query("BEGIN");
+    await scriptClient.query("SET LOCAL session_replication_role = replica");
+    await scriptClient.query(`UPDATE ${schema}.atlas_publications SET state = 'unreviewed', held_because = NULL,
+      kept_for_research_at = $2::timestamptz, kept_reason = $3 WHERE publication_number = $1`,
+    [number, kept ? tick() : null, kept ? WAITING : null]);
+    await scriptClient.query("COMMIT");
+  };
+  const stateOf = async (number: string) => (await admin.query<{ state: string; held_because: string[] | null }>(
+    `SELECT state, held_because FROM ${schema}.atlas_publications WHERE publication_number = $1`, [number])).rows[0]!;
+  const refusedBy = (pool: Pool, number: string) => pool.query(`UPDATE ${schema}.atlas_publications
+    SET state = 'unreviewed', held_because = NULL WHERE publication_number = $1`, [number])
+    .then(() => "", (error: Error) => error.message);
+  const outcomes: Array<[string, string]> = [];
+  const casesFor = (keyless: boolean): Array<[string, () => Promise<{ number: string; refused?: string }>]> => { keylessRun = keyless; return [
+    // An earlier image's save publishes a draft that says nothing of a living person, after a save stored its yes.
+    ["save_after_a_stored_yes", async () => {
+      const cardNumber = card += 1;
+      const claim = "TABLE-RULE earlier image's save claim.";
+      await store.recordLivingPerson({ cardNumber, readings: [{ claimKey: livingPersonClaimKey(claim), reading: "yes" }],
+        publicationNumbers: [], at: tick() });
+      const { livingPerson: _said, ...unsaid } = draft(claim);
+      const [row] = await store.publish({ cardNumber, cardSha256: atlasHex(`table-rule-earlier-save-${keylessRun}`), publishedAt: tick(),
+        revive: false, findings: [unsaid as AtlasPublicationDraft] });
+      return { number: row!.publicationNumber };
+    }],
+    // A duplicate save's yes while the finding is shown.
+    ["duplicate_save_yes_while_shown", async () => {
+      const finding = await published("duplicate");
+      await yes(finding);
+      return { number: finding.number };
+    }],
+    // publish_cards, as the owner's action, of a finding a save stored as yes: his decision is accept_finding's.
+    ["publish_cards_by_the_owner", async () => {
+      const cardNumber = card += 1;
+      const claim = "TABLE-RULE publish_cards claim.";
+      await store.recordLivingPerson({ cardNumber, readings: [{ claimKey: livingPersonClaimKey(claim), reading: "yes" }],
+        publicationNumbers: [], at: tick() });
+      // Without a claim key, as an earlier image's publish_cards gives none.
+      const { livingPerson: _said, ...unsaid } = draft(claim, { shownBy: "owner_action" });
+      const [row] = await store.publish({ cardNumber, cardSha256: atlasHex(`table-rule-publish-cards-${keylessRun}`),
+        publishedAt: tick(), revive: true, findings: [keylessRun ? unsaid as AtlasPublicationDraft : draft(claim, { shownBy: "owner_action" })] });
+      return { number: row!.publicationNumber };
+    }],
+    // show_on_pages by the quick-answer test, of a kept finding with a stored yes from before the rule.
+    ["show_on_pages_by_the_test", async () => {
+      const finding = await published("test show", { keptReason: WAITING } as Partial<AtlasPublicationDraft>);
+      await yes(finding);
+      await fromBefore(finding.number, true);
+      await store.keep({ publicationNumbers: [finding.number], atlasNumbers: [], keep: false, reason: null, at: tick(),
+        route: { by: "quick_answer_test", verdict: "pass" } });
+      return { number: finding.number };
+    }],
+    // show_on_pages by the owner, of a finding held for it: a showing never lifts a hold.
+    ["show_on_pages_by_the_owner_of_a_held_finding", async () => {
+      const finding = await published("owner show", { keptReason: WAITING } as Partial<AtlasPublicationDraft>);
+      await yes(finding);
+      await store.keep({ publicationNumbers: [finding.number], atlasNumbers: [], keep: false, reason: null, at: tick(),
+        route: { by: "owner_action" } });
+      return { number: finding.number };
+    }],
+    // The compatibility build's showing: 0024's keep_atlas_publications, which says nothing of who shows it.
+    ["earlier_images_keep_atlas_publications", async () => {
+      const finding = await published("earlier show", { keptReason: WAITING } as Partial<AtlasPublicationDraft>);
+      await yes(finding);
+      await fromBefore(finding.number, true);
+      await review.query(`SELECT * FROM ${schema}.keep_atlas_publications($1::text[], $2::text[], false, NULL,
+        $3::timestamptz)`, [[finding.number], [], tick()]);
+      return { number: finding.number };
+    }],
+    // Codex's case: the hold script's manual hold, then a save that says yes, then the restore.
+    ["hold_script_restore_after_a_later_yes", async () => {
+      const finding = await published("restore");
+      let images: HoldScriptImages | undefined;
+      await holdForLivingPersonReview(scriptClient, { schema, publications: [finding.number], apply: true, at: tick(),
+        saveImages: async (saved) => { images = saved; } });
+      const later = await yes(finding);
+      // A row without a key matches no reading by key: the yes's trigger holds it, by its card.
+      assert(later.map(({ outcome }) => outcome).join() === (keylessRun ? "" : "already_held"),
+        `RESTORE_CASE_LATER_YES ${JSON.stringify(later)}`);
+      const dry = await restoreLivingPersonHolds(scriptClient, { images: images!, apply: false });
+      const restored = await restoreLivingPersonHolds(scriptClient, { images: images!, apply: true });
+      assert(isDeepStrictEqual([...dry.lines, ...restored.lines], [1, 2].map(() => ({ publication: finding.number,
+        outcome: "kept_held", state: "unreviewed", heldBecause: ["living_person_review"],
+        ...(keylessRun ? { keyless: "card_yes" } : {}) }))) &&
+        restored.text.startsWith(`${finding.number}: kept held, with no page (living_person_review): ` + (keylessRun
+          ? "it is from before findings kept their claim's key, and a save since the hold says a finding of its card may "
+          : "a save since the hold says it may ") + "name a living person"), `RESTORE_CASE_REPORT ${restored.text}`);
+      return { number: finding.number };
+    }],
+    // A hand-written UPDATE by the one-shot admin.
+    ["direct_update_by_the_admin", async () => {
+      const finding = await published("admin update");
+      await yes(finding);
+      await admin.query(`UPDATE ${schema}.atlas_publications SET state = 'unreviewed', held_because = NULL,
+        shown_by = 'automatic_showing' WHERE publication_number = $1`, [finding.number]);
+      return { number: finding.number };
+    }],
+    // A hand-written yes by the one-shot admin while the finding is shown.
+    ["direct_yes_by_the_admin_while_shown", async () => {
+      const finding = await published("admin yes");
+      await admin.query(`UPDATE ${schema}.atlas_living_person_readings SET reading = 'yes'
+        WHERE card_number = $1 AND claim_key = $2`, [finding.cardNumber, finding.claimKey]);
+      return { number: finding.number };
+    }],
+    // A hand-written UPDATE by the review role, and by the application's role: neither reaches the table.
+    ["direct_update_by_the_review_role", async () => {
+      const finding = await published("review update");
+      await yes(finding);
+      return { number: finding.number, refused: await refusedBy(review, finding.number) };
+    }],
+    ...(access === undefined ? [] : [["direct_update_by_the_application_role", async () => {
+      const finding = await published("access update");
+      await yes(finding);
+      return { number: finding.number, refused: await refusedBy(access, finding.number) };
+    }] as [string, () => Promise<{ number: string; refused?: string }>]]),
+    ["two_transactions_publication_commits_first", twoTransactions("publication_commits_first")],
+    ["two_transactions_yes_commits_first", twoTransactions("yes_commits_first")],
+  ]; };
+  // Without a key, and with no yes on its card: still no UPDATE shows it again; only the owner's decision does.
+  const keylessOnly: Array<[string, () => Promise<{ number: string; refused?: string }>]> = [
+    ["hold_script_restore_without_a_yes", async () => {
+      const finding = await published("restore without a yes");
+      let images: HoldScriptImages | undefined;
+      await holdForLivingPersonReview(scriptClient, { schema, publications: [finding.number], apply: true, at: tick(),
+        saveImages: async (saved) => { images = saved; } });
+      const restored = await restoreLivingPersonHolds(scriptClient, { images: images!, apply: true });
+      assert(isDeepStrictEqual(restored.lines, [{ publication: finding.number, outcome: "kept_held", state: "unreviewed",
+        heldBecause: ["living_person_review"], keyless: "no_match" }]) &&
+        restored.text.endsWith("1 stays held for your decision."), `KEYLESS_RESTORE_REPORT ${restored.text}`);
+      return { number: finding.number };
+    }],
+    // An earlier image's publish_cards reviving a withdrawn one, with no claim key in its draft.
+    ["earlier_images_revive_without_a_yes", async () => {
+      const finding = await published("revive without a yes");
+      await store.withdraw({ reason: "card_replaced", cardNumbers: [finding.cardNumber], withdrawnAt: tick() });
+      const { livingPerson: _said, ...unsaid } = draft(finding.claim);
+      const [row] = await store.publish({ cardNumber: finding.cardNumber,
+        cardSha256: atlasHex("table-rule-revive without a yes-keyless"), publishedAt: tick(), revive: true,
+        findings: [unsaid as AtlasPublicationDraft] });
+      assert(row?.publicationNumber === finding.number, `KEYLESS_REVIVE_NOT_THE_SAME_ROW ${JSON.stringify(row)}`);
+      return { number: finding.number };
+    }],
+    ["direct_update_without_a_yes", async () => {
+      const finding = await published("update without a yes");
+      await admin.query(`UPDATE ${schema}.atlas_publications SET state = 'held', held_because = '["card_reference"]'::jsonb
+        WHERE publication_number = $1`, [finding.number]);
+      await admin.query(`UPDATE ${schema}.atlas_publications SET state = 'unreviewed', held_because = NULL
+        WHERE publication_number = $1`, [finding.number]);
+      return { number: finding.number };
+    }],
+  ];
+  try {
+    for (const run of [false, true]) for (const [caseName, attempt] of [...casesFor(run), ...(run ? keylessOnly : [])]) {
+      const name = run ? `${caseName}_keyless` : caseName;
+      const { number, refused } = await attempt();
+      const row = await stateOf(number);
+      const page = await loadAtlasFinding(source, number);
+      assert(row.state === "held" && (row.held_because ?? []).includes("living_person_review") && page === undefined &&
+        (refused === undefined || refused.includes("permission denied")),
+      `TABLE_RULE_${name.toUpperCase()} ${JSON.stringify({ row, refused, page: page !== undefined })}`);
+      outcomes.push([name, refused === undefined ? "held" : "refused, held"]);
+    }
+    checks.push(`every_writer_ends_held_or_refused_with_a_404_page: ${outcomes.map(([name, outcome]) =>
+      `${name}=${outcome}`).join(", ")}`);
+  } finally {
+    scriptClient.release();
+    await Promise.allSettled([admin.end(), review.end(), scriptPool.end(), racePool.end(),
+      ...(access === undefined ? [] : [access.end()])]);
   }
 }
 
@@ -5162,7 +6054,7 @@ export async function verifyAtlasStorage(context: {
       executable.rows.map(({ proname }) => proname).join() ===
         [...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
           ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS,
-          ...ATLAS_CHALLENGE_FUNCTIONS,
+          ...ATLAS_CHALLENGE_FUNCTIONS, ...ATLAS_LIVING_PERSON_FUNCTIONS, ...ATLAS_SHOW_FUNCTIONS,
           ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS, ...DOSSIER_REVIEW_FUNCTIONS].sort().join(),
       `ATLAS_REVIEW_ROLE_FUNCTIONS_MISMATCH ${executable.rows.map(({ proname }) => proname).join()}`,
     );

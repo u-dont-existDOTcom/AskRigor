@@ -882,6 +882,177 @@ the owner sets the 217 test cards aside (`set_aside_cards` with `cards` naming
 ARF-0001, ARF-0016 to ARF-0038, ARF-0042, ARF-0043 and ARF-0049 to ARF-0239, as
 section 4G of the 171 plan lists them, sent again until no card waits).
 
+Since owner answer 240a the save path keeps each finding it publishes for
+AskRigor's research until the quick-answer test shows it
+(`../../docs/atlas-quick-answer-test.md`). The owner, 17 Nov 2026, asked for
+what passed the checks to show at once: `ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS=enabled`
+in `runtime.env` makes the save path keep nothing, so a saved finding shows on
+the pages at once, unreviewed and labelled "Not checked by supervisors yet".
+Migration `0041_atlas_show_saved_findings` stores that with the publication
+(`shown_by` is `automatic_showing`), and such a finding's page says what the
+quick-answer test found only from a challenge mark's stored verdict, whether
+the setting is still on or not. It also stores the owner's publishing
+(`owner_action`: `publish_cards`, a decision's publication, or his own
+`show_on_pages`) and the quick-answer test's showing (`quick_answer_test`: its
+own `show_on_pages`, with `later_inputs.quick_answer_verdict`, stored in
+`shown_test_verdict`) apart, each written by the action that shows the finding,
+at that moment; nothing is read from the reason a finding was kept for. The
+owner and the scheduled test share one review login, so every `show_on_pages`
+says who acts in `later_inputs.shown_by` (`owner`, or `quick_answer_test` with
+its verdict), and one that doesn't is refused; the owner's own publishing or
+showing is also stored as his decision (`owner_decision`, `owner_decided_at`),
+which no later showing replaces (Codex's fourth review of 17 Nov 2026). The
+scheduled test's instructions must say `shown_by` `quick_answer_test`. A publication from before 0041 has
+no route, nor has one an earlier image shows again through
+`keep_atlas_publications`, and a page says the test found a quick AI answer
+misses a finding only for `quick_answer_test` with the verdict `pass` or from a
+challenge mark's stored verdict, so an older finding's page no longer says it.
+The home page says findings reach the pages in three ways, and that not every
+finding records which. Run the one-shot admin `migrate` before the new image
+serves: it adds the nullable columns, replaces `publish_atlas_findings` and
+`keep_atlas_publications`, each in its own shape, and adds
+`show_atlas_publications`, which the review role is granted when
+`/usr/local/bin/provision-research-review-role` is re-run.
+An image from before 0041 read its pages from the setting, not the route, and
+with the setting off would say the quick-answer test happened for a finding
+shown at once, and its `migrate` stops on this release's 0021 edit (below), so
+this release goes out in the order below, and a rollback goes to the
+compatibility build, whose pages read the route. Held, YouTube-comment and paid private
+findings are unaffected. A finding whose card declares that it names a living
+person, or that the meaning judge read as naming one, is held
+(`living_person_review`), with no page, until the owner decides, whatever the
+setting. Any other whose card doesn't declare, as the final check signed, that
+it names no living person is published kept instead, with the reason "waiting
+for the owner's decision: it may name a living person" (`list_kept`), until
+the owner shows it. Two settings wait for the owner's answer to question 346,
+and change nothing while unset: `ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN` says what
+a finding whose card doesn't say becomes (`keep`, the default, as above;
+`hold`, held like a yes; `reader`, the meaning judge's reading from the final
+check's one call decides, and no reading holds it; any other value holds), and
+`ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION=on` makes the final check ask a free
+contributor's public card for the declaration even while saved findings don't
+show at once. No migration touches findings already on the pages; once the
+owner names some, the one-shot admin holds them for the same reason with
+`DATABASE_URL=… npx tsx scripts/atlas-hold-living-person-findings.mts P-1001 …`,
+which only says what it would do until run again with `--apply`. With
+`--apply` it first saves each row it changes, as it was and as the hold left
+it, to a file it names (or `--images=FILE`), readable by its owner alone, and
+changes nothing if it can't; keep that file. `show_on_pages` can't undo a
+hold, so `--restore=FILE` puts each row back as it was, only if nothing else
+has changed it since, and again only says what it would do until run with
+`--apply`. The database enforces this hold (Codex's fourth review of 17 Nov
+2026): before a save answers, it stores what the card says of each finding
+(yes, no or not said) with the card, in `atlas_living_person_readings`,
+through `record_atlas_living_person`, and `publish_atlas_findings` reads that
+value under a lock at the moment it publishes, so a finding stored as yes is
+held whichever path publishes it, `publish_cards` included. If that store
+fails, the save fails, says to save again, and publishes nothing.
+
+Since Codex's fifth review of 17 Nov 2026 the hold is the table's own rule, in
+two triggers of 0041 (`atlas_publications_living_person_hold` and
+`atlas_living_person_readings_hold`): no write by any role, this release's or an
+earlier image's, the hold script's restore or a hand-written `UPDATE`, can store
+a publication unreviewed with its texts while its stored reading is yes and the
+owner hasn't decided it. Such a write stores it held instead
+(`living_person_review`, no page) rather than failing, and a reading stored as
+yes holds such a publication in the same transaction. Since Codex's sixth
+review, a publication and a yes written at the same moment wait for each other
+(each takes its card's transaction lock first), whichever commits first, and a
+write of either in `REPEATABLE READ` or `SERIALIZABLE` that the rule would let
+show is refused (`ATLAS_LIVING_PERSON_RULE_NEEDS_READ_COMMITTED`), since its
+older snapshot can't read the other's commit; every writer here runs in
+`READ COMMITTED`. A publication from before claim keys were stored
+(`claim_key` NULL) matches no reading, so it is held when any finding of its
+card is stored as yes, and no `UPDATE` shows it again, the hold script's restore
+included: only the owner's `accept_finding` or `edit_finding` does, and the
+restore says which applies. `publish_cards` needs
+`later_inputs.shown_by: owner`, as `show_on_pages` does, and the owner's
+`show_on_pages` of a held finding says it stays held. When a save's record
+fails, this server process also stops showing, on every page, list and lookup,
+an unreviewed finding of that card whose claim that save said names a living
+person (the same claim on another card shows, once the save has read its card),
+until a
+later save of the card, or the same one tried again, records it; and
+`finalize_research` says the save failed and can be retried, and how. That is
+kept in memory only: it lasts until `research-mcp` restarts, and a restart
+doesn't serve until the hold's functions are granted and its triggers are on
+(below), when the database holds a stored yes itself. A later save
+of the same question and claims lands on the open card (`existing_card`) and
+publishes nothing of its own; when it says a finding names a living person (its
+card declares it, or the meaning judge read it so), the same transaction holds
+every publication of that card with the same claim, in any order, that the
+owner hasn't decided. What the owner accepted, or showed by his own action,
+stays as he decided it, and `list_publications` says that a later save marks it
+(`inspect_atlas_living_person_notes`). Re-run
+`/usr/local/bin/provision-research-review-role` after this `migrate`, so the
+review role gets those two functions. The recommended value is `enabled`; to turn it off,
+remove the line and recreate `research-mcp`: findings already shown stay shown
+until the owner keeps them, and their pages still say nothing of the test. An
+image from before the compatibility build stops at its own `migrate` and
+changes nothing (below). The compatibility build's `migrate` runs nothing again
+on a database this release migrated, so it puts back none of 0021's or 0024's
+earlier functions. Undo no migration.
+
+Migration 0021 now lists `living_person_review` among the hold reasons, and a
+held finding may carry all six. 0021 replaces that list on every start, so the
+reason is added in 0021 itself (a later migration's wider list would be
+narrowed again by 0021 at the next start), and `migrate` admits exactly this
+one edit: from the digest databases recorded for 0021 (`f52a42eb…`) to the
+file's digest now (`95b5d194…`), recording the new digest in the same
+transaction (`ADMITTED_MIGRATION_EDITS` in `postgres.ts`). Any other edit still
+stops the start with `MIGRATION_SHA256_MISMATCH`. After that `migrate`, an
+image whose 0021 is the old one stops at its own `migrate` with
+`MIGRATION_SHA256_MISMATCH migration=0021_atlas_publications` and changes
+nothing, so the rollback image is the compatibility build below, which takes
+both digests. Any other earlier image is unsupported and unsafe on this
+database: only its `migrate` stops, and HTTP start-up doesn't migrate, so it
+still starts and serves, without this release's hold for a finding that may
+name a living person and with pages that read the setting rather than the
+stored route. Don't run one. The only fallback is the compatibility build:
+branch `claude/server-fixes-compat-20261117` at commit
+`e12e563f689a385e1b3388489883f1c95d586f70`, the image built from that commit.
+It starts, migrates (running nothing again) and serves on a database this
+release migrated, as checked on 17 Nov 2026 against a local PostgreSQL. A rollback
+to it gives up this release's living-person hold for the saves made while it
+runs, as before this release.
+
+This release goes out in this order (Codex's third review of 17 Nov 2026,
+finding 3), so that an image that can serve the database is always there to go
+back to:
+
+1. The compatibility build first: branch `claude/server-fixes-compat-20261117`,
+   made from `origin/main`. Run its one-shot `migrate`, recreate `research-mcp`
+   with it, and keep that image: from then on it is the rollback image. It
+   changes no behaviour but this. Its `migrate` takes either digest of 0021
+   (`f52a42eb…` as released, `95b5d194…` as this release records it), and on a
+   database a later release migrated it checks the digests it knows and runs
+   nothing again, so the six-reason constraint and 0041's functions stay. It
+   reads all six hold reasons. Its pages read the stored route, and say the
+   quick-answer test happened only for the test's own recorded pass or a
+   challenge mark's verdict.
+2. Then this release, with its migrations: run its one-shot `migrate` (0021's
+   edit and 0041), re-run `/usr/local/bin/provision-research-review-role`
+   inside the PostgreSQL container (it grants
+   `record_atlas_living_person`,
+   `inspect_atlas_living_person_notes` and `show_atlas_publications`), and
+   recreate `research-mcp` with this image, with
+   `ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS`, `ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN`
+   and `ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION` still unset. Before it
+   serves, this image checks that the review role can run every function the
+   living-person hold relies on, and that its two triggers are there and on;
+   when one is missing, switched off or not granted, it prints
+   "AskRigor did not start: …", naming them, and doesn't serve, so `/healthz`
+   doesn't answer: run the step it names, then recreate `research-mcp`.
+3. Then acceptance: `npm run contributor-access:postgres-acceptance` on this
+   release's commit, and on the server the Atlas home page and a finding's page
+   answering and `list_publications` listing.
+4. Only then the settings: add the ones the owner chose to `runtime.env` and
+   recreate `research-mcp`.
+
+A rollback after step 1 removes those settings and recreates `research-mcp`
+with the compatibility image; its `migrate`, if run, changes nothing. Undo no
+migration.
+
 An image rollback below 0021 needs no drain: the earlier image never reads the
 table, publishes nothing at a save, and has no publication action. Undo no
 migration: 0021 stays, with its rows, which the earlier image ignores; its grant

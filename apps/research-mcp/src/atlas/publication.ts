@@ -1,11 +1,15 @@
+import { createHash } from "node:crypto";
+
 import {
   ATLAS_AI_READINGS_CALLER,
+  ATLAS_LIVING_PERSON_MATCHES_PER_RECORD,
   ATLAS_NAMED_VIDEO_LINK,
   ATLAS_NAMED_VIDEOS_PER_FINDING,
   ATLAS_PUBLICATION_HOLD_REASONS,
   ATLAS_PUBLICATION_SCHEMA,
   ATLAS_PUBLICATION_SCHEMA_V2,
   ATLAS_PUBLICATION_SCHEMA_V3,
+  ATLAS_PUBLICATIONS_PER_INSPECT,
   ATLAS_PUBLISHED_RETRACTIONS,
   ATLAS_PUBLISHED_THREADS_PER_FINDING,
   ATLAS_THREAD_COMMUNITY,
@@ -18,6 +22,8 @@ import {
   type AtlasDecisionView,
   type AtlasNumberEntry,
   type AtlasIntentView,
+  type AtlasLivingPersonDraft,
+  type AtlasLivingPersonReading,
   type AtlasPublicationDraft,
   type AtlasPublicationHoldReason,
   type AtlasPublicationStore,
@@ -27,7 +33,7 @@ import {
 } from "@askrigor/evidence-repository";
 
 import { containsCardReference } from "../findings/acceptance-checks.js";
-import { isYouTubeVideoId, topicKeyText, type StoredFinding } from "../findings/card.js";
+import { isYouTubeVideoId, normalizedFindingsText, topicKeyText, type StoredFinding } from "../findings/card.js";
 import { sourceIdKey } from "../findings/research-behind.js";
 import type {
   FindingsCardPublisher,
@@ -37,6 +43,7 @@ import type {
 } from "../findings/service.js";
 import type { AtlasSourceTitleLookup, AtlasSourceTitles } from "../findings/source-checks.js";
 import { contactDetailKinds, withoutDirectionControls } from "./contact-check.js";
+import { unrecordedLivingPersonClaims, type UnrecordedLivingPersonClaims } from "./living-person-pending.js";
 
 /**
  * Publishing saved findings cards in the Atlas (decision 171, section 4B; owner answers 168a and "171 approved", 24 Oct
@@ -574,6 +581,14 @@ export function planCardPublication(input: {
 export const QUICK_ANSWER_TEST_WAITING = "waiting for the quick-answer test (owner answer 240a)";
 
 /**
+ * The kept reason a saved finding carries, while saved findings show at once, when its card doesn't declare, as the
+ * final check's receipt signed, that it names no living person (Codex's review of 17 Nov 2026, finding 1). The owner's
+ * rule: claims about named living people publish only on his explicit decision, so it waits for the owner's
+ * show_on_pages (shown_by owner), and the quick-answer test, which reads only its own reason, leaves it alone.
+ */
+export const LIVING_PERSON_WAITING = "waiting for the owner's decision: it may name a living person";
+
+/**
  * The save path's publisher (FindingsSaveService calls it right after a confirmed save, without waiting for it): it
  * withdraws the unreviewed and held publications of the cards the save replaced (a corrected answer's findings, not the
  * replaced ones, are what stays: owner decision Q9), then publishes the card's eligible findings when the save made the
@@ -583,6 +598,22 @@ export const QUICK_ANSWER_TEST_WAITING = "waiting for the quick-answer test (own
  * Owner answer 240a: what publishing makes is kept for AskRigor's research, off every list, until a separate AI's
  * quick-answer test shows it (docs/atlas-quick-answer-test.md), since the AI that did the research can't fairly judge
  * its own card. Held findings stay held, and a card the owner publishes shows at once.
+ *
+ * The owner, 17 Nov 2026 ("show all the findings automatically when they pass quality checks like this one, i
+ * shouldn't be reviewing everything"): with showOnPages (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS=enabled), a finding that
+ * passed the final check and the publication checks shows on the pages at once, unreviewed, labelled "Not checked by
+ * supervisors yet". What is held, left out or never published stays so: a finding whose text holds contact details, a
+ * card reference or a YouTube link is held, one drawn from YouTube comments is left out, and a paid private or
+ * earlier-notice card publishes nothing here (planCardPublication, cardPublicationProblems). Codex's review of 17 Nov
+ * 2026, finding 1 (P0): a finding shows at once only when its card declares that it names no living person and the
+ * final check's receipt signed that (SavedFindingsCard.clearOfLivingPeople); any other is published kept, off every
+ * list, for the owner's decision (LIVING_PERSON_WAITING), kept in the publishing's own write. Codex's re-review of 17
+ * Nov 2026, finding 1: a kept finding's own page stays public, so one whose card declares that it names a living
+ * person, or that the meaning judge read as naming one, is held (living_person_review), with no page, whatever the
+ * setting (namesLivingPerson, withLivingPersonHold). Codex's fourth review of 17 Nov 2026 (P0s): the database enforces
+ * that hold. recordSave stores, before the save answers, what the save says of each finding, and a yes holds the card's
+ * matching publications in the same transaction; the publishing then reads the stored value under lock, so a later
+ * save's yes holds a publication still on its way. recordSave throws when that fails, and the save fails.
  */
 export class AtlasCardPublisher implements FindingsCardPublisher {
   private readonly now: () => Date;
@@ -592,12 +623,62 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
     now?: () => Date;
     /** The sources' titles and years for the pages; without it, a page shows each source's identifier alone. */
     sourceTitles?: AtlasSourceTitleLookup;
+    /** Show what the save publishes at once instead of keeping it for the quick-answer test (the owner, 17 Nov 2026). */
+    showOnPages?: boolean;
+    /**
+     * What a finding whose card doesn't say whether it names a living person becomes
+     * (ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN, livingPersonReading): keep, as before, when left out.
+     */
+    livingPersonUnknown?: "keep" | "hold" | "reader";
+    /**
+     * Codex's fifth review of 17 Nov 2026 (P0): the claims whose record hasn't stored yet, which the pages don't show;
+     * the process's own by default.
+     */
+    unrecorded?: UnrecordedLivingPersonClaims;
   }) {
     this.now = options.now ?? (() => new Date());
   }
 
   accountPublishes(account: FindingsSaveAccount | undefined): boolean {
     return accountPublicationProblems(account).length === 0;
+  }
+
+  /**
+   * Codex's third review of 17 Nov 2026, finding 1, and its fourth review's two P0s: before the save answers, stores
+   * what it says of whether each of its card's findings names a living person, by the card and the finding's claim
+   * (record_atlas_living_person), and, in the same transaction, holds every publication of the card with a claim it
+   * says yes of that the owner hasn't decided; what he decided (accepted or edited, or shown by his own action) stays as
+   * he decided it, and his list says that a later save marks it. A later save of the same question and claims lands on
+   * the open card (existing_card) and publishes nothing of its own, so its yes is matched by claim, whatever the claims'
+   * order: by the key stored with each publication, and, for one from before keys were stored, by the claim read here.
+   * Whatever the settings: the owner's rule is that claims about named living people publish only on his explicit
+   * decision. It throws when the store does: the save then fails, retryable, and publishes nothing.
+   */
+  async recordSave(saved: SavedFindingsCard): Promise<void> {
+    const readings = saved.record.card.findings.map((finding, index) => ({
+      claimKey: livingPersonClaimKey(finding.claim), reading: livingPersonStoredReading(saved, index + 1) }));
+    if (readings.length === 0) return;
+    const naming = new Set(readings.flatMap(({ claimKey, reading }) => reading === "yes" ? [claimKey] : []));
+    // Codex's fifth review of 17 Nov 2026 (P0): until the record stores them, this process's pages don't show a claim it
+    // says yes of. A record that fails leaves them so, until a later record of the card stores them.
+    const unrecorded = this.options.unrecorded ?? unrecordedLivingPersonClaims;
+    unrecorded.pending(saved.issueNumber, [...naming]);
+    let matched: string[] = [];
+    if (saved.kind === "existing" && naming.size > 0) {
+      const rows = await this.options.store.inspect({ cardNumbers: [saved.issueNumber], limit: ATLAS_PUBLICATIONS_PER_INSPECT });
+      const ofClaims = rows.filter(({ published }) => published !== null && naming.has(livingPersonClaimKey(published.claim)))
+        .map(({ publicationNumber }) => publicationNumber);
+      matched = ofClaims.slice(0, ATLAS_LIVING_PERSON_MATCHES_PER_RECORD);
+      // Codex's sixth review of 17 Nov 2026 (P2): the pages keep off only this card's publications of these claims,
+      // unless the card has more than one read returns, when the claims stay off on every card.
+      if (rows.length < ATLAS_PUBLICATIONS_PER_INSPECT) unrecorded.scope(saved.issueNumber, ofClaims);
+    } else if (naming.size > 0) {
+      // A card this save created has no publication yet.
+      unrecorded.scope(saved.issueNumber, []);
+    }
+    await this.options.store.recordLivingPerson({ cardNumber: saved.issueNumber, readings, publicationNumbers: matched,
+      at: this.now().toISOString() });
+    unrecorded.recorded(saved.issueNumber, readings.map(({ claimKey }) => claimKey));
   }
 
   async afterSave(saved: SavedFindingsCard): Promise<void> {
@@ -622,23 +703,141 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
         sourceTitles: await cardSourceTitles(saved.record, this.options.sourceTitles),
       });
       if (plan.problems.length === 0 && plan.drafts.length > 0) {
+        // Codex's review of 17 Nov 2026, finding 4: what the save publishes under the setting is stored as such
+        // (migration 0041), so its page says nothing of the quick-answer test whether the setting is on or later turned
+        // off. Finding 1: one its card doesn't declare, as the receipt signed, to name no living person is kept for the
+        // owner in the same write.
+        const showing = this.options.showOnPages === true;
+        const unknown = this.options.livingPersonUnknown ?? "keep";
+        const reading = (findingNumber: number) => livingPersonReading(saved, findingNumber, unknown);
+        const forOwner = (findingNumber: number) => reading(findingNumber) !== "clear";
+        // Codex's re-review of 17 Nov 2026, finding 1 (P0): keeping a finding leaves its own page public, so one that
+        // names a living person is held, with no page, until the owner decides, whatever the setting; one whose card
+        // doesn't say is held too while ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN says hold, or says reader and the meaning
+        // judge read it as naming no one.
+        // The database holds them too, from what is stored for the card when it publishes (recordSave): so a later
+        // save's yes stored meanwhile holds this one.
+        const drafts = plan.drafts.map((draft) => withLivingPersonHold({ ...draft,
+          livingPerson: savedLivingPersonDraft(saved, draft.findingNumber, unknown) },
+        reading(draft.findingNumber) === "names" || (reading(draft.findingNumber) === "unknown" && unknown !== "keep")));
         const rows = await this.options.store.publish({
           cardNumber: saved.issueNumber,
           cardSha256: saved.record.card_sha256,
-          findings: plan.drafts,
+          findings: showing
+            ? drafts.map((draft) => draft.state !== "unreviewed" ? draft : {
+                ...draft, shownBy: "automatic_showing" as const,
+                ...(forOwner(draft.findingNumber) ? { keptReason: LIVING_PERSON_WAITING } : {}),
+              })
+            : drafts,
           publishedAt: this.now().toISOString(),
           revive: false,
         });
-        const waiting = rows.filter(({ outcome, state }) => outcome === "published" && state === "unreviewed")
+        const waiting = rows.filter(({ outcome, state, findingNumber }) => outcome === "published" &&
+          state === "unreviewed" && (!showing || forOwner(findingNumber)))
           .map(({ publicationNumber }) => publicationNumber);
         if (waiting.length > 0) {
+          // While saved findings show at once, kept already by the publishing itself; kept again here, with the same
+          // reason, in case the store's publishing didn't (one whose function predates migration 0041).
           await this.options.store.keep({ publicationNumbers: waiting, atlasNumbers: [], keep: true,
-            reason: QUICK_ANSWER_TEST_WAITING, at: this.now().toISOString() });
+            reason: showing ? LIVING_PERSON_WAITING : QUICK_ANSWER_TEST_WAITING, at: this.now().toISOString() });
         }
       }
     }
     if (failure !== undefined) throw failure;
   }
+}
+
+/** A finding's identity across saves of the same card: its claim as the duplicate check reads it (findingsCardFingerprint). */
+function findingIdentity(claim: string): string {
+  return normalizedFindingsText(withoutDirectionControls(claim));
+}
+
+/**
+ * The key a finding's living-person reading is stored under with its card (migration 0041): the sha256, in hex, of its
+ * claim as the duplicate check reads it, so every save of the card, in any order, finds the same one.
+ */
+export function livingPersonClaimKey(claim: string): string {
+  return createHash("sha256").update(findingIdentity(claim), "utf8").digest("hex");
+}
+
+/**
+ * What a save stores of whether its finding names a living person: yes (namesLivingPerson); no, when its stored card
+ * declares it names no one and the receipt signed that; not_said otherwise. A stored yes is never lowered.
+ */
+export function livingPersonStoredReading(
+  saved: Pick<SavedFindingsCard, "record" | "clearOfLivingPeople" | "judgedNamingLivingPeople">,
+  findingNumber: number,
+): AtlasLivingPersonReading {
+  if (namesLivingPerson(saved, findingNumber)) return "yes";
+  return saved.record.card.findings[findingNumber - 1]?.names_living_person === false &&
+    saved.clearOfLivingPeople.has(findingNumber) ? "no" : "not_said";
+}
+
+/**
+ * What the save path's draft says of a finding for the database to read under lock: its claim's key, what the save
+ * says, and whether one stored as not said is held, as ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN says (with reader, the
+ * meaning judge's no clears it).
+ */
+function savedLivingPersonDraft(saved: SavedFindingsCard, findingNumber: number, unknown: "keep" | "hold" | "reader"):
+  AtlasLivingPersonDraft {
+  return {
+    claimKey: livingPersonClaimKey(saved.record.card.findings[findingNumber - 1]!.claim),
+    reading: livingPersonStoredReading(saved, findingNumber),
+    holdNotSaid: unknown !== "keep" && livingPersonReading(saved, findingNumber, unknown) === "unknown",
+  };
+}
+
+/**
+ * What the owner's publishing (publish_cards) says of a card's finding for the database to read under lock: yes when
+ * its stored card declares it names a living person, not_said otherwise (the owner's route has no receipt), and a
+ * finding stored as not said is not held for it, as before. What a save stored for the card stands: a stored yes holds
+ * the finding here too, and the owner decides it.
+ */
+export function ownerLivingPersonDraft(record: FindingsRecord, findingNumber: number): AtlasLivingPersonDraft {
+  const finding = record.card.findings[findingNumber - 1]!;
+  return { claimKey: livingPersonClaimKey(finding.claim),
+    reading: finding.names_living_person === true ? "yes" : "not_said", holdNotSaid: false };
+}
+
+/**
+ * Whether a saved finding names a living person, as far as the save knows (Codex's re-review of 17 Nov 2026, finding
+ * 1): its stored card declares it does, or the meaning judge read it as naming one, as the receipt signed (`nly`).
+ */
+export function namesLivingPerson(
+  saved: Pick<SavedFindingsCard, "record" | "judgedNamingLivingPeople">,
+  findingNumber: number,
+): boolean {
+  return saved.record.card.findings[findingNumber - 1]?.names_living_person === true ||
+    saved.judgedNamingLivingPeople?.has(findingNumber) === true;
+}
+
+/**
+ * What the save knows of whether a saved finding names a living person: names (namesLivingPerson); clear, when its
+ * stored card declares it names no one and the receipt signed that (`nlp`), or, while ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN
+ * is reader, when its card doesn't say and the meaning judge read it as naming no one (`nln`); unknown otherwise.
+ */
+export function livingPersonReading(
+  saved: Pick<SavedFindingsCard, "record" | "clearOfLivingPeople" | "judgedNamingLivingPeople" | "judgedClearOfLivingPeople">,
+  findingNumber: number,
+  unknown: "keep" | "hold" | "reader",
+): "names" | "clear" | "unknown" {
+  if (namesLivingPerson(saved, findingNumber)) return "names";
+  const declared = saved.record.card.findings[findingNumber - 1]?.names_living_person;
+  if (declared === false && saved.clearOfLivingPeople.has(findingNumber)) return "clear";
+  return unknown === "reader" && declared === undefined && saved.judgedClearOfLivingPeople?.has(findingNumber) === true
+    ? "clear" : "unknown";
+}
+
+/**
+ * A draft held for the owner's decision because it may name a living person (living_person_review), with any reason it
+ * is held for already, or the draft as it is: the save path's own reading (the owner's rule is that such claims
+ * publish only on his explicit decision). The database holds such a finding on every path from what a save stored for
+ * the card (Codex's fourth review of 17 Nov 2026), and only the owner's accept or edit shows it.
+ */
+export function withLivingPersonHold(draft: AtlasPublicationDraft, holds: boolean): AtlasPublicationDraft {
+  if (!holds || draft.state === "accepted" || draft.state === "edited") return draft;
+  const reasons = new Set<AtlasPublicationHoldReason>([...(draft.heldBecause ?? []), "living_person_review"]);
+  return { ...draft, state: "held", heldBecause: ATLAS_PUBLICATION_HOLD_REASONS.filter((reason) => reasons.has(reason)) };
 }
 
 /**
@@ -710,7 +909,8 @@ export async function reconcileCardPublications(input: {
       const target = decidedPublicationState(decision, intents);
       const draft = target === undefined ? undefined
         : decidedPublicationDraft(input.card!.record, decision.itemNumber, target);
-      return draft === undefined ? [] : [draft];
+      // The owner's decision publishes it: the owner's action (Codex's re-review of 17 Nov 2026, finding 4).
+      return draft === undefined ? [] : [{ ...draft, shownBy: "owner_action" as const }];
     });
     if (drafts.length > 0) {
       changed.push(...(await input.store.publish({

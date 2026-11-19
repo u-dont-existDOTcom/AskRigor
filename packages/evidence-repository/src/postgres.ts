@@ -169,6 +169,35 @@ interface ExportedVersion {
   receipts: unknown[];
 }
 
+/**
+ * The edits to an applied migration that migrate admits, each from the digest databases recorded for it to the file's
+ * digest now, and no other (Codex's re-review of 17 Nov 2026, finding 1). Migrations are checksummed, so any other edit
+ * stops the next start with MIGRATION_SHA256_MISMATCH. 0021 replaces its closed list of hold reasons on every start, so
+ * the reason living_person_review is added in 0021 itself, with the list's longest length six: a later migration that
+ * widened the list would be narrowed again by 0021 on the next start. The old digest is 0021 as released; the file less
+ * that reason is exactly it (tests/atlas-publications-store.test.ts). An image whose 0021 is the old one refuses to
+ * start on a database this edit reached, changing nothing, so a rollback image must carry this edit too.
+ */
+export const ADMITTED_MIGRATION_EDITS: Readonly<Record<string, ReadonlyArray<{ from: string; to: string }>>> = {
+  "0021_atlas_publications": [{
+    from: "f52a42ebd1a31f2adcef2ee267ab1a611e24d26afe44a3d9b04e2e7198d08443",
+    to: "95b5d194c5f67e38e9be6d9cb7fcb5469672045ff5a7f22799f387303cd61b15",
+  }],
+};
+
+/**
+ * What migrate does with a migration's recorded digest: records it on its first run, accepts the same digest, records
+ * the file's digest for an admitted edit (ADMITTED_MIGRATION_EDITS), and otherwise refuses.
+ */
+export function migrationDigestOutcome(migrationId: string, recorded: string | undefined, current: string):
+  "first_run" | "same" | "admitted_edit" | "mismatch" {
+  if (recorded === undefined) return "first_run";
+  if (recorded === current) return "same";
+  return Object.hasOwn(ADMITTED_MIGRATION_EDITS, migrationId) &&
+    ADMITTED_MIGRATION_EDITS[migrationId]!.some(({ from, to }) => from === recorded && to === current)
+    ? "admitted_edit" : "mismatch";
+}
+
 function assertSafeSchema(schema: string): string {
   if (!/^[a-z][a-z0-9_]{0,62}$/u.test(schema)) {
     throw new Error("INVALID_POSTGRES_SCHEMA");
@@ -231,6 +260,7 @@ export class PostgresEvidenceRepository {
       "0036_research_use_notice_v6",
       "0037_research_dossiers",
       "0038_research_proposal_idempotency_index",
+      "0041_atlas_show_saved_findings",
     ].map(async (migrationId) => ({
       migrationId,
       sql: await readFile(new URL(`../migrations/${migrationId}.sql`, import.meta.url), "utf8"),
@@ -245,12 +275,18 @@ export class PostgresEvidenceRepository {
           "SELECT migration_sha256 FROM schema_migrations WHERE migration_id = $1",
           [migration.migrationId],
         );
-        if (prior.rowCount === 0) {
+        const outcome = migrationDigestOutcome(migration.migrationId, prior.rows[0]?.migration_sha256, migrationSha256);
+        if (outcome === "first_run") {
           await client.query(
             "INSERT INTO schema_migrations (migration_id, migration_sha256) VALUES ($1, $2)",
             [migration.migrationId, migrationSha256],
           );
-        } else if (prior.rows[0]!.migration_sha256 !== migrationSha256) {
+        } else if (outcome === "admitted_edit") {
+          await client.query(
+            "UPDATE schema_migrations SET migration_sha256 = $2 WHERE migration_id = $1 AND migration_sha256 = $3",
+            [migration.migrationId, migrationSha256, prior.rows[0]!.migration_sha256],
+          );
+        } else if (outcome === "mismatch") {
           throw new Error(`MIGRATION_SHA256_MISMATCH migration=${migration.migrationId}`);
         }
       }

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AtlasFindingPromotionRunner,
   InMemoryAtlasCanonicalStore,
+  InMemoryAtlasPageSource,
   InMemoryAtlasPromotionStore,
   InMemoryAtlasPublicationStore,
   InMemoryAtlasReviewStore,
@@ -14,7 +15,9 @@ import {
 } from "@askrigor/evidence-repository";
 
 import { CONTEXT_REASON, AtlasPublicationReview } from "../apps/research-mcp/src/atlas/publication-review.js";
-import { AtlasCardPublisher, publishedFindingOf } from "../apps/research-mcp/src/atlas/publication.js";
+import { loadAtlasFinding } from "../apps/research-mcp/src/atlas/page-data.js";
+import { QUICK_ANSWER_MISSES_IT, renderAtlasFinding } from "../apps/research-mcp/src/atlas/pages.js";
+import { AtlasCardPublisher, livingPersonClaimKey, publishedFindingOf } from "../apps/research-mcp/src/atlas/publication.js";
 import { AtlasReview } from "../apps/research-mcp/src/findings/atlas-review.js";
 import { findingsCardDigest, findingsCardSchema, laterFindingsCardSchema } from "../apps/research-mcp/src/findings/card.js";
 import { GitHubFindingsReview } from "../apps/research-mcp/src/findings/github-findings-review.js";
@@ -30,6 +33,7 @@ import {
   createResearchContributionReviewHandler,
   researchContributionReviewInputSchema,
   researchContributionReviewOutputSchema,
+  researchContributionReviewRuntimeOutputSchema,
 } from "../apps/research-mcp/src/research-contribution-review-tool.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { LOW_DOSE_CARD, VELMOR_CARD } from "./helpers/atlas-scenario.js";
@@ -141,7 +145,10 @@ function harness(options: {
     later: (minutes: number) => { instant += minutes * 60_000; },
     async call(input: Record<string, unknown>, auth: unknown = owner()): Promise<Reply> {
       const result = await handler(input, auth as never);
-      const structured = researchContributionReviewOutputSchema.parse(result.structuredContent) as Record<string, any>;
+      // The runtime-only actions (keep_for_research, show_on_pages) answer in the runtime's own fields.
+      const runtime = ["keep_for_research", "show_on_pages", "list_kept"].includes(String(input.action));
+      const structured = (runtime ? researchContributionReviewRuntimeOutputSchema : researchContributionReviewOutputSchema)
+        .parse(result.structuredContent) as Record<string, any>;
       expect(structured.canonicalEvidenceChangedByThisCall).toBe(false);
       return {
         isError: result.isError === true,
@@ -383,7 +390,7 @@ describe("the publications through the owner's review", () => {
     await h.save(DOI_CARD, null);
     await h.save(VELMOR_CARD, PAID);
     expect(await states(h)).toEqual([]);
-    const published = await h.call({ action: "publish_cards", cards: ["ARF-0042", "ARF-0043", "ARF-0099"] });
+    const published = await h.call({ action: "publish_cards", shown_by: "owner", cards: ["ARF-0042", "ARF-0043", "ARF-0099"] });
     expect(published.structured.publications.cards).toEqual([
       { card: "ARF-0042", outcome: "published", problems: [], leftOut: [], publications: ["P-1001"] },
       { card: "ARF-0043", outcome: "not_published", problems: ["not_free_contributor"], leftOut: [], publications: [] },
@@ -392,11 +399,169 @@ describe("the publications through the owner's review", () => {
     expect(published.text).toContain("ARF-0042: finding 1 published as P-1001 (published, not checked by supervisors yet).");
     expect(published.text).toContain("ARF-0043 is not published: it was saved in paid private mode, so its findings " +
       "wait for your acceptance.");
-    expect((await h.call({ action: "publish_cards", cards: ["ARF-0042"] })).structured.publications.cards[0])
+    expect((await h.call({ action: "publish_cards", shown_by: "owner", cards: ["ARF-0042"] })).structured.publications.cards[0])
       .toMatchObject({ outcome: "already_published", publications: ["P-1001"] });
     await h.call({ action: "set_aside_cards", cards: ["ARF-0042"] });
-    expect((await h.call({ action: "publish_cards", cards: ["ARF-0042"] })).structured.publications.cards[0])
+    expect((await h.call({ action: "publish_cards", shown_by: "owner", cards: ["ARF-0042"] })).structured.publications.cards[0])
       .toMatchObject({ outcome: "not_published", problems: ["set_aside"] });
+  });
+
+  // Codex's re-review of 17 Nov 2026, finding 1 (P0): what the save holds because it may name a living person is
+  // listed to the owner with that reason. Its fourth review (P0s): the database holds a finding stored as naming one at
+  // the moment anything publishes it, so publish_cards, which the review login shared with the scheduled test can call,
+  // holds it too; the owner decides it with accept_finding.
+  it("lists a finding held because it may name a living person, and publish_cards holds one too", async () => {
+    const h = harness();
+    const declared = { ...VELMOR_CARD, findings: VELMOR_CARD.findings.map((finding, index) =>
+      ({ ...finding, names_living_person: index === 0 })) };
+    await h.save(declared, FREE, {});
+    const listed = await h.call({ action: "list_publications", publicationState: "held" });
+    expect(listed.structured.publications.items).toEqual([expect.objectContaining({ publication: "P-1001",
+      card: "ARF-0042", finding: 1, state: "held", heldBecause: ["living_person_review"] })]);
+    expect(listed.text).toContain("P-1001 (ARF-0042 finding 1), held for the owner: it holds a claim that may name a " +
+      "living person: ");
+    // A card whose account's cards aren't published at their save, which publish_cards publishes: held all the same.
+    await h.save({ ...DOI_CARD, findings: [{ ...DOI_CARD.findings[0]!, names_living_person: true }] }, null, {});
+    const published = await h.call({ action: "publish_cards", shown_by: "owner", cards: ["ARF-0043"] });
+    expect(published.text).toContain("ARF-0043: finding 1 published as P-1003 (held for the owner: it holds a claim " +
+      "that may name a living person).");
+  });
+
+  // Codex's fifth review of 17 Nov 2026 (P1s): publish_cards says who acts, as show_on_pages does, and never assumes the
+  // owner; and the owner's show_on_pages of a held finding says that it stays held, with no page, never that it shows.
+  it("refuses a publish_cards that doesn't say the owner acts, and says a showing leaves a held finding held", async () => {
+    const h = harness();
+    await h.save({ ...DOI_CARD, findings: [{ ...DOI_CARD.findings[0]!, names_living_person: true }] }, null, {});
+    for (const [extra, text] of [[{}, "publish_cards needs later_inputs.shown_by: owner, when AskRigor's owner " +
+      "publishes them, which records his decision. Nothing was changed."], [{ shown_by: "quick_answer_test" },
+      "publish_cards is AskRigor's owner's decision: only later_inputs.shown_by owner publishes cards. Nothing was " +
+      "changed."]] as const) {
+      const reply = await h.call({ action: "publish_cards", cards: ["ARF-0042"], ...extra });
+      expect(reply.isError).toBe(true);
+      expect(reply.text).toBe(text);
+    }
+    expect(await h.publications.inspect({})).toEqual([]);
+    const published = await h.call({ action: "publish_cards", shown_by: "owner", cards: ["ARF-0042"] });
+    expect(published.text).toContain("ARF-0042: finding 1 published as P-1001 (held for the owner: it holds a claim " +
+      "that may name a living person).");
+    const shown = await h.call({ action: "show_on_pages", items: ["P-1001"], shown_by: "owner" });
+    expect(shown.structured).toMatchObject({ ok: false, kept: { items: [{ publication: "P-1001", state: "held" }] } });
+    expect(shown.structured).not.toHaveProperty("outcome");
+    expect(shown.text).toBe("0 of 1 publication(s) shown on the pages again; 1 not, so its page answers not found. " +
+      "P-1001: held, with no page: it may name a living person, and only your accept_finding or edit_finding shows it.");
+    expect(shown.text).not.toContain("on the pages again.");
+  });
+
+  // Codex's third review of 17 Nov 2026, finding 1: a later save never undoes what the owner decided, so his list says
+  // instead that a later save marks the finding as possibly naming a living person.
+  it("tells the owner when a later save marks a finding he decided as possibly naming a living person", async () => {
+    const h = harness();
+    await h.save(VELMOR_CARD, FREE, {});
+    await h.publications.decide({ cardNumber: 42, findingNumber: 1, state: "accepted", atlasNumber: "F-1007",
+      decidedAt: "2026-11-04T09:00:00.000Z" });
+    expect((await h.publications.recordLivingPerson({ cardNumber: 42, publicationNumbers: [],
+      readings: VELMOR_CARD.findings.map(({ claim }) => ({ claimKey: livingPersonClaimKey(claim), reading: "yes" as const })),
+      at: "2026-11-04T09:00:00.000Z" }))
+      .map(({ outcome }) => outcome)).toEqual(["noted", "held"]);
+    const listed = await h.call({ action: "list_publications" });
+    expect(listed.text).toContain("P-1001: a later save marks this finding as possibly naming a living person. It " +
+      "stays as you decided it; unpublish_finding takes it off the pages.");
+    expect(listed.text).not.toContain("P-1002: a later save");
+    // A store whose notes can't be read lists the rest and says so.
+    h.publications.inspectLivingPersonNotes = async () => { throw new Error("permission denied"); };
+    expect((await h.call({ action: "list_publications" })).text).toContain("Whether a later save marked any of " +
+      "these as possibly naming a living person could not be read just now.");
+  });
+
+  // Codex's fourth review of 17 Nov 2026 (P1s): the owner and the scheduled quick-answer test share one review login, so
+  // a showing that didn't say who acted was taken for the owner's, and a later showing replaced his. Each showing now
+  // says who acts, and the owner's decision is kept apart from the latest showing. Codex's sequence: the owner shows a
+  // finding, it is kept, the test shows it, and a later save says it names a living person.
+  it("keeps the owner's decision to show a finding when the test shows it later and a later save says yes", async () => {
+    const h = harness();
+    const clear = { ...VELMOR_CARD, findings: VELMOR_CARD.findings.map((finding) => ({ ...finding,
+      names_living_person: false })) };
+    await h.save(clear, FREE, { nlp: ["1", "2"] });
+    expect((await h.publications.inspectKept()).map(({ publicationNumber }) => publicationNumber)).toEqual(["P-1001", "P-1002"]);
+    // A showing that doesn't say who acts is refused, and changes nothing.
+    const unsaid = await h.call({ action: "show_on_pages", items: ["P-1001"] });
+    expect(unsaid.isError).toBe(true);
+    expect(unsaid.text).toBe("show_on_pages needs later_inputs.shown_by: owner when AskRigor's owner shows them, or " +
+      "quick_answer_test, with later_inputs.quick_answer_verdict, when the quick-answer test does. Nothing was changed.");
+    expect(h.publications.isKept("P-1001")).toBe(true);
+    // The owner shows P-1001.
+    const owner = await h.call({ action: "show_on_pages", items: ["P-1001"], shown_by: "owner" });
+    expect(owner.text).toContain("Each is recorded as shown by AskRigor's owner, his decision, which a later save never " +
+      "undoes.");
+    expect(h.publications.ownerDecisionOf("P-1001")).toEqual({ decision: "shown", decidedAt: "2026-11-04T09:00:00.000Z" });
+    // It is kept again, and the test shows it with its verdict, and shows P-1002 too.
+    h.later(5);
+    await h.call({ action: "keep_for_research", reason: "owner answer 240a: quick-answer test, passed, waiting for the " +
+      "whole picture", items: ["P-1001"] });
+    const tested = await h.call({ action: "show_on_pages", items: ["P-1001", "P-1002"],
+      shown_by: "quick_answer_test", quick_answer_verdict: "pass" });
+    expect(tested.text).toContain("Each is recorded as shown by the quick-answer test, with its verdict: pass.");
+    expect([h.publications.shownByOf("P-1001"), h.publications.testVerdictOf("P-1001")]).toEqual(["quick_answer_test", "pass"]);
+    // The owner's decision is stored apart, and the test's showing didn't replace it.
+    expect(h.publications.ownerDecisionOf("P-1001")).toEqual({ decision: "shown", decidedAt: "2026-11-04T09:00:00.000Z" });
+    expect(h.publications.ownerDecisionOf("P-1002")).toBeNull();
+    // A later save says both name a living person: the owner's decision stands, with a line on his list; the one only
+    // the test showed is held.
+    const yes = await h.save({ ...clear, findings: clear.findings.map((finding) => ({ ...finding,
+      names_living_person: true })) }, FREE, {});
+    expect(yes).toMatchObject({ status: "existing_card", card_id: "ARF-0042" });
+    expect((await h.publications.inspect({ cardNumbers: [42] })).map(({ publicationNumber, state }) =>
+      [publicationNumber, state]).sort()).toEqual([["P-1001", "unreviewed"], ["P-1002", "held"]]);
+    const listed = await h.call({ action: "list_publications" });
+    expect(listed.text).toContain("P-1001: a later save marks this finding as possibly naming a living person. It " +
+      "stays as you decided it; unpublish_finding takes it off the pages.");
+    expect(listed.text).not.toContain("P-1002: a later save");
+  });
+
+  it("refuses a showing that says who acts wrongly, and keeps who shows a finding to the showing itself", async () => {
+    const h = harness();
+    await h.save(VELMOR_CARD, FREE);
+    for (const [laterInputs, text] of [
+      [{ shown_by: "owner", quick_answer_verdict: "pass" }, "show_on_pages by the owner takes no " +
+        "quick_answer_verdict: only the quick-answer test gives one. Nothing was changed."],
+      [{ shown_by: "quick_answer_test" }, "show_on_pages by the quick-answer test needs " +
+        "later_inputs.quick_answer_verdict: pass, headline or fail. Nothing was changed."],
+      [{ quick_answer_verdict: "pass" }, "show_on_pages needs later_inputs.shown_by: owner when AskRigor's owner " +
+        "shows them, or quick_answer_test, with later_inputs.quick_answer_verdict, when the quick-answer test does. " +
+        "Nothing was changed."],
+    ] as const) {
+      const refused = await h.call({ action: "show_on_pages", items: ["P-1001"], ...laterInputs });
+      expect(refused.isError, JSON.stringify(laterInputs)).toBe(true);
+      expect(refused.text).toBe(text);
+    }
+    expect(h.publications.isKept("P-1001")).toBe(true);
+    const wrongAction = await h.call({ action: "keep_for_research", reason: "owner answer 240a",
+      items: ["P-1001"], shown_by: "owner" });
+    expect(wrongAction.isError).toBe(true);
+    expect(wrongAction.text).toContain("keep_for_research does not take shown_by");
+  });
+
+  // Codex's re-review of 17 Nov 2026, finding 4: publish_cards stored no route, and its page said the quick-answer test
+  // had happened. The owner's publishing, and the publication an acceptance makes, are stored as the owner's action.
+  it("stores what the owner publishes as the owner's action, and its page says nothing of the quick-answer test", async () => {
+    await stubProviders();
+    const h = harness();
+    await h.save(DOI_CARD, null);
+    await h.save(VELMOR_CARD, PAID);
+    const published = await h.call({ action: "publish_cards", shown_by: "owner", cards: ["ARF-0042"] });
+    expect(published.structured.publications.cards[0]).toMatchObject({ outcome: "published", publications: ["P-1001"] });
+    expect(h.publications.shownByOf("P-1001")).toBe("owner_action");
+    const page = renderAtlasFinding((await loadAtlasFinding(new InMemoryAtlasPageSource({ publications: h.publications }),
+      "P-1001"))!);
+    expect(page).toContain("AskRigor’s owner has not reviewed it yet.");
+    expect(page).not.toContain(QUICK_ANSWER_MISSES_IT);
+    // A paid private card's finding the owner accepts is published by that decision: the owner's action too.
+    const accept = await h.call({ action: "accept_finding", card: "ARF-0043", finding: 1,
+      cardSha256: await cardSha256Of(h, "ARF-0043", 1) });
+    expect(accept.structured.outcome, accept.text).toBe("finding_queued");
+    const [decided] = await h.publications.inspect({ cardNumbers: [43] });
+    expect(decided).toMatchObject({ state: "accepted" });
+    expect(h.publications.shownByOf(decided!.publicationNumber)).toBe("owner_action");
   });
 
   it("files topicless publications under the owner's topic in place, keeping their P numbers", async () => {
@@ -409,7 +574,7 @@ describe("the publications through the owner's review", () => {
     const publish = vi.spyOn(h.publications, "publish");
     const topicKey = "medicinal-plants.overlooked-clinical-leads";
     const topicLabel = "Overlooked medicinal plants with human clinical evidence";
-    const reply = await h.call({ action: "publish_cards", cards: ["ARF-0042"], topicKey, topicLabel });
+    const reply = await h.call({ action: "publish_cards", shown_by: "owner", cards: ["ARF-0042"], topicKey, topicLabel });
     expect(reply.isError, reply.text).toBe(false);
     const after = await h.publications.inspect({ cardNumbers: [42] });
     expect(after.map(({ publicationNumber }) => publicationNumber)).toEqual(before.map(({ publicationNumber }) => publicationNumber));
@@ -423,7 +588,7 @@ describe("the publications through the owner's review", () => {
     expect(reply.text).toContain("published again");
     expect(reply.text).toContain(topicLabel);
     expect(reply.text).toContain(topicKey);
-    expect((await h.call({ action: "publish_cards", cards: ["ARF-0042"], topicKey, topicLabel })).isError).toBe(false);
+    expect((await h.call({ action: "publish_cards", shown_by: "owner", cards: ["ARF-0042"], topicKey, topicLabel })).isError).toBe(false);
     expect(withdraw).toHaveBeenCalledTimes(1);
   });
 
@@ -444,7 +609,7 @@ describe("the publications through the owner's review", () => {
     const before = await h.publications.inspect({ cardNumbers: [42] });
     expect(before.map(({ published }) => published?.schema)).toEqual(["askrigor.atlas-publication.v1", "askrigor.atlas-publication.v1"]);
     const withdraw = vi.spyOn(h.publications, "withdraw");
-    const reply = await h.call({ action: "publish_cards", cards: ["ARF-0042"] });
+    const reply = await h.call({ action: "publish_cards", shown_by: "owner", cards: ["ARF-0042"] });
     expect(reply.isError, reply.text).toBe(false);
     expect(asked).toEqual([{ providers: PROVIDERS, sources: VELMOR_CARD.findings.map(({ sources }) => sources[0]!) }]);
     const after = await h.publications.inspect({ cardNumbers: [42] });
@@ -462,7 +627,7 @@ describe("the publications through the owner's review", () => {
       publicationNumbers: before.map(({ publicationNumber }) => publicationNumber).sort() }));
     expect(reply.text).toContain(`ARF-0042: P-1001 and P-1002 now show their card's question and usual answer`);
     // Once it is there, publish_cards changes nothing.
-    expect((await h.call({ action: "publish_cards", cards: ["ARF-0042"] })).structured.publications.cards[0])
+    expect((await h.call({ action: "publish_cards", shown_by: "owner", cards: ["ARF-0042"] })).structured.publications.cards[0])
       .toMatchObject({ outcome: "already_published" });
     expect(withdraw).toHaveBeenCalledTimes(1);
   });
@@ -477,7 +642,7 @@ describe("the publications through the owner's review", () => {
     await h.publications.withdraw({ reason: "owner_unpublished", publicationNumbers: ["P-1001"], ownerReason: CONTEXT_REASON,
       withdrawnAt: "2026-11-04T08:30:00.000Z" });
     expect(await states(h)).toEqual([["P-1001", 42, 1, "withdrawn", null]]);
-    const reply = await h.call({ action: "publish_cards", cards: ["ARF-0042"] });
+    const reply = await h.call({ action: "publish_cards", shown_by: "owner", cards: ["ARF-0042"] });
     expect(reply.isError, reply.text).toBe(false);
     expect(await states(h)).toEqual([["P-1001", 42, 1, "unreviewed", null]]);
     expect((await h.publications.inspect({}))[0]!.published).toMatchObject({ schema: "askrigor.atlas-publication.v2",
@@ -485,7 +650,7 @@ describe("the publications through the owner's review", () => {
     // One unpublished for another reason stays down until the owner publishes it again by name.
     await h.publications.withdraw({ reason: "owner_unpublished", publicationNumbers: ["P-1001"], ownerReason: "Not now.",
       withdrawnAt: "2026-11-04T09:30:00.000Z" });
-    await h.call({ action: "publish_cards", cards: ["ARF-0042"] });
+    await h.call({ action: "publish_cards", shown_by: "owner", cards: ["ARF-0042"] });
     expect((await h.publications.inspect({}))[0]!.published).toMatchObject({ schema: "askrigor.atlas-publication.v2" });
   });
 
@@ -517,7 +682,7 @@ describe("the publications through the owner's review", () => {
       },
       now: () => new Date("2026-11-04T09:00:00.000Z"),
     });
-    const result = await review.run({ action: "publish_cards", cards: ["ARF-0042"] });
+    const result = await review.run({ action: "publish_cards", shown_by: "owner", cards: ["ARF-0042"] });
     expect(result.ok).toBe(true);
     expect(result.text).toContain("ARF-0042: P-1001 keeps its published fields: its card's question or usual answer holds " +
       "an email address, which the pages never show.");
@@ -545,7 +710,7 @@ describe("the publications through the owner's review", () => {
     const { topic: _topic, ...card } = DOI_CARD;
     await h.save(card, null);
     await h.save(VELMOR_CARD, null);
-    const reply = await h.call({ action: "publish_cards", cards: ["ARF-0042", "ARF-0043"],
+    const reply = await h.call({ action: "publish_cards", shown_by: "owner", cards: ["ARF-0042", "ARF-0043"],
       topicKey: "plants", topicLabel: "Medicinal plants" });
     expect(reply.isError, reply.text).toBe(false);
     expect((await h.publications.inspect({ cardNumbers: [42] }))[0]?.published?.topic)
@@ -559,7 +724,7 @@ describe("the publications through the owner's review", () => {
     const h = harness();
     const { topic: _topic, ...card } = DOI_CARD;
     await h.save(card, null);
-    const call = (extra: object) => h.call({ action: "publish_cards", cards: ["ARF-0042"], ...extra });
+    const call = (extra: object) => h.call({ action: "publish_cards", shown_by: "owner", cards: ["ARF-0042"], ...extra });
     for (const extra of [{ topicKey: "plants" }, { topicLabel: "Plants" },
       { topicKey: "Bad key", topicLabel: "Plants" }, { topicKey: "plants", topicLabel: "x".repeat(201) }]) {
       expect((await call(extra)).isError).toBe(true);
@@ -582,7 +747,7 @@ describe("the publications through the owner's review", () => {
     const h = harness();
     const { topic: _topic, ...card } = DOI_CARD;
     await h.save(card, null);
-    const reply = await h.call({ action: "publish_cards", cards: ["ARF-0042"], topicKey, topicLabel });
+    const reply = await h.call({ action: "publish_cards", shown_by: "owner", cards: ["ARF-0042"], topicKey, topicLabel });
     expect(reply.isError, reply.text).toBe(false);
     expect((await h.publications.inspect({}))[0]).toMatchObject({ state: "held", heldBecause: [heldBecause] });
   });
@@ -642,7 +807,7 @@ describe("the publications through the owner's review", () => {
     expect(listed.structured.publications.waitingToPublish).toEqual(["ARF-0042"]);
     expect(listed.text).toContain("Saved for publishing but not published (its publishing did not complete): ARF-0042. " +
       "publish_cards publishes it.");
-    await h.call({ action: "publish_cards", cards: ["ARF-0042"] });
+    await h.call({ action: "publish_cards", shown_by: "owner", cards: ["ARF-0042"] });
     expect((await h.call({ action: "list_publications" })).structured.publications).toMatchObject({
       items: [{ publication: "P-1001", card: "ARF-0042" }], waitingToPublish: [] });
   });

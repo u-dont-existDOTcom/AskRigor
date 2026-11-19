@@ -635,6 +635,22 @@ depends on the AI declaring truthfully. The receipt from `get_youtube_comments` 
 (`youtube_comments_read`) counts only here: it is no audit, so community evidence is checked as before. An AI that
 leaves the receipt out gets no hold on a finding that declares nothing, as with any receipt left out.
 
+Codex's review of 17 November 2026, finding 1, adds one more declaration and no blocking rule: each finding may say
+whether it names a living person (`names_living_person`, true or false), in the card's later shape. Only while
+`ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS=enabled`, the finalization receipt signs the places of the findings declared false
+(`nlp`), less any the meaning judge reads as naming one (it is asked that only then, in its one call), and a free
+contributor's public card whose findings don't all declare it gets a note asking for it. A finding the receipt doesn't
+sign this way is kept off the Atlas's pages for the owner's decision instead of showing at once. Codex's re-review of
+the same day: the receipt also signs the places the meaning judge reads as naming a living person (`nly`), and the save
+holds a finding whose card declares true, or whose place `nly` signs, for the owner (`living_person_review`), with no
+page, whatever the setting. Two settings wait for the owner's answer to question 346 and change nothing while unset.
+With `ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN` set to `hold` or `reader`, the receipt signs as above even with saved
+findings not shown at once, and the judge's no is signed too (`nln`): under `hold` a finding that declares nothing is
+held like a yes, and under `reader` the judge's no lets it go on while its yes, or no reading, holds it; the judge is
+asked in the call it already makes, so no call is added. With `ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION=on` the note
+asking for the declaration is given even with saved findings not shown at once, in words true to the settings
+(`livingPersonNote`).
+
 Owner answer 221 (2 November 2026) adds the meaning judge, for the owner's dev accounts only, and no blocking rule.
 Exact comparisons cannot judge meaning, so once a dev account's check passes, AskRigor makes one Claude API call
 (`apps/research-mcp/src/meaning-judge.ts`; `claude-opus-5-5` at effort low by default, structured JSON output, a fixed

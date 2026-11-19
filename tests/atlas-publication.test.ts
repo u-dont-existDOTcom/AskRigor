@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   EARLIER_RESEARCH_USE_NOTICE_VERSIONS,
@@ -7,16 +7,19 @@ import {
   RESEARCH_USE_NOTICE_VERSION,
   type AtlasIntentView,
   type AtlasPublicationStore,
+  type AtlasPageReads,
 } from "@askrigor/evidence-repository";
 
 import {
   AtlasCardPublisher,
+  LIVING_PERSON_WAITING,
   QUICK_ANSWER_TEST_WAITING,
   accountPublicationProblems,
   cardPublicationProblems,
   decidedPublicationDraft,
   decidedPublicationState,
   drawnFromYouTubeComments,
+  livingPersonClaimKey,
   planCardPublication,
   publicationHoldReasons,
   publishedFindingOf,
@@ -26,15 +29,28 @@ import {
 import {
   findingsCardDigest,
   findingsCardSchema,
+  laterFindingsCardSchema,
   withoutYouTubeData,
   type StoredFinding,
 } from "../apps/research-mcp/src/findings/card.js";
+import { AtlasChangeSignal } from "../apps/research-mcp/src/atlas/change-signal.js";
+import {
+  UnrecordedLivingPersonClaims,
+  withoutUnrecordedLivingPerson,
+} from "../apps/research-mcp/src/atlas/living-person-pending.js";
 import { parseMarker } from "../apps/research-mcp/src/findings/github-findings.js";
+import { parseFindingsRecordBody } from "../apps/research-mcp/src/findings/github-findings-review.js";
 import { GitHubFindingsQueue } from "../apps/research-mcp/src/findings/github-findings.js";
 import {
   DEFAULT_FINDINGS_REPOSITORY,
   createAtlasPublicationStoreFromEnv,
 } from "../apps/research-mcp/src/findings/runtime.js";
+import {
+  atlasLivingPersonDeclarationFromEnv,
+  atlasLivingPersonUnknownFromEnv,
+} from "../apps/research-mcp/src/config.js";
+import { findingsSaveToolResult } from "../apps/research-mcp/src/findings/connector-tool.js";
+import type { FindingsSaveResult } from "../apps/research-mcp/src/findings/contracts.js";
 import {
   FindingsSaveService,
   type FindingsRecord,
@@ -320,7 +336,9 @@ describe("publishing at the save", () => {
   const CONTEXT = (account?: FindingsSaveAccount): FindingsSaveContext =>
     ({ surface: "/mcp/claude", toolCatalogSha256: "c".repeat(64), ...(account === undefined ? {} : { account }) });
 
-  function harness(store: AtlasPublicationStore = new InMemoryAtlasPublicationStore(), sourceTitles?: AtlasSourceTitleLookup) {
+  function harness(store: AtlasPublicationStore = new InMemoryAtlasPublicationStore(), sourceTitles?: AtlasSourceTitleLookup,
+    publisher: { showOnPages?: boolean; livingPersonUnknown?: "keep" | "hold" | "reader";
+      unrecorded?: UnrecordedLivingPersonClaims } = {}) {
     const github = new FakeGitHub();
     const service = new FindingsSaveService({
       receiptSecret: () => SECRET,
@@ -334,10 +352,12 @@ describe("publishing at the save", () => {
       version: "0.1.0",
       build: "0123abc",
       now: () => NOW,
-      publisher: new AtlasCardPublisher({ store, now: () => NOW, ...(sourceTitles === undefined ? {} : { sourceTitles }) }),
+      publisher: new AtlasCardPublisher({ store, now: () => NOW, ...(sourceTitles === undefined ? {} : { sourceTitles }),
+        ...publisher }),
     });
     const save = (card: object, account: FindingsSaveAccount | undefined, thread = "1", receiptClaims: object = {}) => {
-      const parsed = findingsCardSchema.parse(card);
+      // The card as the save reads it, its later shape's declarations included.
+      const parsed = laterFindingsCardSchema.parse(card);
       return service.save({
         findings_card: card,
         contributor: thread.padStart(64, "0"),
@@ -429,8 +449,406 @@ describe("publishing at the save", () => {
       expect.objectContaining({ publicationNumber: "P-1001", state: "unreviewed", reason: QUICK_ANSWER_TEST_WAITING }),
       expect.objectContaining({ publicationNumber: "P-1002", state: "unreviewed", reason: QUICK_ANSWER_TEST_WAITING }),
     ]);
-    await h.store.keep({ publicationNumbers: ["P-1001"], atlasNumbers: [], keep: false, reason: null, at: NOW.toISOString() });
+    await h.store.keep({ publicationNumbers: ["P-1001"], atlasNumbers: [], keep: false, reason: null, at: NOW.toISOString(),
+      route: { by: "owner_action" } });
     expect((await h.store.inspectKept()).map(({ publicationNumber }) => publicationNumber)).toEqual(["P-1002"]);
+    // With the setting off, nothing says it was shown at once (Codex's review of 17 Nov 2026, finding 4): the one still
+    // kept has no route, and the one the owner's showing showed again, saying so, was shown by the owner's action.
+    const store = h.store as InMemoryAtlasPublicationStore;
+    expect([store.shownByOf("P-1001"), store.shownByOf("P-1002")]).toEqual(["owner_action", null]);
+  });
+
+  it("shows a saved finding at once, unreviewed, while saved findings show on the pages (the owner, 17 Nov 2026)", async () => {
+    const h = harness(undefined, undefined, { showOnPages: true });
+    let kept = 0;
+    const keep = h.store.keep.bind(h.store);
+    h.store.keep = async (input) => { kept += 1; return await keep(input); };
+    // Each finding declares it names no living person, as the receipt signed (Codex's review of 17 Nov 2026, finding 1).
+    const declared = { ...VELMOR_CARD, findings: VELMOR_CARD.findings.map((finding) => ({ ...finding, names_living_person: false })) };
+    await expect(h.save(declared, FREE, "1", { nlp: ["1", "2"] })).resolves.toMatchObject({ status: "saved", card_id: "ARF-0042" });
+    await h.service.publicationsSettled();
+    expect((await h.store.inspect({})).map(({ publicationNumber, state }) => [publicationNumber, state]))
+      .toEqual([["P-1002", "unreviewed"], ["P-1001", "unreviewed"]]);
+    expect(await h.store.inspectKept()).toEqual([]);
+    expect(kept).toBe(0);
+    // Each is stored as shown at once, so its page says so after the setting is turned off (Codex's review of 17 Nov
+    // 2026, finding 4).
+    const store = h.store as InMemoryAtlasPublicationStore;
+    expect([store.shownByOf("P-1001"), store.shownByOf("P-1002")]).toEqual(["automatic_showing", "automatic_showing"]);
+    // The owner's own actions are as before: keep_for_research keeps it, and show_on_pages shows it again.
+    await h.store.keep({ publicationNumbers: ["P-1001"], atlasNumbers: [], keep: true, reason: "owner's choice",
+      at: NOW.toISOString() });
+    expect((await h.store.inspectKept()).map(({ publicationNumber }) => publicationNumber)).toEqual(["P-1001"]);
+  });
+
+  // Codex's review of 17 Nov 2026, finding 1 (P0): with saved findings shown at once, a synthetic claim about a named
+  // living person passed the privacy screen and showed unreviewed. The owner's rule: claims about named living people
+  // publish only on his explicit decision. A finding shows at once only when its card declares that it names no living
+  // person and the final check's receipt signed it so (nlp); any other is kept off the pages for the owner.
+  it("keeps a finding for the owner unless its card declares, as its receipt signed, that it names no living person", async () => {
+    const named = { ...VELMOR_CARD.findings[0]!, claim: "LIVINGPERSON Dr Invented Zentaro, a living cardiologist, " +
+      "said zentarine 20 mg halved the tremor score in 60 of 240 against 36 of 240 on placebo over 12 weeks." };
+    const card = (declared: boolean | undefined) => ({ ...VELMOR_CARD, findings: [
+      { ...named, ...(declared === undefined ? {} : { names_living_person: declared }) },
+      { ...VELMOR_CARD.findings[1]!, names_living_person: false },
+    ] });
+    const outcome = async (cardGiven: object, claims: object, store?: AtlasPublicationStore) => {
+      const h = harness(store, undefined, { showOnPages: true });
+      await expect(h.save(cardGiven, FREE, "1", claims)).resolves.toMatchObject({ status: "saved" });
+      await h.service.publicationsSettled();
+      const kept = new Map((await h.store.inspectKept()).map(({ publicationNumber, reason }) => [publicationNumber, reason]));
+      return (await h.store.inspect({})).sort((left, right) => left.findingNumber - right.findingNumber)
+        .map(({ findingNumber, state, heldBecause, publicationNumber }) =>
+          [findingNumber, state, heldBecause, kept.get(publicationNumber) ?? "shown"]);
+    };
+    const keptFirst = [[1, "unreviewed", null, LIVING_PERSON_WAITING], [2, "unreviewed", null, "shown"]];
+    // No declaration, as an older app's card: kept for the owner.
+    expect(await outcome(card(undefined), { nlp: ["2"] })).toEqual(keptFirst);
+    // Declared to name one: held for the owner, with no page (Codex's re-review of 17 Nov 2026, finding 1).
+    expect(await outcome(card(true), { nlp: ["2"] })).toEqual([[1, "held", ["living_person_review"], "shown"],
+      [2, "unreviewed", null, "shown"]]);
+    // Declared to name none, but the receipt didn't sign it so (the meaning judge read it as naming one): kept.
+    expect(await outcome(card(false), { nlp: ["2"] })).toEqual(keptFirst);
+    // A receipt from before the declaration was signed signs none: both kept.
+    expect(await outcome(card(false), {})).toEqual([[1, "unreviewed", null, LIVING_PERSON_WAITING],
+      [2, "unreviewed", null, LIVING_PERSON_WAITING]]);
+    // A receipt signing a place the card doesn't declare free of living people shows nothing of it.
+    expect(await outcome(card(undefined), { nlp: ["1", "2"] })).toEqual(keptFirst);
+    // Declared to name none and signed so: shown at once.
+    expect(await outcome(card(false), { nlp: ["1", "2"] })).toEqual([[1, "unreviewed", null, "shown"],
+      [2, "unreviewed", null, "shown"]]);
+    // A finding held for its text stays held, as before.
+    const reference = { ...VELMOR_CARD, findings: [{ ...named, why_not_usual: "As ARF-0142 also found." }] };
+    expect(await outcome(reference, {})).toEqual([[1, "held", ["card_reference"], "shown"]]);
+    // Kept in the publishing itself, so a keep that fails afterwards never leaves it shown.
+    const failing = new InMemoryAtlasPublicationStore();
+    failing.keep = async () => { throw new Error("keep failed"); };
+    expect(await outcome(card(undefined), { nlp: ["2"] }, failing)).toEqual(keptFirst);
+  });
+
+  it("keeps a finding's living-person declaration on its stored card, which still reads as the check signed it", async () => {
+    const h = harness(undefined, undefined, { showOnPages: true });
+    const card = { ...VELMOR_CARD, findings: VELMOR_CARD.findings.map((finding) => ({ ...finding, names_living_person: false })) };
+    await h.save(card, FREE, "1", { nlp: ["1", "2"] });
+    await h.service.publicationsSettled();
+    const body = h.github.issue(42).body;
+    const read = parseFindingsRecordBody(body, "card");
+    expect(read).not.toBe("tampered");
+    expect(read !== "tampered" && read?.record.card.findings.map(({ names_living_person: declared }) => declared))
+      .toEqual([false, false]);
+  });
+
+  it("holds nothing for an undeclared finding while saved findings wait for the quick-answer test, as before", async () => {
+    const h = harness();
+    await h.save(VELMOR_CARD, FREE);
+    await h.service.publicationsSettled();
+    expect((await h.store.inspect({})).map(({ state, heldBecause }) => [state, heldBecause]))
+      .toEqual([["unreviewed", null], ["unreviewed", null]]);
+    expect((await h.store.inspectKept()).map(({ reason }) => reason)).toEqual([QUICK_ANSWER_TEST_WAITING, QUICK_ANSWER_TEST_WAITING]);
+  });
+
+  // Codex's re-review of 17 Nov 2026, finding 1 (P0): a kept finding's own page stays public, so a finding whose card
+  // declares that it names a living person, or that the meaning judge read as naming one (its receipt signs nly), is
+  // held for the owner on every path but the owner's own, with no page until the owner decides, whether saved findings
+  // show at once or wait for the quick-answer test.
+  it("holds a finding that names a living person for the owner, whether saved findings show at once or not", async () => {
+    const named = { ...VELMOR_CARD.findings[0]!, claim: "LIVINGPERSON Dr Invented Zentaro, a living cardiologist, " +
+      "said zentarine 20 mg halved the tremor score in 60 of 240 against 36 of 240 on placebo over 12 weeks." };
+    const card = (declared: boolean | undefined, first: object = named) => ({ ...VELMOR_CARD, findings: [
+      { ...first, ...(declared === undefined ? {} : { names_living_person: declared }) },
+      { ...VELMOR_CARD.findings[1]!, names_living_person: false },
+    ] });
+    const outcome = async (cardGiven: object, claims: object, showOnPages: boolean, store?: AtlasPublicationStore) => {
+      const h = harness(store, undefined, { showOnPages });
+      await expect(h.save(cardGiven, FREE, "1", claims)).resolves.toMatchObject({ status: "saved" });
+      await h.service.publicationsSettled();
+      const kept = new Map((await h.store.inspectKept()).map(({ publicationNumber, reason }) => [publicationNumber, reason]));
+      const shown = new Set((await h.store.inspect({ states: ["unreviewed"] })).map(({ publicationNumber }) => publicationNumber));
+      return (await h.store.inspect({})).sort((left, right) => left.findingNumber - right.findingNumber)
+        .map(({ findingNumber, state, heldBecause, publicationNumber }) => [findingNumber, state, heldBecause,
+          kept.get(publicationNumber) ?? (shown.has(publicationNumber) ? "shown" : "no page")]);
+    };
+    const held = [1, "held", ["living_person_review"], "no page"];
+    // Waiting for the quick-answer test (the setting off, as on origin/main): the declared yes is held, the other kept.
+    expect(await outcome(card(true), {}, false)).toEqual([held, [2, "unreviewed", null, QUICK_ANSWER_TEST_WAITING]]);
+    // Shown at once: the declared yes is held, the signed no shown.
+    expect(await outcome(card(true), { nlp: ["2"] }, true)).toEqual([held, [2, "unreviewed", null, "shown"]]);
+    // Declared no, but the meaning judge read it as naming one, as the receipt signs: held either way.
+    expect(await outcome(card(false), { nlp: ["2"], nly: ["1"] }, true)).toEqual([held, [2, "unreviewed", null, "shown"]]);
+    expect(await outcome(card(false), { nly: ["1"] }, false)).toEqual([held,
+      [2, "unreviewed", null, QUICK_ANSWER_TEST_WAITING]]);
+    // A finding held for its text as well keeps both reasons.
+    const reference = { ...named, why_not_usual: "As ARF-0142 also found." };
+    expect((await outcome(card(true, reference), {}, false))[0]).toEqual([1, "held", ["card_reference",
+      "living_person_review"], "no page"]);
+    // Held in the publishing itself: a keep that fails afterwards changes nothing of it.
+    const failing = new InMemoryAtlasPublicationStore();
+    failing.keep = async () => { throw new Error("keep failed"); };
+    expect((await outcome(card(true), { nlp: ["2"] }, true, failing))[0]).toEqual(held);
+    // The owner's own publishing holds nothing for it: publish_cards shows what the owner chose.
+    const base = recordOf(VELMOR_CARD);
+    const record: FindingsRecord = { ...base, card: { ...base.card,
+      findings: base.card.findings.map((finding) => ({ ...finding, names_living_person: true })) } };
+    expect(planCardPublication({ record, setAside: false, route: { route: "owner", paidPrivate: false } }).drafts
+      .map(({ state, heldBecause }) => [state, heldBecause])).toEqual([["unreviewed", null], ["unreviewed", null]]);
+  });
+
+  // Codex's third review of 17 Nov 2026, finding 1 (P0): a later save of the same question and claims is answered
+  // existing_card, and a "yes" it carried changed nothing, so the first save's publication stayed public. Now its yes,
+  // declared or the meaning judge's as the receipt signed, holds every matching publication the owner hasn't decided,
+  // matched by its claim whatever the claims' order; the owner's own decision stands, with a line for him instead.
+  it("holds the matching publications when a later save of an open card says a finding names a living person", async () => {
+    const clear = { ...VELMOR_CARD, findings: VELMOR_CARD.findings.map((finding) => ({ ...finding,
+      names_living_person: false })) };
+    // The same claims in the other order: the first save's finding 1 is the second save's finding 2.
+    const reordered = (signal: "declared" | "judged") => ({ ...clear, findings: [clear.findings[1]!,
+      { ...clear.findings[0]!, names_living_person: signal === "declared" }] });
+    const run = async (signal: "declared" | "judged", showOnPages: boolean, decide?: (store: AtlasPublicationStore) => Promise<void>) => {
+      const h = harness(undefined, undefined, { showOnPages });
+      await expect(h.save(clear, FREE, "1", { nlp: ["1", "2"] })).resolves.toMatchObject({ status: "saved" });
+      await h.service.publicationsSettled();
+      await decide?.(h.store);
+      await expect(h.save(reordered(signal), FREE, "2", { target: "ba9876543210", nlp: ["1"],
+        ...(signal === "judged" ? { nly: ["2"] } : {}) })).resolves.toMatchObject({ status: "existing_card",
+        card_id: "ARF-0042" });
+      await h.service.publicationsSettled();
+      const rows = (await h.store.inspect({})).sort((left, right) => left.findingNumber - right.findingNumber);
+      return { h, rows: rows.map(({ publicationNumber, state, heldBecause }) => [publicationNumber, state, heldBecause]) };
+    };
+    for (const showOnPages of [false, true]) {
+      for (const signal of ["declared", "judged"] as const) {
+        const { rows } = await run(signal, showOnPages);
+        expect(rows, `${signal}, showing ${showOnPages}`).toEqual([["P-1001", "held", ["living_person_review"]],
+          ["P-1002", "unreviewed", null]]);
+      }
+    }
+    // The owner's own decision is never undone by a later save: what he accepted, or showed by his own action, stays,
+    // and his list of publications says that a later save marks it.
+    const accepted = await run("declared", true, async (store) => {
+      await store.decide({ cardNumber: 42, findingNumber: 1, state: "accepted", atlasNumber: "F-1007",
+        decidedAt: NOW.toISOString() });
+    });
+    expect(accepted.rows).toEqual([["P-1001", "accepted", null], ["P-1002", "unreviewed", null]]);
+    expect(await accepted.h.store.inspectLivingPersonNotes(["P-1001", "P-1002"])).toEqual([
+      { publicationNumber: "P-1001", notedAt: NOW.toISOString() }]);
+    const shown = await run("judged", false, async (store) => {
+      await store.keep({ publicationNumbers: ["P-1001"], atlasNumbers: [], keep: false, reason: null,
+        at: NOW.toISOString(), route: { by: "owner_action" } });
+    });
+    expect(shown.rows).toEqual([["P-1001", "unreviewed", null], ["P-1002", "unreviewed", null]]);
+    expect((await shown.h.store.inspectLivingPersonNotes(["P-1001"])).map(({ publicationNumber }) => publicationNumber))
+      .toEqual(["P-1001"]);
+    // A later save without a yes holds nothing.
+    const h = harness(undefined, undefined, { showOnPages: true });
+    await h.save(clear, FREE, "1", { nlp: ["1", "2"] });
+    await h.save({ ...clear, findings: [clear.findings[1]!, clear.findings[0]!] }, FREE, "2",
+      { target: "ba9876543210", nlp: ["1", "2"] });
+    await h.service.publicationsSettled();
+    expect((await h.store.inspect({})).map(({ state }) => state)).toEqual(["unreviewed", "unreviewed"]);
+    expect(await h.store.inspectLivingPersonNotes(["P-1001", "P-1002"])).toEqual([]);
+  });
+
+  // Codex's fourth review of 17 Nov 2026, P0 (publication race): the first save's publishing was paused, a duplicate
+  // "yes" save completed meanwhile and found nothing to hold, and the first then published unreviewed. The yes is now
+  // stored with the card before the duplicate save answers, and the publishing reads it at the moment it publishes.
+  it("holds a finding whose duplicate save said yes while the first save's publishing was paused", async () => {
+    const clear = { ...VELMOR_CARD, findings: VELMOR_CARD.findings.map((finding) => ({ ...finding,
+      names_living_person: false })) };
+    const yes = { ...clear, findings: [clear.findings[1]!, { ...clear.findings[0]!, names_living_person: true }] };
+    for (const showOnPages of [false, true]) {
+      const store = new InMemoryAtlasPublicationStore();
+      const publish = store.publish.bind(store);
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => { release = resolve; });
+      let paused = false;
+      store.publish = async (input) => {
+        paused = true;
+        await gate;
+        return publish(input);
+      };
+      const h = harness(store, undefined, { showOnPages });
+      await expect(h.save(clear, FREE, "1", { nlp: ["1", "2"] })).resolves.toMatchObject({ status: "saved" });
+      await vi.waitFor(() => expect(paused).toBe(true));
+      await expect(h.save(yes, FREE, "2", { target: "ba9876543210", nlp: ["1"] })).resolves.toMatchObject({
+        status: "existing_card", card_id: "ARF-0042" });
+      release();
+      await h.service.publicationsSettled();
+      const rows = (await h.store.inspect({})).sort((left, right) => left.findingNumber - right.findingNumber);
+      expect(rows.map(({ findingNumber, state, heldBecause }) => [findingNumber, state, heldBecause]),
+        `showing ${showOnPages}`).toEqual([[1, "held", ["living_person_review"]], [2, "unreviewed", null]]);
+      // Held, it is in no list of kept findings either: it has no page.
+      expect((await h.store.inspectKept()).map(({ publicationNumber }) => publicationNumber)
+        .includes(rows[0]!.publicationNumber)).toBe(false);
+    }
+  });
+
+  // Codex's fourth review of 17 Nov 2026, P0 (silent hold failure): PostgreSQL refused the hold, the save still answered
+  // existing_card, and the finding stayed public. Recording what a save says of a living person is now part of the
+  // save: when it fails the save fails, retryable, and nothing is published.
+  it("fails a save loudly, retryable, and publishes nothing, when its living-person record can't be stored", async () => {
+    const refusing = () => {
+      const store = new InMemoryAtlasPublicationStore();
+      store.recordLivingPerson = async () => { throw new Error("permission denied for function record_atlas_living_person"); };
+      return store;
+    };
+    const failed = { status: "queue_unavailable", retryable: true, reason_code: "queue_service_unavailable" };
+    // A new card: not saved, and nothing published.
+    const first = harness(refusing(), undefined, { showOnPages: true });
+    await expect(first.save(VELMOR_CARD, FREE, "1", { nlp: ["1", "2"] })).resolves.toEqual(failed);
+    await first.service.publicationsSettled();
+    expect(await first.store.inspect({})).toEqual([]);
+    // A later save that says yes: not answered existing_card, and the AI is told to save again.
+    const store = new InMemoryAtlasPublicationStore();
+    const h = harness(store, undefined, { showOnPages: true });
+    const clear = { ...VELMOR_CARD, findings: VELMOR_CARD.findings.map((finding) => ({ ...finding,
+      names_living_person: false })) };
+    await expect(h.save(clear, FREE, "1", { nlp: ["1", "2"] })).resolves.toMatchObject({ status: "saved" });
+    await h.service.publicationsSettled();
+    store.recordLivingPerson = async () => { throw new Error("permission denied for function record_atlas_living_person"); };
+    const yes = { ...clear, findings: [{ ...clear.findings[0]!, names_living_person: true }, clear.findings[1]!] };
+    await expect(h.save(yes, FREE, "2", { target: "ba9876543210", nlp: ["2"] })).resolves.toEqual(failed);
+    expect(findingsSaveToolResult(failed as FindingsSaveResult).content).toEqual([{ type: "text",
+      text: "Not saved: the findings library is unavailable right now; try saving again." }]);
+  });
+
+  // Codex's fifth review of 17 Nov 2026 (P0): that failed save left the finding public in the database (HTTP 200).
+  // Until a record of its card stores the yes, this process's pages don't show it: its page answers 404, and no list
+  // shows it. A later save, or the same tried again, that records it lifts that, and the database holds it.
+  it("keeps a claim off the pages while its living-person record fails, until a record stores it", async () => {
+    const signal = new AtlasChangeSignal();
+    let announced = 0;
+    signal.subscribe(() => { announced += 1; });
+    const unrecorded = new UnrecordedLivingPersonClaims(signal);
+    const store = new InMemoryAtlasPublicationStore();
+    const h = harness(store, undefined, { showOnPages: true, unrecorded });
+    const clear = { ...VELMOR_CARD, findings: VELMOR_CARD.findings.map((finding) => ({ ...finding,
+      names_living_person: false })) };
+    await expect(h.save(clear, FREE, "1", { nlp: ["1", "2"] })).resolves.toMatchObject({ status: "saved" });
+    await h.service.publicationsSettled();
+    const shown = (await store.inspect({})).sort((left, right) => left.findingNumber - right.findingNumber);
+    expect(shown.map(({ state }) => state)).toEqual(["unreviewed", "unreviewed"]);
+    const record = store.recordLivingPerson.bind(store);
+    store.recordLivingPerson = async () => { throw new Error("permission denied for function record_atlas_living_person"); };
+    const yes = { ...clear, findings: [{ ...clear.findings[0]!, names_living_person: true }, clear.findings[1]!] };
+    await expect(h.save(yes, FREE, "2", { target: "ba9876543210", nlp: ["2"] })).resolves
+      .toMatchObject({ status: "queue_unavailable", retryable: true });
+    const naming = livingPersonClaimKey(shown[0]!.published!.claim);
+    expect(unrecorded.has(naming)).toBe(true);
+    expect(unrecorded.has(livingPersonClaimKey(shown[1]!.published!.claim))).toBe(false);
+    expect(announced).toBeGreaterThan(0);
+    // The pages read through it: the finding the failed save said yes of is gone from every read; its sibling shows.
+    const page = (publication: typeof shown[number]) => ({ publicationNumber: publication.publicationNumber,
+      state: publication.state, atlasNumber: null, published: publication.published, publishedAt: publication.publishedAt,
+      stateChangedAt: publication.stateChangedAt, kept: false, challenge: null, shownBy: null, shownTestVerdict: null });
+    // Codex's sixth review of 17 Nov 2026 (P2): the same sentence on another card (P-9001) still shows.
+    const elsewhere = { ...page(shown[0]!), publicationNumber: "P-9001" };
+    const source = withoutUnrecordedLivingPerson({ read: async (work) => work({
+      listPublications: async () => [...shown.map(page), elsewhere] } as unknown as AtlasPageReads) },
+    livingPersonClaimKey, unrecorded);
+    const listed = async () => (await source.read((reads) => reads.listPublications({ limit: 10 })))
+      .map(({ publicationNumber }) => publicationNumber);
+    expect(await listed()).toEqual([shown[1]!.publicationNumber, "P-9001"]);
+    // Retried with the grant back: the record stores the yes, the database holds it, and the pages read it again.
+    store.recordLivingPerson = record;
+    await expect(h.save(yes, FREE, "2", { target: "ba9876543210", nlp: ["2"] })).resolves
+      .toMatchObject({ status: "existing_card" });
+    expect(unrecorded.has(naming)).toBe(false);
+    expect((await store.inspect({ publicationNumbers: [shown[0]!.publicationNumber] }))[0]!.state).toBe("held");
+    expect(await listed()).toEqual([...shown.map(({ publicationNumber }) => publicationNumber), "P-9001"]);
+  });
+
+  // Codex's sixth review of 17 Nov 2026 (P2): a claim waiting for its record stays off on every card only until the
+  // save has read its card's publications; then only those of its card stay off.
+  it("keeps a waiting claim off every card until its save reads its card, then off only its card's publications", () => {
+    const unrecorded = new UnrecordedLivingPersonClaims(new AtlasChangeSignal());
+    unrecorded.pending(7, ["k"]);
+    expect([unrecorded.hides("P-1001", "k"), unrecorded.hides("P-2001", "k"), unrecorded.hides("P-1001", "j")])
+      .toEqual([true, true, false]);
+    unrecorded.scope(7, ["P-1001"]);
+    expect([unrecorded.hides("P-1001", "k"), unrecorded.hides("P-2001", "k")]).toEqual([true, false]);
+    // A second save of the card: every card again, until it reads the card in turn.
+    unrecorded.pending(7, ["k2"]);
+    expect(unrecorded.hides("P-2001", "k")).toBe(true);
+    unrecorded.scope(7, []);
+    expect([unrecorded.hides("P-1001", "k"), unrecorded.hides("P-2001", "k2")]).toEqual([false, false]);
+    unrecorded.recorded(7, ["k", "k2"]);
+    expect(unrecorded.size).toBe(0);
+    // A scope for a card with nothing waiting changes nothing.
+    unrecorded.scope(8, []);
+    expect(unrecorded.size).toBe(0);
+  });
+
+  // The owner's answer to what a card that doesn't say means is still to come (question 346), so it is one setting,
+  // ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN: keep (unset) treats such a finding as before; hold holds it as a yes; reader
+  // lets the meaning judge's reading, already made in the final check's one call and signed (nly yes, nln no), decide,
+  // and holds it without one. A finding declared no, as the receipt signed, is never held by it.
+  it("treats a finding whose card doesn't say as ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN says", async () => {
+    const card = { ...VELMOR_CARD, findings: [
+      { ...VELMOR_CARD.findings[0]! },
+      { ...VELMOR_CARD.findings[1]!, names_living_person: false },
+    ] };
+    const outcome = async (unknown: "keep" | "hold" | "reader" | undefined, showOnPages: boolean, claims: object) => {
+      const h = harness(undefined, undefined, { showOnPages, ...(unknown === undefined ? {} : { livingPersonUnknown: unknown }) });
+      await expect(h.save(card, FREE, "1", claims)).resolves.toMatchObject({ status: "saved" });
+      await h.service.publicationsSettled();
+      const kept = new Map((await h.store.inspectKept()).map(({ publicationNumber, reason }) => [publicationNumber, reason]));
+      return (await h.store.inspect({})).sort((left, right) => left.findingNumber - right.findingNumber)
+        .map(({ state, heldBecause, publicationNumber }) => state === "held" ? heldBecause!.join()
+          : kept.get(publicationNumber) ?? "shown");
+    };
+    const signed = { nlp: ["2"] };
+    const HELD = "living_person_review";
+    // keep, and unset: as before.
+    for (const unknown of [undefined, "keep"] as const) {
+      expect(await outcome(unknown, false, signed)).toEqual([QUICK_ANSWER_TEST_WAITING, QUICK_ANSWER_TEST_WAITING]);
+      expect(await outcome(unknown, true, signed)).toEqual([LIVING_PERSON_WAITING, "shown"]);
+    }
+    // hold: held like a yes, whether saved findings show at once or not; the signed no is not.
+    expect(await outcome("hold", false, signed)).toEqual([HELD, QUICK_ANSWER_TEST_WAITING]);
+    expect(await outcome("hold", true, signed)).toEqual([HELD, "shown"]);
+    // A declared no the receipt didn't sign is not known either.
+    expect(await outcome("hold", true, {})).toEqual([HELD, HELD]);
+    // reader: the judge's no clears it, its yes holds it, and no reading holds it.
+    expect(await outcome("reader", false, { ...signed, nln: ["1"] })).toEqual([QUICK_ANSWER_TEST_WAITING,
+      QUICK_ANSWER_TEST_WAITING]);
+    expect(await outcome("reader", true, { ...signed, nln: ["1"] })).toEqual(["shown", "shown"]);
+    expect(await outcome("reader", true, { ...signed, nly: ["1"] })).toEqual([HELD, "shown"]);
+    expect(await outcome("reader", false, signed)).toEqual([HELD, QUICK_ANSWER_TEST_WAITING]);
+    expect(await outcome("reader", true, signed)).toEqual([HELD, "shown"]);
+    // The judge's no never clears a declared yes.
+    const declaredYes = { ...card, findings: [{ ...card.findings[0]!, names_living_person: true }, card.findings[1]!] };
+    const h = harness(undefined, undefined, { showOnPages: true, livingPersonUnknown: "reader" });
+    await h.save(declaredYes, FREE, "1", { ...signed, nln: ["1"] });
+    await h.service.publicationsSettled();
+    expect((await h.store.inspect({ cardNumbers: [42] })).find(({ findingNumber }) => findingNumber === 1))
+      .toMatchObject({ state: "held", heldBecause: [HELD] });
+  });
+
+  it("reads the two living-person settings, each defaulting to what was done before", () => {
+    expect([undefined, "", " keep "].map((value) => atlasLivingPersonUnknownFromEnv(value))).toEqual(["keep", "keep", "keep"]);
+    expect(atlasLivingPersonUnknownFromEnv("hold")).toBe("hold");
+    expect(atlasLivingPersonUnknownFromEnv(" reader ")).toBe("reader");
+    // Any other value is a mistake, which holds: the safe direction.
+    for (const value of ["HOLD", "yes", "kept"]) expect(atlasLivingPersonUnknownFromEnv(value)).toBe("hold");
+    expect(atlasLivingPersonDeclarationFromEnv("on")).toBe(true);
+    expect(atlasLivingPersonDeclarationFromEnv(" on ")).toBe(true);
+    for (const value of [undefined, "", "off", "ON", "enabled", "1"]) expect(atlasLivingPersonDeclarationFromEnv(value)).toBe(false);
+  });
+
+  it("still holds what is held, and publishes nothing of a paid private card, while saved findings show", async () => {
+    const reference = { ...VELMOR_CARD, findings: [{ ...VELMOR_CARD.findings[0]!, why_not_usual: "As ARF-0142 also found." }] };
+    const held = harness(undefined, undefined, { showOnPages: true });
+    await held.save(reference, FREE);
+    await held.service.publicationsSettled();
+    expect((await held.store.inspect({})).map(({ state, heldBecause }) => [state, heldBecause]))
+      .toEqual([["held", ["card_reference"]]]);
+    // A held finding didn't reach the pages, so it is not stored as shown at once.
+    expect((held.store as InMemoryAtlasPublicationStore).shownByOf("P-1001")).toBeNull();
+    expect(await held.store.inspectKept()).toEqual([]);
+    const paid = harness(undefined, undefined, { showOnPages: true });
+    await expect(paid.save(VELMOR_CARD, { mode: "PAID_PRIVATE", noticeVersion: null })).resolves.toMatchObject({ status: "saved" });
+    await paid.service.publicationsSettled();
+    expect(await paid.store.inspect({})).toEqual([]);
   });
 
   it("keeps nothing that is held, and a failed keep changes nothing about the save", async () => {

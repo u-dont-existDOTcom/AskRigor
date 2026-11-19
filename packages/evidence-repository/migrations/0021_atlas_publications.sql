@@ -70,8 +70,8 @@ ALTER TABLE atlas_publications ADD CONSTRAINT atlas_publications_v1_held_check C
   (state <> 'held' OR held_because IS NOT NULL)
   AND (held_because IS NULL OR (
     jsonb_typeof(held_because) = 'array'
-    AND jsonb_array_length(held_because) BETWEEN 1 AND 5
-    AND held_because <@ '["email_address", "phone_number", "messaging_handle", "card_reference", "youtube_link"]'::jsonb
+    AND jsonb_array_length(held_because) BETWEEN 1 AND 6
+    AND held_because <@ '["email_address", "phone_number", "messaging_handle", "card_reference", "youtube_link", "living_person_review"]'::jsonb
   ))
 );
 ALTER TABLE atlas_publications DROP CONSTRAINT IF EXISTS atlas_publications_v1_withdrawn_reason_check;

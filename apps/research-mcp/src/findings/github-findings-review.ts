@@ -125,6 +125,8 @@ const storedFindingSchema = z.object({
   named_videos: z.array(z.string().regex(NAMED_VIDEO_LINK)).min(1).max(NAMED_VIDEOS_PER_FINDING).optional(),
   // A card a save stored with its findings' declarations (the review of #417, finding 6): read as it is.
   draws_on_youtube_comments: z.boolean().optional(),
+  // Codex's review of 17 Nov 2026, finding 1: whether the finding names a living person, stored as the check signed it.
+  names_living_person: z.boolean().optional(),
 }).strict();
 const storedRecordSchema = z.object({
   schema: z.literal("askrigor.findings-card.v1"),

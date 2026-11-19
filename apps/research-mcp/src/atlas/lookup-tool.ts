@@ -8,6 +8,8 @@ import { issueResearchReceipt, researchTargetDigest, type ResearchReceiptOptions
 import { loadAtlasFindings, loadAtlasSearch, loadAtlasTopic, NOT_CHECKED_LABEL, type ShownFinding } from "./page-data.js";
 import { atlasSearchQuery } from "./search.js";
 import { atlasPageUrl, atlasReceiptFinding } from "./reuse.js";
+import { withoutUnrecordedLivingPerson } from "./living-person-pending.js";
+import { livingPersonClaimKey } from "./publication.js";
 
 // The lookup's structured content, at most. Claude Code shows a result inline up to 50,000 characters, counted in the
 // part it shows, and a client that reads only text gets the tool's line and this JSON again (lesson #59), so it stays
@@ -60,7 +62,10 @@ export interface AtlasLookupDependencies {
 export function configuredAtlasLookupSource(env: NodeJS.ProcessEnv = process.env): AtlasPageSource | undefined {
   try {
     const config = livingEvidenceReuseConfigFromEnv(env);
-    return config === undefined ? undefined : new PostgresAtlasPageSource(config);
+    // Codex's fifth review of 17 Nov 2026 (P0): a claim whose living-person record hasn't stored shows here no more than
+    // on the pages.
+    return config === undefined ? undefined
+      : withoutUnrecordedLivingPerson(new PostgresAtlasPageSource(config), livingPersonClaimKey);
   } catch { return undefined; }
 }
 let lastReceiptOrder = 0;

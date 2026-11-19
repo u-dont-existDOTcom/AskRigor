@@ -49,6 +49,7 @@ import {
   type UnsavedCardResult,
 } from "../apps/research-mcp/src/findings/service.js";
 import { unsavedCardNote } from "../apps/research-mcp/src/findings/unsaved-card.js";
+import { FINDINGS_CARD_REMINDER, FINDINGS_CARD_REQUEST_START } from "../apps/research-mcp/src/findings/card-reminder.js";
 import type { LessonAttemptLimiter } from "../apps/research-mcp/src/lessons/rate-limit.js";
 import {
   OTHER_TOOLS_SENTENCE,
@@ -1001,6 +1002,128 @@ describe("finalize_research, save_research_findings and the findings library", (
       next_steps: [], notes: [expect.stringMatching(/^Give findings_card with answer_draft/u), TOOL_LIST_REFRESH_HINT],
       findings_card: { status: "absent" },
     });
+    expect(calls).toEqual([]);
+  });
+
+  // AskRigor#475: the card was asked for only in a note a passing check puts off "for a later answer", so a safety
+  // finding reached the Atlas only when the owner asked. A free contributor's first pass with no card now says the
+  // card belongs to this answer, in its text and in what an app reading only the structured content sees.
+  it("asks a free contributor's first pass with no card for it in this turn, and saves the card the next call sends", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { calls, findingsSave } = recorder();
+    const service = await accessService();
+    const finalize = connectorTool("finalize_research", { researchContributorAccessService: service, findingsLibrary: true, findingsSave });
+    const { findings_card: card, ...withoutCard } = request();
+    const first = await finalize(withoutCard, "auth0|free");
+    const output = first.structuredContent as unknown as FinalizeResearchOutput & { round_token?: string };
+    expect(output).toMatchObject({ status: "ready_with_limits",
+      findings_card: { status: "absent", problems: [FINDINGS_CARD_REMINDER] } });
+    expect(output.notes?.some((note) => note.startsWith(FINDINGS_CARD_REQUEST_START))).toBe(true);
+    expect(output).not.toHaveProperty("turn_already_passed");
+    expect((first.content as Array<{ text: string }>)[0]!.text).toContain(`\nFindings card: ${FINDINGS_CARD_REMINDER}`);
+    expect(FINDINGS_CARD_REMINDER).toContain("Harms and safety signals the research found count, even outside the question");
+    expect(calls).toEqual([]);
+    // The call it asks for: the same draft, with the card, in this turn. The repeat pass still signs its receipt, so the
+    // card is checked and saved, and the reminder is not given again.
+    const second = await finalize({ ...withoutCard, findings_card: card,
+      ...(output.carry_forward === undefined ? {} : { carried_state: output.carry_forward }),
+      ...(output.round_token === undefined ? {} : { round_token: output.round_token }) }, "auth0|free");
+    expect(second.structuredContent).toMatchObject({ status: "ready_with_limits",
+      findings_card: { status: "checked", problems: [], saved: { status: "saved", card_id: "ARF-0042" } } });
+    expect(calls).toHaveLength(1);
+    // None for a paid private answer, whose save waits for the person's yes, or a call marked findings_save off.
+    const paid = await finalize(withoutCard, "auth0|paid");
+    expect((paid.structuredContent as unknown as FinalizeResearchOutput).findings_card.problems).toEqual([]);
+    const marked = await finalize({ ...withoutCard, later_inputs: { findings_save: "off" } }, "auth0|free");
+    expect((marked.structuredContent as unknown as FinalizeResearchOutput).findings_card).toMatchObject({ status: "absent",
+      problems: [] });
+    expect(calls).toHaveLength(1);
+  });
+
+  // Codex's review of 17 Nov 2026, finding 1 (P0): while saved findings show at once, the finalization receipt the save
+  // reads signs the findings that declare they name no living person (nlp); with the setting off it signs none.
+  it("signs the findings that declare they name no living person only while saved findings show at once", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    const declared = { ...CHECKED_CARD, findings: CHECKED_CARD.findings.map((finding) => ({ ...finding, names_living_person: false })) };
+    const signed = async () => {
+      const { calls, findingsSave } = recorder();
+      const finalize = connectorTool("finalize_research", { researchContributorAccessService: service, findingsLibrary: true, findingsSave });
+      const { findings_card: _card, ...rest } = request();
+      await finalize({ ...rest, later_inputs: { findings_card: declared } }, "auth0|free");
+      expect(calls).toHaveLength(1);
+      const receipt = verifyResearchReceipt(calls[0]![0].finalization_receipt as string, { secret: SECRET });
+      return receipt.ok ? receipt.claims.nlp : "unverified";
+    };
+    expect(await signed()).toBeUndefined();
+    vi.stubEnv("ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS", "enabled");
+    expect(await signed()).toEqual(["1"]);
+  });
+
+  // The two settings for what isn't decided yet, read by the final check: ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN=hold (or
+  // reader) signs the declarations so the save can tell a declared no from no declaration; ASKRIGOR_ATLAS_LIVING_PERSON_
+  // DECLARATION=on asks for the declaration. Unset, as on origin/main: nothing is signed and nothing asked.
+  it("signs, and asks for, the living-person declaration as the two settings say, and neither while they are unset", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    const declared = { ...CHECKED_CARD, findings: CHECKED_CARD.findings.map((finding) => ({ ...finding, names_living_person: false })) };
+    const check = async (card: object) => {
+      const { calls, findingsSave } = recorder();
+      const finalize = connectorTool("finalize_research", { researchContributorAccessService: service, findingsLibrary: true, findingsSave });
+      const { findings_card: _card, ...rest } = request();
+      const result = await finalize({ ...rest, later_inputs: { findings_card: card } }, "auth0|free");
+      expect(calls).toHaveLength(1);
+      const receipt = verifyResearchReceipt(calls[0]![0].finalization_receipt as string, { secret: SECRET });
+      const notes = (result.structuredContent as { notes?: string[] }).notes ?? [];
+      return { nlp: receipt.ok ? receipt.claims.nlp : "unverified",
+        asked: notes.some((note) => note.includes("names_living_person")) };
+    };
+    expect(await check(declared)).toEqual({ nlp: undefined, asked: false });
+    expect(await check(CHECKED_CARD)).toEqual({ nlp: undefined, asked: false });
+    vi.stubEnv("ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION", "on");
+    expect(await check(declared)).toEqual({ nlp: undefined, asked: false });
+    expect(await check(CHECKED_CARD)).toEqual({ nlp: undefined, asked: true });
+    vi.stubEnv("ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION", "");
+    vi.stubEnv("ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN", "hold");
+    expect(await check(declared)).toEqual({ nlp: ["1"], asked: false });
+    expect(await check(CHECKED_CARD)).toEqual({ nlp: undefined, asked: false });
+  });
+
+  // Codex's review of 17 Nov 2026, finding 5: a check that did not pass asked for the card, so the turn's note
+  // deduplication left the request out of the first pass's notes, and the reminder, reading only the notes shown, said
+  // nothing. The request is carried as its own fact and used on the turn's first pass.
+  it("reminds the turn's first pass when an earlier check that did not pass asked for the card", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { calls, findingsSave } = recorder();
+    const service = await accessService();
+    const finalize = connectorTool("finalize_research", { researchContributorAccessService: service, findingsLibrary: true, findingsSave });
+    const { findings_card: _card, ...withoutCard } = request();
+    // A key source the research has no receipt for leaves the check open.
+    const unfinished = { ...withoutCard, key_sources: [...withoutCard.key_sources,
+      { read_depth: "abstract_only", answer_marker: "Other", id: "PMID:31000001", status: "validated" }] };
+    const first = await finalize(unfinished, "auth0|free");
+    const open = first.structuredContent as unknown as FinalizeResearchOutput & { round_token?: string };
+    expect(open.status).toBe("not_ready");
+    expect(open.notes?.some((note) => note.startsWith(FINDINGS_CARD_REQUEST_START))).toBe(true);
+    expect(open.findings_card.problems).toEqual([]);
+    const carried = {
+      ...(open.carry_forward === undefined ? {} : { carried_state: open.carry_forward }),
+      ...(open.round_token === undefined ? {} : { round_token: open.round_token }),
+    };
+    const passed = await finalize({ ...withoutCard, ...carried }, "auth0|free");
+    const output = passed.structuredContent as unknown as FinalizeResearchOutput & { round_token?: string };
+    expect(output.status).toBe("ready_with_limits");
+    // The request itself is not shown again in this turn, and the first pass still says the card belongs to this answer.
+    expect(output.notes?.some((note) => note.startsWith(FINDINGS_CARD_REQUEST_START)) ?? false).toBe(false);
+    expect(output).not.toHaveProperty("turn_already_passed");
+    expect(output.findings_card).toMatchObject({ status: "absent", problems: [FINDINGS_CARD_REMINDER] });
+    expect((passed.content as Array<{ text: string }>)[0]!.text).toContain(`\nFindings card: ${FINDINGS_CARD_REMINDER}`);
+    // A repeat pass, still with no card, gets none.
+    const again = await finalize({ ...withoutCard,
+      ...(output.carry_forward === undefined ? {} : { carried_state: output.carry_forward }),
+      ...(output.round_token === undefined ? {} : { round_token: output.round_token }) }, "auth0|free");
+    expect(again.structuredContent).toMatchObject({ status: "ready_with_limits", turn_already_passed: true,
+      findings_card: { status: "absent", problems: [] } });
     expect(calls).toEqual([]);
   });
 

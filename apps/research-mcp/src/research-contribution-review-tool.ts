@@ -88,11 +88,20 @@ export const researchContributionReviewInputSchema = z.object({
       value.action !== "show_on_pages" && value.action !== "mark_challenge" && value.action !== "clear_challenge") {
       context.addIssue({ code: "custom", message: `${value.action} does not take items` });
     }
-    // The owner, 6 Nov: the usual view, its source and the quick-answer verdict go only with mark_challenge.
+    // The owner, 6 Nov: the usual view, its source and the quick-answer verdict go only with mark_challenge; and, since
+    // Codex's third review of 17 Nov 2026 (finding 2), the verdict with show_on_pages too, where the quick-answer test
+    // says it shows a finding, which is recorded.
     for (const field of ATLAS_CHALLENGE_MARK_INPUTS) {
-      if ((value as Record<string, unknown>)[field] !== undefined && value.action !== "mark_challenge") {
+      if ((value as Record<string, unknown>)[field] !== undefined && value.action !== "mark_challenge" &&
+        !(field === "quick_answer_verdict" && value.action === "show_on_pages")) {
         context.addIssue({ code: "custom", message: `${value.action} does not take ${field}` });
       }
+    }
+    // Codex's fourth review of 17 Nov 2026 (P1s): later_inputs.shown_by goes only with show_on_pages, which needs it,
+    // and, since its fifth review, with publish_cards, which needs it too.
+    if ((value as { shown_by?: unknown }).shown_by !== undefined && value.action !== "show_on_pages" &&
+      value.action !== "publish_cards") {
+      context.addIssue({ code: "custom", message: `${value.action} does not take shown_by` });
     }
     // Owner answer 229a: later_inputs.placements goes with place_items, and place_items needs it.
     const placements = (value as { placements?: unknown }).placements;

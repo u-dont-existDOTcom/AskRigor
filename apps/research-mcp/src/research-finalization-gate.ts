@@ -93,6 +93,7 @@ import {
   PUBLIC_VALUE_SCOPES,
   screenFindingsCard,
   signedFindingBases,
+  signedLivingPersonClear,
   signedNamedVideos,
   verifiedWorkPhrase,
   type FindingsCard,
@@ -1865,6 +1866,20 @@ export interface FinalizeResearchOptions {
    * and the findings it reads as resting on YouTube comments, which are held. It never blocks.
    */
   meaningJudgment?: MeaningJudgment;
+  /**
+   * Codex's review of 17 Nov 2026, finding 1 (P0): true while saved findings show on the pages at once
+   * (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS). The receipt then signs which of a checked card's findings declare that they
+   * name no living person (`nlp`), less any the meaning judge reads as naming one, which it is then asked; a free
+   * contributor's public card whose findings don't all declare it gets a note asking for it. Off, none of this happens.
+   */
+  livingPersonCheck?: boolean;
+  /**
+   * Whether, and in which words, a free contributor's public card whose findings don't all declare whether they name a
+   * living person gets a note asking for it: while saved findings show at once, or with
+   * ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION=on, the words true to the settings (livingPersonNote); false for none.
+   * Left out, the note goes with livingPersonCheck, in the words for saved findings shown at once.
+   */
+  livingPersonNote?: false | LivingPersonNoteMode;
   /** Each source line's quotes as looked up after this check's earlier pass (owner answer 237a), in the lines' order. */
   sourceLineLookups?: readonly SourceLineLookup[];
   /** The study map's texts and registry records as looked up after this check's earlier pass (owner answer 249a). */
@@ -2116,6 +2131,9 @@ export function finalizeResearch(
     for (const value of steps) addCheckStep({ kind, text: ruleText(value), rule: ruleParts(value) }, blockingRule);
   };
   let missingDeclaration = false;
+  // Codex's review of 17 Nov 2026, finding 5: whether this check asked for a findings card that did not come, kept apart
+  // from the notes it shows, which leave out a request an earlier check of the turn already gave.
+  let cardRequested = false;
   const requireDeclaration = (step: RuleInput): void => {
     missingDeclaration = true;
     addStep("declaration", rule`${step}`);
@@ -4255,6 +4273,15 @@ export function finalizeResearch(
   let heldFindings: number[] = [];
   // What the receipt signs of a checked card's named videos (owner answer 307b): those this call ties to the person.
   let namedVideoClaims: string[] = [];
+  // Codex's review of 17 Nov 2026, finding 1: the places of a checked card's findings that may show at once, as the
+  // receipt signs them (nlp), while saved findings show at once.
+  let livingPersonClear: string[] = [];
+  // Codex's re-review of 17 Nov 2026, finding 1: the places the meaning judge read as naming a living person (nly),
+  // which the save holds for the owner.
+  let livingPersonNaming: string[] = [];
+  // And those it read as naming no one (nln), which decide for a finding that doesn't say while
+  // ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN is reader.
+  let livingPersonJudgedClear: string[] = [];
   // The meaning judge's holds and notes (owner answer 221), added after the check's own notes.
   const judgeHeld: number[] = [];
   const judgeNotes: string[] = [];
@@ -4301,6 +4328,7 @@ export function finalizeResearch(
     const citable = validatedIds.size > 0 || leadSources.length > 0 || auditedAtAll.size > 0 ||
       materialVideos.length > 0;
     if (findingsOpen(options) && input.findings_card === undefined && !parsed.droppedFindingsCard && citable) {
+      cardRequested = true;
       requireDeclaration(
         joinRules(joinRules(joinRules(joinRules(joinRules((options.findings === "save" ? joinRules("Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for ", "the owner's review.") : joinRules("Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings ", "library, and they are saved only if the user says yes.")), " Put in the answer's best findings, none the user corrected, and no personal details, and say in "), "public_value whether they would help anyone beyond this person."), " A public card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers "), "(for an effect, harm or overlooked_option) and searches (for nothing_found), as the findings description "), "says. With no finding that a plain web search of the problem wouldn't already give, send no card.",
           options.researchDossierAsk === true ? ` ${RESEARCH_DOSSIER_CARD_SENTENCE}` : "",
@@ -4393,6 +4421,42 @@ export function finalizeResearch(
         const beyond = cardBases.filter((bases) => bases.length > 0).length;
         // A checked card has declared whom its findings would help (findingsCardCheck).
         const scope = input.findings_card.public_value!.scope;
+        // Codex's review of 17 Nov 2026, finding 1 (P0): while saved findings show at once, a finding shows only when the
+        // card declares it names no living person and the receipt signs that; the meaning judge's yes overrides the
+        // declaration. A finding held apart as drawn from YouTube comments is never published, so it isn't asked.
+        if (options.livingPersonCheck === true) {
+          const judgedNaming = new Set<number>();
+          const judgedClear = new Set<number>();
+          const read = options.meaningJudgment?.status === "ran" ? options.meaningJudgment.livingPerson ?? [] : [];
+          for (const { finding: number, names, why } of read) {
+            const index = number - 1;
+            if (index < 0 || index >= findingsInCard.length || heldFindings.includes(index)) continue;
+            if (!names) {
+              judgedClear.add(index);
+              continue;
+            }
+            judgedNaming.add(index);
+            if (findingsInCard[index]!.names_living_person === false) {
+              judgeNotes.push(`The meaning judge reads findings_card.findings[${index}] as naming a living person` +
+                `${because(why)}, though it declares names_living_person false, so AskRigor keeps it off its public ` +
+                "Atlas until its owner decides. If it does name one, declare it true.");
+            }
+          }
+          livingPersonClear = signedLivingPersonClear(input.findings_card, judgedNaming)
+            .filter((place) => !heldFindings.includes(Number(place) - 1));
+          livingPersonNaming = [...judgedNaming].sort((left, right) => left - right).map((index) => String(index + 1));
+          livingPersonJudgedClear = [...judgedClear].filter((index) => !judgedNaming.has(index))
+            .sort((left, right) => left - right).map((index) => String(index + 1));
+        }
+        // The note asking for the declaration, while saved findings show at once or the declaration setting is on, in
+        // words true to what the save then does.
+        const noteMode = options.livingPersonNote ??
+          (options.livingPersonCheck === true ? { showing: true, unknown: "keep" as const } : false);
+        if (noteMode !== false) {
+          const undeclared = findingsInCard.some((finding, index) =>
+            finding.names_living_person === undefined && !heldFindings.includes(index));
+          if (options.findings === "save" && scope === "public" && undeclared) notes.push(inputNote(livingPersonNote(noteMode)));
+        }
         findingsCard = { ...findingsCard, beyond_quick_answer: beyond, public_value: scope,
           ...(heldFindings.length === 0 ? {} : { held: heldFindings.map((index) => index + 1) }) };
         // Owner answer 252a: the published tool list is fixed (189a), so a result names the card's new fields when they
@@ -5104,7 +5168,13 @@ export function finalizeResearch(
             ...(threadCommunities.length === 0 ? {} : { ft: threadCommunities }),
             ...(threadLinks.length === 0 ? {} : { fl: threadLinks }),
             // Owner answer 307b: the videos the card links that this call ties to the person, by the finding's place.
-            ...(namedVideoClaims.length === 0 ? {} : { nv: namedVideoClaims })
+            ...(namedVideoClaims.length === 0 ? {} : { nv: namedVideoClaims }),
+            // Codex's review of 17 Nov 2026, finding 1: the findings that may show at once, by their places.
+            ...(livingPersonClear.length === 0 ? {} : { nlp: livingPersonClear }),
+            // Codex's re-review of 17 Nov 2026, finding 1: those the meaning judge read as naming one, which are held.
+            ...(livingPersonNaming.length === 0 ? {} : { nly: livingPersonNaming }),
+            // And those it read as naming no one, which decide for a finding that doesn't say under the reader setting.
+            ...(livingPersonJudgedClear.length === 0 ? {} : { nln: livingPersonJudgedClear })
           }
         : {}),
       // An offer that asks to file this research's map, made to this account: a paid private map is filed only with
@@ -5145,6 +5215,7 @@ export function finalizeResearch(
     output.round_token = checkRound.token;
   }
   const parsedOutput = finalizeResearchOutputSchema.parse(output);
+  if (cardRequested) FINDINGS_CARD_REQUESTED.add(parsedOutput);
   if (passed && draft !== undefined && sourceLines.length > 0 && options.sourceLineLookups === undefined) {
     SOURCE_LINE_REQUESTS.set(parsedOutput, sourceLineRequests);
   }
@@ -5166,6 +5237,8 @@ export function finalizeResearch(
     MEANING_JUDGE_SOURCES.set(parsedOutput, {
       answer: input.answer_draft ?? draft,
       commentsRead,
+      // Codex's review of 17 Nov 2026, finding 1: asked only while saved findings show at once.
+      ...(options.livingPersonCheck === true ? { livingPersonAsked: true } : {}),
       ...(sourceLines.length === 0 ? {} : { sourceLines }),
       ...(findingsCard.status === "checked" && input.findings_card !== undefined ? { card: input.findings_card } : {}),
       // Each entry the note credits, with what the check accepted its sentence as, exactly: a declared search that found
@@ -5215,6 +5288,49 @@ function videosNamedAtRegistration(
     videos: new Set(latest === undefined ? []
       : list(latest.claims.vids).filter((id) => /^[A-Za-z0-9_-]{11}$/u.test(id))),
   };
+}
+
+/**
+ * Codex's review of 17 Nov 2026, finding 1 (P0): while saved findings show at once, the note that asks a free
+ * contributor's public card for each finding's living-person declaration, which decides whether it shows at once.
+ */
+export const LIVING_PERSON_NOTE = "AskRigor shows a saved finding on its public Atlas at once only when the finding " +
+  "says it names no living person. Give each finding names_living_person: true when it names a living person or " +
+  "describes one so they could be recognized, false when it names no one living. Send the whole card, with that field " +
+  "in each finding, in later_inputs.findings_card, and check the answer again. A finding that says true, or nothing, " +
+  "waits for AskRigor's owner to decide.";
+
+/**
+ * The settings the note asking for the living-person declaration speaks for: whether saved findings show at once
+ * (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS) and what a finding that doesn't say becomes (ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN).
+ */
+export interface LivingPersonNoteMode {
+  showing: boolean;
+  unknown: "keep" | "hold" | "reader";
+}
+
+/**
+ * The note asking for each finding's living-person declaration, in words true to the settings (Codex's re-review of 17
+ * Nov 2026, finding 1): a finding that says true is held for the owner whatever they are; one that says nothing waits
+ * for the owner while saved findings show at once or ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN is hold, and under reader
+ * unless the meaning judge reads it as naming no one; otherwise it goes on as before, so the note says nothing of it.
+ * With saved findings shown at once and nothing else set, it is LIVING_PERSON_NOTE.
+ */
+export function livingPersonNote(mode: LivingPersonNoteMode): string {
+  // Codex's third review of 17 Nov 2026, finding 5: under reader, a finding that says nothing shows at once after the
+  // meaning judge's no, so the opening says that too.
+  const opening = !mode.showing ? "AskRigor holds a saved finding that says it names a living person off its public " +
+    "Atlas until its owner decides."
+    : mode.unknown === "reader" ? "AskRigor shows a saved finding on its public Atlas at once only when the finding says " +
+      "it names no living person, or says nothing and AskRigor's own reader finds that it names no one living."
+    : "AskRigor shows a saved finding on its public Atlas at once only when the finding says it names no living person.";
+  const ending = mode.unknown === "reader" ? "A finding that says true waits for AskRigor's owner to decide, and so does " +
+    "one that says nothing unless AskRigor's own reader finds that it names no one living."
+    : mode.showing || mode.unknown === "hold" ? "A finding that says true, or nothing, waits for AskRigor's owner to decide."
+    : "A finding that says true waits for AskRigor's owner to decide.";
+  return `${opening} Give each finding names_living_person: true when it names a living person or describes one so ` +
+    "they could be recognized, false when it names no one living. Send the whole card, with that field in each " +
+    `finding, in later_inputs.findings_card, and check the answer again. ${ending}`;
 }
 
 /** What the card's later shape adds for the Atlas's research behind each finding (owner answer 252a), as a note. */
@@ -5292,6 +5408,17 @@ export function settleFindingsLedger(result: FinalizeResearchOutput, settle: {
 // What a passing check gives the meaning judge, by the result it returned; nothing else reads it, and it goes with the
 // result object.
 const MEANING_JUDGE_SOURCES = new WeakMap<FinalizeResearchOutput, MeaningJudgeSource>();
+
+// The results whose check asked for a findings card that did not come (Codex's review of 17 Nov 2026, finding 5).
+const FINDINGS_CARD_REQUESTED = new WeakSet<FinalizeResearchOutput>();
+
+/**
+ * Whether this result's check asked for a findings card that did not come, whether or not its notes show the request:
+ * a request an earlier check of the turn gave is left out of the notes, and the card reminder still needs to know it.
+ */
+export function findingsCardRequested(result: FinalizeResearchOutput): boolean {
+  return FINDINGS_CARD_REQUESTED.has(result);
+}
 
 /** What the meaning judge may read of this result's check: a passing check with a draft only. */
 export function meaningJudgeSourceOf(result: FinalizeResearchOutput): MeaningJudgeSource | undefined {

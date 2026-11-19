@@ -420,6 +420,55 @@ export function atlasPagesEnabledFromEnv(
 }
 
 /**
+ * Whether a saved card's findings show on the Atlas's pages as soon as they are published (the owner, 17 Nov 2026:
+ * "show all the findings automatically when they pass quality checks like this one, i shouldn't be reviewing everything
+ * i already told u that before"): ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS set to "enabled". Off, the save path keeps each
+ * finding it publishes for AskRigor's research until the quick-answer test shows it (owner answer 240a), as before.
+ * Either way a finding stays unreviewed, labelled "Not checked by supervisors yet"; held findings stay held, findings
+ * drawn from YouTube comments and paid private cards are never published at the save, and the owner's
+ * keep_for_research and unpublish work as before. On, a finding the save shows at once is stored as such (migration
+ * 0041), so without a challenge mark its page never says a separate AI found that a quick AI answer misses it, even
+ * after the setting is turned off; and a finding shows at once only when its card declares that it names no living
+ * person, as the final check signed, any other being kept for the owner (Codex's review of 17 Nov 2026, finding 1).
+ */
+export function atlasShowSavedFindingsFromEnv(
+  value = process.env.ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS
+): boolean {
+  return value?.trim() === "enabled";
+}
+
+/** What the save does with a finding whose card doesn't say whether it names a living person. */
+export type AtlasLivingPersonUnknown = "keep" | "hold" | "reader";
+
+/**
+ * What the save does with a finding whose card doesn't say whether it names a living person, until the owner answers
+ * question 346: ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN. Unset, empty or "keep": as before (with saved findings shown at
+ * once it is kept off the lists for the owner; otherwise it waits for the quick-answer test). "hold": it is held for the
+ * owner like a finding that says yes, with no page. "reader": the meaning judge's reading, which the final check's one
+ * call already makes when the judge runs, decides: its no lets it go on as a finding that says no would, and its yes or
+ * no reading holds it. No new call is made. Any other value is a mistake and holds, the safe direction. A finding that
+ * says yes, or that the judge read as naming one, is held whatever this says (Codex's re-review of 17 Nov 2026).
+ */
+export function atlasLivingPersonUnknownFromEnv(
+  value = process.env.ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN
+): AtlasLivingPersonUnknown {
+  const given = value?.trim() ?? "";
+  if (given === "" || given === "keep") return "keep";
+  return given === "reader" ? "reader" : "hold";
+}
+
+/**
+ * Whether the final check asks a free contributor's public card to declare, for each finding, whether it names a living
+ * person even while saved findings don't show at once: ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION set to "on". Off
+ * (unset), it asks only while ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS is enabled, as before.
+ */
+export function atlasLivingPersonDeclarationFromEnv(
+  value = process.env.ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION
+): boolean {
+  return value?.trim() === "on";
+}
+
+/**
  * The dev accounts (owner answer 140b, 2026-10-20): ASKRIGOR_DEV_ACCOUNT_KEYS, a comma-separated list of account
  * references, the 12 characters manage_research_access shows a signed-in user (owner question, 2026-10-21), or of the
  * 64-character keys research_use_accounts stores. Like every active research account, a dev account registers a plain answer

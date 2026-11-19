@@ -27,6 +27,7 @@ import {
   isSafeReportedModel,
   isYouTubeVideoId,
   laterFindingsCardSchema,
+  livingPersonPlacesFromReceipt,
   namedVideosFromReceipt,
   screenFindingsCard,
   screenFindingsText,
@@ -83,12 +84,38 @@ export interface SavedFindingsCard {
   /** The cards of the same research thread this save replaced. */
   replacedCards: number[];
   account: FindingsSaveAccount | undefined;
+  /**
+   * Codex's review of 17 Nov 2026, finding 1 (P0): the stored card's findings, by number from 1, that the final check's
+   * receipt signed as naming no living person (`nlp`) and the card declares so; while saved findings show on the pages
+   * at once, only these may. Empty for a receipt that signed none.
+   */
+  clearOfLivingPeople: ReadonlySet<number>;
+  /**
+   * Codex's re-review of 17 Nov 2026, finding 1 (P0): the stored card's findings, by number from 1, that the meaning
+   * judge read as naming a living person, as the receipt signed them (`nly`); the save holds them for the owner. Empty
+   * for a receipt that signed none. Left out, as by a caller from before it, it reads as empty.
+   */
+  judgedNamingLivingPeople?: ReadonlySet<number>;
+  /**
+   * And those it read as naming no one, as the receipt signed them (`nln`), which decide for a finding whose card
+   * doesn't say while ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN is reader. Left out, it reads as empty.
+   */
+  judgedClearOfLivingPeople?: ReadonlySet<number>;
 }
 
-/** Publishes a saved card's findings in the Atlas (decision 171, section 4B); the save never waits for it. */
+/**
+ * Publishes a saved card's findings in the Atlas (decision 171, section 4B); the save never waits for the publishing,
+ * only for what it records first.
+ */
 export interface FindingsCardPublisher {
   /** Whether a card this account saves is published as soon as it is saved: the account checks alone. */
   accountPublishes(account: FindingsSaveAccount | undefined): boolean;
+  /**
+   * Codex's fourth review of 17 Nov 2026 (P0s): before the save answers, in one transaction of the database, records
+   * whether each of the saved card's findings names a living person and holds what a yes holds. It throws when that
+   * fails; the save then fails, retryable, and nothing is published.
+   */
+  recordSave(saved: SavedFindingsCard): Promise<void>;
   /** After a confirmed save: publishes what is eligible. It may throw; the save has already been answered. */
   afterSave(saved: SavedFindingsCard): Promise<void>;
 }
@@ -416,17 +443,40 @@ export class FindingsSaveService {
         this.holdLeftOut(queued.issueNumber, cardSha256, now, input.findings_card, stored.kept, bases);
       }
       // Decision 171, section 4B: the card's findings are published right after the confirmed save. The answer never
-      // waits for it, and a failure never changes the save's result: the owner retries it with publish_cards. The
-      // publisher reads the stored card, so a finding held above is never among them.
+      // waits for the publishing, and its failure never changes the save's result: it publishes nothing, and the owner
+      // retries it with publish_cards. The publisher reads the stored card, so a finding held above is never among
+      // them. Codex's fourth review of 17 Nov 2026 (P0s): what the save says of a living person is recorded first, and
+      // the save waits for that: when it fails, the save fails, retryable, and nothing is published.
       if (publisher !== undefined) {
-        this.publishAfterSave(publisher, {
+        // Codex's review of 17 Nov 2026, finding 1: by the stored card's numbers, the findings the receipt signed, and
+        // the card declares, as naming no living person.
+        const signedClear = livingPersonPlacesFromReceipt(receipt.claims.nlp, input.findings_card.findings.length);
+        const clearOfLivingPeople = new Set(stored.kept.flatMap((original, at) => signedClear.has(original) &&
+          input.findings_card.findings[original]!.names_living_person === false ? [at + 1] : []));
+        // Codex's re-review of 17 Nov 2026, finding 1: those the meaning judge read as naming one, as the receipt signed.
+        const signedNaming = livingPersonPlacesFromReceipt(receipt.claims.nly, input.findings_card.findings.length);
+        const judgedNamingLivingPeople = new Set(stored.kept.flatMap((original, at) =>
+          signedNaming.has(original) ? [at + 1] : []));
+        const signedNoOne = livingPersonPlacesFromReceipt(receipt.claims.nln, input.findings_card.findings.length);
+        const judgedClearOfLivingPeople = new Set(stored.kept.flatMap((original, at) =>
+          signedNoOne.has(original) && !signedNaming.has(original) ? [at + 1] : []));
+        const saved: SavedFindingsCard = {
           record,
           issueNumber: queued.issueNumber,
           kind: queued.kind,
           setAside: queued.setAside,
           replacedCards: queued.replacedCards,
           account: context.account,
-        });
+          clearOfLivingPeople,
+          judgedNamingLivingPeople,
+          judgedClearOfLivingPeople,
+        };
+        try {
+          await publisher.recordSave(saved);
+        } catch {
+          return result({ status: "queue_unavailable", retryable: true, reason_code: "queue_service_unavailable" });
+        }
+        this.publishAfterSave(publisher, saved);
       }
       return result({
         status: queued.kind === "created" ? "saved" : "existing_card",

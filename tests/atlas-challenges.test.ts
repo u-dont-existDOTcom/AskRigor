@@ -381,8 +381,9 @@ describe("mark_challenge, clear_challenge and list_challenges", () => {
     const refused = await run.run({ action: "clear_challenge", items: [shown, kept] });
     expect(refused).toMatchObject({ ok: false, error: { code: "invalid_request" } });
     expect(refused.text).toBe(`${shown} shows unreviewed only because it challenges the usual view, with the ` +
-      "quick-answer verdict headline or fail, so its mark stays while it shows: without it, its page would say a quick " +
-      "AI answer misses it. Keep it for research first (keep_for_research), then clear its mark; nothing was changed.");
+      "quick-answer verdict headline or fail, so its mark stays while it shows: without it, its page would no longer " +
+      "say that it is shown because it challenges the usual view. Keep it for research first (keep_for_research), then " +
+      "clear its mark; nothing was changed.");
     expect((await store.inspectChallenges()).map(({ publicationNumber }) => publicationNumber)).toEqual([shown, kept]);
   });
 
@@ -469,6 +470,27 @@ describe("through review_research_contribution", () => {
     const refused = await call({ action: "mark_challenge", later_inputs: { ...later, items: [kept] } }, other);
     expect(refused.isError).toBe(true);
     expect((await store.inspectChallenges()).map(({ publicationNumber }) => publicationNumber)).toEqual([shown]);
+    // Codex's third review of 17 Nov 2026, finding 2: the quick-answer test's show_on_pages says so, with its verdict,
+    // and that is what is recorded; a show_on_pages that doesn't is recorded as the owner's. The verdict goes with
+    // show_on_pages and mark_challenge only, and the mark's other inputs with mark_challenge only.
+    for (const [action, field] of [["keep_for_research", "quick_answer_verdict"], ["show_on_pages", "usual_view"]] as const) {
+      const wrong = await call({ action, ...(action === "keep_for_research" ? { reason: "owner answer 240a" } : {}),
+        later_inputs: { items: [kept], [field]: field === "usual_view" ? MARK.usualView : "pass" } });
+      expect(wrong.isError, action).toBe(true);
+      expect(JSON.stringify(wrong.content)).toContain(`${action} does not take ${field}`);
+    }
+    const tested = await call({ action: "show_on_pages", later_inputs: { items: [kept], shown_by: "quick_answer_test",
+      quick_answer_verdict: "pass" } });
+    expect(tested.structuredContent).toMatchObject({ ok: true, outcome: "shown_on_pages" });
+    expect(JSON.stringify(tested.content)).toContain("Each is recorded as shown by the quick-answer test, with its " +
+      "verdict: pass.");
+    expect([store.shownByOf(kept), store.testVerdictOf(kept)]).toEqual(["quick_answer_test", "pass"]);
+    await call({ action: "keep_for_research", reason: "owner answer 240a", later_inputs: { items: [kept] } });
+    // Codex's fourth review of 17 Nov 2026 (P1): a showing says who acts, the owner too.
+    const byOwner = await call({ action: "show_on_pages", later_inputs: { items: [kept], shown_by: "owner" } });
+    expect(JSON.stringify(byOwner.content)).toContain("Each is recorded as shown by AskRigor's owner, his decision, " +
+      "which a later save never undoes.");
+    expect([store.shownByOf(kept), store.testVerdictOf(kept)]).toEqual(["owner_action", null]);
   });
 });
 

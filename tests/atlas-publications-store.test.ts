@@ -1,9 +1,12 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
 
 import {
+  ADMITTED_MIGRATION_EDITS,
   ATLAS_PUBLICATION_HOLD_REASONS,
+  ATLAS_PUBLICATION_ROUTES,
   ATLAS_PUBLICATION_SCHEMA,
   ATLAS_PUBLICATION_SCHEMA_V2,
   ATLAS_PUBLICATION_STATES,
@@ -12,8 +15,11 @@ import {
   InMemoryAtlasPublicationStore,
   PostgresAtlasPublicationStore,
   atlasPublishedFindingSchema,
+  migrationDigestOutcome,
+  type AtlasKeepChange,
   type AtlasPublicationDraft,
   type AtlasPublishedFinding,
+  type AtlasShowRoute,
 } from "@askrigor/evidence-repository";
 
 // Decision 171, section 4B: the publications store, in memory with migration 0021's semantics, and in PostgreSQL through
@@ -327,6 +333,219 @@ describe("the PostgreSQL publication store", () => {
     await expect(store.publish({ cardNumber: 250, cardSha256: DIGEST_A, findings: [draft(1, { state: "held" })],
       publishedAt: AT, revive: false })).rejects.toBeInstanceOf(AtlasPublicationError);
     expect(calls).toHaveLength(7);
+    // Migration 0041: a draft the save shows at once says so in its JSON, which publish_atlas_findings stores.
+    await store.publish({ cardNumber: 250, cardSha256: DIGEST_A, findings: [{ ...draft(1), shownBy: "automatic_showing" }],
+      publishedAt: AT, revive: false });
+    expect(JSON.parse(calls[7]!.values[2] as string)).toEqual([{ ...draft(1), shownBy: "automatic_showing" }]);
+    await store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: AT, revive: false,
+      findings: [{ ...draft(1), shownBy: "automatic_showing", keptReason: "waiting for the owner" }] });
+    expect(JSON.parse(calls[8]!.values[2] as string)).toEqual([{ ...draft(1), shownBy: "automatic_showing",
+      keptReason: "waiting for the owner" }]);
+  });
+
+  // Codex's review of 17 Nov 2026, finding 1: a finding the save keeps for the owner is kept in the publishing's own
+  // write, so a keep that fails afterwards never leaves it shown (migration 0041).
+  it("keeps a draft that carries a kept reason in the same write, only an unreviewed one with a reason that reads", async () => {
+    const store = new InMemoryAtlasPublicationStore();
+    const [kept, shown] = await store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: AT, revive: false,
+      findings: [{ ...draft(1), shownBy: "automatic_showing", keptReason: "waiting for the owner" }, draft(2)] });
+    expect(await store.inspectKept()).toEqual([expect.objectContaining({ publicationNumber: kept!.publicationNumber,
+      state: "unreviewed", reason: "waiting for the owner" })]);
+    expect(store.isKept(shown!.publicationNumber)).toBe(false);
+    for (const keptReason of ["", " padded ", "x".repeat(2_001)]) {
+      await expect(store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: AT, revive: false,
+        findings: [{ ...draft(3), keptReason }] })).rejects.toBeInstanceOf(AtlasPublicationError);
+    }
+    await expect(store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: AT, revive: false,
+      findings: [{ ...draft(3, { state: "held", heldBecause: ["card_reference"] }), keptReason: "waiting" }] }))
+      .rejects.toBeInstanceOf(AtlasPublicationError);
+  });
+
+  // Codex's review of 17 Nov 2026, finding 4: how a publication reached the pages, stored with it (migration 0041).
+  it("stores a draft shown at once as such, only for an unreviewed draft, and keeps it when the finding is published again", async () => {
+    const store = new InMemoryAtlasPublicationStore();
+    const [shown, held] = await store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: AT, revive: false,
+      findings: [{ ...draft(1), shownBy: "automatic_showing" }, draft(2, { state: "held", heldBecause: ["card_reference"] })] });
+    expect(store.shownByOf(shown!.publicationNumber)).toBe("automatic_showing");
+    expect(store.shownByOf(held!.publicationNumber)).toBeNull();
+    for (const refused of [
+      { ...draft(3, { state: "held", heldBecause: ["card_reference"] }), shownBy: "automatic_showing" as const },
+      { ...draft(3), shownBy: "quick_answer_test" as unknown as "automatic_showing" },
+    ]) {
+      await expect(store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: AT, revive: false,
+        findings: [refused] })).rejects.toBeInstanceOf(AtlasPublicationError);
+    }
+    // The owner's publish_cards publishing it again, after an unpublishing, leaves how it first reached the pages.
+    await store.withdraw({ reason: "owner_unpublished", publicationNumbers: [shown!.publicationNumber], ownerReason: "Wrong.",
+      withdrawnAt: LATER });
+    await store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: LATER, revive: true, findings: [draft(1)] });
+    expect(store.shownByOf(shown!.publicationNumber)).toBe("automatic_showing");
+  });
+
+  // Codex's re-review of 17 Nov 2026, finding 4, and its third review, finding 2: four routes stored apart, each
+  // written by the action that shows the finding, at that moment. The owner's action and automatic showing are written
+  // with the publication; the quick-answer test's, with its verdict, only by a showing that says so. Nothing is read
+  // from a kept reason's text, and a showing that says nothing records nothing (an earlier image's).
+  it("stores each way a publication reached the pages as the showing action says it, and nothing from a reason's text", async () => {
+    expect(ATLAS_PUBLICATION_ROUTES).toEqual(["owner_action", "quick_answer_test", "automatic_showing"]);
+    const store = new InMemoryAtlasPublicationStore();
+    const rows = await store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: AT, revive: false, findings: [
+      { ...draft(1), shownBy: "owner_action" },
+      { ...draft(2, { state: "accepted", atlasNumber: "F-1001" }), shownBy: "owner_action" },
+      draft(3), draft(4), draft(5),
+    ] });
+    const [owner, accepted, tested, shownByOwner, unsaid] = rows.map(({ publicationNumber }) => publicationNumber);
+    expect(rows.map(({ publicationNumber }) => store.shownByOf(publicationNumber)))
+      .toEqual(["owner_action", "owner_action", null, null, null]);
+    for (const refused of [
+      { ...draft(6, { state: "held", heldBecause: ["card_reference"] }), shownBy: "owner_action" as const },
+      { ...draft(6), shownBy: "quick_answer_test" as const },
+      { ...draft(6, { state: "accepted", atlasNumber: "F-1002" }), shownBy: "automatic_showing" as const },
+    ]) {
+      await expect(store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: AT, revive: false,
+        findings: [refused] })).rejects.toBeInstanceOf(AtlasPublicationError);
+    }
+    // Each kept with the test's own pass reason, which no longer says who shows it.
+    const PASSED = "owner answer 240a: quick-answer test, passed, waiting for the whole picture";
+    await store.keep({ publicationNumbers: [tested!, shownByOwner!, unsaid!], atlasNumbers: [], keep: true, reason: PASSED,
+      at: LATER });
+    const show = (number: string, route?: AtlasShowRoute) => store.keep({ publicationNumbers: [number], atlasNumbers: [],
+      keep: false, reason: null, at: LATER, ...(route === undefined ? {} : { route }) });
+    await show(tested!, { by: "quick_answer_test", verdict: "pass" });
+    await show(shownByOwner!, { by: "owner_action" });
+    await show(unsaid!);
+    expect([tested, shownByOwner, unsaid].map((number) => [store.shownByOf(number!), store.testVerdictOf(number!)]))
+      .toEqual([["quick_answer_test", "pass"], ["owner_action", null], [null, null]]);
+    // Showing one that isn't kept records nothing.
+    await show(owner!, { by: "quick_answer_test", verdict: "pass" });
+    expect([store.shownByOf(owner!), store.testVerdictOf(owner!)]).toEqual(["owner_action", null]);
+    // Kept again and shown by a showing that doesn't say: not recorded, the test's verdict gone with its route.
+    await store.keep({ publicationNumbers: [tested!], atlasNumbers: [], keep: true, reason: "owner's choice", at: LATER });
+    await show(tested!);
+    expect([store.shownByOf(tested!), store.testVerdictOf(tested!)]).toEqual([null, null]);
+    // A route goes only with showing, and the test's only with its verdict.
+    for (const refused of [
+      { keep: true, reason: "owner's choice", route: { by: "owner_action" } },
+      { keep: false, reason: null, route: { by: "quick_answer_test" } },
+      { keep: false, reason: null, route: { by: "quick_answer_test", verdict: "maybe" } },
+      { keep: false, reason: null, route: { by: "owner_action", verdict: "pass" } },
+      { keep: false, reason: null, route: { by: "automatic_showing" } },
+    ]) {
+      await expect(store.keep({ publicationNumbers: [unsaid!], atlasNumbers: [], at: LATER,
+        ...refused } as unknown as AtlasKeepChange)).rejects.toBeInstanceOf(AtlasPublicationError);
+    }
+    // The owner's publishing again of a withdrawn finding is the owner's action, with no test verdict.
+    await store.keep({ publicationNumbers: [shownByOwner!], atlasNumbers: [], keep: true, reason: PASSED, at: LATER });
+    await show(shownByOwner!, { by: "quick_answer_test", verdict: "headline" });
+    await store.withdraw({ reason: "owner_unpublished", publicationNumbers: [shownByOwner!], ownerReason: "Wrong.",
+      withdrawnAt: LATER });
+    await store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: LATER, revive: true,
+      findings: [{ ...draft(4), shownBy: "owner_action" }] });
+    expect([store.shownByOf(shownByOwner!), store.testVerdictOf(shownByOwner!)]).toEqual(["owner_action", null]);
+    expect([owner, accepted].map((number) => store.shownByOf(number!))).toEqual(["owner_action", "owner_action"]);
+    // Through the review role: a showing that says how calls show_atlas_publications, one that doesn't keep's function.
+    const { store: postgres, calls } = recorded([{ kept_publication_number: "P-1001", kept_state: "unreviewed",
+      kept_atlas_number: null, kept: false }]);
+    await postgres.keep({ publicationNumbers: ["P-1001"], atlasNumbers: [], keep: false, reason: null, at: AT,
+      route: { by: "quick_answer_test", verdict: "pass" } });
+    await postgres.keep({ publicationNumbers: ["P-1001"], atlasNumbers: [], keep: false, reason: null, at: AT,
+      route: { by: "owner_action" } });
+    await postgres.keep({ publicationNumbers: ["P-1001"], atlasNumbers: [], keep: false, reason: null, at: AT });
+    expect(calls.map(({ sql, values }) => [sql, values])).toEqual([
+      ["SELECT * FROM living_evidence.show_atlas_publications($1::text[], $2::text[], $3::text, $4::text, $5::timestamptz)",
+        [["P-1001"], [], "quick_answer_test", "pass", AT]],
+      ["SELECT * FROM living_evidence.show_atlas_publications($1::text[], $2::text[], $3::text, $4::text, $5::timestamptz)",
+        [["P-1001"], [], "owner_action", null, AT]],
+      ["SELECT * FROM living_evidence.keep_atlas_publications($1::text[], $2::text[], $3::boolean, $4::text, $5::timestamptz)",
+        [["P-1001"], [], false, null, AT]],
+    ]);
+  });
+
+  // Codex's third review of 17 Nov 2026, finding 1, and its fourth review's P0s (migration 0041): a save stores what
+  // it says of a living person with the card, a yes never lowered, and its yes holds, by the claim's key or by the
+  // numbers the server matched, what the owner hasn't decided, and notes what he has, which stays as it is.
+  it("records a save's living-person yes with the card, holding only what the owner hasn't decided", async () => {
+    const store = new InMemoryAtlasPublicationStore();
+    const KEY = "c".repeat(64);
+    const OTHER = "d".repeat(64);
+    const living = (claimKey: string) => ({ livingPerson: { claimKey, reading: "no" as const, holdNotSaid: false } });
+    const rows = await store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: AT, revive: false, findings: [
+      { ...draft(1), shownBy: "automatic_showing", ...living(KEY) },
+      { ...draft(2, { state: "held", heldBecause: ["card_reference"] }), ...living(KEY) },
+      { ...draft(3), shownBy: "owner_action", ...living(KEY) },
+      { ...draft(4, { state: "accepted", atlasNumber: "F-1001" }), ...living(KEY) },
+      // Published before claim keys were stored: the server matched it by its claim.
+      draft(5),
+    ] });
+    const [automatic, heldBefore, ownerShown, accepted, older] = rows.map(({ publicationNumber }) => publicationNumber);
+    expect(rows.map(({ state }) => state)).toEqual(["unreviewed", "held", "unreviewed", "accepted", "unreviewed"]);
+    expect(store.livingPersonReadingOf(250, KEY)).toBe("no");
+    const record = (readings: Array<{ claimKey: string; reading: "yes" | "no" | "not_said" }>, numbers: string[] = [],
+      at = LATER) => store.recordLivingPerson({ cardNumber: 250, readings, publicationNumbers: numbers, at });
+    // A no or not said holds nothing, and never lowers what is stored.
+    expect(await record([{ claimKey: KEY, reading: "not_said" }, { claimKey: OTHER, reading: "no" }])).toEqual([]);
+    expect([store.livingPersonReadingOf(250, KEY), store.livingPersonReadingOf(250, OTHER)]).toEqual(["no", "no"]);
+    expect((await record([{ claimKey: KEY, reading: "yes" }], [older!]))
+      .map(({ publicationNumber, state, heldBecause, outcome }) => [publicationNumber, state, heldBecause, outcome])).toEqual([
+      [automatic, "held", ["living_person_review"], "held"],
+      [heldBefore, "held", ["card_reference", "living_person_review"], "reason_added"],
+      [ownerShown, "unreviewed", null, "noted"],
+      [accepted, "accepted", null, "noted"],
+      [older, "held", ["living_person_review"], "held"],
+    ]);
+    expect(store.livingPersonReadingOf(250, KEY)).toBe("yes");
+    expect(await record([{ claimKey: KEY, reading: "no" }])).toEqual([]);
+    expect(store.livingPersonReadingOf(250, KEY)).toBe("yes");
+    expect(await store.inspectLivingPersonNotes([automatic!, ownerShown!, accepted!])).toEqual([
+      { publicationNumber: ownerShown, notedAt: LATER }, { publicationNumber: accepted, notedAt: LATER }]);
+    // Again: nothing more changes, and a note keeps when it was first made.
+    expect((await record([{ claimKey: KEY, reading: "yes" }], [], "2026-11-06T10:00:00.000Z"))
+      .map(({ outcome }) => outcome)).toEqual(["already_held", "already_held", "noted", "noted"]);
+    expect((await store.inspectLivingPersonNotes([accepted!]))[0]!.notedAt).toBe(LATER);
+    // Another card's publication with the same claim is not this card's.
+    const [elsewhere] = await store.publish({ cardNumber: 251, cardSha256: DIGEST_B, publishedAt: AT, revive: false,
+      findings: [{ ...draft(1), ...living(KEY) }] });
+    expect(elsewhere).toMatchObject({ state: "unreviewed" });
+    // A publication on its way after the yes reads it at the moment it publishes: held, whatever its draft says, and
+    // shown by no route.
+    const [late] = await store.publish({ cardNumber: 250, cardSha256: "f".repeat(64), publishedAt: LATER, revive: false,
+      findings: [{ ...draft(1), shownBy: "automatic_showing", keptReason: "waiting", ...living(KEY) }] });
+    expect(late).toMatchObject({ state: "held", heldBecause: ["living_person_review"] });
+    expect(store.shownByOf(late!.publicationNumber)).toBeNull();
+    expect((await store.inspectKept()).some(({ publicationNumber }) => publicationNumber === late!.publicationNumber)).toBe(false);
+    // Not said holds one only while its draft says ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN holds it.
+    const UNSAID = "e".repeat(64);
+    const unsaid = (findingNumber: number, holdNotSaid: boolean) => ({ ...draft(findingNumber),
+      livingPerson: { claimKey: UNSAID, reading: "not_said" as const, holdNotSaid } });
+    expect((await store.publish({ cardNumber: 252, cardSha256: "9".repeat(64), publishedAt: AT, revive: false,
+      findings: [unsaid(1, false), unsaid(2, true)] })).map(({ state }) => state)).toEqual(["unreviewed", "held"]);
+    for (const refused of [
+      { readings: [], numbers: [] },
+      { readings: [{ claimKey: "C".repeat(64), reading: "yes" }], numbers: [] },
+      { readings: [{ claimKey: KEY, reading: "maybe" }], numbers: [] },
+      { readings: [{ claimKey: KEY, reading: "yes" }], numbers: ["F-1001"] },
+      { readings: Array.from({ length: 6 }, () => ({ claimKey: KEY, reading: "yes" })), numbers: [] },
+    ]) {
+      await expect(store.recordLivingPerson({ cardNumber: 250, readings: refused.readings as never,
+        publicationNumbers: refused.numbers, at: LATER })).rejects.toBeInstanceOf(AtlasPublicationError);
+    }
+    await expect(store.publish({ cardNumber: 253, cardSha256: DIGEST_A, publishedAt: AT, revive: false,
+      findings: [{ ...draft(1), livingPerson: { claimKey: KEY, reading: "yes", holdNotSaid: "no" } as never }] }))
+      .rejects.toBeInstanceOf(AtlasPublicationError);
+    // Through the review role's functions.
+    const { store: postgres, calls } = recorded([{ held_publication_number: "P-1001", held_state: "held",
+      held_reasons: ["living_person_review"], held_outcome: "held" }]);
+    expect(await postgres.recordLivingPerson({ cardNumber: 250, readings: [{ claimKey: KEY, reading: "yes" }],
+      publicationNumbers: ["P-1001"], at: AT })).toEqual([
+      { publicationNumber: "P-1001", state: "held", heldBecause: ["living_person_review"], outcome: "held" }]);
+    expect(calls.map(({ sql, values }) => [sql, values])).toEqual([[
+      "SELECT * FROM living_evidence.record_atlas_living_person($1::integer, $2::jsonb, $3::text[], $4::timestamptz)",
+      [250, JSON.stringify([{ claimKey: KEY, reading: "yes" }]), ["P-1001"], AT]]]);
+    const notes = recorded([{ noted_publication_number: "P-1001", noted_at: new Date(AT) }]);
+    expect(await notes.store.inspectLivingPersonNotes(["P-1001"])).toEqual([{ publicationNumber: "P-1001", notedAt: AT }]);
+    expect(notes.calls[0]!.sql).toBe("SELECT * FROM living_evidence.inspect_atlas_living_person_notes($1::text[])");
+    expect(await notes.store.inspectLivingPersonNotes([])).toEqual([]);
+    expect(notes.calls).toHaveLength(1);
   });
 
   it("refuses a row that does not read as a publication", async () => {
@@ -363,5 +582,52 @@ describe("migration 0021", () => {
     const states = migration.slice(migration.indexOf("state text NOT NULL CHECK (state IN ("));
     expect([...states.slice(0, states.indexOf("))")).matchAll(/'([a-z_]+)'/gu)].map(([, state]) => state))
       .toEqual([...ATLAS_PUBLICATION_STATES]);
+  });
+
+  // Codex's re-review of 17 Nov 2026, finding 1 (P0): a finding that may name a living person is held for the owner,
+  // a sixth reason. 0021 replaces its own list on every start, so the reason is added there, and the list may hold all
+  // six; a later migration's wider list would be narrowed again by 0021 at the next start.
+  it("holds a finding that may name a living person, with every other reason too, and no more than the six", async () => {
+    const migration = await readFile(new URL("../packages/evidence-repository/migrations/0021_atlas_publications.sql",
+      import.meta.url), "utf8");
+    expect(ATLAS_PUBLICATION_HOLD_REASONS).toContain("living_person_review");
+    expect(migration).toContain("AND jsonb_array_length(held_because) BETWEEN 1 AND 6\n");
+    const store = new InMemoryAtlasPublicationStore();
+    const rows = await store.publish({ cardNumber: 250, cardSha256: DIGEST_A, publishedAt: AT, revive: false, findings: [
+      draft(1, { state: "held", heldBecause: ["living_person_review"] }),
+      draft(2, { state: "held", heldBecause: [...ATLAS_PUBLICATION_HOLD_REASONS] }),
+    ] });
+    expect(rows.map(({ state, heldBecause }) => [state, heldBecause])).toEqual([
+      ["held", ["living_person_review"]], ["held", [...ATLAS_PUBLICATION_HOLD_REASONS]]]);
+    await expect(store.publish({ cardNumber: 251, cardSha256: DIGEST_B, publishedAt: AT, revive: false, findings: [
+      draft(1, { state: "held", heldBecause: ["living_person_review", "living_person_review"] })] })).rejects
+      .toBeInstanceOf(AtlasPublicationError);
+  });
+});
+
+// Codex's re-review of 17 Nov 2026, finding 1: migrations are checksummed, so an edit to an applied one stops the next
+// start. The one edit admitted is 0021's, from the digest every database recorded for it to the file's digest now, and
+// only that edit: the file less the new reason is exactly the 0021 that recorded the old digest.
+describe("the migrations' recorded digests", () => {
+  const sha = (text: string) => createHash("sha256").update(text).digest("hex");
+  const OLD_0021 = "f52a42ebd1a31f2adcef2ee267ab1a611e24d26afe44a3d9b04e2e7198d08443";
+
+  it("admits only 0021's verified edit, from the digest it recorded to the file's digest now", async () => {
+    const migration = await readFile(new URL("../packages/evidence-repository/migrations/0021_atlas_publications.sql",
+      import.meta.url), "utf8");
+    const before = migration
+      .replace("BETWEEN 1 AND 6\n", "BETWEEN 1 AND 5\n")
+      .replace(', "youtube_link", "living_person_review"]', ', "youtube_link"]');
+    expect(before).not.toBe(migration);
+    expect(sha(before)).toBe(OLD_0021);
+    const now = sha(migration);
+    expect(ADMITTED_MIGRATION_EDITS).toEqual({ "0021_atlas_publications": [{ from: OLD_0021, to: now }] });
+    expect(migrationDigestOutcome("0021_atlas_publications", OLD_0021, now)).toBe("admitted_edit");
+    expect(migrationDigestOutcome("0021_atlas_publications", now, now)).toBe("same");
+    expect(migrationDigestOutcome("0021_atlas_publications", undefined, now)).toBe("first_run");
+    // Never back, never from another digest, never for another migration.
+    expect(migrationDigestOutcome("0021_atlas_publications", now, OLD_0021)).toBe("mismatch");
+    expect(migrationDigestOutcome("0021_atlas_publications", "c".repeat(64), now)).toBe("mismatch");
+    expect(migrationDigestOutcome("0024_atlas_kept_for_research", OLD_0021, now)).toBe("mismatch");
   });
 });

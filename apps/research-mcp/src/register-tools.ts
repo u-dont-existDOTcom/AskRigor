@@ -1,4 +1,6 @@
 import { registerForumTools } from "./forum-tools.js";
+import { findingsCardReminder } from "./findings/card-reminder.js";
+import { resultSizeDeclarationsFromEnv, resultSizeMeta } from "./result-size-limits.js";
 import type { RedditReaderClient } from "./reddit-reader-client.js";
 import type { readForumPage } from "@askrigor/sources";
 import {
@@ -119,6 +121,9 @@ import {
   MCP_RESULT_MAX_BYTES,
   PUBLIC_TOOL_LIMITS,
   atlasReviewEnabledFromEnv,
+  atlasLivingPersonDeclarationFromEnv,
+  atlasLivingPersonUnknownFromEnv,
+  atlasShowSavedFindingsFromEnv,
   crossrefConfigFromEnv,
   devAccountKeysFromEnv,
   dossierPrivacyReadingFromEnv,
@@ -308,6 +313,7 @@ import {
   parseFinalizeResearchInput,
   finalizeResearchOutputSchema,
   finalizeResearchPublishedOutputSchema,
+  findingsCardRequested,
   meaningJudgeSourceOf,
   sourceLineRequestsOf,
   studyMapRequestsOf,
@@ -315,7 +321,8 @@ import {
   settleFindingsLedger,
   shortLookupDeclared,
   type FinalizeResearchOptions,
-  type FinalizeResearchOutput
+  type FinalizeResearchOutput,
+  type LivingPersonNoteMode
 } from "./research-finalization-gate.js";
 import {
   DOSSIER_PRIVACY_READING_LIMITS,
@@ -1003,6 +1010,11 @@ export interface RegisterToolsOptions {
   /** How long finalize_research waits for a findings save; replaced for tests. */
   findingsSaveDeadlineMilliseconds?: number;
   mcpSurface?: McpSurface;
+  /**
+   * Whether tools/list declares Claude Code's larger result sizes (result-size-limits.ts); defaults to
+   * ASKRIGOR_DECLARE_RESULT_SIZES, off, as the tool list is frozen (owner answer 189a).
+   */
+  declareResultSizes?: boolean;
   /** The versions this server runs, returned by get_protocol_manifest. */
   runningVersions?: RunningVersions;
   /** This surface's tool list version (toolListVersionOf), which a call's tool_list_version is compared with. */
@@ -2693,6 +2705,11 @@ function defineResearchOperations(
           ? "closed" as const
           : account === undefined ? "private" as const : account.mode === "FREE_CONTRIBUTOR" ? "save" as const : "offer" as const,
         ...(callerReads ? { aiReadings: "caller" as const } : {}),
+        // Codex's review of 17 Nov 2026, finding 1: while saved findings show on the pages at once, the receipt signs
+        // which findings declare they name no living person, and only those may show at once. Codex's re-review: also
+        // while a finding that doesn't say is held or read by the meaning judge, and the note asking for the
+        // declaration goes with showing at once or the declaration setting, in words true to the settings.
+        ...livingPersonCheckOptions(),
         ...(readsOnMobile(extra._meta) ? { mobileClient: true } : {}),
         ...(options.toolListVersion === undefined ? {} : { toolListVersion: options.toolListVersion }),
         ...(ledgerKey === undefined ? {} : { findingsLedger: { account: researcher?.accountKey, deferred: true } }),
@@ -2840,6 +2857,7 @@ function defineResearchOperations(
         account?.mode === "FREE_CONTRIBUTOR" && checkedInput?.findings_card !== undefined &&
         result.findings_card.status === "checked" && result.finalization_receipt !== undefined
       ) {
+        let retryableSave = false;
         const save = (options.findingsSave ?? saveResearchFindings)({
           findings_card: checkedInput.findings_card,
           finalization_receipt: result.finalization_receipt,
@@ -2850,7 +2868,10 @@ function defineResearchOperations(
           toolCatalogSha256: toolCatalogSha256(),
           // Decision 171, section 4B: the account checks for publishing the card in the Atlas at its save.
           account: findingsSaveAccount(account),
-        }).then(savedFindings, () => ({ status: "not_saved" as const, reason: "queue_service_unavailable" }));
+        }).then((outcome) => {
+          retryableSave = outcome.status === "queue_unavailable" && outcome.retryable;
+          return savedFindings(outcome);
+        }, () => ({ status: "not_saved" as const, reason: "queue_service_unavailable" }));
         result.findings_card.saved = await withinDeadline(
           save,
           options.findingsSaveDeadlineMilliseconds ?? FINDINGS_SAVE_DEADLINE_MILLISECONDS,
@@ -2860,6 +2881,10 @@ function defineResearchOperations(
         // unconfirmed or failed save has no id, and no line.
         const cardId = result.findings_card.saved.card_id;
         if (cardId !== undefined) result.saved_line = findingsSavedLine(cardId);
+        // Codex's fifth review of 17 Nov 2026 (P0): its failure, that it can be retried and how reach the caller.
+        if (retryableSave && result.findings_card.saved.status === "not_saved") {
+          result.notes = [...(result.notes ?? []), FINDINGS_SAVE_RETRY_NOTE];
+        }
       }
       // The owner, 4 Nov 2026: a card that didn't save is kept privately for a second look, so a finding isn't lost on
       // a technicality. Saving-off dev accounts keep nothing, as they save nothing, and it never changes the check.
@@ -2883,6 +2908,15 @@ function defineResearchOperations(
           result.findings_card.saved = { status: "not_saved", reason: KEPT_FOR_REVIEW };
           addLateNote(unsavedCardNote(kept.card_id), { checker: "call", call: true });
         }
+      }
+      // AskRigor#475: a free contributor's first pass with no card, though the check's note asked for one, says the card
+      // belongs to this answer, harms and safety signals included (findings/card-reminder.ts).
+      const cardReminder = findingsCardReminder({ findings: finalizeOptions.findings,
+        savingOn: account?.findingsSave === true && !callSavingOff, status: result.status,
+        cardStatus: result.findings_card.status, turnAlreadyPassed: result.turn_already_passed === true,
+        cardRequested: findingsCardRequested(result) });
+      if (cardReminder !== undefined) {
+        result.findings_card.problems = [...result.findings_card.problems, cardReminder];
       }
       // Owner answer 143a: a free answer whose research map was filed ends by saying what was saved, the card's id
       // included when its save confirmed.
@@ -3064,7 +3098,8 @@ function defineResearchOperations(
           (result.previous_check === undefined ? "" :
             `\nThe previous final check in this conversation did not pass (${result.previous_check.open.join(", ") || "steps open"}), ` +
               "so an answer given after it went out unchecked; if one did, this answer says what changed from it.") +
-          (card.status === "absent" || card.status === "private"
+          (cardReminder !== undefined ? `\nFindings card: ${cardReminder}`
+            : card.status === "absent" || card.status === "private"
             ? ""
             : `\nFindings card: ${card.status}` +
               (card.saved !== undefined
@@ -3334,6 +3369,14 @@ function savedFindings(result: FindingsSaveResult): NonNullable<FinalizeResearch
   }
   return { status: "not_saved", reason: result.reason_code ?? result.status };
 }
+
+/**
+ * Codex's fifth review of 17 Nov 2026 (P0): a free contributor's save that failed but can be tried again says so, and
+ * how, as a note, since the frozen output keeps saved to its status and reason.
+ */
+export const FINDINGS_SAVE_RETRY_NOTE = "The findings card's save failed (queue_service_unavailable) and can be " +
+  "retried: call save_research_findings with the same findings_card and this call's finalization_receipt. This save " +
+  "published nothing.";
 
 // The tool catalog a findings card was saved with: sha256 of the operation
 // names, sorted, one per line. Read when a save arrives, once the catalog exists.
@@ -4667,6 +4710,9 @@ function collectResearchOperations(
         throw new Error(`Incomplete research operation definition: ${name}`);
       }
       const annotations = Object.freeze({ ...config.annotations });
+      // Server fix 3 (17 Nov 2026): a larger result size for Claude Code, only while declarations are on.
+      const sizeMeta = resultSizeMeta(name, { declare: options.declareResultSizes ?? resultSizeDeclarationsFromEnv(),
+        gemini: options.mcpSurface === "/mcp/gemini" });
       const _meta = PRIVATE_MCP_OPERATION_NAMES.has(name)
         ? evidenceGapReviewSecurityMetadata()
         : PUBLIC_READ_OPERATION_NAMES.has(name)
@@ -4720,7 +4766,7 @@ function collectResearchOperations(
         inputSchema: evolving.inputSchema,
         outputSchema,
         annotations,
-        _meta: Object.freeze({ ...config._meta, ..._meta }),
+        _meta: Object.freeze({ ...config._meta, ..._meta, ...sizeMeta }),
       });
       operations.push(Object.freeze({
         name,
@@ -5289,4 +5335,20 @@ function pubmedMcpFailureMessage(error: unknown): string {
 
 function isPubmedConfigurationError(error: unknown): boolean {
   return error instanceof Error && error.message === "Invalid PubMed configuration";
+}
+
+/**
+ * What the final check does about living people, from the three settings (Codex's review and re-review of 17 Nov
+ * 2026, finding 1). The check (signing nlp, nly and nln, and asking the meaning judge, in its one call, whether each
+ * finding names a living person) runs while saved findings show at once or a finding that doesn't say is held or read
+ * by the judge (ASKRIGOR_ATLAS_LIVING_PERSON_UNKNOWN hold or reader); the note asking for the declaration goes with
+ * showing at once or ASKRIGOR_ATLAS_LIVING_PERSON_DECLARATION=on. All unset: neither, as before.
+ */
+function livingPersonCheckOptions(): { livingPersonCheck?: true; livingPersonNote: false | LivingPersonNoteMode } {
+  const showing = atlasShowSavedFindingsFromEnv();
+  const unknown = atlasLivingPersonUnknownFromEnv();
+  return {
+    ...(showing || unknown !== "keep" ? { livingPersonCheck: true as const } : {}),
+    livingPersonNote: showing || atlasLivingPersonDeclarationFromEnv() ? { showing, unknown } : false,
+  };
 }

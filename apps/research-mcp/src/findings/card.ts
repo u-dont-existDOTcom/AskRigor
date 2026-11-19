@@ -222,6 +222,45 @@ export const DRAWS_ON_YOUTUBE_COMMENTS_DESCRIPTION = "Whether this finding draws
   "never publishes it; when this research read YouTube comments, a finding without this declaration is held too.";
 
 /**
+ * Codex's review of 17 Nov 2026, finding 1 (P0), and the owner's rule: claims about named living people publish only on
+ * his explicit decision. With saved findings shown at once (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS), a finding shows only
+ * when its card declares that it names no living person and the final check's receipt signed that (`nlp`,
+ * signedLivingPersonClear); a finding declared true, or declaring nothing, as an older app's card does, waits for the
+ * owner. A nested field of the card's later shape, so the published tool list stays as it is (owner answer 189a).
+ */
+export const NAMES_LIVING_PERSON_DESCRIPTION = "Whether this finding names a living person, or describes one so they " +
+  "could be recognized, anywhere in its texts: true when it does, false when it names no one living. A group of " +
+  "people, such as a trial's participants, is not a person. AskRigor never shows a finding on its public Atlas at once " +
+  "unless this is false.";
+
+/**
+ * The places of a checked card's findings, as the finalization receipt signs them (`nlp`, 1 for the first), that the
+ * card declares name no living person, less those the meaning judge read as naming one: the only findings that may
+ * show on the Atlas's pages at once (Codex's review of 17 Nov 2026, finding 1).
+ */
+export function signedLivingPersonClear(
+  card: { findings: ReadonlyArray<{ names_living_person?: boolean | undefined }> },
+  judgedNaming: ReadonlySet<number> = new Set(),
+): string[] {
+  return card.findings.flatMap(({ names_living_person: declared }, index) =>
+    declared === false && !judgedNaming.has(index) ? [String(index + 1)] : []);
+}
+
+/**
+ * The indexes into a checked card of the findings a receipt's living-person claim signs, by their places: `nlp`, those
+ * declared to name no living person; `nly`, those the meaning judge read as naming one, and `nln`, as naming no one
+ * (Codex's re-review of 17 Nov 2026, finding 1). Empty for a receipt that signed none, as one from before the claim, or one made without the check.
+ */
+export function livingPersonPlacesFromReceipt(signed: unknown, findings: number): Set<number> {
+  const entries = typeof signed === "string" ? [signed] : Array.isArray(signed) ? signed : [];
+  return new Set(entries.flatMap((entry) => {
+    if (typeof entry !== "string" || !/^[1-5]$/u.test(entry)) return [];
+    const index = Number(entry) - 1;
+    return index < findings ? [index] : [];
+  }));
+}
+
+/**
  * Owner answer 307b (15 November 2026): a saved card, and its page in the Atlas, may link a YouTube video that a person
  * named themselves (the asker, someone reporting what worked for them, or AskRigor's owner). The link is the video's
  * public address as the person gave it: nothing from YouTube's API is stored with it or shown beside it, and a video
@@ -343,7 +382,8 @@ export const laterFindingSchema = findingsCardSchema.shape.findings.element.exte
   draws_on_youtube_comments: z.boolean().optional().describe(DRAWS_ON_YOUTUBE_COMMENTS_DESCRIPTION),
   backing: z.array(findingBackingSchema).max(BACKING_LIMITS.lines).optional().describe(BACKING_DESCRIPTION),
   forum_signal: forumSignalSchema.optional().describe(FORUM_SIGNAL_DESCRIPTION),
-  named_videos: z.array(cardText(300)).max(NAMED_VIDEOS_PER_FINDING).optional().describe(NAMED_VIDEOS_DESCRIPTION)
+  named_videos: z.array(cardText(300)).max(NAMED_VIDEOS_PER_FINDING).optional().describe(NAMED_VIDEOS_DESCRIPTION),
+  names_living_person: z.boolean().optional().describe(NAMES_LIVING_PERSON_DESCRIPTION)
 }).strict();
 
 /** The findings card with each finding's declaration of owner answer 219b, as finalize_research and the save read it. */

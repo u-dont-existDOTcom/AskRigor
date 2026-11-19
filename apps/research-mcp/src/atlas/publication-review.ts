@@ -30,6 +30,7 @@ import {
   FINDING_LEFT_OUT_REASONS,
   cardSourceTitles,
   decidedPublicationState,
+  ownerLivingPersonDraft,
   planCardPublication,
   publicationHoldReasons,
   withCardContext,
@@ -121,6 +122,11 @@ export interface AtlasPublicationRequest {
   cardsTo?: string;
   topicKey?: string;
   topicLabel?: string;
+  /**
+   * publish_cards: who publishes them, from later_inputs.shown_by, which it needs: only owner, AskRigor's owner, may
+   * (Codex's fifth review of 17 Nov 2026). Nothing is assumed of who acts.
+   */
+  shown_by?: "owner" | "quick_answer_test";
 }
 
 export interface AtlasPublicationResult {
@@ -161,6 +167,8 @@ const HELD_WORDS: Record<typeof ATLAS_PUBLICATION_HOLD_REASONS[number], string> 
   messaging_handle: "a messaging handle",
   card_reference: "a findings card's number",
   youtube_link: "a YouTube link",
+  // Codex's re-review of 17 Nov 2026, finding 1: its card declares, or the meaning judge read, that it names one.
+  living_person_review: "a claim that may name a living person",
 };
 const WITHDRAWN_WORDS: Record<typeof ATLAS_PUBLICATION_WITHDRAWN_REASONS[number], string> = {
   card_forgotten: "its card was deleted",
@@ -212,9 +220,21 @@ export class AtlasPublicationReview {
       waitingToPublish,
     };
     const scope = request.publicationState === undefined ? "" : ` ${request.publicationState}`;
+    // Codex's third review of 17 Nov 2026, finding 1: a later save never undoes the owner's decision, so his list says
+    // which of these a later save marks as possibly naming a living person (migration 0041).
+    let noted: Set<string> | null;
+    try {
+      noted = new Set((await this.deps.publications.inspectLivingPersonNotes(shown.map(({ publicationNumber }) =>
+        publicationNumber))).map(({ publicationNumber }) => publicationNumber));
+    } catch {
+      noted = null;
+    }
     const lines = [
       ...(shown.length === 0 ? [`No${scope} publication${before === undefined ? "" : " on this page"}.`]
-        : shown.map((row) => publicationLine(row))),
+        : shown.flatMap((row) => [publicationLine(row),
+          ...(noted?.has(row.publicationNumber) === true ? [livingPersonNoteLine(row.publicationNumber)] : [])])),
+      ...(noted === null && shown.length > 0 ? ["Whether a later save marked any of these as possibly naming a living " +
+        "person could not be read just now."] : []),
       ...(nextCursor === null ? [] : ["More publications: call list_publications with the nextCursor."]),
       ...(waitingToPublish === null
         ? ["The findings repository could not be read just now, so the cards whose publishing did not complete are " +
@@ -285,6 +305,16 @@ export class AtlasPublicationReview {
   // publish_cards -----------------------------------------------------------------------------------------------------
 
   private async publishCards(request: AtlasPublicationRequest): Promise<AtlasPublicationResult> {
+    // Codex's fifth review of 17 Nov 2026 (P1): the owner and the scheduled quick-answer test share one login, so
+    // publish_cards says who acts, as show_on_pages does, and only the owner's says that his decision publishes them.
+    if (request.shown_by === undefined) {
+      return invalid("publish_cards needs later_inputs.shown_by: owner, when AskRigor's owner publishes them, which " +
+        "records his decision. Nothing was changed.");
+    }
+    if (request.shown_by !== "owner") {
+      return invalid("publish_cards is AskRigor's owner's decision: only later_inputs.shown_by owner publishes cards. " +
+        "Nothing was changed.");
+    }
     let ownerTopic: { key: string; label: string } | undefined;
     if (request.topicKey !== undefined) {
       const state = await this.deps.reader.readAtlasState({ topicKeys: [request.topicKey] });
@@ -353,7 +383,11 @@ export class AtlasPublicationReview {
       const rows = await this.deps.publications.publish({
         cardNumber: number,
         cardSha256: card.record.card_sha256,
-        findings: drafts,
+        // Codex's re-review of 17 Nov 2026, finding 4: what the owner publishes is stored as the owner's action, so its
+        // page never says the quick-answer test happened. Codex's fourth review (P0): each says what its card declares
+        // of a living person, and the database holds one whose card a save stored as naming one, as it would on a save.
+        findings: drafts.map((draft) => ({ ...(draft.state === "held" ? draft : { ...draft, shownBy: "owner_action" as const }),
+          livingPerson: ownerLivingPersonDraft(card.record, draft.findingNumber) })),
         publishedAt: this.deps.now().toISOString(),
         revive: true,
       });
@@ -553,6 +587,12 @@ function publicationLine(row: AtlasPublicationView): string {
   return `${row.publicationNumber} (${publicFindingsCardId(row.cardNumber)} finding ${row.findingNumber}` +
     `${row.atlasNumber === null ? "" : `, ${row.atlasNumber}`}), ${STATE_WORDS[row.state]}${why}` +
     `${row.published === null ? " (its published fields are erased)" : `: ${clip(row.published.claim, 120)}`}`;
+}
+
+/** The line a publication the owner decided gets when a later save says it may name a living person. */
+export function livingPersonNoteLine(publicationNumber: string): string {
+  return `${publicationNumber}: a later save marks this finding as possibly naming a living person. It stays as you ` +
+    "decided it; unpublish_finding takes it off the pages.";
 }
 
 function leftOutWords(leftOut: ReadonlyArray<{ finding: number; reason: typeof FINDING_LEFT_OUT_REASONS[number] }>): string {
