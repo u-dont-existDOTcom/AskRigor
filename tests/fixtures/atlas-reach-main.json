@@ -1,0 +1,138 @@
+{
+ "made": {
+  "commit": "263048eb",
+  "how": "tests/helpers/atlas-reach-scenario.ts, run with vitest on main's tree at that commit (origin/main, 19 Nov 2026): atlasReachSnapshot() written as JSON"
+ },
+ "publications": {
+  "person": "P-1001",
+  "tested": "P-1002",
+  "owner": "P-1003"
+ },
+ "pages": {
+  "/atlas": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 0,
+   "homeSentence": 0,
+   "digest": "49cb71dbb085644550eb953fe6836c94c9b770e8bea5ef2ddd1ddbb6dae770a5"
+  },
+  "/atlas/findings": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "cd52a3d546d46717e74e3e2ea0daa35ec78e9f24c90e4270d3d4c7cf35287df2"
+  },
+  "/atlas/topics": {
+   "status": 200,
+   "noindex": false,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "1b063bccc4f916ef4995fc5a953b805cfe082dfb89ad2e92cf6688c623622eff"
+  },
+  "/atlas/topics/velmor-syndrome": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "a9b9a01ad551cd8fa0b75ee3dd6ff6b58915640f841e3f41fe6186500f08fe29"
+  },
+  "/atlas/search?q=zentarine": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "93e0f19f87265847bf73c3746dce464e63fa4b1e7074de9a809f6d2e37817f8d"
+  },
+  "/atlas/search?q=Zentaro": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "29f0d1406df6de82de9b6591cbb7b2915ec712a6ed109b50d8eff14631250533"
+  },
+  "/atlas/map": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "3c97855f6073e180fb71c847723259a45c068f264e8085cc4c407020f672b94f"
+  },
+  "/atlas/sitemap.xml": {
+   "status": 200,
+   "noindex": false,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "4d3c612d67c7ba906a9378549502db90454b8cdb96f509d2e39f3a2c62c85d0e"
+  },
+  "/atlas/changes": {
+   "status": 200,
+   "noindex": false,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "16f959737eb289b760eeacfafe1fd2ba3e1575affdef156c2eea679d3b221457"
+  },
+  "/atlas/challenges": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "40fa20a4baaa6cc2033a5e0926e2beabbb3e9b9abd67c995e54bfa8e70e2d01b"
+  },
+  "/atlas/health": {
+   "status": 200,
+   "noindex": false,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "bb6617fe872caebf57dac9de2537ad5705462bd062ace356e2f6b782b8d74503"
+  },
+  "/atlas/findings/P-1001": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "730cbb039e0214fd68a241f576850f43235845314493b62dc80f35b430f54d69"
+  },
+  "/atlas/findings/P-1002": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 1,
+   "homeSentence": -1,
+   "digest": "d3e30cd5b251a371e6467a7ada120f93116058a72859afd1f4346068357b703b"
+  },
+  "/atlas/findings/P-1003": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 1,
+   "homeSentence": -1,
+   "digest": "4e9ec061f6621d19947f3bdcc36b989fd6f573af327e36b92d0d8a7e4d475b05"
+  }
+ },
+ "lookup": {
+  "query zentarine": {
+   "status": "partial",
+   "findings": [
+    "P-1003",
+    "P-1002",
+    "P-1001"
+   ],
+   "digest": "ecbbdc017507d2bd55afc93bd4773363890a93599e1a3c39962d9316229c2949"
+  },
+  "query Zentaro": {
+   "status": "partial",
+   "findings": [
+    "P-1001"
+   ],
+   "digest": "8cd74e7c9f7d86ba88a0c0b8074c282d52f23656640b9ebdc47e2f42a5fbaa38"
+  },
+  "topic": {
+   "status": "partial",
+   "findings": [
+    "P-1003",
+    "P-1002",
+    "P-1001"
+   ],
+   "digest": "795b219d7f7677efa8c442f136370f1881f4a069a748e11645c959a7e785f3b6"
+  }
+ }
+}
