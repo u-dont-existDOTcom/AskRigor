@@ -168,6 +168,10 @@ describe("healthy-living pilot 1", () => {
     const box = html.slice(html.indexOf('id="msg-passed"'), html.indexOf('data-em="5"'));
     expect(box).toContain("If the signs stopped only minutes or hours ago, or it was a sudden worst-ever headache, call the emergency number now");
     expect(box).toContain("Otherwise, phone an emergency department or a stroke clinic now and say: possible warning stroke.");
+    // Codex, v3 review 1: the top-bar line keeps the worst-ever headache, and the allergy line keeps sitting up.
+    expect(inlineScripts(html)[0]).toContain("or it was a sudden worst-ever headache; otherwise an emergency department or stroke clinic");
+    expect(inlineScripts(html)[0]).toContain("Lie down (sit up if breathing is hard)");
+    expect(label("4")).toContain("sudden weakness or numbness of the face, arm or leg");
   });
 
   it("gives dizziness and tingling no certain harmless cause", () => {
@@ -255,7 +259,11 @@ describe("healthy-living pilot 1", () => {
     expect(label("2")).toContain("more than a few small spots or streaks");
     expect(label("2")).toContain("Or any blood with hard breathing, a very fast heartbeat, or pain in the chest or upper back.");
     expect(html).not.toContain("Coughing up more than streaks of blood.");
-    expect(html).toContain("Coughing up a few small spots or streaks of blood, or blood in your phlegm.");
+    expect(html).toContain("Coughing up a few small spots or streaks of blood, or blood in your phlegm, without hard breathing, a very fast heartbeat, or chest or upper-back pain.");
+    expect(html).toContain("and none of those other signs? That is not an emergency call");
+    // Codex, v3 review 1: the opening lines keep the two lines whose first step is not the call.
+    expect(html.slice(0, html.indexOf('data-em="1"'))).toContain("use your adrenaline pen first");
+    expect(html.slice(0, html.indexOf('data-em="1"'))).toContain("call when you can do it safely");
     expect(html).toContain('<a href="https://www.nhs.uk/symptoms/coughing-up-blood/" target="_blank" rel="noopener noreferrer">');
   });
 

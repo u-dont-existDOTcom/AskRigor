@@ -334,8 +334,8 @@ try {
   const at = await js(a, `(() => { const b = document.querySelector('label[for=em-2]').getBoundingClientRect(); return { x: Math.round(b.left + 30), y: Math.round(b.top + 8) }; })()`);
   for (const type of ["mousePressed", "mouseReleased"]) await send("Input.dispatchMouseEvent", { type, x: at.x, y: at.y, button: "left", clickCount: 1 }, a);
   await sleep(250);
-  const pos = await js(a, `(() => { const l = document.querySelector('label[for=em-2]').getBoundingClientRect(); const m = document.querySelector('#msg-2').getBoundingClientRect(); const h = document.querySelector('header.top').getBoundingClientRect(); return { ticked: document.querySelector('#em-2').checked, gap: Math.round(m.top - l.bottom), top: Math.round(m.top), headerBottom: Math.round(h.bottom), screen: innerHeight }; })()`);
-  check("a tap on line 2 at phone width opens its steps right under it, on screen and below the top bar", pos.ticked && pos.gap >= 0 && pos.gap < 140 && pos.top >= pos.headerBottom && pos.top < pos.screen - 100, JSON.stringify(pos));
+  const pos = await js(a, `(() => { const l = document.querySelector('label[for=em-2]').getBoundingClientRect(); const m = document.querySelector('#msg-2').getBoundingClientRect(); const h = document.querySelector('header.top').getBoundingClientRect(); const n = document.querySelector('label[for=em-3]').getBoundingClientRect(); return { ticked: document.querySelector('#em-2').checked, gap: Math.round(m.top - l.bottom), top: Math.round(m.top), nextLine: Math.round(n.top), headerBottom: Math.round(h.bottom), screen: innerHeight }; })()`);
+  check("a tap on line 2 at phone width opens its steps right under it (before line 3), on screen and below the top bar", pos.ticked && pos.gap >= 0 && pos.top < pos.nextLine && pos.top >= pos.headerBottom && pos.top < pos.screen - 100, JSON.stringify(pos));
   const shot = await send("Page.captureScreenshot", { format: "png" }, a);
   writeFileSync(join(outDir, "phone-ticked.png"), Buffer.from(shot.data, "base64"));
   await js(a, `document.querySelector('#em-2').click()`);
