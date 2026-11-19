@@ -724,7 +724,8 @@ export async function reconcileCardPublications(input: {
       const target = decidedPublicationState(decision, intents);
       const draft = target === undefined ? undefined
         : decidedPublicationDraft(input.card!.record, decision.itemNumber, target);
-      return draft === undefined ? [] : [draft];
+      // The owner's decision publishes it: the owner's action (Codex's re-review of 17 Nov 2026, finding 4).
+      return draft === undefined ? [] : [{ ...draft, shownBy: "owner_action" as const }];
     });
     if (drafts.length > 0) {
       changed.push(...(await input.store.publish({

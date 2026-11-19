@@ -32,7 +32,8 @@ import { textHoldReasons } from "./publication.js";
  * text-direction control or a zero-width character, which can make a text show something other than it holds (the review
  * of #422); so it never holds a page back, and the Atlas keeps no YouTube comment data. A finding that shows unreviewed
  * only because it challenges the usual view (a headline or a fail) keeps its mark while it shows: clear_challenge refuses
- * it until keep_for_research has kept it, or its page would say a quick AI answer misses it.
+ * it until keep_for_research has kept it, or its page would no longer say that it is shown because it challenges the
+ * usual view (its page says a quick AI answer misses it only from a recorded pass: Codex's re-review of 17 Nov 2026).
  */
 
 export const ATLAS_CHALLENGE_ACTIONS = ["mark_challenge", "clear_challenge", "list_challenges"] as const;
@@ -54,7 +55,9 @@ export const challengeMarkInputShape = {
   usual_view_source_label: z.string().trim().min(1).max(ATLAS_CHALLENGE_SOURCE_LABEL_MAX_CHARACTERS).optional()
     .describe("With mark_challenge: the words the pages show for that source, such as the guideline's name and year."),
   quick_answer_verdict: z.enum(ATLAS_CHALLENGE_VERDICTS).optional()
-    .describe("With mark_challenge: the quick-answer test's verdict for the finding: pass, headline or fail."),
+    .describe("With mark_challenge: the quick-answer test's verdict for the finding: pass, headline or fail. With " +
+      "show_on_pages: given only by the quick-answer test, with shown_by quick_answer_test, which records that the test " +
+      "showed it, with that verdict."),
 };
 
 export const atlasChallengesSchema = z.object({
@@ -116,7 +119,8 @@ const FORMAT_OR_CONTROL = /(?![\u200C\u200D])[\p{Cc}\p{Cf}]/u;
 /** Why clear_challenge refuses a finding shown for its challenge, and what to do first. */
 const notClearable = (numbers: readonly string[]) => `${numbers.join(", ")} ${numbers.length === 1 ? "shows" : "show"} ` +
   "unreviewed only because it challenges the usual view, with the quick-answer verdict headline or fail, so its mark " +
-  "stays while it shows: without it, its page would say a quick AI answer misses it. Keep it for research first " +
+  "stays while it shows: without it, its page would no longer say that it is shown because it challenges the usual " +
+  "view. Keep it for research first " +
   "(keep_for_research), then clear its mark; nothing was changed.";
 
 export class AtlasChallengeReview {

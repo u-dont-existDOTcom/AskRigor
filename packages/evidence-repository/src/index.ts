@@ -457,6 +457,8 @@ export {
   type AtlasPublicationView,
   type AtlasKeepChange,
   type AtlasKeptView,
+  type AtlasShowRoute,
+  type AtlasOwnerDecision,
   type AtlasPublicationWithdrawal,
   type AtlasPublicationWithdrawnReason,
   type AtlasPublishedFinding,
