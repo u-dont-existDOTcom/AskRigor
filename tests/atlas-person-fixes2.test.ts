@@ -304,7 +304,7 @@ describe("the registration hand-over (Fable's change 2)", () => {
     // check of this round): the second reading starts at 1,001, is still running at 2,002, then ends during the wait.
     let clock = 0;
     let loads = 0;
-    let finishSecond: (index: typeof index) => void = () => undefined;
+    let finishSecond: (value: typeof index) => void = () => undefined;
     const find = atlasNearFinder(source, { fresh: true, now: () => clock, keepMs: 1_000, waitMs: 40, retryMs: 50,
       load: async () => {
         loads += 1;
