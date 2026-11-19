@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { inflateRawSync } from "node:zlib";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -25,7 +26,8 @@ const fixture = fileURLToPath(new globalThis.URL("./fixtures/reddit-reader-serve
 const clients: RedditReaderClient[] = [];
 const directories: string[] = [];
 const settings = { target: "synthetic@reader.invalid", keyFile: "/synthetic/key", knownHostsFile: "/synthetic/known-hosts" };
-async function fake(mode = "normal", options: { busyWaitMs?: number; deadlineMs?: number; idleMs?: number } = {}) {
+async function fake(mode = "normal", options: { busyWaitMs?: number; deadlineMs?: number; idleMs?: number;
+  continuationSecret?: string } = {}) {
   const directory = await mkdtemp(join(tmpdir(), "askrigor-reader-"));
   directories.push(directory);
   const log = join(directory, "calls.jsonl");
@@ -42,6 +44,8 @@ afterEach(async () => {
 });
 
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+/** What a more value carries: its payload, deflated, before the signature (Codex's review of 17 Nov 2026, finding 3). */
+const continuationOf = (more: string) => JSON.parse(inflateRawSync(Buffer.from(more.split(".")[0]!, "base64url")).toString("utf8"));
 async function untilStarted(records: () => Promise<{ event: string }[]>) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     if ((await records().catch(() => [])).some((record) => record.event === "start")) return;
@@ -93,8 +97,12 @@ describe("Reddit stdio reader", () => {
     expect(result.comments?.find((comment) => comment.id === "op")).toMatchObject({ is_original_poster: true });
     expect(result.comments?.find((comment) => comment.id === "collapsed")).not.toHaveProperty("person");
     expect(JSON.stringify(result)).not.toMatch(/synthetic-original-author|synthetic-other-author|relationship_verified|thread_id|"author"|"name"/u);
-    const continuation = JSON.parse(Buffer.from(result.more!, "base64url").toString("utf8"));
-    expect(Object.keys(continuation).sort()).toEqual(["id", "pages", "replies", "v"]);
+    const continuation = continuationOf(result.more!);
+    // Codex's review of 17 Nov 2026, finding 2: the more value carries the distinct comments read so far, by id, with
+    // text (t) and without (u), so a comment returned again is counted once.
+    expect(Object.keys(continuation).sort()).toEqual(["id", "pages", "replies", "t", "u", "v"]);
+    expect(continuation.t).toHaveLength(10);
+    expect(continuation.u).toEqual(["collapsed"]);
     expect(JSON.stringify(continuation)).not.toMatch(/synthetic-original-author|synthetic-other-author|"author"/u);
     const calls = (await records()).filter((record) => record.event === "start");
     expect(calls[0].input).toEqual({ thread: "https://www.reddit.com/r/synthetic/comments/abc123/" });
@@ -102,12 +110,30 @@ describe("Reddit stdio reader", () => {
     expect(calls.filter((record) => record.name === "expand_reddit_comments")).toHaveLength(3);
     expect(calls.filter((record) => record.name === "get_reddit_replies")).toHaveLength(5);
     const resumed = await client.readThread(URL, result.more);
-    expect(resumed).toMatchObject({ access_state: "read", comments_read: 4, comments_without_text: 0 });
+    // The whole reading's counts, and this call's apart; 14 distinct of Reddit's 30, with no way on, so it says why.
+    // "other" came back on each page: it was read in the first call, so it is neither counted nor returned again.
+    expect(resumed).toMatchObject({ access_state: "read", comments_read: 13, comments_without_text: 1,
+      comments_read_this_call: 3, truncated: true, terminal_reason: "site_limit" });
     expect(resumed.more).toBeUndefined();
-    expect(resumed.comments?.map((comment) => comment.id)).toEqual(["page4", "other", "page5", "reply-6"]);
+    expect(resumed.comments?.map((comment) => comment.id)).toEqual(["page4", "page5", "reply-6"]);
     expect(resumed.comments?.every((comment) => comment.person === author)).toBe(true);
     expect((await records()).filter((record) => record.event === "boot")).toHaveLength(1);
   });
+  // Codex's review of 17 Nov 2026, finding 2: "other" comes back on every page, so a resumed reading counted it again,
+  // and 14 distinct comments read as 15 of Reddit's 15, complete. The distinct comments are kept across more values.
+  it("counts each distinct comment once across more values, so a repeated one never makes a reading look complete", async () => {
+    const { client } = await fake("normal-of-fifteen");
+    const first = await client.readThread(URL);
+    expect(first).toMatchObject({ access_state: "read", thread_comment_count: 15, comments_read: 10, comments_without_text: 1,
+      comments_read_this_call: 10, truncated: true });
+    const resumed = await client.readThread(URL, first.more);
+    expect(resumed).toMatchObject({ access_state: "read", thread_comment_count: 15, comments_read: 13,
+      comments_without_text: 1, comments_read_this_call: 3, truncated: true, terminal_reason: "site_limit" });
+    // This call's comments are the ones the reading had not returned before, as its count says.
+    expect(resumed.comments?.map(({ id }) => id)).toEqual(["page4", "page5", "reply-6"]);
+    expect(resumed.more).toBeUndefined();
+  });
+
   it("normalizes uppercase subreddit paths", async () => {
     const { client, records } = await fake();
     expect((await client.readThread("https://www.reddit.com/R/SYNTHETIC/comments/ABC123/")).access_state).toBe("read");
@@ -121,7 +147,7 @@ describe("Reddit stdio reader", () => {
   it("marks a first read below the thread's own count as truncated even without a continuation", async () => {
     const { client } = await fake("incomplete");
     const result = await client.readThread(URL);
-    expect(result).toMatchObject({ access_state: "read", truncated: true, comments_read: 1 });
+    expect(result).toMatchObject({ access_state: "read", truncated: true, comments_read: 1, terminal_reason: "site_limit" });
     expect(result.more).toBeUndefined();
   });
   it("does not truncate a first read returning every comment when all_comments_collected is false", async () => {
@@ -131,11 +157,13 @@ describe("Reddit stdio reader", () => {
       comments_read: 2, comments_without_text: 1 });
     expect(result.comments).toHaveLength(3);
     expect(result.more).toBeUndefined();
+    expect(result).not.toHaveProperty("terminal_reason");
   });
   it("keeps a repeated-page boundary truncated even when the thread's own count was returned", async () => {
     const { client } = await fake("repeated-page");
     const result = await client.readThread(URL);
-    expect(result).toMatchObject({ access_state: "read", truncated: true, thread_comment_count: 2, comments_read: 2 });
+    expect(result).toMatchObject({ access_state: "read", truncated: true, thread_comment_count: 2, comments_read: 2,
+      terminal_reason: "site_limit" });
     expect(result.more).toBeUndefined();
   });
   it.each([
@@ -147,8 +175,9 @@ describe("Reddit stdio reader", () => {
     const result = await client.readThread(URL);
     expect(result).toMatchObject({ access_state: "read", truncated: true });
     expect(result.comments!.reduce((count, comment) => count + (comment.text?.length ?? 0), 0)).toBeGreaterThan(100_000);
-    const pending = JSON.parse(Buffer.from(result.more!, "base64url").toString("utf8"));
-    expect(Object.keys(pending).sort()).toEqual(["id", "pages", "replies", "v"]);
+    const pending = continuationOf(result.more!);
+    expect(Object.keys(pending).sort()).toEqual(["id", "pages", "replies", "t", "u", "v"]);
+    expect(result).not.toHaveProperty("terminal_reason");
     expect(pending.pages[0]).toBe(pendingPage);
     expect(pending.replies[0]).toBe(pendingReply);
     const calls = (await records()).filter((record) => record.event === "start");
@@ -156,18 +185,45 @@ describe("Reddit stdio reader", () => {
     expect(calls.filter((record) => record.name === "expand_reddit_comments")).toHaveLength(expansions);
     expect(calls.filter((record) => record.name === "get_reddit_replies")).toHaveLength(replies);
   });
-  it("keeps continuation state independent of the number of comments already read", async () => {
+  // Codex's review of 17 Nov 2026, finding 2: the continuation keeps every distinct comment read, so it grows with the
+  // reading, and each call's count adds up to the reading's.
+  it("keeps every distinct comment read in its continuation, so each call's count sums to the reading's", async () => {
     const { client } = await fake("many-comments");
     let more: string | undefined;
+    let summed = 0;
     for (let turn = 0; turn < 8; turn += 1) {
       const result = await client.readThread(URL, more);
       expect(result.access_state).toBe("read");
       expect(result.comments!.length).toBeGreaterThanOrEqual(1_500);
+      summed += result.comments_read_this_call!;
+      expect(result.comments_read).toBe(summed);
       more = result.more!;
-      const pending = JSON.parse(Buffer.from(more, "base64url").toString("utf8"));
-      expect(Object.keys(pending).sort()).toEqual(["id", "pages", "replies", "v"]);
-      expect(more.length).toBeLessThan(100);
+      const pending = continuationOf(more);
+      expect(Object.keys(pending).sort()).toEqual(["id", "pages", "replies", "t", "u", "v"]);
+      expect(pending.t).toHaveLength(result.comments_read!);
+      expect(new Set(pending.t).size).toBe(pending.t.length);
     }
+  });
+  it("counts a thread of 15 read 6 a call across its more values, and ends complete (server fix 8, test 1)", async () => {
+    const { client } = await fake("fifteen");
+    const first = await client.readThread(URL);
+    expect(first).toMatchObject({ access_state: "read", thread_comment_count: 15, comments_read: 6, comments_read_this_call: 6,
+      comments_without_text: 0, truncated: true });
+    expect(first).not.toHaveProperty("terminal_reason");
+    const second = await client.readThread(URL, first.more);
+    expect(second).toMatchObject({ comments_read: 12, comments_read_this_call: 6, truncated: true });
+    expect(second.comments?.map(({ id }) => id)).toEqual(["c7", "c8", "c9", "c10", "c11", "c12"]);
+    const third = await client.readThread(URL, second.more);
+    expect(third).toMatchObject({ comments_read: 15, comments_read_this_call: 3, comments_without_text: 0, truncated: false });
+    expect(third).not.toHaveProperty("more");
+    expect(third).not.toHaveProperty("terminal_reason");
+  });
+  it("says why a thread the host ended at 6 of 15 can't be read further (server fix 8, test 2)", async () => {
+    const { client } = await fake("six-of-fifteen");
+    const result = await client.readThread(URL);
+    expect(result).toMatchObject({ access_state: "read", thread_comment_count: 15, comments_read: 6, truncated: true,
+      terminal_reason: "site_limit" });
+    expect(result).not.toHaveProperty("more");
   });
   it("keeps the pending continuation when a later page reaches the overall deadline", async () => {
     // The deadline also covers starting the fake reader's process, which can take over a second while the full gate runs
@@ -175,7 +231,7 @@ describe("Reddit stdio reader", () => {
     const { client } = await fake("slow-continuation", { deadlineMs: 3_000 });
     const result = await client.readThread(URL);
     expect(result).toMatchObject({ access_state: "read", truncated: true, comments_read: 2 });
-    expect(JSON.parse(Buffer.from(result.more!, "base64url").toString("utf8"))).toMatchObject({ pages: ["page-1"] });
+    expect(continuationOf(result.more!)).toMatchObject({ pages: ["page-1"] });
   });
   it("resolves a short link's subreddit from the post before requesting comments", async () => {
     const { client, records } = await fake();
@@ -297,14 +353,56 @@ describe("Reddit stdio reader", () => {
     expect((await client.searchThreads({ query: "second" })).returned).toBe(7);
     expect((await records()).filter((record) => record.event === "boot")).toHaveLength(2);
   });
+  // Codex's review of 17 Nov 2026, finding 3: a more value's thread, pages and counts came back as the caller sent them,
+  // so an edited count (33 read of 30) read as complete. A more value is refused unless it is exactly as AskRigor gave it.
+  it("refuses an edited more value before any call to the host, and reads an unedited one", async () => {
+    const { client, records } = await fake("normal-of-fifteen");
+    const first = await client.readThread(URL);
+    const more = first.more!;
+    const started = async () => (await records()).filter((record) => record.event === "start").length;
+    const before = await started();
+    const edits: string[] = [];
+    // The counts edited in a more value of the form before this fix, and a signed one with any character changed.
+    const body = (() => { try { return JSON.parse(Buffer.from(more, "base64url").toString("utf8")); } catch { return undefined; } })();
+    if (body !== undefined) {
+      edits.push(Buffer.from(JSON.stringify({ ...body, r: 33 })).toString("base64url"));
+      edits.push(Buffer.from(JSON.stringify({ ...body, pages: [], replies: [] })).toString("base64url"));
+    }
+    edits.push(Buffer.from(JSON.stringify({ v: 1, id: "abc123", pages: ["page-4"], replies: [], r: 33, x: 0 })).toString("base64url"));
+    for (const at of [0, Math.floor(more.length / 2), more.length - 1]) {
+      edits.push(`${more.slice(0, at)}${more[at] === "A" ? "B" : "A"}${more.slice(at + 1)}`);
+    }
+    for (const edited of edits) {
+      expect(await client.readThread(URL, edited), edited.slice(0, 40)).toMatchObject({ access_state: "refused",
+        host_code: "CONTINUATION_NOT_VALID" });
+    }
+    // Server fix 8, test 3: a more value exactly as given, for another thread, is refused by name, never read as its.
+    expect(await client.readThread("https://www.reddit.com/r/example/comments/zzz999/", more)).toMatchObject({
+      access_state: "refused", host_code: "CONTINUATION_OTHER_THREAD" });
+    expect(await started()).toBe(before);
+    expect(await client.readThread(URL, more)).toMatchObject({ access_state: "read", comments_read: 13 });
+    // Another reader signs under another key: its more values are refused here (the server signs under one secret).
+    const { client: other } = await fake("normal-of-fifteen");
+    expect(await other.readThread(URL, more)).toMatchObject({ access_state: "refused", host_code: "CONTINUATION_NOT_VALID" });
+    // Under the server's secret, a more value stays good for a reader started after it was given, as after a restart.
+    const secret = "synthetic-continuation-secret-0123456789";
+    const { client: earlier } = await fake("normal-of-fifteen", { continuationSecret: secret });
+    const { client: after } = await fake("normal-of-fifteen", { continuationSecret: secret });
+    const given = (await earlier.readThread(URL)).more!;
+    expect(await after.readThread(URL, given)).toMatchObject({ access_state: "read", comments_read: 13 });
+  });
+
   it("rejects invalid links, continuations and search inputs before sending", async () => {
     const { client, log } = await fake();
     for (const url of ["http://www.reddit.com/r/synthetic/comments/abc123/", "https://reddit.com.invalid/r/synthetic/comments/abc123/", "https://reddit.com/user/synthetic"]) {
       expect((await client.readThread(url)).access_state).toBe("invalid");
     }
-    expect((await client.readThread(URL, "malformed")).access_state).toBe("invalid");
-    const wrongThread = Buffer.from(JSON.stringify({ v: 1, id: "other", pages: [], replies: [], seen: [] })).toString("base64url");
-    expect((await client.readThread(URL, wrongThread)).access_state).toBe("invalid");
+    expect((await client.readThread(URL, "not a more value")).access_state).toBe("invalid");
+    // Codex's review of 17 Nov 2026, finding 3: a more value the reader did not sign is refused, whatever it holds.
+    const unsigned = Buffer.from(JSON.stringify({ v: 2, id: "other", pages: [], replies: [], t: [], u: [] })).toString("base64url");
+    for (const more of ["malformed", unsigned, `${unsigned}.${"A".repeat(43)}`]) {
+      expect(await client.readThread(URL, more)).toMatchObject({ access_state: "refused", host_code: "CONTINUATION_NOT_VALID" });
+    }
     expect((await client.searchThreads({ query: "a".repeat(501) })).access_state).toBe("invalid");
     await expect(readFile(log)).rejects.toMatchObject({ code: "ENOENT" });
   });

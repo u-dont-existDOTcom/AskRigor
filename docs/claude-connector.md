@@ -27,7 +27,7 @@ claude.ai and Claude Desktop take a result of up to about 150,000 characters in 
 The tests hold each part of every protocol page and of a full video audit under 50,000 characters and the whole under
 150,000 (`tests/text-only-clients.test.ts`, `tests/mcp-tools.test.ts`), and the Atlas lookup keeps its structured
 content under 46,000 bytes. A higher Claude Code limit would need `_meta["anthropic/maxResultSizeChars"]` in the tool
-list, which is frozen. Not checked: whether OpenAI's Responses API, which may send the same `openai-mcp/` User-Agent and
+list, which is frozen. `apps/research-mcp/src/result-size-limits.ts` holds it ready for `read_forum_thread` (250,000 characters, from its measured bound), behind `ASKRIGOR_DECLARE_RESULT_SIZES=enabled`, off until a release the owner approves changes the list (`docs/tool-list-changes-waiting.md`). Not checked: whether OpenAI's Responses API, which may send the same `openai-mcp/` User-Agent and
 so get the text alone, shows its model the structured content too.
 
 Guidance written only in a result's text, such as the reminders after a receipt, still reaches only apps that read the

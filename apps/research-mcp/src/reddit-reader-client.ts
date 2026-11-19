@@ -1,11 +1,14 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { isAbsolute } from "node:path";
+import { deflateRawSync, inflateRawSync } from "node:zlib";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { DEFAULT_INHERITED_ENV_VARS, StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { ErrorCode, McpError, type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { redditPostId } from "@askrigor/sources";
 import { z } from "zod";
+
+import { researchReceiptSecretFromEnv } from "./research-receipts.js";
 
 // A call ends within this, its wait for its turn included, so it answers before the strictest client limit the
 // repository records: Claude waits 60 seconds for a tool (docs/superpowers/plans/2026-09-26-instruction-optimization.md).
@@ -34,7 +37,24 @@ const TIME = ["hour", "day", "week", "month", "year", "all"] as const;
 // Every call this process sends the host, sessions alike, in order: the first runs and the rest wait their turn.
 let readerTurn = Promise.resolve();
 const line: object[] = [];
-type FailureState = "not_found" | "invalid" | "unavailable" | "busy" | "not_available" | "blocked";
+type FailureState = "not_found" | "invalid" | "unavailable" | "busy" | "not_available" | "blocked" | "refused";
+/**
+ * Why a thread read part-way has no way on (server fix 8, C1, 17 Nov 2026: a read returned 6 of 15 comments, truncated,
+ * with nothing the tool accepts to read further). site_limit: the reader's host returned fewer comments than Reddit
+ * counts, or a page it had already returned, and offered nothing more; continuation_too_long: the rest is too large for
+ * one more value.
+ */
+export type RedditThreadTerminalReason = "site_limit" | "continuation_too_long";
+/** The code a more value from another thread is refused with: never read as this thread's. */
+export const CONTINUATION_OTHER_THREAD = "CONTINUATION_OTHER_THREAD";
+/**
+ * The code a more value is refused with when it is not exactly one this reader signed (Codex's review of 17 Nov 2026,
+ * finding 3): its thread, its pages and the comments it says were read are taken only as the reader gave them.
+ */
+export const CONTINUATION_NOT_VALID = "CONTINUATION_NOT_VALID";
+const CONTINUATION_DOMAIN = "askrigor:reddit-thread-continuation:v2";
+// What a signed more value's payload may inflate to; it holds at most the ids of the comments one reading read.
+const MAXIMUM_CONTINUATION_BYTES = 20_000_000;
 /**
  * The host's failure codes, taken from its browser reader's source, and the states they give. A code not listed stays
  * unavailable. Each result names its code (host_code), so the AI's note and a run's logs say what the host answered: on
@@ -69,7 +89,17 @@ export interface RedditReaderComment {
 export interface RedditThreadResult {
   access_state: "read" | FailureState; url: string; community?: string; title?: string; created?: string | number;
   post_text?: string; comments?: RedditReaderComment[]; thread_comment_count?: number;
-  comments_read?: number; comments_without_text?: number; truncated?: boolean; more?: string;
+  /**
+   * Distinct comments with text read in this reading so far: this call's and every earlier call's whose more value led
+   * here, each once. comments_without_text likewise, apart; comments_read_this_call is this call's alone, the comments
+   * with text the reading had not returned before, which its receipt signs (n).
+   */
+  comments_read?: number; comments_without_text?: number; comments_read_this_call?: number;
+  /**
+   * True whenever the reading stopped before the end: a more value follows, or the comments read with and without text
+   * fall short of Reddit's count, or the host returned a page twice. With no more value, terminal_reason says why.
+   */
+  truncated?: boolean; more?: string; terminal_reason?: RedditThreadTerminalReason;
   /** With busy: about how long the calls ahead of it should take. */
   retry_after_seconds?: number;
   /** With a failure the host reported: its code, never its message. */
@@ -121,14 +151,48 @@ const searchSchema = z.object({
   source: z.string(), posts: z.array(z.object({ id: z.string(), name: z.string(), subreddit: z.string(), title: z.string(), url: z.string().url() })),
   next_page_token: token.nullable(), account_session_verified: z.boolean(), scope: z.unknown()
 });
-const moreSchema = z.object({ v: z.literal(1), id: z.string(), pages: z.array(token).max(1_000), replies: z.array(z.string()).max(10_000) });
+// t and u: the distinct comments the reading's earlier calls returned, by id, with text (t) and without (u), so each
+// result counts the whole reading from them and a comment the host returns again is never counted twice (Codex's review
+// of 17 Nov 2026, finding 2: counts alone, r and x, added a repeated comment to both calls' totals).
+const commentId = z.string().min(1).max(100);
+const moreSchema = z.object({ v: z.literal(2), id: z.string(), pages: z.array(token).max(1_000), replies: z.array(z.string()).max(10_000),
+  t: z.array(commentId).max(1_000_000), u: z.array(commentId).max(1_000_000) });
 
 export function redditReaderFromEnv(env: NodeJS.ProcessEnv = process.env): RedditReaderClient | undefined {
   const target = env.ASKRIGOR_REDDIT_READER_SSH_TARGET;
   const keyFile = env.ASKRIGOR_REDDIT_READER_KEY_FILE;
   const knownHostsFile = env.ASKRIGOR_REDDIT_READER_KNOWN_HOSTS_FILE;
   if (!target?.trim() || !keyFile?.trim() || !knownHostsFile?.trim()) return undefined;
-  return createRedditReaderClient({ target, keyFile, knownHostsFile });
+  const continuationSecret = researchReceiptSecretFromEnv(env);
+  return createRedditReaderClient({ target, keyFile, knownHostsFile, ...(continuationSecret === undefined ? {} : { continuationSecret }) });
+}
+
+/**
+ * A more value as the reader gives it (Codex's review of 17 Nov 2026, finding 3): the whole continuation, its thread,
+ * its pages and reply continuations and the comments read so far, deflated, then signed under a key of its own, so a
+ * more value changed in any part is refused before the host is asked for anything.
+ */
+function signContinuation(state: z.output<typeof moreSchema>, key: Buffer): string {
+  const payload = deflateRawSync(Buffer.from(JSON.stringify(state), "utf8"), { level: 9 }).toString("base64url");
+  return `${payload}.${createHmac("sha256", key).update(payload).digest("base64url")}`;
+}
+
+/** The continuation a more value signed with this key carries, or undefined for one that is not exactly as signed. */
+function verifiedContinuation(more: string, key: Buffer): z.output<typeof moreSchema> | undefined {
+  const parts = more.split(".");
+  if (parts.length !== 2) return undefined;
+  const [payload, signature] = parts as [string, string];
+  const expected = createHmac("sha256", key).update(payload).digest();
+  const given = Buffer.from(signature, "base64url");
+  if (given.length !== expected.length || !timingSafeEqual(given, expected) ||
+    given.toString("base64url") !== signature) return undefined;
+  try {
+    const parsed = moreSchema.safeParse(JSON.parse(inflateRawSync(Buffer.from(payload, "base64url"),
+      { maxOutputLength: MAXIMUM_CONTINUATION_BYTES }).toString("utf8")));
+    return parsed.success ? parsed.data : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function createRedditReaderClient(options: {
@@ -136,9 +200,17 @@ export function createRedditReaderClient(options: {
   /** A local SDK server, never a shell, for hermetic transport tests. */
   command?: string; args?: string[];
   busyWaitMs?: number; deadlineMs?: number; idleMs?: number;
+  /**
+   * The secret more values are signed under (the research receipts' secret, under a key of its own), so one stays good
+   * across restarts. Without one, each reader signs under a random key of its own, and its more values are good only
+   * while it runs.
+   */
+  continuationSecret?: string;
 }): RedditReaderClient {
   if (!/^[A-Za-z0-9_-]+@[A-Za-z0-9.-]+$/u.test(options.target) ||
       !isAbsolute(options.keyFile) || !isAbsolute(options.knownHostsFile)) throw new ReaderError("invalid");
+  const continuationKey = createHmac("sha256", options.continuationSecret ?? randomBytes(32))
+    .update(CONTINUATION_DOMAIN).digest();
   const args = ["-T", "-F", "none", "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes", "-o", "ClearAllForwardings=yes",
     "-o", "StrictHostKeyChecking=yes", "-o", `UserKnownHostsFile=${options.knownHostsFile}`, "-o", "ConnectTimeout=10",
     "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3", "-i", options.keyFile, options.target];
@@ -262,10 +334,13 @@ export function createRedditReaderClient(options: {
         const link = normalizeThread(url);
         let pending: z.output<typeof moreSchema> | undefined;
         if (more !== undefined) {
-          if (more.length > MAXIMUM_MORE_LENGTH || !/^[A-Za-z0-9_-]+$/u.test(more)) throw new ReaderError("invalid");
-          try { pending = moreSchema.parse(JSON.parse(Buffer.from(more, "base64url").toString("utf8"))); }
-          catch { throw new ReaderError("invalid"); }
-          if (pending.id !== link.id) throw new ReaderError("invalid");
+          if (more.length > MAXIMUM_MORE_LENGTH || !/^[A-Za-z0-9_.-]+$/u.test(more)) throw new ReaderError("invalid");
+          // Codex's review of 17 Nov 2026, finding 3: only a more value exactly as this reader signed it is read, so its
+          // thread, pages and comments read are the reader's own; any other is refused before the host is asked.
+          pending = verifiedContinuation(more, continuationKey);
+          if (pending === undefined) throw new ReaderError("refused", undefined, CONTINUATION_NOT_VALID);
+          // Server fix 8, test 3: another thread's more value is refused, never read as this thread's.
+          if (pending.id !== link.id) throw new ReaderError("refused", undefined, CONTINUATION_OTHER_THREAD);
         }
         return await queued(async (signal, end): Promise<RedditThreadResult> => {
           const { post } = await call("get_reddit_thread", { thread: link.url }, postSchema, signal, end);
@@ -316,18 +391,43 @@ export function createRedditReaderClient(options: {
               throw error;
             }
           }
-          const values = [...comments.values()];
-          const remaining = { v: 1, id: link.id, pages, replies };
-          const next = pages.length === 0 && replies.length === 0 ? undefined : Buffer.from(JSON.stringify(remaining)).toString("base64url");
-          if (next !== undefined && (next.length > MAXIMUM_MORE_LENGTH || !moreSchema.safeParse(remaining).success)) throw new ReaderError("unavailable");
+          // Server fix 8, C1, and Codex's review of 17 Nov 2026, finding 2: every count comes from the distinct comments
+          // the whole reading returned, this call's and the earlier calls' its more value carried. The host returns a
+          // comment again on a later page, so this call gives only the comments the reading had not returned before (one
+          // that comes back with text where it had none counts now), and its count, which its receipt signs as n, sums
+          // with the earlier calls' to the reading's, as the final check's sum of each part's n assumes.
+          const withText = new Set(pending?.t ?? []);
+          const without = new Set((pending?.u ?? []).filter((id) => !withText.has(id)));
+          const hasText = (comment: RedditReaderComment) => comment.text !== null && comment.text.length > 0;
+          const values = [...comments.values()].filter((comment) =>
+            !withText.has(comment.id) && (hasText(comment) || !without.has(comment.id)));
+          for (const comment of values) {
+            if (hasText(comment)) {
+              withText.add(comment.id);
+              without.delete(comment.id);
+            } else without.add(comment.id);
+          }
+          const readHere = values.filter(hasText).length;
+          const read = withText.size;
+          const withoutText = without.size;
+          const remaining = { v: 2 as const, id: link.id, pages, replies, t: [...withText], u: [...without] };
+          let next = pages.length === 0 && replies.length === 0 ? undefined : signContinuation(remaining, continuationKey);
+          let tooLong = false;
+          // The rest too large for one more value: the comments read are kept, and the result says the reading ends here.
+          if (next !== undefined && (next.length > MAXIMUM_MORE_LENGTH || !moreSchema.safeParse(remaining).success)) {
+            next = undefined;
+            tooLong = true;
+          }
+          // The far side reports all_comments_collected false even when it returned every comment, so the reading is
+          // compared with the thread's own count: a comment without text (removed or deleted) was returned, and counts.
+          const short = read + withoutText < post.comment_count;
+          const truncated = incomplete || tooLong || next !== undefined || short;
+          const terminal: RedditThreadTerminalReason | undefined = next !== undefined || !truncated ? undefined
+            : tooLong ? "continuation_too_long" : "site_limit";
           return { access_state: "read", url: canonical, community: post.subreddit.toLowerCase(), title: post.title, created: post.created,
             post_text: post.body, comments: values, thread_comment_count: post.comment_count,
-            comments_read: values.filter((comment) => comment.text !== null && comment.text.length > 0).length,
-            comments_without_text: values.filter((comment) => comment.text === null || comment.text.length === 0).length,
-            // The far side reports all_comments_collected false even when it returned every comment, so a first read is
-            // compared with the thread's own count.
-            truncated: incomplete || next !== undefined || (pending === undefined && values.length < post.comment_count),
-            ...(next === undefined ? {} : { more: next }) };
+            comments_read: read, comments_without_text: withoutText, comments_read_this_call: readHere, truncated,
+            ...(next === undefined ? {} : { more: next }), ...(terminal === undefined ? {} : { terminal_reason: terminal }) };
         });
       } catch (error) { return { ...failure(error), url }; }
     }
