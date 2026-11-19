@@ -4297,16 +4297,20 @@ export function finalizeResearch(
       rule`Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final check reads it.`
     );
   } else {
-    // A card's findings each cite a study audited or read as a lead here, a
-    // video audited here, or a forum thread AskRigor's reader read here (in a
-    // finding's forum_signal, by its verified forum_thread_read receipt), so an
-    // answer resting on none of them (a handoff, a correction, a question about
-    // given figures) has nothing a card can hold and is not asked for one (the
+    // A card's findings each cite a study audited or read as a lead here, or a
+    // video audited here, or rest on forum reports alone: a forum_signal naming
+    // threads AskRigor's reader read here, which the card check takes with no
+    // study only as support_not_located, by the query of a literature search
+    // passed here (findings/research-behind.ts). So an answer resting on none of
+    // them (a handoff, a correction, a question about given figures, or a simple
+    // question about a thread read here, with no search for studies of what it
+    // reports) has nothing a card can hold and is not asked for one (the
     // 2026-10-15 owner regressions). Codex's review of 19 Nov 2026 (AskRigor#491,
     // P1): a forum-only answer was never asked, so AskRigor#475's reminder never
-    // ran for it.
+    // ran for it; owner answer 354b, after Codex's recheck: it is asked only when
+    // it can hold such a finding, not for every verified read.
     const citable = validatedIds.size > 0 || leadSources.length > 0 || auditedAtAll.size > 0 ||
-      materialVideos.length > 0 || forumThreads.size > 0;
+      materialVideos.length > 0 || (forumThreads.size > 0 && literatureQueries.size > 0);
     if (findingsOpen(options) && input.findings_card === undefined && !parsed.droppedFindingsCard && citable) {
       cardRequested = true;
       requireDeclaration(
