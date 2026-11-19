@@ -7,6 +7,7 @@ import { InMemoryAtlasPersonClaims, type AtlasPersonReading, type AtlasPersonRem
 import {
   ATLAS_PERSON_SENSITIVE_GROUP,
   IT_MIGHT_BE_FALSE,
+  PERSON_LEFT_OUT,
   PERSON_UNREAD_BANNER,
   PERSON_WAITING,
   applyPersonClaims,
@@ -121,9 +122,9 @@ describe("the server's verdict and its fixed words (design 4.2-4.4; the owner's 
     const two = "Dr Ada Velmor holds shares in Zentara Ltd and faked the trial data.";
     const finding = personFinding({ claim: `${one} ${two}`, research: [trial()] });
     const shown = view(finding, readingFor(finding, (text) => text === one ? "person|coi|S1|S1.1a|own|y|n|n|-|Dr Ada Velmor"
-      : text === two ? "person|fraud|S1|S1.1a|own|n|n|n|-|Dr Ada Velmor" : undefined))!;
+      : text === two ? "person|misconduct|S1|S1.1a|own|n|n|n|-|Dr Ada Velmor" : undefined))!;
     expect(shown.claim).toBe(`${one} [The Velmor trial, 2021, says: “The authors declare that Dr Ada Velmor holds shares in Zentara Ltd.”] ` +
-      `[Unverified claim of fraud · The Velmor trial supports only part of this sentence. ${IT_MIGHT_BE_FALSE}] ${two}`);
+      `[Unverified claim of professional misconduct · The Velmor trial supports only part of this sentence. ${IT_MIGHT_BE_FALSE}] ${two}`);
     // Never "confirmed" or "true".
     expect(shown.claim).not.toMatch(/confirmed|true/iu);
   });
@@ -155,33 +156,42 @@ describe("the server's verdict and its fixed words (design 4.2-4.4; the owner's 
     for (const [line, fields, mark] of cases) {
       const finding = personFinding({ claim: sentence, ...fields });
       const shown = view(finding, readingFor(finding, (text) => text === sentence ? line : undefined))!;
-      expect(shown.claim, line).toBe(`[${mark} ${IT_MIGHT_BE_FALSE}] ${sentence}`);
+      // 366b: a claim of a crime or fraud, or about health or sex life, is left out; the others carry their mark.
+      const leftOut = /^person\|(crime|fraud|health|sex)\|/u.test(line);
+      expect(shown.claim, line).toBe(leftOut ? `[${PERSON_LEFT_OUT}]` : `[${mark} ${IT_MIGHT_BE_FALSE}] ${sentence}`);
       expect(JSON.stringify(shown), line).not.toContain("SECRETWHO");
     }
   });
 
   it("marks a source title that is itself a claim, and never quotes it in another sentence's line (Fable 4.5)", () => {
-    const title = "Dr Ada Velmor exposed as a fraud";
+    const title = "Dr Ada Velmor struck off for misconduct";
     const finding = personFinding({ claim: "Dr Ada Velmor ran the only trial.",
       research: [researchSource(title, [quoteLine("The trial ran in 2020.")])] });
-    const shown = view(finding, readingFor(finding, (text) => text === title ? "person|fraud|S1|-|notfound|n|n|n|-|Dr Ada Velmor"
+    const shown = view(finding, readingFor(finding, (text) => text === title ? "person|misconduct|S1|-|notfound|n|n|n|-|Dr Ada Velmor"
       : "person|other|S1|-|notfound|n|n|n|-|Dr Ada Velmor"))!;
-    expect(shown.research[0]!.source.title).toBe(`[Unverified claim of fraud · It is the title of a source the finding cites; ` +
+    expect(shown.research[0]!.source.title).toBe(`[Unverified claim of professional misconduct · It is the title of a source the finding cites; ` +
       `AskRigor found nothing it could open that supports it. ${IT_MIGHT_BE_FALSE}] ${title}`);
     expect(shown.claim).toBe("[Unverified claim · The finding cites a source, but AskRigor didn’t find this in it. " +
       `${IT_MIGHT_BE_FALSE}] Dr Ada Velmor ran the only trial.`);
   });
 
-  it("shows claims of crime, fraud, misconduct, health and sex life with the mark, as the owner chose (356a)", () => {
-    expect(ATLAS_PERSON_SENSITIVE_GROUP).toBe("show_marked");
-    const sentences = ["Dr Ada Velmor was convicted of assault.", "Dr Ada Velmor has advanced cancer.",
+  it("leaves out claims of a crime or fraud and about health or sex life, and shows the rest marked (366b)", () => {
+    expect(ATLAS_PERSON_SENSITIVE_GROUP).toBe("leave_out");
+    const left = ["Dr Ada Velmor was convicted of assault.", "Dr Ada Velmor has advanced cancer.",
       "Dr Ada Velmor had an affair with a patient.", "Reddit user u/tremorfan sells fake zentarine."];
-    const finding = personFinding({ claim: sentences.join(" ") });
+    // Professional misconduct and a private person's claim of another kind show with the mark, as 356a chose.
+    const marked = ["Dr Ada Velmor was struck off for professional misconduct.", "Reddit user u/tremorfan is paid by the seller."];
+    const finding = personFinding({ claim: [...left, ...marked].join(" ") });
     const shown = view(finding, readingFor(finding, (text) => text.includes("convicted") ? "person|crime|-|-|-|n|n|n|-|Dr Ada Velmor"
       : text.includes("cancer") ? "person|health|-|-|-|n|n|n|-|Dr Ada Velmor"
         : text.includes("affair") ? "person|sex|-|-|-|n|n|n|-|Dr Ada Velmor"
-          : text.includes("tremorfan") ? "person|fraud|-|-|-|n|n|y|-|u/tremorfan" : undefined))!;
-    for (const sentence of sentences) expect(shown.claim).toContain(`${IT_MIGHT_BE_FALSE}] ${sentence}`);
+          : text.includes("sells fake") ? "person|fraud|-|-|-|n|n|y|-|u/tremorfan"
+            : text.includes("struck off") ? "person|misconduct|-|-|-|n|n|n|-|Dr Ada Velmor"
+              : text.includes("paid by") ? "person|coi|-|-|-|n|n|y|-|u/tremorfan" : undefined))!;
+    for (const sentence of left) expect(shown.claim).not.toContain(sentence);
+    expect(shown.claim).toContain(PERSON_LEFT_OUT);
+    expect(shown.claim).toContain(`Unverified claim of professional misconduct`);
+    for (const sentence of marked) expect(shown.claim).toContain(`${IT_MIGHT_BE_FALSE}] ${sentence}`);
     expect(shown.personClaims!.neutralTitle).toBe("Velmor syndrome: a finding with an unverified claim about a named person");
   });
 });

@@ -93,7 +93,7 @@ const EXEMPT: Readonly<Record<string, string>> = {
 const generic = (path: string) => path.replace(/\.\d+(?=\.|$)/gu, ".*");
 
 const PLANT = (where: string) => `Dr Plant Witness took bribes, says the ${where}.`;
-const plantRule: PersonRule = (text) => /plant witness/iu.test(text) ? "person|crime|-|-|-|n|n|n|-|Dr Plant Witness" : undefined;
+const plantRule: PersonRule = (text) => /plant witness/iu.test(text) ? "person|misconduct|-|-|-|n|n|n|-|Dr Plant Witness" : undefined;
 const NOTE_PATH = "change.edited.2026-11-19T09:00:00.000Z";
 const FULL = personFinding({
   question: PLANT("question"), usualAnswer: PLANT("usual answer"),
@@ -177,7 +177,7 @@ const PLANTS = {
   change: "A trial not run by Dr Invented Zentaro's own clinic.",
   applies: "Adults treated at Dr Invented Zentaro's clinic, which bills for fake visits.",
 };
-const zentaroRule: PersonRule = (text) => /zentaro/iu.test(text) ? "person|fraud|-|-|-|n|n|n|-|Dr Invented Zentaro" : undefined;
+const zentaroRule: PersonRule = (text) => /zentaro/iu.test(text) ? "person|misconduct|-|-|-|n|n|n|-|Dr Invented Zentaro" : undefined;
 const FREE = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION } as const;
 const openLimiter = { consume: () => true } as unknown as CreateAtlasPagesHandlerOptions["rateLimiter"];
 
@@ -266,7 +266,7 @@ describe("the planted topic name, key and query on every public surface (Codex's
       "Does zentarine ease the tremor of Velmor syndrome?");
     expect(held?.atlas_findings?.map(({ publication_number }) => publication_number)).toEqual([number]);
     expect(JSON.stringify(held)).not.toMatch(/zentaro/iu);
-    expect(held!.atlas_findings![0]!.wording).toContain("Left out here: an unverified claim of fraud about a named person.");
+    expect(held!.atlas_findings![0]!.wording).toContain("Left out here: an unverified claim of professional misconduct about a named person.");
     // A removal keeps the finding's own context, its hidden topic included (Codex's check of this round).
     await serve({ enabled: true, source, signal: new AtlasChangeSignal(), personClaims: { store: person } }, async (base) => {
       const form = await (await fetch(`${base}/atlas/findings/${number}/person`)).text();

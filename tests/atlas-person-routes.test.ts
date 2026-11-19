@@ -17,7 +17,7 @@ import { AtlasKeptReview } from "../apps/research-mcp/src/atlas/kept-review.js";
 import { lookupAtlas } from "../apps/research-mcp/src/atlas/lookup-tool.js";
 import { createAtlasPagesHandler, type CreateAtlasPagesHandlerOptions } from "../apps/research-mcp/src/atlas/pages-http.js";
 import { loadAtlasFinding } from "../apps/research-mcp/src/atlas/page-data.js";
-import { personContextKeys, personSentenceKey } from "../apps/research-mcp/src/atlas/person-claims.js";
+import { PERSON_LEFT_OUT, personContextKeys, personSentenceKey } from "../apps/research-mcp/src/atlas/person-claims.js";
 import { AtlasPersonReadingWorker, createPersonReader, reconcileAtlasPersonRemovals } from "../apps/research-mcp/src/atlas/person-reading.js";
 import { AtlasCardPublisher } from "../apps/research-mcp/src/atlas/publication.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
@@ -34,18 +34,18 @@ const PLANTED_TOO = "Quick answers miss that Dr Invented Zentaro was struck off 
 const TRIAL = "Zentarine 20 mg halved the tremor score in 60 of 240 against 36 of 240 on placebo over 12 weeks.";
 const FREE = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION } as const;
 const rule: PersonRule = (text) => text.includes("NEWUNREAD") || text.includes("Orvane") ? "famous"
-  : text.includes("struck off") ? "person|fraud|-|-|-|n|n|n|-|Dr Invented Zentaro"
+  : text.includes("struck off") ? "person|misconduct|-|-|-|n|n|n|-|Dr Invented Zentaro"
     : text.includes("Zentaro") ? "person|coi|-|-|-|n|n|n|-|Dr Invented Zentaro" : undefined;
 const openLimiter = { consume: () => true } as unknown as CreateAtlasPagesHandlerOptions["rateLimiter"];
 
-async function scenario() {
+async function scenario(given?: Array<[string, number, string, string | null]>) {
   let clock = Date.parse("2026-11-19T09:00:00.000Z");
   const now = () => new Date(clock);
   const publications = new InMemoryAtlasPublicationStore();
   const publisher = new AtlasCardPublisher({ store: publications, now, showOnPages: false } as
     ConstructorParameters<typeof AtlasCardPublisher>[0]);
   const numbers: Record<string, string> = {};
-  const cards: Array<[string, number, string, string | null]> = [
+  const cards: Array<[string, number, string, string | null]> = given ?? [
     // On the pages before the mark was switched on: shown under the banner until it is read.
     ["legacy", 4601, `${TRIAL} Dr Legacy Orvane runs the only clinic that sells it.`, null],
     ["person", 4602, `${TRIAL} ${PLANTED}`, PLANTED_TOO],
@@ -159,7 +159,7 @@ describe("what a signed-out reader and the lookup tool see while the mark is on"
         expect(output).not.toContain("NEWUNREAD");
         if (output.includes(numbers.person!)) {
           expect(output).toContain("Left out here: an unverified claim of a conflict of interest about a named person.");
-          // The lookup gives no "why not the usual answer"; had it, the fraud claim would be left out the same way.
+          // The lookup gives no "why not the usual answer"; had it, the misconduct claim would be left out the same way.
         }
         if (output.includes(numbers.legacy!)) expect(output).toContain("AskRigor hasn’t yet checked this finding for claims about people.");
       }
@@ -465,5 +465,46 @@ describe("Codex's second review of B, across the routes (the round-3 fixes)", ()
     release();
     await first;
     expect(slow.calls).toEqual([inFlight]);
+  });
+});
+
+// The owner's 366b (19 Nov 2026): claims of a crime or fraud, or about someone's health or sex life, stay off the pages
+// until a lawyer has read the privacy notice's legal basis; every other unsupported claim about a person shows marked.
+describe("what a signed-out reader sees of the claims 366b leaves out", () => {
+  const HEALTH_CLAIM = "Dr Invented Zentaro has advanced cancer.";
+  const CRIME_CLAIM = "Dr Invented Zentaro was convicted of assault.";
+  const FRAUD_CLAIM = "Quick answers miss that Dr Invented Zentaro faked the trial data.";
+  const rule366: PersonRule = (text) => text.includes("cancer") ? "person|health|-|-|-|n|n|n|-|Dr Invented Zentaro"
+    : text.includes("convicted") ? "person|crime|-|-|-|n|n|n|-|Dr Invented Zentaro"
+      : text.includes("faked") ? "person|fraud|-|-|-|n|n|n|-|Dr Invented Zentaro"
+        : text.includes("Zentaro") ? "person|coi|-|-|-|n|n|n|-|Dr Invented Zentaro" : undefined;
+
+  it("leaves a planted health, crime and fraud claim off every route and shows the conflict of interest marked", async () => {
+    const { person, source, numbers, now } = await scenario([
+      ["plain", 4611, `PLAINONE ${TRIAL}`, null],
+      ["sensitive", 4612, `${TRIAL} ${PLANTED} ${HEALTH_CLAIM} ${CRIME_CLAIM}`, FRAUD_CLAIM],
+    ]);
+    const worker = new AtlasPersonReadingWorker({ source, store: person, reader: ruleReader(rule366), capUsd: 1, now,
+      signal: new AtlasChangeSignal(), log: () => undefined });
+    const pass = await worker.pass();
+    expect(pass.read).toContain(numbers.sensitive);
+    const finding = `/atlas/findings/${numbers.sensitive}`;
+    const paths = ["/atlas", "/atlas/findings", "/atlas/topics", `/atlas/topics/${VELMOR_TOPIC.key}`, "/atlas/search?q=Zentaro",
+      "/atlas/search?q=cancer", "/atlas/map", "/atlas/sitemap.xml", "/atlas/changes", "/atlas/challenges", finding,
+      `${finding}/person`];
+    await serve({ enabled: true, source, signal: new AtlasChangeSignal(), personClaims: { store: person } }, async (base) => {
+      for (const path of paths) {
+        const body = await (await fetch(`${base}${path}`)).text();
+        for (const left of [HEALTH_CLAIM, CRIME_CLAIM, FRAUD_CLAIM, "advanced cancer", "convicted of assault", "faked the trial"]) {
+          expect(body, `${path}: ${left}`).not.toContain(left);
+        }
+        expect(unmarked(body, PLANTED), path).toBe(0);
+      }
+      const page = await (await fetch(`${base}${finding}`)).text();
+      expect(page).toContain(PLANTED);
+      expect(page).toContain("Unverified claim of a conflict of interest");
+      expect(page).toContain(PERSON_LEFT_OUT);
+      expect(page).toContain('<meta name="robots" content="noindex">');
+    });
   });
 });

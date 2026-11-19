@@ -39,13 +39,16 @@ import { atlasSearchFold } from "./search.js";
 // The fixed public words ---------------------------------------------------------------------------------------------
 
 /**
- * The owner's 356a (19 Nov 2026, 15:32 UTC): claims of crime, fraud, professional misconduct, health or sex life, and
- * claims about private people, show with the mark like any other. The one place to change it: "leave_out" leaves such
- * an unsupported sentence out with PERSON_LEFT_OUT instead.
+ * The owner's 366b (19 Nov 2026, Inbox 20:36 UTC): "keep claims about someone's health, sex life or a crime off the pages
+ * until a lawyer has read that sentence [the privacy notice's legal basis]; everything else shows marked". So an
+ * unsupported claim of a crime, or of fraud (an accusation of a crime too), or about someone's health or sex life, is
+ * left out with PERSON_LEFT_OUT; every other unsupported claim about a person shows with the mark, as his 356a chose:
+ * professional misconduct, conflicts of interest and claims about private people such as forum users included. The one
+ * place to change it: "show_marked" shows these kinds with the mark too (356a), once a lawyer has read that sentence.
  */
-export const ATLAS_PERSON_SENSITIVE_GROUP = "show_marked" as "show_marked" | "leave_out";
+export const ATLAS_PERSON_SENSITIVE_GROUP = "leave_out" as "show_marked" | "leave_out";
 export const ATLAS_PERSON_SENSITIVE_KINDS: ReadonlySet<AtlasPersonKind> =
-  new Set<AtlasPersonKind>(["crime", "fraud", "professional_misconduct", "health", "sex_life"]);
+  new Set<AtlasPersonKind>(["crime", "fraud", "health", "sex_life"]);
 
 /** "Unverified claim of [kind]" (the owner, 13:17 UTC and 356a); "other" prints no kind. */
 export const PERSON_MARK_HEADS: Readonly<Record<AtlasPersonKind, string>> = {
@@ -656,8 +659,9 @@ export function applyPersonClaims(finding: ShownFinding, context: PersonClaimCon
       : context.removals.find(({ removalNumber, state: removalState }) => removalNumber === entry.repeats &&
         removalState === "taken_off");
     if (repeated !== undefined) return { kind: "taken_off", day: repeated.changedAt.slice(0, 10) };
+    // 366b: by kind only; a claim about a private person of another kind shows marked, like any other.
     if (verdict.aboutPerson && (context.leaveOutUnverified === true || (ATLAS_PERSON_SENSITIVE_GROUP === "leave_out" &&
-      (ATLAS_PERSON_SENSITIVE_KINDS.has(verdict.claimKind) || entry.privateIndividual)))) return { kind: "left_out" };
+      ATLAS_PERSON_SENSITIVE_KINDS.has(verdict.claimKind)))) return { kind: "left_out" };
     return verdict;
   };
   // What a source reports, as its own line: for a kept quote about a person that the reading or its own words leave in
