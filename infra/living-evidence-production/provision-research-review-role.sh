@@ -139,6 +139,23 @@ GRANT EXECUTE ON FUNCTION living_evidence.show_atlas_publications(text[], text[]
 -- thread key alone (never by a card number, which several people's saves share).
 GRANT EXECUTE ON FUNCTION living_evidence.erase_research_dossiers(text, timestamptz)
   TO askrigor_research_review;
+-- Atlas Release B (migration 0042): the person-claim readings, disputes, decisions and spend, through their functions.
+GRANT EXECUTE ON FUNCTION living_evidence.save_atlas_person_reading(text, text, jsonb, text, timestamptz)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.fail_atlas_person_reading(text, text, timestamptz, integer)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.reserve_atlas_person_spend(date, numeric, numeric, boolean, integer)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.settle_atlas_person_spend(date, numeric, numeric)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.submit_atlas_person_dispute(text, text, text, text, text, boolean, text, text[],
+  text, text, text, text, timestamptz, integer, integer, integer, integer) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.decide_atlas_person_claim(text, text, text, text, text[], bigint, text,
+  timestamptz) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.list_atlas_person_queue(integer) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.take_atlas_person_hints(integer, timestamptz) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.atlas_person_removed_texts_for(text[]) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.purge_atlas_person_disputes(timestamptz) TO askrigor_research_review;
 ALTER ROLE askrigor_research_review SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_review SET idle_in_transaction_session_timeout = '5s';
 ALTER ROLE askrigor_research_review SET search_path = living_evidence, pg_catalog;

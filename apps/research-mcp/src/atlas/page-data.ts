@@ -19,6 +19,8 @@ import type {
   AtlasPageSource,
   AtlasPageSourceIdentifiers,
   AtlasPageSourceScheme,
+  AtlasPersonReading,
+  AtlasPersonRemoval,
   AtlasPublicationRoute,
   AtlasPublishedFinding,
   AtlasSubjectType,
@@ -41,6 +43,7 @@ import {
 } from "./search.js";
 
 import { ATLAS_TOPIC_FAMILIES, atlasSearchFamily, atlasTopicFamily, type AtlasTopicFamily } from "./topic-families.js";
+import { applyPersonClaims, personKeptOutOfSearch, personReadingState, type PersonClaimView } from "./person-claims.js";
 
 /**
  * What the public Atlas pages show (decision 171, section 4C; plan
@@ -217,6 +220,11 @@ export interface ShownFinding {
    * (shownBy quick_answer_test); null otherwise. The page says a quick AI answer misses it only for pass.
    */
   shownTestVerdict: AtlasChallengeVerdict | null;
+  /**
+   * Atlas Release B, while the mark is on: the reading's view of its sentences (atlas/person-claims.ts). Its texts
+   * above are then the pages' own, each unsupported claim about a named person with its mark before it.
+   */
+  personClaims?: PersonClaimView;
 }
 
 /** A finding's challenge mark as its pages show it: never who marked it. */
@@ -768,11 +776,39 @@ function shownFindingOf(
   return shown === undefined || !rowPassesPageGuard({ ...shown, namedVideos: [] }) ? undefined : shown;
 }
 
-async function shownFindings(reads: AtlasPageReads, publications: readonly AtlasPagePublication[]): Promise<ShownFinding[]> {
+async function shownFindings(reads: AtlasPageReads, publications: readonly AtlasPagePublication[], raw = false):
+  Promise<ShownFinding[]> {
   const findings = await readFindings(reads, publications.flatMap(({ atlasNumber }) => atlasNumber === null ? [] : [atlasNumber]));
-  return publications.flatMap((publication) => {
-    const shown = shownFindingOf(publication, findings);
-    return shown === undefined ? [] : [shown];
+  const shown = publications.flatMap((publication) => {
+    const finding = shownFindingOf(publication, findings);
+    return finding === undefined ? [] : [finding];
+  });
+  return raw ? shown : await markedFindings(reads, shown);
+}
+
+/**
+ * Atlas Release B: every route's findings through the one function that builds their sentences' view
+ * (applyPersonClaims), in the page's own snapshot; unchanged while the mark is off. A finding first published after the
+ * mark was switched on and not yet read is left out (Fable's recheck, change 1).
+ */
+async function markedFindings(reads: AtlasPageReads, shown: readonly ShownFinding[]): Promise<ShownFinding[]> {
+  const person = reads.personClaims;
+  if (person === undefined || shown.length === 0) return [...shown];
+  const numbers = unique(shown.map(({ publicationNumber }) => publicationNumber));
+  const readings = new Map<string, AtlasPersonReading>();
+  const removals: AtlasPersonRemoval[] = [];
+  for (let start = 0; start < numbers.length; start += READ_CHUNK) {
+    const chunk = numbers.slice(start, start + READ_CHUNK);
+    for (const reading of await person.readReadings(chunk)) readings.set(reading.publicationNumber, reading);
+    removals.push(...await person.readRemovals(chunk));
+  }
+  const unread = shown.some((finding) => personReadingState(finding, readings.get(finding.publicationNumber)) === "unread");
+  const removedNames = unread ? await person.listRemovedNames() : [];
+  const now = new Date();
+  return shown.flatMap((finding) => {
+    const marked = applyPersonClaims(finding, { since: person.since, reading: readings.get(finding.publicationNumber),
+      removals, removedNames, now });
+    return marked === undefined ? [] : [marked];
   });
 }
 
@@ -958,12 +994,13 @@ export interface AtlasTopicsModel {
 }
 
 /** Exhaust the public reader in bounded chunks in the same snapshot; never silently stop at its 500-row limit. */
-export async function* allShown(reads: AtlasPageReads, before?: string, includeKept = false): AsyncGenerator<ShownFinding> {
+export async function* allShown(reads: AtlasPageReads, before?: string, includeKept = false, raw = false):
+  AsyncGenerator<ShownFinding> {
   let cursor = before;
   for (;;) {
     const publications = await reads.listPublications({ limit: READ_CHUNK, includeKept,
       ...(cursor === undefined ? {} : { before: cursor }) });
-    for (const finding of await shownFindings(reads, publications)) yield finding;
+    for (const finding of await shownFindings(reads, publications, raw)) yield finding;
     if (publications.length < READ_CHUNK) return;
     const next = publications.at(-1)!.publicationNumber;
     if (next === cursor) throw new Error("ATLAS_PAGE_CURSOR_STALLED");
@@ -983,14 +1020,22 @@ export interface AtlasSitemapEntry {
  * no finding's text, is always listed.
  */
 export async function loadAtlasSitemap(source: AtlasPageSource): Promise<AtlasSitemapEntry[]> {
-  return await source.read(async (reads) => {
+  const { entries, personOn } = await source.read(async (reads) => {
     const reviewed: Array<ShownFinding & { status: Exclude<ShownStatus, { kind: "unreviewed" }> }> = [];
+    // Atlas Release B: a page kept out of search engines for a claim about a person is never listed, nor a topic page
+    // that shows one.
+    const outOfSearch = new Set<string>();
     for await (const finding of allShown(reads)) {
+      if (finding.personClaims?.noindex === true) {
+        if (finding.topic !== null) outOfSearch.add(finding.topic.key);
+        continue;
+      }
       if (finding.status.kind !== "unreviewed") reviewed.push(finding as typeof reviewed[number]);
     }
     const once = oncePerFinding(reviewed) as typeof reviewed;
     const entries: AtlasSitemapEntry[] = [{ path: "/atlas/topics", lastModified: null }];
-    if (once.length === 0) return entries;
+    const personOn = reads.personClaims !== undefined;
+    if (once.length === 0) return { entries, personOn };
     const newest = once.reduce((day, { status }) => status.checkedOn > day ? status.checkedOn : day, "");
     entries.push({ path: "/atlas", lastModified: newest }, { path: "/atlas/changes", lastModified: newest });
     const topics = new Map<string, string>();
@@ -1000,13 +1045,25 @@ export async function loadAtlasSitemap(source: AtlasPageSource): Promise<AtlasSi
       if (finding.status.checkedOn > day) topics.set(finding.topic.key, finding.status.checkedOn);
     }
     for (const [key, day] of [...topics].sort(([left], [right]) => left.localeCompare(right))) {
-      entries.push({ path: `/atlas/topics/${key}`, lastModified: day });
+      if (!outOfSearch.has(key)) entries.push({ path: `/atlas/topics/${key}`, lastModified: day });
     }
     for (const finding of once.sort((left, right) => numberOf(left.publicationNumber) - numberOf(right.publicationNumber))) {
       entries.push({ path: `/atlas/findings/${finding.publicationNumber}`, lastModified: finding.status.checkedOn });
     }
-    return entries;
+    return { entries, personOn };
   });
+  if (!personOn) return entries;
+  const home = await loadAtlasHome(source);
+  const changes = await loadAtlasChanges(source);
+  const out = new Set<string>();
+  if (personKeptOutOfSearch([...home.picks.map(({ finding }) => finding), ...home.strongestChecked,
+    ...home.recentlyPublished, ...home.recentlyChecked, ...home.contested.flatMap(({ findings }) => findings)])) {
+    out.add("/atlas");
+  }
+  if (personKeptOutOfSearch(changes.entries.flatMap(({ finding }) => finding === null ? [] : [finding]))) {
+    out.add("/atlas/changes");
+  }
+  return entries.filter(({ path }) => !out.has(path));
 }
 
 /** Every shown publication, including leads and earlier findings; filters never use private or stale card wording. */
@@ -1363,7 +1420,9 @@ export async function loadAtlasFinding(
     const partners = finding === undefined ? []
       : [...finding.contradicts.map(({ atlasNumber }) => atlasNumber), ...finding.replacedBy];
     const related = await relatedFindings(reads, partners);
-    const shown = shownFindingOf(publication, findings, related);
+    const unmarked = shownFindingOf(publication, findings, related);
+    if (unmarked === undefined) return undefined;
+    const [shown] = await markedFindings(reads, [unmarked]);
     if (shown === undefined) return undefined;
     const siblingNumbers = (await reads.listCardSiblings([publicationNumber])).map(({ siblingNumber }) => siblingNumber);
     const siblings = siblingNumbers.length === 0 ? []

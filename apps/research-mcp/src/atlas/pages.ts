@@ -46,6 +46,7 @@ import {
   type ShownSearch,
   type ShownSource,
 } from "./page-data.js";
+import { PERSON_DISPUTE_LINK, personKeptOutOfSearch, type PersonSegment } from "./person-claims.js";
 import { ATLAS_SEARCH_MAX_LENGTH, type AtlasSearchField } from "./search.js";
 import { atlasSearchFamily, atlasTopicFamily } from "./topic-families.js";
 import { INOSITOL_DOSSIER, type DossierForm, type DossierEvidence } from "./inositol-dossier.js";
@@ -258,7 +259,12 @@ const needsChecking = (finding: ShownFinding) =>
   finding.status.kind === "unreviewed" && strengthOf(finding).total >= STRONG_CLAIM;
 
 /** Whether every finding a page lists is unreviewed, so the page is kept out of search engines (owner answer 224a). */
-export const unreviewedOnly = (findings: readonly ShownFinding[]) => findings.every(({ status }) => status.kind === "unreviewed");
+/**
+ * Kept out of search engines (owner answer 224a): every finding unreviewed; or, while Atlas Release B's mark is on, any
+ * finding shows an unverified claim about a named person or isn't yet read (design 4.4).
+ */
+export const unreviewedOnly = (findings: readonly ShownFinding[]) =>
+  findings.every(({ status }) => status.kind === "unreviewed") || personKeptOutOfSearch(findings);
 
 function relatedLink(related: ShownRelated): SafeHtml {
   return related.publicationNumber === null ? html`${related.atlasNumber}`
@@ -498,7 +504,8 @@ function findingItem(finding: ShownFinding, extra: SafeHtml | "" = ""): SafeHtml
 ${badge(finding)}
 ${questionLine(finding)}
 <p class="finding-claim"><a href="${findingPath(finding.publicationNumber)}">${finding.claim}</a></p>
-<p class="meta">${joined(facts, " · ")}</p>
+${finding.personClaims?.banner ? html`<p class="aside person-banner">${finding.personClaims.banner}</p>
+` : ""}<p class="meta">${joined(facts, " · ")}</p>
 ${extra === "" ? "" : html`${extra}
 `}</li>
 `;
@@ -1354,6 +1361,33 @@ ${view.notice === null ? "" : html`<p class="notice-line" role="status">${view.n
 `;
 }
 
+/**
+ * Atlas Release B: a finding's own text with each mark styled apart, before its sentence (design 4.4; the owner's
+ * wording): "Unverified claim of [kind]" in bold, then where it came from and "It might be false.", then the claim.
+ * The plain form (the finding's field) carries the same words in brackets, for every other format.
+ */
+function personText(finding: ShownFinding, path: "claim" | "question" | "usualAnswer" | "appliesTo" | "subject" |
+  "whyNotUsual" | "whatWouldChangeIt"): SafeHtml | string {
+  const segments: PersonSegment[] | undefined = finding.personClaims?.segments[path];
+  if (segments === undefined) return finding[path] ?? "";
+  return joined(segments.map((segment) => segment.type === "text" ? html`${segment.text}`
+    : segment.type === "note" ? html`<span class="person-note">${segment.text}</span>`
+      : html`<span class="person-mark"><strong>${segment.head}</strong> · ${segment.line}${segment.href === null ? ""
+        : html` <a href="${segment.href}" rel="nofollow ugc">(the thread)</a>`}</span> ${segment.text}`), " ");
+}
+
+function personBanner(finding: ShownFinding): SafeHtml | "" {
+  const banner = finding.personClaims?.banner;
+  return banner === null || banner === undefined ? "" : html`<p class="notice-line person-banner" role="note">${banner}</p>
+`;
+}
+
+/** Every finding carries the correction link while the mark is on (design 4.6). */
+function personDisputeLine(finding: ShownFinding): SafeHtml | "" {
+  return finding.personClaims === undefined ? "" : html`<p class="person-dispute"><a href="${findingPath(finding.publicationNumber)}/person" rel="nofollow">${PERSON_DISPUTE_LINK}</a></p>
+`;
+}
+
 export function renderAtlasFinding(model: AtlasFindingModel, participationView?: AtlasFindingParticipationView,
   reader?: AtlasPageReader): string {
   const finding = model.finding;
@@ -1362,10 +1396,10 @@ export function renderAtlasFinding(model: AtlasFindingModel, participationView?:
   if (finding.certainty !== null) {
     facts.push(html`<dt>How sure</dt><dd>${CERTAINTY_WORDS[finding.certainty]} <span class="aside">(AskRigor’s rating, not formal GRADE)</span></dd>`);
   }
-  if (finding.appliesTo !== null) facts.push(html`<dt>Whom it applies to</dt><dd>${finding.appliesTo}</dd>`);
+  if (finding.appliesTo !== null) facts.push(html`<dt>Whom it applies to</dt><dd>${personText(finding, "appliesTo")}</dd>`);
   if (finding.kind !== null) facts.push(html`<dt>Kind</dt><dd>${KIND_WORDS[finding.kind]}</dd>`);
   if (finding.subject !== null) {
-    facts.push(html`<dt>Subject</dt><dd>${finding.subject}${finding.subjectType === null ? "" : html` (${finding.subjectType})`}</dd>`);
+    facts.push(html`<dt>Subject</dt><dd>${personText(finding, "subject")}${finding.subjectType === null ? "" : html` (${finding.subjectType})`}</dd>`);
   }
   if (finding.direction !== null) facts.push(html`<dt>Direction</dt><dd>${DIRECTION_WORDS[finding.direction]}</dd>`);
   if (finding.verifiedBases.length > 0) {
@@ -1383,18 +1417,18 @@ export function renderAtlasFinding(model: AtlasFindingModel, participationView?:
   if (finding.askrigorVersion !== null) dates.push(html`AskRigor ${finding.askrigorVersion}`);
   const sources = finding.sources.map(source).filter((item): item is SafeHtml => item !== "");
   // The question its research answered opens the page, or a plain note when it was published without one.
-  const question = finding.question !== null ? html`<p class="question"><span class="eyebrow">The question</span> ${finding.question}</p>`
+  const question = finding.question !== null ? html`<p class="question"><span class="eyebrow">The question</span> ${personText(finding, "question")}</p>`
     : html`<p class="question question-missing">This finding was published without the question its research answered${finding.topic === null
       ? ", and without a topic." : html`. Its topic: <a href="${topicPath(finding.topic.key)}">${finding.topic.label}</a>.`}</p>`;
   // The usual answer, then why this finding isn't it; without the usual answer, the why alone, as before.
   const usual = finding.usualAnswer !== null ? html`<section aria-labelledby="usual">
 <h2 id="usual">The usual answer</h2>
-<p>What a quick, ordinary answer would say: ${finding.usualAnswer}</p>
-${finding.whyNotUsual === null ? "" : html`<p><strong>Why this finding isn’t it:</strong> ${finding.whyNotUsual}</p>
+<p>What a quick, ordinary answer would say: ${personText(finding, "usualAnswer")}</p>
+${finding.whyNotUsual === null ? "" : html`<p><strong>Why this finding isn’t it:</strong> ${personText(finding, "whyNotUsual")}</p>
 `}</section>
 ` : finding.whyNotUsual === null ? "" : html`<section aria-labelledby="usual">
 <h2 id="usual">Why this isn’t the usual answer</h2>
-<p>${finding.whyNotUsual}</p>
+<p>${personText(finding, "whyNotUsual")}</p>
 </section>
 `;
 
@@ -1405,9 +1439,9 @@ ${finding.whyNotUsual === null ? "" : html`<p><strong>Why this finding isn’t i
     ? html`<p><a href="${topicPath("inositol")}">Inositol: all forms, benefits, and risks</a></p>`
     : ""}
 ${finding.kept ? html`<p class="notice-line" role="note">${KEPT_FOR_RESEARCH_LINE}</p>
-` : ""}${statusBlock(finding)}
+` : ""}${personBanner(finding)}${statusBlock(finding)}
 ${challengeBox(finding)}${question}
-<h1 class="claim">${finding.claim}</h1>
+<h1 class="claim">${personText(finding, "claim")}</h1>
 <p class="meta">${joined(dates, " · ")}</p>
 ${facts.length === 0 ? "" : html`<dl class="facts">
 ${joined(facts, "\n")}
@@ -1423,21 +1457,22 @@ ${finding.searches.map(search)}</ul>
 </section>
 `}${finding.whatWouldChangeIt === null ? "" : html`<section aria-labelledby="change">
 <h2 id="change">What would change it</h2>
-<p>${finding.whatWouldChangeIt}</p>
+<p>${personText(finding, "whatWouldChangeIt")}</p>
 </section>
 `}${sources.length === 0 ? "" : html`<section aria-labelledby="sources">
 <h2 id="sources">Sources</h2>
 <ul class="source-list">
 ${sources}</ul>
 </section>
-`}${participation(finding.publicationNumber, participationView)}`;
+`}${personDisputeLine(finding)}${participation(finding.publicationNumber, participationView)}`;
   return page({
     path: findingPath(finding.publicationNumber),
     // Kept for research only: out of search engines, like every page no list links to (owner answers 229a and 231a).
-    noindex: finding.status.kind === "unreviewed" || finding.kept,
+    noindex: finding.status.kind === "unreviewed" || finding.kept || finding.personClaims?.noindex === true,
     reader,
-    title: `${finding.publicationNumber}: ${shortened(finding.claim, 70)} | AskRigor Atlas`,
-    description: shortened(finding.claim, 160),
+    // Atlas Release B: an unverified claim about a person is never a title or a description (design 4.4).
+    title: `${finding.publicationNumber}: ${finding.personClaims?.neutralTitle ?? shortened(finding.claim, 70)} | AskRigor Atlas`,
+    description: finding.personClaims?.neutralDescription ?? shortened(finding.claim, 160),
     body,
   });
 }
@@ -2035,4 +2070,9 @@ button:hover, button:focus-visible { background: var(--accent-hover); border-col
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto; transition: none; }
 }
+.person-mark { display: inline; border-left: 3px solid #b45309; padding-left: 0.35em; font-weight: normal; }
+.person-mark strong { color: #92400e; }
+.person-note { font-style: italic; }
+.person-banner { border-left: 3px solid #b45309; padding-left: 0.5em; }
+.person-dispute { margin-top: 1.5em; font-size: 0.95em; }
 `;

@@ -20,8 +20,20 @@ import {
   atlasPagesEnabledFromEnv,
   devAccountKeysFromEnv,
   livingEvidenceReuseConfigFromEnv,
+  researchContributionReviewConfigFromEnv,
   researchContributorAccessConfigFromEnv,
 } from "../config.js";
+import type { AtlasPersonClaimStore } from "@askrigor/evidence-repository";
+import {
+  PERSON_DISPUTE_PROBLEMS,
+  PERSON_DISPUTE_ROUTE,
+  newPersonDisputeToken,
+  personDisputeOf,
+  personDisputePath,
+  personDisputeReply,
+  renderAtlasPersonDispute,
+} from "./person-dispute-pages.js";
+import { personMarkSinceFromEnv, startAtlasPersonClaimsFromEnv } from "./person-reading.js";
 import {
   addressLimitKey,
   createTokenBucketLimiter,
@@ -259,7 +271,9 @@ export type AtlasRoute =
   | { kind: "report-answer"; publicId: string }
   | { kind: "take-down-report"; publicId: string }
   // The owner's private page (owner-pages.ts): the signed-in owner's alone.
-  | { kind: "private-pages" };
+  | { kind: "private-pages" }
+  // Atlas Release B: "Is something here wrong about a person?", with no sign-in, while the mark is on.
+  | { kind: "person-claim"; publicationNumber: string };
 
 type FormRoute = Extract<AtlasRoute, { kind: "sign-out" | "sign-out-everywhere" | "vote" | "comment" |
   "delete-comment" | "report-comment" | "rename" | "forget" | "report-answer" | "take-down-report" }>;
@@ -301,6 +315,8 @@ export function atlasRouteOf(pathname: string, participation = false): AtlasRout
   if (finding !== null) return { kind: "finding", publicationNumber: finding[1]! };
   const report = REPORT_ROUTE.exec(pathname);
   if (report !== null) return { kind: "report", publicId: report[1]! };
+  const personClaim = PERSON_DISPUTE_ROUTE.exec(pathname);
+  if (personClaim !== null) return { kind: "person-claim", publicationNumber: personClaim[1]! };
   if (!participation) return undefined;
   if (pathname === ATLAS_SIGN_IN_PATH) return { kind: "sign-in" };
   if (pathname === "/atlas/auth/callback") return { kind: "callback" };
@@ -495,6 +511,11 @@ export interface AtlasOwnerRuntime {
 }
 
 export interface CreateAtlasPagesHandlerOptions {
+  /**
+   * Atlas Release B, while the mark is on (ASKRIGOR_ATLAS_PERSON_MARK): where disputes about a named person go, through
+   * the review role's functions. Without it the correction route answers 404; without its store, disputes answer 503.
+   */
+  personClaims?: { store?: AtlasPersonClaimStore };
   /** ASKRIGOR_ATLAS_PAGES=enabled. */
   enabled: boolean;
   /**
@@ -1135,6 +1156,59 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     }
   };
 
+  /**
+   * Atlas Release B (design 4.6): the correction form and its dispute, with no sign-in: from these pages only, the same
+   * submission once, within the day's limits; an unsupported claim about a person comes off at once.
+   */
+  const personClaimRoute = async (publicationNumber: string, request: IncomingMessage, response: ServerResponse,
+    source: AtlasPageSource, addressKey: string, now: Date) => {
+    const back = findingPath(publicationNumber);
+    const model = options.personClaims === undefined ? undefined : await loadAtlasFinding(source, publicationNumber);
+    if (model === undefined || model.finding.personClaims === undefined) {
+      await failurePage(request, response, 404, renderAtlasNotFound);
+      return;
+    }
+    if (request.method !== "POST") {
+      const rendered = checked({ status: 200, html: renderAtlasPersonDispute(model.finding, newPersonDisputeToken()) });
+      write(response, 200, HTML, request.method === "HEAD" ? "" : rendered.html,
+        { "cache-control": PRIVATE, "referrer-policy": "no-referrer" });
+      return;
+    }
+    const store = options.personClaims?.store;
+    if (store === undefined) {
+      await requestMessage(request, response, 503, "Not taken right now", "AskRigor can’t take reports here right now. " +
+        "Please write to joel@askrigor.com instead.", back);
+      return;
+    }
+    if (!sameSitePost(request, options.publicOrigin ?? "https://askrigor.com")) {
+      await requestMessage(request, response, 403, "Form refused",
+        "The form did not come from the Atlas pages, so nothing was changed.", back);
+      return;
+    }
+    let form: URLSearchParams;
+    try {
+      form = await readForm(request);
+    } catch (error) {
+      if (!(error instanceof AtlasFormError)) throw error;
+      write(response, error.status, TEXT, error.status === 413 ? "Request too large\n" : "Bad request\n",
+        { connection: "close", "cache-control": PRIVATE });
+      return;
+    }
+    const parsed = personDisputeOf(form, model.finding, addressKey, now);
+    if (!parsed.ok) {
+      await requestMessage(request, response, 400, "Report not sent", PERSON_DISPUTE_PROBLEMS[parsed.problem],
+        personDisputePath(publicationNumber));
+      return;
+    }
+    const result = await store.submitDispute(parsed.input);
+    if (result.outcome === "taken_off" || result.outcome === "marked_disputed") {
+      cache.clear();
+      searchIndex.clear();
+    }
+    const reply = personDisputeReply(result.outcome, parsed.input.legal, parsed.input.kind === "missed");
+    await requestMessage(request, response, reply.status, reply.title, reply.text, back, [], "Back to the finding");
+  };
+
   /** The forms: each from these pages only, with its token, within its limits. */
   const formRoute = async (route: FormRoute, request: IncomingMessage, response: ServerResponse,
     runtime: AtlasParticipationRuntime, source: AtlasPageSource, addressKey: string, now: Date) => {
@@ -1355,7 +1429,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         return true;
       }
       const allowed = FORM_KINDS.has(route.kind) ? ["POST"] : SIGN_IN_KINDS.has(route.kind) ? ["GET"]
-        : route.kind === "share" ? ["GET", "HEAD", "POST"] : ["GET", "HEAD"];
+        : route.kind === "share" || route.kind === "person-claim" ? ["GET", "HEAD", "POST"] : ["GET", "HEAD"];
       if (!allowed.includes(method)) {
         write(response, 405, TEXT, "Method not allowed\n", { allow: allowed.join(", "), connection: "close" });
         return true;
@@ -1398,6 +1472,10 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       }
       try {
         const now = clock();
+        if (route.kind === "person-claim") {
+          await personClaimRoute(route.publicationNumber, request, response, source, addressKey, now);
+          return true;
+        }
         if (route.kind === "sitemap") {
           // Owner answer 224a: only reviewed findings and the pages that hold them, kept like a page.
           const sitemap = await cache.get(pathname, async () => ({ status: 200,
@@ -1597,6 +1675,8 @@ export function createAtlasPagesHandlerFromEnv(env: NodeJS.ProcessEnv = process.
   AtlasPagesHandler {
   if (!atlasPagesEnabledFromEnv(env.ASKRIGOR_ATLAS_PAGES)) return createAtlasPagesHandler({ enabled: false });
   let source: AtlasPageSource | undefined;
+  // Atlas Release B: the whole feature is off until ASKRIGOR_ATLAS_PERSON_MARK names when it was switched on.
+  const personSince = personMarkSinceFromEnv(env);
   try {
     const reader = livingEvidenceReuseConfigFromEnv(env);
     source = reader === undefined ? undefined : new PostgresAtlasPageSource({
@@ -1606,9 +1686,21 @@ export function createAtlasPagesHandlerFromEnv(env: NodeJS.ProcessEnv = process.
       connectionTimeoutMillis: reader.connectionTimeoutMillis,
       queryTimeoutMillis: reader.queryTimeoutMillis,
       statementTimeoutMillis: reader.statementTimeoutMillis,
+      ...(personSince === undefined ? {} : { personClaimsSince: personSince }),
     });
   } catch {
     source = undefined;
+  }
+  let personClaims: { store?: AtlasPersonClaimStore } | undefined;
+  if (personSince !== undefined && source !== undefined) {
+    let review: { connectionString: string; schema: string; ssl?: unknown } | undefined;
+    try {
+      review = researchContributionReviewConfigFromEnv(env) as typeof review;
+    } catch {
+      review = undefined;
+    }
+    const started = startAtlasPersonClaimsFromEnv(env, source, review);
+    personClaims = started.store === undefined ? {} : { store: started.store };
   }
   const participation = atlasParticipationFromEnv(env, shared);
   // The proxy's secret, as the other secrets: 32 random bytes in canonical base64url, else none.
@@ -1620,5 +1712,6 @@ export function createAtlasPagesHandlerFromEnv(env: NodeJS.ProcessEnv = process.
     proxySecret,
     source,
     ...(participation === undefined ? {} : { participation }),
+    ...(personClaims === undefined ? {} : { personClaims }),
   });
 }
