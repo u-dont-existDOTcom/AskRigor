@@ -382,3 +382,16 @@ describe("Codex's fourth review of B", () => {
   });
 });
 
+describe("Codex's fifth review of B", () => {
+  it("keeps a running claim whole when another digest's reading is saved, so its own failure still counts", async () => {
+    const store = new InMemoryAtlasPersonClaims();
+    const at = NOW.toISOString();
+    expect((await store.claimReading({ publicationNumber: "P-1001", digest: "a".repeat(64), again: false, at, limit: 1,
+      leaseSeconds: 660 })).claimed).toBe(true);
+    await store.saveReading({ publicationNumber: "P-1001", digest: "b".repeat(64), sentences: [], model: "m", at });
+    expect(await store.recordFailure({ publicationNumber: "P-1001", digest: "a".repeat(64), at, limit: 1,
+      reason: "refusal:cyber" })).toEqual({ attempts: 1, parked: true });
+    expect((await store.listNotices(10)).map(({ kind }) => kind)).toEqual(["refusal", "parked"]);
+  });
+});
+

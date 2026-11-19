@@ -555,9 +555,12 @@ export class InMemoryAtlasPersonClaims implements AtlasPersonClaimStore {
   async saveReading(input: Parameters<AtlasPersonClaimStore["saveReading"]>[0]): Promise<void> {
     if (!SUBJECT.test(input.publicationNumber) || !SHA256.test(input.digest)) throw new AtlasPersonClaimQueryError();
     const prior = this.readings.get(input.publicationNumber);
+    // Another digest's running claim stays whole: its owner, attempts and parking (Codex's fifth review of B).
+    const running = prior !== undefined && prior.attemptDigest !== input.digest && (prior.claimedUntil ?? "") > input.at;
     this.readings.set(input.publicationNumber, { publicationNumber: input.publicationNumber, digest: input.digest,
-      sentences: structuredClone(input.sentences), readAt: input.at, model: input.model, attemptDigest: null, attempts: 0,
-      parked: false, claimedUntil: prior?.attemptDigest === input.digest ? null : prior?.claimedUntil ?? null });
+      sentences: structuredClone(input.sentences), readAt: input.at, model: input.model,
+      attemptDigest: running ? prior.attemptDigest : null, attempts: running ? prior.attempts : 0,
+      parked: running ? prior.parked : false, claimedUntil: running ? prior.claimedUntil : null });
   }
 
   async recordFailure(input: Parameters<AtlasPersonClaimStore["recordFailure"]>[0]) {

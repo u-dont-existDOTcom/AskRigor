@@ -236,9 +236,17 @@ BEGIN
     attempt_digest, attempts, parked, updated_at)
   VALUES (p_subject_kind, p_subject_id, p_digest, p_sentences, p_at, p_model, NULL, 0, false, p_at)
   ON CONFLICT (subject_kind, subject_id) DO UPDATE SET digest = EXCLUDED.digest, sentences = EXCLUDED.sentences,
-    read_at = EXCLUDED.read_at, model = EXCLUDED.model, attempt_digest = NULL, attempts = 0, parked = false,
-    -- A save ends only its own digest's claim (Codex's fourth review of B).
-    claimed_until = CASE WHEN stored.attempt_digest IS NOT DISTINCT FROM EXCLUDED.digest THEN NULL ELSE stored.claimed_until END,
+    read_at = EXCLUDED.read_at, model = EXCLUDED.model,
+    -- A save leaves another digest's running claim whole, its owner, attempts and parking too (Codex's fourth and fifth
+    -- reviews of B): that call's own save or failure ends it.
+    attempt_digest = CASE WHEN stored.attempt_digest IS DISTINCT FROM EXCLUDED.digest AND stored.claimed_until > EXCLUDED.updated_at
+      THEN stored.attempt_digest END,
+    attempts = CASE WHEN stored.attempt_digest IS DISTINCT FROM EXCLUDED.digest AND stored.claimed_until > EXCLUDED.updated_at
+      THEN stored.attempts ELSE 0 END,
+    parked = CASE WHEN stored.attempt_digest IS DISTINCT FROM EXCLUDED.digest AND stored.claimed_until > EXCLUDED.updated_at
+      THEN stored.parked ELSE false END,
+    claimed_until = CASE WHEN stored.attempt_digest IS DISTINCT FROM EXCLUDED.digest AND stored.claimed_until > EXCLUDED.updated_at
+      THEN stored.claimed_until END,
     updated_at = EXCLUDED.updated_at;
 END
 $function$;
