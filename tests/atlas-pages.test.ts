@@ -686,6 +686,22 @@ describe("the home, topic and changes pages", () => {
     expect(body).not.toContain(`/atlas/findings/${shown.lead}"`);
   });
 
+  // AskRigor#477 stage 2, Codex's re-review (P2): with public dossiers off, a topic page's query is read as before:
+  // ?page=2 and ?after= are not parsed, and the page answers exactly as the topic's own page.
+  it("answer an existing topic's ?page=2 and the topics list's ?after= as their plain pages while dossiers are off",
+    async () => {
+      const { source } = await fixture();
+      const base = await serve(pages(source));
+      for (const [path, query] of [["/atlas/topics/velmor-syndrome", "?page=2"], ["/atlas/topics/velmor-syndrome",
+        "?page=999"], ["/atlas/topics", "?after=velmor-syndrome"]] as const) {
+        const plain = await text(base, path);
+        const paged = await text(base, `${path}${query}`);
+        expect(plain.response.status, path).toBe(200);
+        expect(paged.response.status, `${path}${query}`).toBe(200);
+        expect(paged.body, `${path}${query}`).toBe(plain.body);
+      }
+    });
+
   it("list a topic's findings by section, accepted ones under their canonical topic, and 404 an empty topic", async () => {
     const { source, shown } = await fixture();
     const base = await serve(pages(source));

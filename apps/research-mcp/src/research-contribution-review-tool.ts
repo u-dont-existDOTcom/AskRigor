@@ -33,12 +33,15 @@ import {
 import { atlasParticipationSchema } from "./atlas/participation-review.js";
 import { atlasKeptSchema } from "./atlas/kept-review.js";
 import { ATLAS_CHALLENGE_MARK_INPUTS, atlasChallengesSchema } from "./atlas/challenge-review.js";
+import { atlasDossiersSchema } from "./atlas/dossier-review.js";
 import { atlasPlacementsSchema } from "./atlas/placement-review.js";
 import { atlasReportsSchema } from "./atlas/report-review.js";
 import { atlasGlanceSchema } from "./atlas/glance-review.js";
 import { atlasPublicationsSchema } from "./atlas/publication-review.js";
 import { laterInputShape } from "./later-inputs.js";
 import { CASE_REVIEW_SCOPE } from "./oauth-resource-server.js";
+import type { DossierConflictReader } from "./findings/dossier-conflict-reading.js";
+import type { DossierPrivacyReader } from "./findings/dossier-privacy-reading.js";
 import type { ResearchOperationExtra } from "./research-operation.js";
 import type { SharedAnswerVault } from "./shared-answers.js";
 
@@ -106,6 +109,24 @@ export const researchContributionReviewInputSchema = z.object({
     for (const field of ["reportState", "report", "verdict"] as const) {
       const allowed = field === "reportState" ? value.action === "list_reports" : reportAction && value.action !== "list_reports";
       if (reportInputs[field] !== undefined && !allowed) {
+        context.addIssue({ code: "custom", message: `${value.action} does not take ${field}` });
+      }
+    }
+    // AskRigor#477 stage 2: the dossier inputs go only with the dossier actions.
+    const dossierInputs = value as { dossier?: unknown; dossierVersion?: unknown; dossierState?: unknown;
+      dossierFinding?: unknown; dossierImportance?: unknown; dossierLivingPerson?: unknown;
+      dossierOverrideConflicts?: unknown };
+    const dossierTakes = { dossier: ["inspect_dossier", "show_dossier", "hold_dossier", "take_down_dossier", "accept_dossier",
+      "show_dossier_naming_living_person", "revise_dossier_importance", "state_dossier_living_person",
+      "read_dossier_privacy"],
+      dossierVersion: ["show_dossier", "hold_dossier", "take_down_dossier", "accept_dossier",
+        "show_dossier_naming_living_person", "revise_dossier_importance", "state_dossier_living_person",
+        "read_dossier_privacy"],
+      dossierState: ["list_dossiers"], dossierFinding: ["revise_dossier_importance"],
+      dossierImportance: ["revise_dossier_importance"], dossierLivingPerson: ["state_dossier_living_person"],
+      dossierOverrideConflicts: ["show_dossier", "accept_dossier", "show_dossier_naming_living_person"] } as const;
+    for (const [field, actions] of Object.entries(dossierTakes)) {
+      if (dossierInputs[field as keyof typeof dossierInputs] !== undefined && !(actions as readonly string[]).includes(value.action)) {
         context.addIssue({ code: "custom", message: `${value.action} does not take ${field}` });
       }
     }
@@ -283,6 +304,8 @@ export const researchContributionReviewRuntimeOutputSchema = researchContributio
   glance: atlasGlanceSchema.optional(),
   // The owner, 6 Nov: mark_challenge, clear_challenge and list_challenges, runtime-only (owner answer 189a).
   challenges: atlasChallengesSchema.optional(),
+  // AskRigor#477 stage 2: the research dossiers' public copies, runtime-only (owner answer 189a).
+  dossiers: atlasDossiersSchema.optional(),
   sharedAnswers: z.object({
     kept: z.array(sharedAnswerSummarySchema).optional(),
     answer: sharedAnswerSummarySchema.extend({
@@ -309,6 +332,10 @@ export interface ResearchContributionReviewToolOptions {
     review?: AtlasReview;
     /** The provider settings the source checks use: crossrefConfig() and ncbiConfig(). */
     providers: () => AtlasProviderConfig;
+    /** AskRigor's privacy reading for read_dossier_privacy, while it is on; undefined otherwise. */
+    dossierPrivacyReader?: () => DossierPrivacyReader | undefined;
+    /** AskRigor's conflict reading for the dossier actions that show a copy (Codex's third review, P1). */
+    dossierConflictReader?: () => DossierConflictReader | undefined;
   };
   /** The shared questions and answers (owner answer 200a); undefined when the server keeps none. */
   sharedAnswers?: SharedAnswerVault;
@@ -343,8 +370,17 @@ export function createResearchContributionReviewHandler(
       // The owner, 6 Nov: a challenge mark keeps who marked it, the reviewer login authorizeOwnerReview admitted, only
       // as a digest (challenge-review.ts); it is never an input.
       const reviewer = extra?.authInfo?.extra?.subject;
+      // AskRigor#477 stage 2 (Codex's re-review): the privacy reading a held dossier copy may get later, never an input.
+      const dossierPrivacyReader = parsed.action === "read_dossier_privacy" ? options.atlas.dossierPrivacyReader?.()
+        : undefined;
+      // Codex's third review: the conflict reading a show of a held copy is compared with, never an input.
+      const dossierConflictReader = parsed.action === "show_dossier" || parsed.action === "accept_dossier" ||
+        parsed.action === "show_dossier_naming_living_person" || parsed.action === "read_dossier_privacy"
+        ? options.atlas.dossierConflictReader?.() : undefined;
       return atlasToolResult(await options.atlas.review.run(
-        { ...parsed, action: parsed.action, ...(typeof reviewer === "string" ? { reviewer } : {}) } as AtlasReviewRequest,
+        { ...parsed, action: parsed.action, ...(typeof reviewer === "string" ? { reviewer } : {}),
+          ...(dossierPrivacyReader === undefined ? {} : { dossierPrivacyReader }),
+          ...(dossierConflictReader === undefined ? {} : { dossierConflictReader }) } as AtlasReviewRequest,
         options.atlas.providers(),
       ));
     }
@@ -601,6 +637,7 @@ function atlasToolResult(result: AtlasReviewResult): CallToolResult {
     ...(result.reports === undefined ? {} : { reports: result.reports }),
     ...(result.glance === undefined ? {} : { glance: result.glance }),
     ...(result.challenges === undefined ? {} : { challenges: result.challenges }),
+    ...(result.dossiers === undefined ? {} : { dossiers: result.dossiers }),
     canonicalEvidenceChangedByThisCall: false,
     ...(result.error === undefined ? {} : { error: result.error }),
   });

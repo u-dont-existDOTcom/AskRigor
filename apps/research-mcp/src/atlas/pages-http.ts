@@ -11,17 +11,31 @@ import {
   PostgresResearchContributorAccessStore,
   ResearchContributorAccessService,
   researchAccountKeyForSubject,
+  PostgresPublicDossierPageSource,
+  PUBLIC_DOSSIER_TOPIC_LABEL_LIMIT,
   type AtlasPageSource,
   type AtlasParticipationStore,
   type AtlasReportStore,
+  type PublicDossierPageSource,
 } from "@askrigor/evidence-repository";
 
 import {
   atlasPagesEnabledFromEnv,
   devAccountKeysFromEnv,
   livingEvidenceReuseConfigFromEnv,
+  publicDossiersEnabledFromEnv,
   researchContributorAccessConfigFromEnv,
 } from "../config.js";
+import {
+  dossierTopicSection,
+  fitDossierEntries,
+  fitDossierPage,
+  loadDossierPage,
+  loadDossierTopic,
+  loadDossierTopicIndex,
+  renderDossierPage,
+  renderDossierTopicPage,
+} from "./dossier-pages.js";
 import {
   addressLimitKey,
   createTokenBucketLimiter,
@@ -216,6 +230,8 @@ export const ATLAS_PARTICIPATION_LIMITS = {
 
 const PUBLICATION_ROUTE = /^\/atlas\/findings\/(P-[1-9][0-9]{3,11})$/u;
 const TOPIC_ROUTE = /^\/atlas\/topics\/([a-z0-9][a-z0-9._-]{0,199})$/u;
+// AskRigor#477 stage 2: a research dossier's page, by its public number.
+const DOSSIER_ROUTE = /^\/atlas\/dossiers\/(D-[1-9][0-9]{3,11})$/u;
 const SUBCATEGORY_ROUTE = /^\/atlas\/health\/([a-z][a-z0-9-]{0,59})$/u;
 const FINDING_FORM_ROUTE = /^\/atlas\/findings\/(P-[1-9][0-9]{3,11})\/(vote|comments)$/u;
 const COMMENT_FORM_ROUTE = /^\/atlas\/comments\/(C-[1-9][0-9]{3,11})\/(delete|report)$/u;
@@ -230,15 +246,19 @@ export type AtlasRoute =
   | { kind: "findings"; before?: string; filter?: AtlasFindingFilter }
   // The owner, 6 Nov 2026: the findings that challenge the usual view.
   | { kind: "challenges"; before?: string }
-  | { kind: "topics" }
+  // after: AskRigor#477 stage 2, while dossiers show, the topics after this label and key (?after=&after_label=).
+  | { kind: "topics"; after?: { label: string; key: string } }
   | { kind: "health" }
   | { kind: "subcategory"; subcategoryKey: string }
   | { kind: "map" }
   | { kind: "comment-maps" }
   | { kind: "search" }
   | { kind: "sitemap" }
-  | { kind: "topic"; topicKey: string }
+  // page: AskRigor#477 stage 2, a later page of the topic's research dossiers (?page=2), from the query.
+  | { kind: "topic"; topicKey: string; page?: number }
   | { kind: "finding"; publicationNumber: string }
+  // AskRigor#477 stage 2: a research dossier's page (it answers 404 while public dossiers are off).
+  | { kind: "dossier"; publicNumber: string }
   // Votes and comments (section 4E), only while they are switched on.
   | { kind: "sign-in" }
   | { kind: "callback" }
@@ -299,6 +319,8 @@ export function atlasRouteOf(pathname: string, participation = false): AtlasRout
   if (topic !== null) return { kind: "topic", topicKey: topic[1]! };
   const finding = PUBLICATION_ROUTE.exec(pathname);
   if (finding !== null) return { kind: "finding", publicationNumber: finding[1]! };
+  const dossier = DOSSIER_ROUTE.exec(pathname);
+  if (dossier !== null) return { kind: "dossier", publicNumber: dossier[1]! };
   const report = REPORT_ROUTE.exec(pathname);
   if (report !== null) return { kind: "report", publicId: report[1]! };
   if (!participation) return undefined;
@@ -518,6 +540,11 @@ export interface CreateAtlasPagesHandlerOptions {
   now?: () => number;
   /** Votes, comments and sign-in (ASKRIGOR_ATLAS_PARTICIPATION=enabled); without them only GET search forms show. */
   participation?: AtlasParticipationRuntime;
+  /**
+   * AskRigor#477 stage 2: the research dossiers' shown copies (ASKRIGOR_PUBLIC_DOSSIERS=enabled), read through the
+   * reader role's two views; without them no page shows a dossier and /atlas/dossiers/ answers 404.
+   */
+  dossiers?: PublicDossierPageSource;
 }
 
 function setPageHeaders(response: ServerResponse): void {
@@ -803,8 +830,18 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     return checked({ status: 200, html: renderAtlasReport(report, view, reader) });
   };
 
+  /**
+   * A card topic's label, for a dossier's related-topic link: the label its first listed finding carries, or undefined
+   * when no list shows a finding on it.
+   */
+  const cardTopicLabel = (source: AtlasPageSource) => async (key: string): Promise<string | undefined> =>
+    await source.read(async (reads) => {
+      const [first] = await reads.listPublications({ topicKey: key, limit: 1 });
+      return first?.published?.topic?.key === key ? first.published.topic.label : undefined;
+    });
+
   const render = async (route: Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" | "challenges" |
-    "topics" | "health" | "subcategory" | "map" | "comment-maps" | "report" }>, source: AtlasPageSource,
+    "topics" | "health" | "subcategory" | "map" | "comment-maps" | "report" | "dossier" }>, source: AtlasPageSource,
   reader?: AtlasPageReader): Promise<RenderedAtlasPage> => {
     switch (route.kind) {
       case "comment-maps":
@@ -819,8 +856,24 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       case "challenges":
         return checked({ status: 200, html: renderAtlasChallenges(await loadAtlasChallenges(source,
           route.before === undefined ? {} : { before: route.before }), reader) });
-      case "topics":
-        return checked({ status: 200, html: renderAtlasTopics(await loadAtlasTopics(source), reader) });
+      case "topics": {
+        const model = await loadAtlasTopics(source);
+        // AskRigor#477 stage 2 (Codex's re-review): the topics that research dossiers show join the findings' own, as one
+        // list in the order of their labels (Codex's third review), a page at a time after a label and key and within
+        // the whole page's size.
+        if (options.dossiers !== undefined) {
+          const index = await loadDossierTopicIndex(options.dossiers, model.topics, route.after);
+          if (route.after !== undefined && index.topics.length === 0) {
+            return checked({ status: 404, html: renderAtlasNotFound(reader) });
+          }
+          const { page: fitted } = fitDossierEntries((count) => renderAtlasTopics({ ...model,
+            topics: index.topics.slice(0, count) }, reader, { ...(route.after === undefined ? {} : { after: route.after }),
+            ...(count < index.topics.length || index.more ? { next: index.topics[count - 1]! } : {}) }),
+          index.topics.length);
+          return checked({ status: 200, html: fitted });
+        }
+        return checked({ status: 200, html: renderAtlasTopics(model, reader) });
+      }
       case "health":
         return checked({ status: 200, html: renderAtlasHealth(await loadAtlasHealth(source), reader) });
       case "subcategory": {
@@ -831,9 +884,31 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       case "map":
         return checked({ status: 200, html: renderAtlasMap(await loadAtlasMap(source, clock()), reader) });
       case "topic": {
+        // AskRigor#477 stage 2: a later page of the topic's research dossiers is theirs alone (Codex's review, 8).
+        if (route.page !== undefined && route.page > 1) {
+          const later = options.dossiers === undefined ? undefined
+            : await loadDossierTopic(options.dossiers, route.topicKey, cardTopicLabel(source), route.page);
+          return checked(later === undefined ? { status: 404, html: renderAtlasNotFound(reader) }
+            : { status: 200, html: fitDossierPage((size) => renderDossierTopicPage(later, reader, size)) });
+        }
         const model = await loadAtlasTopic(source, route.topicKey);
+        // AskRigor#477 stage 2: the topic's research dossiers lead it, or make its page when no finding has the topic.
+        const dossiers = options.dossiers === undefined ? undefined
+          : await loadDossierTopic(options.dossiers, route.topicKey, cardTopicLabel(source));
+        if (model === undefined) {
+          return checked(dossiers === undefined ? { status: 404, html: renderAtlasNotFound(reader) }
+            : { status: 200, html: fitDossierPage((size) => renderDossierTopicPage(dossiers, reader, size)) });
+        }
+        if (dossiers === undefined) return checked({ status: 200, html: renderAtlasTopic(model, reader) });
+        // The whole page within its size, the card findings' part included (Codex's re-review of stage 2).
+        return checked({ status: 200, html: fitDossierPage((size) => renderAtlasTopic(model, reader, {
+          section: dossierTopicSection(dossiers, size), anyChecked: dossiers.dossiers.some(({ copy }) => copy.accepted) })) });
+      }
+      case "dossier": {
+        const model = options.dossiers === undefined ? undefined
+          : await loadDossierPage(options.dossiers, route.publicNumber, cardTopicLabel(source));
         return checked(model === undefined ? { status: 404, html: renderAtlasNotFound(reader) }
-          : { status: 200, html: renderAtlasTopic(model, reader) });
+          : { status: 200, html: fitDossierPage((size) => renderDossierPage(model, reader, size)) });
       }
       case "finding":
         return await findingPage(source, route.publicationNumber, undefined, clock());
@@ -1430,7 +1505,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           return true;
         }
         let pageRoute = route as Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" |
-          "challenges" | "topics" | "health" | "subcategory" | "map" | "comment-maps" | "report" }>;
+          "challenges" | "topics" | "health" | "subcategory" | "map" | "comment-maps" | "report" | "dossier" }>;
         let cacheKey = pathname;
         if (pageRoute.kind === "findings") {
           const query = queryOf(request);
@@ -1445,6 +1520,40 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           pageRoute = { kind: "challenges", ...(before === undefined ? {} : { before }) };
           cacheKey = `${pathname}${before === undefined ? "" : `?before=${before}`}`;
         }
+        // AskRigor#477 stage 2 (Codex's review, findings 8 and 9): a topic's later page of research dossiers; and every
+        // page that shows dossiers is kept under the number that moves with any change to them, in this process or
+        // another, so a withdrawal or an erasure is never served from a cache. Unread, the page renders afresh.
+        let dossierCache = true;
+        // Only while dossiers show (Codex's re-review of stage 2): otherwise a topic's query is not read, as before.
+        if (pageRoute.kind === "topic" && options.dossiers !== undefined) {
+          const page = /^[1-9][0-9]{0,2}$/u.exec(queryOf(request).get("page") ?? "")?.[0];
+          if (page !== undefined && page !== "1") {
+            pageRoute = { kind: "topic", topicKey: pageRoute.topicKey, page: Number(page) };
+            cacheKey = `${pathname}?page=${page}`;
+          }
+        }
+        // The topics list after a label and key, only while dossiers show (Codex's re-review and third review of stage
+        // 2); otherwise as before. A place needs both.
+        if (pageRoute.kind === "topics" && options.dossiers !== undefined) {
+          const query = queryOf(request);
+          const key = /^[a-z0-9][a-z0-9._-]{0,199}$/u.exec(query.get("after") ?? "")?.[0];
+          const label = query.get("after_label") ?? "";
+          if (key !== undefined && label.length > 0 && label.length <= PUBLIC_DOSSIER_TOPIC_LABEL_LIMIT &&
+            !/[\u0000-\u001f\u007f]/u.test(label)) {
+            pageRoute = { kind: "topics", after: { label, key } };
+            cacheKey = `${pathname}?after=${key}&after_label=${encodeURIComponent(label)}`;
+          }
+        }
+        if (options.dossiers !== undefined &&
+          (pageRoute.kind === "topic" || pageRoute.kind === "topics" || pageRoute.kind === "dossier")) {
+          try {
+            cacheKey = `${cacheKey}#dossiers=${await options.dossiers.generation()}`;
+          } catch {
+            dossierCache = false;
+          }
+        }
+        const cachedPage = (key: string, make: () => Promise<RenderedAtlasPage>) =>
+          dossierCache ? cache.get(key, make) : make();
         if (participation !== undefined) {
           const { session, clear: stale } = await currentSession(request, participation, now, "read-as-signed-out");
           const query = queryOf(request);
@@ -1463,11 +1572,11 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
             write(response, page.status, HTML, page.html, { "cache-control": PRIVATE, vary: "Cookie" }, stale);
             return true;
           }
-          const page = await cache.get(cacheKey, () => render(pageRoute, source, signedOutReader(pathname)));
+          const page = await cachedPage(cacheKey, () => render(pageRoute, source, signedOutReader(pathname)));
           write(response, page.status, HTML, page.html, { vary: "Cookie" }, stale);
           return true;
         }
-        const page = await cache.get(cacheKey, () => render(pageRoute, source));
+        const page = await cachedPage(cacheKey, () => render(pageRoute, source));
         write(response, page.status, HTML, page.html);
       } catch {
         if (!response.headersSent) plainFailure(response, 503, renderAtlasUnavailable());
@@ -1597,18 +1706,24 @@ export function createAtlasPagesHandlerFromEnv(env: NodeJS.ProcessEnv = process.
   AtlasPagesHandler {
   if (!atlasPagesEnabledFromEnv(env.ASKRIGOR_ATLAS_PAGES)) return createAtlasPagesHandler({ enabled: false });
   let source: AtlasPageSource | undefined;
+  let dossiers: PublicDossierPageSource | undefined;
   try {
     const reader = livingEvidenceReuseConfigFromEnv(env);
-    source = reader === undefined ? undefined : new PostgresAtlasPageSource({
+    const readerOptions = reader === undefined ? undefined : {
       connectionString: reader.connectionString,
       schema: reader.schema,
       ssl: reader.ssl,
       connectionTimeoutMillis: reader.connectionTimeoutMillis,
       queryTimeoutMillis: reader.queryTimeoutMillis,
       statementTimeoutMillis: reader.statementTimeoutMillis,
-    });
+    };
+    source = readerOptions === undefined ? undefined : new PostgresAtlasPageSource(readerOptions);
+    // AskRigor#477 stage 2: the dossiers' shown copies, through the same reader, only with ASKRIGOR_PUBLIC_DOSSIERS.
+    dossiers = readerOptions === undefined || !publicDossiersEnabledFromEnv(env.ASKRIGOR_PUBLIC_DOSSIERS) ? undefined
+      : new PostgresPublicDossierPageSource(readerOptions);
   } catch {
     source = undefined;
+    dossiers = undefined;
   }
   const participation = atlasParticipationFromEnv(env, shared);
   // The proxy's secret, as the other secrets: 32 random bytes in canonical base64url, else none.
@@ -1620,5 +1735,6 @@ export function createAtlasPagesHandlerFromEnv(env: NodeJS.ProcessEnv = process.
     proxySecret,
     source,
     ...(participation === undefined ? {} : { participation }),
+    ...(dossiers === undefined ? {} : { dossiers }),
   });
 }

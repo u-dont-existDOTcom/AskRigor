@@ -1232,11 +1232,11 @@ async function verifyProposalIdempotencyIndex(context: {
   }
   checks.push("proposal_lookup_by_idempotency_key_answered_from_the_0038_index");
 
-  // An earlier image (bc71b90e and before) runs its own migrations, every one but 0038, in one transaction, and checks
-  // each one's recorded digest: the index stays, unchanged.
+  // An earlier image (bc71b90e and before) runs its own migrations, every one before 0038 (later ones, such as 0040,
+  // came after it too), in one transaction, and checks each one's recorded digest: the index stays, unchanged.
   const earlier = (await readdir(migrationsDirectory))
     .filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/u.test(name) && !name.endsWith("_down.sql") &&
-      name !== "0038_research_proposal_idempotency_index.sql")
+      name < "0038_research_proposal_idempotency_index.sql")
     .sort();
   assert(earlier.at(-1) === "0037_research_dossiers.sql", "EARLIER_IMAGE_MIGRATION_LIST");
   const migrator = await admin.connect();
@@ -2448,6 +2448,13 @@ const DOSSIER_ACCESS_FUNCTIONS = [
   "append_research_dossier_version", "latest_research_dossier_version", "read_research_dossier_version",
 ] as const;
 const DOSSIER_REVIEW_FUNCTIONS = ["erase_research_dossiers"] as const;
+// AskRigor#477 stage 2 (migration 0040, its own acceptance: research-dossier-publications-postgres-acceptance.mts).
+const DOSSIER_PUBLICATION_ACCESS_FUNCTIONS = [
+  "publish_research_dossier_version", "research_dossier_topic_publications",
+] as const;
+const DOSSIER_PUBLICATION_REVIEW_FUNCTIONS = [
+  "decide_research_dossier_publication", "inspect_research_dossier_publication", "list_research_dossier_publications",
+] as const;
 const MIGRATIONS_BEFORE_ATLAS = [
   "0001_living_evidence", "0002_research_frontier", "0003_community_forum_synthetic_lab",
   "0004_community_forum_composer_frontier_queues", "0005_community_forum_hostile_lifecycle_research",
@@ -4411,7 +4418,7 @@ export async function verifyAtlasParticipation(context: {
     assert(
       accessFunctions.join() === [...ATLAS_PARTICIPATION_FUNCTIONS, ...HELD_ACCESS_FUNCTIONS,
         ...ATLAS_REPORT_ACCESS_FUNCTIONS, "withdraw_pending_research_contribution_proposals",
-        ...DOSSIER_ACCESS_FUNCTIONS].sort().join(),
+        ...DOSSIER_ACCESS_FUNCTIONS, ...DOSSIER_PUBLICATION_ACCESS_FUNCTIONS].sort().join(),
       `ATLAS_ACCESS_ROLE_FUNCTIONS_MISMATCH ${accessFunctions.join()}`,
     );
     const migration0022Functions: readonly string[] = [...ATLAS_PARTICIPATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
@@ -5163,7 +5170,8 @@ export async function verifyAtlasStorage(context: {
         [...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
           ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS,
           ...ATLAS_CHALLENGE_FUNCTIONS,
-          ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS, ...DOSSIER_REVIEW_FUNCTIONS].sort().join(),
+          ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS, ...DOSSIER_REVIEW_FUNCTIONS,
+          ...DOSSIER_PUBLICATION_REVIEW_FUNCTIONS].sort().join(),
       `ATLAS_REVIEW_ROLE_FUNCTIONS_MISMATCH ${executable.rows.map(({ proname }) => proname).join()}`,
     );
     const now = tick();

@@ -132,6 +132,14 @@ import {
   type AtlasGlanceAction,
   type GlanceRowInput,
 } from "../atlas/glance-review.js";
+import {
+  ATLAS_DOSSIER_ACTIONS,
+  ATLAS_DOSSIER_OUTCOMES,
+  AtlasDossierReview,
+  readPendingDossierPrivacy,
+  type AtlasDossierAction,
+  type AtlasDossiers,
+} from "../atlas/dossier-review.js";
 import { ATLAS_NUMBERS_PROBLEM_CODES, atlasNumbersProblems, type AtlasNumbersProblem } from "../binary-results.js";
 import { GitHubApiError } from "../lessons/github-app.js";
 import {
@@ -228,6 +236,8 @@ export const ATLAS_REVIEW_ACTIONS = [
   ...ATLAS_GLANCE_ACTIONS,
   // The owner, 6 Nov: findings that challenge the usual view.
   ...ATLAS_CHALLENGE_ACTIONS,
+  // AskRigor#477 stage 2 (owner answer 332a): research dossiers on the public Atlas.
+  ...ATLAS_DOSSIER_ACTIONS,
 ] as const;
 export type AtlasReviewAction = typeof ATLAS_REVIEW_ACTIONS[number];
 
@@ -260,6 +270,7 @@ export const ATLAS_REVIEW_OUTCOMES = [
   ...ATLAS_REPORT_OUTCOMES,
   ...ATLAS_GLANCE_OUTCOMES,
   ...ATLAS_CHALLENGE_OUTCOMES,
+  ...ATLAS_DOSSIER_OUTCOMES,
 ] as const;
 export type AtlasReviewOutcome = typeof ATLAS_REVIEW_OUTCOMES[number];
 
@@ -466,6 +477,26 @@ export interface AtlasReviewRequest {
   glanceRow?: GlanceRowInput;
   glanceRowId?: string;
   glanceState?: "proposed" | "shown" | "withdrawn";
+  /** AskRigor#477 stage 2: the dossier actions' later inputs, later_inputs.dossier, dossierVersion and dossierState. */
+  dossier?: string;
+  dossierVersion?: number;
+  dossierState?: import("@askrigor/evidence-repository").ResearchDossierPublicState;
+  dossierFinding?: string;
+  dossierImportance?: "decision_changing" | "important" | "context";
+  /** state_dossier_living_person: the owner's own statement (Codex's re-review of stage 2). */
+  dossierLivingPerson?: import("@askrigor/evidence-repository").ResearchDossierLivingPersonStatement;
+  /**
+   * read_dossier_privacy: AskRigor's privacy reading, set by the tool while it is on (ASKRIGOR_DOSSIER_PRIVACY_READING);
+   * never an input.
+   */
+  dossierPrivacyReader?: import("./dossier-privacy-reading.js").DossierPrivacyReader;
+  /**
+   * show_dossier, accept_dossier, show_dossier_naming_living_person and read_dossier_privacy: AskRigor's conflict
+   * reading; never an input.
+   */
+  dossierConflictReader?: import("./dossier-conflict-reading.js").DossierConflictReader;
+  /** The owner's override of the conflict check, from later_inputs.dossierOverrideConflicts. */
+  dossierOverrideConflicts?: string[];
   /** mark_challenge (the owner, 6 Nov 2026): the usual view, its source and the quick-answer verdict, from later_inputs. */
   usual_view?: AtlasChallengeRequest["usual_view"];
   usual_view_source_url?: AtlasChallengeRequest["usual_view_source_url"];
@@ -538,6 +569,21 @@ const FIELDS_BY_ACTION: Record<AtlasReviewAction | "edit_after", readonly AtlasF
   mark_challenge: [],
   clear_challenge: [],
   list_challenges: [],
+  // AskRigor#477 stage 2: the dossier, its version and the state to list come in later_inputs.
+  list_dossiers: [],
+  inspect_dossier: [],
+  show_dossier: ["reason"],
+  hold_dossier: ["reason"],
+  take_down_dossier: ["reason"],
+  accept_dossier: ["reason"],
+  // Codex's review of stage 2, finding 2: the owner's own decision on a named living person, with his reason.
+  show_dossier_naming_living_person: ["reason"],
+  // Codex's review of stage 2, finding 7: a reviewed revision of an importance mark, with the reviewer's reason.
+  revise_dossier_importance: ["reason"],
+  // Codex's re-review of stage 2: the owner's statement on a copy whose AI did not say, in later_inputs.
+  state_dossier_living_person: [],
+  // Codex's re-review of stage 2: a privacy reading made later of a copy held waiting for it.
+  read_dossier_privacy: [],
 };
 
 /**
@@ -1020,6 +1066,8 @@ export interface AtlasReviewResult {
   glance?: AtlasGlance;
   /** The owner, 6 Nov 2026: the publications marked, cleared or listed as challenging the usual view. */
   challenges?: AtlasChallenges;
+  /** AskRigor#477 stage 2: the research dossiers' public copies listed, inspected or decided. */
+  dossiers?: AtlasDossiers;
 }
 
 // Dependencies ----------------------------------------------------------------------------------------------------------
@@ -1048,6 +1096,11 @@ export interface AtlasReviewDependencies {
   held?: HeldYouTubeFindingsStore;
   /** The research dossiers' erasure, through the review role (AskRigor#477 stage 1): forget_card erases them. */
   dossiers?: ResearchDossierEraser;
+  /**
+   * AskRigor#477 stage 2: the dossiers' public copies, through the review role, while ASKRIGOR_PUBLIC_DOSSIERS=enabled;
+   * without it the dossier actions answer that they are not configured.
+   */
+  dossierPublications?: import("@askrigor/evidence-repository").ResearchDossierPublicationReviewStore;
   /**
    * The Atlas publications (decision 171, section 4B), through the review role's functions: the owner's publication
    * actions need them, and accepting, editing, rejecting, erasing and forgetting move them. Without them those actions
@@ -1225,6 +1278,17 @@ export class AtlasReview {
         case "clear_challenge":
         case "list_challenges":
           return await this.challengeAction(request.action, request);
+        case "list_dossiers":
+        case "inspect_dossier":
+        case "show_dossier":
+        case "hold_dossier":
+        case "take_down_dossier":
+        case "accept_dossier":
+        case "show_dossier_naming_living_person":
+        case "revise_dossier_importance":
+        case "state_dossier_living_person":
+        case "read_dossier_privacy":
+          return await this.dossierAction(request.action, request);
       }
     } catch (error) {
       return errorResult(error);
@@ -1316,6 +1380,50 @@ export class AtlasReview {
       ...(result.error === undefined ? {} : { error: result.error }),
       ...(result.challenges === undefined ? {} : { challenges: result.challenges }),
     };
+  }
+
+  // Research dossiers on the public Atlas (AskRigor#477 stage 2) ----------------------------------------------------------
+
+  private async dossierAction(action: AtlasDossierAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const store = this.deps.dossierPublications;
+    if (store === undefined) {
+      return errorOf("review_service_unavailable", "Research dossiers on the public Atlas are not configured " +
+        "(ASKRIGOR_PUBLIC_DOSSIERS, the review database). Nothing was changed.");
+    }
+    const result = await new AtlasDossierReview({ store, now: this.now,
+      ...(request.dossierPrivacyReader === undefined ? {} : { privacyReader: request.dossierPrivacyReader }),
+      ...(request.dossierConflictReader === undefined ? {} : { conflictReader: request.dossierConflictReader }) }).run({
+      action,
+      ...(request.dossier === undefined ? {} : { dossier: request.dossier }),
+      ...(request.dossierVersion === undefined ? {} : { dossierVersion: request.dossierVersion }),
+      ...(request.dossierState === undefined ? {} : { dossierState: request.dossierState }),
+      ...(request.reason === undefined ? {} : { reason: request.reason }),
+      ...(request.reviewer === undefined ? {} : { reviewer: request.reviewer }),
+      ...(request.dossierFinding === undefined ? {} : { dossierFinding: request.dossierFinding }),
+      ...(request.dossierImportance === undefined ? {} : { dossierImportance: request.dossierImportance }),
+      ...(request.dossierLivingPerson === undefined ? {} : { dossierLivingPerson: request.dossierLivingPerson }),
+      ...(request.dossierOverrideConflicts === undefined ? {}
+        : { dossierOverrideConflicts: request.dossierOverrideConflicts }),
+    });
+    return {
+      ok: result.ok,
+      text: result.text,
+      ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
+      ...(result.error === undefined ? {} : { error: result.error }),
+      ...(result.dossiers === undefined ? {} : { dossiers: result.dossiers }),
+    };
+  }
+
+  /**
+   * The server's reading of the dossier copies held waiting for the privacy reading, once the reader is available again
+   * (Codex's re-review of stage 2); undefined when public dossiers are not configured here.
+   */
+  async readPendingDossierPrivacy(reader: import("./dossier-privacy-reading.js").DossierPrivacyReader,
+    conflictReader?: import("./dossier-conflict-reading.js").DossierConflictReader):
+    Promise<{ passed: number; refused: number; unavailable: number; shown: number } | undefined> {
+    const store = this.deps.dossierPublications;
+    return store === undefined ? undefined : await readPendingDossierPrivacy(store, reader, { now: this.now,
+      ...(conflictReader === undefined ? {} : { conflictReader }) });
   }
 
   private async glanceAction(action: AtlasGlanceAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {

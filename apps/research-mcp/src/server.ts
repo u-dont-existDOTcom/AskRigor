@@ -20,6 +20,7 @@ import {
   ResearchContributionReviewService,
   ResearchContributorAccessService,
   type ResearchCallRecordStore,
+  type ResearchDossierPublisher,
   type ResearchDossierStore,
 } from "@askrigor/evidence-repository";
 
@@ -46,6 +47,7 @@ import {
   researchContributorAccessConfigFromEnv,
   researchContributionReviewConfigFromEnv,
   researchDossiersEnabledFromEnv,
+  publicDossiersEnabledFromEnv,
   researchSessionCheckpointConfigFromEnv,
   researchActionsAreEnabled,
   SERVER_INSTRUCTIONS,
@@ -80,7 +82,7 @@ import {
   type TokenBucketLimiter,
   type TrustedClientIpHeader
 } from "./rate-limit.js";
-import { registerTools } from "./register-tools.js";
+import { dossierConflictReaderOf, dossierPrivacyReaderOf, registerTools } from "./register-tools.js";
 import {
   type RunningVersions,
   VERSION_PATH,
@@ -126,6 +128,8 @@ import type { McpSurface } from "./register-tools.js";
 import { toolListVersionOf } from "./tool-list-currency.js";
 import type { AtlasReview } from "./findings/atlas-review.js";
 import { createAtlasReviewFromEnv } from "./findings/runtime.js";
+import { announcingDossierPublisher } from "./atlas/change-signal.js";
+import { startDossierPrivacySweep } from "./atlas/dossier-review.js";
 import { createAtlasPagesHandlerFromEnv, type AtlasPagesHandler } from "./atlas/pages-http.js";
 
 export type McpToolCatalogProfile = "standard" | "gemini";
@@ -134,6 +138,8 @@ export interface AskRigorMcpServerOptions {
   researchCallRecord?: ResearchCallRecordStore;
   /** AskRigor#477 stage 1: where free contributors' research dossiers are saved privately; none without it. */
   researchDossiers?: ResearchDossierStore;
+  /** AskRigor#477 stage 2: where a saved dossier's public copy is published; none without it. */
+  researchDossierPublisher?: ResearchDossierPublisher;
   infoAccess?: InfoAccessClient;
   publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
   oauthResourceMetadataUrl?: URL;
@@ -217,6 +223,8 @@ export interface AskRigorHttpServerOptions {
   researchCallRecord?: ResearchCallRecordStore;
   /** Replaces the research dossiers' store, for tests; otherwise ASKRIGOR_RESEARCH_DOSSIERS decides. */
   researchDossiers?: ResearchDossierStore;
+  /** Replaces the dossiers' public copies' publisher, for tests; otherwise ASKRIGOR_PUBLIC_DOSSIERS decides. */
+  researchDossierPublisher?: ResearchDossierPublisher;
   publicServerEnabled?: boolean;
   actionsEnabled?: boolean;
   researchActionsEnabled?: boolean;
@@ -456,6 +464,12 @@ export function createAskRigorHttpServer(
   // AskRigor#477 stage 1 (owner answer 329a): research dossiers, on the research-access database and pool, once enabled.
   const researchDossiers = options.researchDossiers ??
     (researchDossiersEnabledFromEnv() ? researchAccessStore?.dossierStore() : undefined);
+  // AskRigor#477 stage 2: their public copies, only with the dossiers themselves and ASKRIGOR_PUBLIC_DOSSIERS=enabled.
+  const configuredPublisher = researchDossiers === undefined ? undefined : options.researchDossierPublisher ??
+    (publicDossiersEnabledFromEnv() ? researchAccessStore?.dossierPublisher() : undefined);
+  // Each publication drops the pages' cache, so a shown dossier shows at once.
+  const researchDossierPublisher = configuredPublisher === undefined ? undefined
+    : announcingDossierPublisher(configuredPublisher);
   const researchContributorAccessService =
     options.researchContributorAccessService ??
     (researchContributorAccessConfig === undefined || researchAccessStore === undefined
@@ -516,6 +530,7 @@ export function createAskRigorHttpServer(
   const mcpServerOptions = (profile?: McpToolCatalogProfile, signIn?: SignInState): AskRigorMcpServerOptions => ({
     researchCallRecord,
     ...(researchDossiers === undefined ? {} : { researchDossiers }),
+    ...(researchDossierPublisher === undefined ? {} : { researchDossierPublisher }),
     publicEvidenceGapReviewService,
     oauthResourceMetadataUrl,
     allowedReviewerSubjects: oauthResourceServer?.reviewerSubjects,
@@ -531,6 +546,7 @@ export function createAskRigorHttpServer(
   const claudeMcpServerOptions = (signIn?: SignInState): AskRigorMcpServerOptions => ({
     researchCallRecord,
     ...(researchDossiers === undefined ? {} : { researchDossiers }),
+    ...(researchDossierPublisher === undefined ? {} : { researchDossierPublisher }),
     publicEvidenceGapReviewService,
     oauthResourceMetadataUrl: claudeOAuthResourceServer === undefined
       ? undefined
@@ -811,6 +827,18 @@ export function createAskRigorHttpServer(
   if (researchCallRecord !== undefined) {
     const sweepTimer = startResearchCallRecordSweep(researchCallRecord);
     httpServer.once("close", () => clearInterval(sweepTimer));
+  }
+  // AskRigor#477 stage 2 (Codex's re-review): the dossier copies held waiting for the privacy reading are read by the
+  // server once the reader is available again, while public dossiers, the owner's review and the reading are all on.
+  // One held for the reading alone that it passes shows by itself if it otherwise qualifies, after a fresh conflict
+  // check on the planner's path (Codex's third review).
+  const dossierPrivacyReader = atlasReview === undefined || !publicDossiersEnabledFromEnv() ? undefined
+    : dossierPrivacyReaderOf();
+  if (atlasReview !== undefined && dossierPrivacyReader !== undefined) {
+    const dossierConflictReader = dossierConflictReaderOf();
+    const privacySweep = startDossierPrivacySweep(() => atlasReview.readPendingDossierPrivacy(dossierPrivacyReader,
+      dossierConflictReader));
+    httpServer.once("close", () => clearInterval(privacySweep));
   }
   return httpServer;
 }

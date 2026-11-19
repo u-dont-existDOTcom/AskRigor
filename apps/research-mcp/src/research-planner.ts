@@ -16,6 +16,14 @@ import {
   type DossierPrivacyReading,
   type DossierText,
 } from "./findings/dossier-privacy-reading.js";
+import {
+  DOSSIER_CONFLICT_READING_LIMITS,
+  DOSSIER_CONFLICT_READING_MODEL,
+  DOSSIER_CONFLICT_READING_OUTPUT_SCHEMA,
+  DOSSIER_CONFLICT_READING_RESERVED_USD,
+  DOSSIER_CONFLICT_READING_RUBRIC,
+  type DossierConflictCall,
+} from "./findings/dossier-conflict-reading.js";
 import { keyFromSecretFile } from "./meaning-judge.js";
 import { researchTargetDigest } from "./research-receipts.js";
 import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, RESEARCH_LANES, isLightLane, steeringChoiceUnclear,
@@ -416,6 +424,12 @@ export interface ResearchPlanner {
    * record, with the smallest model it prices. Present only while the planner is on; it never throws.
    */
   readDossierPrivacy?(texts: readonly DossierText[]): Promise<DossierPrivacyReading>;
+  /**
+   * AskRigor#477 stage 2 (ASKRIGOR_PUBLIC_DOSSIERS=enabled): one call of the meaning-based comparison of a new public
+   * dossier's findings with shown dossiers' (findings/dossier-conflict-reading.ts), on this planner's key, client, day's
+   * cap and spending record, with the smallest model it prices. Present only while the planner is on; it never throws.
+   */
+  readDossierConflicts?: DossierConflictCall;
 }
 
 /** The part of the official SDK's client the planner uses, so tests can pass a fake one; no network in tests. */
@@ -839,6 +853,56 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
   // AskRigor#477 stage 1: the dossier's privacy reading, under the same day's cap and spending record as the plans, with
   // its own smaller hold, model, reply bound and wait. A reply that is no reading, and anything else that goes wrong,
   // is a reading that could not be made, which keeps the dossier unsaved; nothing is retried.
+  // AskRigor#477 stage 2: one call of the conflict comparison, under the same day's cap and spending record, with its own
+  // hold, reply bound and wait. Only made while public dossiers are on, for a copy that has shown candidates.
+  async function readDossierConflicts(body: string): ReturnType<DossierConflictCall> {
+    type Unavailable = Extract<Awaited<ReturnType<DossierConflictCall>>, { status: "unavailable" }>;
+    const unavailable = (reason: Unavailable["reason"]): Unavailable => {
+      log(`dossier_conflicts_${reason}`);
+      return { status: "unavailable", reason };
+    };
+    if (body.length > DOSSIER_CONFLICT_READING_LIMITS.characters) return unavailable("too_long");
+    turnDay();
+    if (spent + DOSSIER_CONFLICT_READING_RESERVED_USD > cap) return unavailable("daily_budget");
+    const reservedOn = day;
+    spent += DOSSIER_CONFLICT_READING_RESERVED_USD;
+    save();
+    const settle = (costUsd: number) => {
+      turnDay();
+      if (day === reservedOn) { spent = Math.max(0, spent + costUsd - DOSSIER_CONFLICT_READING_RESERVED_USD); save(); }
+    };
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const timedOut = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => { controller.abort(); reject(new Error("timeout")); },
+          DOSSIER_CONFLICT_READING_LIMITS.timeoutMs);
+      });
+      const message = await Promise.race([Promise.resolve(client.beta.messages.create({
+        model: DOSSIER_CONFLICT_READING_MODEL,
+        max_tokens: DOSSIER_CONFLICT_READING_LIMITS.outputTokens,
+        output_config: {
+          effort: "low",
+          format: { type: "json_schema", schema: DOSSIER_CONFLICT_READING_OUTPUT_SCHEMA as unknown as Record<string, unknown> },
+        },
+        system: [{ type: "text", text: DOSSIER_CONFLICT_READING_RUBRIC }],
+        messages: [{ role: "user", content: body }],
+      }, { signal: controller.signal, timeout: DOSSIER_CONFLICT_READING_LIMITS.timeoutMs, maxRetries: 0 })), timedOut]);
+      settle(replyCost(message).costUsd);
+      if (message.stop_reason === "refusal") return unavailable("refusal");
+      const text = replyTextOf(message);
+      if (message.stop_reason !== "end_turn" || text === undefined) return unavailable("unreadable");
+      try { return { status: "reply", reply: JSON.parse(text) as unknown }; } catch { return unavailable("unreadable"); }
+    } catch (error) {
+      if (controller.signal.aborted) { settle(DOSSIER_CONFLICT_READING_RESERVED_USD); return unavailable("timeout"); }
+      const answered = error instanceof Anthropic.APIError && typeof error.status === "number";
+      settle(answered ? 0 : DOSSIER_CONFLICT_READING_RESERVED_USD);
+      return unavailable("error");
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async function readDossierPrivacy(texts: readonly DossierText[]): Promise<DossierPrivacyReading> {
     const unavailable = (reason: Extract<DossierPrivacyReading, { status: "unavailable" }>["reason"]): DossierPrivacyReading => {
       log(`dossier_privacy_${reason}`);
@@ -893,6 +957,7 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
     dailyCapUsd: cap,
     accountDailyCalls: accountCalls,
     readDossierPrivacy,
+    readDossierConflicts,
     async plan(source, accountKey) {
       const current = now();
       turnDay();

@@ -43,6 +43,7 @@
     "contributor-access:deterministic-acceptance": "tsx scripts/accept-research-contributor-access.mts",
     "contributor-access:acceptance": "npm run contributor-access:deterministic-acceptance && npm run contributor-access:postgres-acceptance",
     "contributor-access:postgres-acceptance": "bash scripts/run-research-contributor-access-postgres-acceptance.sh",
+    "dossier-publications:postgres-acceptance": "bash scripts/run-research-dossier-publications-postgres-acceptance.sh",
     "contributor-access:notice-v2-rollback-acceptance": "bash scripts/run-research-use-notice-v2-rollback-acceptance.sh",
     "contributor-access:notice-v3-rollback-acceptance": "bash scripts/run-research-use-notice-v3-rollback-acceptance.sh",
     "contributor-access:notice-v4-rollback-acceptance": "bash scripts/run-research-use-notice-v4-rollback-acceptance.sh",
