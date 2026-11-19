@@ -3,6 +3,7 @@ import {
   PostgresAtlasPlacementStore,
   PostgresAtlasReportReviewStore,
   PostgresAtlasGlanceStore,
+  PostgresAtlasPersonClaimStore,
   PostgresAtlasPublicationStore,
   PostgresAtlasReader,
   PostgresAtlasReviewStore,
@@ -236,6 +237,13 @@ export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): 
         schema: review.schema,
         ssl: review.ssl,
       })),
+      // Atlas Release B (Fable's recheck): the owner's notices on claims about named people, listed and acknowledged
+      // under his login, through the same role's notice functions.
+      personNotices: new PostgresAtlasPersonClaimStore({
+        connectionString: review.connectionString,
+        schema: review.schema,
+        ssl: review.ssl as never,
+      }),
       reader: new PostgresAtlasReader({
         connectionString: reader.connectionString,
         schema: reader.schema,

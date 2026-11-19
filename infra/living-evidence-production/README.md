@@ -219,6 +219,26 @@ reprovision the access role before serving the image that reads the setting. The
 off before a run and on afterwards, recording both. An earlier image ignores the setting, so rollback to it
 requires pausing regressions to avoid saving their cards again; the column and choice can remain in place.
 
+Atlas Release B (19 Nov 2026): migration `0042_atlas_person_readings` adds the readings that mark unverified claims
+about named people, the disputed sentences, the private disputes and the reading's daily spend, and its functions;
+reprovision the review role (this folder's `provision-research-review-role.sh` grants them). The mark stays off until
+`ASKRIGOR_ATLAS_PERSON_MARK` names the instant it was switched on (an ISO time, such as `2026-11-20T09:00:00Z`): findings
+published before it show under a banner until the worker has read them, later ones only once read. The reading uses
+`ASKRIGOR_ATLAS_PERSON_READING_KEY_FILE` and `_WORKSPACE_ID` (by default the meaning judge's) and
+`ASKRIGOR_ATLAS_PERSON_READING_DAILY_CAP_USD` (default 1; for the first 24 hours after the switch the cap is USD 5,
+counted under the switch's date, unless the setting is 0). The owner's notices (legal letters, data requests,
+refusals, parked findings and changes on findings the owner checked) stay in the private table until he acknowledges
+them; nothing is sent. Before the mark, give the daily scheduled check that writes his Inbox a step that calls the
+review tool's `list_person_notices` under the owner's login, writes one Inbox item per open notice (kind, finding,
+dispute number; a legal one flagged), and calls `ack_person_notice` with `later_inputs.personNotice` when he has
+answered it (the shell route is `person-claims-admin.js notices` and `ack <notice> owner`); the log counts what is
+open, hourly. The old `ASKRIGOR_ATLAS_PERSON_NOTICE_URL` and `_SECRET` settings are gone. Publish the privacy and terms text with the setting, not before. Roll back only to a build that has Release B: an older image shows these claims without their mark, on lists,
+kept pages and lookups alike. If an older image is unavoidable: pause the writers (no saves and no `show_on_pages`), and
+with the mark still on, withdraw every publication `node apps/research-mcp/dist/atlas/person-claims-admin.js
+rollback-list` prints (unread findings, findings with a marked claim, and findings with a sentence taken off or left
+out) with the owner's `unpublish_finding`, and every curated scorecard row (G-number) it prints with the glance review's
+withdrawal; only then unset `ASKRIGOR_ATLAS_PERSON_MARK` and let the older image serve. The same tool lists the open disputes (`queue`) and takes a sentence off or puts it back (`take-off`, `restore`).
+
 Earlier notice v3 (owner answers 159, 1b and 7, and 160b, 2026-10-22): the free
 contributor notice's third version, `free-contributor-v3-2026-10-22`, says that findings
 the owner accepts may be published in the public Atlas and what deleting a

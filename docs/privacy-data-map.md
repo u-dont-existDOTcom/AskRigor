@@ -2342,6 +2342,44 @@ people's own reports of what they tried for a health problem and what happened, 
 - **Stated limits.** A report is health information its author chose to publish; the Atlas cannot check that it is
   true. Research attached by a person's own AI is checked for its shape and links, not redone, before it is shown.
 
+## Atlas claims about named people (Release B, 19 November 2026)
+
+Off until `ASKRIGOR_ATLAS_PERSON_MARK` names the instant it was switched on (design: the owner's 352b, 353b and 356a;
+`apps/research-mcp/src/atlas/person-claims.ts`). While it is on:
+
+- **The reading call.** After every save, a worker in the research server sends one Claude API call per publication
+  (Opus 5.5, low effort, AskRigor's own key and workspace): the finding's sentences as the pages show them (numbered),
+  its sources' titles, identifiers and check states, its kept backing quotes with their sections, whether forum threads
+  or videos are named (never their content or posters), and the taken-off sentences whose folded names its text holds.
+  The reply is labels only; the server writes every public word. No dispute, email address or reader data is sent.
+- **Tables (migration 0042),** each row keyed by a general subject (`subject_kind`, `subject_id`): a publication now,
+  a news item later with no table change (the Atlas news design v3, 3.8). `atlas_person_readings` (per publication: the digest read, a label per sentence with
+  the names as written, folded), `atlas_person_removals` (per disputed sentence: its key, state, folded names, date):
+  both readable by the public runtime's reader, which needs them to render. `atlas_person_removed_texts` (a taken-off
+  sentence's words), `atlas_person_disputes` (message, optional link and email, a daily key of the sender's address,
+  never the address) and `atlas_person_reading_spend`: refused to the reader; the review role reaches them only through
+  the migration's SECURITY DEFINER functions. A removal also keeps its finding's context (the topic key and its
+  sources' identifiers, no personal data), so findings sharing it are read again with the removed words.
+  `atlas_person_changes` (the public history: subject, state, date; no words, no names) is the reader's, for the changes
+  page. `atlas_person_owner_notices` (kind, subject, dispute number, a class such as `refusal:cyber`, delivery and
+  acknowledgement times) is refused to the reader.
+- **The owner's notices.** Each notice (a legal letter or data request, a refusal, a parked finding, a claim taken off
+  or disputed on a finding the owner checked) stays in `atlas_person_owner_notices` until the owner acknowledges it.
+  Nothing is sent anywhere: the review tool's `list_person_notices` (under the owner's login) lists the open ones for
+  the daily scheduled check to put in his Inbox, and `ack_person_notice` records his acknowledgement. A notice holds
+  only its kind, subject, dispute number and class: never a dispute's message, link, email address, names or the
+  sentence. The automatic reading never receives a dispute's message, link or email address; the operator's Claude
+  session (Anthropic) reads disputes for the owner from the queue.
+- **Deletion.** A dispute's message, link and email go after 90 days (a purge that runs whenever the review role is
+  configured, pages or mark on or off); its short record
+  (date, publication, sentence, outcome, whether it read as a legal or data request) stays. A taken-off sentence's
+  words and folded names go after three years.
+- **Pages.** An unverified claim about a person shows with its fixed mark, is never in a title, description or the
+  sitemap, keeps its page out of search engines, and is left out of the Atlas lookup with a line saying so. A finding
+  first published after the switch-on is not shown until it is read; an earlier one shows its banner wherever its claim
+  shows. The owner's public change notes and curated scorecard rows are read the same way; a curated row shows only once
+  read, with an unverified claim about a person left out.
+
 ## Research data not persistently stored
 
 - Raw OAuth subjects, account email/contact fields, access tokens, passwords,

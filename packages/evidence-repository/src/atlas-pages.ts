@@ -14,6 +14,7 @@ import {
   type InMemoryAtlasCanonicalStore,
   type PostgresAtlasStoreOptions,
 } from "./atlas-findings.js";
+import { postgresPersonClaimReads, type AtlasPersonClaimReads, type InMemoryAtlasPersonClaims } from "./atlas-person-claims.js";
 import { readAtlasStateWith } from "./atlas-postgres.js";
 import {
   ATLAS_COMMENTS_PER_PAGE,
@@ -251,6 +252,11 @@ export interface AtlasPageReads {
   listOwnReports(participantKey: string): Promise<AtlasOwnReport[]>;
   /** The rows the owner said yes to showing at a glance (owner, 3 Nov: "make that prominent"), oldest first. */
   listGlanceRows(): Promise<AtlasGlanceRow[]>;
+  /**
+   * Atlas Release B: the readings that find claims about named people, and the disputed sentences' states, while
+   * the mark is on (ASKRIGOR_ATLAS_PERSON_MARK); absent while it is off, when the pages show what Release A showed.
+   */
+  personClaims?: AtlasPersonClaimReads;
 }
 
 /** Where the pages read from: each page's reads run in one read-only snapshot. */
@@ -854,9 +860,12 @@ export class PostgresAtlasPageSource implements AtlasPageSource {
   readonly schema: string;
   private readonly pool: Pool;
 
-  constructor(options: PostgresAtlasStoreOptions) {
+  private readonly personClaimsSince: string | undefined;
+
+  constructor(options: PostgresAtlasStoreOptions & { personClaimsSince?: string }) {
     this.schema = assertSafeAtlasSchema(options.schema ?? "living_evidence");
     this.pool = atlasPool(options);
+    this.personClaimsSince = options.personClaimsSince;
   }
 
   async read<T>(work: (reads: AtlasPageReads) => Promise<T>): Promise<T> {
@@ -865,7 +874,10 @@ export class PostgresAtlasPageSource implements AtlasPageSource {
       await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
       await client.query(`SET LOCAL search_path TO ${this.schema}, public`);
       await client.query("SET LOCAL TIME ZONE 'UTC'");
-      const result = await work(postgresReads(client));
+      const reads = postgresReads(client);
+      const since = this.personClaimsSince;
+      const result = await work(since === undefined ? reads
+        : { ...reads, personClaims: postgresPersonClaimReads(client, since) });
       await client.query("COMMIT");
       return result;
     } catch (error) {
@@ -899,6 +911,8 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
     reports?: InMemoryAtlasReports;
     /** The rows shown at a glance on the owner's yes; none without it. */
     glance?: InMemoryAtlasGlanceRows;
+    /** Atlas Release B's readings and disputes, with when the mark was switched on; the mark is off without it. */
+    personClaims?: { since: string; store: InMemoryAtlasPersonClaims };
   }) {}
 
   async read<T>(work: (reads: AtlasPageReads) => Promise<T>): Promise<T> {
@@ -916,7 +930,9 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
   }
 
   private reads(): AtlasPageReads {
+    const person = this.stores.personClaims;
     return {
+      ...(person === undefined ? {} : { personClaims: person.store.pageReads(person.since) }),
       listPublications: async (raw) => {
         const query = validatePublicationQuery(raw);
         const state = await this.state();

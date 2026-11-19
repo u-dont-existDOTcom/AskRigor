@@ -617,3 +617,4 @@ export {
   type ResearchFrontierSearchInput,
   type TopicLinkContributionReceipt,
 } from "./postgres.js";
+export * from "./atlas-person-claims.js";

@@ -18,6 +18,7 @@ import { placementsInputSchema } from "./atlas/placement-review.js";
 import { reportVerdictSchema } from "./atlas/report-review.js";
 import { atlasReportShareSchema, reportNumberSchema } from "./atlas/report-door.js";
 import { glanceRowIdSchema, glanceRowInputSchema } from "./atlas/glance-review.js";
+import { personNoticeNumberSchema } from "./atlas/person-notice-review.js";
 import { challengeMarkInputShape } from "./atlas/challenge-review.js";
 import { claimCoverageSchema } from "./claim-coverage.js";
 import { ASKED_LIMIT, framingSchema, researchMenuSchema, researchSteeringInputSchema } from "./research-steering.js";
@@ -302,6 +303,9 @@ const LATER_INPUT_SHAPES = Object.freeze({
       .describe("With show_on_pages, which needs it: owner when AskRigor's owner shows them, or quick_answer_test, " +
         "with quick_answer_verdict, when the quick-answer test does. With publish_cards, which needs it too: owner, " +
         "AskRigor's owner, the only one who publishes cards."),
+    // Atlas Release B (Fable's recheck): the owner's notice to acknowledge.
+    personNotice: personNoticeNumberSchema.optional()
+      .describe("With ack_person_notice, which needs it: the notice's number, as list_person_notices gives it."),
   },
 } satisfies Record<string, z.ZodRawShape>);
 

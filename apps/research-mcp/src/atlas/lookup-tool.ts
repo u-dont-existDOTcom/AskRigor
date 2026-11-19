@@ -6,6 +6,8 @@ import { getResearchFrontier, type ResearchFrontierReader } from "../research-fr
 import { searchResearchFrontiers, researchFrontierSearchOutputSchema, type ResearchFrontierCatalogReader } from "../research-frontier-search-tool.js";
 import { issueResearchReceipt, researchTargetDigest, type ResearchReceiptOptions } from "../research-receipts.js";
 import { loadAtlasFindings, loadAtlasSearch, loadAtlasTopic, NOT_CHECKED_LABEL, type ShownFinding } from "./page-data.js";
+import { machineFinding } from "./person-claims.js";
+import { personMarkSinceFromEnv } from "./person-reading.js";
 import { atlasSearchQuery } from "./search.js";
 import { atlasPageUrl, atlasReceiptFinding } from "./reuse.js";
 
@@ -60,7 +62,10 @@ export interface AtlasLookupDependencies {
 export function configuredAtlasLookupSource(env: NodeJS.ProcessEnv = process.env): AtlasPageSource | undefined {
   try {
     const config = livingEvidenceReuseConfigFromEnv(env);
-    return config === undefined ? undefined : new PostgresAtlasPageSource(config);
+    // Atlas Release B: the lookup reads through the same mark as the pages (Codex's review of B).
+    const since = personMarkSinceFromEnv(env);
+    return config === undefined ? undefined
+      : new PostgresAtlasPageSource(since === undefined ? config : { ...config, personClaimsSince: since });
   } catch { return undefined; }
 }
 let lastReceiptOrder = 0;
@@ -74,6 +79,8 @@ export const atlasOrigin = (raw: string | undefined): string => {
   return "https://askrigor.com";
 };
 function publicFinding(finding: ShownFinding, origin: string): z.output<typeof findingSchema> {
+  // Atlas Release B (Fable 4.4): what other AIs read leaves unverified claims about people out, with a line saying so.
+  finding = machineFinding(finding);
   const checked = finding.status.kind !== "unreviewed";
   return { publication_number: finding.publicationNumber, atlas_number: finding.status.kind === "unreviewed" ? null : finding.status.atlasNumber,
     state: checked ? "checked" : NOT_CHECKED_LABEL, label: finding.status.kind, certainty: finding.certainty,
