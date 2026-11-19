@@ -27,6 +27,7 @@ records decisions and their sources; it adds no authority to the list above.
 
 ## Validation and release
 
+- [Local YouTube transcript-saving runbook](youtube-transcript-saving-runbook.md): verified two-video yt-dlp subtitle capture, pipx update, original-caption selection, absolute output paths, HTTP 429 backoff, and file-count validation; operator-only, not a public Action or server storage permission.
 - [Forum reader build](superpowers/plans/2026-11-01-forum-reader.md): public-page and Reddit readers, signed thread/search receipts, privacy boundaries and release preparation; two added tools require one app refresh at release
 - [Private-map leak check](private-map-leak-check.md): the exact pre-push check that refuses numbers and IDs from the
   owner's private comment maps (owner answers 175, 208b, 212b); its plan and history replay are
