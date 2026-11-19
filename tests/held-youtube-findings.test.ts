@@ -962,7 +962,7 @@ describe("move_youtube_findings: cards stored before findings were left out", ()
       // A later save would also be rewritten: refusal must leave both it and the original card untouched.
       const laterMetadata: OccurrenceMetadata = { ...metadata, occurrence_count: 2 };
       h.github.comments.set(7, [{ id: 501, body: occurrenceComment(record, laterMetadata) }]);
-      const published = await h.call({ action: "publish_cards", cards: ["ARF-0007"] });
+      const published = await h.call({ action: "publish_cards", shown_by: "owner", cards: ["ARF-0007"] });
       expect(published.structured.publications.items.map(({ finding }: { finding: number }) => finding)).toEqual([1, 3]);
       if (state !== "unreviewed") {
         await publications.withdraw(state === "owner_unpublished" ? {
@@ -1000,7 +1000,7 @@ describe("move_youtube_findings: cards stored before findings were left out", ()
     const h = harness({ start: "2026-10-25T09:00:00.000Z", publications });
     const { checked, record, metadata } = storeCardBeforeSeventy(h.github, 7, SEVEN, BASES, "2026-10-07T08:15:00.000Z");
     if (forgotten) {
-      await h.call({ action: "publish_cards", cards: ["ARF-0007"] });
+      await h.call({ action: "publish_cards", shown_by: "owner", cards: ["ARF-0007"] });
       // Accepted rows retain that state when forgotten, so the exemption must use cardForgottenAt.
       await publications.decide({ cardNumber: 7, findingNumber: 1, state: "accepted", atlasNumber: "F-1001",
         decidedAt: h.clock().toISOString() });
@@ -1319,7 +1319,7 @@ describe("move_youtube_findings: cards stored before findings were left out", ()
       if (blocker === "publication") {
         // A publication of the card before it became all-YouTube remains an obstacle, even withdrawn.
         storeCardBeforeSeventy(h.github, 99, CARD, [["full_text_audit"]], "2026-10-07T08:00:00.000Z");
-        await h.call({ action: "publish_cards", cards: ["ARF-0099"] });
+        await h.call({ action: "publish_cards", shown_by: "owner", cards: ["ARF-0099"] });
         const [row] = await publications.inspect({});
         vi.spyOn(publications, "inspect").mockResolvedValue([{ ...row!, cardNumber: 12, state: "withdrawn" }]);
       }
