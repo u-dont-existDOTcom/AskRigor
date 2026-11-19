@@ -26,15 +26,18 @@ describe("what a signed-out reader and the lookup tool reach, with saved finding
     // The same pages answer, with the same status, the same robots rule and the same text but those sentences.
     expect(Object.keys(now.pages)).toEqual(Object.keys(main.pages));
     const owner = `/atlas/findings/${main.publications.owner}`;
+    const before = `/atlas/findings/${main.publications.before}`;
     for (const [path, page] of Object.entries(main.pages)) {
       expect(now.pages[path], path).toEqual({ ...page,
         // The home page names the three ways in, where main said a separate AI's test let every finding in.
         ...(path === "/atlas" ? { homeSentence: 1 } : {}),
         // The finding the owner showed no longer says the quick-answer test found anything: the test never ran on it.
-        ...(path === owner ? { testSentences: 0 } : {}) });
+        // Nor does one shown before this release, whose route was never recorded, as for every finding shown today.
+        ...(path === owner || path === before ? { testSentences: 0 } : {}) });
     }
     expect(main.pages["/atlas"]!.homeSentence).toBe(0);
     expect(main.pages[owner]!.testSentences).toBe(1);
+    expect(main.pages[before]!.testSentences).toBe(1);
     // The finding the test showed with its pass still says so, and the kept one that names a (made-up) living person
     // keeps its own page, out of search engines, as on main.
     expect(now.pages[`/atlas/findings/${main.publications.tested}`]!.testSentences).toBe(1);

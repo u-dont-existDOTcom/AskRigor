@@ -928,7 +928,10 @@ back 0021's `publish_atlas_findings` and 0024's `keep_atlas_publications`,
 which write no route, and never reads the new columns: what it publishes is
 not recorded, what it publishes again or shows again keeps the route it had,
 and its pages say what they said before this release. This image's next `migrate` replaces the two functions again. Undo no
-migration.
+migration. Before the earlier image serves, the owner's review connector and
+the scheduled quick-answer test stop sending `later_inputs.shown_by`, and the
+test its `later_inputs.quick_answer_verdict` with `show_on_pages`: the earlier
+image refuses both as inputs it doesn't know.
 
 An image rollback below 0021 needs no drain: the earlier image never reads the
 table, publishes nothing at a save, and has no publication action. Undo no

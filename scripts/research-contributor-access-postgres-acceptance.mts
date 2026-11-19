@@ -4234,9 +4234,11 @@ export async function verifyAtlasPages(context: {
     }
     checks.push("atlas_owner_decision_stands_through_the_tests_showing_and_keeping_and_a_revived_held_finding_keeps_no_route");
 
-    // The image before this release (the design of 19 Nov 2026, 3.1): its migrate passes this database and puts back
-    // 0021's publish_atlas_findings and 0024's keep_atlas_publications, which write no route; what it publishes is not
-    // recorded and the pages still read; this release's migrate then replaces both again.
+    // The image before this release's migration SQL (the design of 19 Nov 2026, 3.1): every migration file before 0041,
+    // byte for byte as released, passes this database and puts back 0021's publish_atlas_findings and 0024's
+    // keep_atlas_publications, which write no route; what is published and shown through them is not recorded, and
+    // this release's reader still reads it; this release's migrate then replaces both again. This runs this release's
+    // code against those functions; the earlier image's own code is run against a migrated database at release.
     const functionText = async (name: string) => (await admin.query<{ source: string }>(
       `SELECT procedure.prosrc AS source FROM pg_catalog.pg_proc procedure
          JOIN pg_catalog.pg_namespace space ON space.oid = procedure.pronamespace
@@ -4270,7 +4272,7 @@ export async function verifyAtlasPages(context: {
       limit: 1 }));
     assert((await functionText("publish_atlas_findings")).includes("shown_by") && laterRow?.shownBy === "owner_action",
       "THIS_RELEASES_MIGRATE_DID_NOT_REPLACE_THE_FUNCTIONS_AGAIN");
-    checks.push("an_image_from_before_0041_migrates_this_database_publishes_and_shows_unrecorded_and_this_release_migrates_again");
+    checks.push("the_migrations_before_0041_pass_this_database_and_put_back_functions_that_record_no_route_until_this_release_migrates_again");
   } finally {
     await Promise.allSettled([store.close(), source.close(), admin.end()]);
   }

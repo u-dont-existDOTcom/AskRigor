@@ -5,7 +5,8 @@
  * wrote the snapshot the test compares with (tests/fixtures/atlas-reach-main.json; how, in that file's "made").
  *
  * Three free contributor's saves, each kept for the quick-answer test as on main: one names a (made-up) living person
- * and stays kept; the quick-answer test shows one with a pass; the owner shows the third. Then every public page a
+ * and stays kept; the quick-answer test shows one with a pass; the owner shows the third. A fourth is one shown before
+ * this release, as main's showing left it, with no route recorded (every finding on the pages today). Then every public page a
  * signed-out reader can open, and the lookup tool, are read. Each answer is reduced to its status, whether it is kept
  * out of search engines, how often it says the quick-answer test found that a quick AI answer misses a finding, and a
  * digest of its body with the only sentences Release A means to change (how findings reach the pages) taken out.
@@ -20,10 +21,11 @@ import {
 } from "@askrigor/evidence-repository";
 
 import { AtlasChangeSignal } from "../../apps/research-mcp/src/atlas/change-signal.js";
+import { HEALTH } from "../../apps/research-mcp/src/atlas/health-tree.js";
 import { AtlasKeptReview } from "../../apps/research-mcp/src/atlas/kept-review.js";
 import { lookupAtlas } from "../../apps/research-mcp/src/atlas/lookup-tool.js";
 import { createAtlasPagesHandler } from "../../apps/research-mcp/src/atlas/pages-http.js";
-import { AtlasCardPublisher } from "../../apps/research-mcp/src/atlas/publication.js";
+import { AtlasCardPublisher, planCardPublication } from "../../apps/research-mcp/src/atlas/publication.js";
 import { createAskRigorHttpServer } from "../../apps/research-mcp/src/server.js";
 import { recordOf } from "./atlas-participation-fixture.js";
 import { VELMOR_CARD, VELMOR_TOPIC } from "./atlas-scenario.js";
@@ -45,6 +47,7 @@ export const REACH_CLAIMS = {
     "240 against 36 of 240 on placebo over 12 weeks.",
   tested: "REACHTESTED zentarine 20 mg halved the tremor score in 60 of 240 against 36 of 240 on placebo over 12 weeks.",
   owner: "REACHOWNER zentarine 20 mg halved the tremor score in 60 of 240 against 36 of 240 on placebo over 12 weeks.",
+  before: "REACHBEFORE zentarine 20 mg halved the tremor score in 60 of 240 against 36 of 240 on placebo over 12 weeks.",
 } as const;
 
 export interface AtlasReachPage {
@@ -80,11 +83,25 @@ export async function atlasReachSnapshot(): Promise<AtlasReachSnapshot> {
   const publisher = new AtlasCardPublisher({ store: publications, now, showOnPages: false } as
     ConstructorParameters<typeof AtlasCardPublisher>[0]);
   const numbers = {} as Record<keyof typeof REACH_CLAIMS, string>;
+  const cardOf = (key: keyof typeof REACH_CLAIMS) => ({ ...VELMOR_CARD, question: `${VELMOR_CARD.question} (${key})`,
+    findings: [{ ...VELMOR_CARD.findings[0]!, claim: REACH_CLAIMS[key] }] });
+  // Shown before this release: published and kept as the save did, then shown again by main's showing, which says
+  // nothing of who acted, so nothing is recorded.
+  {
+    const record = recordOf(cardOf("before"));
+    const plan = planCardPublication({ record, setAside: false, route: { route: "save", account: FREE } });
+    const [row] = await publications.publish({ cardNumber: 4500, cardSha256: record.card_sha256,
+      findings: plan.drafts as Parameters<typeof publications.publish>[0]["findings"], publishedAt: now().toISOString(),
+      revive: false });
+    numbers.before = row!.publicationNumber;
+    await publications.keep({ publicationNumbers: [row!.publicationNumber], atlasNumbers: [], keep: true,
+      reason: "owner answer 240a: quick-answer test, passed, waiting for the whole picture", at: now().toISOString() });
+    await publications.keep({ publicationNumbers: [row!.publicationNumber], atlasNumbers: [], keep: false, reason: null,
+      at: now().toISOString() });
+  }
   for (const [key, issueNumber] of [["person", 4501], ["tested", 4502], ["owner", 4503]] as const) {
     clock += 60_000;
-    const card = { ...VELMOR_CARD, question: `${VELMOR_CARD.question} (${key})`,
-      findings: [{ ...VELMOR_CARD.findings[0]!, claim: REACH_CLAIMS[key] }] };
-    await publisher.afterSave({ record: recordOf(card), issueNumber, kind: "created", setAside: false, replacedCards: [],
+    await publisher.afterSave({ record: recordOf(cardOf(key)), issueNumber, kind: "created", setAside: false, replacedCards: [],
       account: FREE });
     const [row] = await publications.inspect({ cardNumbers: [issueNumber] });
     if (row === undefined) throw new Error(`REACH_NOT_PUBLISHED ${key}`);
@@ -111,7 +128,7 @@ export async function atlasReachSnapshot(): Promise<AtlasReachSnapshot> {
   try {
     const paths = ["/atlas", "/atlas/findings", "/atlas/topics", `/atlas/topics/${VELMOR_TOPIC.key}`,
       "/atlas/search?q=zentarine", "/atlas/search?q=Zentaro", "/atlas/map", "/atlas/sitemap.xml", "/atlas/changes",
-      "/atlas/challenges", "/atlas/health",
+      "/atlas/challenges", "/atlas/health", `/atlas/health/${HEALTH.subcategories[0]!.key}`,
       ...Object.values(numbers).map((number) => `/atlas/findings/${number}`)];
     for (const path of paths) {
       const response = await fetch(`${base}${path}`);
