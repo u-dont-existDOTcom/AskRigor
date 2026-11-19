@@ -2099,7 +2099,6 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "private_orchestration_worker_unavailable",
   "private_review",
   "product",
-  "professional_misconduct",
   "program",
   "program_fingerprint",
   "program_or_exposure",
