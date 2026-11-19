@@ -3725,7 +3725,11 @@ export async function verifyAtlasPublications(context: {
     await store.publish({ cardNumber: 7002, cardSha256: digestB, findings: [draft(1), draft(2)], publishedAt: tick(),
       revive: false });
     const replaced = await store.withdraw({ reason: "card_replaced", cardNumbers: [7002], withdrawnAt: tick() });
-    const revived = await store.publish({ cardNumber: 7002, cardSha256: digestB, findings: [draft(1), draft(2)],
+    // Revived as this build's publish_cards revives them, each with its claim's key (Codex's sixth review of 17 Nov 2026:
+    // a row without one shows again only on the owner's decision; verifyLivingPersonTableRule's keyless cases).
+    const keyed = (findingNumber: number): AtlasPublicationDraft => ({ ...draft(findingNumber),
+      livingPerson: { claimKey: atlasHex(`withdrawals-${findingNumber}`), reading: "no", holdNotSaid: false } });
+    const revived = await store.publish({ cardNumber: 7002, cardSha256: digestB, findings: [keyed(1), keyed(2)],
       publishedAt: tick(), revive: true });
     const [unpublished] = await store.withdraw({ reason: "owner_unpublished",
       publicationNumbers: [revived[0]!.publicationNumber], ownerReason: "It overstates the trial.", withdrawnAt: tick() });
@@ -4655,7 +4659,22 @@ async function verifyLivingPersonTableRule(context: {
   const scriptPool = new Pool({ connectionString: adminUrl, max: 1 });
   const scriptClient = await scriptPool.connect();
   const WAITING = "waiting for the quick-answer test (owner answer 240a)";
+  const pause = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+  // Two of the one-shot admin's connections, for two transactions at once.
+  const racePool = new Pool({ connectionString: adminUrl, max: 2 });
   let card = 8800;
+  /**
+   * Codex's sixth review of 17 Nov 2026 (P0): each case runs again on a publication from before claim keys were stored
+   * (claim_key NULL), which no reading matches: the rule holds it when any finding of its card is stored as yes, and no
+   * UPDATE shows it that didn't show.
+   */
+  let keylessRun = false;
+  const withoutKey = async (number: string) => {
+    await scriptClient.query("BEGIN");
+    await scriptClient.query("SET LOCAL session_replication_role = replica");
+    await scriptClient.query(`UPDATE ${schema}.atlas_publications SET claim_key = NULL WHERE publication_number = $1`, [number]);
+    await scriptClient.query("COMMIT");
+  };
   const draft = (claim: string, overrides: Partial<AtlasPublicationDraft> = {}): AtlasPublicationDraft => ({
     findingNumber: 1, state: "unreviewed", atlasNumber: null, heldBecause: null,
     livingPerson: { claimKey: livingPersonClaimKey(claim), reading: "no", holdNotSaid: false }, published: {
@@ -4669,9 +4688,64 @@ async function verifyLivingPersonTableRule(context: {
   const published = async (name: string, overrides: Partial<AtlasPublicationDraft> = {}) => {
     const cardNumber = card += 1;
     const claim = `TABLE-RULE ${name} claim.`;
-    const [row] = await store.publish({ cardNumber, cardSha256: atlasHex(`table-rule-${name}`), publishedAt: tick(),
+    const [row] = await store.publish({ cardNumber, cardSha256: atlasHex(`table-rule-${name}${keylessRun ? "-keyless" : ""}`), publishedAt: tick(),
       revive: false, findings: [draft(claim, overrides)] });
+    if (keylessRun) await withoutKey(row!.publicationNumber);
     return { cardNumber, claim, claimKey: livingPersonClaimKey(claim), number: row!.publicationNumber };
+  };
+  /**
+   * Codex's sixth review of 17 Nov 2026 (P0): a publication and its claim's yes in two transactions at the same moment,
+   * written by hand as the one-shot admin, so no function's lock comes first: the publication a copy of a shown one on a
+   * card of its own, the yes for its claim on that card. Whichever commits first, it ends held.
+   */
+  const twoTransactions = (order: "publication_commits_first" | "yes_commits_first") => async () => {
+    const template = await published(`two transactions ${order}`);
+    const cardNumber = card += 1;
+    const number = `P-${90_000 + cardNumber}`;
+    const a = await racePool.connect();
+    const b = await racePool.connect();
+    const insert = () => a.query(`INSERT INTO ${schema}.atlas_publications SELECT (jsonb_populate_record(
+        NULL::${schema}.atlas_publications, to_jsonb(stored.*) || $2::jsonb)).*
+      FROM ${schema}.atlas_publications stored WHERE stored.publication_number = $1`, [template.number,
+      JSON.stringify({ publication_number: number, card_number: cardNumber,
+        card_sha256: atlasHex(`two-transactions-${order}-${keylessRun}`), claim_key: keylessRun ? null : template.claimKey })]);
+    const yesWritten = () => b.query(`INSERT INTO ${schema}.atlas_living_person_readings (card_number, claim_key, reading,
+      recorded_at) VALUES ($1, $2, 'yes', $3::timestamptz)`, [cardNumber, template.claimKey, tick()]);
+    try {
+      if (order === "publication_commits_first") {
+        // Codex's case: the publication written, then the yes, whose commit comes first; it waits for the publication's.
+        await a.query("BEGIN");
+        await insert();
+        await b.query("BEGIN");
+        await yesWritten();
+        let committed = false;
+        const commit = b.query("COMMIT").finally(() => { committed = true; });
+        await pause(300);
+        assert(!committed, "TWO_TRANSACTIONS_THE_YES_DID_NOT_WAIT_FOR_THE_PUBLICATION");
+        await a.query("COMMIT");
+        await commit;
+      } else {
+        // The yes commits while the publication's transaction is open. One whose snapshot is older than the yes can't
+        // read it, so it is refused; in READ COMMITTED it reads the yes.
+        await a.query("BEGIN ISOLATION LEVEL REPEATABLE READ");
+        await a.query("SELECT 1");
+        await b.query("BEGIN");
+        await yesWritten();
+        await b.query("COMMIT");
+        const refused = await insert().then(() => "", (error: Error) => error.message);
+        await a.query("ROLLBACK");
+        assert(refused.includes("ATLAS_LIVING_PERSON_RULE_NEEDS_READ_COMMITTED"), `TWO_TRANSACTIONS_OLD_SNAPSHOT ${refused}`);
+        await a.query("BEGIN");
+        await a.query("SELECT 1");
+        await insert();
+        await a.query("COMMIT");
+      }
+    } finally {
+      await Promise.allSettled([a.query("ROLLBACK"), b.query("ROLLBACK")]);
+      a.release();
+      b.release();
+    }
+    return { number };
   };
   /** A later save's yes, recorded as the save records it. */
   const yes = (finding: { cardNumber: number; claimKey: string }) => store.recordLivingPerson({
@@ -4695,7 +4769,7 @@ async function verifyLivingPersonTableRule(context: {
     SET state = 'unreviewed', held_because = NULL WHERE publication_number = $1`, [number])
     .then(() => "", (error: Error) => error.message);
   const outcomes: Array<[string, string]> = [];
-  const cases: Array<[string, () => Promise<{ number: string; refused?: string }>]> = [
+  const casesFor = (keyless: boolean): Array<[string, () => Promise<{ number: string; refused?: string }>]> => { keylessRun = keyless; return [
     // An earlier image's save publishes a draft that says nothing of a living person, after a save stored its yes.
     ["save_after_a_stored_yes", async () => {
       const cardNumber = card += 1;
@@ -4703,7 +4777,7 @@ async function verifyLivingPersonTableRule(context: {
       await store.recordLivingPerson({ cardNumber, readings: [{ claimKey: livingPersonClaimKey(claim), reading: "yes" }],
         publicationNumbers: [], at: tick() });
       const { livingPerson: _said, ...unsaid } = draft(claim);
-      const [row] = await store.publish({ cardNumber, cardSha256: atlasHex("table-rule-earlier-save"), publishedAt: tick(),
+      const [row] = await store.publish({ cardNumber, cardSha256: atlasHex(`table-rule-earlier-save-${keylessRun}`), publishedAt: tick(),
         revive: false, findings: [unsaid as AtlasPublicationDraft] });
       return { number: row!.publicationNumber };
     }],
@@ -4719,8 +4793,10 @@ async function verifyLivingPersonTableRule(context: {
       const claim = "TABLE-RULE publish_cards claim.";
       await store.recordLivingPerson({ cardNumber, readings: [{ claimKey: livingPersonClaimKey(claim), reading: "yes" }],
         publicationNumbers: [], at: tick() });
-      const [row] = await store.publish({ cardNumber, cardSha256: atlasHex("table-rule-publish-cards"), publishedAt: tick(),
-        revive: true, findings: [draft(claim, { shownBy: "owner_action" })] });
+      // Without a claim key, as an earlier image's publish_cards gives none.
+      const { livingPerson: _said, ...unsaid } = draft(claim, { shownBy: "owner_action" });
+      const [row] = await store.publish({ cardNumber, cardSha256: atlasHex(`table-rule-publish-cards-${keylessRun}`),
+        publishedAt: tick(), revive: true, findings: [keylessRun ? unsaid as AtlasPublicationDraft : draft(claim, { shownBy: "owner_action" })] });
       return { number: row!.publicationNumber };
     }],
     // show_on_pages by the quick-answer test, of a kept finding with a stored yes from before the rule.
@@ -4756,13 +4832,17 @@ async function verifyLivingPersonTableRule(context: {
       await holdForLivingPersonReview(scriptClient, { schema, publications: [finding.number], apply: true, at: tick(),
         saveImages: async (saved) => { images = saved; } });
       const later = await yes(finding);
-      assert(later.map(({ outcome }) => outcome).join() === "already_held", `RESTORE_CASE_LATER_YES ${JSON.stringify(later)}`);
+      // A row without a key matches no reading by key: the yes's trigger holds it, by its card.
+      assert(later.map(({ outcome }) => outcome).join() === (keylessRun ? "" : "already_held"),
+        `RESTORE_CASE_LATER_YES ${JSON.stringify(later)}`);
       const dry = await restoreLivingPersonHolds(scriptClient, { images: images!, apply: false });
       const restored = await restoreLivingPersonHolds(scriptClient, { images: images!, apply: true });
       assert(isDeepStrictEqual([...dry.lines, ...restored.lines], [1, 2].map(() => ({ publication: finding.number,
-        outcome: "kept_held", state: "unreviewed", heldBecause: ["living_person_review"] }))) &&
-        restored.text.startsWith(`${finding.number}: kept held, with no page (living_person_review): a save since the ` +
-          "hold says it may name a living person"), `RESTORE_CASE_REPORT ${restored.text}`);
+        outcome: "kept_held", state: "unreviewed", heldBecause: ["living_person_review"],
+        ...(keylessRun ? { keyless: "card_yes" } : {}) }))) &&
+        restored.text.startsWith(`${finding.number}: kept held, with no page (living_person_review): ` + (keylessRun
+          ? "it is from before findings kept their claim's key, and a save since the hold says a finding of its card may "
+          : "a save since the hold says it may ") + "name a living person"), `RESTORE_CASE_REPORT ${restored.text}`);
       return { number: finding.number };
     }],
     // A hand-written UPDATE by the one-shot admin.
@@ -4791,9 +4871,45 @@ async function verifyLivingPersonTableRule(context: {
       await yes(finding);
       return { number: finding.number, refused: await refusedBy(access, finding.number) };
     }] as [string, () => Promise<{ number: string; refused?: string }>]]),
+    ["two_transactions_publication_commits_first", twoTransactions("publication_commits_first")],
+    ["two_transactions_yes_commits_first", twoTransactions("yes_commits_first")],
+  ]; };
+  // Without a key, and with no yes on its card: still no UPDATE shows it again; only the owner's decision does.
+  const keylessOnly: Array<[string, () => Promise<{ number: string; refused?: string }>]> = [
+    ["hold_script_restore_without_a_yes", async () => {
+      const finding = await published("restore without a yes");
+      let images: HoldScriptImages | undefined;
+      await holdForLivingPersonReview(scriptClient, { schema, publications: [finding.number], apply: true, at: tick(),
+        saveImages: async (saved) => { images = saved; } });
+      const restored = await restoreLivingPersonHolds(scriptClient, { images: images!, apply: true });
+      assert(isDeepStrictEqual(restored.lines, [{ publication: finding.number, outcome: "kept_held", state: "unreviewed",
+        heldBecause: ["living_person_review"], keyless: "no_match" }]) &&
+        restored.text.endsWith("1 stays held for your decision."), `KEYLESS_RESTORE_REPORT ${restored.text}`);
+      return { number: finding.number };
+    }],
+    // An earlier image's publish_cards reviving a withdrawn one, with no claim key in its draft.
+    ["earlier_images_revive_without_a_yes", async () => {
+      const finding = await published("revive without a yes");
+      await store.withdraw({ reason: "card_replaced", cardNumbers: [finding.cardNumber], withdrawnAt: tick() });
+      const { livingPerson: _said, ...unsaid } = draft(finding.claim);
+      const [row] = await store.publish({ cardNumber: finding.cardNumber,
+        cardSha256: atlasHex("table-rule-revive without a yes-keyless"), publishedAt: tick(), revive: true,
+        findings: [unsaid as AtlasPublicationDraft] });
+      assert(row?.publicationNumber === finding.number, `KEYLESS_REVIVE_NOT_THE_SAME_ROW ${JSON.stringify(row)}`);
+      return { number: finding.number };
+    }],
+    ["direct_update_without_a_yes", async () => {
+      const finding = await published("update without a yes");
+      await admin.query(`UPDATE ${schema}.atlas_publications SET state = 'held', held_because = '["card_reference"]'::jsonb
+        WHERE publication_number = $1`, [finding.number]);
+      await admin.query(`UPDATE ${schema}.atlas_publications SET state = 'unreviewed', held_because = NULL
+        WHERE publication_number = $1`, [finding.number]);
+      return { number: finding.number };
+    }],
   ];
   try {
-    for (const [name, attempt] of cases) {
+    for (const run of [false, true]) for (const [caseName, attempt] of [...casesFor(run), ...(run ? keylessOnly : [])]) {
+      const name = run ? `${caseName}_keyless` : caseName;
       const { number, refused } = await attempt();
       const row = await stateOf(number);
       const page = await loadAtlasFinding(source, number);
@@ -4806,7 +4922,8 @@ async function verifyLivingPersonTableRule(context: {
       `${name}=${outcome}`).join(", ")}`);
   } finally {
     scriptClient.release();
-    await Promise.allSettled([admin.end(), review.end(), scriptPool.end(), ...(access === undefined ? [] : [access.end()])]);
+    await Promise.allSettled([admin.end(), review.end(), scriptPool.end(), racePool.end(),
+      ...(access === undefined ? [] : [access.end()])]);
   }
 }
 

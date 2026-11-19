@@ -229,6 +229,64 @@ describe("holding named findings for the owner's decision on a living person", (
     ].join("\n"));
   });
 
+  // Codex's sixth review of 17 Nov 2026 (P0): an older publication (no claim key, so no reading matches it), held by
+  // hand, then a save says a finding of its card names a living person, then the restore: kept held, with the reason.
+  // Without any yes on its card, a restore still never shows it: only the owner's decision does. The PostgreSQL
+  // acceptance runs both on the database and reads their pages.
+  it("keeps held an older publication without a claim key, and says why", async () => {
+    const before = { publication_number: "P-1001", state: "unreviewed", held_because: null,
+      state_changed_at: "2026-11-17T09:00:00+00:00" };
+    const after = { ...before, state: "held", held_because: ["living_person_review"],
+      state_changed_at: "2026-11-18T09:00:00+00:00" };
+    const other = { publication_number: "P-1002", state: "held", held_because: ["card_reference"],
+      state_changed_at: "2026-11-17T09:00:00+00:00" };
+    const images: HoldScriptImages = { schema: "living_evidence", heldAt: AT, images: [{ publication: "P-1001", before, after },
+      { publication: "P-1002", before: other, after: { ...other, held_because: ["card_reference", "living_person_review"] } }] };
+    const run = async (apply: boolean, cardYes: boolean) => {
+      const calls: string[] = [];
+      const client: HoldScriptClient = {
+        async query<Row extends object>(text: string, values?: unknown[]) {
+          calls.push(text);
+          if (text.startsWith("SELECT")) {
+            return { rows: [{ state: "held", unchanged: true, living_person_yes: false, keyless_undecided: true,
+              card_yes: cardYes }] as unknown as Row[] };
+          }
+          // As the trigger leaves them: the unreviewed one held; the other held for its reason, and this one if yes.
+          const held = values?.[0] === "P-1001" ? ["living_person_review"]
+            : cardYes ? ["card_reference", "living_person_review"] : ["card_reference"];
+          return { rows: (text.trim().startsWith("UPDATE") ? [{ state: "held", held_because: held }] : []) as unknown as Row[] };
+        },
+      };
+      return { result: await restoreLivingPersonHolds(client, { images, apply }), calls };
+    };
+    for (const apply of [false, true]) {
+      const named = await run(apply, true);
+      expect(named.calls[2]).toContain("stored.claim_key IS NULL AS keyless_undecided");
+      expect(named.result.lines).toEqual([
+        { publication: "P-1001", outcome: "kept_held", state: "unreviewed", heldBecause: ["living_person_review"],
+          keyless: "card_yes" },
+        { publication: "P-1002", outcome: "kept_held", state: "held",
+          heldBecause: ["card_reference", "living_person_review"], keyless: "card_yes" }]);
+      const unnamed = await run(apply, false);
+      expect(unnamed.result.lines).toEqual([
+        { publication: "P-1001", outcome: "kept_held", state: "unreviewed", heldBecause: ["living_person_review"],
+          keyless: "no_match" },
+        { publication: "P-1002", outcome: "restored", state: "held" }]);
+    }
+    const named = await run(true, true);
+    expect(named.result.text.split("\n")[0]).toBe("P-1001: kept held, with no page (living_person_review): it is from " +
+      "before findings kept their claim's key, and a save since the hold says a finding of its card may name a living " +
+      "person; you haven't decided it. Your accept_finding or edit_finding shows it.");
+    const unnamed = await run(true, false);
+    expect(unnamed.result.text).toBe([
+      "P-1001: kept held, with no page (living_person_review): it is from before findings kept their claim's key, so " +
+        "what a save says can't be matched to it, and you haven't decided it. Your accept_finding or edit_finding shows it.",
+      "P-1002: put back as it was before the hold (held).",
+      "Put back 1 as it was before the hold; nothing else changed. The pages show it as before within a minute. " +
+        "1 stays held for your decision.",
+    ].join("\n"));
+  });
+
   it("is named in the release with its dry run, and no migration holds anything already on the pages", async () => {
     const readme = await readFile(new URL("../infra/living-evidence-production/README.md", import.meta.url), "utf8");
     expect(readme).toContain("`DATABASE_URL=… npx tsx scripts/atlas-hold-living-person-findings.mts P-1001 …`,\nwhich " +

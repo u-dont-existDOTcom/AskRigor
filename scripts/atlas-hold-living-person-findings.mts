@@ -185,6 +185,12 @@ export interface RestoreScriptLine {
    * them, since a save stored that it names a living person and the owner hasn't decided it.
    */
   heldBecause?: string[];
+  /**
+   * Codex's sixth review of 17 Nov 2026 (P0): for one kept held that is from before findings kept their claim's key
+   * (claim_key NULL), so no save's reading matches it: card_yes when a save since says a finding of its card names a
+   * living person; no_match when none does, as such a row shows again only on the owner's decision (migration 0041).
+   */
+  keyless?: "card_yes" | "no_match";
 }
 
 const imageObject = (value: unknown): value is Record<string, unknown> =>
@@ -211,8 +217,11 @@ export function restoreScriptText(line: RestoreScriptLine, applied: boolean): st
       return `${line.publication}: ${applied ? "put" : "would be put"} back as it was before the hold (${line.state}).`;
     case "kept_held":
       return `${line.publication}: ${applied ? "kept" : "would be kept"} held, with no page (${(line.heldBecause ?? [])
-        .join(", ")}): a save since the hold says it may name a living person, and you haven't decided it. Your ` +
-        "accept_finding or edit_finding shows it.";
+        .join(", ")}): ${line.keyless === undefined ? "a save since the hold says it may name a living person, and you"
+        : line.keyless === "card_yes" ? "it is from before findings kept their claim's key, and a save since the hold " +
+          "says a finding of its card may name a living person; you"
+          : "it is from before findings kept their claim's key, so what a save says can't be matched to it, and you"
+      } haven't decided it. Your accept_finding or edit_finding shows it.`;
     case "changed_since":
       return `${line.publication}: changed since the hold (now ${line.state}), so it stays as it is.`;
     case "not_found":
@@ -242,11 +251,17 @@ export async function restoreLivingPersonHolds(client: HoldScriptClient, input: 
       // atlas_publications_living_person_hold), as every writer does: a row a save has since stored as naming a living
       // person, that the owner hasn't decided, stays held. It reads that here for a dry run, and from the row the
       // restore wrote with --apply.
-      const [now] = (await client.query<{ state: string; unchanged: boolean; living_person_yes: boolean }>(`SELECT
+      // Codex's sixth review of 17 Nov 2026 (P0): one without a claim key (from before keys were stored) stays held when
+      // a finding of its card is stored as yes, and is put back held for another reason at most: no restore shows it.
+      const [now] = (await client.query<{ state: string; unchanged: boolean; living_person_yes: boolean;
+        keyless_undecided?: boolean; card_yes?: boolean }>(`SELECT
         stored.state, to_jsonb(stored.*) = $2::jsonb AS unchanged,
         stored.owner_decided_at IS NULL AND EXISTS (SELECT 1 FROM ${images.schema}.atlas_living_person_readings readings
           WHERE readings.card_number = stored.card_number AND readings.claim_key = stored.claim_key
-            AND readings.reading = 'yes') AS living_person_yes
+            AND readings.reading = 'yes') AS living_person_yes,
+        stored.owner_decided_at IS NULL AND stored.claim_key IS NULL AS keyless_undecided,
+        EXISTS (SELECT 1 FROM ${images.schema}.atlas_living_person_readings readings
+          WHERE readings.card_number = stored.card_number AND readings.reading = 'yes') AS card_yes
         FROM ${images.schema}.atlas_publications stored
         WHERE stored.publication_number = $1${input.apply ? " FOR UPDATE" : ""}`, [publication, JSON.stringify(after)])).rows;
       if (now === undefined) {
@@ -269,11 +284,16 @@ export async function restoreLivingPersonHolds(client: HoldScriptClient, input: 
           if (written!.state !== before.state || !isDeepStrictEqual(written!.held_because, before.held_because)) {
             stays = written!.held_because ?? [];
           }
-        } else if (now.living_person_yes && !beforeReasons.includes(LIVING_PERSON_HOLD)) {
+        } else if (now.keyless_undecided === true && before.state === "unreviewed") {
+          stays = [LIVING_PERSON_HOLD];
+        } else if ((now.living_person_yes || (now.keyless_undecided === true && now.card_yes === true)) &&
+          !beforeReasons.includes(LIVING_PERSON_HOLD)) {
           stays = [...beforeReasons, LIVING_PERSON_HOLD];
         }
+        const keyless = now.keyless_undecided === true ? { keyless: now.card_yes === true ? "card_yes" as const
+          : "no_match" as const } : {};
         lines.push(stays === undefined ? { publication, outcome: "restored", state: String(before.state) }
-          : { publication, outcome: "kept_held", state: String(before.state), heldBecause: stays });
+          : { publication, outcome: "kept_held", state: String(before.state), heldBecause: stays, ...keyless });
       }
     }
     await client.query(input.apply ? "COMMIT" : "ROLLBACK");
@@ -283,8 +303,9 @@ export async function restoreLivingPersonHolds(client: HoldScriptClient, input: 
   }
   const count = lines.filter(({ outcome }) => outcome === "restored").length;
   const held = lines.filter(({ outcome }) => outcome === "kept_held").length;
-  const keptHeld = held === 0 ? "" : ` ${held} ${input.apply ? held === 1 ? "stays" : "stay" : "would stay"} held because ${held === 1 ? "it" : "they"} ` +
-    "may name a living person.";
+  const unmatched = lines.some(({ keyless }) => keyless === "no_match");
+  const keptHeld = held === 0 ? "" : ` ${held} ${input.apply ? held === 1 ? "stays" : "stay" : "would stay"} held ` +
+    (unmatched ? "for your decision." : `because ${held === 1 ? "it" : "they"} may name a living person.`);
   const closing = input.apply
     ? `Put back ${count} as it was before the hold; nothing else changed. The pages show ${count === 1 ? "it" : "them"} ` +
       `as before within a minute.${keptHeld}`

@@ -142,6 +142,8 @@ BEGIN
   THEN
     RAISE EXCEPTION 'ATLAS_PUBLICATION_INPUT_INVALID';
   END IF;
+  -- The card's living-person lock before any row's (Codex's sixth review of 17 Nov 2026; the rule's triggers below).
+  PERFORM pg_advisory_xact_lock(1096043600, target_card_number);
   -- The readings first, each row locked in the keys' order, as record_atlas_living_person locks them.
   FOR draft IN SELECT entry.draft_value FROM jsonb_array_elements(publication_drafts) AS entry(draft_value)
                 ORDER BY entry.draft_value #>> '{livingPerson,claimKey}',
@@ -193,6 +195,13 @@ BEGIN
     draft_living := NULLIF(draft -> 'livingPerson', 'null'::jsonb);
     draft_claim_key := draft_living ->> 'claimKey';
     stored_reading := readings ->> draft_claim_key;
+    -- Codex's sixth review of 17 Nov 2026 (P0): a draft without a claim key (an earlier image's) can't be matched to its
+    -- own reading, so it is held when any finding of its card is stored as yes, as the rule's trigger holds its row; an
+    -- owner_action showing of it then stores no decision, as for a yes matched by its key.
+    IF draft_claim_key IS NULL AND EXISTS (SELECT 1 FROM atlas_living_person_readings stored_yes
+                                            WHERE stored_yes.card_number = target_card_number AND stored_yes.reading = 'yes') THEN
+      stored_reading := 'yes';
+    END IF;
     IF draft_state IN ('unreviewed', 'held') AND (stored_reading = 'yes'
        OR (stored_reading = 'not_said' AND (draft_living -> 'holdNotSaid') = 'true'::jsonb)) THEN
       draft_state := 'held';
@@ -283,6 +292,7 @@ SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 DECLARE
   target atlas_publications%ROWTYPE;
+  locked_card integer;
 BEGIN
   IF target_publication_numbers IS NULL OR target_atlas_numbers IS NULL
      OR cardinality(target_publication_numbers) + cardinality(target_atlas_numbers) NOT BETWEEN 1 AND 100
@@ -294,6 +304,15 @@ BEGIN
   THEN
     RAISE EXCEPTION 'ATLAS_PUBLICATION_INPUT_INVALID';
   END IF;
+  -- Their cards' living-person locks before any row's, in the cards' order (Codex's sixth review of 17 Nov 2026).
+  FOR locked_card IN
+    SELECT DISTINCT stored.card_number FROM atlas_publications stored
+     WHERE stored.publication_number = ANY(target_publication_numbers)
+        OR stored.atlas_number = ANY(target_atlas_numbers)
+     ORDER BY stored.card_number
+  LOOP
+    PERFORM pg_advisory_xact_lock(1096043600, locked_card);
+  END LOOP;
   FOR target IN
     SELECT * FROM atlas_publications stored
      WHERE stored.publication_number = ANY(target_publication_numbers)
@@ -451,6 +470,8 @@ BEGIN
       RAISE EXCEPTION 'ATLAS_PUBLICATION_INPUT_INVALID';
     END IF;
   END LOOP;
+  -- The card's living-person lock before any row's (Codex's sixth review of 17 Nov 2026; the rule's triggers below).
+  PERFORM pg_advisory_xact_lock(1096043600, target_card_number);
   FOR entry IN SELECT given.value FROM jsonb_array_elements(card_readings) AS given(value)
                 ORDER BY given.value ->> 'claimKey', given.value ->> 'reading' = 'yes' DESC LOOP
     INSERT INTO atlas_living_person_readings AS stored (card_number, claim_key, reading, recorded_at)
@@ -555,6 +576,7 @@ SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 DECLARE
   target atlas_publications%ROWTYPE;
+  locked_card integer;
 BEGIN
   IF target_publication_numbers IS NULL OR target_atlas_numbers IS NULL
      OR cardinality(target_publication_numbers) + cardinality(target_atlas_numbers) NOT BETWEEN 1 AND 100
@@ -569,6 +591,15 @@ BEGIN
   THEN
     RAISE EXCEPTION 'ATLAS_PUBLICATION_INPUT_INVALID';
   END IF;
+  -- Their cards' living-person locks before any row's, in the cards' order (Codex's sixth review of 17 Nov 2026).
+  FOR locked_card IN
+    SELECT DISTINCT stored.card_number FROM atlas_publications stored
+     WHERE stored.publication_number = ANY(target_publication_numbers)
+        OR stored.atlas_number = ANY(target_atlas_numbers)
+     ORDER BY stored.card_number
+  LOOP
+    PERFORM pg_advisory_xact_lock(1096043600, locked_card);
+  END LOOP;
   FOR target IN
     SELECT * FROM atlas_publications stored
      WHERE stored.publication_number = ANY(target_publication_numbers)
@@ -604,31 +635,48 @@ REVOKE ALL ON FUNCTION show_atlas_publications(text[], text[], text, text, times
 -- keep_atlas_publications as an earlier image calls it, the hold script, or a hand-written UPDATE by any role. It holds
 -- rather than refuses, so an earlier image's write never fails on an error it doesn't know; the server reads the row
 -- back after each showing and says what is true. A held row's route goes with the page it doesn't have: a write that
--- gives one, or a new row, keeps none. A new row without a claim key (an earlier image's) is held when any finding of
--- its card is stored as yes. A publication from before claim keys were stored (claim_key NULL) has no stored reading of
--- its own; record_atlas_living_person holds such rows by number, and a later write doesn't read one for them.
+-- gives one, or a new row, keeps none.
+--
+-- Codex's sixth review of 17 Nov 2026 (two P0s). (1) A publication and a yes written at the same moment: each trigger,
+-- and every function that writes a card's readings or publications, first takes the card's transaction lock
+-- (pg_advisory_xact_lock(1096043600, the card's number); 1096043600 is 'ATLP'), so the two wait for each other, and
+-- what each reads next it reads after the other's commit, rows not yet stored included. That holds in READ COMMITTED,
+-- where each statement reads anew, as every writer here runs; a transaction whose snapshot is older (REPEATABLE READ or
+-- SERIALIZABLE) can't read a yes committed since, so such a write is refused when the rule would let it show
+-- (ATLAS_LIVING_PERSON_RULE_NEEDS_READ_COMMITTED). (2) A row without a claim key (from before keys were stored, or an
+-- earlier image's) can't be matched to its own reading, so, on the careful side, it is held when any finding of its
+-- card is stored as yes, and no UPDATE makes it show that didn't show before (unreviewed with its texts): only the
+-- owner's decision (accept_finding or edit_finding, or his own showing) shows it again.
 CREATE OR REPLACE FUNCTION atlas_publication_living_person_hold()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
+DECLARE
+  holds boolean;
 BEGIN
   IF NEW.published_json IS NULL OR NEW.owner_decided_at IS NOT NULL OR NEW.state NOT IN ('unreviewed', 'held')
      OR (NEW.state = 'held' AND NEW.held_because ? 'living_person_review')
   THEN
     RETURN NEW;
   END IF;
+  PERFORM pg_advisory_xact_lock(1096043600, NEW.card_number);
   IF NEW.claim_key IS NOT NULL THEN
-    IF NOT EXISTS (SELECT 1 FROM atlas_living_person_readings readings
-                    WHERE readings.card_number = NEW.card_number AND readings.claim_key = NEW.claim_key
-                      AND readings.reading = 'yes') THEN
-      RETURN NEW;
+    holds := EXISTS (SELECT 1 FROM atlas_living_person_readings readings
+                      WHERE readings.card_number = NEW.card_number AND readings.claim_key = NEW.claim_key
+                        AND readings.reading = 'yes');
+  ELSE
+    holds := EXISTS (SELECT 1 FROM atlas_living_person_readings readings
+                      WHERE readings.card_number = NEW.card_number AND readings.reading = 'yes')
+             OR (TG_OP = 'UPDATE' AND NEW.state = 'unreviewed'
+                 AND (OLD.state <> 'unreviewed' OR OLD.published_json IS NULL));
+  END IF;
+  IF NOT holds THEN
+    IF current_setting('transaction_isolation') <> 'read committed' THEN
+      RAISE EXCEPTION 'ATLAS_LIVING_PERSON_RULE_NEEDS_READ_COMMITTED'
+        USING ERRCODE = '0A000', DETAIL = 'A write that would show an Atlas publication runs in READ COMMITTED, so it reads the living-person readings committed before it.';
     END IF;
-  -- A new row without a key (an earlier image's draft gives none) can't be matched to its own reading: it is held
-  -- when any finding of its card is stored as yes.
-  ELSIF TG_OP <> 'INSERT' OR NOT EXISTS (SELECT 1 FROM atlas_living_person_readings readings
-                                          WHERE readings.card_number = NEW.card_number AND readings.reading = 'yes') THEN
     RETURN NEW;
   END IF;
   IF NEW.state = 'unreviewed' THEN
@@ -656,9 +704,10 @@ CREATE TRIGGER atlas_publications_living_person_hold
   EXECUTE FUNCTION atlas_publication_living_person_hold();
 
 -- A reading stored as yes holds, in the same transaction, each publication of its claim that the rule above holds,
--- whoever stored it. At the transaction's end, so record_atlas_living_person and publish_atlas_findings, which hold
--- first, still say what they did; it locks every publication of the claim first, so a showing that runs meanwhile
--- waits for this transaction, then reads the yes.
+-- and each of its card's publications without a claim key (Codex's sixth review of 17 Nov 2026), whoever stored it. At
+-- the transaction's end, so record_atlas_living_person and publish_atlas_findings, which hold first, still say what
+-- they did. It takes the card's lock first (the rule above): a publication written meanwhile, stored or not yet, has
+-- committed before it reads them, or reads the yes after this transaction's commit.
 CREATE OR REPLACE FUNCTION atlas_living_person_reading_hold()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -666,19 +715,24 @@ SECURITY DEFINER
 SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 BEGIN
+  IF current_setting('transaction_isolation') <> 'read committed' THEN
+    RAISE EXCEPTION 'ATLAS_LIVING_PERSON_RULE_NEEDS_READ_COMMITTED'
+      USING ERRCODE = '0A000', DETAIL = 'A living-person yes is stored in READ COMMITTED, so it reads the publications committed before it.';
+  END IF;
+  PERFORM pg_advisory_xact_lock(1096043600, NEW.card_number);
   IF NOT EXISTS (SELECT 1 FROM atlas_living_person_readings readings
                   WHERE readings.card_number = NEW.card_number AND readings.claim_key = NEW.claim_key
                     AND readings.reading = 'yes') THEN
     RETURN NULL;
   END IF;
   PERFORM 1 FROM atlas_publications stored
-    WHERE stored.card_number = NEW.card_number AND stored.claim_key = NEW.claim_key
+    WHERE stored.card_number = NEW.card_number AND (stored.claim_key = NEW.claim_key OR stored.claim_key IS NULL)
     ORDER BY substring(stored.publication_number FROM 3)::bigint
     FOR UPDATE;
   -- atlas_publications_living_person_hold holds each one this write touches.
   UPDATE atlas_publications stored
      SET state_changed_at = greatest(clock_timestamp(), stored.state_changed_at)
-   WHERE stored.card_number = NEW.card_number AND stored.claim_key = NEW.claim_key
+   WHERE stored.card_number = NEW.card_number AND (stored.claim_key = NEW.claim_key OR stored.claim_key IS NULL)
      AND stored.published_json IS NOT NULL AND stored.owner_decided_at IS NULL
      AND (stored.state = 'unreviewed' OR (stored.state = 'held' AND NOT stored.held_because ? 'living_person_review'));
   RETURN NULL;

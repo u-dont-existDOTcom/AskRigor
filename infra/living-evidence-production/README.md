@@ -955,11 +955,23 @@ earlier image's, the hold script's restore or a hand-written `UPDATE`, can store
 a publication unreviewed with its texts while its stored reading is yes and the
 owner hasn't decided it. Such a write stores it held instead
 (`living_person_review`, no page) rather than failing, and a reading stored as
-yes holds such a publication in the same transaction. `publish_cards` needs
+yes holds such a publication in the same transaction. Since Codex's sixth
+review, a publication and a yes written at the same moment wait for each other
+(each takes its card's transaction lock first), whichever commits first, and a
+write of either in `REPEATABLE READ` or `SERIALIZABLE` that the rule would let
+show is refused (`ATLAS_LIVING_PERSON_RULE_NEEDS_READ_COMMITTED`), since its
+older snapshot can't read the other's commit; every writer here runs in
+`READ COMMITTED`. A publication from before claim keys were stored
+(`claim_key` NULL) matches no reading, so it is held when any finding of its
+card is stored as yes, and no `UPDATE` shows it again, the hold script's restore
+included: only the owner's `accept_finding` or `edit_finding` does, and the
+restore says which applies. `publish_cards` needs
 `later_inputs.shown_by: owner`, as `show_on_pages` does, and the owner's
 `show_on_pages` of a held finding says it stays held. When a save's record
 fails, this server process also stops showing, on every page, list and lookup,
-an unreviewed finding whose claim that save said names a living person, until a
+an unreviewed finding of that card whose claim that save said names a living
+person (the same claim on another card shows, once the save has read its card),
+until a
 later save of the card, or the same one tried again, records it; and
 `finalize_research` says the save failed and can be retried, and how. That is
 kept in memory only: it lasts until `research-mcp` restarts, and a restart
