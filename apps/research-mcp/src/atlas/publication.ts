@@ -666,8 +666,15 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
     let matched: string[] = [];
     if (saved.kind === "existing" && naming.size > 0) {
       const rows = await this.options.store.inspect({ cardNumbers: [saved.issueNumber], limit: ATLAS_PUBLICATIONS_PER_INSPECT });
-      matched = rows.filter(({ published }) => published !== null && naming.has(livingPersonClaimKey(published.claim)))
-        .map(({ publicationNumber }) => publicationNumber).slice(0, ATLAS_LIVING_PERSON_MATCHES_PER_RECORD);
+      const ofClaims = rows.filter(({ published }) => published !== null && naming.has(livingPersonClaimKey(published.claim)))
+        .map(({ publicationNumber }) => publicationNumber);
+      matched = ofClaims.slice(0, ATLAS_LIVING_PERSON_MATCHES_PER_RECORD);
+      // Codex's sixth review of 17 Nov 2026 (P2): the pages keep off only this card's publications of these claims,
+      // unless the card has more than one read returns, when the claims stay off on every card.
+      if (rows.length < ATLAS_PUBLICATIONS_PER_INSPECT) unrecorded.scope(saved.issueNumber, ofClaims);
+    } else if (naming.size > 0) {
+      // A card this save created has no publication yet.
+      unrecorded.scope(saved.issueNumber, []);
     }
     await this.options.store.recordLivingPerson({ cardNumber: saved.issueNumber, readings, publicationNumbers: matched,
       at: this.now().toISOString() });

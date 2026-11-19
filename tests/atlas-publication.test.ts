@@ -740,18 +740,42 @@ describe("publishing at the save", () => {
     const page = (publication: typeof shown[number]) => ({ publicationNumber: publication.publicationNumber,
       state: publication.state, atlasNumber: null, published: publication.published, publishedAt: publication.publishedAt,
       stateChangedAt: publication.stateChangedAt, kept: false, challenge: null, shownBy: null, shownTestVerdict: null });
+    // Codex's sixth review of 17 Nov 2026 (P2): the same sentence on another card (P-9001) still shows.
+    const elsewhere = { ...page(shown[0]!), publicationNumber: "P-9001" };
     const source = withoutUnrecordedLivingPerson({ read: async (work) => work({
-      listPublications: async () => shown.map(page) } as unknown as AtlasPageReads) }, livingPersonClaimKey, unrecorded);
+      listPublications: async () => [...shown.map(page), elsewhere] } as unknown as AtlasPageReads) },
+    livingPersonClaimKey, unrecorded);
     const listed = async () => (await source.read((reads) => reads.listPublications({ limit: 10 })))
       .map(({ publicationNumber }) => publicationNumber);
-    expect(await listed()).toEqual([shown[1]!.publicationNumber]);
+    expect(await listed()).toEqual([shown[1]!.publicationNumber, "P-9001"]);
     // Retried with the grant back: the record stores the yes, the database holds it, and the pages read it again.
     store.recordLivingPerson = record;
     await expect(h.save(yes, FREE, "2", { target: "ba9876543210", nlp: ["2"] })).resolves
       .toMatchObject({ status: "existing_card" });
     expect(unrecorded.has(naming)).toBe(false);
     expect((await store.inspect({ publicationNumbers: [shown[0]!.publicationNumber] }))[0]!.state).toBe("held");
-    expect(await listed()).toEqual(shown.map(({ publicationNumber }) => publicationNumber));
+    expect(await listed()).toEqual([...shown.map(({ publicationNumber }) => publicationNumber), "P-9001"]);
+  });
+
+  // Codex's sixth review of 17 Nov 2026 (P2): a claim waiting for its record stays off on every card only until the
+  // save has read its card's publications; then only those of its card stay off.
+  it("keeps a waiting claim off every card until its save reads its card, then off only its card's publications", () => {
+    const unrecorded = new UnrecordedLivingPersonClaims(new AtlasChangeSignal());
+    unrecorded.pending(7, ["k"]);
+    expect([unrecorded.hides("P-1001", "k"), unrecorded.hides("P-2001", "k"), unrecorded.hides("P-1001", "j")])
+      .toEqual([true, true, false]);
+    unrecorded.scope(7, ["P-1001"]);
+    expect([unrecorded.hides("P-1001", "k"), unrecorded.hides("P-2001", "k")]).toEqual([true, false]);
+    // A second save of the card: every card again, until it reads the card in turn.
+    unrecorded.pending(7, ["k2"]);
+    expect(unrecorded.hides("P-2001", "k")).toBe(true);
+    unrecorded.scope(7, []);
+    expect([unrecorded.hides("P-1001", "k"), unrecorded.hides("P-2001", "k2")]).toEqual([false, false]);
+    unrecorded.recorded(7, ["k", "k2"]);
+    expect(unrecorded.size).toBe(0);
+    // A scope for a card with nothing waiting changes nothing.
+    unrecorded.scope(8, []);
+    expect(unrecorded.size).toBe(0);
   });
 
   // The owner's answer to what a card that doesn't say means is still to come (question 346), so it is one setting,

@@ -9,12 +9,15 @@ import { atlasChanges, type AtlasChangeSignal } from "./change-signal.js";
  * stays shown in the database. So, from the moment a save starts its record until a record for that card stores the
  * claim (a later save, or the same save tried again), this process's pages don't show an unreviewed publication of a
  * claim the save said yes of: its page answers 404 and no list, search or map shows it. By the claim's key
- * (livingPersonClaimKey), since the pages never read a card's number; a claim on another card that reads the same is
- * kept off too. In memory only: it lasts until the process stops, and a restart serves only once the database's hold is
+ * (livingPersonClaimKey), since the pages never read a card's number, until the save has read its card's publications
+ * (scope); from then on, only those of its card (Codex's sixth review of 17 Nov 2026, P2: the same sentence on another
+ * card shows). In memory only: it lasts until the process stops, and a restart serves only once the database's hold is
  * ready (atlasHoldReadiness), which holds a stored yes itself.
  */
 export class UnrecordedLivingPersonClaims {
   private readonly byCard = new Map<number, Set<string>>();
+  /** A card's publications of its waiting claims, once the save has read them: only these stay off. */
+  private readonly scoped = new Map<number, Set<string>>();
 
   constructor(private readonly signal: AtlasChangeSignal = atlasChanges) {}
 
@@ -24,7 +27,19 @@ export class UnrecordedLivingPersonClaims {
     const keys = this.byCard.get(cardNumber) ?? new Set<string>();
     for (const key of claimKeys) keys.add(key);
     this.byCard.set(cardNumber, keys);
+    // Until this save reads its card's publications, its claims stay off on every card.
+    this.scoped.delete(cardNumber);
     // The pages' cache drops what it has, so a page already cached stops too.
+    this.signal.announce();
+  }
+
+  /**
+   * The save read its card's publications of the claims it waits to record: from now on only these stay off, and the
+   * same claim on another card shows. A card the save created has none yet.
+   */
+  scope(cardNumber: number, publicationNumbers: readonly string[]): void {
+    if (!this.byCard.has(cardNumber)) return;
+    this.scoped.set(cardNumber, new Set(publicationNumbers));
     this.signal.announce();
   }
 
@@ -34,13 +49,29 @@ export class UnrecordedLivingPersonClaims {
     if (keys === undefined) return;
     const before = keys.size;
     for (const key of claimKeys) keys.delete(key);
-    if (keys.size === 0) this.byCard.delete(cardNumber);
+    if (keys.size === 0) {
+      this.byCard.delete(cardNumber);
+      this.scoped.delete(cardNumber);
+    }
     if (keys.size !== before) this.signal.announce();
   }
 
   /** Whether a claim, by its key, waits for its record on any card. */
   has(claimKey: string): boolean {
     for (const keys of this.byCard.values()) if (keys.has(claimKey)) return true;
+    return false;
+  }
+
+  /**
+   * Whether the pages keep a publication off: its claim waits for its record on a card whose publications the save
+   * hasn't read yet, or it is one of those the save read.
+   */
+  hides(publicationNumber: string, claimKey: string): boolean {
+    for (const [cardNumber, keys] of this.byCard) {
+      if (!keys.has(claimKey)) continue;
+      const scoped = this.scoped.get(cardNumber);
+      if (scoped === undefined || scoped.has(publicationNumber)) return true;
+    }
     return false;
   }
 
@@ -67,7 +98,7 @@ export function withoutUnrecordedLivingPerson(
       const filtered = Object.create(reads) as AtlasPageReads;
       filtered.listPublications = async (query) => (await reads.listPublications(query)).filter((publication) =>
         !(publication.state === "unreviewed" && publication.published !== null &&
-          claims.has(claimKeyOf(publication.published.claim))));
+          claims.hides(publication.publicationNumber, claimKeyOf(publication.published.claim))));
       return work(filtered);
     }),
   };
