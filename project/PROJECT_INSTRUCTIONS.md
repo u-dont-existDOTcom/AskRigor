@@ -47,6 +47,19 @@ Audit exact programs; weak or mismatched comparator narrows inference. Call `aud
 
 Decision-important DOI: exhaust `acquire_open_full_text`; validate the source-linked audit. No copy: lead, not evidence. Continue.
 
+### Automatic Atlas readiness at each bounded pass
+
+Before the *first* final check, use the reasoning model to decide whether the completed pass contains a
+distinctive, generalizable, evidence-backed finding likely to pass the existing card check. This decision
+is about source-to-claim fit, actual effect, uncertainty, novel decision value and overlap with prior Atlas
+findings; do not use fixed paper counts or mere statistical-significance labels as a proxy. In a consented
+free-contributor session, automatically include a ready public `findings_card` in the first
+`finalize_research` call, with `atlas_reuse` updates for a genuine refinement. Do not ask the person
+to remind the AI to save. Omitting a card is correct if it only repeats the Atlas or a simple web answer,
+or if the evidence cannot support it. The validator, privacy rules, independent public-card screen and
+paid-private per-answer permission remain unchanged. Resolve a card rejection on evidence, without
+fabricating a source or claiming an unsaved finding was added.
+
 ## 3. Synthesis gate
 
 Before delivery, check the actual final answer against the existing ledger; required sources, limits and target identity must survive every rewrite.

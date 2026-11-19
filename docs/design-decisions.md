@@ -165,6 +165,10 @@ Why: in tests, model checkers found about a third to a half of what the regressi
 Not done: a model check on other people's answers before payments and a privacy change (their health details would go to the model's company). · Decided: 2 Nov 2026 (owner answer 221); models measured 30 Oct (198a).
 
 ## The Atlas and cards
+**The AI prepares an Atlas submission on its own when a bounded research pass has enough verified, distinctive evidence to make a valuable card likely to pass.**\
+Why: the owner, 14 November 2026, asked to stop having to request Atlas updates after research. The established free-contributor card validation and auto-save already work; the missing step was the AI's *proactive readiness decision before its first final check*. It must compare with existing Atlas findings, preserve uncertainty and relevant endpoints, and skip duplicate, obvious, unsupported or personal-only claims. A useful bounded finding need not await every open research lead.\
+Not done: publishing the whole research map, converting source counts/p-values into an eligibility threshold, bypassing public-page quality review or consent, adding a paid API call, saving paid-private cards without per-answer permission, or a new seventh blocking final check. This is an instruction/workflow activation, not verified universal model compliance. · Decided: 14 Nov 2026; implementation proposed, production validation pending.
+
 
 **16 Nov 2026 owner update: preserve unusually time-saving, connected, well-sourced in-depth research, even when some individual findings are mainstream. This supersedes the novelty-only Atlas publication test for qualifying research dossiers.**
 Why: the inositol research involved multiple high-effort comparisons and separately verified harms, but its seven published records were scattered over three topics, marked kept for research and unavailable to public site search; the broad research was not preserved as a coherent whole. A later reader should not have to redo the retrieval, comparisons and evidence screening.
