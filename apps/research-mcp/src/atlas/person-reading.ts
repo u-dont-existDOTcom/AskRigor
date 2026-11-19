@@ -279,8 +279,8 @@ export class AtlasPersonReadingWorker {
       const switchedOn = this.options.since === undefined ? Number.NaN : Date.parse(this.options.since);
       const backfill = now.getTime() >= switchedOn && now.getTime() < switchedOn + DAY;
       const day = backfill ? this.options.since!.slice(0, 10) : now.toISOString().slice(0, 10);
-      const capUsd = backfill && this.options.capUsd > 0 ? Math.max(this.options.capUsd, PERSON_BACKFILL_CAP_USD)
-        : this.options.capUsd;
+      // Exactly USD 5 that day, whatever the daily cap, unless the cap is 0 (Codex's check of the last fix round).
+      const capUsd = backfill && this.options.capUsd > 0 ? PERSON_BACKFILL_CAP_USD : this.options.capUsd;
       // Only publications here: a news item's hints are the news pages' (the news design v3, 3.8).
       const hints = new Map((await this.options.store.takeHints("publication", 5, now.toISOString()))
         .map(({ publicationNumber, sentenceKey, disputeNumber }) => [publicationNumber, { sentenceKey, disputeNumber }]));

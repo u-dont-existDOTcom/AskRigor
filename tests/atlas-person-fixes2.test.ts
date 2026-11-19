@@ -19,7 +19,7 @@ import { topicKeyText } from "../apps/research-mcp/src/findings/topic-key.js";
 import { AtlasChangeSignal } from "../apps/research-mcp/src/atlas/change-signal.js";
 import { AtlasKeptReview } from "../apps/research-mcp/src/atlas/kept-review.js";
 import { lookupAtlas } from "../apps/research-mcp/src/atlas/lookup-tool.js";
-import { loadAtlasSearchIndex, type ShownFinding } from "../apps/research-mcp/src/atlas/page-data.js";
+import { loadAtlasFinding, loadAtlasSearchIndex, type ShownFinding } from "../apps/research-mcp/src/atlas/page-data.js";
 import { createAtlasPagesHandler, type CreateAtlasPagesHandlerOptions } from "../apps/research-mcp/src/atlas/pages-http.js";
 import {
   applyPersonClaims,
@@ -267,6 +267,19 @@ describe("the planted topic name, key and query on every public surface (Codex's
     expect(held?.atlas_findings?.map(({ publication_number }) => publication_number)).toEqual([number]);
     expect(JSON.stringify(held)).not.toMatch(/zentaro/iu);
     expect(held!.atlas_findings![0]!.wording).toContain("Left out here: an unverified claim of fraud about a named person.");
+    // A removal keeps the finding's own context, its hidden topic included (Codex's check of this round).
+    await serve({ enabled: true, source, signal: new AtlasChangeSignal(), personClaims: { store: person } }, async (base) => {
+      const form = await (await fetch(`${base}/atlas/findings/${number}/person`)).text();
+      const token = /name="token" value="([A-Za-z0-9_-]+)"/u.exec(form)![1]!;
+      const posted = await fetch(`${base}/atlas/findings/${number}/person`, { method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded", origin: "https://askrigor.com" },
+        body: new URLSearchParams({ token, sentence: personSentencesOf((await loadAtlasFinding(source, number))!.finding)
+          .find(({ text }) => text === PLANTS.claim)!.key, what: "False: I sell nothing." }).toString() });
+      expect(await posted.text()).toContain("That sentence is off the Atlas pages now");
+    });
+    expect((await source.read(async (reads) => await reads.personClaims!.listTakenOffMemory()))
+      .flatMap(({ contextKeys }) => contextKeys ?? []))
+      .toContain(`topic:${TOPIC.key}`);
   });
 });
 
@@ -287,6 +300,25 @@ describe("the registration hand-over (Fable's change 2)", () => {
       clock = 1_001;
       expect((await find(question)).length).toBe(fresh ? 0 : 1);
     }
+    // A reading that began keepMs ago or more is never handed over, even when it ends during a later wait (Codex's
+    // check of this round): the second reading starts at 1,001, is still running at 2,002, then ends during the wait.
+    let clock = 0;
+    let loads = 0;
+    let finishSecond: (index: typeof index) => void = () => undefined;
+    const find = atlasNearFinder(source, { fresh: true, now: () => clock, keepMs: 1_000, waitMs: 40, retryMs: 50,
+      load: async () => {
+        loads += 1;
+        if (loads === 1) return index;
+        if (loads === 2) return await new Promise<typeof index>((resolve) => { finishSecond = resolve; });
+        return await new Promise<never>(() => undefined);
+      } });
+    expect((await find(question)).length).toBe(1);
+    clock = 1_001;
+    expect(await find(question)).toEqual([]);
+    clock = 2_002;
+    setTimeout(() => finishSecond(index), 5);
+    expect(await find(question)).toEqual([]);
+    expect(loads).toBe(3);
   });
 });
 
@@ -347,7 +379,7 @@ describe("the backfill cap (the default for switch-on)", () => {
   it("reads at USD 5 for the first day after the switch, counted under its date, then at the daily cap", async () => {
     const caps: Array<[string, number, string]> = [];
     for (const [at, capUsd] of [["2026-11-20T07:59:59.000Z", 1], ["2026-11-20T08:00:00.000Z", 1],
-      ["2026-11-19T09:30:00.000Z", 0]] as const) {
+      ["2026-11-19T09:30:00.000Z", 0], ["2026-11-19T09:30:00.000Z", 7]] as const) {
       const { person, source } = await published();
       const reserve = person.reserveSpend.bind(person);
       person.reserveSpend = async (input) => {
@@ -358,7 +390,9 @@ describe("the backfill cap (the default for switch-on)", () => {
         now: () => new Date(at), signal: new AtlasChangeSignal(), log: () => undefined }).pass();
     }
     expect(caps).toEqual([["2026-11-19", 5, "2026-11-20T07:59:59.000Z"], ["2026-11-20", 1, "2026-11-20T08:00:00.000Z"],
-      ["2026-11-19", 0, "2026-11-19T09:30:00.000Z"]]);
+      ["2026-11-19", 0, "2026-11-19T09:30:00.000Z"],
+      // Exactly USD 5 that first day, whatever the daily cap (Codex's check of this round).
+      ["2026-11-19", 5, "2026-11-19T09:30:00.000Z"]]);
   });
 });
 

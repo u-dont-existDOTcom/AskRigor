@@ -546,6 +546,11 @@ export interface PersonClaimView {
   readingDigest: string | null;
   /** The digest of the texts and evidence alone: a dispute checks it again after its removal, to catch a change. */
   contentDigest: string;
+  /**
+   * The finding's context as its own texts give it, its topic included when the page hides it: kept with a removal,
+   * so a paraphrase on the same topic is read with the removed words (Codex's check of the last fix round).
+   */
+  contextKeys: string[];
   banner: string | null;
   /** Kept out of search engines, with a neutral title and description (design 4.4). */
   noindex: boolean;
@@ -850,6 +855,7 @@ export function applyPersonClaims(finding: ShownFinding, context: PersonClaimCon
   const noindex = unread || waiting || unverifiedPerson;
   shown.personClaims = {
     state, readingDigest: state === "read" ? context.reading?.digest ?? null : null, contentDigest: personDigestOf(finding),
+    contextKeys: personContextKeys(finding),
     banner, noindex,
     // The topic as shown: a hidden one is never a title (Fable's recheck of B, change 1).
     neutralTitle: noindex ? personNeutralTitle(shown, unread || (waiting && !unverifiedPerson)) : null,
