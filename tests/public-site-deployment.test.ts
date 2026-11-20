@@ -15,17 +15,20 @@ const bash = (script: string) => spawnSync("bash", ["-c", script], {
   encoding: "utf8"
 });
 
-/** The Caddyfile's `handle @atlas { ... }` block, through its matching closing brace. */
-function atlasHandle(caddyfile: string): string {
-  const start = caddyfile.indexOf("handle @atlas {");
-  if (start < 0) throw new Error("no /atlas handle");
+/** The Caddyfile's block that opens with `opener` (such as `handle @atlas {`), through its matching closing brace. */
+function handleBlock(caddyfile: string, opener: string): string {
+  const start = caddyfile.indexOf(opener);
+  if (start < 0) throw new Error(`no ${opener}`);
   let depth = 0;
   for (let at = start; at < caddyfile.length; at += 1) {
     if (caddyfile[at] === "{") depth += 1;
     if (caddyfile[at] === "}" && --depth === 0) return caddyfile.slice(start, at + 1);
   }
-  throw new Error("unclosed /atlas handle");
+  throw new Error(`unclosed ${opener}`);
 }
+const atlasHandle = (caddyfile: string) => handleBlock(caddyfile, "handle @atlas {");
+const phoneHandle = (caddyfile: string) => handleBlock(caddyfile, "handle @phone {");
+const relayHandle = (caddyfile: string) => handleBlock(caddyfile, "handle @relay {");
 
 let caddy: string;
 let compose: string;
@@ -74,7 +77,8 @@ describe("public-site deployment packet", () => {
 
   it("proxies /atlas to the research server with the pages' own headers, before the final 404", () => {
     const atlas = atlasHandle(caddy);
-    const rest = caddy.replace(atlas, "");
+    // The phone page's block sets its own headers too (owner answer 385b), pinned in the test below.
+    const rest = caddy.replace(atlas, "").replace(phoneHandle(caddy), "");
     // Exactly /atlas and the paths below it, never /atlasx.
     expect(caddy).toContain("\t@atlas path /atlas /atlas/*\n\thandle @atlas {");
     expect(caddy).not.toMatch(/\/atlas\*/u);
@@ -98,13 +102,48 @@ describe("public-site deployment packet", () => {
     expect(atlas).not.toMatch(/^\t+Referrer-Policy/mu);
     expect(atlas).not.toMatch(/script-src|unsafe-|form-action 'none'/u);
     // The site's headers skip /atlas, so its form-action 'none' never joins the pages' policy.
-    expect(rest).toContain("@site not path /atlas /atlas/*");
+    expect(rest).toContain("@site not path /atlas /atlas/* /phone /phone/* /relay /relay/*");
     expect(rest.match(/^\s*header\b.*$/gmu)).toEqual(["\theader @site {"]);
     expect(rest).toContain("form-action 'none'");
     // The /atlas handle comes after the site's own routes and before the final 404, which answers every other path.
     expect(caddy.indexOf("handle @atlas {")).toBeGreaterThan(caddy.indexOf("handle @assets {"));
     expect(caddy.indexOf("handle @atlas {")).toBeLessThan(caddy.lastIndexOf("handle {"));
     expect(caddy.slice(caddy.lastIndexOf("handle {"))).toMatch(/^handle \{\s+respond 404\s+\}\s+\}\s*$/u);
+  });
+
+  it("serves the phone page under its own policy and proxies only the relay's two paths (owner answer 385b)", () => {
+    const phone = phoneHandle(caddy);
+    const relay = relayHandle(caddy);
+    // The site's headers skip the phone page and the relay, which answer with their own.
+    expect(caddy).toContain("\t@site not path /atlas /atlas/* /phone /phone/* /relay /relay/*\n\theader @site {");
+    // /phone goes to /phone/, and /phone/ and everything below it is the committed site/phone/ folder.
+    expect(caddy).toContain("\thandle /phone {\n\t\tredir * /phone/\n\t}\n");
+    expect(caddy).toContain("\t@phone path /phone/*\n\thandle @phone {");
+    expect(phone).toMatch(/\n\t\tfile_server\n\t\}$/u);
+    expect(phone).not.toMatch(/reverse_proxy|browse|root /u);
+    // The page's exact policy: its own scripts and styles, the relay's WebSocket, and nothing else.
+    expect(phone).toContain(`Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; ` +
+      `img-src 'self' data:; connect-src 'self' wss://askrigor.com; manifest-src 'self'; base-uri 'none'; ` +
+      `form-action 'none'; frame-ancestors 'none'; object-src 'none'; worker-src 'none'"`);
+    expect(phone.match(/Content-Security-Policy/gu)).toHaveLength(1);
+    expect(phone).not.toMatch(/unsafe-|script-src [^;]*(?:https?:|\*|data:)|'strict-dynamic'/u);
+    for (const header of ["X-Content-Type-Options nosniff", "X-Frame-Options DENY", "Referrer-Policy no-referrer",
+      'Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=(), interest-cohort=()"',
+      'Strict-Transport-Security "max-age=31536000"', "Cache-Control no-cache", "-Server"]) {
+      expect(phone).toContain(`\t\t\t${header}\n`);
+    }
+    // The relay: exactly /relay and /relay/health, never /relay/* or /relayx, to its container on the production
+    // network, with the reader's address from this connection replacing any value a client sent.
+    expect(caddy).toContain("\t@relay path /relay /relay/health\n\thandle @relay {");
+    expect(caddy).not.toMatch(/\/relay\*|path [^\n]*\/relay\/\*[^\n]*\n\thandle @relay/u);
+    expect(relay).toBe("handle @relay {\n\t\treverse_proxy phone-relay:8787 {\n" +
+      "\t\t\theader_up X-AskRigor-Client-IP {remote_host}\n\t\t}\n\t}");
+    // Both come after the site's own routes and before the final 404.
+    for (const opener of ["handle /phone {", "handle @phone {", "handle @relay {"]) {
+      expect(caddy.indexOf(opener), opener).toBeGreaterThan(caddy.indexOf("handle @atlas {"));
+      expect(caddy.indexOf(opener), opener).toBeLessThan(caddy.lastIndexOf("handle {"));
+    }
+    expect(caddy.match(/owner answer 385b/gu)?.length).toBeGreaterThanOrEqual(2);
   });
 
   it("puts in the Atlas upstream and proxy secret only after checking them", async () => {
