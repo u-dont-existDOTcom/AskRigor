@@ -1,0 +1,32 @@
+# The phone relay (owner answer 385b), its own Compose project beside the production one. It runs the exact reviewed
+# AskRigor image with another entry point, reads only /opt/askrigor/phone-relay.env (PHONE_RELAY_LAPTOP_KEYS: public
+# keys, not secrets), and publishes no port: Caddy reaches it as phone-relay:8787 on the production network, which is
+# external here. It mounts nothing, holds no secrets, and is not on living_evidence_private. Prepared only: nothing
+# goes to the server without the owner's typed "release".
+name: askrigor-phone-relay
+
+services:
+  phone-relay:
+    image: ${ASKRIGOR_PHONE_RELAY_IMAGE:?set the exact reviewed AskRigor image}
+    entrypoint: [node, apps/phone-relay/dist/index.js]
+    env_file: [/opt/askrigor/phone-relay.env]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    cpus: 0.25
+    pids_limit: 64
+    restart: unless-stopped
+    ports: []
+    logging:
+      driver: json-file
+      options:
+        max-size: 1m
+        max-file: "1"
+    networks:
+      askrigor_default:
+        aliases: [phone-relay]
+
+networks:
+  askrigor_default:
+    external: true
