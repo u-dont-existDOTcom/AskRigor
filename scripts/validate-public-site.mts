@@ -159,7 +159,6 @@ const phoneFiles = new Set([
   "app.css",
   "app.js",
   "link.js",
-  "phone.js",
   "manifest.webmanifest",
   "icon-192.png",
   "icon-512.png",

@@ -397,7 +397,7 @@ describe("the phone page's folder (owner answer 385b)", () => {
     "<!doctype html>",
     '<html lang="en">',
     '<head><meta charset="utf-8"><link rel="stylesheet" href="app.css"><link rel="manifest" href="manifest.webmanifest">',
-    '<script src="app.js" defer></script><script type="module" src="./phone.js"></script></head>',
+    '<script src="app.js" defer></script><script type="module" src="./link.js"></script></head>',
     '<body><main id="app"></main><script src="link.js"></script></body>',
     "</html>",
     ""
@@ -407,7 +407,6 @@ describe("the phone page's folder (owner answer 385b)", () => {
     ["app.css", "body { margin: 0; }\n"],
     ["app.js", "export const app = 1;\n"],
     ["link.js", "export const link = 2;\n"],
-    ["phone.js", "export const phone = 3;\n"],
     ["manifest.webmanifest", '{"name":"AskRigor"}\n'],
     ["icon-192.png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 1])],
     ["icon-512.png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 2])],
