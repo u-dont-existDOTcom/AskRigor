@@ -1,4 +1,4 @@
-// The runner's own page script (app/page.html at runner 74f2d7cb7347), with api() handed to the phone link.
+// The runner's own page script (app/page.html at runner b2e7f17203d2), with api() handed to the phone link.
 
 "use strict";
 const $ = (id) => document.getElementById(id);
