@@ -168,6 +168,18 @@ describe("finalize_research stages the owner's news check's own card (Atlas news
     }
   });
 
+  it("stages no card whose DOI isn't one the call's verified receipts name", async () => {
+    const { store, finalize } = await setUp("shadow");
+    const otherPaper = { ...NEWS_CARD, sources: ["PMC10518852", "10.1000/another.paper"], doi: "10.1000/another.paper" };
+    const structured = (await finalize(call({ news_card: otherPaper, findings_save: "off" })))
+      .structuredContent as Record<string, any>;
+    expect(structured.news).toEqual({ status: "not_staged", reason: "doi_not_verified" });
+    const signed = verifyResearchReceipt(structured.finalization_receipt as string, { secret: SECRET });
+    expect(signed.ok && signed.claims.news).toBeUndefined();
+    expect(await store.inspectDay(new Date().toISOString().slice(0, 10), new Date().toISOString()))
+      .toEqual({ day: null, items: [] });
+  });
+
   it("never lets a news card change the check: one that breaks a rule is named, and the answer passes as it would", async () => {
     const { store, finalize } = await setUp("shadow");
     const without = (await finalize(call({ findings_save: "off" }))).structuredContent as Record<string, any>;

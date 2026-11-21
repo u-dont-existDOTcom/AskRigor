@@ -1762,26 +1762,37 @@ async function verifyAtlasNews(context: {
   }
   checks.push("news_tables_closed_to_every_role_and_functions_granted_to_exactly_one");
 
-  // Through the roles' own connections, as the server makes them.
+  // Through the roles' own connections, as the server makes them. The day call commits only the database's own UTC
+  // date, so the flow runs on today's: yesterday's committed day is written directly, as the migrator.
   const staging = new PostgresAtlasNewsStore({ connectionString: context.accessUrl, schema: SCHEMA });
   const review = new PostgresAtlasNewsStore({ connectionString: context.reviewUrl, schema: SCHEMA });
   const hex = (label: string) => createHash("sha256").update(`news-acceptance:${label}`).digest("hex");
+  const nowIso = () => new Date().toISOString();
+  const today = nowIso().slice(0, 10);
+  const yesterday = new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
   const item = (label: string) => ({
     itemId: `item-${label}`, checkId: `check-${label}`, card: { item_id: `item-${label}`, finding: `Synthetic ${label}` },
     cardSha256: hex(`card:${label}`), draft: `Synthetic draft ${label}`, draftSha256: hex(`draft:${label}`),
     receiptClaims: { news: hex(`card:${label}`), nl: ["1:f:full_text"], ns: [], nr: ["1:full_text_read:-"] },
-    receiptIssuedAt: "2026-11-23T05:30:00.000Z", doi: "10.1000/synthetic.news",
+    receiptIssuedAt: nowIso(), doi: "10.1000/synthetic.news",
   });
   const future = () => new Date(Date.now() + 60_000).toISOString();
   try {
-    const one = await staging.stage(item("one"), "2026-11-23T06:00:00.000Z");
-    const again = await staging.stage(item("one"), "2026-11-23T06:01:00.000Z");
+    const carried = await staging.stage(item("carried"), `${yesterday}T06:00:00.000Z`);
+    await admin.query(`UPDATE ${SCHEMA}.atlas_news_items SET state = 'shadow', item_kind = 'main', committed_day = $1::date,
+      committed_version = 1 WHERE news_number = $2`, [yesterday, Number(carried.number.slice(2))]);
+    await admin.query(`INSERT INTO ${SCHEMA}.atlas_news_days (news_day, day_version, payload_sha256, rerank, stored_order,
+      moves, lines, kept_back, committed_at) VALUES ($1::date, 1, $2, false, $3::jsonb, '[]', '[]', '[]', now())`,
+    [yesterday, hex("payload:yesterday"), JSON.stringify([carried.number])]);
+    const base = { day: yesterday, version: 1 };
+    const one = await staging.stage(item("one"), nowIso());
+    const again = await staging.stage(item("one"), nowIso());
     assert(!one.alreadyStaged && again.alreadyStaged && again.number === one.number && /^N-[1-9][0-9]{3,}$/u.test(one.number),
       "NEWS_STAGE_NOT_IDEMPOTENT");
-    const line = await staging.stage(item("line"), "2026-11-23T06:02:00.000Z");
-    const old = await staging.stage(item("old"), "2026-11-21T06:00:00.000Z");
+    const line = await staging.stage(item("line"), nowIso());
+    const old = await staging.stage(item("old"), new Date(Date.now() - 25 * 3_600_000).toISOString());
     const commit = (overrides: Partial<AtlasNewsDayCommit> = {}): AtlasNewsDayCommit => ({
-      day: "2026-11-23", payloadSha256: hex("payload:one"), base: null, rerank: false, order: [one.number],
+      day: today, payloadSha256: hex("payload:one"), base, rerank: false, order: [carried.number, one.number],
       decisions: [
         { number: one.number, kind: "main" as const, passed: true, reasons: [], reading: { model: "synthetic" },
           readingModel: "synthetic", retraction: "no_retraction_record_found" as const },
@@ -1794,70 +1805,58 @@ async function verifyAtlasNews(context: {
     // A call past its deadline stores nothing.
     let late = false;
     try {
-      await review.commitDay(commit({ payloadSha256: hex("payload:late") }), "2026-11-23T07:00:00.000Z",
-        new Date(Date.now() - 1_000).toISOString());
+      await review.commitDay(commit({ payloadSha256: hex("payload:late") }), nowIso(), new Date(Date.now() - 1_000).toISOString());
     } catch (error) {
       late = error instanceof AtlasNewsError && error.code === "LATE";
     }
     assert(late, "NEWS_LATE_COMMIT_NOT_REFUSED");
-    const afterLate = await review.inspectDay("2026-11-23", "2026-11-23T07:00:00.000Z");
+    const afterLate = await review.inspectDay(today, nowIso());
     assert(afterLate.day === null && afterLate.items.every(({ state }) => state === "staged"), "NEWS_LATE_COMMIT_STORED");
-    // A day on another UTC date than the call's is refused.
+    // A day other than the call's UTC date is refused.
     let otherDay = false;
     try {
-      await review.commitDay(commit(), "2026-11-24T07:00:00.000Z", future());
+      await review.commitDay(commit({ day: yesterday, payloadSha256: hex("payload:yesterday-again"), base: null }),
+        nowIso(), future());
     } catch (error) {
       otherDay = error instanceof AtlasNewsError && error.code === "OTHER_DAY";
     }
     assert(otherDay, "NEWS_OTHER_DAY_NOT_REFUSED");
-    const started = Date.now();
-    const first = await review.commitDay(commit(), "2026-11-23T07:00:00.000Z", future());
-    assert(Date.now() - started < 5_000, "NEWS_COMMIT_SLOWER_THAN_THE_STATEMENT_LIMIT");
-    assert(first.status === "committed" && first.version === 1 && first.order.join() === one.number &&
-      first.keptBack.length === 0, "NEWS_FIRST_DAY_NOT_COMMITTED");
-    const replay = await review.commitDay(commit(), "2026-11-23T07:05:00.000Z", future());
-    assert(replay.status === "replayed" && replay.version === 1, "NEWS_REPLAY_NOT_RECOGNISED");
-    // The next day: a stale base stores nothing and returns the latest record; the right base commits, carrying day one.
-    const two = await staging.stage(item("two"), "2026-11-24T06:00:00.000Z");
-    const nextDay = (base: { day: string; version: number } | null) => commit({
-      day: "2026-11-24", payloadSha256: hex(`payload:two:${base === null ? "none" : "one"}`), base,
-      order: [one.number, two.number], lines: [], moves: [{ number: two.number, reason: "second", kind: "place" }],
-      decisions: [{ number: two.number, kind: "main", passed: false, reasons: ["no_reading"], reading: null,
-        readingModel: null, retraction: null }],
-    });
-    const stale = await review.commitDay(nextDay(null), "2026-11-24T07:00:00.000Z", future());
-    assert(stale.status === "stale_base" && stale.latest?.day === "2026-11-23" && stale.latest.version === 1,
+    // A stale base stores nothing and returns the latest record; a dropped carried item is refused.
+    const stale = await review.commitDay(commit({ base: null, payloadSha256: hex("payload:stale") }), nowIso(), future());
+    assert(stale.status === "stale_base" && stale.latest?.day === yesterday && stale.latest.version === 1,
       "NEWS_STALE_BASE_NOT_RETURNED");
-    const second = await review.commitDay(nextDay({ day: "2026-11-23", version: 1 }), "2026-11-24T07:00:00.000Z", future());
-    assert(second.status === "committed" && second.order.join() === one.number &&
-      second.keptBack.length === 1 && second.keptBack[0]!.number === two.number, "NEWS_SECOND_DAY_WRONG");
-    // A carried item must keep its place; an item it can't carry is refused.
     let orderRefused = false;
     try {
-      await review.commitDay(commit({ day: "2026-11-24", payloadSha256: hex("payload:dropped"),
-        base: { day: "2026-11-23", version: 1 }, order: [], decisions: [], lines: [], moves: [] }),
-        "2026-11-24T07:10:00.000Z", future());
+      await review.commitDay(commit({ payloadSha256: hex("payload:dropped"), order: [one.number] }), nowIso(), future());
     } catch (error) {
       orderRefused = error instanceof AtlasNewsError && error.code === "ORDER_INVALID";
     }
     assert(orderRefused, "NEWS_DROPPED_CARRIED_ITEM_NOT_REFUSED");
-    // A card staged over 24 hours before reads as expired; withdrawal is kept on the row.
-    const [oldItem] = await review.inspectNumbers([old.number], "2026-11-23T07:00:00.000Z");
-    assert(oldItem?.state === "expired", "NEWS_OLD_STAGED_CARD_NOT_EXPIRED");
-    const withdrawn = await review.withdraw(one.number, "A synthetic withdrawal.", "2026-11-24T08:00:00.000Z");
+    const started = Date.now();
+    const first = await review.commitDay(commit(), nowIso(), future());
+    assert(Date.now() - started < 5_000, "NEWS_COMMIT_SLOWER_THAN_THE_STATEMENT_LIMIT");
+    assert(first.status === "committed" && first.version === 1 && first.order.join() === `${carried.number},${one.number}` &&
+      first.keptBack.length === 0 && first.lines[0]?.passed === true, "NEWS_FIRST_DAY_NOT_COMMITTED");
+    const replay = await review.commitDay(commit(), nowIso(), future());
+    assert(replay.status === "replayed" && replay.version === 1, "NEWS_REPLAY_NOT_RECOGNISED");
+    const readBack = await review.inspectDay(today, nowIso(), hex("payload:one"));
+    assert(readBack.day?.version === 1, "NEWS_REPLAY_READ_BACK_WRONG");
+    // The owner withdraws the carried item; the news check doesn't know and carries it: a new version commits without it.
+    const withdrawn = await review.withdraw(carried.number, "A synthetic withdrawal.", nowIso());
     assert(withdrawn.length === 1 && withdrawn[0]!.state === "withdrawn", "NEWS_WITHDRAWAL_WRONG");
-    const [gone] = await review.inspectNumbers([one.number], "2026-11-24T08:00:00.000Z");
+    const [gone] = await review.inspectNumbers([carried.number], nowIso());
     assert(gone?.state === "withdrawn" && gone.withdrawnReason === "owner_unpublished", "NEWS_WITHDRAWAL_NOT_KEPT");
-    // The news check doesn't know of the withdrawal and carries the item: the day commits, without it.
-    const third = await review.commitDay(commit({ day: "2026-11-25", payloadSha256: hex("payload:three"),
-      base: { day: "2026-11-24", version: 1 }, order: [one.number], decisions: [], lines: [], moves: [] }),
-      "2026-11-25T07:00:00.000Z", future());
-    assert(third.status === "committed" && third.order.length === 0, "NEWS_WITHDRAWN_CARRIED_ITEM_STORED");
+    const second = await review.commitDay(commit({ payloadSha256: hex("payload:second") }), nowIso(), future());
+    assert(second.status === "committed" && second.version === 2 && second.order.join() === one.number,
+      "NEWS_WITHDRAWN_CARRIED_ITEM_STORED");
+    // A card staged over 24 hours before reads as expired.
+    const [oldItem] = await review.inspectNumbers([old.number], nowIso());
+    assert(oldItem?.state === "expired", "NEWS_OLD_STAGED_CARD_NOT_EXPIRED");
     // At most 20 staged cards a UTC day.
     let full = false;
     for (let index = 0; index < 21; index += 1) {
       try {
-        await staging.stage(item(`full-${index}`), "2026-11-25T06:00:00.000Z");
+        await staging.stage(item(`full-${index}`), "2030-01-01T06:00:00.000Z");
       } catch (error) {
         full = error instanceof AtlasNewsError && error.code === "DAY_FULL" && index === 20;
       }

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   AtlasNewsError,
@@ -159,6 +159,7 @@ const AT = new Date(`${DAY}T07:00:00.000Z`);
 /** The database's clock in these tests: the call's own time unless a test moves it. */
 let clock = AT;
 const databaseClock = () => clock;
+beforeEach(() => { clock = AT; });
 const claimsOf = (value: NewsCard) => ({ news: newsCardDigest(value), nl: value.backing.map((_, place) => `${place + 1}:f:full_text`),
   ns: [], nr: ["1:full_text_audited:-"] });
 
@@ -170,10 +171,11 @@ async function stage(store: InMemoryAtlasNewsStore, value: Record<string, any>, 
     receiptIssuedAt: at, doi: parsed.doi ?? null }, at);
 }
 
-function reading(number: string, value: Record<string, any>, change: (read: NewsReading) => void = () => undefined): NewsReading {
+function reading(number: string, value: Record<string, any>, change: (read: NewsReading) => void = () => undefined,
+  draft = DRAFT): NewsReading {
   const parsed = checked(value).card;
   const read: NewsReading = {
-    number, card: newsCardDigest(parsed), model: "claude-opus-5-5",
+    number, card: newsCardDigest(parsed), draft: sha256(draft.trim()), model: "claude-opus-5-5",
     fields: { finding: "supported", for: "supported", how_much: "supported", how_sure: "supported",
       what_you_can_do: "supported", other_outcomes: "supported", harms: "supported", limits: "supported",
       who_paid: "supported", meets_our_bar: "supported" },
@@ -219,7 +221,8 @@ describe("the day call: one day, whole or nothing, never late", () => {
         reading(good.number, CARD),
         reading(unread.number, card((value) => { value.item_id = "item-0002"; }), (read) => { delete read.fields.harms; }),
         { ...reading(otherCard.number, card((value) => { value.item_id = "item-0003"; })), card: "f".repeat(64) },
-        reading(numbers.number, card((value) => { value.item_id = "item-0004"; })),
+        reading(numbers.number, card((value) => { value.item_id = "item-0004"; }), undefined,
+          "A draft that gives no figure at all."),
         reading(advice.number, card((value) => { value.item_id = "item-0005"; }), (read) => { read.advice = "yes"; }),
         reading(retracted.number, card((value) => { value.item_id = "item-0006"; value.doi = "10.1000/retracted";
           value.sources = ["10.1000/retracted"]; value.backing = value.backing.map((line: any) => ({ ...line, source: "10.1000/retracted" })); })),
@@ -258,7 +261,8 @@ describe("the day call: one day, whole or nothing, never late", () => {
     const store = new InMemoryAtlasNewsStore(databaseClock);
     const bad = await stage(store, CARD, undefined, "A draft with no figure.");
     const good = await stage(store, card((value) => { value.item_id = "item-0002"; }));
-    const empty = reading(bad.number, CARD, (read) => { read.fields = {}; read.numbers = {}; read.advice = "yes"; });
+    const empty = reading(bad.number, CARD, (read) => { read.fields = {}; read.numbers = {}; read.advice = "yes"; },
+      "A draft with no figure.");
     const result = await publishNewsDay(payload({ order: [good.number, bad.number],
       places: [good, bad].map(({ number }) => ({ number, reason: "Placed." })),
       readings: [reading(good.number, card((value) => { value.item_id = "item-0002"; })), empty] }),
@@ -270,6 +274,33 @@ describe("the day call: one day, whole or nothing, never late", () => {
     expect(reasons).toEqual(expect.arrayContaining(["reading_missing:finding", "advice_to_change_treatment",
       "numbers_not_in_draft:how_much"]));
     expect(kept.find(({ number }) => number === good.number)!.reasons).toEqual(["paper_unchecked"]);
+  });
+
+  it("names a funder, relies on an agency's action and quotes How much only through lines found in the text fetched", async () => {
+    const store = new InMemoryAtlasNewsStore(databaseClock);
+    const { card: parsed } = checked(CARD);
+    // The receipt signed the How much line found and the funder's line not found.
+    const staged = await store.stage({ itemId: parsed.item_id, checkId: parsed.check_id,
+      card: parsed as Record<string, unknown>, cardSha256: newsCardDigest(parsed), draft: DRAFT,
+      draftSha256: sha256(DRAFT.trim()), receiptClaims: { news: newsCardDigest(parsed), nl: ["1:f:full_text", "2:n:full_text"],
+        ns: [], nr: [] }, receiptIssuedAt: AT.toISOString(), doi: DOI }, `${DAY}T06:00:00.000Z`);
+    const otherDraft = reading(staged.number, CARD, undefined, "Another draft, of another check.");
+    const result = await publishNewsDay(payload({ order: [staged.number],
+      places: [{ number: staged.number, reason: "First." }], readings: [otherDraft] }), deps(store));
+    expect((result as { keptBack: Array<{ reasons: string[] }> }).keptBack[0]!.reasons)
+      .toEqual(["who_paid_quote_not_found", "reading_of_another_card"]);
+  });
+
+  it("commits nothing once the database's UTC date has passed the day's", async () => {
+    const store = new InMemoryAtlasNewsStore(() => new Date(`${DAY}T23:59:59.000Z`));
+    const good = await stage(store, CARD);
+    const late = new Date(`${DAY}T23:59:58.000Z`);
+    const crossing = new InMemoryAtlasNewsStore(() => new Date("2026-11-24T00:00:01.000Z"));
+    const crossed = await stage(crossing, CARD);
+    expect(await publishNewsDay(payload({ not_after: Math.floor(late.getTime() / 1000) + 3600, order: [crossed.number],
+      places: [{ number: crossed.number, reason: "First." }], readings: [reading(crossed.number, CARD)] }),
+    { store: crossing, now: () => late, paperStatus: clean })).toEqual({ status: "late", day: DAY });
+    expect(good.number).toBe(crossed.number);
   });
 
   it("answers a replay with the version it committed, and makes a new version for a changed payload", async () => {
@@ -287,6 +318,9 @@ describe("the day call: one day, whole or nothing, never late", () => {
     const unread = await publishNewsDay({ ...day, footer: { text: "A third footer." }, readings: [] }, deps(store));
     expect(unread).toMatchObject({ status: "committed", version: 3, order: [],
       keptBack: [{ number: good.number, reasons: ["no_reading"] }] });
+    // The first payload again, after not_after: its own version, as stored, never a new judgment.
+    expect(await publishNewsDay(day, deps(store, clean, new Date(day.not_after * 1000 + 60_000))))
+      .toMatchObject({ status: "replayed", version: 1, order: [good.number] });
   });
 
   it("stores nothing after not_after, nothing for another UTC day, and says unknown when the database doesn't answer", async () => {
@@ -296,6 +330,11 @@ describe("the day call: one day, whole or nothing, never late", () => {
       readings: [reading(good.number, CARD)] });
     expect(await publishNewsDay({ ...day, not_after: Math.floor(AT.getTime() / 1000) - 1 }, deps(store)))
       .toEqual({ status: "late", day: DAY });
+    // A day committed in time is never reported late: its replay after not_after reads it back.
+    const later = new Date(AT.getTime() + 600_000);
+    const inTime = { ...day, not_after: Math.floor(AT.getTime() / 1000) + 300 };
+    expect(await publishNewsDay(inTime, deps(store))).toMatchObject({ status: "committed", version: 1 });
+    expect(await publishNewsDay(inTime, deps(store, clean, later))).toMatchObject({ status: "replayed", version: 1 });
     expect(await publishNewsDay({ ...day, day: "2026-11-22" }, deps(store))).toMatchObject({ status: "refused", reason: "other_day" });
     // The database passes its deadline midway: the function's last step refuses, and nothing is stored.
     const slow = new InMemoryAtlasNewsStore(() => new Date(AT.getTime() + 51_000));
@@ -303,11 +342,15 @@ describe("the day call: one day, whole or nothing, never late", () => {
     expect(await publishNewsDay({ ...day, order: [slowGood.number], places: [{ number: slowGood.number, reason: "First." }],
       readings: [reading(slowGood.number, CARD)] }, deps(slow))).toEqual({ status: "late", day: DAY });
     expect((await slow.inspectDay(DAY, AT.toISOString())).day).toBeNull();
-    const hanging: AtlasNewsReviewStore = { ...store, inspectDay: store.inspectDay.bind(store),
-      inspectBefore: store.inspectBefore.bind(store), inspectNumbers: store.inspectNumbers.bind(store),
-      withdraw: store.withdraw.bind(store), commitDay: () => new Promise(() => undefined) };
-    expect(await publishNewsDay(day, { ...deps(hanging), handlerMilliseconds: 30 })).toEqual({ status: "unknown", day: DAY });
-    expect((await store.inspectDay(DAY, AT.toISOString())).day).toBeNull();
+    const fresh = new InMemoryAtlasNewsStore(databaseClock);
+    const freshGood = await stage(fresh, CARD);
+    const hanging: AtlasNewsReviewStore = { inspectDay: fresh.inspectDay.bind(fresh),
+      inspectBefore: fresh.inspectBefore.bind(fresh), inspectNumbers: fresh.inspectNumbers.bind(fresh),
+      withdraw: fresh.withdraw.bind(fresh), commitDay: () => new Promise(() => undefined) };
+    expect(await publishNewsDay({ ...day, order: [freshGood.number], places: [{ number: freshGood.number, reason: "First." }],
+      readings: [reading(freshGood.number, CARD)] }, { ...deps(hanging), handlerMilliseconds: 30 }))
+      .toEqual({ status: "unknown", day: DAY });
+    expect((await fresh.inspectDay(DAY, AT.toISOString())).day).toBeNull();
   });
 
   it("answers a stale base with the server's latest day, and commits once the day's items are re-inserted into it", async () => {
@@ -374,7 +417,8 @@ describe("the day call: one day, whole or nothing, never late", () => {
     const tuesdayDay = await publishNewsDay(payload({ day: "2026-11-24", not_after: Math.floor(tuesday.getTime() / 1000) + 600,
       base: { day: "2026-11-23", version: 1 }, order: [a.number, b.number, b2.number],
       places: [{ number: b2.number, reason: "Its newer check." }],
-      readings: [reading(b2.number, newer, (read) => { read.numbers.harms = "same"; })] }), deps(store, clean, tuesday));
+      readings: [reading(b2.number, newer, (read) => { read.numbers.harms = "same"; },
+        `${DRAFT} No serious harms were reported in 6 months.`)] }), deps(store, clean, tuesday));
     expect(tuesdayDay).toMatchObject({ status: "committed", order: [b2.number], keptBack: [] });
     const [oldB] = await store.inspectNumbers([b.number], tuesday.toISOString());
     expect(oldB).toMatchObject({ state: "withdrawn", withdrawnReason: "replaced" });
@@ -442,6 +486,34 @@ describe("the in-memory store keeps migration 0043's rules", () => {
     const [olderItem, newerItem] = await store.inspectNumbers([older.number, newer.number], AT.toISOString());
     expect(olderItem).toMatchObject({ state: "withdrawn", withdrawnReason: "replaced" });
     expect(newerItem?.state).toBe("shadow");
+  });
+
+  it("binds a card staged again with another draft, still staged, to the newer draft", async () => {
+    const store = new InMemoryAtlasNewsStore(databaseClock);
+    const first = await stage(store, CARD);
+    const again = await stage(store, CARD, `${DAY}T06:30:00.000Z`, `${DRAFT} A later revision.`);
+    expect(again).toEqual({ ...first, alreadyStaged: true });
+    const [item] = await store.inspectNumbers([first.number], AT.toISOString());
+    expect(item!.draftSha256).toBe(sha256(`${DRAFT} A later revision.`));
+  });
+
+  it("stores each checked line with its card's final decision, even when the card is withdrawn mid-call", async () => {
+    const store = new InMemoryAtlasNewsStore(databaseClock);
+    const skippedCard = card((value) => { value.meets_our_bar = { meets: false, reason: "Changes no decision today",
+      reason_code: "no_decision" }; });
+    const skipped = await stage(store, skippedCard);
+    const racing: AtlasNewsReviewStore = { inspectDay: store.inspectDay.bind(store),
+      inspectBefore: store.inspectBefore.bind(store), inspectNumbers: store.inspectNumbers.bind(store),
+      withdraw: store.withdraw.bind(store),
+      commitDay: async (commit, at, deadline) => {
+        await store.withdraw(skipped.number, "Withdrawn while the day call ran.", at);
+        return await store.commitDay(commit, at, deadline);
+      } };
+    const result = await publishNewsDay(payload({ lines: [{ kind: "checked", number: skipped.number }],
+      readings: [reading(skipped.number, skippedCard)] }), deps(racing));
+    expect(result).toMatchObject({ status: "committed", linesKeptBack: [{ line: 0, reasons: ["not_staged"] }] });
+    const listed = await store.inspectDay(DAY, AT.toISOString());
+    expect(listed.day?.lines[0]).toMatchObject({ kind: "checked", passed: false, reasons: ["not_staged"] });
   });
 
   it("withdraws one item or every item, keeping why, and reads a card staged over 24 hours before as expired", async () => {

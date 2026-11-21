@@ -116,6 +116,20 @@ BEGIN
   SELECT stored.news_number INTO found_number FROM atlas_news_items stored
    WHERE stored.item_id = new_item ->> 'itemId' AND stored.card_sha256 = new_item ->> 'cardSha256';
   IF FOUND THEN
+    -- The same card checked again with another draft, still staged: it takes the newer draft and its receipt's claims,
+    -- so the day call's reading is bound to the draft the news check's last passing call checked. A committed or
+    -- withdrawn card keeps what it had.
+    BEGIN
+      UPDATE atlas_news_items stored
+         SET draft = new_item ->> 'draft', draft_sha256 = new_item ->> 'draftSha256',
+             receipt_claims = new_item -> 'receiptClaims',
+             receipt_issued_at = (new_item ->> 'receiptIssuedAt')::timestamptz,
+             changed_at = greatest(stage_time, stored.changed_at)
+       WHERE stored.news_number = found_number AND stored.state = 'staged'
+         AND stored.draft_sha256 <> new_item ->> 'draftSha256';
+    EXCEPTION WHEN check_violation OR not_null_violation OR invalid_datetime_format OR datetime_field_overflow THEN
+      RAISE EXCEPTION 'ATLAS_NEWS_INPUT_INVALID';
+    END;
     RETURN QUERY SELECT 'N-' || found_number::text, new_item ->> 'cardSha256', true;
     RETURN;
   END IF;
@@ -179,6 +193,7 @@ DECLARE
   kept_numbers jsonb := '[]'::jsonb;
   passed_numbers jsonb := '[]'::jsonb;
   final_order jsonb := '[]'::jsonb;
+  final_lines jsonb := '[]'::jsonb;
   next_version integer;
   is_rerank boolean;
 BEGIN
@@ -213,7 +228,7 @@ BEGIN
    WHERE days.news_day = target_day AND days.payload_sha256 = payload_digest;
   IF FOUND THEN
     RETURN jsonb_build_object('status', 'replayed', 'day', replayed.news_day::text, 'version', replayed.day_version,
-      'order', replayed.stored_order, 'keptBack', replayed.kept_back);
+      'order', replayed.stored_order, 'keptBack', replayed.kept_back, 'lines', replayed.lines);
   END IF;
   -- The server's own bound: only the current UTC date, whatever the payload says.
   IF target_day <> (commit_time AT TIME ZONE 'UTC')::date THEN
@@ -366,25 +381,37 @@ BEGIN
     JOIN atlas_news_items items ON items.news_number = substr(given.value #>> '{}', 3)::bigint
    WHERE NOT kept_numbers @> jsonb_build_array(given.value) AND items.state <> 'withdrawn';
 
+  -- Each "checked" line takes its card's final decision, as stored here, never the application's earlier one.
+  SELECT coalesce(jsonb_agg(CASE WHEN line.value ->> 'kind' = 'checked' THEN
+           line.value || jsonb_build_object(
+             'passed', NOT EXISTS (SELECT 1 FROM jsonb_array_elements(kept) AS held(value)
+                                   WHERE held.value ->> 'number' = line.value ->> 'number'),
+             'reasons', coalesce((SELECT held.value -> 'reasons' FROM jsonb_array_elements(kept) AS held(value)
+                                  WHERE held.value ->> 'number' = line.value ->> 'number' LIMIT 1), '[]'::jsonb))
+           ELSE line.value END ORDER BY line.place), '[]'::jsonb)
+    INTO final_lines
+    FROM jsonb_array_elements(day_commit -> 'lines') WITH ORDINALITY AS line(value, place);
+
   BEGIN
     INSERT INTO atlas_news_days
       (news_day, day_version, payload_sha256, base_day, base_version, rerank, stored_order, moves, lines, footer,
        kept_back, committed_at)
     VALUES
       (target_day, next_version, payload_digest, given_base_day, given_base_version, is_rerank, final_order,
-       day_commit -> 'moves', day_commit -> 'lines',
+       day_commit -> 'moves', final_lines,
        CASE WHEN jsonb_typeof(day_commit -> 'footer') = 'object' THEN day_commit -> 'footer' ELSE NULL END,
        kept, commit_time);
   EXCEPTION WHEN check_violation OR not_null_violation THEN
     RAISE EXCEPTION 'ATLAS_NEWS_INPUT_INVALID';
   END;
 
-  -- The last step: past the deadline, nothing of this call is stored.
-  IF clock_timestamp() > commit_deadline THEN
+  -- The last step, the final acceptance check: past the deadline, or once the database's own UTC date is no longer
+  -- the day's, nothing of this call is stored (the transaction's commit then follows at once).
+  IF clock_timestamp() > commit_deadline OR (clock_timestamp() AT TIME ZONE 'UTC')::date <> target_day THEN
     RAISE EXCEPTION 'ATLAS_NEWS_LATE';
   END IF;
   RETURN jsonb_build_object('status', 'committed', 'day', target_day::text, 'version', next_version,
-    'order', final_order, 'keptBack', kept);
+    'order', final_order, 'keptBack', kept, 'lines', final_lines);
 END
 $function$;
 
@@ -403,6 +430,8 @@ BEGIN
      OR reason IS NULL OR length(reason) NOT BETWEEN 1 AND 2000 THEN
     RAISE EXCEPTION 'ATLAS_NEWS_INPUT_INVALID';
   END IF;
+  -- The day call's own lock: a withdrawal waits for a commit in progress, and a commit for a withdrawal.
+  PERFORM pg_advisory_xact_lock(hashtext('atlas_news_days'));
   RETURN QUERY
   WITH changed AS (
     UPDATE atlas_news_items items
@@ -478,8 +507,14 @@ BEGIN
       RAISE EXCEPTION 'ATLAS_NEWS_INPUT_INVALID';
     END IF;
     target_day := (request ->> 'day')::date;
-    SELECT * INTO latest FROM atlas_news_days days WHERE days.news_day = target_day
-     ORDER BY days.day_version DESC LIMIT 1;
+    IF jsonb_typeof(request -> 'payloadSha256') = 'string' THEN
+      -- A replay's own version, by its payload's digest.
+      SELECT * INTO latest FROM atlas_news_days days
+       WHERE days.news_day = target_day AND days.payload_sha256 = request ->> 'payloadSha256';
+    ELSE
+      SELECT * INTO latest FROM atlas_news_days days WHERE days.news_day = target_day
+       ORDER BY days.day_version DESC LIMIT 1;
+    END IF;
     RETURN jsonb_build_object(
       'day', CASE WHEN latest.news_day IS NULL THEN 'null'::jsonb ELSE jsonb_build_object(
         'day', latest.news_day::text, 'version', latest.day_version, 'payloadSha256', latest.payload_sha256,

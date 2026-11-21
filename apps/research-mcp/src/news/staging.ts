@@ -22,7 +22,7 @@ export const NEWS_STAGE_DEADLINE_MS = 5_000;
 
 export const NEWS_NOT_STAGED_REASONS = [
   "news_off", "card_rejected", "check_not_passed", "not_marked_off", "no_research_account", "not_a_dev_account",
-  "no_news_claims", "no_draft", "store_unavailable", "day_full", "not_confirmed_in_time",
+  "doi_not_verified", "no_news_claims", "no_draft", "store_unavailable", "day_full", "not_confirmed_in_time",
 ] as const;
 export type NewsNotStagedReason = typeof NEWS_NOT_STAGED_REASONS[number];
 
@@ -48,6 +48,8 @@ export interface NewsStagingInput {
   savingOff: boolean;
   /** Undefined when the caller has no research account. */
   devAccount: boolean | undefined;
+  /** Whether the card's DOI is one the call's verified receipts name (true for a card without a DOI). */
+  doiVerified: boolean;
   draft: string | undefined;
   store: AtlasNewsStagingStore | undefined;
   secret: string | undefined;
@@ -69,6 +71,7 @@ export async function stageNewsCard(input: NewsStagingInput): Promise<NewsStagin
   if (!input.savingOff) return notStaged("not_marked_off");
   if (input.devAccount === undefined) return notStaged("no_research_account");
   if (!input.devAccount) return notStaged("not_a_dev_account");
+  if (!input.doiVerified) return notStaged("doi_not_verified");
   const draft = input.draft?.trim();
   if (draft === undefined || draft === "") return notStaged("no_draft");
   if (input.secret === undefined) return notStaged("no_news_claims");

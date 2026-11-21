@@ -85,7 +85,9 @@ export interface AtlasNewsKeptBack {
 }
 
 export type AtlasNewsCommitOutcome =
-  | { status: "committed" | "replayed"; day: string; version: number; order: string[]; keptBack: AtlasNewsKeptBack[] }
+  | { status: "committed" | "replayed"; day: string; version: number; order: string[]; keptBack: AtlasNewsKeptBack[];
+      /** The day's lines as stored: each "checked" line with its card's final decision. */
+      lines: Array<Record<string, unknown>> }
   | { status: "stale_base"; latest: { day: string; version: number; order: string[] } | null };
 
 /** An item as the day's list shows it, without its draft. */
@@ -150,7 +152,9 @@ export interface AtlasNewsReviewStore {
   /** Throws AtlasNewsError("LATE") when the function passes `deadline` (read from its own clock as its last step). */
   commitDay(commit: AtlasNewsDayCommit, at: string, deadline: string): Promise<AtlasNewsCommitOutcome>;
   withdraw(target: string, reason: string, at: string): Promise<Array<{ number: string; state: AtlasNewsItemState }>>;
-  inspectDay(day: string, at: string): Promise<{ day: AtlasNewsDayRecord | null; items: AtlasNewsItemSummary[] }>;
+  /** The day's latest version, or with `payloadSha256` the version that payload committed (a replay's). */
+  inspectDay(day: string, at: string, payloadSha256?: string):
+    Promise<{ day: AtlasNewsDayRecord | null; items: AtlasNewsItemSummary[] }>;
   inspectBefore(day: string, at: string): Promise<AtlasNewsBase | null>;
   inspectNumbers(numbers: readonly string[], at: string): Promise<AtlasNewsItem[]>;
 }
@@ -211,6 +215,13 @@ export class InMemoryAtlasNewsStore implements AtlasNewsStagingStore, AtlasNewsR
     checkStageInput(item, at);
     for (const [number, stored] of this.items) {
       if (stored.itemId === item.itemId && stored.cardSha256 === item.cardSha256) {
+        // The same card checked again with another draft, still staged, takes the newer draft and its claims.
+        if (stored.state === "staged" && stored.draftSha256 !== item.draftSha256) {
+          this.items.set(number, { ...stored, draft: item.draft, draftSha256: item.draftSha256,
+            receiptClaims: structuredClone(item.receiptClaims),
+            receiptIssuedAt: new Date(item.receiptIssuedAt).toISOString(),
+            changedAt: new Date(Math.max(Date.parse(at), Date.parse(stored.changedAt))).toISOString() });
+        }
         return { number: newsNumber(number), cardSha256: item.cardSha256, alreadyStaged: true };
       }
     }
@@ -235,7 +246,7 @@ export class InMemoryAtlasNewsStore implements AtlasNewsStagingStore, AtlasNewsR
     const replayed = this.days.find((day) => day.day === commit.day && day.payloadSha256 === commit.payloadSha256);
     if (replayed !== undefined) {
       return { status: "replayed", day: replayed.day, version: replayed.version, order: [...replayed.order],
-        keptBack: structuredClone(replayed.keptBack) };
+        keptBack: structuredClone(replayed.keptBack), lines: structuredClone(replayed.lines) };
     }
     if (commit.day !== utcDay(at)) throw new AtlasNewsError("OTHER_DAY");
     if (commit.rerank && !isSunday(commit.day)) throw new AtlasNewsError("ORDER_INVALID");
@@ -316,13 +327,22 @@ export class InMemoryAtlasNewsStore implements AtlasNewsStagingStore, AtlasNewsR
       const item = current(numberOf(number));
       return !keptMain.has(number) && item !== undefined && item.state !== "withdrawn";
     });
-    if (this.clock().getTime() > Date.parse(deadline)) throw new AtlasNewsError("LATE");
+    // Each "checked" line takes its card's final decision, as stored here.
+    const lines = commit.lines.map((line) => {
+      if (line.kind !== "checked") return structuredClone(line);
+      const held = keptBack.find(({ number }) => number === line.number);
+      return { ...structuredClone(line), passed: held === undefined, reasons: held === undefined ? [] : [...held.reasons] };
+    });
+    // The final acceptance check: past the deadline, or once the clock's UTC date is no longer the day's.
+    const clock = this.clock();
+    if (clock.getTime() > Date.parse(deadline) || utcDay(clock) !== commit.day) throw new AtlasNewsError("LATE");
     for (const [number, item] of changed) this.items.set(number, item);
     this.days.push({ day: commit.day, version, payloadSha256: commit.payloadSha256,
       base: commit.base === null ? null : { ...commit.base }, rerank: commit.rerank, order,
-      moves: structuredClone(commit.moves), lines: structuredClone(commit.lines),
+      moves: structuredClone(commit.moves), lines,
       footer: commit.footer === null ? null : structuredClone(commit.footer), keptBack, committedAt: commitTime });
-    return { status: "committed", day: commit.day, version, order: [...order], keptBack: structuredClone(keptBack) };
+    return { status: "committed", day: commit.day, version, order: [...order], keptBack: structuredClone(keptBack),
+      lines: structuredClone(lines) };
   }
 
   async withdraw(target: string, reason: string, at: string): Promise<Array<{ number: string; state: AtlasNewsItemState }>> {
@@ -338,9 +358,12 @@ export class InMemoryAtlasNewsStore implements AtlasNewsStagingStore, AtlasNewsR
     return changed;
   }
 
-  async inspectDay(day: string, at: string): Promise<{ day: AtlasNewsDayRecord | null; items: AtlasNewsItemSummary[] }> {
+  async inspectDay(day: string, at: string, payloadSha256?: string):
+    Promise<{ day: AtlasNewsDayRecord | null; items: AtlasNewsItemSummary[] }> {
     if (!DAY.test(day) || !Number.isFinite(Date.parse(at))) throw new AtlasNewsError("INPUT_INVALID");
-    const record = this.days.filter((stored) => stored.day === day).sort((left, right) => right.version - left.version)[0];
+    const record = this.days.filter((stored) => stored.day === day &&
+      (payloadSha256 === undefined || stored.payloadSha256 === payloadSha256))
+      .sort((left, right) => right.version - left.version)[0];
     const items = [...this.items.values()]
       .filter((item) => utcDay(item.stagedAt) === day || item.committedDay === day)
       .sort((left, right) => numberOf(left.number) - numberOf(right.number))
@@ -438,8 +461,10 @@ export class PostgresAtlasNewsStore implements AtlasNewsStagingStore, AtlasNewsR
       [target, reason, at])).map((row) => ({ number: row.news_public_id, state: row.item_state }));
   }
 
-  async inspectDay(day: string, at: string): Promise<{ day: AtlasNewsDayRecord | null; items: AtlasNewsItemSummary[] }> {
-    const result = await this.inspect({ day }, at) as { day: AtlasNewsDayRecord | null; items: AtlasNewsItemSummary[] };
+  async inspectDay(day: string, at: string, payloadSha256?: string):
+    Promise<{ day: AtlasNewsDayRecord | null; items: AtlasNewsItemSummary[] }> {
+    const result = await this.inspect({ day, ...(payloadSha256 === undefined ? {} : { payloadSha256 }) }, at) as
+      { day: AtlasNewsDayRecord | null; items: AtlasNewsItemSummary[] };
     return {
       day: result.day === null ? null : { ...result.day, committedAt: iso(result.day.committedAt)! },
       items: result.items.map((item) => ({ ...item, stagedAt: iso(item.stagedAt)! })),

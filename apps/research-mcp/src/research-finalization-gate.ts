@@ -5095,8 +5095,15 @@ export function finalizeResearch(
       const read = readsOf(url);
       return read?.reader === "reddit" ? read.subreddit : undefined;
     }) : [];
-  // Atlas news, stage 1: the news card's own claims, signed once its lines are looked up (or it has none).
-  const newsClaims = options.newsCard !== undefined && (options.newsLookups !== undefined || newsLines.length === 0)
+  // Atlas news, stage 1: the news card's own claims, signed once its lines are looked up (or it has none), and only for a
+  // card whose DOI is one this call's verified receipts name: the paper the day call checks for retraction is the paper
+  // the check read (Codex's review of 21 Nov 2026, finding 3).
+  const verifiedDois = new Set(verified.flatMap(({ claims }) => [claims.doi, claims.id])
+    .flatMap((value) => typeof value === "string" && isDoi(normalizeIdentifier(value)) ? [normalizeIdentifier(value)] : []));
+  const newsDoiVerified = options.newsCard === undefined || options.newsCard.card.doi === undefined ||
+    verifiedDois.has(normalizeIdentifier(options.newsCard.card.doi));
+  const newsClaims = options.newsCard !== undefined && newsDoiVerified &&
+    (options.newsLookups !== undefined || newsLines.length === 0)
     ? signedNewsClaims(options.newsCard, options.newsLookups ?? [], sourceReadingOf) : undefined;
   // The recheck of #417: each forum thread whose id-only link, as the card gives it, is the link its reader read, as the
   // read's receipt signed it (`l`): the save publishes no other page's link.
@@ -5188,7 +5195,9 @@ export function finalizeResearch(
   if (passed && backingLines.length > 0 && options.backingLookups === undefined) {
     BACKING_REQUESTS.set(parsedOutput, { lines: backingLines, requests: backingRequests });
   }
-  if (passed && newsLines.length > 0 && options.newsCard !== undefined && options.newsLookups === undefined) {
+  if (options.newsCard !== undefined) NEWS_DOI_VERIFIED.set(parsedOutput, newsDoiVerified);
+  if (passed && newsLines.length > 0 && options.newsCard !== undefined && options.newsLookups === undefined &&
+    newsDoiVerified) {
     NEWS_REQUESTS.set(parsedOutput, { lines: newsLines.map(({ source, quote }) => ({ source, sentence: quote })),
       requests: newsRequests });
   }
@@ -5384,6 +5393,12 @@ export interface NewsRequests {
 }
 
 const NEWS_REQUESTS = new WeakMap<FinalizeResearchOutput, NewsRequests>();
+const NEWS_DOI_VERIFIED = new WeakMap<FinalizeResearchOutput, boolean>();
+
+/** Whether this result's news card's DOI is one the call's verified receipts name; undefined without a news card. */
+export function newsDoiVerifiedOf(result: FinalizeResearchOutput): boolean | undefined {
+  return NEWS_DOI_VERIFIED.get(result);
+}
 
 /** Where this result's news card's backing lines may be looked up: a passing check whose lines haven't been yet. */
 export function newsRequestsOf(result: FinalizeResearchOutput): NewsRequests | undefined {

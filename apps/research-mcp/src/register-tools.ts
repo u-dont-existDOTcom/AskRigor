@@ -316,6 +316,7 @@ import {
   finalizeResearchPublishedOutputSchema,
   findingsCardRequested,
   meaningJudgeSourceOf,
+  newsDoiVerifiedOf,
   newsRequestsOf,
   sourceLineRequestsOf,
   studyMapRequestsOf,
@@ -2774,25 +2775,30 @@ function defineResearchOperations(
         const mapCache = mapTexts.fullText === lineTexts.fullText && mapTexts.abstract === lineTexts.abstract
           ? lineCache : quoteCache();
         const given = lookups === undefined ? [] : checkedInput!.source_lines!;
-        const backingCount = backing?.lines.length ?? 0;
-        // Atlas news, stage 1: the news card's lines join the same lookups, after the findings card's.
-        const lines = [...given, ...(backing?.lines ?? []), ...(news?.lines ?? [])];
+        const lines = [...given, ...(backing?.lines ?? [])];
         const requests = [...(lookups ?? []),
-          ...(backing?.requests ?? []).map((request) => ({ ...request, line: given.length + request.line })),
-          ...(news?.requests ?? []).map((request) => ({ ...request, line: given.length + backingCount + request.line }))];
+          ...(backing?.requests ?? []).map((request) => ({ ...request, line: given.length + request.line }))];
         const late = requests.map(({ line }) => ({ source: lines[line]!.source,
           sentence: "not_checked" as const, conclusion: "not_checked" as const, reason: "text_unavailable" as const }));
         const looking = requests.length === 0 ? undefined : withinDeadline(
           lookUpSourceLines(lines, requests, lineTexts, lineCache).catch(() => late),
           SOURCE_LINE_DEADLINE_MILLISECONDS, late);
-        const [looked, studyMapLookup] = await Promise.all([
+        // Atlas news, stage 1: the news card's lines are looked up in the same texts, apart and under their own deadline,
+        // so a slow one never costs the source and backing lines theirs (Codex's review of 21 Nov 2026, finding 4).
+        const newsLate = (news?.requests ?? []).map(({ line }) => ({ source: news!.lines[line]!.source,
+          sentence: "not_checked" as const, conclusion: "not_checked" as const, reason: "text_unavailable" as const }));
+        const newsLooking = news === undefined || news.requests.length === 0 ? undefined : withinDeadline(
+          lookUpSourceLines(news.lines, news.requests, lineTexts, lineCache).catch(() => newsLate),
+          SOURCE_LINE_DEADLINE_MILLISECONDS, newsLate);
+        const [looked, studyMapLookup, newsLooked] = await Promise.all([
           looking,
           // The map keeps its own deadline; this one only guards against a lookup that never settles.
           mapRequests === undefined ? undefined : withinDeadline(
             lookUpStudyMap(mapRequests.map, mapRequests.requests, mapTexts,
               { cache: mapCache, milliseconds: SOURCE_LINE_DEADLINE_MILLISECONDS, ...(looking === undefined ? {} : { after: looking }) })
               .catch(() => lateStudyMapLookup(mapRequests.map)),
-            SOURCE_LINE_DEADLINE_MILLISECONDS + STUDY_MAP_GUARD_MILLISECONDS, lateStudyMapLookup(mapRequests.map))
+            SOURCE_LINE_DEADLINE_MILLISECONDS + STUDY_MAP_GUARD_MILLISECONDS, lateStudyMapLookup(mapRequests.map)),
+          newsLooking,
         ]);
         const fromLines = lookups?.length ?? 0;
         const withLines: FinalizeResearchOptions = {
@@ -2809,8 +2815,7 @@ function defineResearchOperations(
         // Atlas news, stage 1: the news lines' lookups, which the receipt signs as `nl`.
         const withNews: FinalizeResearchOptions = news === undefined ? withBacking : {
           ...withBacking,
-          newsLookups: news.lines.map((_, place) =>
-            looked?.[fromLines + backingCount + place] ?? late[fromLines + backingCount + place]!)
+          newsLookups: news.lines.map((_, place) => newsLooked?.[place] ?? newsLate[place]!)
         };
         // The review of 5 November (finding 6): a receipt that can't be issued with what the lookups found (one too
         // long, say) never stops the call: the check is made again without the news lines' lookups, then without the
@@ -2974,6 +2979,7 @@ function defineResearchOperations(
         receipt: result.finalization_receipt,
         savingOff: callSavingOff,
         devAccount: researcher === undefined ? undefined : isDevAccount(researcher.accountKey, devAccountKeysFromEnv()),
+        doiVerified: newsDoiVerifiedOf(result) !== false,
         draft: checkedInput?.answer_draft,
         store: options.atlasNews?.staging,
         secret,

@@ -11,17 +11,22 @@ release and a separate yes.
 Codex: the 60-second handler limit "bounds server handling, not the scheduled session's connector/network wait", so
 the task text must say what ends each publishing or read-back wait.
 
-**The bound is the client's, and it is 300 seconds per call; the server answers within 60.** Read in the Claude Code
-builds this laptop runs (2.1.317 and 2.1.325, the desktop app's, and 2.1.322, the CLI's): a call to a remote MCP server
-(any type but stdio, sdk and the IDE ones, so the claude.ai AskRigor connector too) is aborted when it has had "no
-response or progress notification" for `CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT`, which defaults to 300,000 ms for such
-servers (1,800,000 for stdio); its message: `MCP server "…" tool "…" sent no response or progress for …s; aborting`.
+**The bound is the client's, and it is at most 330 seconds per call; the server answers within 60.** Read in the
+Claude Code builds this laptop runs (2.1.317 and 2.1.325, the desktop app's, and 2.1.322, the CLI's): a call to a remote
+MCP server (any type but stdio, sdk and the IDE ones, so the claude.ai AskRigor connector too) is aborted when it has had
+"no response or progress notification" for `CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT`, which defaults to 300,000 ms for such
+servers (1,800,000 for stdio); a watchdog checks every 30,000 ms (Codex found the tick; 2.1.325 confirms it), so the
+abort comes 300 to 330 seconds after the last byte. Its message: `MCP server "…" tool "…" sent no response or progress
+for …s; aborting`.
 The wall-clock default (`MCP_TOOL_TIMEOUT`) is 100,000,000 ms, so the idle timer is the one that acts. AskRigor's
 server sends no progress notifications anywhere (`notifications/progress` appears nowhere in `apps/research-mcp/src`),
-so for its calls the idle timer is a wall-clock bound: a call that hasn't answered in 300 seconds ends with an error and
-the session goes on. The news actions' handler answers within 60 seconds (`withinDeadline`), and its database function
-stores nothing after the earlier of `not_after` and that limit, read from `clock_timestamp()` as its last step, so 300
-seconds is reached only when the network or the connector stalls, and a stalled call can never store anything late.
+so for its calls the idle timer is a wall-clock bound: a call that hasn't answered in 330 seconds ends with an error and
+the session goes on. No override is set on this laptop (no `CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT` or `MCP_TOOL_TIMEOUT` in
+`~/.claude/settings*.json` or the desktop app's config, read 21 Nov), and the task reaches AskRigor through the
+claude.ai connector, a remote server type. Every news action answers within 60 seconds, and the day call's database
+function accepts a day only while its own clock is before the earlier of `not_after`, 50 seconds into the call and the
+day's UTC midnight: a final acceptance check, after which the transaction's commit follows at once. So the idle limit
+is reached only when the network or the connector stalls, and a stalled call can never store anything late.
 
 **The task's steps are sized to it** (the text for SKILL.md, for the stage-1 release):
 
@@ -29,8 +34,11 @@ seconds is reached only when the network or the connector stalls, and a stalled 
   stored; afterwards both are updated with the publish note. The record is therefore never waiting on a call.
 - At most **two waits** in all: the day call, then one of a replay (same file), a rebased call (after `stale_base`) or a
   read-back (`list_news_items`). A day still unknown after both is settled by the next run's base check and read-back
-  (design 3.8, 14), so no third wait is ever needed. Worst case 2 × 300 s = 10 minutes; usually under 2.
+  (design 3.8, 14), so no third wait is ever needed. Worst case 2 × 330 s = 11 minutes; usually under 2.
 - A publish call starts only with at least 120 seconds before `not_after`; the read-back may be made after it.
+- The run's deadline bounds the writes, not the status note: with both waits silent, the note can come up to about 6
+  minutes after the deadline (a call started 7 minutes before it, plus 11). Nothing waits on that note: the digest
+  and the record are already written, and nothing can be stored after `not_after`.
 - Each wait's start and end (`date -u +%s`) go in the published.json note, so the shadow period measures them (3.10).
 
 If a later Claude Code changed the idle default, nothing could be stored late (the server's bound), and only the
@@ -64,6 +72,26 @@ Inbox update could be later; the measured waits would show it.
   reading's verdict); that the quote is in the Europe PMC abstract is for the shadow readers, and a server lookup
   before stage 2.
 - **Release B's reading (step 7) doesn't run in shadow:** items stay `shadow`, which no page shows.
+
+## Codex's review of the first commit, and what changed
+
+Codex (read-only, 21 Nov, `codex-review-1.md` in the release folder) found ten defects; each is fixed, with a test:
+a committed payload reported "late" on a replay after `not_after`, and an older version's replay judged again (the
+replay is now read by its exact digest first); signed lookups not enforced (a funder, an agency's action or How much's
+figures now need their line found); a DOI not tied to the paper the check read (the receipt now signs news claims only
+for a DOI its verified receipts name); a slow news lookup able to erase the other lookups (now apart, with its own
+deadline); a replaced item left in the stored order; withdrawal and commit not serialized, and a checked line's
+disposition taken from the application (both now under one lock, and the line from the database's final decision); a
+day accepted across UTC midnight (the final check now reads the database's own date, and the deadline stops at
+midnight); limits that let one item fail its day (capped and aligned); read-backs without a time bound (every action
+now has 60 seconds, and connections 5); a re-staged card keeping its first draft (it takes the newer one while staged,
+and a reading names the draft it read). Its bound remark is taken in above (330 seconds; the status note may come
+after the deadline).
+
+Further differences from design v4 that Codex named, left for stage 2: "abstract read" lines live in the day's row,
+not as numbered items, so they can't be withdrawn one by one (withdrawing every item leaves them, unshown); no outlet
+counts or upkeep re-reads of corrections yet; the reading covers the narrative fields, and the closed fields
+(availability, funding) need their coverage rule before any page shows them.
 
 ## Left for later in stage 1
 

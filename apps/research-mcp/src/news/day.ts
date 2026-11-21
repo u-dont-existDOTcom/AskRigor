@@ -58,6 +58,8 @@ const verdict = z.enum(["supported", "stronger", "different", "absent"]);
 export const newsReadingSchema = z.object({
   number: numberSchema,
   card: z.string().regex(SHA256).describe("The digest of the card this reading read, as its check staged it."),
+  draft: z.string().regex(SHA256).describe("The digest of the draft this reading read the card against (SHA-256 of the " +
+    "draft without leading and trailing white space, as the receipt's answer claim gives it)."),
   model: z.string().trim().min(1).max(100).describe("The model that made the reading."),
   fields: z.partialRecord(z.enum(NEWS_PUBLIC_FIELDS), verdict),
   numbers: z.partialRecord(z.enum(NEWS_PUBLIC_FIELDS), z.enum(["same", "different", "none"])),
@@ -69,8 +71,8 @@ export type NewsReading = z.output<typeof newsReadingSchema>;
 const abstractLineSchema = z.object({
   kind: z.literal("abstract_read"),
   doi: z.string().trim().toLowerCase().regex(/^10\.\d{4,9}\/\S{1,300}$/u),
-  title: z.string().trim().min(1).max(400),
-  journal: z.string().trim().min(1).max(200),
+  title: z.string().trim().min(1).max(300),
+  journal: z.string().trim().min(1).max(150),
   year: z.number().int().min(1900).max(2100),
   reason_code: z.enum(NEWS_SKIP_REASONS),
   quote: z.string().trim().min(1).max(600),
@@ -87,9 +89,9 @@ export const newsDayPayloadSchema = z.object({
   moves: z.array(z.object({ number: numberSchema, reason: reasonText }).strict()).max(60),
   readings: z.array(newsReadingSchema).max(40),
   lines: z.array(z.union([z.object({ kind: z.literal("checked"), number: numberSchema }).strict(), abstractLineSchema]))
-    .max(40),
+    .max(30),
   line_readings: z.array(z.object({ line: z.number().int().min(0), verdict: z.enum(["supported", "not_supported"]) })
-    .strict()).max(40),
+    .strict()).max(30),
   footer: z.object({ text: z.string().trim().min(1).max(2_000) }).strict().nullable(),
 }).strict();
 export type NewsDayPayload = z.output<typeof newsDayPayloadSchema>;
@@ -184,6 +186,22 @@ export function newsItemReasons(item: AtlasNewsItem | undefined, kind: "main" | 
   }
   const card = parsed.data;
   const reasons: string[] = newsCardProblems(card).map(({ code }) => `card_rules:${code}`);
+  // What the receipt signed each backing line's lookup found (`nl`: line, outcome, text): a funder or an author is named,
+  // an agency's action relied on and How much's figures quoted only through a line found word for word in the text
+  // AskRigor fetched (design 3.3 and 3.6). A card that couldn't name them says "not checked" in a new check.
+  const found = new Set(item.receiptClaims.nl.flatMap((entry) => {
+    const [line, outcome] = entry.split(":");
+    return outcome === "f" && line !== undefined && /^\d+$/u.test(line) ? [Number(line) - 1] : [];
+  }));
+  const named = [...card.who_paid.funders, ...card.who_paid.declarations];
+  if (named.some(({ backing }) => !found.has(backing))) reasons.push("who_paid_quote_not_found");
+  const linesOf = (field: string) => card.backing.flatMap((line, place) => line.field === field ? [place] : []);
+  if (card.official_action !== undefined && !linesOf("official_action").some((place) => found.has(place))) {
+    reasons.push("official_action_quote_not_found");
+  }
+  if (numbersIn(card.how_much).length > 0 && !linesOf("how_much").some((place) => found.has(place))) {
+    reasons.push("how_much_quote_not_found");
+  }
   if (kind === "main" && !card.meets_our_bar.meets) reasons.push("not_a_main_item");
   if (kind === "line" && card.meets_our_bar.meets) reasons.push("not_a_line");
   const texts = newsPublicTexts(card);
@@ -192,7 +210,7 @@ export function newsItemReasons(item: AtlasNewsItem | undefined, kind: "main" | 
   }
   if (reading === undefined) {
     reasons.push("no_reading");
-  } else if (reading.card !== item.cardSha256) {
+  } else if (reading.card !== item.cardSha256 || reading.draft !== item.draftSha256) {
     reasons.push("reading_of_another_card");
   } else {
     for (const field of NEWS_PUBLIC_FIELDS) {
@@ -228,21 +246,23 @@ export async function publishNewsDay(raw: unknown, deps: NewsDayDependencies): P
         .join("")}: ${issue.message}`) };
   }
   const payload = parsed.data;
-  if (started.getTime() > payload.not_after * 1000) return { status: "late", day: payload.day };
-  if (payload.day !== utcDay(started)) {
-    return { status: "refused", reason: "other_day", problems: [`news_day.day is ${payload.day}; the server stores ` +
-      `only today's UTC date, ${utcDay(started)}.`] };
-  }
+  const midnight = Date.UTC(started.getUTCFullYear(), started.getUTCMonth(), started.getUTCDate() + 1);
   const deadline = new Date(Math.min(payload.not_after * 1000,
-    started.getTime() + (deps.databaseMilliseconds ?? NEWS_DAY_DATABASE_MS)));
+    started.getTime() + (deps.databaseMilliseconds ?? NEWS_DAY_DATABASE_MS), midnight - 1));
   const work = (async (): Promise<NewsDayResult> => {
     const payloadSha256 = newsDayPayloadDigest(payload);
     const at = started.toISOString();
-    // A replay is recognised before anything else is checked.
-    const today = await deps.store.inspectDay(payload.day, at);
-    if (today.day !== null && today.day.payloadSha256 === payloadSha256) {
-      return { status: "replayed", day: today.day.day, version: today.day.version, order: today.day.order,
-        keptBack: today.day.keptBack, linesKeptBack: linesKeptBackOf(today.day.lines) };
+    // A replay is recognised before anything else is checked, even after not_after: it is a read, and a day committed
+    // in time must never be reported as late.
+    const replay = (await deps.store.inspectDay(payload.day, at, payloadSha256)).day;
+    if (replay !== null && replay.payloadSha256 === payloadSha256) {
+      return { status: "replayed", day: replay.day, version: replay.version, order: replay.order,
+        keptBack: replay.keptBack, linesKeptBack: linesKeptBackOf(replay.lines) };
+    }
+    if (started.getTime() > payload.not_after * 1000) return { status: "late", day: payload.day };
+    if (payload.day !== utcDay(started)) {
+      return { status: "refused", reason: "other_day", problems: [`news_day.day is ${payload.day}; the server stores ` +
+        `only today's UTC date, ${utcDay(started)}.`] };
     }
     const base = await deps.store.inspectBefore(payload.day, at);
     const baseMatches = (base === null) === (payload.base === null) &&
@@ -324,7 +344,9 @@ export async function publishNewsDay(raw: unknown, deps: NewsDayDependencies): P
       return { status: "unknown", day: payload.day };
     }
     if (outcome.status === "stale_base") return outcome;
-    return { ...outcome, linesKeptBack: linesKeptBackOf(lines) };
+    // The lines as the database stored them: each "checked" line with its card's final decision.
+    const { lines: storedLines, ...stored } = outcome;
+    return { ...stored, linesKeptBack: linesKeptBackOf(storedLines) };
   })();
   return await settles(work.catch((): NewsDayResult => ({ status: "unknown", day: payload.day })),
     Math.max(0, started.getTime() + (deps.handlerMilliseconds ?? NEWS_DAY_HANDLER_MS) - deps.now().getTime()),
