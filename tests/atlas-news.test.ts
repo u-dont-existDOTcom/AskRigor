@@ -20,6 +20,7 @@ import {
 } from "../apps/research-mcp/src/news/card.js";
 import {
   newsDayPayloadDigest,
+  newsLatestDay,
   publishNewsDay,
   type NewsDayPayload,
   type NewsReading,
@@ -364,10 +365,26 @@ describe("the day call: one day, whole or nothing, never late", () => {
     const today = payload({ order: [second.number], places: [{ number: second.number, reason: "Second." }],
       readings: [reading(second.number, card((value) => { value.item_id = "item-0009"; }))] });
     const stale = await publishNewsDay(today, deps(store));
-    expect(stale).toEqual({ status: "stale_base", latest: { day: "2026-11-22", version: 1, order: [first.number] } });
+    // The latest day comes with what the news check needs to re-insert exactly: the items this day must carry, in order,
+    // and the day each was first committed (digest.py publish-json --rebase).
+    expect(stale).toEqual({ status: "stale_base", latest: { day: "2026-11-22", version: 1, order: [first.number],
+      carried: [first.number], committed: { [first.number]: "2026-11-22" } } });
     const rebased = await publishNewsDay({ ...today, base: { day: "2026-11-22", version: 1 },
       order: [first.number, second.number] }, deps(store));
     expect(rebased).toMatchObject({ status: "committed", order: [first.number, second.number] });
+  });
+
+  it("leaves out of a stale base's carried items the withdrawn ones and those older than seven days", () => {
+    const base = { day: "2026-11-27", version: 2, order: ["N-1001", "N-1002", "N-1003", "N-1004"], items: [
+      { number: "N-1001", state: "shadow" as const, committedDay: "2026-11-27" },
+      { number: "N-1002", state: "withdrawn" as const, committedDay: "2026-11-26" },
+      { number: "N-1003", state: "shadow" as const, committedDay: "2026-11-22" },
+      { number: "N-1004", state: "shadow" as const, committedDay: "2026-11-21" },
+    ] };
+    expect(newsLatestDay(base, "2026-11-28")).toEqual({ day: "2026-11-27", version: 2, order: base.order,
+      carried: ["N-1001", "N-1003"], committed: { "N-1001": "2026-11-27", "N-1002": "2026-11-26",
+        "N-1003": "2026-11-22", "N-1004": "2026-11-21" } });
+    expect(newsLatestDay(null, "2026-11-28")).toBeNull();
   });
 
   it("keeps carried items in their place on a weekday and lets only a Sunday's re-rank move them, each with a reason", async () => {

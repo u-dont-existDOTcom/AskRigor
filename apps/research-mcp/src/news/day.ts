@@ -9,6 +9,7 @@ import {
   type AtlasNewsCommitOutcome,
   type AtlasNewsDecision,
   type AtlasNewsItem,
+  type AtlasNewsBase,
   type AtlasNewsKeptBack,
   type AtlasNewsRetractionStatus,
   type AtlasNewsReviewStore,
@@ -115,9 +116,38 @@ export interface NewsDayDependencies {
 export type NewsDayResult =
   | { status: "committed" | "replayed"; day: string; version: number; order: string[]; keptBack: AtlasNewsKeptBack[];
       linesKeptBack: Array<{ line: number; reasons: string[] }> }
-  | { status: "stale_base"; latest: { day: string; version: number; order: string[] } | null }
+  | { status: "stale_base"; latest: NewsLatestDay | null }
   | { status: "late" | "unknown"; day: string }
   | { status: "refused"; reason: "other_day" | "order_invalid" | "invalid_payload"; problems: string[] };
+
+/**
+ * The server's latest day, as a stale_base answer gives it: its order, the items of that order this payload's day must
+ * carry (in order; withdrawn ones and those older than seven days left out), and the day each was first committed, so
+ * the news check re-inserts its items into exactly the base the server will check (digest.py publish-json --rebase).
+ */
+export interface NewsLatestDay {
+  day: string;
+  version: number;
+  order: string[];
+  carried: string[];
+  committed: Record<string, string>;
+}
+
+export function newsLatestDay(base: AtlasNewsBase | null, day: string): NewsLatestDay | null {
+  if (base === null) return null;
+  const states = new Map(base.items.map((item) => [item.number, item]));
+  const committed: Record<string, string> = {};
+  for (const number of base.order) {
+    const committedDay = states.get(number)?.committedDay;
+    if (committedDay !== null && committedDay !== undefined) committed[number] = committedDay;
+  }
+  const carried = base.order.filter((number) => {
+    const item = states.get(number);
+    return item !== undefined && item.state === "shadow" && item.committedDay !== null &&
+      dayNumber(item.committedDay) >= dayNumber(day) - (ATLAS_NEWS_CARRIED_DAYS - 1);
+  });
+  return { day: base.day, version: base.version, order: base.order, carried, committed };
+}
 
 /** The digest the day call is idempotent on: sha256 of the payload's canonical JSON. */
 export function newsDayPayloadDigest(payload: NewsDayPayload): string {
@@ -272,7 +302,7 @@ export async function publishNewsDay(raw: unknown, deps: NewsDayDependencies): P
     const baseMatches = (base === null) === (payload.base === null) &&
       (base === null || (base.day === payload.base!.day && base.version === payload.base!.version));
     if (!baseMatches) {
-      return { status: "stale_base", latest: base === null ? null : { day: base.day, version: base.version, order: base.order } };
+      return { status: "stale_base", latest: newsLatestDay(base, payload.day) };
     }
     const states = new Map((base?.items ?? []).map((item) => [item.number, item]));
     const recent = (base?.order ?? []).filter((number) => {
@@ -370,7 +400,10 @@ export async function publishNewsDay(raw: unknown, deps: NewsDayDependencies): P
       }
       return { status: "unknown", day: payload.day };
     }
-    if (outcome.status === "stale_base") return outcome;
+    // A day committed between the base check and the commit: the base is read again, with what the rebase needs.
+    if (outcome.status === "stale_base") {
+      return { status: "stale_base", latest: newsLatestDay(await deps.store.inspectBefore(payload.day, at), payload.day) };
+    }
     // The lines as the database stored them: each "checked" line with its card's final decision.
     const { lines: storedLines, ...stored } = outcome;
     return { ...stored, linesKeptBack: linesKeptBackOf(storedLines) };
