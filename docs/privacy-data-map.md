@@ -2877,7 +2877,9 @@ connection) and encrypt every frame; the relay copies frames it cannot open.
 | Startup line | relay stdout (Docker json-file log, 1 MB cap) | operations | until the log rotates |
 | Proxy errors | Caddy's own error log | operations | Caddy's log settings; can include a client address on a failed proxy |
 | Pairing (laptop key, phone key, channel id, names, end date) | the phone browser's IndexedDB for askrigor.com | the phone's side of the link | until unpaired, forgotten or the browser's data is cleared |
-| Pairing (keys, phones, channel ids, names, dates, last seen) | the computer's `~/.config/askrigor-runner/phone-link.json` (0600) | the computer's side of the link | until unpaired or deleted |
+| Pairing (keys, phones, channel ids, names, dates, last seen, and whether each pairing was finished) | the computer's `~/.config/askrigor-runner/phone-link.json` (0600) | the computer's side of the link | until unpaired or deleted; an unfinished pairing (never let in) until the next pairing or start of the link |
+| Ids of phones unpaired on the computer (`ph` and 10 hex characters; nothing else) | the computer's runner folder, `runs/.app/phone-revoked.json` | refusing a phone the link's file could not yet remove, across restarts | until a readable `phone-link.json` no longer lists the phone; if the record itself can't be read, every phone is refused until the owner unpairs them all (the unreadable copy is kept beside it) |
+| Each run's process scope name (`askrigor-run-<job id>.scope`, the job id being the start time and 6 random hex characters) and its start and end | the computer's systemd user journal | ending everything a run started when it is stopped | the journal's own retention; the scope's description is fixed ("AskRigor run <job id>"), never the question |
 
 Not processed by the relay or the site: what the phone asked, what the runner answered, run folders, settings, the
 QR code's one-time secret (after `#`, never sent to a server). On the computer, the link's connector writes no
