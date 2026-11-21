@@ -24,7 +24,8 @@ import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, PLANNER_PAUSE_
 
 /**
  * AskRigor's own planning call (owner answer 298b, 13 November 2026): one Claude API call made when a dev account
- * registers its plain answer. It may run up to two web searches to find out what the question refers to, then says
+ * registers its plain answer (since 21 November 2026, a second request of the same call when the first plan ran no web
+ * search; see below). It may run up to two web searches to find out what the question refers to, then says
  * what the question is about, names the one question to put to the person before researching (or the word none), and
  * lists the next research tasks. register_plain_answer hands that back as a menu ready for plan_research, in place of
  * the person's AI screening and writing the menu itself.
@@ -570,7 +571,10 @@ const addUsage = (a: PlannerUsage, b: PlannerUsage): PlannerUsage => ({ input: a
 /** One request's outcome, before request() decides what the call gives. */
 type PlannedAttempt = { kind: "planned"; plan: ResearchPlan; costUsd: number; model: string; usage: PlannerUsage };
 type Attempt = PlannedAttempt | { kind: "skipped"; reason: "timeout" | "error" | "refusal" | "unreadable";
-  costUsd: number; model?: string; usage?: PlannerUsage; refusalCategory?: string };
+  costUsd: number; model?: string; usage?: PlannerUsage; refusalCategory?: string }
+  // A request left without the time for it once its hold was saved (a second one, with less than SEARCH_RETRY_MIN_MS):
+  // never sent, its hold given back.
+  | { kind: "not_sent" };
 
 export const HOUR = 60 * 60 * 1_000;
 const DEFAULT_TIMEOUT_SECONDS = 45;
@@ -865,11 +869,14 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
   const turnDay = () => { if (today() !== day) { day = today(); spent = 0; calls = new Map(); save(); } };
 
   /**
-   * One request for a plan, sent with at most waitMs to answer: the rubric and the bundle, and after the bundle, for the
-   * second request of a plan made without a web search, RESEARCH_PLANNER_SEARCH_RETRY. What is held for it against the
-   * day's cap is held from before it is sent and settled with what it cost. It logs nothing: request() does.
+   * One request for a plan, answered by the deadline (milliseconds since the epoch, the call's own): the rubric and the
+   * bundle, and after the bundle, for the second request of a plan made without a web search,
+   * RESEARCH_PLANNER_SEARCH_RETRY. What is held for it against the day's cap is held from before it is sent and settled
+   * with what it cost. The time it may wait is what is left of the deadline once the hold is saved, so a slow write of
+   * the state file never lengthens the call (Codex's review of 21 Nov 2026); a second request left with less than
+   * SEARCH_RETRY_MIN_MS is not sent, and what was held for it is given back. It logs nothing: request() does.
    */
-  async function attempt(source: ResearchPlannerSource, retry: boolean, waitMs: number): Promise<Attempt> {
+  async function attempt(source: ResearchPlannerSource, retry: boolean, deadline: number): Promise<Attempt> {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     // The reservation, made on the day the call is sent, which is the day the call counts toward: settled with what
@@ -884,6 +891,8 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
       turnDay();
       if (day === reservedOn) { spent = Math.max(0, spent + costUsd - RESERVED_USD); save(); }
     };
+    const waitMs = deadline - now();
+    if (waitMs < (retry ? SEARCH_RETRY_MIN_MS : 1)) { settle(0); return { kind: "not_sent" }; }
     try {
       const timedOut = new Promise<never>((_, reject) => {
         timer = setTimeout(() => { controller.abort(); reject(new Error("timeout")); }, waitMs);
@@ -944,7 +953,13 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
 
   async function request(source: ResearchPlannerSource): Promise<ResearchPlannerCall> {
     const started = now();
-    const first = await attempt(source, false, timeoutMs);
+    const deadline = started + timeoutMs;
+    const first = await attempt(source, false, deadline);
+    // The call's whole time went on saving its hold, which was given back: a timeout that cost nothing.
+    if (first.kind === "not_sent") {
+      log("timeout");
+      return { planning: { status: "skipped", reason: "timeout" }, cached: false, costUsd: 0, milliseconds: now() - started };
+    }
     if (first.kind === "skipped") {
       // Its category is logged with a refusal, a class of the API's own naming; the reason after it.
       if (first.refusalCategory !== undefined) log(`refusal_category_${first.refusalCategory}`);
@@ -961,17 +976,21 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
     // The plan ran no web search (21 Nov 2026): asked once more, with the instruction to search first, while the
     // call's time and the day's cap have room for a second request. The first plan stands unless the second searched.
     log("no_search");
-    const left = started + timeoutMs - now();
-    if (left < SEARCH_RETRY_MIN_MS || spent + RESERVED_USD > cap) {
+    const second = deadline - now() < SEARCH_RETRY_MIN_MS || spent + RESERVED_USD > cap ? { kind: "not_sent" as const }
+      : await attempt(source, true, deadline);
+    if (second.kind === "not_sent") {
       log("search_retry_skipped");
       return planned(first, first.costUsd, first.usage);
     }
-    const second = await attempt(source, true, left);
     const costUsd = first.costUsd + second.costUsd;
     const usage = second.usage === undefined ? first.usage : addUsage(first.usage, second.usage);
     if (second.kind === "planned" && second.plan.searches > 0) {
       log("search_retry_searched");
       return planned(second, costUsd, usage);
+    }
+    // A refusal's category is logged with it, as for the first request, before the class.
+    if (second.kind === "skipped" && second.refusalCategory !== undefined) {
+      log(`search_retry_refusal_category_${second.refusalCategory}`);
     }
     log(second.kind === "planned" ? "search_retry_no_search" : `search_retry_${second.reason}`);
     return planned(first, costUsd, usage);

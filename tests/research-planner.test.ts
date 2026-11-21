@@ -565,23 +565,79 @@ describe("AskRigor's own planning call: a plan made without a web search is aske
     }
   });
 
+  it("logs the category of the second request's refusal as the first request's is logged", async () => {
+    const made = planner({ reply: (body) => isSearchRetry(body) ? message({ stop_reason: "refusal", content: [],
+      stop_details: { type: "refusal", category: "bio", explanation: "An explanation that is not logged." } })
+      : unsearched() });
+    expect((await made.planner.plan(SOURCE, "account-a")).planning).toMatchObject({ status: "planned",
+      plan: { about: REPLY.about } });
+    expect(made.logs).toEqual(["no_search", "search_retry_refusal_category_bio", "search_retry_refusal"]);
+  });
+
   it("gives the second request only the call's time that is left, and keeps the first plan when it runs out", async () => {
     vi.useFakeTimers();
     try {
-      const made = planner({ reply: (body) => isSearchRetry(body)
-        ? new Promise<Anthropic.Beta.BetaMessage>(() => undefined) : unsearched() });
-      const pending = made.planner.plan(SOURCE, "account-a");
-      // The default 45 seconds, all but nothing of it left: the second request ends with the call's time.
-      await vi.advanceTimersByTimeAsync(45_100);
+      // The client the planner builds, keeping each request's options and signal: the first request takes 10 seconds
+      // and plans with no search; the second never answers until the test lets it, after the call's time ran out.
+      const sent: Array<{ body: Body; timeout: number | undefined; signal: AbortSignal | undefined }> = [];
+      let lateAnswer: ((message: Anthropic.Beta.BetaMessage) => void) | undefined;
+      const logs: string[] = [];
+      const made = createResearchPlanner({
+        env: ENV as NodeJS.ProcessEnv, readFile: () => `${KEY}\n`, log: (line) => logs.push(line),
+        client: () => ({ beta: { messages: { create: async (body, options) => {
+          sent.push({ body, timeout: options?.timeout, signal: options?.signal });
+          if (!isSearchRetry(body)) {
+            await new Promise((resolve) => { setTimeout(resolve, 10_000); });
+            return unsearched();
+          }
+          return await new Promise<Anthropic.Beta.BetaMessage>((resolve) => { lateAnswer = resolve; });
+        } } } }),
+      });
+      const pending = made.plan(SOURCE, "account-a");
+      await vi.advanceTimersByTimeAsync(10_000);
+      // The first reply's settling and the second request are promise steps, with no timer between them.
+      for (let step = 0; step < 50 && sent.length < 2; step += 1) await Promise.resolve();
+      // The second request has what is left of the call's 45 seconds, not 45 more.
+      expect(sent.map(({ timeout }) => timeout)).toEqual([45_000, 35_000]);
+      await vi.advanceTimersByTimeAsync(34_999);
+      expect(sent[1]!.signal?.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
       const call = await pending;
+      // It ended with the call's time: aborted, and the first plan stands.
+      expect(sent[1]!.signal?.aborted).toBe(true);
+      expect(call.milliseconds).toBe(45_000);
       expect(call.planning).toMatchObject({ status: "planned", plan: { about: REPLY.about, searches: 0 } });
       // It may have run, so it keeps what was held for it.
       expect(call.costUsd).toBeCloseTo(TOKENS_USD + 0.12, 10);
-      expect(made.logs).toEqual(["no_search", "search_retry_timeout"]);
+      expect(logs).toEqual(["no_search", "search_retry_timeout"]);
+      // A reply that comes after the call's time changes nothing: the hour keeps the first plan.
+      lateAnswer!(message({}, SEARCHED));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(await made.plan(SOURCE, "account-a")).toMatchObject({ cached: true,
+        planning: { plan: { about: REPLY.about, searches: 0 } } });
+      expect(sent).toHaveLength(2);
     } finally {
       vi.useRealTimers();
     }
   });
+
+  it("does not send a second request when saving its hold leaves it less than its least time, and gives the hold back",
+    async () => {
+      // Every write of the state file takes 9 seconds: the second request's hold is saved 27 seconds into the call's 45,
+      // which leaves it 18, less than SEARCH_RETRY_MIN_MS.
+      let at = Date.parse("2026-11-21T10:00:00Z");
+      const writes: string[] = [];
+      const made = planner({ now: () => at, env: { ASKRIGOR_RESEARCH_PLANNER_STATE_FILE: "/run/planner/state.json" },
+        readFile: (path) => { if (path.endsWith("state.json")) throw new Error("none yet"); return `${KEY}\n`; },
+        writeFile: (_path, text) => { writes.push(text); at += 9_000; }, reply: () => unsearched() });
+      const call = await made.planner.plan(SOURCE, "account-a");
+      expect(call.planning).toMatchObject({ status: "planned", plan: { searches: 0 } });
+      expect(made.bodies).toHaveLength(1);
+      expect(made.logs).toEqual(["no_search", "search_retry_skipped"]);
+      // What was held for the request that was not sent is given back: the day keeps the first request's cost only.
+      expect(JSON.parse(writes.at(-1)!).spent_usd).toBeCloseTo(TOKENS_USD, 10);
+      expect(call.costUsd).toBeCloseTo(TOKENS_USD, 10);
+    });
 
   it("does not ask again without the time or the day's cap for a second request", async () => {
     // The first request took all but 15 seconds of the call's 45.
