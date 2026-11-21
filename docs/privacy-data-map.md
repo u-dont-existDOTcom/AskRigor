@@ -2862,6 +2862,30 @@ pending-proposal stores have their own strict contracts and authority boundaries
 - Only one lesson writer runs in v1. The server serializes duplicate handling
   and returns only an `ARL-####` candidate ID plus anonymous occurrence count.
 
+## Phone link relay (owner answer 385b, November 2026)
+
+The runner's phone link (`apps/phone-relay`, `site/phone/`, the runner's `phone-link/`) joins a person's own computer
+and phone through `wss://askrigor.com/relay`. Both ends run Noise (XXpsk0 to pair from a QR code, IK for every
+connection) and encrypt every frame; the relay copies frames it cannot open.
+
+| Data | Where | Purpose | Kept |
+|---|---|---|---|
+| Network address of each end (from Caddy's `X-AskRigor-Client-IP`) | relay process memory | per-address socket and attempt limits | while connected; attempt counts up to about two minutes after; gone on restart |
+| Channel id (32 random bytes) or pairing room id (a hash of the QR code's one-time secret) | relay process memory | seating the two ends | while connected |
+| The computer's Ed25519 relay public key and a per-connection challenge | relay memory; the allowed keys in `/opt/askrigor/phone-relay.env` | only allowed computers hold seats | allowed keys until removed by the operator; the rest while connected |
+| Encrypted frames, their sizes and times | relay memory (send queues), rate counters | copying, rate and size limits, backpressure | not kept; queues only while sending |
+| Startup line | relay stdout (Docker json-file log, 1 MB cap) | operations | until the log rotates |
+| Proxy errors | Caddy's own error log | operations | Caddy's log settings; can include a client address on a failed proxy |
+| Pairing (laptop key, phone key, channel id, names, end date) | the phone browser's IndexedDB for askrigor.com | the phone's side of the link | until unpaired, forgotten or the browser's data is cleared |
+| Pairing (keys, phones, channel ids, names, dates, last seen) | the computer's `~/.config/askrigor-runner/phone-link.json` (0600) | the computer's side of the link | until unpaired or deleted |
+
+Not processed by the relay or the site: what the phone asked, what the runner answered, run folders, settings, the
+QR code's one-time secret (after `#`, never sent to a server). The computer writes no phone request or answer to a
+file or log. Limits of the protection: the phone page is served by askrigor.com each time it opens, so whoever
+controls the server could serve a changed page that uses the link, and that leaves code in the phone's browser (or hands
+the key to another site) to keep using it until the phone is unpaired at the computer; a key kept non-extractable in
+WebCrypto can't be copied out as bytes, but that does not stop such use. The privacy page says so.
+
 ## Public-policy status
 
 The stable HTTPS policy at `https://askrigor.com/privacy` was independently

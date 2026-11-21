@@ -111,11 +111,14 @@ askrigor.com {
 	}
 
 	# The phone relay (owner answer 385b): only /relay (its WebSocket) and /relay/health, straight to its own container
-	# on the production network. The reader's address comes from this connection, replacing any value a client sent.
+	# on the production network. The reader's address comes from this connection, replacing any value a client sent,
+	# and the relay believes it only with the proxy secret (the Atlas one, rendered by the installer), so another
+	# container on the network can't name addresses to slip its limits.
 	@relay path /relay /relay/health
 	handle @relay {
 		reverse_proxy phone-relay:8787 {
 			header_up X-AskRigor-Client-IP {remote_host}
+			header_up X-AskRigor-Proxy-Secret {$ASKRIGOR_ATLAS_PROXY_SECRET}
 		}
 	}
 

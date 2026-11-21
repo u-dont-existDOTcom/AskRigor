@@ -4773,6 +4773,7 @@
         this.open.set(key, entry);
       }
       if (frame.part !== entry.next) throw new LinkError("part-out-of-order");
+      if (!frame.last && frame.body.byteLength !== MAX_FRAME_BODY) throw new LinkError("short-part");
       entry.size += frame.body.byteLength;
       if (entry.size > this.maxBytes) throw new LinkError("message-too-big");
       entry.pieces.push(copyBytes4(frame.body));
@@ -4948,7 +4949,7 @@
     }
   };
   var Pacer = class {
-    constructor({ frames = 4.5, frameBurst = 50, bytes: bytes2 = 250 * 1024, byteBurst = 3.5 * 1024 * 1024, maxBuffered = 512 * 1024, now = () => Date.now() } = {}) {
+    constructor({ frames = 4.5, frameBurst = 40, bytes: bytes2 = 250 * 1024, byteBurst = 2.5 * 1024 * 1024, maxBuffered = 512 * 1024, now = () => Date.now() } = {}) {
       this.rates = { frames, bytes: bytes2 };
       this.bursts = { frames: frameBurst, bytes: byteBurst };
       this.tokens = { frames: frameBurst, bytes: byteBurst };
@@ -4956,6 +4957,7 @@
       this.now = now;
       this.last = now();
       this.queue = [];
+      this.queuedBytes = 0;
       this.running = false;
     }
     refill() {
@@ -4967,6 +4969,7 @@
     // send(bytes) -> boolean; returns a promise that settles when every frame given was handed to the socket.
     push(frames, seat) {
       return new Promise((resolve, reject) => {
+        for (const frame of frames) this.queuedBytes += frame.byteLength;
         this.queue.push({ frames: frames.slice(), seat, resolve, reject });
         if (!this.running) this.drain();
       });
@@ -4977,6 +4980,7 @@
         const job = this.queue[0];
         if (job.seat.state !== "joined") {
           this.queue.shift();
+          for (const frame2 of job.frames) this.queuedBytes -= frame2.byteLength;
           job.reject(new Error("seat closed"));
           continue;
         }
@@ -4995,8 +4999,10 @@
         this.tokens.frames -= 1;
         this.tokens.bytes -= size;
         job.frames.shift();
+        this.queuedBytes -= frame.byteLength;
         if (!job.seat.send(frame)) {
           this.queue.shift();
+          for (const left of job.frames) this.queuedBytes -= left.byteLength;
           job.reject(new Error("seat closed"));
         }
       }
@@ -5005,6 +5011,7 @@
     clear() {
       for (const job of this.queue) job.reject(new Error("seat closed"));
       this.queue = [];
+      this.queuedBytes = 0;
     }
   };
 
@@ -5012,7 +5019,10 @@
   var REQUEST_TIMEOUT_MS = 45e3;
   var MAX_RESPONSE_BYTES = 8 * 1024 * 1024 + 4096;
   var MAX_IN_FLIGHT = 4;
+  var MAX_QUEUED = 16;
   var MAX_ATTEMPTS = 3;
+  var SAVED_WAIT_MS = 2e4;
+  var READS = /* @__PURE__ */ new Set(["state", "runs", "run", "job"]);
   function backoff(attempt) {
     const steps = [1e3, 2e3, 5e3, 1e4, 3e4];
     const base = steps[Math.min(attempt, steps.length - 1)];
@@ -5055,7 +5065,12 @@
       this.onState(state, detail);
     }
     async load() {
-      this.pairing = await this.storage.load();
+      let record = await this.storage.load();
+      if (record && record.tentative) {
+        await this.storage.clear();
+        record = null;
+      }
+      this.pairing = record;
       this.setState(this.pairing ? "paired" : "unpaired", this.pairing ? { laptopName: this.pairing.laptopName, expiresUtc: this.pairing.expiresUtc } : {});
       return this.pairing;
     }
@@ -5066,15 +5081,20 @@
         const room = roomFromPsk(psk);
         let handshake = null;
         let done = null;
+        let record = null;
+        let savedTimer = null;
         let finished2 = false;
         const pacer = new Pacer();
         const fail = (why, code = "pair-failed") => {
           if (finished2) return;
           finished2 = true;
+          clearTimeout(savedTimer);
           psk.fill(0);
           pacer.clear();
           done?.transport.close();
           seat.close(1e3);
+          if (record) this.storage.clear().catch(() => {
+          });
           this.setState("pair-failed", { why });
           reject(new LinkFailure(why, code));
         };
@@ -5111,10 +5131,26 @@
                 }
                 if (!done) throw new Error("unexpected");
                 const frame = parseFrame(done.transport.open(bytes2));
-                if (frame.kind !== KIND_CONTROL || frame.message.t !== "paired") throw new Error("unexpected");
+                if (frame.kind !== KIND_CONTROL) throw new Error("unexpected");
+                if (frame.message.t === "saved" && record) {
+                  record.tentative = false;
+                  await this.storage.save(record);
+                  clearTimeout(savedTimer);
+                  finished2 = true;
+                  this.pairing = record;
+                  this.setState("paired", { laptopName: record.laptopName, expiresUtc: record.expiresUtc, justPaired: true });
+                  setTimeout(() => {
+                    done.transport.close();
+                    seat.close(1e3);
+                  }, 300);
+                  resolve(record);
+                  return;
+                }
+                if (frame.message.t !== "paired" || record) throw new Error("unexpected");
                 const paired = frame.message;
-                const record = {
+                record = {
                   v: LINK_VERSION,
+                  tentative: true,
                   laptopKey,
                   phoneKey: handshake.phoneKey,
                   channel: fromB64u(paired.channel, CHANNEL_BYTES),
@@ -5125,14 +5161,8 @@
                 };
                 await this.storage.save(record);
                 await pacer.push([done.transport.seal(controlFrame({ t: "stored" }))], seat);
-                finished2 = true;
-                this.pairing = record;
-                this.setState("paired", { laptopName: record.laptopName, expiresUtc: record.expiresUtc, justPaired: true });
-                setTimeout(() => {
-                  done.transport.close();
-                  seat.close(1e3);
-                }, 300);
-                resolve(record);
+                this.setState("pairing", { step: "saving" });
+                savedTimer = setTimeout(() => fail("The laptop did not confirm that it saved the pairing. Nothing was paired; start again on the laptop for a new code."), SAVED_WAIT_MS);
               } catch (error) {
                 fail(error instanceof LinkFailure ? error.message : error.code === "not-your-laptop" ? "The laptop that answered is not the one whose code you scanned. Nothing was paired." : "Pairing failed: this phone and the laptop did not agree. Start again on the laptop for a new code.");
               }
@@ -5211,6 +5241,8 @@
             expiresUtc: String(payload.expires_utc || this.pairing.expiresUtc)
           };
           this.setState("ready", this.info);
+          this.pacer.push([transport.seal(controlFrame({ t: "hello" }))], seat).catch(() => {
+          });
           this.pump();
           return;
         }
@@ -5229,6 +5261,8 @@
           return;
         }
         if (frame.kind !== KIND_RESPONSE) throw new Error("unexpected");
+        const waiting = this.pending.get(toHex(frame.id));
+        if (waiting) this.arm(waiting);
         const whole = this.assembler.add(frame);
         if (!whole) return;
         const entry = this.pending.get(toHex(whole.id));
@@ -5325,13 +5359,21 @@
       } catch (error) {
         return Promise.reject(new LinkFailure(error instanceof Refusal ? error.message : "The phone could not read that request.", "refused"));
       }
-      return this.send(action);
+      if (!READS.has(action.action)) return this.send(action);
+      const key = JSON.stringify(action);
+      this.reading = this.reading || /* @__PURE__ */ new Map();
+      const same = this.reading.get(key);
+      if (same) return same;
+      const promise = this.send(action).finally(() => this.reading.delete(key));
+      this.reading.set(key, promise);
+      return promise;
     }
     // `id` is for tests that repeat a request on purpose; the page never passes one.
     send(message, { id } = {}) {
       if (!this.pairing) return Promise.reject(new LinkFailure("This phone is not paired.", "unpaired"));
       if (this.paused) return Promise.reject(new LinkFailure("Paused while the page is out of sight.", "paused"));
       if (!this.transport) return Promise.reject(new LinkFailure("Not connected to your laptop right now.", "offline"));
+      if (this.queue.length >= MAX_QUEUED) return Promise.reject(new LinkFailure("The phone is still waiting for earlier answers. Try again in a moment.", "busy"));
       return new Promise((resolve, reject) => {
         this.queue.push({ id: id || randomBytes4(16), message, resolve, reject, attempts: 0, timer: null });
         this.pump();
@@ -5343,13 +5385,19 @@
         const transport = this.transport;
         const frames = messageFrames(KIND_REQUEST, entry.id, encodeJson(entry.message)).map((frame) => transport.seal(frame));
         this.pending.set(toHex(entry.id), entry);
-        entry.timer = setTimeout(() => {
-          if (this.pending.get(toHex(entry.id)) !== entry) return;
-          this.seat?.close(1e3);
-        }, REQUEST_TIMEOUT_MS);
+        this.arm(entry);
         this.pacer.push(frames, this.seat).catch(() => {
         });
       }
+    }
+    // No frame of the answer for REQUEST_TIMEOUT_MS: the connection is presumed dead; closing it sends this request
+    // again on the next. Every frame that arrives re-arms it, so a long answer that keeps coming is never cut.
+    arm(entry) {
+      clearTimeout(entry.timer);
+      entry.timer = setTimeout(() => {
+        if (this.pending.get(toHex(entry.id)) !== entry) return;
+        this.seat?.close(1e3);
+      }, REQUEST_TIMEOUT_MS);
     }
     async unpairSelf() {
       await this.send({ action: "unpair-self", args: {} });
@@ -5470,8 +5518,8 @@
   }
 
   // phone/phone.js
-  var PAGE_SHA = true ? "ed9bb7ac40b7b362ddffddc542653c920f3f62dfadafc21052db21df44f25b85" : "";
-  var RUNNER_COMMIT = true ? "eb9592451a51" : "";
+  var PAGE_SHA = true ? "746bbf9e09281e16c457182c070df6cd05b2c239e386e15d4330c1c04a7aeb37" : "";
+  var RUNNER_COMMIT = true ? "ffefc3b7a8cc" : "";
   var $ = (id) => document.getElementById(id);
   var esc = (text) => String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   function device() {
@@ -5499,7 +5547,7 @@
   var bootFn = null;
   var lastDetail = {};
   function trust(keyKind) {
-    return "AskRigor's relay passes your phone's and your laptop's messages sealed: it can't read or change them. But this page itself comes from askrigor.com each time it opens. Whoever controls that server could change it and, while it is open on this phone, use the link as you can: read past answers, change settings, start research up to the limits set on your laptop. " + (keyKind === "webcrypto" ? "This phone's key is kept by the browser's own cryptography, where page code can use it but not copy it out, so a changed page could not keep using the link after it is closed. " : keyKind === "raw" ? "This browser can't keep the key out of page code's reach, so a changed page could copy it and use the link later, until you unpair this phone at the laptop or its pairing ends. " : "Where the browser allows it, the phone keeps its key where page code can use it but not copy it out; otherwise a changed page could copy it and use the link later, until the phone is unpaired at the laptop or its pairing ends. ") + "Whoever holds this phone unlocked holds the runner too: the phone's screen lock is the lock. A lost phone: unpair it at the laptop; until then its pairing ends by itself on its date.";
+    return "AskRigor's relay passes your phone's and your laptop's messages sealed: it can't read or change them. But this page itself comes from askrigor.com each time it opens. Whoever controls that server could change it and, while it is open on this phone, use the link as you can: read past answers, change settings, start research up to the limits set on your laptop. " + (keyKind === "webcrypto" ? "This phone's key is kept by the browser's own cryptography, where page code can use it but can't read it out. That stops a changed page from copying the key to use elsewhere, but not from using it while it runs, passing it to another website, or leaving code in this browser that uses it later. " : keyKind === "raw" ? "This browser keeps the phone's key as ordinary data, so a changed page could copy it and use the link from anywhere. " : "Where the browser allows it, the phone's key is kept where page code can use it but can't read it out; a changed page could still use it while it runs, pass it to another website, or leave code in this browser that uses it later. ") + "If you ever think askrigor.com served a changed page, unpair this phone at the laptop: that ends every way of using it. Whoever holds this phone unlocked holds the runner too: the phone's screen lock is the lock. A lost phone: unpair it at the laptop; until then its pairing ends by itself on its date.";
   }
   function screen(html) {
     const box = $("phoneLink");
@@ -5528,10 +5576,10 @@
         return screen("<h2>AskRigor runner on your phone</h2><p>This page reaches the runner on your laptop. It must be paired once, at the laptop:</p><ol><li>On the laptop, open the runner's page and press <b>Phone link</b>, then <b>Pair a phone</b>.</li><li>Scan the code it shows with this phone's camera. This page opens and pairs.</li><li>Check that both screens show the same six digits, and confirm on the laptop.</li></ol><details><summary>What this link can and can't protect</summary><p>" + esc(trust(null)) + "</p></details>");
       case "pairing":
         statusLine("Pairing…", "wait");
-        return screen('<h2>Pairing with your laptop…</h2><p class="muted">' + (detail.step === "joined" ? "Found the laptop. Agreeing on keys…" : "Connecting through AskRigor's relay…") + "</p>");
+        return screen('<h2>Pairing with your laptop…</h2><p class="muted">' + (detail.step === "saving" ? "The laptop is saving the pairing…" : detail.step === "joined" ? "Found the laptop. Agreeing on keys…" : "Connecting through AskRigor's relay…") + "</p>");
       case "pair-confirm":
         statusLine("Pairing…", "wait");
-        return screen('<h2>Check the six digits</h2><p>Your laptop should show the same six digits:</p><p class="pl-sas">' + esc(detail.sas.slice(0, 3) + " " + detail.sas.slice(3)) + "</p><p>If they are the same, press <b>Yes, pair this phone</b> on the laptop. If they differ, press No there: something else answered the code.</p>");
+        return screen('<h2>Type these six digits on the laptop</h2><p class="pl-sas">' + esc(detail.sas.slice(0, 3) + " " + detail.sas.slice(3)) + "</p><p>Type them into the laptop's Phone panel and press <b>Pair this phone</b>. The laptop pairs only if they match the ones it worked out, so a device that answered the code instead of this phone can't get in.</p>");
       case "pair-failed":
         statusLine("Not paired", "off");
         return screen("<h2>Not paired</h2><p>" + esc(detail.why) + '</p><button type="button" data-do="reload">OK</button>');
@@ -5624,6 +5672,10 @@
     else client.resume();
   });
   async function start() {
+    try {
+      if (navigator.serviceWorker) for (const registration of await navigator.serviceWorker.getRegistrations()) registration.unregister();
+    } catch {
+    }
     const fragment = location.hash;
     if (fragment.startsWith("#pair=")) {
       history.replaceState(null, "", location.pathname);

@@ -1,8 +1,9 @@
 # The phone relay (owner answer 385b), its own Compose project beside the production one. It runs the exact reviewed
-# AskRigor image with another entry point, reads only /opt/askrigor/phone-relay.env (PHONE_RELAY_LAPTOP_KEYS: public
-# keys, not secrets), and publishes no port: Caddy reaches it as phone-relay:8787 on the production network, which is
-# external here. It mounts nothing, holds no secrets, and is not on living_evidence_private. Prepared only: nothing
-# goes to the server without the owner's typed "release".
+# AskRigor image with another entry point and reads only /opt/askrigor/phone-relay.env (root-only):
+# PHONE_RELAY_LAPTOP_KEYS (public keys) and PHONE_RELAY_PROXY_SECRET (the site's Atlas proxy secret, so the relay
+# believes a forwarded client address only from Caddy). It publishes no port: Caddy reaches it as phone-relay:8787 on
+# the production network, which is external here. It mounts nothing, holds no other secret, and is not on
+# living_evidence_private. Prepared only: nothing goes to the server without the owner's typed "release".
 name: askrigor-phone-relay
 
 services:

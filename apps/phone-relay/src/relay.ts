@@ -2,7 +2,7 @@
 // binary frames between them, which both ends encrypt end to end. It never parses, stores or logs a frame, and it
 // writes nothing to stdout or stderr: the one startup line belongs to index.ts. The exact rules are in the release's
 // relay-spec.md; every limit and timer is an option so the tests can shorten them.
-import { createPublicKey, randomBytes, verify, type KeyObject } from "node:crypto";
+import { createPublicKey, randomBytes, timingSafeEqual, verify, type KeyObject } from "node:crypto";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { isIP, type AddressInfo, type Socket } from "node:net";
 import type { Duplex } from "node:stream";
@@ -11,6 +11,18 @@ import WebSocket, { WebSocketServer } from "ws";
 export interface RelayOptions {
   /** Ed25519 public keys allowed to hold laptop seats and pairing rooms: 32 raw bytes each, unpadded base64url. */
   laptopKeys?: readonly string[];
+  /**
+   * The secret Caddy sends as X-AskRigor-Proxy-Secret. Only a request carrying it may name its client's address in
+   * X-AskRigor-Client-IP; any other request (another container on the network, for one) is counted by its own socket
+   * address. Without a secret the header is never believed.
+   */
+  proxySecret?: string;
+  /** Addresses tracked for the attempt limits at once; a new address beyond it is refused until old ones expire. */
+  maxTrackedAddresses?: number;
+  /** Upgrade attempts from all addresses together per attempt window. */
+  maxAttemptsTotal?: number;
+  /** Open HTTP connections in all (Node's server.maxConnections), counted before any header is read. */
+  maxConnections?: number;
   joinTimeoutMs?: number;
   maxJoinBytes?: number;
   roomLifetimeMs?: number;
@@ -58,6 +70,9 @@ export const RELAY_DEFAULTS = {
   maxSocketsPerAddress: 12,
   maxAttemptsPerAddress: 30,
   attemptWindowMs: 60_000,
+  maxTrackedAddresses: 4096,
+  maxAttemptsTotal: 600,
+  maxConnections: 1000,
   maxSockets: 400,
   maxChannelsPerKey: 8,
   maxChannels: 200,
@@ -67,9 +82,9 @@ export const RELAY_DEFAULTS = {
   pairJoinWindowMs: 60_000,
   rateWindowMs: 60_000,
   messagesPerWindow: 300,
-  messageBurst: 60,
+  messageBurst: 120,
   bytesPerWindow: 16 * MiB,
-  byteBurst: 4 * MiB,
+  byteBurst: 8 * MiB,
   globalBytesPerWindow: 128 * MiB,
   pauseAboveBytes: 1 * MiB,
   resumeBelowBytes: 256 * 1024,
@@ -82,7 +97,7 @@ export const RELAY_DEFAULTS = {
   keepAliveTimeoutMs: 5_000,
   connectionsCheckingIntervalMs: 1_000,
   shutdownGraceMs: 2_000
-} as const satisfies Required<Omit<RelayOptions, "laptopKeys">>;
+} as const satisfies Required<Omit<RelayOptions, "laptopKeys" | "proxySecret">>;
 
 export interface Relay {
   server: Server;
@@ -135,6 +150,23 @@ function decodeBase64url(value: string, bytes: number): Buffer | undefined {
 
 function publicKey(raw: Buffer): KeyObject {
   return createPublicKey({ key: Buffer.concat([ED25519_SPKI_PREFIX, raw]), format: "der", type: "spki" });
+}
+
+/**
+ * The key an address is counted under: an IPv4-mapped IPv6 address as its IPv4 address, and any other IPv6 address
+ * by its /64 network (one subscriber usually holds a whole /64, so counting single addresses would let it rotate).
+ */
+export function addressKey(address: string): string {
+  const lower = address.toLowerCase();
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/u.exec(lower);
+  if (mapped !== null && isIP(mapped[1]) === 4) return mapped[1];
+  if (isIP(lower) !== 6) return lower;
+  const [head, tail] = lower.split("::");
+  const left = head === "" ? [] : head.split(":");
+  const right = tail === undefined || tail === "" ? [] : tail.split(":");
+  const width = (groups: string[]) => groups.reduce((sum, group) => sum + (group.includes(".") ? 2 : 1), 0);
+  const groups = tail === undefined ? left : [...left, ...Array<string>(8 - width(left) - width(right)).fill("0"), ...right];
+  return `${groups.slice(0, 4).map((group) => group.padStart(4, "0")).join(":")}::/64`;
 }
 
 /**
@@ -288,6 +320,8 @@ export function createRelay(options: RelayOptions = {}): Relay {
   const attempts = new Map<string, number[]>();
   const pairJoins = new Map<string, number[]>();
   const globalBytes = new TokenBucket(settings.globalBytesPerWindow, settings.globalBytesPerWindow / settings.rateWindowMs);
+  const globalAttempts = new TokenBucket(settings.maxAttemptsTotal, settings.maxAttemptsTotal / settings.attemptWindowMs);
+  const proxySecret = options.proxySecret === undefined || options.proxySecret === "" ? undefined : Buffer.from(options.proxySecret, "utf8");
   let openSockets = 0;
   let heartbeat: NodeJS.Timeout | undefined;
   let closed = false;
@@ -298,7 +332,9 @@ export function createRelay(options: RelayOptions = {}): Relay {
     noServer: true,
     maxPayload: settings.maxPayload,
     perMessageDeflate: false,
-    clientTracking: false
+    clientTracking: false,
+    // Pings are answered by accept() below, inside the socket's message budget, not automatically.
+    autoPong: false
   });
 
   const server = createServer({
@@ -321,6 +357,7 @@ export function createRelay(options: RelayOptions = {}): Relay {
     response.end();
   });
   server.keepAliveTimeout = settings.keepAliveTimeoutMs;
+  server.maxConnections = settings.maxConnections;
   server.on("clientError", (_error, socket: Duplex) => {
     socket.destroy();
   });
@@ -335,6 +372,12 @@ export function createRelay(options: RelayOptions = {}): Relay {
       return;
     }
     const address = clientAddress(request, socket);
+    // A new address while the table of addresses is full, or past the attempts of all addresses together: refused
+    // before anything is recorded for it.
+    if ((!attempts.has(address) && attempts.size >= settings.maxTrackedAddresses) || !globalAttempts.take(1)) {
+      refuse(socket, TOO_MANY);
+      return;
+    }
     // Refused attempts count too.
     const tooFast = hitLimit(attempts, address, settings.maxAttemptsPerAddress, settings.attemptWindowMs);
     if (tooFast || (socketsPerAddress.get(address) ?? 0) >= settings.maxSocketsPerAddress ||
@@ -358,9 +401,12 @@ export function createRelay(options: RelayOptions = {}): Relay {
   }
 
   function clientAddress(request: IncomingMessage, socket: Duplex): string {
+    const given = request.headers["x-askrigor-proxy-secret"];
     const header = request.headers["x-askrigor-client-ip"];
-    if (typeof header === "string" && header.length <= 45 && isIP(header) !== 0) return header;
-    return (socket as Socket).remoteAddress ?? "";
+    const fromProxy = proxySecret !== undefined && typeof given === "string" &&
+      Buffer.byteLength(given, "utf8") === proxySecret.length && timingSafeEqual(Buffer.from(given, "utf8"), proxySecret);
+    if (fromProxy && typeof header === "string" && header.length <= 45 && isIP(header) !== 0) return addressKey(header);
+    return addressKey((socket as Socket).remoteAddress ?? "");
   }
 
   function accept(ws: WebSocket, address: string): void {
@@ -386,8 +432,19 @@ export function createRelay(options: RelayOptions = {}): Relay {
         forward(conn, toBuffer(data));
       }
     });
+    // Control frames count against the socket's message budget like any message: a stream of pings or pongs is
+    // closed with 4429 as a stream of frames would be.
+    ws.on("ping", (data: Buffer) => {
+      if (conn.closing) return;
+      if (!conn.messages.take(1)) {
+        closeConns(CLOSE.rateLimited, conn);
+        return;
+      }
+      if (ws.readyState === WebSocket.OPEN) ws.pong(data);
+    });
     ws.on("pong", () => {
       conn.awaitingPong = false;
+      if (!conn.closing && !conn.messages.take(1)) closeConns(CLOSE.rateLimited, conn);
     });
     ws.on("close", () => {
       conns.delete(conn);
@@ -582,7 +639,8 @@ export function createRelay(options: RelayOptions = {}): Relay {
 
   function joinRoom(conn: Conn, id: string): void {
     // Every well-formed pair-join counts, whether or not it finds its room.
-    if (hitLimit(pairJoins, conn.address, settings.maxPairJoinsPerAddress, settings.pairJoinWindowMs)) {
+    if ((!pairJoins.has(conn.address) && pairJoins.size >= settings.maxTrackedAddresses) ||
+      hitLimit(pairJoins, conn.address, settings.maxPairJoinsPerAddress, settings.pairJoinWindowMs)) {
       closeConns(CLOSE.rateLimited, conn);
       return;
     }

@@ -137,7 +137,8 @@ describe("public-site deployment packet", () => {
     expect(caddy).toContain("\t@relay path /relay /relay/health\n\thandle @relay {");
     expect(caddy).not.toMatch(/\/relay\*|path [^\n]*\/relay\/\*[^\n]*\n\thandle @relay/u);
     expect(relay).toBe("handle @relay {\n\t\treverse_proxy phone-relay:8787 {\n" +
-      "\t\t\theader_up X-AskRigor-Client-IP {remote_host}\n\t\t}\n\t}");
+      "\t\t\theader_up X-AskRigor-Client-IP {remote_host}\n" +
+      "\t\t\theader_up X-AskRigor-Proxy-Secret {$ASKRIGOR_ATLAS_PROXY_SECRET}\n\t\t}\n\t}");
     // Both come after the site's own routes and before the final 404.
     for (const opener of ["handle /phone {", "handle @phone {", "handle @relay {"]) {
       expect(caddy.indexOf(opener), opener).toBeGreaterThan(caddy.indexOf("handle @atlas {"));
@@ -192,6 +193,8 @@ describe("public-site deployment packet", () => {
       expect(rendered.stdout + rendered.stderr).not.toContain(secret);
       const output = await readFile(combined, "utf8");
       expect(output).toContain("\t\treverse_proxy research-mcp:3000 {\n\t\t\theader_up X-AskRigor-Client-IP {remote_host}\n" +
+        `\t\t\theader_up X-AskRigor-Proxy-Secret ${secret}\n`);
+      expect(output).toContain("\t\treverse_proxy phone-relay:8787 {\n\t\t\theader_up X-AskRigor-Client-IP {remote_host}\n" +
         `\t\t\theader_up X-AskRigor-Proxy-Secret ${secret}\n`);
       expect(output).not.toContain("{$ASKRIGOR_");
 

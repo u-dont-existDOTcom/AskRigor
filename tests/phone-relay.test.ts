@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import {
+  addressKey,
   createRelay,
   parseLaptopKeys,
   RELAY_DEFAULTS,
@@ -30,6 +31,10 @@ function identity(): Identity {
   const raw = publicKey.export({ type: "spki", format: "der" }).subarray(-32);
   return { key: raw.toString("base64url"), privateKey };
 }
+
+/** Caddy's proxy secret in these tests, and a forwarded address as Caddy sends it (with the secret). */
+const PROXY = "P".repeat(43);
+const from = (address: string) => ({ "x-askrigor-client-ip": address, "x-askrigor-proxy-secret": PROXY });
 
 const owner = identity();
 const second = identity();
@@ -73,6 +78,7 @@ afterEach(async () => {
 async function start(options: RelayOptions = {}): Promise<{ relay: Relay; port: number; url: string }> {
   const relay = createRelay({
     laptopKeys: [owner.key, second.key],
+    proxySecret: PROXY,
     maxAttemptsPerAddress: 10_000,
     maxSocketsPerAddress: 10_000,
     maxPairJoinsPerAddress: 10_000,
@@ -297,7 +303,7 @@ describe("phone relay: HTTP", () => {
 
 describe("phone relay: admission before the upgrade", () => {
   it("refuses a 13th open socket from one address with a bare 429, by default", async () => {
-    const relay = createRelay({ laptopKeys: [owner.key] });
+    const relay = createRelay({ laptopKeys: [owner.key], proxySecret: PROXY });
     relays.push(relay);
     const port = await relay.listen(0, "127.0.0.1");
     const url = `ws://127.0.0.1:${port}/relay`;
@@ -312,26 +318,78 @@ describe("phone relay: admission before the upgrade", () => {
     twelve[0].ws.close();
     await twelve[0].closed;
     await sleep(20);
-    expect((await open(url, { headers: { "x-askrigor-client-ip": "127.0.0.1" } })).challenge).toHaveLength(43);
+    expect((await open(url, { headers: from("127.0.0.1") })).challenge).toHaveLength(43);
   });
 
-  it("counts by the forwarded client address when it is a plain IP literal, else by the connection", async () => {
+  it("counts by the forwarded client address when Caddy sent it with the secret and it is a plain IP literal", async () => {
     const { url } = await start({ maxSocketsPerAddress: 2 });
-    const first = { "x-askrigor-client-ip": "203.0.113.7" };
+    const first = from("203.0.113.7");
     await open(url, { headers: first });
     await open(url, { headers: first });
     await expect(open(url, { headers: first })).rejects.toMatchObject({ status: 429 });
-    await open(url, { headers: { "x-askrigor-client-ip": "2001:db8::7" } });
-    await open(url, { headers: { "x-askrigor-client-ip": "::ffff:198.51.100.1" } });
+    await open(url, { headers: from("2001:db8::7") });
+    await open(url, { headers: from("::ffff:198.51.100.1") });
     // Not a plain literal: these count as the connection's own address, 127.0.0.1.
-    await open(url, { headers: { "x-askrigor-client-ip": "203.0.113.7, 203.0.113.8" } });
-    await open(url, { headers: { "x-askrigor-client-ip": "not-an-address" } });
+    await open(url, { headers: from("203.0.113.7, 203.0.113.8") });
+    await open(url, { headers: from("not-an-address") });
     await expect(open(url)).rejects.toMatchObject({ status: 429 });
-    await expect(open(url, { headers: { "x-askrigor-client-ip": "127.0.0.1" } })).rejects.toMatchObject({ status: 429 });
+    await expect(open(url, { headers: from("127.0.0.1") })).rejects.toMatchObject({ status: 429 });
+  });
+
+  it("believes a forwarded address only with Caddy's proxy secret: another container can't name addresses", async () => {
+    const { url } = await start({ maxSocketsPerAddress: 1 });
+    await open(url, { headers: { "x-askrigor-client-ip": "203.0.113.50" } });
+    // Without the secret, or with a wrong one, every header names nothing: all of these are 127.0.0.1, already full.
+    await expect(open(url, { headers: { "x-askrigor-client-ip": "203.0.113.51" } })).rejects.toMatchObject({ status: 429 });
+    await expect(open(url, { headers: { "x-askrigor-client-ip": "203.0.113.52", "x-askrigor-proxy-secret": "Q".repeat(43) } }))
+      .rejects.toMatchObject({ status: 429 });
+    await expect(open(url, { headers: { "x-askrigor-client-ip": "203.0.113.53", "x-askrigor-proxy-secret": PROXY.slice(1) } }))
+      .rejects.toMatchObject({ status: 429 });
+    await open(url, { headers: from("203.0.113.54") });
+    // A relay given no secret believes no header at all.
+    const bare = createRelay({ laptopKeys: [owner.key], maxSocketsPerAddress: 1 });
+    relays.push(bare);
+    const port = await bare.listen(0, "127.0.0.1");
+    await open(`ws://127.0.0.1:${port}/relay`, { headers: from("203.0.113.60") });
+    await expect(open(`ws://127.0.0.1:${port}/relay`, { headers: from("203.0.113.61") })).rejects.toMatchObject({ status: 429 });
+  });
+
+  it("counts an IPv4-mapped address as its IPv4 address and an IPv6 address by its /64", async () => {
+    expect(addressKey("::ffff:198.51.100.1")).toBe("198.51.100.1");
+    expect(addressKey("198.51.100.1")).toBe("198.51.100.1");
+    expect(addressKey("2001:db8::7")).toBe("2001:0db8:0000:0000::/64");
+    expect(addressKey("2001:DB8:0:0:ffff::1")).toBe("2001:0db8:0000:0000::/64");
+    expect(addressKey("2001:db8:1::1")).toBe("2001:0db8:0001:0000::/64");
+    expect(addressKey("64:ff9b::192.0.2.1")).toBe("0064:ff9b:0000:0000::/64");
+    expect(addressKey("::1")).toBe("0000:0000:0000:0000::/64");
+    const { url } = await start({ maxSocketsPerAddress: 1 });
+    await open(url, { headers: from("2001:db8::1") });
+    await expect(open(url, { headers: from("2001:db8::2") })).rejects.toMatchObject({ status: 429 });
+    await open(url, { headers: from("2001:db8:0:1::2") });
+  });
+
+  it("refuses a new address once 4096 are tracked (shortened to 2), and all upgrades past 600 a minute (shortened to 3)", async () => {
+    const tracked = await start({ maxTrackedAddresses: 2 });
+    await open(tracked.url, { headers: from("203.0.113.1") });
+    await open(tracked.url, { headers: from("203.0.113.2") });
+    await expect(open(tracked.url, { headers: from("203.0.113.3") })).rejects.toMatchObject({ status: 429 });
+    await open(tracked.url, { headers: from("203.0.113.1") });
+    const total = await start({ maxAttemptsTotal: 3 });
+    await open(total.url, { headers: from("198.51.100.1") });
+    await open(total.url, { headers: from("198.51.100.2") });
+    await open(total.url, { headers: from("198.51.100.3") });
+    await expect(open(total.url, { headers: from("198.51.100.4") })).rejects.toMatchObject({ status: 429 });
+  });
+
+  it("caps open HTTP connections in all (1000 by default)", async () => {
+    const { relay } = await start();
+    expect(relay.server.maxConnections).toBe(RELAY_DEFAULTS.maxConnections);
+    const small = await start({ maxConnections: 7 });
+    expect(small.relay.server.maxConnections).toBe(7);
   });
 
   it("refuses the 31st upgrade attempt from one address in 60 s, by default, even with no socket open", async () => {
-    const relay = createRelay({ laptopKeys: [owner.key] });
+    const relay = createRelay({ laptopKeys: [owner.key], proxySecret: PROXY });
     relays.push(relay);
     const port = await relay.listen(0, "127.0.0.1");
     const url = `ws://127.0.0.1:${port}/relay`;
@@ -341,7 +399,7 @@ describe("phone relay: admission before the upgrade", () => {
       await client.closed;
     }
     await expect(open(url)).rejects.toMatchObject({ status: 429 });
-    expect((await open(url, { headers: { "x-askrigor-client-ip": "203.0.113.9" } })).challenge).toHaveLength(43);
+    expect((await open(url, { headers: from("203.0.113.9") })).challenge).toHaveLength(43);
   });
 
   it("counts refused attempts in the sliding window", async () => {
@@ -360,13 +418,24 @@ describe("phone relay: admission before the upgrade", () => {
 
   it("refuses an upgrade when 400 relay sockets are open in all (shortened to 2)", async () => {
     const { url } = await start({ maxSockets: 2 });
-    const a = await open(url, { headers: { "x-askrigor-client-ip": "203.0.113.1" } });
-    await open(url, { headers: { "x-askrigor-client-ip": "203.0.113.2" } });
-    await expect(open(url, { headers: { "x-askrigor-client-ip": "203.0.113.3" } })).rejects.toMatchObject({ status: 429 });
+    const a = await open(url, { headers: from("203.0.113.1") });
+    await open(url, { headers: from("203.0.113.2") });
+    await expect(open(url, { headers: from("203.0.113.3") })).rejects.toMatchObject({ status: 429 });
     a.ws.close();
     await a.closed;
     await sleep(20);
-    await open(url, { headers: { "x-askrigor-client-ip": "203.0.113.3" } });
+    await open(url, { headers: from("203.0.113.3") });
+  });
+
+  it("counts pings and pongs against the socket's message budget, and answers a ping within it", async () => {
+    const { url } = await start({ messageBurst: 5, messagesPerWindow: 5 });
+    const polite = await open(url);
+    const pong = new Promise<void>((done) => polite.ws.once("pong", () => done()));
+    polite.ws.ping("x");
+    await pong;
+    const flood = await open(url);
+    for (let index = 0; index < 10; index += 1) flood.ws.ping();
+    expect((await flood.closed).code).toBe(4429);
   });
 });
 
@@ -738,10 +807,10 @@ describe("phone relay: pairing rooms", () => {
   });
 
   it("allows 10 pair-join messages per address per 60 s, found or not, then 4429", async () => {
-    const relay = createRelay({ laptopKeys: [owner.key] });
+    const relay = createRelay({ laptopKeys: [owner.key], proxySecret: PROXY });
     relays.push(relay);
     const url = `ws://127.0.0.1:${await relay.listen(0, "127.0.0.1")}/relay`;
-    const address = { "x-askrigor-client-ip": "198.51.100.20" };
+    const address = from("198.51.100.20");
     for (let index = 0; index < 10; index += 1) {
       const client = await open(url, { headers: address });
       sendJoin(client, { role: "pair-join", room: newRoom() });
@@ -753,7 +822,7 @@ describe("phone relay: pairing rooms", () => {
     sendJoin(over, { role: "pair-join", room });
     expect((await over.closed).code).toBe(4429);
     // Another address still gets in.
-    await joinRoom(url, room, { "x-askrigor-client-ip": "198.51.100.21" });
+    await joinRoom(url, room, from("198.51.100.21"));
   });
 });
 
@@ -762,17 +831,17 @@ describe("phone relay: rates", () => {
     messageBurst: 1e9, messagesPerWindow: 1e9, byteBurst: 1e12, bytesPerWindow: 1e12, globalBytesPerWindow: 1e12
   } satisfies RelayOptions;
 
-  it("closes a socket over its message budget with 4429 (300 per 60 s, burst 60), and refills it", async () => {
+  it("closes a socket over its message budget with 4429 (300 per 60 s, burst 120), and refills it", async () => {
     const relay = createRelay({ laptopKeys: [owner.key] });
     relays.push(relay);
     const url = `ws://127.0.0.1:${await relay.listen(0, "127.0.0.1")}/relay`;
     const chan = newChan();
     const laptop = await seatLaptop(url, chan);
     const phone = await seatPhone(url, chan);
-    for (let index = 0; index <= 60; index += 1) laptop.ws.send(Buffer.from([index]));
+    for (let index = 0; index <= 120; index += 1) laptop.ws.send(Buffer.from([index % 256]));
     expect((await laptop.closed).code).toBe(4429);
     expect((await phone.closed).code).toBe(4404);
-    expect(phone.frames).toHaveLength(60);
+    expect(phone.frames).toHaveLength(120);
 
     const { url: quick } = await start({ ...unlimited, messageBurst: 2, messagesPerWindow: 2, rateWindowMs: 200 });
     const refilled = await seatLaptop(quick, newChan());
@@ -977,7 +1046,8 @@ describe("phone relay: the rules as written", () => {
       maxSocketsPerAddress: 12, maxAttemptsPerAddress: 30, attemptWindowMs: 60_000, maxSockets: 400,
       maxChannelsPerKey: 8, maxChannels: 200, maxRoomsPerKey: 2, maxRooms: 50,
       maxPairJoinsPerAddress: 10, pairJoinWindowMs: 60_000,
-      rateWindowMs: 60_000, messagesPerWindow: 300, messageBurst: 60, bytesPerWindow: 16 * MiB, byteBurst: 4 * MiB,
+      rateWindowMs: 60_000, messagesPerWindow: 300, messageBurst: 120, bytesPerWindow: 16 * MiB, byteBurst: 8 * MiB,
+      maxTrackedAddresses: 4096, maxAttemptsTotal: 600, maxConnections: 1000,
       globalBytesPerWindow: 128 * MiB, pauseAboveBytes: MiB, resumeBelowBytes: 256 * 1024, backpressureCheckMs: 100,
       stallTimeoutMs: 30_000, pingIntervalMs: 30_000, headersTimeoutMs: 10_000, requestTimeoutMs: 10_000,
       maxHeaderSize: 8192, keepAliveTimeoutMs: 5_000
