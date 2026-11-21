@@ -71,7 +71,7 @@
     "start:mcp": "node apps/research-mcp/dist/index.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "1.8.0",
+    "@anthropic-ai/sdk": "1.10.0",
     "@modelcontextprotocol/ext-apps": "1.7.5",
     "@modelcontextprotocol/sdk": "1.32.2",
     "fast-xml-parser": "5.12.0",
