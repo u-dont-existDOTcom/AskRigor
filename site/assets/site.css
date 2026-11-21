@@ -105,6 +105,15 @@ code { padding: 0.1em 0.25em; background: color-mix(in srgb, var(--line) 45%, tr
   main { padding-top: 2rem; }
 }
 
+/* The public user count: an image the research server draws (/atlas/users.svg), empty while nothing shows. */
+.user-count { margin: 0.75rem 0 0; }
+.user-count img { display: block; max-width: 100%; height: auto; }
+
+@media (prefers-color-scheme: dark) {
+  /* The image is drawn in the light text colours; it can't read this stylesheet, so dark mode turns it here. */
+  .user-count img { filter: invert(1) hue-rotate(180deg); }
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --page: #13191f;

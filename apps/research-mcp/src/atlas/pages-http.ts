@@ -14,6 +14,7 @@ import {
   type AtlasPageSource,
   type AtlasParticipationStore,
   type AtlasReportStore,
+  type ResearchUserCountsSource,
 } from "@askrigor/evidence-repository";
 
 import {
@@ -100,6 +101,15 @@ import {
   type AtlasPageReader,
 } from "./pages.js";
 import { atlasSearchQuery } from "./search.js";
+import {
+  USER_COUNTS_IMAGE_PATH,
+  USER_COUNTS_PATH,
+  publicUserCountsFromEnv,
+  renderUserCountsPage,
+  renderUserCountsSvg,
+  type PublicUserCounts,
+  type UserCountsView,
+} from "./user-counts.js";
 import {
   ATLAS_LOGIN_COOKIE,
   ATLAS_LOGIN_SECONDS,
@@ -237,6 +247,9 @@ export type AtlasRoute =
   | { kind: "comment-maps" }
   | { kind: "search" }
   | { kind: "sitemap" }
+  // The public user count (user-counts.ts): its text page, and the image the home page shows.
+  | { kind: "users" }
+  | { kind: "users-image" }
   | { kind: "topic"; topicKey: string }
   | { kind: "finding"; publicationNumber: string }
   // Votes and comments (section 4E), only while they are switched on.
@@ -293,6 +306,8 @@ export function atlasRouteOf(pathname: string, participation = false): AtlasRout
   if (pathname === COMMENT_MAPS_PATH) return { kind: "comment-maps" };
   if (pathname === "/atlas/search") return { kind: "search" };
   if (pathname === "/atlas/sitemap.xml") return { kind: "sitemap" };
+  if (pathname === USER_COUNTS_PATH) return { kind: "users" };
+  if (pathname === USER_COUNTS_IMAGE_PATH) return { kind: "users-image" };
   const subcategory = SUBCATEGORY_ROUTE.exec(pathname);
   if (subcategory !== null) return { kind: "subcategory", subcategoryKey: subcategory[1]! };
   const topic = TOPIC_ROUTE.exec(pathname);
@@ -518,6 +533,8 @@ export interface CreateAtlasPagesHandlerOptions {
   now?: () => number;
   /** Votes, comments and sign-in (ASKRIGOR_ATLAS_PARTICIPATION=enabled); without them only GET search forms show. */
   participation?: AtlasParticipationRuntime;
+  /** The public user count (ASKRIGOR_PUBLIC_USER_COUNTS); without it, as when it is off. */
+  userCounts?: PublicUserCounts;
 }
 
 function setPageHeaders(response: ServerResponse): void {
@@ -554,6 +571,7 @@ function redirect(response: ServerResponse, status: 302 | 303, location: string,
 const USED_SIGN_INS_MAX = 10_000;
 
 const HTML = "text/html; charset=utf-8";
+const SVG = "image/svg+xml; charset=utf-8";
 const TEXT = "text/plain; charset=utf-8";
 
 /** A GET or HEAD carries no body; one that declares a body is refused before it is read. */
@@ -705,6 +723,16 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
   const checked = (page: RenderedAtlasPage): RenderedAtlasPage => {
     if (atlasPageProblems(page.html).length > 0) throw new Error("ATLAS_PAGE_REFUSED");
     return page;
+  };
+
+  /** The user count's view: off without a count, and unavailable when the count itself fails, never a failed page. */
+  const userCountsView = async (): Promise<UserCountsView> => {
+    if (options.userCounts === undefined) return { state: "off" };
+    try {
+      return await options.userCounts.view();
+    } catch {
+      return { state: "unavailable" };
+    }
   };
 
   /** What a finding page's votes and comments render with, for the viewer and the moment. */
@@ -1344,6 +1372,17 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         }
         return true;
       }
+      if (route?.kind === "users-image") {
+        // Like the stylesheet, outside the rate limit: every home page view asks for it, and it reads no session, page
+        // or database but the day's one count. When nothing shows, it is an empty image, never an error the home page
+        // would show as a broken image.
+        if (method !== "GET" && method !== "HEAD") {
+          write(response, 405, TEXT, "Method not allowed\n", { allow: "GET, HEAD", connection: "close" });
+        } else {
+          write(response, 200, SVG, renderUserCountsSvg(await userCountsView()), { "cache-control": "public, max-age=3600" });
+        }
+        return true;
+      }
       const addressKey = addressLimitKey(atlasReaderAddress(request, publicHost, dispatchOptions.clientIp, proxySecret));
       if (!rateLimiter.consume(addressKey)) {
         // Over the limit or unavailable: the plain header, with no session or database read.
@@ -1381,6 +1420,22 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         } catch {
           plainFailure(response, 503, renderAtlasUnavailable(), { "cache-control": PRIVATE, "referrer-policy": "no-referrer" });
         }
+        return true;
+      }
+      if (route.kind === "users") {
+        // The count's text page reads no Atlas data and no session: it is the same for every reader.
+        const view = await userCountsView();
+        if (view.state === "off") {
+          await failurePage(request, response, 404, renderAtlasNotFound);
+          return true;
+        }
+        if (view.state === "unavailable") {
+          plainFailure(response, 503, renderAtlasUnavailable());
+          return true;
+        }
+        const page = checked({ status: 200,
+          html: renderUserCountsPage(view, participation === undefined ? undefined : signedOutReader(pathname)) });
+        write(response, page.status, HTML, page.html);
         return true;
       }
       if (participation !== undefined && route.kind === "private-pages") {
@@ -1481,6 +1536,8 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
 export interface AtlasPagesSharedParts {
   /** The connector's research access service; without it the pages make their own, on the same access role. */
   researchAccess?: AtlasFeaturesRuntime["research"];
+  /** The research-access database's two aggregates for the public user count, on the connector's pool. */
+  userCounts?: ResearchUserCountsSource;
   /** The subjects the connector's owner review admits (ASKRIGOR_OAUTH_ALLOWED_SUBJECT). */
   ownerSubjects?: ReadonlySet<string>;
 }
@@ -1620,5 +1677,6 @@ export function createAtlasPagesHandlerFromEnv(env: NodeJS.ProcessEnv = process.
     proxySecret,
     source,
     ...(participation === undefined ? {} : { participation }),
+    userCounts: publicUserCountsFromEnv(env, shared.userCounts),
   });
 }

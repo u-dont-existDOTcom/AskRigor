@@ -489,6 +489,8 @@ export function createAskRigorHttpServer(
   // signed-in reader's research account through the connector's own service, and knows the owner as its review does.
   const atlasPagesHandler = options.atlasPagesHandler ?? createAtlasPagesHandlerFromEnv(process.env, {
     ...(researchContributorAccessService === undefined ? {} : { researchAccess: researchContributorAccessService }),
+    // The public user count's two aggregates, on the research-access pool (ASKRIGOR_PUBLIC_USER_COUNTS; off by default).
+    ...(researchAccessStore === undefined ? {} : { userCounts: researchAccessStore.userCounts() }),
     ...(oauthResourceServer === undefined ? {} : { ownerSubjects: oauthResourceServer.reviewerSubjects }),
   });
   const researchAccessRequired = oauthResourceServer !== undefined;
