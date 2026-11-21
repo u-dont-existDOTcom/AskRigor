@@ -54,10 +54,11 @@ export type Framing = z.output<typeof framingSchema>;
 
 export const researchSteeringInputSchema = z.object({
   style: z.enum(RESEARCH_STYLES).optional()
-    .describe("guided: ask at the framing and before every long task; balanced (the default): ask only questions " +
-      "that could redirect the research, and show the menu of next tasks and wait when they could take more than " +
-      "about 10 minutes or the person's choices could steer the research, as they usually can unless the question is " +
-      "precise; autonomous: go on through the passes and check back after the time allowance."),
+    .describe("guided: ask at the framing and before every long task; balanced (the default): ask questions that " +
+      "could redirect the research, show the menu of next tasks and wait when the person's choices could steer the " +
+      "research, as they usually can unless the question is precise, and when the plan changes on the way; a first " +
+      "menu does not wait for its length alone, a later one does past about 10 minutes; autonomous: go on through " +
+      "the passes and check back after the time allowance."),
   checkBackMinutes: z.number().int().min(CHECK_BACK_MINUTES.min).max(CHECK_BACK_MINUTES.max).optional()
     .describe("Minutes of research before checking back with the person, 1 to 120; 10 by default."),
   adjustmentDetail: z.enum(ADJUSTMENT_DETAILS).optional()
@@ -574,7 +575,7 @@ export const STEERING_CHOICE = "the one question you would ask this person befor
 /** The refusal's text for a short menu that names no question: what is asked, and the call to send. */
 export function steeringChoiceRefusalText(example: CorrectedMenu): string {
   return [
-    "AskRigor planned nothing yet. These tasks are short, so whether to ask the person first rests on " +
+    "AskRigor planned nothing yet. Whether this menu asks the person first rests on your steering judgment, " +
       "later_inputs.researchMenu.steering_choice, which this call left out (steering_could_help alone, true or " +
       `false, does not replace it): ${STEERING_CHOICE}.`,
     "Call manage_research_access with action plan_research again with these later_inputs, which are yours, after " +
@@ -598,9 +599,10 @@ export const READING_FIRST = "You named no question for this person, so before t
 /** The style's wording, as the person would read it. */
 const STYLE_WORDS: Readonly<Record<ResearchStyle, string>> = Object.freeze({
   guided: "guided (asks you at the start and before every long task)",
-  balanced: "balanced (asks only questions that could redirect the research, and shows the menu of next tasks when " +
-    "they could take more than about 10 minutes or when your choices could steer the research, as they usually can " +
-    "unless the question is precise)",
+  balanced: "balanced (asks questions that could redirect the research, shows the menu of next tasks when your " +
+    "choices could steer the research, as they usually can unless the question is precise, and asks again when the " +
+    "plan changes on the way or a later step could take more than about 10 minutes; otherwise the research goes on, " +
+    "saying first how it read the question and how long it may take)",
   autonomous: "autonomous (goes on through the research and reports as it goes)",
 });
 
@@ -947,6 +949,12 @@ export const ASKED_REQUEST = "On this account AskRigor plans the research itself
 export const ANSWER_REVIEW_ASKED = "At the final check, give later_inputs.asked again, with any later message of " +
   "theirs about this question added: AskRigor's review of your draft reads them, and AskRigor keeps none of them.";
 
+/**
+ * Owner answer 395b (21 November 2026): the longest one dev account's planning call is paused, for a test round that
+ * compares research with and without it (research-planner.ts, pause). A session turns a pause on only for such a round.
+ */
+export const PLANNER_PAUSE_MAX_MINUTES = 120;
+
 /** Why a dev account's registration came back without AskRigor's own plan, when the planning call is on. */
 export const PLANNER_NOT_USED_REASONS = ["daily_budget", "account_limit", "error", "timeout", "refusal",
   "unreadable"] as const;
@@ -1087,6 +1095,15 @@ export function plannerNotUsedSentence(reason: PlannerNotUsedReason, accountDail
  * person's choices could steer the research is the model's judgment from the screen, in any language, as HRP's
  * StructuredUserSteeringAndApproval asks (approval_required against clear_scope_no_pause); this module only compares.
  * It was five minutes: with the measured times, all 14 of the timing runs' first menus came to more than five.
+ *
+ * Owner answer 399b (21 November 2026), the option as he chose it: "drop the 10-minute stop for a first question on the
+ * balanced style, for every account (it's everyone's default): the research goes on, opening with how it read your
+ * question and how long it may take; the guided style still asks." He had written in his Inbox that day: "i turned off
+ * the menu because it was often asking for clarifdication where none was needed". The replay of that day: the length
+ * alone asked before 14 of 15 first menus of his own questions. So a balanced research's first menu (nothing carried,
+ * nothing done, not changed) no longer waits for its length; it goes on with WENT_ON_LONG. The 10 minutes still count
+ * for a menu that is not the first, guided research still asks before every long task, and a named question (or a
+ * judgment left out), a changed menu and a re-plan ask as before.
  */
 export const ASK_ABOVE_MINUTES = 10;
 
@@ -1105,6 +1122,23 @@ export const ASK_ABOVE_MINUTES = 10;
  */
 export const WENT_ON_AS_ASKED = "AskRigor did not ask first, though these tasks could take more than about " +
   `${ASK_ABOVE_MINUTES} minutes: its own plan read the person's latest message as telling you to go on.`;
+
+/**
+ * Owner answer 399b: why a balanced first menu this long did not ask, and what the person is told instead: how the AI
+ * read their question and how long the research may take, the recommended tasks with the final check and the answer
+ * (ANSWER_MINUTES), said before the first research call where the app shows what the AI writes then, otherwise at the
+ * top of the answer.
+ */
+export function wentOnLongSentence(result: Pick<ResearchPlanResult, "recommended_minutes">): string {
+  const low = roundEstimate(result.recommended_minutes[0] + ANSWER_MINUTES[0]);
+  const high = roundEstimate(result.recommended_minutes[1] + ANSWER_MINUTES[1]);
+  return `AskRigor did not ask first, though these tasks could take more than about ${ASK_ABOVE_MINUTES} minutes: on ` +
+    "the balanced style a research's first menu goes on whatever its length. So before your first research call, " +
+    "write one line to the person, in their language: how you read their question (which meaning, comparison or " +
+    `situation you took it to be about) and that the research may take about ${low} to ${high} minutes with the ` +
+    "final check and the answer. A reading they did not mean then shows at once. If your app shows nothing you " +
+    "write until the answer, that is its limit, not a reason to leave the line out: it then opens the answer.";
+}
 
 export interface PlannedTask {
   n: number;
@@ -1152,10 +1186,17 @@ export interface ResearchPlanResult {
    */
   allocation_not_used?: true;
   /**
-   * Owner answer 304a: the recommended tasks could take more than about 10 minutes and the menu goes on all the same,
-   * since AskRigor's own plan read the person's newest message as telling the AI to go on (WENT_ON_AS_ASKED).
+   * Owner answer 304a: the recommended tasks could take more than about 10 minutes and the menu went on all the same,
+   * since AskRigor's own plan read the person's newest message as telling the AI to go on (WENT_ON_AS_ASKED). No longer
+   * given: since owner answer 399b a balanced first menu goes on whatever its length (went_on_long), and the mark, which
+   * comes only with a first menu, changes no decision.
    */
   went_on_as_asked?: true;
+  /**
+   * Owner answer 399b: a balanced first menu whose recommended tasks could take more than about 10 minutes went on,
+   * where it used to ask for its length alone (wentOnLongSentence).
+   */
+  went_on_long?: true;
   /**
    * AskRigor#467: the menu went on on the person's own go-ahead, given before it was shown (personGoAheadOf): all, every
    * open task, or recommended, AskRigor's recommendation.
@@ -1392,14 +1433,17 @@ export function planResearch(
   // menu's length alone is no reason to ask them again. Everything else that asks still does: guided research, a
   // named question (or a judgment left out), a menu changed after they saw it, a re-plan, and a research target that
   // is not the registered one, which gets no go-ahead at all.
-  const asked = menu?.goOnAsked === true && steerable === false && !replanned && plainAnswer?.matches !== false;
+  // Owner answer 399b: on the balanced style a research's first menu does not wait for its length alone. The 304a mark,
+  // which came only with a first menu, so no longer changes the decision: a later menu (one carrying an allocation not
+  // yet the person's, say) waits for its length whatever mark it carries (Codex's review of 21 Nov).
+  const firstBalanced = steering.style === "balanced" && firstMenu;
+  const lengthAsks = long && !firstBalanced;
   const next = steering.style === "autonomous" ? "go_on"
     : answered ? "go_on"
     // AskRigor#467: the person said to go ahead without waiting for a menu, so nothing here asks them.
     : goAhead !== undefined ? "go_on"
     : changed ? "ask"
-    : steering.style === "guided" || (long && !asked) || steerable !== false ||
-        (replanned && recommended.length > 0)
+    : steering.style === "guided" || lengthAsks || steerable !== false || (replanned && recommended.length > 0)
       ? "ask"
       : "go_on";
   return {
@@ -1430,9 +1474,11 @@ export function planResearch(
     ...(menu === undefined ? {} : { menu_digest: menu.digest }),
     ...(changed ? { menu_changed: true as const } : {}),
     ...(carried && !answered ? { allocation_not_used: true as const } : {}),
-    // Only where the mark made the difference: a balanced menu that would have asked for its length alone.
-    ...(next === "go_on" && long && asked && steering.style === "balanced" && !answered && goAhead === undefined
-      ? { went_on_as_asked: true as const } : {}),
+    // Owner answer 399b: a balanced first menu that went on though its tasks could take more than about 10 minutes, the
+    // person's go-ahead aside (which says its own why), and not a light look-up (whose go-ahead is LIGHT_LOOKUP alone).
+    ...(next === "go_on" && long && firstBalanced && !answered && goAhead === undefined && !lightWork &&
+        plainAnswer?.matches !== false
+      ? { went_on_long: true as const } : {}),
     // AskRigor#467: and a question the menu named, which the answer then says what it assumed for. A light look-up
     // says nothing more than its own line, and a menu held back for its research target gets no go-ahead.
     ...(goAhead === undefined || plainAnswer?.matches === false ? {} : {
@@ -1448,9 +1494,9 @@ export function planResearch(
  * Whether a menu leaves out the question its decision rests on (owner answers 294c and 296b): it gives no
  * steering_choice, and the same menu planned as steerable would ask and planned as not steerable would go on. It is
  * read from the rule itself, by planning the menu both ways, so it follows every change to the rule: guided
- * research, tasks past the 10 minutes, a menu changed after the person saw it and a re-plan ask whatever the
+ * research, a menu changed after the person saw it, a re-plan and a later menu past the 10 minutes ask whatever the
  * judgment, autonomous research and the person's own allocation go on whatever it is, and none of them needs a
- * question. What the menu's steering_could_help says does not enter into it: on 12 Nov it did (a menu that gave it,
+ * question. A balanced first menu past the 10 minutes does since owner answer 399b: its length no longer asks. What the menu's steering_could_help says does not enter into it: on 12 Nov it did (a menu that gave it,
  * true or false, was planned), and round 4 showed that a yes or no alone does not carry the judgment
  * (STEERING_CHOICE). An allocation that is not used answers nothing here either.
  */
@@ -1482,8 +1528,11 @@ const range = ([low, high]: [number, number]): string => low === high ? `about $
  */
 function askReason(result: ResearchPlanResult, done: ReadonlySet<number>): string {
   if (result.style === "guided") return "This person chose guided research, which asks before every long task";
+  // Owner answer 399b: a first menu (nothing done, not changed, no allocation carried) no longer asks for its length.
+  const firstMenu = !result.tasks.some(({ n }) => done.has(n)) && result.menu_changed !== true &&
+    result.allocation_not_used !== true;
   const reasons = [
-    ...(result.recommended_minutes[1] > ASK_ABOVE_MINUTES
+    ...(!firstMenu && result.recommended_minutes[1] > ASK_ABOVE_MINUTES
       ? [`the recommended tasks could take more than about ${ASK_ABOVE_MINUTES} minutes, as these could`] : []),
     ...(result.steering_could_help === false ? [] : [result.steering_could_help === true
       ? "their choices could steer the research, as they could here"
@@ -1524,8 +1573,9 @@ const HOW_TO_SPEND = "How should I spend the time? Reply with task numbers and m
  */
 export function menuPreferenceLine(style: ResearchStyle): string {
   return "To change how often I ask you, say \"guided\" (I ask at the start and before every long task), " +
-    "\"balanced\" (I ask only when your answer could change the research, or when it could take more than about 10 " +
-    `minutes) or "autonomous" (I go on and report as I go). Yours is ${style} now.`;
+    "\"balanced\" (I ask when your answer could change the research, when the plan changes on the way, or when a " +
+    "later step could take more than about 10 minutes; otherwise I go on, saying how I read your question and how " +
+    `long it may take) or "autonomous" (I go on and report as I go). Yours is ${style} now.`;
 }
 /** What the AI does when the person's reply to a menu names a style: the setting first, then the plan again. */
 export const STYLE_REPLY = "If the reply asks for another research style, set it first with action " +
@@ -1878,12 +1928,13 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
           "the open tasks as a numbered menu and the question whether to spend more time on them."
         : "Go on now: do these tasks in this order, each within its minutes, showing the menu as what you are " +
           "doing; then check the answer with finalize_research and give it in this turn.",
-      // Owner answer 304a: why a plan this long did not ask.
-      ...(result.went_on_as_asked === true ? [WENT_ON_AS_ASKED] : []),
+      // Owner answer 399b: why a balanced first menu this long did not ask, and what the person is told instead.
+      ...(result.went_on_long === true ? [wentOnLongSentence(result)] : []),
       // AskRigor#467: why it did not ask, and what the answer says first for a question the menu named.
       ...(result.went_ahead === undefined ? [] : [goAheadSentence(result)]),
-      // Owner answer 297c: with no question named, the answer says its reading first.
-      ...(result.say_reading_first === true ? [READING_FIRST] : []),
+      // Owner answer 297c: with no question named, the answer says its reading first; a menu that went on for its
+      // length alone says it in wentOnLongSentence, with the time, before the research (Codex's review of 21 Nov).
+      ...(result.say_reading_first === true && result.went_on_long !== true ? [READING_FIRST] : []),
       result.style === "autonomous" ? TASK_PROGRESS : `${TASK_PROGRESS} ${NEW_FORK}`,
       WORDS_ARE_NOT_SIZES,
       // An allocation sent after a stop is declared the person's too, or it is not used.
@@ -1946,11 +1997,11 @@ export function planNextStep(result: ResearchPlanResult, learnMode?: boolean): s
       "question whether to spend more time on them."
     : "Do the recommended tasks now, in order, each within its minutes; then check the answer with finalize_research " +
       "and give it in this turn.") +
-    // Owner answer 304a: an app that hands its model only next_step is told too why a plan this long did not ask.
-    (result.went_on_as_asked === true ? ` ${WENT_ON_AS_ASKED}` : "") +
+    // Owner answer 399b: and why a balanced first menu this long did not.
+    (result.went_on_long === true ? ` ${wentOnLongSentence(result)}` : "") +
     // AskRigor#467: the same, when the person's own words said to go ahead.
     (result.went_ahead === undefined ? "" : ` ${goAheadSentence(result)}`) +
-    (result.say_reading_first === true ? ` ${READING_FIRST}` : "");
+    (result.say_reading_first === true && result.went_on_long !== true ? ` ${READING_FIRST}` : "");
 }
 
 /** What a go-ahead's result says (AskRigor#467): why it did not ask, all of it, and a named question's assumed answer. */

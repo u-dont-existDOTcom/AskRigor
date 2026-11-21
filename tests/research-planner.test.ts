@@ -16,7 +16,8 @@ import {
   researchAccountReference,
 } from "@askrigor/evidence-repository";
 
-import { atlasFeatureRows, type AtlasResearchAccount, type AtlasServerFeatures } from "../apps/research-mcp/src/atlas/account-features.js";
+import { atlasFeatureRows, loadAtlasAccountFeatures, type AtlasResearchAccount, type AtlasServerFeatures }
+  from "../apps/research-mcp/src/atlas/account-features.js";
 import { laterInputNames, withLaterInputs } from "../apps/research-mcp/src/later-inputs.js";
 import { registerTools, type RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
 import {
@@ -25,6 +26,7 @@ import {
   RESEARCH_PLANNER_LIMITS,
   RESEARCH_PLANNER_OUTPUT_SCHEMA,
   RESEARCH_PLANNER_RUBRIC,
+  RESEARCH_PLANNER_RUBRIC_VERSION,
   createResearchPlanner,
   researchPlanOf,
   researchPlannerBundle,
@@ -38,8 +40,8 @@ import {
 import { FINALIZE_REMINDER } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { heldFor, heldText } from "../apps/research-mcp/src/askrigor-holds.js";
 import { OWNER_POINTERS } from "../apps/research-mcp/src/owner-pointers.js";
-import { createManageResearchAccessHandler, manageResearchAccessInputSchema, menuHistoryOf, personReasonOf,
-  waitForPendingMenuChoices }
+import { PLANNER_OFF_NOTHING_PAUSED, PLANNER_PAUSE_ENDED, createManageResearchAccessHandler,
+  manageResearchAccessInputSchema, menuHistoryOf, personReasonOf, plannerPausedText, waitForPendingMenuChoices }
   from "../apps/research-mcp/src/research-contributor-access-tool.js";
 import { issueResearchReceipt, plainAnswerAccountBinding, verifyResearchReceipt }
   from "../apps/research-mcp/src/research-receipts.js";
@@ -57,6 +59,7 @@ import {
   LEARN_MODE_UNAVAILABLE,
   LIGHT_LANE_PLANNED,
   LIGHT_LOOKUP,
+  PLANNER_PAUSE_MAX_MINUTES,
   PLAN_TASK_KINDS,
   READING_FIRST,
   RESEARCH_LANES,
@@ -1182,6 +1185,10 @@ function memoryPlanner(answer: (source: ResearchPlannerSource, accountKey: strin
   return { planner: made, seen };
 }
 
+// Owner answer 399b (21 Nov 2026): a balanced first menu goes on whatever its length, so the mark no longer makes
+// the difference there: with it, without it or with a mark that is not AskRigor's, the menu goes on (went_on_long);
+// guided research still asks. The mark itself is still made and checked as before; its signing and checking are tested
+// in tests/research-steering.test.ts (goOnMark). Here only the outcome is, which no longer depends on it.
 describe("the planning call's signed go-on menu (owner answer 304a)", () => {
   const latest = "Keep digging on the same question.";
   const asked = [SOURCE.asked!, latest];
@@ -1241,18 +1248,19 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
     expect(data.research_plan).not.toHaveProperty("person_said_go_on");
   });
 
-  it("goes on with the handed-over long balanced menu and explains why", async () => {
+  it("goes on with the handed-over long balanced menu and explains why, now as any first menu does", async () => {
     const { call, data } = await session();
     const result = await call({ action: "plan_research", later_inputs: data.planned_later_inputs });
     expect(result.isError, words(result)).not.toBe(true);
-    expect(result.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on", went_on_as_asked: true,
+    expect(result.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on", went_on_long: true,
       target_matches_plain_answer: true } });
     const menu = result.structuredContent!.researchMenu as { recommended_minutes: number[] };
     expect(menu.recommended_minutes[1]).toBeGreaterThan(10);
-    expect(words(result)).toContain(WENT_ON_AS_ASKED);
+    expect(words(result)).not.toContain(WENT_ON_AS_ASKED);
+    expect(words(result)).toContain("on the balanced style a research's first menu goes on whatever its length");
   });
 
-  it("asks when a signed menu's task text, minutes, sources or same-kind task is changed", async () => {
+  it("goes on, as any balanced first menu, when a signed menu's task text, minutes, sources or same-kind task is changed", async () => {
     const { call, data } = await session();
     const menu = data.planned_later_inputs.researchMenu;
     const first = menu.tasks[0]!;
@@ -1267,20 +1275,20 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
       expect(changed.go_on_asked, what).toBe(menu.go_on_asked);
       const result = await call({ action: "plan_research", later_inputs: { researchMenu: changed } });
       expect(result.isError, `${what}: ${words(result)}`).not.toBe(true);
-      expect(result.structuredContent, what).toMatchObject({ ok: true, researchMenu: { next: "ask",
-        target_matches_plain_answer: true } });
+      expect(result.structuredContent, what).toMatchObject({ ok: true, researchMenu: { next: "go_on",
+        went_on_long: true, target_matches_plain_answer: true } });
       expect(result.structuredContent!.researchMenu, what).not.toHaveProperty("went_on_as_asked");
     }
   });
 
   it.each(["account removed", "planner disabled", "planner absent"] as const)(
-    "asks for the same signed menu with the %s", async (what) => {
+    "goes on, as any balanced first menu, for the same signed menu with the %s", async (what) => {
       const { call, service, memory, data } = await session();
       const input = { action: "plan_research", later_inputs: data.planned_later_inputs };
       const original = await call(input);
       expect(original.isError, words(original)).not.toBe(true);
       expect(original.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
-        went_on_as_asked: true, target_matches_plain_answer: true } });
+        went_on_long: true, target_matches_plain_answer: true } });
       const handler = createManageResearchAccessHandler({ service, menuDigestSecret: () => SECRET,
         devAccountKeys: () => new Set(what === "account removed" ? []
           : [researchAccountReference(service.accountKeyForSubject("auth0|dev"))]),
@@ -1302,8 +1310,8 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
       const result = await execute(input, { authInfo: { token: "synthetic-token", clientId: "synthetic-client",
         scopes: ["research:use"], expiresAt: Math.floor(Date.now() / 1_000) + 60, extra: { subject: "auth0|dev" } } });
       expect(result.isError, words(result)).not.toBe(true);
-      expect(result.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask",
-        target_matches_plain_answer: true } });
+      expect(result.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
+        went_on_long: true, target_matches_plain_answer: true } });
       expect(result.structuredContent!.researchMenu).not.toHaveProperty("went_on_as_asked");
     });
 
@@ -1320,7 +1328,7 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
     const again = await call({ action: "plan_research", later_inputs: corrected });
     expect(again.isError, words(again)).not.toBe(true);
     expect(again.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
-      went_on_as_asked: true, target_matches_plain_answer: true } });
+      went_on_long: true, target_matches_plain_answer: true } });
   });
 
   it("leaves a numeric or overlong mark out of a refused menu's correction", async () => {
@@ -1335,7 +1343,7 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
     }
   });
 
-  it("asks for a tampered or copied mark, another receipt, arbitrary text, or guided research", async () => {
+  it("goes on for a tampered or copied mark, another receipt or arbitrary text, and guided research asks", async () => {
     const { call, service, data } = await session();
     const menu = data.planned_later_inputs.researchMenu;
     const mark = menu.go_on_asked!;
@@ -1352,8 +1360,8 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
     ] as const) {
       const result = await call({ action: "plan_research", later_inputs: { researchMenu: changed } });
       expect(result.isError, what).not.toBe(true);
-      expect(result.structuredContent, what).toMatchObject({ ok: true, researchMenu: { next: "ask",
-        target_matches_plain_answer: true } });
+      expect(result.structuredContent, what).toMatchObject({ ok: true, researchMenu: { next: "go_on",
+        went_on_long: true, target_matches_plain_answer: true } });
       expect(result.structuredContent!.researchMenu, what).not.toHaveProperty("went_on_as_asked");
       expect(words(result), what).not.toContain(WENT_ON_AS_ASKED);
     }
@@ -1366,14 +1374,14 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
   });
 
   // As for person_reason: a value in the mark's place that is not the mark must never refuse a menu.
-  it("never refuses a menu for what stands in the mark's place: any value that is not the mark asks", async () => {
+  it("never refuses a menu for what stands in the mark's place: any value that is not the mark goes on as any first menu", async () => {
     const { call, data } = await session();
     const menu = data.planned_later_inputs.researchMenu;
     for (const value of ["x".repeat(201), "x".repeat(5_000), 7, true, null, { mark: menu.go_on_asked }, [menu.go_on_asked]]) {
       const asking = await call({ action: "plan_research", later_inputs: { researchMenu: { ...menu,
         go_on_asked: value } } });
       expect(asking.isError, `${JSON.stringify(value).slice(0, 40)}: ${words(asking)}`).not.toBe(true);
-      expect(asking.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask" } });
+      expect(asking.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on", went_on_long: true } });
       expect(asking.structuredContent!.researchMenu).not.toHaveProperty("went_on_as_asked");
       expect(words(asking)).not.toContain(WENT_ON_AS_ASKED);
     }
@@ -1772,11 +1780,17 @@ describe("a steering_choice that is neither the word none nor a question is hand
       steering_choice: "none_needed", allocation: [{ task: 1, minutes: 2 }], person_answered: true }) } });
     expect(answered.isError, words(answered)).not.toBe(true);
     expect(answered.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on" } });
-    // Long tasks ask either way.
+    // A re-plan asks either way.
+    const replan = await call({ action: "plan_research", later_inputs: { researchMenu: menu({ steering_choice: "n/a",
+      done: [1] }) } });
+    expect(replan.isError, words(replan)).not.toBe(true);
+    expect(replan.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask" } });
+    // Long tasks used to ask either way; since owner answer 399b a balanced first menu doesn't wait for its length, so
+    // there the decision rests on the judgment, and one that is neither none nor a question is handed back.
     const long = await call({ action: "plan_research", later_inputs: { researchMenu: menu({ steering_choice: "n/a",
       tasks: [{ task: "Read twelve papers in full", kind: "full_text", could_change: "conclusion", sources: 12 }] }) } });
-    expect(long.isError, words(long)).not.toBe(true);
-    expect(long.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask" } });
+    expect(long.isError).toBe(true);
+    expect(words(long)).toContain("whether to ask the person first rests on it");
   });
 });
 
@@ -2072,5 +2086,383 @@ describe("learn mode on a dev account (owner answer 303a)", () => {
       { days_ago: 2, lane: "research", you_decide: false, reason: "R.", tasks: [{ kind: "forum_thread",
         recommended: false, minutes: 2 }] },
     ]);
+  });
+});
+
+// Owner answer 395b (21 Nov 2026): a test round pauses a dev account's planning call for at most two hours, so its
+// research can be compared with and without the call on the same day and build. Kept in memory, by the account's digest.
+describe("a test round's pause of the planning call (owner answer 395b)", () => {
+  const MINUTE = 60_000;
+  const START = Date.parse("2026-11-21T14:00:00Z");
+  const first = (result: Result): string => result.content[0]!.type === "text" ? result.content[0]!.text : "";
+  const disabled = { enabled: false, plan: async () => { throw new Error("never"); } } as unknown as ResearchPlanner;
+  const register = { action: "register_plain_answer", plainAnswer: PLAIN, later_inputs: { asked: SOURCE.asked } };
+
+  it("pauses one account's call, which then makes no call and counts nothing, and starts again by itself", async () => {
+    let at = START;
+    const made = planner({ now: () => at, env: { ASKRIGOR_RESEARCH_PLANNER_ACCOUNT_DAILY_CALLS: "1" } });
+    const pause = made.planner.pause!;
+    const pausedUntil = made.planner.pausedUntil!;
+    expect(pausedUntil("account-a")).toBeUndefined();
+    expect(pause("account-a", 30)).toBe(START + 30 * MINUTE);
+    expect(pausedUntil("account-a")).toBe(START + 30 * MINUTE);
+    expect(pausedUntil("account-b")).toBeUndefined();
+    // Paused: as with the planner off, with no call, no cost and nothing counted toward the account's one call a day.
+    expect(await made.planner.plan(SOURCE, "account-a")).toEqual({ planning: { status: "skipped", reason: "off" },
+      cached: false, costUsd: 0, milliseconds: 0 });
+    expect(made.bodies).toHaveLength(0);
+    // Another account is planned for as before.
+    expect((await made.planner.plan(SOURCE, "account-b")).planning.status).toBe("planned");
+    expect(made.bodies).toHaveLength(1);
+    // At its end the call starts again by itself, and the account still has its call for the day.
+    at = START + 30 * MINUTE - 1;
+    expect(pausedUntil("account-a")).toBe(START + 30 * MINUTE);
+    at = START + 30 * MINUTE;
+    expect(pausedUntil("account-a")).toBeUndefined();
+    expect((await made.planner.plan(SOURCE, "account-a")).planning.status).toBe("planned");
+    expect(made.bodies).toHaveLength(2);
+  });
+
+  it("pauses for 1 to 120 whole minutes, never past two hours from its start, and ends at once with 0", () => {
+    let at = START;
+    const made = planner({ now: () => at });
+    const pause = made.planner.pause!;
+    const pausedUntil = made.planner.pausedUntil!;
+    expect(PLANNER_PAUSE_MAX_MINUTES).toBe(120);
+    for (const minutes of [121, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 1e9]) {
+      expect(() => pause("account-a", minutes), String(minutes)).toThrow(RangeError);
+    }
+    expect(pausedUntil("account-a")).toBeUndefined();
+    expect(pause("account-a", 120)).toBe(START + 120 * MINUTE);
+    at += 10 * MINUTE;
+    // Paused again while it runs: a new end from now, shorter here.
+    expect(pause("account-a", 5)).toBe(at + 5 * MINUTE);
+    expect(pausedUntil("account-a")).toBe(at + 5 * MINUTE);
+    // Paused again and again, it keeps its start: never more than two hours from it (Codex's review of 21 Nov).
+    at = START + 14 * MINUTE;
+    expect(pause("account-a", 60)).toBe(START + 74 * MINUTE);
+    at = START + 73 * MINUTE;
+    expect(pause("account-a", 120)).toBe(START + 120 * MINUTE);
+    at = START + 119 * MINUTE;
+    expect(pause("account-a", 120)).toBe(START + 120 * MINUTE);
+    at = START + 120 * MINUTE;
+    expect(pausedUntil("account-a")).toBeUndefined();
+    // A pause set after one ended is a new one, with its own start.
+    expect(pause("account-a", 30)).toBe(at + 30 * MINUTE);
+    expect(pause("account-a", 0)).toBeUndefined();
+    expect(pausedUntil("account-a")).toBeUndefined();
+    // Ending a pause that does not run changes nothing.
+    expect(pause("account-b", 0)).toBeUndefined();
+    expect(pausedUntil("account-b")).toBeUndefined();
+    // The planner while off has no pause at all.
+    const off = planner({ env: { ASKRIGOR_RESEARCH_PLANNER: "off" } }).planner;
+    expect(off.enabled).toBe(false);
+    expect(off.pause).toBeUndefined();
+    expect(off.pausedUntil).toBeUndefined();
+  });
+
+  it("forgets the account's plans and lanes when it starts, so no research takes a plan made before it", async () => {
+    let at = START;
+    const made = planner({ now: () => at });
+    expect((await made.planner.plan(SOURCE, "account-a")).cached).toBe(false);
+    expect((await made.planner.plan(SOURCE, "account-b")).cached).toBe(false);
+    expect(await made.planner.lane(SOURCE.asked, "account-a", SOURCE.researchTarget)).toBe("research");
+    at += MINUTE;
+    made.planner.pause!("account-a", 10);
+    // During the pause there is no lane; after it, the plan made before it is gone, and the same words are a new call.
+    expect(await made.planner.lane(SOURCE.asked, "account-a", SOURCE.researchTarget)).toBeUndefined();
+    at += 10 * MINUTE;
+    expect(made.planner.pausedUntil!("account-a")).toBeUndefined();
+    expect(await made.planner.lane(SOURCE.asked, "account-a", SOURCE.researchTarget)).toBeUndefined();
+    expect(await made.planner.lane(undefined, "account-a", SOURCE.researchTarget)).toBeUndefined();
+    // The other account's plan and lane are kept for their hour.
+    expect(await made.planner.lane(SOURCE.asked, "account-b", SOURCE.researchTarget)).toBe("research");
+    expect((await made.planner.plan(SOURCE, "account-b")).cached).toBe(true);
+    expect((await made.planner.plan(SOURCE, "account-a")).cached).toBe(false);
+    expect(made.bodies).toHaveLength(3);
+  });
+
+  it("gives no lane to a final check that waits on a plan the pause forgot (Codex's review of 21 Nov)", async () => {
+    const at = START;
+    let release: (() => void) | undefined;
+    const made = planner({ now: () => at,
+      reply: () => new Promise<Anthropic.Beta.BetaMessage>((resolve) => { release = () => resolve(message()); }) });
+    const running = made.planner.plan(SOURCE, "account-a");
+    await vi.waitFor(() => expect(release).toBeDefined());
+    // The final check asks for the lane while the plan is still being made, then the pause begins, then the plan comes.
+    const lane = made.planner.lane(SOURCE.asked, "account-a", SOURCE.researchTarget);
+    made.planner.pause!("account-a", 5);
+    made.planner.pause!("account-a", 0);
+    release!();
+    await running;
+    expect(await lane).toBeUndefined();
+  });
+
+  it("keeps the lane of a plan registered right after a pause ends, in the same millisecond", async () => {
+    const made = planner({ now: () => START });
+    made.planner.pause!("account-a", 10);
+    made.planner.pause!("account-a", 0);
+    expect((await made.planner.plan(SOURCE, "account-a")).planning.status).toBe("planned");
+    expect(await made.planner.lane(undefined, "account-a", SOURCE.researchTarget)).toBe("research");
+    expect(await made.planner.lane(SOURCE.asked, "account-a", SOURCE.researchTarget)).toBe("research");
+  });
+
+  it("gives a call running when the pause began its plan, and keeps no lane from it", async () => {
+    let at = START;
+    let release: (() => void) | undefined;
+    const made = planner({ now: () => at,
+      reply: () => new Promise<Anthropic.Beta.BetaMessage>((resolve) => { release = () => resolve(message()); }) });
+    const running = made.planner.plan(SOURCE, "account-a");
+    await vi.waitFor(() => expect(release).toBeDefined());
+    made.planner.pause!("account-a", 5);
+    release!();
+    // The registration made before the pause gets its plan; nothing of it is kept for later research.
+    expect((await running).planning.status).toBe("planned");
+    expect(await made.planner.lane(undefined, "account-a", SOURCE.researchTarget)).toBeUndefined();
+    at += 5 * MINUTE;
+    expect(await made.planner.lane(SOURCE.asked, "account-a", SOURCE.researchTarget)).toBeUndefined();
+    expect(await made.planner.lane(undefined, "account-a", SOURCE.researchTarget)).toBeUndefined();
+  });
+
+  it("lets a dev account pause its own call, which then inspects and registers as with the call off", async () => {
+    let at = START;
+    const made = planner({ now: () => at });
+    const dev = ["auth0|dev", "auth0|person"];
+    const off = await tool(disabled, dev);
+    const offInspected = await off.call({ action: "inspect" });
+    const offRegistered = await off.call(register);
+    const { call } = await tool(made.planner, dev);
+    const paused = await call({ action: "pause_research_planner", later_inputs: { pauseMinutes: 45 } });
+    const until = START + 45 * MINUTE;
+    expect(paused.isError).not.toBe(true);
+    expect(paused.structuredContent).toEqual({ ok: true, plannerPausedUntil: new Date(until).toISOString() });
+    expect(first(paused)).toBe(plannerPausedText(until));
+    expect(first(paused)).toContain("until 14:45 UTC (2026-11-21T14:45:00.000Z)");
+    // inspect, which every AI calls before research, reads as with the call off: no request for the person's words,
+    // and no word of the pause or a test (Fable's recheck of 21 Nov).
+    const inspected = await call({ action: "inspect" });
+    expect(first(inspected)).toBe(first(offInspected));
+    expect(Object.keys(inspected.structuredContent!).sort()).toEqual(Object.keys(offInspected.structuredContent!).sort());
+    expect(words(inspected)).not.toMatch(/pause|test round|plannerPausedUntil/iu);
+    expect(words(inspected)).not.toContain(ASKED_REQUEST);
+    // The other dev account is asked for its words and told of no pause.
+    const other = await call({ action: "inspect" }, "auth0|person");
+    expect(words(other)).toContain(ASKED_REQUEST);
+    expect(other.structuredContent).not.toHaveProperty("plannerPausedUntil");
+    // A registration makes no call, and reads word for word as a dev account's while the call is off.
+    const registered = await call(register);
+    expect(made.bodies).toHaveLength(0);
+    const receipt = (result: Result) => (result.structuredContent as { research_receipt: string }).research_receipt;
+    expect(words(registered).replaceAll(receipt(registered), "R"))
+      .toBe(words(offRegistered).replaceAll(receipt(offRegistered), "R"));
+    expect(Object.keys(registered.structuredContent!).sort()).toEqual(Object.keys(offRegistered.structuredContent!).sort());
+    expect(registered.structuredContent).not.toHaveProperty("research_plan");
+    expect(registered.structuredContent).not.toHaveProperty("research_plan_not_used");
+    // The other dev account's registration is planned.
+    expect((await call(register, "auth0|person")).structuredContent).toHaveProperty("research_plan");
+    expect(made.bodies).toHaveLength(1);
+    // After the pause the dev account is asked for its words and planned for again.
+    at = until;
+    const after = await call({ action: "inspect" });
+    expect(words(after)).toContain(ASKED_REQUEST);
+    expect((await call(register)).structuredContent).toHaveProperty("research_plan");
+    expect(made.bodies).toHaveLength(2);
+  });
+
+  it("names no learn mode in a paused dev account's ask, as with the call off, and leaves the setting free", async () => {
+    const made = planner({ now: () => START });
+    const off = await tool(disabled);
+    const { call } = await tool(made.planner);
+    expect((await call({ action: "set_research_steering", later_inputs: { researchSteering: { learnMenuChoices: true } } }))
+      .isError).not.toBe(true);
+    const registered = await call(register);
+    const planned = (registered.structuredContent as { planned_later_inputs: { researchMenu: Record<string, unknown> } })
+      .planned_later_inputs;
+    const menu = { researchMenu: { ...planned.researchMenu, plain_answer_receipt: undefined } };
+    const on = await call({ action: "plan_research", later_inputs: menu });
+    expect(first(on)).toMatch(/learn mode/iu);
+    await call({ action: "pause_research_planner", later_inputs: { pauseMinutes: 20 } });
+    const paused = await call({ action: "plan_research", later_inputs: menu });
+    const offDev = await off.call({ action: "plan_research", later_inputs: menu });
+    expect(words(paused).replaceAll(GO_AHEAD_BEFORE_ASK, "")).not.toMatch(/learn mode|person_reason/iu);
+    expect(first(paused)).toBe(first(offDev));
+    expect((paused.structuredContent as { next_step: string }).next_step)
+      .toBe((offDev.structuredContent as { next_step: string }).next_step);
+    // Learn mode is a setting kept for later, not a use of the call: it can be changed while the pause runs.
+    const changed = await call({ action: "set_research_steering",
+      later_inputs: { researchSteering: { learnMenuChoices: false } } });
+    expect(changed.isError).not.toBe(true);
+    expect(changed.structuredContent).toMatchObject({ ok: true, steering: { learnMenuChoices: false } });
+  });
+
+  it("refuses another account, a server whose call is off, and minutes that are not 0 to 120, changing nothing",
+    async () => {
+      const made = planner({ now: () => START });
+      const { call, service } = await tool(made.planner);
+      const devKey = service.accountKeyForSubject("auth0|dev");
+      const refused = await call({ action: "pause_research_planner", later_inputs: { pauseMinutes: 30 } }, "auth0|person");
+      expect(refused.isError).toBe(true);
+      expect(refused.structuredContent).toMatchObject({ ok: false, error: { code: "dev_account_required" } });
+      expect(made.planner.pausedUntil!(service.accountKeyForSubject("auth0|person"))).toBeUndefined();
+      for (const pauseMinutes of [121, -1, 2.5, "30", null, true]) {
+        const wrong = await call({ action: "pause_research_planner", later_inputs: { pauseMinutes } });
+        expect(wrong.isError, String(pauseMinutes)).toBe(true);
+        expect(wrong._meta?.["askrigor/errorCode"], String(pauseMinutes)).toBe("invalid_input");
+        expect(words(wrong)).toContain("later_inputs.pauseMinutes");
+      }
+      expect(made.planner.pausedUntil!(devKey)).toBeUndefined();
+      expect((await call({ action: "pause_research_planner" })).structuredContent).toMatchObject({ ok: false,
+        error: { code: "invalid_request",
+          message: "later_inputs.pauseMinutes goes only with action pause_research_planner, which needs it." } });
+      // Carried by another action, even one that answers before the inputs are checked, it is refused.
+      for (const action of ["inspect", "list_calls", "delete_shared_answer"]) {
+        const stray = await call({ action, later_inputs: { pauseMinutes: 30 } });
+        expect(stray.structuredContent, action).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+      }
+      expect(made.planner.pausedUntil!(devKey)).toBeUndefined();
+      // 0 ends a running pause.
+      expect((await call({ action: "pause_research_planner", later_inputs: { pauseMinutes: 30 } })).isError).not.toBe(true);
+      expect(made.planner.pausedUntil!(devKey)).toBe(START + 30 * MINUTE);
+      const ended = await call({ action: "pause_research_planner", later_inputs: { pauseMinutes: 0 } });
+      expect(ended.structuredContent).toEqual({ ok: true, plannerPausedUntil: null });
+      expect(first(ended)).toBe(PLANNER_PAUSE_ENDED);
+      expect(made.planner.pausedUntil!(devKey)).toBeUndefined();
+      // While the call is off, or absent, there is nothing to pause.
+      for (const offPlanner of [undefined, disabled]) {
+        const offTool = await tool(offPlanner);
+        const nothing = await offTool.call({ action: "pause_research_planner", later_inputs: { pauseMinutes: 30 } });
+        expect(nothing.isError).toBe(true);
+        expect(nothing.structuredContent).toEqual({ ok: false,
+          error: { code: "planner_off", message: PLANNER_OFF_NOTHING_PAUSED } });
+      }
+      expect(laterInputNames("manage_research_access")).toContain("pauseMinutes");
+      expect(manageResearchAccessInputSchema.shape.action.options).toContain("pause_research_planner");
+    });
+
+  it("asks for no words at the final check when the call was off for the registration, as a pause begun during it",
+    async () => {
+      const reviewer = { enabled: true, review: async () => { throw new Error("never"); } } as unknown as ResearchReviewer;
+      // A planner on when the registration began, whose call then came back off: what a pause begun meanwhile does.
+      const offCall = memoryPlanner(() => ({ status: "skipped", reason: "off" }));
+      const { call } = await tool(offCall.planner, ["auth0|dev"], { researchReviewer: reviewer });
+      const registered = await call(register);
+      expect(offCall.seen).toHaveLength(1);
+      expect(words(registered)).not.toContain(ANSWER_REVIEW_ASKED);
+      // A plan that was made still asks for them, as before.
+      const planned = await (await tool(memoryPlanner().planner, ["auth0|dev"], { researchReviewer: reviewer }))
+        .call(register);
+      expect(words(planned)).toContain(ANSWER_REVIEW_ASKED);
+    });
+
+  it("keeps no menu answer and names no learn mode when a pause begins while plan_research reads the account",
+    async () => {
+      const made = planner({ now: () => START });
+      const { call, service } = await tool(made.planner);
+      await call({ action: "set_research_steering", later_inputs: { researchSteering: { learnMenuChoices: true } } });
+      const registered = await call(register);
+      const planned = (registered.structuredContent as { planned_later_inputs: { researchMenu: Record<string, unknown> } })
+        .planned_later_inputs;
+      const menu = { researchMenu: { ...planned.researchMenu, plain_answer_receipt: undefined } };
+      const key = service.accountKeyForSubject("auth0|dev");
+      const read = service.activeAccount.bind(service);
+      service.activeAccount = async (subject: string) => {
+        made.planner.pause!(key, 20);
+        return await read(subject);
+      };
+      const asked = await call({ action: "plan_research", later_inputs: menu });
+      expect(words(asked).replaceAll(GO_AHEAD_BEFORE_ASK, "")).not.toMatch(/learn mode|person_reason/iu);
+      const answered = { researchMenu: { ...menu.researchMenu, allocation: [{ task: 1, minutes: 3 }], person_answered: true,
+        person_reason: "A reason that is not kept." } };
+      made.planner.pause!(key, 0);
+      expect((await call({ action: "plan_research", later_inputs: answered })).isError).not.toBe(true);
+      await waitForPendingMenuChoices(service);
+      expect(await service.menuChoices(key)).toEqual([]);
+    });
+
+  it("holds one cleanup timer per paused account, however often the pause is set again (Codex's recheck)", () => {
+    vi.useFakeTimers();
+    try {
+      const made = planner({ now: () => Date.now() });
+      const base = vi.getTimerCount();
+      made.planner.pause!("account-a", 120);
+      expect(vi.getTimerCount()).toBe(base + 1);
+      for (const minutes of [60, 30, 0]) made.planner.pause!("account-a", minutes);
+      expect(vi.getTimerCount()).toBe(base + 1);
+      // The record goes an hour after the pause's end, when it was ended by hand too, and its timer with it.
+      vi.advanceTimersByTime(60 * MINUTE + 2);
+      expect(vi.getTimerCount()).toBe(base);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not honour a light lane handed over before the pause while it runs (Codex's recheck)", async () => {
+    const made = planner({ now: () => START, reply: () => message({}, LIGHT_REPLY) });
+    const { call, service } = await tool(made.planner);
+    const registered = await call(register);
+    const menu = (registered.structuredContent as { planned_later_inputs: { researchMenu: Record<string, unknown> } })
+      .planned_later_inputs;
+    expect(menu.researchMenu.lane).toBe("light");
+    const light = await call({ action: "plan_research", later_inputs: menu });
+    expect(JSON.stringify(light.structuredContent)).toContain('"lane":"light"');
+    made.planner.pause!(service.accountKeyForSubject("auth0|dev"), 15);
+    const paused = await call({ action: "plan_research", later_inputs: menu });
+    expect(paused.isError).not.toBe(true);
+    expect(JSON.stringify(paused.structuredContent)).not.toContain('"lane":"light"');
+    // And when the pause begins while plan_research reads the account.
+    made.planner.pause!(service.accountKeyForSubject("auth0|dev"), 0);
+    const read = service.activeAccount.bind(service);
+    service.activeAccount = async (subject: string) => {
+      made.planner.pause!(service.accountKeyForSubject("auth0|dev"), 15);
+      return await read(subject);
+    };
+    const meanwhile = await call({ action: "plan_research", later_inputs: menu });
+    expect(JSON.stringify(meanwhile.structuredContent)).not.toContain('"lane":"light"');
+  });
+
+  it("shows the pause on the owner's own account page, where inspect no longer does", async () => {
+    const store = new InMemoryResearchContributorAccessStore();
+    const service = new ResearchContributorAccessService({ store, identitySecret: IDENTITY_SECRET });
+    await service.acceptFreeContributor("auth0|dev", AGREEMENT);
+    const key = service.accountKeyForSubject("auth0|dev");
+    const serverOn: AtlasServerFeatures = { redditReader: false, youtube: false, gemini: false,
+      aiBudgetLeftNanoUsd: null, videoSecondsLeft: null, meaningJudge: { on: false, dailyCapUsd: null },
+      researchPlanner: { on: true, dailyCapUsd: 3, accountDailyCalls: 10 }, ownerLibrary: false, sharedAnswers: false,
+      findingsLibrary: false };
+    const asked: string[] = [];
+    const row = async (paused: number | undefined, dev = true) => {
+      const shown = await loadAtlasAccountFeatures({ research: service, server: async () => serverOn,
+        ownerAccountKeys: new Set(), devAccountKeys: () => new Set(dev ? [researchAccountReference(key)] : []),
+        plannerPausedUntil: (accountKey) => { asked.push(accountKey); return paused; } }, key, new Date(START));
+      expect(shown.state).toBe("shown");
+      return (shown as { rows: Array<{ id: string; on: boolean; forYou: string }> }).rows
+        .find(({ id }) => id === "research-planner")!;
+    };
+    expect(await row(Date.parse("2026-11-21T14:45:00Z"))).toMatchObject({ on: false, forYou: "Paused until 14:45 UTC " +
+      "for a test round, which compares research with and without it: until then your AI plans the research itself, " +
+      "as when it is off. It turns back on by itself." });
+    expect(await row(undefined)).toMatchObject({ on: true });
+    expect(asked).toEqual([key, key]);
+    // Another account's page never asks, and reads as before.
+    expect(await row(Date.parse("2026-11-21T14:45:00Z"), false)).toMatchObject({ on: false,
+      forYou: "It runs only for the owner's dev accounts." });
+    expect(asked).toHaveLength(2);
+  });
+});
+
+// The owner's Inbox reply of 21 Nov 2026, 13:25 UTC: "i turned off the menu because it was often asking for
+// clarifdication where none was needed, make sure it's not doing that or nobody will use it". What the call does with
+// the rule is measured on the API (the replay of 21 Nov: no question on 15 of 15 plans of his cases, against 9 of 15
+// before; a question on 8 of 9 invented cases that need one); this keeps the rule's text from drifting back.
+describe("the plan names a question only when the research needs the person's answer (21 Nov 2026)", () => {
+  it("asks for a fact only the person can give, or between two things one answer can't serve, and else goes on", () => {
+    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-21.1");
+    expect(RESEARCH_PLANNER_RUBRIC).toContain("Write none unless the research needs\nthe person's answer");
+    expect(RESEARCH_PLANNER_RUBRIC).toContain("- A fact only they can give, for a decision about one person or one thing:");
+    expect(RESEARCH_PLANNER_RUBRIC).toContain("- Two different things: their words can mean two or more different things");
+    expect(RESEARCH_PLANNER_RUBRIC).toContain("Never rely on the person correcting the first answer for their safety.");
+    expect(RESEARCH_PLANNER_RUBRIC).not.toContain("Try to name the question first");
+    expect(RESEARCH_PLANNER_RUBRIC).not.toContain("neither is a plan that could cover each of two different readings");
+    expect(RESEARCH_PLANNER_RUBRIC).not.toContain("that is still the question to ask");
   });
 });

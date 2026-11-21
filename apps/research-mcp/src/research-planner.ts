@@ -18,8 +18,9 @@ import {
 } from "./findings/dossier-privacy-reading.js";
 import { keyFromSecretFile } from "./meaning-judge.js";
 import { researchTargetDigest } from "./research-receipts.js";
-import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, RESEARCH_LANES, isLightLane, steeringChoiceUnclear,
-  type Framing, type PlanTask, type PlannerNotUsedReason, type ResearchLane } from "./research-steering.js";
+import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, PLANNER_PAUSE_MAX_MINUTES, RESEARCH_LANES, isLightLane,
+  steeringChoiceUnclear, type Framing, type PlanTask, type PlannerNotUsedReason, type ResearchLane }
+  from "./research-steering.js";
 
 /**
  * AskRigor's own planning call (owner answer 298b, 13 November 2026): one Claude API call made when a dev account
@@ -72,7 +73,8 @@ import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, RESEARCH_LANES
  *
  * Whether the person said to go on (rubric 2026-11-14.3, owner answer 304a). The owner's note of 14 November 2026
  * on AskRigor#457: a follow-up told the AI to continue digging, the plan named no question, and the menu still asked
- * how to spend the time, since balanced research asks first past about 10 minutes. The owner chose that such a
+ * how to spend the time, since balanced research then asked first past about 10 minutes (since owner answer 399b of
+ * 21 November 2026, a balanced first menu no longer does). The owner chose that such a
  * follow-up goes on, and that this call judges whether the message says so. So when the AI passed on more than one of
  * the person's messages, the bundle carries the newest as latest_message, and the reply says in person_said_go_on
  * whether it is an instruction to carry on with research already under way: a judgment of meaning, in any language,
@@ -121,7 +123,7 @@ import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, RESEARCH_LANES
  * the counts go on in memory. Without the setting nothing is read or written.
  */
 
-export const RESEARCH_PLANNER_RUBRIC_VERSION = "2026-11-14.3";
+export const RESEARCH_PLANNER_RUBRIC_VERSION = "2026-11-21.1";
 
 // Stable instructions first, so the API's prompt cache can serve them across calls; the bundle follows them.
 export const RESEARCH_PLANNER_RUBRIC = `You plan research for AskRigor, a health and science research service. A person asked their AI assistant a
@@ -156,30 +158,49 @@ already showed it. Then say what the question refers to, as the searches show it
 words, with nothing about how you worked or what a search returned. When the assistant's research target or quick
 answer rests on a different reading than the one you found, say so in those sentences.
 
-2. The one question to put to the person before the research, or the word none. Try to name the question first: the
-one whose answer only the person can give and that could change what the research checks, such as which of two
-different things their words mean, what a figure or a comparison in their question refers to when your searches leave
-that open, their own situation or
-what they have tried, the form, dose or route, or the outcome that matters most to them. When part of the question is about what the person can do or use
-themselves, the answer usually turns on their situation: ask for the one fact about it that would change the research
-most, unless they gave it. If you can name such a question, write it: one sentence in the person's language that
-they can answer in a few words, offering the two or three likeliest options when you can. That every task is needed
-to answer is not a reason for none, and neither is a plan that could cover each of two different readings: the person
-may mean a different reading or comparison than the likeliest one, and research on the wrong one costs them the wait.
-Never ask the person to make a choice their own words already make, or to choose how wide the research looks. "Best",
-"any", "ever", or a comparison that names nothing to compare with, asks about the whole class: plan for the class,
-with its main members grouped, and say in about what you took it to cover. "Could it become" or "will it" asks about
-the future: plan for that, with today's state as part of the answer. When one reading contains the other, plan for
-the wider one. Ask about none of these. This is about how wide to look, never about the person: when the answer
-depends on who it is for (their condition and how severe it is, their age, what they have tried), that is still the
-question to ask. And when the person's words are an instruction that names where to look and what to judge by
-("check the forums to see whether X is best for A, B and C"), that is precise enough: write none, unless the research
-cannot start without their answer.
-Write none also when you can name no such question, because their words already fix what to look up: one result of
-one named study, a plain look-up, or a question that says which form, whose situation and which comparison it means.
-Also write none when the only thing unclear is something the research itself will find out, such as which measure a
-paper reports or where a figure the person quotes comes from (say in about what your search found, and plan for it); when asked shows the person has already answered such a question; and when the question is about an
-emergency happening now.
+2. The one question to put to the person before the research, or the word none. Write none unless the research needs
+the person's answer: a question costs them a turn, and the research waits for it. Use their words, any later message
+of theirs in asked, and your searches first. Name a question in one of these two cases only.
+- A fact only they can give, for a decision about one person or one thing: they ask about their own medicine,
+  product, dose, document, study, video or options, or about someone they don't name, without saying which or in a
+  way that leaves out what the answer turns on (which medicine they take, a dose's amount, units or strength, who it
+  is for, what they tried when they ask you to leave it out), and no search can find it. Ask for that one fact,
+  unless the safe answer is the same for every likely value. A fact about them that only shifts a general answer
+  (their age, their condition or how severe it is) is not this: cover it in the plan.
+- Two different things: their words can mean two or more different things (a different substance, product, claim,
+  source, study, person or comparison), not different sides, uses, situations, forms, doses or routes of one thing;
+  you searched for which one they mean, and the searches did not settle it; no one meaning is clearly the likeliest,
+  and the meanings are not aims one answer can usefully cover together; and one answer cannot serve them: covering
+  each would take most of the research again, or the meanings differ in a serious risk to the person and the plan
+  cannot give each one a task of its own.
+Further tailoring that might help, a long research time, or different sources for different parts are not reasons to
+ask on their own.
+When you write none, plan for the likeliest meaning, with the others in proportion to how much they matter, and say
+in about which meaning the research takes, so that the person can redirect it. Carry what a safe answer needs into
+the tasks: a meaning or situation you are not planning for that carries a serious risk to the person (a stronger or
+toxic form, another route, pregnancy, a child, a common medicine) gets a task of its own, never a mention in brief.
+Never rely on the person correcting the first answer for their safety.
+Write none in particular when:
+- the question asks about evidence across people or uses, not a decision for one person: cover the common situations
+  or uses and say what would change the answer, with a task of its own for any situation where the answer turns
+  harmful;
+- the person has already chosen, told you to go ahead or not to ask, or left the choice to you, in whatever words;
+- the choice is how wide the research looks;
+- they ask about a whole class without naming a member (the best one, any of them, a comparison that names nothing
+  to compare with, a substance that comes in several forms): plan for the whole class, with its main members
+  grouped, and say in about what you took it to cover;
+- they ask what something could become or will do: plan for the future, with today's state as part of the answer;
+- one reading contains the other: plan for the wider one;
+- their words are an instruction that names where to look and what to judge by;
+- their words already fix what to look up: one result of one named study, or a plain look-up;
+- the only thing unclear is something the research itself will find out, such as which measure a paper reports,
+  which study, video, article or product they mean when a search can find the likely one, or where a claim or figure
+  they quote comes from: search for it, say in about what you found, and plan for it;
+- asked shows the person has already answered such a question, and nothing they wrote later says the person or the
+  circumstances changed;
+- the question is about an emergency happening now.
+If you name a question, write it as one question in the person's language that asks for the least they need to say
+and can be answered in a few words, offering the two or three likeliest options when there are such options.
 
 3. The next research tasks: two to five, in the order to do them (step 4 says when there are fewer). Each has task, what it does, written in the person's
 language as one line of a menu they will read, of at most 180 characters: it starts with what the task finds out
@@ -416,6 +437,20 @@ export interface ResearchPlanner {
    * record, with the smallest model it prices. Present only while the planner is on; it never throws.
    */
   readDossierPrivacy?(texts: readonly DossierText[]): Promise<DossierPrivacyReading>;
+  /**
+   * Owner answer 395b (21 November 2026): pauses this account's planning call for a test round, from now for the given
+   * whole minutes (1 to PLANNER_PAUSE_MAX_MINUTES), or ends its pause with 0. While it runs, the account is planned for
+   * as with the planner off: plan() makes no call and lane() gives no lane. Starting one forgets the plans and lanes
+   * the hour keeps for the account, and a registration that began before it keeps none, so research registered during
+   * or after the pause never takes a plan made before it. Set again while it runs, it keeps its start and ends at most
+   * PLANNER_PAUSE_MAX_MINUTES after it, so no run of pauses set again outlasts that. It returns when the pause ends
+   * (milliseconds since the epoch), or undefined once none runs. Kept in memory only, by the account's digest, until an
+   * hour after the pause's end: a restart ends every pause. Any other number throws a RangeError. Present only while
+   * the planner is on.
+   */
+  pause?(accountKey: string, minutes: number): number | undefined;
+  /** When this account's pause ends, or undefined while none runs; it never throws. Present only while it is on. */
+  pausedUntil?(accountKey: string): number | undefined;
 }
 
 /** The part of the official SDK's client the planner uses, so tests can pass a fake one; no network in tests. */
@@ -690,24 +725,53 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
   }
   const timeoutMs = Math.round(timeoutSeconds * 1_000);
   const client = (dependencies.client ?? sdkClient)({ apiKey, workspaceId: workspace, timeoutMs });
-  const cache = new Map<string, { until: number; call: Promise<ResearchPlannerCall> }>();
+  // Each entry names its account by digest, so a pause (owner answer 395b) can forget the account's plans, and the
+  // registration's number (sequence), so one that began before the account's latest pause is never taken.
+  const cache = new Map<string, { until: number; call: Promise<ResearchPlannerCall>; account: string; seq: number }>();
   // The lane of the last plan registered for an account's research target, under a digest of the two: what the final
   // check asks when the person's words it is given are not the ones the plan was made from. Nothing of the target is
   // kept, and no more than 200 entries. An entry lasts as long as its plan does in the cache (until), never longer: a
   // plan registered again from the cache keeps its own hour. started is when the registration that gave the entry
   // began, so a slow call that began earlier and ends later does not replace a newer registration's lane.
-  const lanes = new Map<string, { started: number; until: number; lane: ResearchLane }>();
+  const lanes = new Map<string, { started: number; until: number; lane: ResearchLane; account: string; seq: number }>();
+  // Owner answer 395b (21 November 2026): registrations and pauses are numbered in the order they begin (a count, not
+  // a clock, so two in the same millisecond keep their order). Each paused account, by its digest, keeps the number of
+  // its latest pause, when that pause started and when it ends. The record goes an hour after its end, when every
+  // registration that began before the pause has long ended: until then a plan or lane from such a registration is
+  // never taken (afterLatestPause).
+  let sequence = 0;
+  const pauses = new Map<string, { seq: number; started: number; until: number }>();
+  const pausedUntil = (accountKey: string): number | undefined => {
+    const until = pauses.get(accountDigest(accountKey))?.until;
+    return until !== undefined && until > now() ? until : undefined;
+  };
+  const afterLatestPause = (account: string, seq: number): boolean => seq > (pauses.get(account)?.seq ?? 0);
+  // One timer per account: a record set again replaces the timer with its own, so no superseded record is held
+  // (Codex's recheck of 21 Nov).
+  const pauseTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const keepPause = (account: string, record: { seq: number; started: number; until: number }) => {
+    pauses.set(account, record);
+    clearTimeout(pauseTimers.get(account));
+    const forget = setTimeout(() => {
+      if (pauses.get(account) === record) { pauses.delete(account); pauseTimers.delete(account); }
+    }, Math.max(0, record.until + HOUR - now()) + 1);
+    forget.unref?.();
+    pauseTimers.set(account, forget);
+  };
   const targetKey = (accountKey: string, researchTarget: string): string =>
     createHash("sha256").update(JSON.stringify([accountKey, researchTargetDigest(researchTarget)])).digest("hex");
   const keepLane = (call: ResearchPlannerCall, accountKey: string, researchTarget: string, started: number,
-    until: number) => {
+    until: number, seq: number) => {
     if (call.planning.status !== "planned" || until <= now()) return;
+    // A registration that began before the account's latest pause keeps no lane: the pause forgot its plan.
+    const account = accountDigest(accountKey);
+    if (!afterLatestPause(account, seq)) return;
     const key = targetKey(accountKey, researchTarget);
     const kept = lanes.get(key);
     if (kept !== undefined && kept.until > now() && kept.started > started) return;
     lanes.delete(key);
     if (lanes.size >= 200) lanes.delete(lanes.keys().next().value!);
-    lanes.set(key, { started, until, lane: call.planning.plan.lane });
+    lanes.set(key, { started, until, lane: call.planning.plan.lane, account, seq });
     // The entry leaves memory when its plan does, also when no later call comes to sweep it out.
     const forget = setTimeout(() => {
       const entry = lanes.get(key);
@@ -893,7 +957,33 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
     dailyCapUsd: cap,
     accountDailyCalls: accountCalls,
     readDossierPrivacy,
+    pausedUntil,
+    pause(accountKey, minutes) {
+      if (!Number.isInteger(minutes) || minutes < 0 || minutes > PLANNER_PAUSE_MAX_MINUTES) {
+        throw new RangeError(`A pause of the planning call is 0 to ${PLANNER_PAUSE_MAX_MINUTES} whole minutes.`);
+      }
+      const at = now();
+      const account = accountDigest(accountKey);
+      const running = pauses.get(account);
+      const runs = running !== undefined && running.until > at;
+      if (minutes === 0) {
+        // It ends now; its number is kept, so a registration that began before it still takes nothing of it.
+        if (runs) keepPause(account, { ...running, until: at });
+        return undefined;
+      }
+      // What the hour keeps of the account's plans is forgotten. Set again while it runs, the pause keeps its start,
+      // and ends at most two hours after it, however often it is set again.
+      for (const [entry, cached] of cache) if (cached.account === account) cache.delete(entry);
+      for (const [entry, kept] of lanes) if (kept.account === account) lanes.delete(entry);
+      const started = runs ? running.started : at;
+      const until = Math.min(at + minutes * 60_000, started + PLANNER_PAUSE_MAX_MINUTES * 60_000);
+      keepPause(account, { seq: ++sequence, started, until });
+      return until;
+    },
     async plan(source, accountKey) {
+      // Owner answer 395b: a paused account is planned for as with the planner off: no call, no count, no cache.
+      if (pausedUntil(accountKey) !== undefined) return skipped("off");
+      const seq = ++sequence;
       const current = now();
       turnDay();
       // Keyed by the account and what the plan is made from: the person's words when given, otherwise the research
@@ -911,11 +1001,11 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
       for (const [entry, cached] of cache) if (cached.until <= current) cache.delete(entry);
       for (const [entry, kept] of lanes) if (kept.until <= current) lanes.delete(entry);
       const cached = cache.get(hash);
-      if (cached !== undefined) {
+      if (cached !== undefined && afterLatestPause(cached.account, cached.seq)) {
         const call = await cached.call;
         // The same words registered again for a corrected research target keep the plan, and its lane for that
         // target, for what is left of the plan's hour.
-        keepLane(call, accountKey, source.researchTarget, current, cached.until);
+        keepLane(call, accountKey, source.researchTarget, current, cached.until, seq);
         return { ...call, cached: true, costUsd: 0, milliseconds: 0 };
       }
       // A call is sent only while the cap has room for what is held for it, so the cap is passed only by a call that
@@ -928,13 +1018,13 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
       save();
       if (cache.size >= 200) cache.delete(cache.keys().next().value!);
       const call = request(source);
-      cache.set(hash, { until: current + HOUR, call });
+      cache.set(hash, { until: current + HOUR, call, account, seq });
       // The plan leaves memory at the hour, also when no later call comes to sweep it out.
       const forget = setTimeout(() => { if (cache.get(hash)?.call === call) cache.delete(hash); }, HOUR);
       forget.unref?.();
       const result = await call;
       if (result.planning.status !== "planned" && cache.get(hash)?.call === call) cache.delete(hash);
-      keepLane(result, accountKey, source.researchTarget, current, current + HOUR);
+      keepLane(result, accountKey, source.researchTarget, current, current + HOUR, seq);
       return result;
     },
     // Owner answer 302: what the final check asks, to leave a light look-up's draft unreviewed. Read only: no call, no
@@ -943,16 +1033,23 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
     // the research target does, as for words that changed.
     async lane(asked, accountKey, researchTarget) {
       try {
+        // Owner answer 395b: a paused account has no plan, so no lane; nor has a registration from before its latest
+        // pause, also when the plan it waits for comes after the pause began.
+        if (pausedUntil(accountKey) !== undefined) return undefined;
+        const account = accountDigest(accountKey);
         const current = now();
-        const cached = asked === undefined ? undefined : cache.get(planKey(accountKey, asked));
+        const found = asked === undefined ? undefined : cache.get(planKey(accountKey, asked));
+        const cached = found !== undefined && afterLatestPause(account, found.seq) ? found : undefined;
         const kept = researchTarget === undefined ? undefined : lanes.get(targetKey(accountKey, researchTarget));
-        const byTarget = kept !== undefined && kept.until > current ? kept : undefined;
+        const byTarget = kept !== undefined && kept.until > current && afterLatestPause(account, kept.seq) ? kept
+          : undefined;
         // The words find a plan only when no later registration planned this research target: the same words sent
         // again as a list are another plan, with a lane of its own, and the target's entry is then the newer one
         // (the review of 14 Nov 2026: the older plan's lane was read, and a light look-up's draft was reviewed).
         if (cached !== undefined && cached.until > current &&
             (byTarget === undefined || byTarget.started <= cached.until - HOUR)) {
           const call = await cached.call;
+          if (pausedUntil(accountKey) !== undefined || !afterLatestPause(account, cached.seq)) return undefined;
           if (call.planning.status === "planned") return call.planning.plan.lane;
         }
         return byTarget?.lane;
