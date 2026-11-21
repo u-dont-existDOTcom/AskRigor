@@ -64,9 +64,9 @@ CREATE TABLE IF NOT EXISTS atlas_news_days (
   base_version integer CHECK (base_version IS NULL OR base_version >= 1),
   rerank boolean NOT NULL,
   stored_order jsonb NOT NULL CHECK (jsonb_typeof(stored_order) = 'array' AND jsonb_array_length(stored_order) <= 200),
-  moves jsonb NOT NULL CHECK (jsonb_typeof(moves) = 'array' AND octet_length(moves::text) <= 40000),
-  lines jsonb NOT NULL CHECK (jsonb_typeof(lines) = 'array' AND octet_length(lines::text) <= 64000),
-  footer jsonb CHECK (footer IS NULL OR (jsonb_typeof(footer) = 'object' AND octet_length(footer::text) <= 8000)),
+  moves jsonb NOT NULL CHECK (jsonb_typeof(moves) = 'array' AND octet_length(moves::text) <= 200000),
+  lines jsonb NOT NULL CHECK (jsonb_typeof(lines) = 'array' AND octet_length(lines::text) <= 200000),
+  footer jsonb CHECK (footer IS NULL OR (jsonb_typeof(footer) = 'object' AND octet_length(footer::text) <= 16000)),
   kept_back jsonb NOT NULL CHECK (jsonb_typeof(kept_back) = 'array'),
   committed_at timestamptz NOT NULL,
   PRIMARY KEY (news_day, day_version),
@@ -165,6 +165,7 @@ DECLARE
   replayed atlas_news_days%ROWTYPE;
   carried_expected jsonb := '[]'::jsonb;
   carried_given jsonb := '[]'::jsonb;
+  withdrawn_base jsonb := '[]'::jsonb;
   new_numbers jsonb := '[]'::jsonb;
   entry jsonb;
   decision jsonb;
@@ -243,15 +244,20 @@ BEGIN
   END IF;
 
   -- The carried items the order must hold: the base's stored order, less items older than seven days and withdrawn.
+  -- A base item withdrawn since (by the owner, or replaced by a newer card) may still be in the order, as the news
+  -- check doesn't know of the withdrawal; it is left out of the stored order.
   IF latest.news_day IS NOT NULL THEN
-    SELECT coalesce(jsonb_agg(to_jsonb('N-' || items.news_number::text) ORDER BY base_order.place), '[]'::jsonb)
-      INTO carried_expected
+    SELECT coalesce(jsonb_agg(to_jsonb('N-' || items.news_number::text) ORDER BY base_order.place)
+             FILTER (WHERE items.state = 'shadow'), '[]'::jsonb),
+           coalesce(jsonb_agg(to_jsonb('N-' || items.news_number::text)) FILTER (WHERE items.state = 'withdrawn'),
+             '[]'::jsonb)
+      INTO carried_expected, withdrawn_base
       FROM jsonb_array_elements_text(latest.stored_order) WITH ORDINALITY AS base_order(number_text, place)
       JOIN atlas_news_items items ON items.news_number = substr(base_order.number_text, 3)::bigint
-     WHERE items.state = 'shadow' AND items.committed_day >= target_day - 6;
+     WHERE items.committed_day >= target_day - 6;
   END IF;
 
-  -- The order as given: each number once, each carried or new.
+  -- The order as given: each number once, each carried, withdrawn since or new.
   FOR entry IN SELECT value FROM jsonb_array_elements(day_commit -> 'order') LOOP
     IF jsonb_typeof(entry) <> 'string' OR (entry #>> '{}') !~ '^N-[1-9][0-9]{3,}$' THEN
       RAISE EXCEPTION 'ATLAS_NEWS_INPUT_INVALID';
@@ -261,7 +267,7 @@ BEGIN
     END IF;
     IF carried_expected @> jsonb_build_array(entry) THEN
       carried_given := carried_given || jsonb_build_array(entry);
-    ELSE
+    ELSIF NOT withdrawn_base @> jsonb_build_array(entry) THEN
       new_numbers := new_numbers || jsonb_build_array(entry);
     END IF;
   END LOOP;
@@ -280,12 +286,15 @@ BEGIN
        OR (decision ->> 'kind') NOT IN ('main', 'line')
        OR jsonb_typeof(decision -> 'passed') IS DISTINCT FROM 'boolean'
        OR jsonb_typeof(decision -> 'reasons') IS DISTINCT FROM 'array'
+       OR jsonb_array_length(decision -> 'reasons') > 20
        OR ((decision ->> 'passed')::boolean = (jsonb_array_length(decision -> 'reasons') > 0))
+       OR (jsonb_typeof(decision -> 'reading') = 'object' AND octet_length((decision -> 'reading')::text) > 16000)
        OR jsonb_typeof(decision -> 'reading') NOT IN ('object', 'null')
        OR jsonb_typeof(decision -> 'readingModel') NOT IN ('string', 'null')
        OR jsonb_typeof(decision -> 'retraction') NOT IN ('string', 'null')
        OR ((decision ->> 'kind') = 'main') <> (new_numbers @> jsonb_build_array(decision -> 'number'))
        OR carried_expected @> jsonb_build_array(decision -> 'number')
+       OR withdrawn_base @> jsonb_build_array(decision -> 'number')
     THEN
       RAISE EXCEPTION 'ATLAS_NEWS_INPUT_INVALID';
     END IF;
@@ -350,10 +359,12 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- The stored order: the order as given, less the new items kept back.
+  -- The stored order: the order as given, less the new items kept back and every item now withdrawn (since the base,
+  -- or replaced by a newer card in this call).
   SELECT coalesce(jsonb_agg(given.value ORDER BY given.place), '[]'::jsonb) INTO final_order
     FROM jsonb_array_elements(day_commit -> 'order') WITH ORDINALITY AS given(value, place)
-   WHERE NOT kept_numbers @> jsonb_build_array(given.value);
+    JOIN atlas_news_items items ON items.news_number = substr(given.value #>> '{}', 3)::bigint
+   WHERE NOT kept_numbers @> jsonb_build_array(given.value) AND items.state <> 'withdrawn';
 
   BEGIN
     INSERT INTO atlas_news_days

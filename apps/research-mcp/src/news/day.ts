@@ -84,7 +84,7 @@ export const newsDayPayloadSchema = z.object({
   rerank: z.boolean(),
   order: z.array(numberSchema).max(200),
   places: z.array(z.object({ number: numberSchema, reason: reasonText }).strict()).max(40),
-  moves: z.array(z.object({ number: numberSchema, reason: reasonText }).strict()).max(200),
+  moves: z.array(z.object({ number: numberSchema, reason: reasonText }).strict()).max(60),
   readings: z.array(newsReadingSchema).max(40),
   lines: z.array(z.union([z.object({ kind: z.literal("checked"), number: numberSchema }).strict(), abstractLineSchema]))
     .max(40),
@@ -132,8 +132,12 @@ async function settles<T>(work: Promise<T>, milliseconds: number, late: T): Prom
   }
 }
 
-/** The order problems a weekday's or a Sunday's order has against its carried items, as the function checks them. */
-export function newsOrderProblems(payload: NewsDayPayload, carried: readonly string[]): string[] {
+/**
+ * The order problems a weekday's or a Sunday's order has against its carried items, as the function checks them. A base
+ * item withdrawn since (`withdrawn`) may stay in the order; it is neither carried nor new, and isn't stored.
+ */
+export function newsOrderProblems(payload: NewsDayPayload, carried: readonly string[],
+  withdrawn: readonly string[] = []): string[] {
   const problems: string[] = [];
   const seen = new Set<string>();
   for (const number of payload.order) {
@@ -155,7 +159,7 @@ export function newsOrderProblems(payload: NewsDayPayload, carried: readonly str
     const unexplained = moved.filter((number) => !reasons.has(number));
     if (unexplained.length > 0) problems.push(`Each moved item needs a reason in moves: ${unexplained.join(", ")}.`);
   }
-  const fresh = payload.order.filter((number) => !carried.includes(number));
+  const fresh = payload.order.filter((number) => !carried.includes(number) && !withdrawn.includes(number));
   const placed = new Set(payload.places.map(({ number }) => number));
   const unplaced = fresh.filter((number) => !placed.has(number));
   if (unplaced.length > 0) problems.push(`Each new item needs its place's reason in places: ${unplaced.join(", ")}.`);
@@ -247,14 +251,17 @@ export async function publishNewsDay(raw: unknown, deps: NewsDayDependencies): P
       return { status: "stale_base", latest: base === null ? null : { day: base.day, version: base.version, order: base.order } };
     }
     const states = new Map((base?.items ?? []).map((item) => [item.number, item]));
-    const carried = (base?.order ?? []).filter((number) => {
+    const recent = (base?.order ?? []).filter((number) => {
       const item = states.get(number);
-      return item !== undefined && item.state === "shadow" && item.committedDay !== null &&
+      return item !== undefined && item.committedDay !== null &&
         dayNumber(item.committedDay) >= dayNumber(payload.day) - (ATLAS_NEWS_CARRIED_DAYS - 1);
     });
-    const orderProblems = newsOrderProblems(payload, carried);
+    const carried = recent.filter((number) => states.get(number)!.state === "shadow");
+    // Withdrawn since the base (by the owner, or replaced by a newer card): it may stay in the order, and isn't stored.
+    const withdrawn = recent.filter((number) => states.get(number)!.state === "withdrawn");
+    const orderProblems = newsOrderProblems(payload, carried, withdrawn);
     if (orderProblems.length > 0) return { status: "refused", reason: "order_invalid", problems: orderProblems };
-    const fresh = payload.order.filter((number) => !carried.includes(number));
+    const fresh = payload.order.filter((number) => !carried.includes(number) && !withdrawn.includes(number));
     const checkedLines = payload.lines.flatMap((line) => line.kind === "checked" ? [line.number] : []);
     const overlap = checkedLines.filter((number) => payload.order.includes(number) || checkedLines.indexOf(number) !==
       checkedLines.lastIndexOf(number));
@@ -286,7 +293,8 @@ export async function publishNewsDay(raw: unknown, deps: NewsDayDependencies): P
         ...(paper === "no_doi" && card !== undefined && card.design !== "official_notice" ? ["no_doi"] : []),
       ];
       const reading = readings.get(number);
-      return { number, kind, passed: all.length === 0, reasons: all,
+      // At most 20 reasons are kept on an item's row; the first ones are the decisive ones.
+      return { number, kind, passed: all.length === 0, reasons: all.slice(0, 20),
         reading: reading === undefined ? null : { ...reading }, readingModel: reading?.model ?? null, retraction: paper };
     });
     const lineReadings = new Map(payload.line_readings.map(({ line, verdict: read }) => [line, read]));

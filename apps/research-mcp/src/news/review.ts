@@ -5,7 +5,7 @@ import {
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
-import { publishNewsDay, type NewsDayResult, type PaperStatusLookup } from "./day.js";
+import { NEWS_DAY_HANDLER_MS, publishNewsDay, type NewsDayResult, type PaperStatusLookup } from "./day.js";
 
 /**
  * Atlas news, stage 1: the owner's three news actions on review_research_contribution (design v4, section 3.8; no tool
@@ -43,6 +43,8 @@ export interface AtlasNewsReviewDependencies {
   store: AtlasNewsReviewStore;
   now: () => Date;
   paperStatus: PaperStatusLookup;
+  /** NEWS_DAY_HANDLER_MS, shorter only in tests. */
+  handlerMilliseconds?: number;
 }
 
 export interface AtlasNewsActionResult {
@@ -62,8 +64,25 @@ const DAY_STATUS_WORDS: Record<NewsDayResult["status"], string> = {
   refused: "Nothing was stored: the payload was refused.",
 };
 
+/** Every news action answers within the day call's 60 seconds, whatever the database does (design v4, 3.8). */
 export async function runAtlasNewsAction(request: AtlasNewsRequest, deps: AtlasNewsReviewDependencies):
   Promise<AtlasNewsActionResult> {
+  let timer: NodeJS.Timeout | undefined;
+  const late: AtlasNewsActionResult = { ok: false, text: "The database didn't answer in time; nothing is known to have " +
+    "changed. Read back with list_news_items.", news: { action: request.action, status: "unknown", result: {} } };
+  try {
+    const work = newsAction(request, deps).catch((): AtlasNewsActionResult => ({ ok: false, text: "The news store " +
+      "couldn't be reached just now; nothing is known to have changed.", news: { action: request.action,
+      status: "unavailable", result: {} } }));
+    return await Promise.race([work, new Promise<AtlasNewsActionResult>((resolve) => {
+      timer = setTimeout(() => resolve(late), deps.handlerMilliseconds ?? NEWS_DAY_HANDLER_MS);
+    })]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
+async function newsAction(request: AtlasNewsRequest, deps: AtlasNewsReviewDependencies): Promise<AtlasNewsActionResult> {
   const at = deps.now().toISOString();
   switch (request.action) {
     case "publish_news_day": {

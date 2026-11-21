@@ -8,6 +8,9 @@ import {
 import { atlasNewsModeFromEnv, researchContributionReviewConfigFromEnv, type AtlasNewsMode } from "../config.js";
 import type { PaperStatusLookup } from "./day.js";
 
+/** How long a news store waits for a database connection. */
+export const NEWS_CONNECTION_TIMEOUT_MS = 5_000;
+
 /** Atlas news, stage 1 (plan 2026-11-21-atlas-news-stage1.md): ASKRIGOR_ATLAS_NEWS and its stores. */
 export interface AtlasNewsOptions {
   mode: AtlasNewsMode;
@@ -38,9 +41,12 @@ export function atlasNewsFromEnv(
   }
   return {
     mode,
+    // A connection that can't be made in 5 seconds fails the call's news part, never the call: the roles' own 5-second
+    // statement limit bounds each function once connected.
     ...(access === undefined ? {} : { staging: new PostgresAtlasNewsStore({ connectionString: access.connectionString,
-      ...(access.schema === undefined ? {} : { schema: access.schema }), ssl: access.ssl }) }),
+      ...(access.schema === undefined ? {} : { schema: access.schema }), ssl: access.ssl,
+      connectionTimeoutMillis: NEWS_CONNECTION_TIMEOUT_MS }) }),
     ...(review === undefined ? {} : { review: new PostgresAtlasNewsStore({ connectionString: review.connectionString,
-      schema: review.schema, ssl: review.ssl }) }),
+      schema: review.schema, ssl: review.ssl, connectionTimeoutMillis: NEWS_CONNECTION_TIMEOUT_MS }) }),
   };
 }

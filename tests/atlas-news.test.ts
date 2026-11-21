@@ -25,6 +25,7 @@ import {
   type NewsReading,
   type PaperStatus,
 } from "../apps/research-mcp/src/news/day.js";
+import { runAtlasNewsAction } from "../apps/research-mcp/src/news/review.js";
 import { createResearchContributionReviewHandler } from "../apps/research-mcp/src/research-contribution-review-tool.js";
 
 // Atlas news, stage 1 (plan docs/superpowers/plans/2026-11-21-atlas-news-stage1.md). Every study, figure, funder and
@@ -253,6 +254,24 @@ describe("the day call: one day, whole or nothing, never late", () => {
     expect(listed.items.find(({ number }) => number === unread.number)?.state).toBe("kept_back");
   });
 
+  it("keeps back an item that fails on every count without blocking its day, with at most 20 reasons", async () => {
+    const store = new InMemoryAtlasNewsStore(databaseClock);
+    const bad = await stage(store, CARD, undefined, "A draft with no figure.");
+    const good = await stage(store, card((value) => { value.item_id = "item-0002"; }));
+    const empty = reading(bad.number, CARD, (read) => { read.fields = {}; read.numbers = {}; read.advice = "yes"; });
+    const result = await publishNewsDay(payload({ order: [good.number, bad.number],
+      places: [good, bad].map(({ number }) => ({ number, reason: "Placed." })),
+      readings: [reading(good.number, card((value) => { value.item_id = "item-0002"; })), empty] }),
+    deps(store, async () => "unknown"));
+    expect(result).toMatchObject({ status: "committed", order: [] });
+    const kept = (result as { keptBack: Array<{ number: string; reasons: string[] }> }).keptBack;
+    const reasons = kept.find(({ number }) => number === bad.number)!.reasons;
+    expect(reasons.length).toBeLessThanOrEqual(20);
+    expect(reasons).toEqual(expect.arrayContaining(["reading_missing:finding", "advice_to_change_treatment",
+      "numbers_not_in_draft:how_much"]));
+    expect(kept.find(({ number }) => number === good.number)!.reasons).toEqual(["paper_unchecked"]);
+  });
+
   it("answers a replay with the version it committed, and makes a new version for a changed payload", async () => {
     const store = new InMemoryAtlasNewsStore(databaseClock);
     const good = await stage(store, CARD);
@@ -334,6 +353,35 @@ describe("the day call: one day, whole or nothing, never late", () => {
       base: { day: "2026-11-22", version: 1 }, rerank: true, order: [a.number, b.number],
       moves: [{ number: a.number, reason: "Up." }] }), deps(store, clean, monday)))
       .toMatchObject({ status: "refused", reason: "order_invalid" });
+  });
+
+  it("leaves out of the stored order a carried item withdrawn since, or replaced by a newer card of the same item", async () => {
+    const store = new InMemoryAtlasNewsStore(databaseClock);
+    const monday = new Date("2026-11-23T07:00:00.000Z");
+    const tuesday = new Date("2026-11-24T07:00:00.000Z");
+    const wednesday = new Date("2026-11-25T07:00:00.000Z");
+    const a = await stage(store, card((value) => { value.item_id = "item-a"; }), "2026-11-23T06:00:00.000Z");
+    const b = await stage(store, card((value) => { value.item_id = "item-b"; }), "2026-11-23T06:00:00.000Z");
+    await publishNewsDay(payload({ day: "2026-11-23", not_after: Math.floor(monday.getTime() / 1000) + 600,
+      order: [a.number, b.number], places: [a, b].map(({ number }) => ({ number, reason: "Placed." })),
+      readings: [reading(a.number, card((value) => { value.item_id = "item-a"; })),
+        reading(b.number, card((value) => { value.item_id = "item-b"; }))] }), deps(store, clean, monday));
+    // The owner withdraws a; the news check doesn't know, and carries it; b gets a newer card.
+    await store.withdraw(a.number, "Not needed.", monday.toISOString());
+    const newer = card((value) => { value.item_id = "item-b"; value.harms = "No serious harms were reported in 6 months"; });
+    const b2 = await stage(store, newer, "2026-11-24T06:00:00.000Z",
+      `${DRAFT} No serious harms were reported in 6 months.`);
+    const tuesdayDay = await publishNewsDay(payload({ day: "2026-11-24", not_after: Math.floor(tuesday.getTime() / 1000) + 600,
+      base: { day: "2026-11-23", version: 1 }, order: [a.number, b.number, b2.number],
+      places: [{ number: b2.number, reason: "Its newer check." }],
+      readings: [reading(b2.number, newer, (read) => { read.numbers.harms = "same"; })] }), deps(store, clean, tuesday));
+    expect(tuesdayDay).toMatchObject({ status: "committed", order: [b2.number], keptBack: [] });
+    const [oldB] = await store.inspectNumbers([b.number], tuesday.toISOString());
+    expect(oldB).toMatchObject({ state: "withdrawn", withdrawnReason: "replaced" });
+    // The next day's base is the stored order: only the newer card is carried.
+    expect(await publishNewsDay(payload({ day: "2026-11-25", not_after: Math.floor(wednesday.getTime() / 1000) + 600,
+      base: { day: "2026-11-24", version: 1 }, order: [b2.number] }), deps(store, clean, wednesday)))
+      .toMatchObject({ status: "committed", order: [b2.number] });
   });
 
   it("stores a day with no main item: its carried order, its lines and its footer", async () => {
@@ -435,6 +483,18 @@ describe("the owner's news actions on review_research_contribution", () => {
       auth(OWNER));
     expect(withdrawn.structuredContent).toMatchObject({ ok: true, news: { result: { withdrawn: [good.number] } } });
     expect(newsDayPayloadDigest(day)).toMatch(/^[a-f0-9]{64}$/u);
+  });
+
+  it("answers every news action within its time, and says when the store can't be reached", async () => {
+    const store = new InMemoryAtlasNewsStore(databaseClock);
+    const hanging = { ...store, inspectDay: () => new Promise<never>(() => undefined),
+      withdraw: () => Promise.reject(new Error("connection refused")) } as unknown as InMemoryAtlasNewsStore;
+    expect(await runAtlasNewsAction({ action: "list_news_items", news_date: DAY },
+      { store: hanging, now: () => AT, paperStatus: clean, handlerMilliseconds: 30 }))
+      .toMatchObject({ ok: false, news: { status: "unknown" } });
+    expect(await runAtlasNewsAction({ action: "withdraw_news_item", news_number: "all", reason: "A test." },
+      { store: hanging, now: () => AT, paperStatus: clean }))
+      .toMatchObject({ ok: false, news: { status: "unavailable" } });
   });
 
   it("says news is off, and refuses a news input given to another action", async () => {

@@ -186,7 +186,9 @@ function checkCommit(commit: AtlasNewsDayCommit, at: string, deadline: string): 
     Array.isArray(commit.decisions) && Array.isArray(commit.moves) && Array.isArray(commit.lines) &&
     commit.decisions.every((decision) => ATLAS_NEWS_NUMBER.test(decision.number) &&
       (decision.kind === "main" || decision.kind === "line") && typeof decision.passed === "boolean" &&
-      Array.isArray(decision.reasons) && decision.passed === (decision.reasons.length === 0)) &&
+      Array.isArray(decision.reasons) && decision.reasons.length <= 20 &&
+      decision.passed === (decision.reasons.length === 0) &&
+      (decision.reading === null || Buffer.byteLength(JSON.stringify(decision.reading)) <= 16_000)) &&
     Number.isFinite(Date.parse(at)) && Number.isFinite(Date.parse(deadline));
   if (!valid) throw new AtlasNewsError("INPUT_INVALID");
 }
@@ -243,16 +245,21 @@ export class InMemoryAtlasNewsStore implements AtlasNewsStagingStore, AtlasNewsR
       return { status: "stale_base",
         latest: latest === undefined ? null : { day: latest.day, version: latest.version, order: [...latest.order] } };
     }
-    const carriedExpected = latest === undefined ? [] : latest.order.filter((number) => {
+    // The base's items still within seven days: those on show must be carried; those withdrawn since may stay in the
+    // order (the news check doesn't know of the withdrawal) and are left out of the stored order.
+    const recent = latest === undefined ? [] : latest.order.filter((number) => {
       const item = this.items.get(numberOf(number));
-      return item !== undefined && item.state === "shadow" && item.committedDay !== null &&
+      return item !== undefined && item.committedDay !== null &&
         dayNumber(item.committedDay) >= dayNumber(commit.day) - (ATLAS_NEWS_CARRIED_DAYS - 1);
     });
+    const carriedExpected = recent.filter((number) => this.items.get(numberOf(number))!.state === "shadow");
+    const withdrawnBase = recent.filter((number) => this.items.get(numberOf(number))!.state === "withdrawn");
     const carriedGiven: string[] = [];
     const newNumbers: string[] = [];
     for (const number of commit.order) {
       if (carriedGiven.includes(number) || newNumbers.includes(number)) throw new AtlasNewsError("ORDER_INVALID");
-      (carriedExpected.includes(number) ? carriedGiven : newNumbers).push(number);
+      if (carriedExpected.includes(number)) carriedGiven.push(number);
+      else if (!withdrawnBase.includes(number)) newNumbers.push(number);
     }
     if (carriedGiven.length !== carriedExpected.length ||
       (!commit.rerank && carriedGiven.some((number, place) => number !== carriedExpected[place]))) {
@@ -261,7 +268,9 @@ export class InMemoryAtlasNewsStore implements AtlasNewsStagingStore, AtlasNewsR
     const decided = new Set<string>();
     for (const decision of commit.decisions) {
       if (decided.has(decision.number) || (decision.kind === "main") !== newNumbers.includes(decision.number) ||
-        carriedExpected.includes(decision.number)) throw new AtlasNewsError("INPUT_INVALID");
+        carriedExpected.includes(decision.number) || withdrawnBase.includes(decision.number)) {
+        throw new AtlasNewsError("INPUT_INVALID");
+      }
       decided.add(decision.number);
     }
     if (commit.decisions.filter(({ kind }) => kind === "main").length !== newNumbers.length) {
@@ -302,7 +311,11 @@ export class InMemoryAtlasNewsStore implements AtlasNewsStagingStore, AtlasNewsR
         if (redecidable) changed.set(number, { ...stored!, ...common, state: "kept_back", keptReasons: reasons });
       }
     }
-    const order = commit.order.filter((number) => !keptMain.has(number));
+    // The stored order: less the new items kept back and every item now withdrawn (since the base, or replaced here).
+    const order = commit.order.filter((number) => {
+      const item = current(numberOf(number));
+      return !keptMain.has(number) && item !== undefined && item.state !== "withdrawn";
+    });
     if (this.clock().getTime() > Date.parse(deadline)) throw new AtlasNewsError("LATE");
     for (const [number, item] of changed) this.items.set(number, item);
     this.days.push({ day: commit.day, version, payloadSha256: commit.payloadSha256,

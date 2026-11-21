@@ -1848,6 +1848,11 @@ async function verifyAtlasNews(context: {
     assert(withdrawn.length === 1 && withdrawn[0]!.state === "withdrawn", "NEWS_WITHDRAWAL_WRONG");
     const [gone] = await review.inspectNumbers([one.number], "2026-11-24T08:00:00.000Z");
     assert(gone?.state === "withdrawn" && gone.withdrawnReason === "owner_unpublished", "NEWS_WITHDRAWAL_NOT_KEPT");
+    // The news check doesn't know of the withdrawal and carries the item: the day commits, without it.
+    const third = await review.commitDay(commit({ day: "2026-11-25", payloadSha256: hex("payload:three"),
+      base: { day: "2026-11-24", version: 1 }, order: [one.number], decisions: [], lines: [], moves: [] }),
+      "2026-11-25T07:00:00.000Z", future());
+    assert(third.status === "committed" && third.order.length === 0, "NEWS_WITHDRAWN_CARRIED_ITEM_STORED");
     // At most 20 staged cards a UTC day.
     let full = false;
     for (let index = 0; index < 21; index += 1) {
