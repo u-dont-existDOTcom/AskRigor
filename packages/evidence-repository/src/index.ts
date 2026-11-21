@@ -492,6 +492,7 @@ export {
 } from "./atlas-pages.js";
 export {
   ATLAS_NEWS_CARRIED_DAYS,
+  ATLAS_NEWS_DAY_BYTES,
   ATLAS_NEWS_ERROR_CODES,
   ATLAS_NEWS_ITEM_STATES,
   ATLAS_NEWS_NUMBER,
@@ -500,6 +501,7 @@ export {
   ATLAS_NEWS_STAGED_PER_DAY,
   AtlasNewsError,
   InMemoryAtlasNewsStore,
+  atlasNewsDaySizesFit,
   PostgresAtlasNewsStore,
   type AtlasNewsBase,
   type AtlasNewsCommitOutcome,

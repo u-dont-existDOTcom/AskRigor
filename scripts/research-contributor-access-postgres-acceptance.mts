@@ -1768,7 +1768,9 @@ async function verifyAtlasNews(context: {
   const review = new PostgresAtlasNewsStore({ connectionString: context.reviewUrl, schema: SCHEMA });
   const hex = (label: string) => createHash("sha256").update(`news-acceptance:${label}`).digest("hex");
   const nowIso = () => new Date().toISOString();
-  const today = nowIso().slice(0, 10);
+  // The database's own UTC date, which the day call's final check reads.
+  const today = (await admin.query<{ today: string }>(
+    "SELECT to_char((now() AT TIME ZONE 'UTC')::date, 'YYYY-MM-DD') AS today")).rows[0]!.today;
   const yesterday = new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
   const item = (label: string) => ({
     itemId: `item-${label}`, checkId: `check-${label}`, card: { item_id: `item-${label}`, finding: `Synthetic ${label}` },
@@ -1823,6 +1825,18 @@ async function verifyAtlasNews(context: {
       otherDay = error instanceof AtlasNewsError && error.code === "OTHER_DAY";
     }
     assert(otherDay, "NEWS_OTHER_DAY_NOT_REFUSED");
+    // The final check reads the database's own date: a day whose call time says yesterday, with a future deadline, is
+    // still refused at its last step, and nothing of it is stored.
+    let pastMidnight = false;
+    try {
+      await review.commitDay(commit({ day: yesterday, payloadSha256: hex("payload:yesterday-late"), base: null, order: [],
+        decisions: [], lines: [], moves: [] }), `${yesterday}T12:00:00.000Z`, future());
+    } catch (error) {
+      pastMidnight = error instanceof AtlasNewsError && error.code === "LATE";
+    }
+    const yesterdayVersions = await admin.query(`SELECT day_version FROM ${SCHEMA}.atlas_news_days WHERE news_day = $1::date`,
+      [yesterday]);
+    assert(pastMidnight && yesterdayVersions.rowCount === 1, "NEWS_FINAL_DATE_CHECK_NOT_ENFORCED");
     // A stale base stores nothing and returns the latest record; a dropped carried item is refused.
     const stale = await review.commitDay(commit({ base: null, payloadSha256: hex("payload:stale") }), nowIso(), future());
     assert(stale.status === "stale_base" && stale.latest?.day === yesterday && stale.latest.version === 1,
@@ -1848,9 +1862,14 @@ async function verifyAtlasNews(context: {
     assert(withdrawn.length === 1 && withdrawn[0]!.state === "withdrawn", "NEWS_WITHDRAWAL_WRONG");
     const [gone] = await review.inspectNumbers([carried.number], nowIso());
     assert(gone?.state === "withdrawn" && gone.withdrawnReason === "owner_unpublished", "NEWS_WITHDRAWAL_NOT_KEPT");
-    const second = await review.commitDay(commit({ payloadSha256: hex("payload:second") }), nowIso(), future());
-    assert(second.status === "committed" && second.version === 2 && second.order.join() === one.number,
-      "NEWS_WITHDRAWN_CARRIED_ITEM_STORED");
+    const kept = await staging.stage(item("kept"), nowIso());
+    const second = await review.commitDay(commit({ payloadSha256: hex("payload:second"),
+      order: [carried.number, one.number, kept.number],
+      moves: [{ number: one.number, reason: "first", kind: "place" }, { number: kept.number, reason: "second", kind: "place" }],
+      decisions: [...commit().decisions, { number: kept.number, kind: "main" as const, passed: false, reasons: ["no_reading"],
+        reading: null, readingModel: null, retraction: null }] }), nowIso(), future());
+    assert(second.status === "committed" && second.version === 2 && second.order.join() === one.number &&
+      second.keptBack.length === 1 && second.keptBack[0]!.number === kept.number, "NEWS_WITHDRAWN_CARRIED_ITEM_STORED");
     // A card staged over 24 hours before reads as expired.
     const [oldItem] = await review.inspectNumbers([old.number], nowIso());
     assert(oldItem?.state === "expired", "NEWS_OLD_STAGED_CARD_NOT_EXPIRED");
@@ -1864,6 +1883,10 @@ async function verifyAtlasNews(context: {
       }
     }
     assert(full, "NEWS_TWENTY_FIRST_CARD_NOT_REFUSED");
+    // Withdrawing every item at once takes staged, shown and kept-back rows alike.
+    const everything = await review.withdraw("all", "A synthetic withdrawal of everything.", nowIso());
+    const left = await admin.query(`SELECT count(*)::int AS n FROM ${SCHEMA}.atlas_news_items WHERE state <> 'withdrawn'`);
+    assert(everything.length > 20 && left.rows[0]!.n === 0, "NEWS_WITHDRAW_ALL_INCOMPLETE");
   } finally {
     await staging.close();
     await review.close();

@@ -5096,12 +5096,14 @@ export function finalizeResearch(
       return read?.reader === "reddit" ? read.subreddit : undefined;
     }) : [];
   // Atlas news, stage 1: the news card's own claims, signed once its lines are looked up (or it has none), and only for a
-  // card whose DOI is one this call's verified receipts name: the paper the day call checks for retraction is the paper
-  // the check read (Codex's review of 21 Nov 2026, finding 3).
-  const verifiedDois = new Set(verified.flatMap(({ claims }) => [claims.doi, claims.id])
-    .flatMap((value) => typeof value === "string" && isDoi(normalizeIdentifier(value)) ? [normalizeIdentifier(value)] : []));
-  const newsDoiVerified = options.newsCard === undefined || options.newsCard.card.doi === undefined ||
-    verifiedDois.has(normalizeIdentifier(options.newsCard.card.doi));
+  // card whose DOI is the paper this check read: a key source whose own record, full text or audit receipts name that DOI
+  // (a DOI resolution or a failed acquisition doesn't count), so the paper the day call checks for retraction is the
+  // paper the check read (Codex's reviews of 21 Nov 2026, finding 3 and its second round's B).
+  const newsDoi = options.newsCard?.card.doi;
+  const newsDoiVerified = newsDoi === undefined || (input.key_sources.some(({ id }) =>
+    sourceLinks(id).linkIds.map(normalizeIdentifier).includes(normalizeIdentifier(newsDoi))) &&
+    paperReceipts(sourceLinks(newsDoi)).some(({ kind }) =>
+      kind === "pubmed_record" || SOURCE_TEXT_KINDS.has(kind)));
   const newsClaims = options.newsCard !== undefined && newsDoiVerified &&
     (options.newsLookups !== undefined || newsLines.length === 0)
     ? signedNewsClaims(options.newsCard, options.newsLookups ?? [], sourceReadingOf) : undefined;

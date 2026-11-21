@@ -11,7 +11,7 @@ release and a separate yes.
 Codex: the 60-second handler limit "bounds server handling, not the scheduled session's connector/network wait", so
 the task text must say what ends each publishing or read-back wait.
 
-**The bound is the client's, and it is at most 330 seconds per call; the server answers within 60.** Read in the
+**The wait's bound is the client's, normally 300 to 330 seconds a call; the server answers within 60.** Read in the
 Claude Code builds this laptop runs (2.1.317 and 2.1.325, the desktop app's, and 2.1.322, the CLI's): a call to a remote
 MCP server (any type but stdio, sdk and the IDE ones, so the claude.ai AskRigor connector too) is aborted when it has had
 "no response or progress notification" for `CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT`, which defaults to 300,000 ms for such
@@ -20,13 +20,15 @@ abort comes 300 to 330 seconds after the last byte. Its message: `MCP server "�
 for …s; aborting`.
 The wall-clock default (`MCP_TOOL_TIMEOUT`) is 100,000,000 ms, so the idle timer is the one that acts. AskRigor's
 server sends no progress notifications anywhere (`notifications/progress` appears nowhere in `apps/research-mcp/src`),
-so for its calls the idle timer is a wall-clock bound: a call that hasn't answered in 330 seconds ends with an error and
-the session goes on. No override is set on this laptop (no `CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT` or `MCP_TOOL_TIMEOUT` in
+so for its calls the idle timer acts as a wall clock: under normal scheduling a call that hasn't answered in 330 seconds
+ends with an error and the session goes on. It is a polled idle limit, not an absolute one: a laptop that sleeps, or a
+stalled process, can stretch it, and a per-server `timeout` could raise it. No override is set on this laptop (no `CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT` or `MCP_TOOL_TIMEOUT` in
 `~/.claude/settings*.json` or the desktop app's config, read 21 Nov), and the task reaches AskRigor through the
 claude.ai connector, a remote server type. Every news action answers within 60 seconds, and the day call's database
 function accepts a day only while its own clock is before the earlier of `not_after`, 50 seconds into the call and the
-day's UTC midnight: a final acceptance check, after which the transaction's commit follows at once. So the idle limit
-is reached only when the network or the connector stalls, and a stalled call can never store anything late.
+day's UTC midnight, and while its own UTC date is the day's: a final acceptance check, which the transaction's commit
+follows (the physical commit comes just after the check, not before it). So the idle limit is reached only when the
+network or the connector stalls, and a call is never accepted after its cutoff, however long its wait.
 
 **The task's steps are sized to it** (the text for SKILL.md, for the stage-1 release):
 
@@ -34,11 +36,13 @@ is reached only when the network or the connector stalls, and a stalled call can
   stored; afterwards both are updated with the publish note. The record is therefore never waiting on a call.
 - At most **two waits** in all: the day call, then one of a replay (same file), a rebased call (after `stale_base`) or a
   read-back (`list_news_items`). A day still unknown after both is settled by the next run's base check and read-back
-  (design 3.8, 14), so no third wait is ever needed. Worst case 2 × 330 s = 11 minutes; usually under 2.
+  (design 3.8, 14), so no third wait is ever needed. Under normal scheduling, 2 × 330 s = 11 minutes of waiting at
+  most, plus the rebase and the record's update, which have no proven bound; usually under 2 minutes in all.
 - A publish call starts only with at least 120 seconds before `not_after`; the read-back may be made after it.
-- The run's deadline bounds the writes, not the status note: with both waits silent, the note can come up to about 6
-  minutes after the deadline (a call started 7 minutes before it, plus 11). Nothing waits on that note: the digest
-  and the record are already written, and nothing can be stored after `not_after`.
+- The run's deadline bounds the writes, not the status note: with both waits silent, the waits alone end up to 4
+  minutes after the deadline (a call started 7 minutes before it, plus 11), and the note comes after them, with no
+  bound claimed. Nothing waits on that note: the digest and the record are already written, and no day is accepted
+  after `not_after`.
 - Each wait's start and end (`date -u +%s`) go in the published.json note, so the shadow period measures them (3.10).
 
 If a later Claude Code changed the idle default, nothing could be stored late (the server's bound), and only the
@@ -87,6 +91,17 @@ midnight); limits that let one item fail its day (capped and aligned); read-back
 now has 60 seconds, and connections 5); a re-staged card keeping its first draft (it takes the newer one while staged,
 and a reading names the draft it read). Its bound remark is taken in above (330 seconds; the status note may come
 after the deadline).
+
+Codex's second round (`codex-review-2.md`, of `82ee6f57`) found six of the ten fixed and four partly, and five
+defects, each now fixed with a test: a newer draft re-staged between the day call's read and its commit (the
+database now keeps back a passing item whose reading doesn't name the card and the draft the row holds, and re-staging
+takes only a newer receipt's draft); a DOI tied only by any receipt, a DOI resolution included (it must now be a key
+source's paper, with its own record, full text or audit receipts); two versions of one item passing in one call (one
+version a day, the newest; the others are kept back as superseded, and the database refuses two passing versions);
+withdrawing a kept-back item breaking its row's rule (a withdrawal clears its reasons; the day's record keeps them);
+and text whose JSON form could overrun the row (no control characters in stored text, and the day's size checked
+against three quarters of the row's limits). Its acceptance remarks are taken in: the run's date comes from the
+database, and the final date check has its own case. Codex hasn't re-read these last fixes.
 
 Further differences from design v4 that Codex named, left for stage 2: "abstract read" lines live in the day's row,
 not as numbered items, so they can't be withdrawn one by one (withdrawing every item leaves them, unshown); no outlet

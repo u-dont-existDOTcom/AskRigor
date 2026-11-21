@@ -5,6 +5,7 @@ import {
   ATLAS_NEWS_NUMBER,
   ATLAS_NEWS_STAGED_LIFE_MS,
   AtlasNewsError,
+  atlasNewsDaySizesFit,
   type AtlasNewsCommitOutcome,
   type AtlasNewsDecision,
   type AtlasNewsItem,
@@ -52,7 +53,10 @@ export const NEWS_ABSTRACT_REASONS = ["animal_or_cell", "model_only", "early_unc
 const DAY = /^\d{4}-\d{2}-\d{2}$/u;
 const SHA256 = /^[a-f0-9]{64}$/u;
 const numberSchema = z.string().regex(ATLAS_NEWS_NUMBER);
-const reasonText = z.string().trim().min(1).max(300);
+/** A stored text: no control characters, which JSON would write six bytes each. */
+const storedText = (max: number) => z.string().trim().min(1).max(max)
+  .refine((value) => !/\p{Cc}/u.test(value), "no control characters");
+const reasonText = storedText(300);
 const verdict = z.enum(["supported", "stronger", "different", "absent"]);
 
 export const newsReadingSchema = z.object({
@@ -71,11 +75,11 @@ export type NewsReading = z.output<typeof newsReadingSchema>;
 const abstractLineSchema = z.object({
   kind: z.literal("abstract_read"),
   doi: z.string().trim().toLowerCase().regex(/^10\.\d{4,9}\/\S{1,300}$/u),
-  title: z.string().trim().min(1).max(300),
-  journal: z.string().trim().min(1).max(150),
+  title: storedText(300),
+  journal: storedText(150),
   year: z.number().int().min(1900).max(2100),
   reason_code: z.enum(NEWS_SKIP_REASONS),
-  quote: z.string().trim().min(1).max(600),
+  quote: storedText(600),
   usefulness: reasonText,
 }).strict();
 
@@ -92,7 +96,7 @@ export const newsDayPayloadSchema = z.object({
     .max(30),
   line_readings: z.array(z.object({ line: z.number().int().min(0), verdict: z.enum(["supported", "not_supported"]) })
     .strict()).max(30),
-  footer: z.object({ text: z.string().trim().min(1).max(2_000) }).strict().nullable(),
+  footer: z.object({ text: storedText(2_000) }).strict().nullable(),
 }).strict();
 export type NewsDayPayload = z.output<typeof newsDayPayloadSchema>;
 
@@ -305,13 +309,27 @@ export async function publishNewsDay(raw: unknown, deps: NewsDayDependencies): P
       if (card.doi === undefined) return "no_doi";
       return await settles(deps.paperStatus(card.doi).catch(() => "unknown" as const), NEWS_PAPER_CHECK_MS, "unknown");
     }));
+    // One version of a news check item a day: of its cards that pass, the one its newest receipt signed (then the
+    // highest number); every other is kept back as superseded (Codex's second round, C).
+    const newest = new Map<string, { number: string; at: number }>();
+    decided.forEach(({ number, reasons }, place) => {
+      const item = items.get(number);
+      if (item === undefined || reasons.length > 0 || papers[place] === "retracted" || papers[place] === "unknown") return;
+      const at = Date.parse(item.receiptIssuedAt);
+      const best = newest.get(item.itemId);
+      if (best === undefined || at > best.at || (at === best.at && Number(number.slice(2)) > Number(best.number.slice(2)))) {
+        newest.set(item.itemId, { number, at });
+      }
+    });
     const decisions: AtlasNewsDecision[] = decided.map(({ number, kind, reasons, card }, place) => {
       const paper = papers[place] ?? null;
+      const item = items.get(number);
       const all = [...reasons,
         ...(paper === "retracted" ? ["paper_retracted"] : []),
         ...(paper === "unknown" ? ["paper_unchecked"] : []),
         ...(paper === "no_doi" && card !== undefined && card.design !== "official_notice" ? ["no_doi"] : []),
       ];
+      if (all.length === 0 && item !== undefined && newest.get(item.itemId)?.number !== number) all.push("superseded");
       const reading = readings.get(number);
       // At most 20 reasons are kept on an item's row; the first ones are the decisive ones.
       return { number, kind, passed: all.length === 0, reasons: all.slice(0, 20),
@@ -328,6 +346,10 @@ export async function publishNewsDay(raw: unknown, deps: NewsDayDependencies): P
     });
     const moves = [...payload.places.map((entry) => ({ ...entry, kind: "place" })),
       ...payload.moves.map((entry) => ({ ...entry, kind: "move" }))];
+    if (!atlasNewsDaySizesFit({ moves, lines, footer: payload.footer })) {
+      return { status: "refused", reason: "invalid_payload", problems: ["news_day is too large to store: its lines, " +
+        "places and moves, or footer, are over the day's size limit."] };
+    }
     let outcome: AtlasNewsCommitOutcome;
     try {
       outcome = await deps.store.commitDay({ day: payload.day, payloadSha256, base: payload.base, rerank: payload.rerank,

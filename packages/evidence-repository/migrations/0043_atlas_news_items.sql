@@ -116,9 +116,9 @@ BEGIN
   SELECT stored.news_number INTO found_number FROM atlas_news_items stored
    WHERE stored.item_id = new_item ->> 'itemId' AND stored.card_sha256 = new_item ->> 'cardSha256';
   IF FOUND THEN
-    -- The same card checked again with another draft, still staged: it takes the newer draft and its receipt's claims,
-    -- so the day call's reading is bound to the draft the news check's last passing call checked. A committed or
-    -- withdrawn card keeps what it had.
+    -- The same card checked again with another draft, still staged, by a newer receipt: it takes that draft and its
+    -- receipt's claims, so the day call's reading is bound to the draft the news check's last passing call checked; an
+    -- older receipt delivered late changes nothing. A committed or withdrawn card keeps what it had.
     BEGIN
       UPDATE atlas_news_items stored
          SET draft = new_item ->> 'draft', draft_sha256 = new_item ->> 'draftSha256',
@@ -126,7 +126,8 @@ BEGIN
              receipt_issued_at = (new_item ->> 'receiptIssuedAt')::timestamptz,
              changed_at = greatest(stage_time, stored.changed_at)
        WHERE stored.news_number = found_number AND stored.state = 'staged'
-         AND stored.draft_sha256 <> new_item ->> 'draftSha256';
+         AND stored.draft_sha256 <> new_item ->> 'draftSha256'
+         AND (new_item ->> 'receiptIssuedAt')::timestamptz > stored.receipt_issued_at;
     EXCEPTION WHEN check_violation OR not_null_violation OR invalid_datetime_format OR datetime_field_overflow THEN
       RAISE EXCEPTION 'ATLAS_NEWS_INPUT_INVALID';
     END;
@@ -320,6 +321,13 @@ BEGIN
        <> jsonb_array_length(day_commit -> 'decisions') THEN
     RAISE EXCEPTION 'ATLAS_NEWS_INPUT_INVALID';
   END IF;
+  -- At most one passing decision for each news check item: the application keeps back every other version of it.
+  IF EXISTS (SELECT 1 FROM jsonb_array_elements(day_commit -> 'decisions') d
+               JOIN atlas_news_items items ON items.news_number = substr(d.value ->> 'number', 3)::bigint
+              WHERE (d.value ->> 'passed')::boolean
+              GROUP BY items.item_id HAVING count(*) > 1) THEN
+    RAISE EXCEPTION 'ATLAS_NEWS_INPUT_INVALID';
+  END IF;
 
   SELECT coalesce(max(days.day_version), 0) + 1 INTO next_version FROM atlas_news_days days
    WHERE days.news_day = target_day;
@@ -387,16 +395,23 @@ BEGIN
     JOIN atlas_news_items items ON items.news_number = substr(given.value #>> '{}', 3)::bigint
    WHERE NOT kept_numbers @> jsonb_build_array(given.value) AND items.state <> 'withdrawn';
 
-  -- Each "checked" line takes its card's final decision, as stored here, never the application's earlier one.
+  -- Each "checked" line takes its card's final state, as stored here, never the application's earlier decision: it
+  -- passes only when its card was committed in this call and is on show.
   SELECT coalesce(jsonb_agg(CASE WHEN line.value ->> 'kind' = 'checked' THEN
            line.value || jsonb_build_object(
-             'passed', NOT EXISTS (SELECT 1 FROM jsonb_array_elements(kept) AS held(value)
-                                   WHERE held.value ->> 'number' = line.value ->> 'number'),
-             'reasons', coalesce((SELECT held.value -> 'reasons' FROM jsonb_array_elements(kept) AS held(value)
-                                  WHERE held.value ->> 'number' = line.value ->> 'number' LIMIT 1), '[]'::jsonb))
+             'passed', coalesce(items.state = 'shadow' AND items.committed_day = target_day
+               AND items.committed_version = next_version, false),
+             'reasons', CASE WHEN coalesce(items.state = 'shadow' AND items.committed_day = target_day
+                 AND items.committed_version = next_version, false) THEN '[]'::jsonb
+               WHEN items.state = 'withdrawn' THEN jsonb_build_array('withdrawn')
+               ELSE coalesce((SELECT held.value -> 'reasons' FROM jsonb_array_elements(kept) AS held(value)
+                              WHERE held.value ->> 'number' = line.value ->> 'number' LIMIT 1),
+                             jsonb_build_array('not_staged')) END)
            ELSE line.value END ORDER BY line.place), '[]'::jsonb)
     INTO final_lines
-    FROM jsonb_array_elements(day_commit -> 'lines') WITH ORDINALITY AS line(value, place);
+    FROM jsonb_array_elements(day_commit -> 'lines') WITH ORDINALITY AS line(value, place)
+    LEFT JOIN atlas_news_items items ON line.value ->> 'kind' = 'checked'
+      AND items.news_number = substr(line.value ->> 'number', 3)::bigint;
 
   BEGIN
     INSERT INTO atlas_news_days
@@ -441,7 +456,7 @@ BEGIN
   RETURN QUERY
   WITH changed AS (
     UPDATE atlas_news_items items
-       SET state = 'withdrawn', withdrawn_reason = 'owner_unpublished', owner_reason = reason,
+       SET state = 'withdrawn', withdrawn_reason = 'owner_unpublished', owner_reason = reason, kept_reasons = NULL,
            changed_at = greatest(change_time, items.changed_at)
      WHERE items.state <> 'withdrawn'
        AND (target = 'all' OR items.news_number = substr(target, 3)::bigint)

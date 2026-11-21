@@ -193,8 +193,23 @@ function checkCommit(commit: AtlasNewsDayCommit, at: string, deadline: string): 
       Array.isArray(decision.reasons) && decision.reasons.length <= 20 &&
       decision.passed === (decision.reasons.length === 0) &&
       (decision.reading === null || Buffer.byteLength(JSON.stringify(decision.reading)) <= 16_000)) &&
-    Number.isFinite(Date.parse(at)) && Number.isFinite(Date.parse(deadline));
+    Number.isFinite(Date.parse(at)) && Number.isFinite(Date.parse(deadline)) &&
+    atlasNewsDaySizesFit(commit);
   if (!valid) throw new AtlasNewsError("INPUT_INVALID");
+}
+
+/**
+ * A day's serialized limits, as JSON text in UTF-8 bytes: three quarters of the row's (migration 0043 checks 200,000,
+ * 200,000 and 16,000 bytes of PostgreSQL's own JSON text, which adds a space after each key and element), so a day the
+ * application accepts always fits the row.
+ */
+export const ATLAS_NEWS_DAY_BYTES = { moves: 150_000, lines: 150_000, footer: 12_000 } as const;
+
+/** Whether a day's moves, lines and footer fit the row that stores them. */
+export function atlasNewsDaySizesFit(commit: Pick<AtlasNewsDayCommit, "moves" | "lines" | "footer">): boolean {
+  const bytes = (value: unknown) => Buffer.byteLength(JSON.stringify(value), "utf8");
+  return bytes(commit.moves) <= ATLAS_NEWS_DAY_BYTES.moves && bytes(commit.lines) <= ATLAS_NEWS_DAY_BYTES.lines &&
+    (commit.footer === null || bytes(commit.footer) <= ATLAS_NEWS_DAY_BYTES.footer);
 }
 
 interface MemoryItem extends Omit<AtlasNewsItem, "state"> {
@@ -216,7 +231,8 @@ export class InMemoryAtlasNewsStore implements AtlasNewsStagingStore, AtlasNewsR
     for (const [number, stored] of this.items) {
       if (stored.itemId === item.itemId && stored.cardSha256 === item.cardSha256) {
         // The same card checked again with another draft, still staged, takes the newer draft and its claims.
-        if (stored.state === "staged" && stored.draftSha256 !== item.draftSha256) {
+        if (stored.state === "staged" && stored.draftSha256 !== item.draftSha256 &&
+          Date.parse(item.receiptIssuedAt) > Date.parse(stored.receiptIssuedAt)) {
           this.items.set(number, { ...stored, draft: item.draft, draftSha256: item.draftSha256,
             receiptClaims: structuredClone(item.receiptClaims),
             receiptIssuedAt: new Date(item.receiptIssuedAt).toISOString(),
@@ -287,6 +303,10 @@ export class InMemoryAtlasNewsStore implements AtlasNewsStagingStore, AtlasNewsR
     if (commit.decisions.filter(({ kind }) => kind === "main").length !== newNumbers.length) {
       throw new AtlasNewsError("INPUT_INVALID");
     }
+    // At most one passing decision for each news check item.
+    const passingItems = commit.decisions.filter(({ passed }) => passed)
+      .flatMap(({ number }) => { const item = this.items.get(numberOf(number)); return item === undefined ? [] : [item.itemId]; });
+    if (new Set(passingItems).size !== passingItems.length) throw new AtlasNewsError("INPUT_INVALID");
     const version = Math.max(0, ...this.days.filter((day) => day.day === commit.day).map((day) => day.version)) + 1;
     // Changes are made on copies and kept only if the deadline holds, as the transaction's rollback does.
     const changed = new Map<number, MemoryItem>();
@@ -330,11 +350,15 @@ export class InMemoryAtlasNewsStore implements AtlasNewsStagingStore, AtlasNewsR
       const item = current(numberOf(number));
       return !keptMain.has(number) && item !== undefined && item.state !== "withdrawn";
     });
-    // Each "checked" line takes its card's final decision, as stored here.
+    // Each "checked" line takes its card's final state, as stored here: it passes only when committed now and on show.
     const lines = commit.lines.map((line) => {
       if (line.kind !== "checked") return structuredClone(line);
+      const item = typeof line.number === "string" ? current(numberOf(line.number)) : undefined;
+      const shown = item !== undefined && item.state === "shadow" && item.committedDay === commit.day &&
+        item.committedVersion === version;
       const held = keptBack.find(({ number }) => number === line.number);
-      return { ...structuredClone(line), passed: held === undefined, reasons: held === undefined ? [] : [...held.reasons] };
+      return { ...structuredClone(line), passed: shown,
+        reasons: shown ? [] : item?.state === "withdrawn" ? ["withdrawn"] : held === undefined ? ["not_staged"] : [...held.reasons] };
     });
     // The final acceptance check: past the deadline, or once the clock's UTC date is no longer the day's.
     const clock = this.clock();
@@ -355,7 +379,7 @@ export class InMemoryAtlasNewsStore implements AtlasNewsStagingStore, AtlasNewsR
     for (const [number, item] of [...this.items].sort(([left], [right]) => left - right)) {
       if (item.state === "withdrawn" || (target !== "all" && numberOf(target) !== number)) continue;
       this.items.set(number, { ...item, state: "withdrawn", withdrawnReason: "owner_unpublished", ownerReason: reason,
-        changedAt: new Date(Math.max(Date.parse(at), Date.parse(item.changedAt))).toISOString() });
+        keptReasons: null, changedAt: new Date(Math.max(Date.parse(at), Date.parse(item.changedAt))).toISOString() });
       changed.push({ number: newsNumber(number), state: "withdrawn" });
     }
     return changed;

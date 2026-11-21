@@ -491,13 +491,42 @@ describe("the in-memory store keeps migration 0043's rules", () => {
     expect(newerItem?.state).toBe("shadow");
   });
 
-  it("binds a card staged again with another draft, still staged, to the newer draft", async () => {
+  it("binds a card staged again with another draft, still staged, to the newer draft, never to an older receipt's", async () => {
     const store = new InMemoryAtlasNewsStore(databaseClock);
     const first = await stage(store, CARD);
     const again = await stage(store, CARD, `${DAY}T06:30:00.000Z`, `${DRAFT} A later revision.`);
     expect(again).toEqual({ ...first, alreadyStaged: true });
+    // A receipt older than the one kept, delivered late, changes nothing.
+    await stage(store, CARD, `${DAY}T05:00:00.000Z`, `${DRAFT} An older revision.`);
     const [item] = await store.inspectNumbers([first.number], AT.toISOString());
     expect(item!.draftSha256).toBe(sha256(`${DRAFT} A later revision.`));
+  });
+
+  it("keeps one version of a news check item a day, the newest, and keeps back the rest as superseded", async () => {
+    const store = new InMemoryAtlasNewsStore(databaseClock);
+    const older = await stage(store, CARD, `${DAY}T05:00:00.000Z`);
+    const newerCard = card((value) => { value.limits = "One trial, in one country; follow-up was short"; });
+    const newer = await stage(store, newerCard, `${DAY}T06:00:00.000Z`);
+    const result = await publishNewsDay(payload({ order: [older.number, newer.number],
+      places: [older, newer].map(({ number }) => ({ number, reason: "Placed." })),
+      readings: [reading(older.number, CARD), reading(newer.number, newerCard)] }), deps(store));
+    expect(result).toMatchObject({ status: "committed", order: [newer.number],
+      keptBack: [{ number: older.number, reasons: ["superseded"] }] });
+  });
+
+  it("refuses a day with control characters in its stored text, or too large to store", async () => {
+    const store = new InMemoryAtlasNewsStore(databaseClock);
+    const line = { kind: "abstract_read" as const, doi: "10.1000/cells", title: "An invented cell study",
+      journal: "Invented Journal", year: 2026, reason_code: "animal_or_cell" as const,
+      quote: "These experiments used cultured human cells and no living people.",
+      usefulness: "Nothing anyone can do with it yet: the study was only in cells." };
+    expect(await publishNewsDay(payload({ lines: [{ ...line, title: "A title\u0001 with a control character" }] }), deps(store)))
+      .toMatchObject({ status: "refused", reason: "invalid_payload" });
+    // The stores refuse a day over the row's size, whatever sent it.
+    const huge: AtlasNewsDayCommit = { day: DAY, payloadSha256: sha256("huge"), base: null, rerank: false, order: [],
+      decisions: [], moves: [], lines: [{ kind: "abstract_read", quote: "x".repeat(160_000) }], footer: null };
+    await expect(store.commitDay(huge, AT.toISOString(), new Date(AT.getTime() + 60_000).toISOString()))
+      .rejects.toEqual(new AtlasNewsError("INPUT_INVALID"));
   });
 
   it("keeps back an item whose card was staged again with a newer draft after its reading was made", async () => {
@@ -529,13 +558,21 @@ describe("the in-memory store keeps migration 0043's rules", () => {
       } };
     const result = await publishNewsDay(payload({ lines: [{ kind: "checked", number: skipped.number }],
       readings: [reading(skipped.number, skippedCard)] }), deps(racing));
-    expect(result).toMatchObject({ status: "committed", linesKeptBack: [{ line: 0, reasons: ["not_staged"] }] });
+    expect(result).toMatchObject({ status: "committed", linesKeptBack: [{ line: 0, reasons: ["withdrawn"] }] });
     const listed = await store.inspectDay(DAY, AT.toISOString());
-    expect(listed.day?.lines[0]).toMatchObject({ kind: "checked", passed: false, reasons: ["not_staged"] });
+    expect(listed.day?.lines[0]).toMatchObject({ kind: "checked", passed: false, reasons: ["withdrawn"] });
   });
 
   it("withdraws one item or every item, keeping why, and reads a card staged over 24 hours before as expired", async () => {
     const store = new InMemoryAtlasNewsStore(databaseClock);
+    // A kept-back item is withdrawn as any other, its reasons left to the day's record.
+    const keptBack = await stage(store, card((value) => { value.item_id = "item-kept"; }));
+    await publishNewsDay(payload({ order: [keptBack.number], places: [{ number: keptBack.number, reason: "Placed." }] }),
+      deps(store));
+    expect(await store.withdraw(keptBack.number, "Not needed.", AT.toISOString()))
+      .toEqual([{ number: keptBack.number, state: "withdrawn" }]);
+    const [gone] = await store.inspectNumbers([keptBack.number], AT.toISOString());
+    expect(gone).toMatchObject({ state: "withdrawn", keptReasons: null });
     const old = await stage(store, CARD, "2026-11-21T06:00:00.000Z");
     const fresh = await stage(store, card((value) => { value.item_id = "item-0002"; }));
     const [oldItem] = await store.inspectNumbers([old.number], AT.toISOString());

@@ -98,13 +98,13 @@ describe("finalize_research stages the owner's news check's own card (Atlas news
     });
   }
 
-  const call = (laterInputs: Record<string, unknown>) => ({
+  const call = (laterInputs: Record<string, unknown>, extraReceipts: string[] = []) => ({
     ...finalizeResearchInputSchema.parse({
       lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
       full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates the news card's staging." },
       receipts: [issueResearchReceipt("study_audit", {
         id: "PMC10518852", doi: "10.1002/art.41142", status: "complete_no_unresolved_fields", handle: HANDLE,
-      }, { secret: SECRET })],
+      }, { secret: SECRET }), ...extraReceipts],
       community_evidence: "not_relevant",
       not_relevant_basis: "no_real_world_outcome", question_about: "other",
       commercial_review_applicability: { status: "not_applicable", reason: "Drug clearance involves nothing people buy." },
@@ -176,6 +176,11 @@ describe("finalize_research stages the owner's news check's own card (Atlas news
     expect(structured.news).toEqual({ status: "not_staged", reason: "doi_not_verified" });
     const signed = verifyResearchReceipt(structured.finalization_receipt as string, { secret: SECRET });
     expect(signed.ok && signed.claims.news).toBeUndefined();
+    // A DOI resolution of another paper doesn't make it the paper the check read.
+    const resolved = (await finalize(call({ news_card: otherPaper, findings_save: "off" },
+      [issueResearchReceipt("doi_resolution", { doi: "10.1000/another.paper" }, { secret: SECRET })])))
+      .structuredContent as Record<string, any>;
+    expect(resolved.news).toEqual({ status: "not_staged", reason: "doi_not_verified" });
     expect(await store.inspectDay(new Date().toISOString().slice(0, 10), new Date().toISOString()))
       .toEqual({ day: null, items: [] });
   });
