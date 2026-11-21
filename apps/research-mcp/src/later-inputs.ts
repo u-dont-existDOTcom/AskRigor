@@ -13,7 +13,7 @@ import { SOURCE_LINE_LIMITS, sourceLineSchema } from "./source-lines.js";
 import { sourceReadingInputSchema } from "./source-reading.js";
 import { keyNameSchema, nameFormsSchema, searchCoverageSchema } from "./absence-searches.js";
 import { studyMapSchema } from "./study-map.js";
-import { keepItemsInputSchema } from "./atlas/kept-review.js";
+import { ATLAS_SHOWN_BY, keepItemsInputSchema } from "./atlas/kept-review.js";
 import { placementsInputSchema } from "./atlas/placement-review.js";
 import { reportVerdictSchema } from "./atlas/report-review.js";
 import { atlasReportShareSchema, reportNumberSchema } from "./atlas/report-door.js";
@@ -344,6 +344,12 @@ const LATER_INPUT_SHAPES = Object.freeze({
         "a shown copy: the shown dossiers, such as D-1002, whose findings AskRigor's conflict check read as " +
         "contradicting the copy's, in a pair with at least one important finding, or that it could not compare it " +
         "with; naming them all shows it anyway, recorded with who and when, up to 50 of them."),
+    // Codex's fourth review of 17 Nov 2026 (P1s): the owner and the scheduled quick-answer test share one login, so a
+    // showing says who acts.
+    shown_by: z.enum(ATLAS_SHOWN_BY).optional()
+      .describe("With show_on_pages, which needs it: owner when AskRigor's owner shows them, or quick_answer_test, " +
+        "with quick_answer_verdict, when the quick-answer test does. With publish_cards, which needs it too: owner, " +
+        "AskRigor's owner, the only one who publishes cards."),
   },
 } satisfies Record<string, z.ZodRawShape>);
 

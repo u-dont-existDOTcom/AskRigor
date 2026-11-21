@@ -981,6 +981,57 @@ the owner sets the 217 test cards aside (`set_aside_cards` with `cards` naming
 ARF-0001, ARF-0016 to ARF-0038, ARF-0042, ARF-0043 and ARF-0049 to ARF-0239, as
 section 4G of the 171 plan lists them, sent again until no card waits).
 
+Since owner answer 240a the save path keeps each finding it publishes for
+AskRigor's research until the quick-answer test shows it
+(`../../docs/atlas-quick-answer-test.md`). The owner, 17 Nov 2026, asked for
+what passed the checks to show at once: `ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS=enabled`
+in `runtime.env` makes the save path keep nothing, so a saved finding shows on
+the pages at once, unreviewed and labelled "Not checked by supervisors yet".
+Leave it unset, which is off, for now: it goes on only once the later release
+that marks an unconfirmed claim about a named person "Unverifiable" (the owner,
+19 Nov 2026, 353b and 356a) has shipped and has read the findings already shown.
+With it off, a save publishes exactly as before: kept for the quick-answer test,
+off every list, with its own page and in the research lookup. Findings that
+name a living person are published like any other (352b); nothing holds them.
+
+Migration `0041_atlas_show_saved_findings` stores how each publication reached
+the pages, as the action that showed it said, at that moment (`shown_by`):
+`owner_action` for the owner's `publish_cards`, a decision's publication and his
+own `show_on_pages`; `quick_answer_test`, with the test's verdict
+(`shown_test_verdict`: `pass`, `headline` or `fail`), for the quick-answer
+test's own `show_on_pages`; `automatic_showing` for a save under the setting;
+empty, not recorded, for every publication from before 0041 and for one an
+earlier image publishes or shows again. The owner's own publishing or showing
+is also stored as his decision (`owner_decision`, `owner_decided_at`), which no
+save, keeping or showing of the test's changes, so a finding he checked stays
+known as his even after it is unpublished and kept again. A page says the
+quick-answer test found that a quick AI answer misses a finding only when its
+record says the test showed it with a pass, or from a challenge mark's stored
+verdict, whether the setting is on or not.
+
+Run the one-shot admin `migrate` before the new image serves, then
+`provision-research-review-role.sh`: `migrate` adds four nullable columns, each
+held by a check added by name, replaces `publish_atlas_findings` (0021's shape)
+and `keep_atlas_publications` (0024's shape), whose grants stand, and adds
+`show_atlas_publications`, which the grant script grants to the review role. It
+adds no table, trigger or lock and edits no earlier migration. From this
+release, whatever calls `show_on_pages` or `publish_cards` says who acts in
+`later_inputs.shown_by`: the owner's review connector `owner`; the scheduled
+quick-answer test `quick_answer_test`, with `later_inputs.quick_answer_verdict`,
+and only for `show_on_pages`. A call that doesn't say is refused and changes
+nothing. Held, YouTube-comment and paid private findings are unaffected.
+
+To roll back to the image before this release, leave the setting off. Its
+`migrate` passes this database (0021 is unchanged, and it ignores 0041), puts
+back 0021's `publish_atlas_findings` and 0024's `keep_atlas_publications`,
+which write no route, and never reads the new columns: what it publishes is
+not recorded, what it publishes again or shows again keeps the route it had,
+and its pages say what they said before this release. This image's next `migrate` replaces the two functions again. Undo no
+migration. Before the earlier image serves, the owner's review connector and
+the scheduled quick-answer test stop sending `later_inputs.shown_by`, and the
+test its `later_inputs.quick_answer_verdict` with `show_on_pages`: the earlier
+image refuses both as inputs it doesn't know.
+
 An image rollback below 0021 needs no drain: the earlier image never reads the
 table, publishes nothing at a save, and has no publication action. Undo no
 migration: 0021 stays, with its rows, which the earlier image ignores; its grant

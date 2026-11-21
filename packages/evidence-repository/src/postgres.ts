@@ -236,6 +236,7 @@ export class PostgresEvidenceRepository {
       "0038_research_proposal_idempotency_index",
       "0039_gemini_oauth_store",
       "0040_research_dossier_publications",
+      "0041_atlas_show_saved_findings",
       "0043_atlas_news_items",
     ].map(async (migrationId) => ({
       migrationId,

@@ -1308,8 +1308,8 @@ async function verifyProposalIdempotencyIndex(context: {
   checks.push("proposal_lookup_by_idempotency_key_answered_from_the_0038_index");
 
   // An earlier image (bc71b90e and before) runs its own migrations, every one before 0038 (and so before 0039, Gemini's
-  // sign-in, 0040, the dossiers on the public Atlas, and 0043, Atlas news), in one transaction, and checks each one's
-  // recorded digest: the index stays, unchanged.
+  // sign-in, 0040, the dossiers on the public Atlas, 0041, how a finding reached the pages, and 0043, Atlas news), in one
+  // transaction, and checks each one's recorded digest: the index stays, unchanged.
   const earlier = (await readdir(migrationsDirectory))
     .filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/u.test(name) && !name.endsWith("_down.sql") &&
       name < "0038_")
@@ -2734,6 +2734,8 @@ const ATLAS_REPORT_REVIEW_FUNCTIONS = ["decide_atlas_report", "inspect_atlas_rep
 const ATLAS_GLANCE_FUNCTIONS = ["inspect_atlas_glance_rows", "propose_atlas_glance_row", "set_atlas_glance_row_state"] as const;
 // The owner, 6 Nov: migration 0030's two functions for findings that challenge the usual view.
 const ATLAS_CHALLENGE_FUNCTIONS = ["inspect_atlas_challenges", "mark_atlas_challenges"] as const;
+// Codex's third review of 17 Nov 2026, finding 2 (migration 0041): show_on_pages records how it shows a finding.
+const ATLAS_SHOW_FUNCTIONS = ["show_atlas_publications"] as const;
 const ATLAS_PARTICIPATION_FUNCTIONS = [
   "atlas_session_current", "delete_atlas_comment", "end_atlas_sessions", "forget_atlas_participant",
   "inspect_atlas_participant", "post_atlas_comment", "report_atlas_comment", "set_atlas_display_name", "set_atlas_vote",
@@ -4185,6 +4187,40 @@ export async function verifyAtlasPublications(context: {
  * version, not the card's wording; one whose F number was withdrawn shows nowhere; and a read selects no column that
  * names a card or holds the owner's reasons. The pages render from PostgreSQL as they do from memory.
  */
+/**
+ * The design of 19 Nov 2026, 3.1: the migrate of the image before this release, which is this one's without 0041
+ * (and without 0040, the other migration this release adds), every earlier migration byte for byte as released. It runs each in order in one transaction, as migrate does, and
+ * fails as that image's would if a recorded digest differed (MIGRATION_SHA256_MISMATCH).
+ */
+async function migrateAsTheImageBefore0041(adminUrl: string, schema: string): Promise<void> {
+  const repository = await readFile(new URL("../packages/evidence-repository/src/postgres.ts", import.meta.url), "utf8");
+  const listed = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
+  const order = [...listed.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!)
+    // That image (main's, with Atlas news) has neither 0041 nor this release's other new migration, 0040.
+    .filter((id) => id !== "0040_research_dossier_publications" && id !== "0041_atlas_show_saved_findings");
+  assert(order.length > 30 && order.at(-1) === "0043_atlas_news_items", "EARLIER_IMAGE_MIGRATION_LIST");
+  const pool = new Pool({ connectionString: adminUrl, max: 1 });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    for (const id of order) {
+      const sql = await readFile(new URL(`../packages/evidence-repository/migrations/${id}.sql`, import.meta.url), "utf8");
+      await client.query(sql.replaceAll("__SCHEMA__", schema));
+      const prior = await client.query<{ migration_sha256: string }>(
+        "SELECT migration_sha256 FROM schema_migrations WHERE migration_id = $1", [id]);
+      assert(prior.rows[0]?.migration_sha256 === createHash("sha256").update(sql).digest("hex"),
+        `MIGRATION_SHA256_MISMATCH migration=${id}`);
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+    await pool.end();
+  }
+}
+
 export async function verifyAtlasPages(context: {
   adminUrl: string;
   reviewUrl: string;
@@ -4280,9 +4316,11 @@ export async function verifyAtlasPages(context: {
         [unreviewed, accepted, withdrawnAfter].sort().join() &&
         // kept (owner answers 229a and 231a) is whether a publication is kept for research; never the owner's reason.
         // challenge (the owner, 6 Nov 2026) is its challenge mark's usual view, source and verdict; never who marked it.
+        // shownBy (migration 0041) is how it reached the pages, with the quick-answer test's verdict when its own
+        // showing showed it; these drafts gave none, so none is recorded.
         read.listed.every((row) => columns(row) ===
-          "atlasNumber,challenge,kept,publicationNumber,published,publishedAt,state,stateChangedAt") &&
-        read.listed.every((row) => row.challenge === null),
+          "atlasNumber,challenge,kept,publicationNumber,published,publishedAt,shownBy,shownTestVerdict,state,stateChangedAt") &&
+        read.listed.every((row) => row.challenge === null && row.shownBy === null && row.shownTestVerdict === null),
       `ATLAS_PAGES_READ_WHAT_THEY_NEVER_SHOW ${JSON.stringify(read.listed.map(({ publicationNumber, state }) =>
         ({ publicationNumber, state })))}`,
     );
@@ -4345,6 +4383,212 @@ export async function verifyAtlasPages(context: {
       );
     }
     checks.push("atlas_pages_read_shown_publications_and_accepted_findings_through_the_reader_in_one_read_only_snapshot");
+
+    // Codex's re-review of 17 Nov 2026, finding 4, and its later reviews: migration 0041's routes, through the review
+    // role's functions and the reader, as the pages read them. Nothing holds a finding for naming a living person (the
+    // owner, 19 Nov 2026, 352b).
+    const routeCard = 7202;
+    const routeDigest = atlasHex("synthetic-pages-route-card");
+    const TEST_PASSED = "owner answer 240a: quick-answer test, passed, waiting for the whole picture";
+    const routed = await store.publish({
+      cardNumber: routeCard,
+      cardSha256: routeDigest,
+      findings: [
+        { ...unreviewedDraft(1, "ROUTE-OWNER claim."), shownBy: "owner_action" },
+        { ...unreviewedDraft(2, "ROUTE-AUTOMATIC claim."), shownBy: "automatic_showing" },
+        { ...unreviewedDraft(3, "ROUTE-TESTED claim."), shownBy: "automatic_showing" },
+        { findingNumber: 4, state: "held", atlasNumber: null, heldBecause: ["email_address"],
+          published: published("ROUTE-HELD claim.") },
+        unreviewedDraft(5, "ROUTE-OLDER claim."),
+      ],
+      publishedAt: tick(),
+      revive: false,
+    });
+    const [owner, automatic, tested, heldRoute, older] = routed.map(({ publicationNumber }) => publicationNumber);
+    // Kept with the test's pass reason, then shown by the quick-answer test's own showing, which says so with its
+    // verdict (Codex's third review of 17 Nov 2026, finding 2).
+    await store.keep({ publicationNumbers: [tested!], atlasNumbers: [], keep: true, reason: TEST_PASSED, at: tick() });
+    await store.keep({ publicationNumbers: [tested!], atlasNumbers: [], keep: false, reason: null, at: tick(),
+      route: { by: "quick_answer_test", verdict: "pass" } });
+    // The owner's publishing again of one withdrawn is the owner's action.
+    await store.withdraw({ reason: "owner_unpublished", publicationNumbers: [automatic!], ownerReason: "Synthetic.",
+      withdrawnAt: tick() });
+    await store.publish({ cardNumber: routeCard, cardSha256: routeDigest, publishedAt: tick(), revive: true,
+      findings: [{ ...unreviewedDraft(2, "ROUTE-AUTOMATIC claim."), shownBy: "owner_action" }] });
+    const routes = Object.fromEntries((await source.read((reads) => reads.listPublications({
+      publicationNumbers: routed.map(({ publicationNumber }) => publicationNumber), limit: 10 })))
+      .map(({ publicationNumber, shownBy }) => [publicationNumber, shownBy]));
+    assert(isDeepStrictEqual(routes, { [owner!]: "owner_action", [automatic!]: "owner_action",
+      [tested!]: "quick_answer_test", [older!]: null }), `ATLAS_ROUTES_MISMATCH ${JSON.stringify(routes)}`);
+    // Nothing is read from a kept reason's text: kept with the test's own pass reason and shown again by 0024's
+    // function, as an earlier image shows it, it is not recorded; shown by the owner's action, saying so, it is his.
+    const reasonCard = 7204;
+    const reasonDigest = atlasHex("synthetic-pages-route-reason-card");
+    const [unsaid, ownerSaid, headline] = (await store.publish({ cardNumber: reasonCard, cardSha256: reasonDigest,
+      publishedAt: tick(), revive: false, findings: [
+        unreviewedDraft(1, "ROUTE-UNSAID claim."),
+        unreviewedDraft(2, "ROUTE-OWNERSAID claim."),
+        unreviewedDraft(3, "ROUTE-HEADLINE claim."),
+      ] })).map(({ publicationNumber }) => publicationNumber);
+    await store.keep({ publicationNumbers: [unsaid!, ownerSaid!, headline!], atlasNumbers: [], keep: true,
+      reason: TEST_PASSED, at: tick() });
+    await store.keep({ publicationNumbers: [unsaid!], atlasNumbers: [], keep: false, reason: null, at: tick() });
+    await store.keep({ publicationNumbers: [ownerSaid!], atlasNumbers: [], keep: false, reason: null, at: tick(),
+      route: { by: "owner_action" } });
+    await store.keep({ publicationNumbers: [headline!], atlasNumbers: [], keep: false, reason: null, at: tick(),
+      route: { by: "quick_answer_test", verdict: "headline" } });
+    const said = (await source.read((reads) => reads.listPublications({ publicationNumbers: [unsaid!, ownerSaid!,
+      headline!, tested!], limit: 10 }))).map(({ publicationNumber, shownBy, shownTestVerdict }) =>
+      [publicationNumber, shownBy, shownTestVerdict]).sort();
+    assert(isDeepStrictEqual(said, [[unsaid!, null, null], [ownerSaid!, "owner_action", null],
+      [headline!, "quick_answer_test", "headline"], [tested!, "quick_answer_test", "pass"]].sort()),
+    `ATLAS_RECORDED_ROUTES_MISMATCH ${JSON.stringify(said)}`);
+    const pageOf = async (number: string) => {
+      const model = await loadAtlasFinding(source, number);
+      return model === undefined ? "" : renderAtlasFinding(model);
+    };
+    const testWords = "A separate AI found that a quick AI answer misses it.";
+    const routePages = { owner: await pageOf(owner!), tested: await pageOf(tested!), older: await pageOf(older!),
+      unsaid: await pageOf(unsaid!), headline: await pageOf(headline!) };
+    assert(routePages.tested.includes(testWords) && !routePages.owner.includes(testWords) &&
+      !routePages.older.includes(testWords) && !routePages.unsaid.includes(testWords) &&
+      !routePages.headline.includes(testWords) && routePages.headline.includes("ROUTE-HEADLINE claim.") &&
+      routePages.owner.includes("ROUTE-OWNER claim.") &&
+      (await loadAtlasFinding(source, heldRoute!)) === undefined,
+    "ATLAS_ROUTE_PAGES_MISMATCH");
+    const routeHome = renderAtlasHome(await loadAtlasHome(source));
+    assert(routeHome.includes("Findings reach these pages in three ways: AskRigor’s owner publishes or shows them, a " +
+      "separate AI’s quick-answer test shows them, or they show automatically once they have passed AskRigor’s " +
+      "checks. Not every finding records which of these it was, older ones in particular, and a finding’s page says " +
+      "what that test found only when the test is recorded for it."), "ATLAS_HOME_ROUTES_SENTENCE");
+    // The functions and the table refuse a route no draft may give, and one migration 0041 doesn't know.
+    const reviewPool = new Pool({ connectionString: reviewUrl, max: 1 });
+    try {
+      const refusedRoute = await reviewPool.query(
+        `SELECT * FROM ${schema}.publish_atlas_findings($1::integer, $2::text, $3::jsonb, $4::timestamptz, false)`,
+        [routeCard, routeDigest, JSON.stringify([{ ...unreviewedDraft(1, "x"), findingNumber: 1,
+          shownBy: "quick_answer_test" }]), tick()]).then(() => "", (error: Error) => error.message);
+      assert(refusedRoute.includes("ATLAS_PUBLICATION_INPUT_INVALID"), "ATLAS_DRAFT_TOOK_THE_TEST_ROUTE");
+    } finally {
+      await reviewPool.end();
+    }
+    const unknownRoute = await admin.query(`UPDATE ${schema}.atlas_publications SET shown_by = 'a_later_route'
+      WHERE publication_number = $1`, [older]).then(() => "", (error: Error) => error.message);
+    assert(unknownRoute.includes("atlas_publications_v1_shown_by_check"), "ATLAS_UNKNOWN_ROUTE_STORED");
+    // A verdict only with the test's route, and the test's route only with one.
+    for (const [route, verdict] of [["owner_action", "pass"], ["quick_answer_test", null], [null, "pass"],
+      ["quick_answer_test", "maybe"]] as const) {
+      const stored = await admin.query(`UPDATE ${schema}.atlas_publications SET shown_by = $2, shown_test_verdict = $3
+        WHERE publication_number = $1`, [older, route, verdict]).then(() => "", (error: Error) => error.message);
+      assert(stored.includes("atlas_publications_v1_shown_test_verdict_check"), `ATLAS_TEST_VERDICT_STORED ${route} ${verdict}`);
+    }
+    const reviewShow = new Pool({ connectionString: reviewUrl, max: 1 });
+    try {
+      for (const [route, verdict] of [["owner_action", "pass"], ["quick_answer_test", null], ["automatic_showing", null]]) {
+        const refusedShow = await reviewShow.query(`SELECT * FROM ${schema}.show_atlas_publications($1::text[],
+          '{}'::text[], $2::text, $3::text, $4::timestamptz)`, [[older], route, verdict, tick()])
+          .then(() => "", (error: Error) => error.message);
+        assert(refusedShow.includes("ATLAS_PUBLICATION_INPUT_INVALID"), `ATLAS_SHOW_TOOK ${route} ${verdict}`);
+      }
+    } finally {
+      await reviewShow.end();
+    }
+    checks.push("atlas_routes_stored_apart_by_the_review_functions_and_a_page_says_the_test_happened_only_from_the_record");
+
+    // The owner's decision, stored apart from the route (Codex's fourth review of 17 Nov 2026), through the review role:
+    // no showing of the test's and no keeping changes it, not even keeping again a finding he unpublished (Codex's red
+    // team of 19 Nov 2026), and a finding published again held keeps no route, as it has no page.
+    {
+      const decisionCard = 7212;
+      const decisionDigest = atlasHex("synthetic-pages-owner-decision-card");
+      const publishedAt = tick();
+      const [ownerPublished, ownerShown, revivedHeld] = (await store.publish({ cardNumber: decisionCard,
+        cardSha256: decisionDigest, publishedAt, revive: false, findings: [
+          { ...unreviewedDraft(1, "DECISION-PUBLISHED claim."), shownBy: "owner_action" },
+          unreviewedDraft(2, "DECISION-SHOWN claim."),
+          { ...unreviewedDraft(3, "DECISION-HELD claim."), shownBy: "automatic_showing" },
+        ] })).map(({ publicationNumber }) => publicationNumber);
+      const TEST_HEADLINE = "owner answer 240a: quick-answer test, headline";
+      const keepOne = (number: string) => store.keep({ publicationNumbers: [number], atlasNumbers: [], keep: true,
+        reason: TEST_HEADLINE, at: tick() });
+      await keepOne(ownerShown!);
+      const shownAt = tick();
+      await store.keep({ publicationNumbers: [ownerShown!], atlasNumbers: [], keep: false, reason: null, at: shownAt,
+        route: { by: "owner_action" } });
+      await keepOne(ownerShown!);
+      await store.keep({ publicationNumbers: [ownerShown!], atlasNumbers: [], keep: false, reason: null, at: tick(),
+        route: { by: "quick_answer_test", verdict: "headline" } });
+      // He unpublishes the one he published, and it is kept again: back unreviewed and kept, with his decision.
+      await store.withdraw({ reason: "owner_unpublished", publicationNumbers: [ownerPublished!], ownerReason: "Synthetic.",
+        withdrawnAt: tick() });
+      await keepOne(ownerPublished!);
+      // One unpublished and published again held, as publish_cards does for a text the pages never show.
+      await store.withdraw({ reason: "owner_unpublished", publicationNumbers: [revivedHeld!], ownerReason: "Synthetic.",
+        withdrawnAt: tick() });
+      await store.publish({ cardNumber: decisionCard, cardSha256: decisionDigest, publishedAt: tick(), revive: true,
+        findings: [{ findingNumber: 3, state: "held", atlasNumber: null, heldBecause: ["email_address"],
+          published: published("DECISION-HELD claim.") }] });
+      const decisions = (await admin.query<{ publication_number: string; state: string; shown_by: string | null;
+        shown_test_verdict: string | null; owner_decision: string | null; owner_decided_at: Date | null; kept: boolean }>(
+        `SELECT publication_number, state, shown_by, shown_test_verdict, owner_decision, owner_decided_at,
+                kept_for_research_at IS NOT NULL AS kept
+           FROM ${schema}.atlas_publications WHERE publication_number = ANY($1::text[]) ORDER BY publication_number`,
+        [[ownerPublished, ownerShown, revivedHeld]])).rows.map((row) => [row.publication_number, row.state, row.shown_by,
+        row.shown_test_verdict, row.owner_decision, row.owner_decided_at?.toISOString() ?? null, row.kept]);
+      assert(isDeepStrictEqual(decisions, [
+        [ownerPublished, "unreviewed", "owner_action", null, "published", publishedAt, true],
+        [ownerShown, "unreviewed", "quick_answer_test", "headline", "shown", shownAt, false],
+        [revivedHeld, "held", null, null, null, null, false],
+      ]), `ATLAS_OWNER_DECISION_MISMATCH ${JSON.stringify(decisions)}`);
+      // The decision is held to its values, and to its time.
+      for (const [decision, at] of [["kept", shownAt], ["shown", null], [null, shownAt]] as const) {
+        const refused = await admin.query(`UPDATE ${schema}.atlas_publications SET owner_decision = $2,
+          owner_decided_at = $3::timestamptz WHERE publication_number = $1`, [revivedHeld, decision, at])
+          .then(() => "", (error: Error) => error.message);
+        assert(refused.includes("atlas_publications_v1_owner_decision_check"), `ATLAS_OWNER_DECISION_STORED ${decision} ${at}`);
+      }
+    }
+    checks.push("atlas_owner_decision_stands_through_the_tests_showing_and_keeping_and_a_revived_held_finding_keeps_no_route");
+
+    // The image before this release's migration SQL (the design of 19 Nov 2026, 3.1): every migration file before 0041,
+    // byte for byte as released, passes this database and puts back 0021's publish_atlas_findings and 0024's
+    // keep_atlas_publications, which write no route; what is published and shown through them is not recorded, and
+    // this release's reader still reads it; this release's migrate then replaces both again. This runs this release's
+    // code against those functions; the earlier image's own code is run against a migrated database at release.
+    const functionText = async (name: string) => (await admin.query<{ source: string }>(
+      `SELECT procedure.prosrc AS source FROM pg_catalog.pg_proc procedure
+         JOIN pg_catalog.pg_namespace space ON space.oid = procedure.pronamespace
+        WHERE space.nspname = $1 AND procedure.proname = $2`, [schema, name])).rows.map(({ source }) => source).join();
+    await migrateAsTheImageBefore0041(adminUrl, schema);
+    assert(!(await functionText("publish_atlas_findings")).includes("shown_by") &&
+      !(await functionText("keep_atlas_publications")).includes("shown_by"), "EARLIER_IMAGE_FUNCTIONS_NOT_PUT_BACK");
+    const [earlier] = await store.publish({ cardNumber: 7213, cardSha256: atlasHex("synthetic-pages-earlier-image-card"),
+      publishedAt: tick(), revive: false, findings: [unreviewedDraft(1, "EARLIER-IMAGE claim.")] });
+    await store.keep({ publicationNumbers: [earlier!.publicationNumber], atlasNumbers: [], keep: true, reason: TEST_PASSED,
+      at: tick() });
+    await store.keep({ publicationNumbers: [earlier!.publicationNumber, tested!], atlasNumbers: [], keep: false,
+      reason: null, at: tick() });
+    const afterEarlier = (await source.read((reads) => reads.listPublications({
+      publicationNumbers: [earlier!.publicationNumber, tested!], limit: 10 }))).map(({ publicationNumber, shownBy,
+      shownTestVerdict, kept }) => [publicationNumber, shownBy, shownTestVerdict, kept]).sort();
+    assert(isDeepStrictEqual(afterEarlier, [[earlier!.publicationNumber, null, null, false],
+      [tested!, "quick_answer_test", "pass", false]].sort()), `EARLIER_IMAGE_ROUTES ${JSON.stringify(afterEarlier)}`);
+    assert((await pageOf(earlier!.publicationNumber)).includes("EARLIER-IMAGE claim.") &&
+      !(await pageOf(earlier!.publicationNumber)).includes(testWords) && (await pageOf(tested!)).includes(testWords),
+    "EARLIER_IMAGE_PAGES_MISMATCH");
+    const forward = new PostgresEvidenceRepository({ connectionString: adminUrl, schema });
+    try {
+      await forward.migrate();
+    } finally {
+      await forward.close();
+    }
+    const [later] = await store.publish({ cardNumber: 7214, cardSha256: atlasHex("synthetic-pages-later-image-card"),
+      publishedAt: tick(), revive: false, findings: [{ ...unreviewedDraft(1, "LATER-IMAGE claim."), shownBy: "owner_action" }] });
+    const [laterRow] = await source.read((reads) => reads.listPublications({ publicationNumbers: [later!.publicationNumber],
+      limit: 1 }));
+    assert((await functionText("publish_atlas_findings")).includes("shown_by") && laterRow?.shownBy === "owner_action",
+      "THIS_RELEASES_MIGRATE_DID_NOT_REPLACE_THE_FUNCTIONS_AGAIN");
+    checks.push("the_migrations_before_0041_pass_this_database_and_put_back_functions_that_record_no_route_until_this_release_migrates_again");
   } finally {
     await Promise.allSettled([store.close(), source.close(), admin.end()]);
   }
@@ -5477,7 +5721,7 @@ export async function verifyAtlasStorage(context: {
       executable.rows.map(({ proname }) => proname).join() ===
         [...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
           ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS,
-          ...ATLAS_CHALLENGE_FUNCTIONS,
+          ...ATLAS_CHALLENGE_FUNCTIONS, ...ATLAS_SHOW_FUNCTIONS,
           ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS, ...DOSSIER_REVIEW_FUNCTIONS,
           ...ATLAS_NEWS_REVIEW_FUNCTIONS, ...DOSSIER_PUBLICATION_REVIEW_FUNCTIONS].sort().join(),
       `ATLAS_REVIEW_ROLE_FUNCTIONS_MISMATCH ${executable.rows.map(({ proname }) => proname).join()}`,
