@@ -228,7 +228,17 @@ describe("later_inputs (owner answer 189a)", () => {
                 // The owner, 6 Nov 2026: a challenge mark's usual view, its source and the quick-answer verdict.
                 "usual_view", "usual_view_source_url", "usual_view_source_label", "quick_answer_verdict",
                 // Atlas news, stage 1: the day's payload, an item (or all) and a day, for the owner's news actions.
-                "news_day", "news_number", "news_date"] : [];
+                "news_day", "news_number", "news_date",
+                // AskRigor#477 stage 2: the research dossiers on the public Atlas, and a reviewed importance revision.
+                "dossier", "dossierVersion", "dossierState", "dossierFinding", "dossierImportance",
+                // Codex's re-review of stage 2: the owner's statement on whether a claim names a living person.
+                "dossierLivingPerson",
+                // Codex's third review of stage 2: the owner's override of the conflict check when he shows a copy.
+                "dossierOverrideConflicts",
+                // Codex's fourth review of 17 Nov 2026: who shows a finding, which show_on_pages needs.
+                "shown_by",
+                // Atlas Release B: the owner's notice to acknowledge.
+                "personNotice"] : [];
       expect(laterInputNames(operation.name)).toEqual(expected);
       // An MCP call always carries its request context; an empty one stands in for it here.
       const result = await operation.execute({ later_inputs: { synthetic_future_input: 1 } }, {} as never);

@@ -6,6 +6,8 @@ import type {
   AtlasPlacementStore,
   AtlasReportReviewStore,
   AtlasGlanceStore,
+  ResearchDossierPublicationReviewStore,
+  ResearchDossierPublisher,
 } from "@askrigor/evidence-repository";
 
 /**
@@ -151,5 +153,39 @@ export function announcingGlanceStore(store: AtlasGlanceStore, signal: AtlasChan
     propose: (row, at) => store.propose(row, at),
     setState: (publicId, state, at) => announcing(signal, () => store.setState(publicId, state, at)),
     inspect: (state, after, limit) => store.inspect(state, after, limit),
+  };
+}
+
+/** AskRigor#477 stage 2: the dossiers' publisher, announcing each publication, so a shown dossier shows at once. */
+export function announcingDossierPublisher(
+  publisher: ResearchDossierPublisher,
+  signal: AtlasChangeSignal = atlasChanges,
+): ResearchDossierPublisher {
+  return {
+    publish: (input) => announcing(signal, () => publisher.publish(input)),
+    conflictCandidates: (accountKey, versionId, after, limit) =>
+      publisher.conflictCandidates(accountKey, versionId, after, limit),
+  };
+}
+
+/** AskRigor#477 stage 2: the dossiers' review, announcing each decision. */
+export function announcingDossierReview(
+  store: ResearchDossierPublicationReviewStore,
+  signal: AtlasChangeSignal = atlasChanges,
+): ResearchDossierPublicationReviewStore {
+  return {
+    list: (state, limit) => store.list(state, limit),
+    inspect: (publicNumber) => store.inspect(publicNumber),
+    showCandidates: (publicNumber, versionNumber, after, limit) =>
+      store.showCandidates(publicNumber, versionNumber, after, limit),
+    decide: (input) => announcing(signal, () => store.decide(input)),
+    decideLivingPerson: (input) => announcing(signal, () => store.decideLivingPerson(input)),
+    // A statement shows nothing by itself, but it is a write to the copies, which the pages' number follows too.
+    stateLivingPerson: (input) => announcing(signal, () => store.stateLivingPerson(input)),
+    privacyPending: (limit) => store.privacyPending(limit),
+    recordPrivacyReading: (input) => announcing(signal, () => store.recordPrivacyReading(input)),
+    admitAfterPrivacy: (input) => announcing(signal, () => store.admitAfterPrivacy(input)),
+    admissionPending: (limit) => store.admissionPending(limit),
+    reviseImportance: (input) => announcing(signal, () => store.reviseImportance(input)),
   };
 }
