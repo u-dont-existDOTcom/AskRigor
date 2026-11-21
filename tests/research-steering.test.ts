@@ -2579,7 +2579,7 @@ describe("a dev account's refused menu marks the question's place, and an answer
     // The shape including person_asked (21 Nov 2026), by its SHA-256.
     const { createHash } = await import("node:crypto");
     expect(createHash("sha256").update(RESEARCH_MENU_SHAPE, "utf8").digest("hex"))
-      .toBe("1f8833fb23d875d9b349fc7241bfa44142638ff6c7a4817043525626fbf904a1");
+      .toBe("14fc85b60e06688727eb1bf728ba88d1c949e2e20223c6fb55a05829b006a6b5");
   });
 
   it("gives a dev account register_plain_answer's words as every account gets them, on both surfaces", async () => {
@@ -3564,11 +3564,12 @@ describe("the menu always recommends tasks the person asked for (21 Nov 2026)", 
     const unmarked = tasks.map(({ person_asked: _asked, ...task }) => task);
     expect(planResearch(menu({ tasks: unmarked }), autonomous).recommended)
       .toEqual([{ task: 1, minutes: 2 }, { task: 3, minutes: 5 }]);
+    // With a task added for the person, all are listed in the menu's order, the order to do them in.
     expect(planResearch(menu({ tasks }), autonomous).recommended)
-      .toEqual([{ task: 1, minutes: 2 }, { task: 3, minutes: 5 }, { task: 2, minutes: 7 }]);
+      .toEqual([{ task: 1, minutes: 2 }, { task: 2, minutes: 7 }, { task: 3, minutes: 5 }]);
     const short = tasks.map((task) => task.person_asked ? { ...task, minutes: [2, 4] as [number, number] } : task);
     expect(planResearch(menu({ tasks: short }), autonomous).recommended)
-      .toEqual([{ task: 1, minutes: 2 }, { task: 3, minutes: 3 }, { task: 2, minutes: 3 }]);
+      .toEqual([{ task: 1, minutes: 2 }, { task: 2, minutes: 3 }, { task: 3, minutes: 3 }]);
     expect(planResearch(menu({ tasks, done: [2] }), autonomous).recommended)
       .toEqual([{ task: 1, minutes: 2 }, { task: 3, minutes: 5 }]);
     // False behaves exactly as an absent declaration, including omission from the result's tasks.
@@ -3576,6 +3577,15 @@ describe("the menu always recommends tasks the person asked for (21 Nov 2026)", 
       .toEqual(planResearch(menu({ tasks: unmarked }), autonomous));
     const noEstimate = [{ ...tasks[1]!, minutes: undefined }];
     expect(planResearch(menu({ tasks: noEstimate }), autonomous).recommended).toEqual([{ task: 1, minutes: 2 }]);
+    // A requested audit and the reading it needs first, both marked (the rubric): the reading, chosen only for the
+    // person, still comes first in the list the go-ahead says to follow in order (Codex's recheck of 21 Nov 2026).
+    const prerequisite: ResearchMenuInput["tasks"] = [
+      { task: "Read the trial in full", kind: "full_text", could_change: "confidence", minutes: [12, 12], person_asked: true },
+      { task: "Audit the trial's methods, after task 1", kind: "other", could_change: "conclusion", minutes: [2, 2],
+        person_asked: true },
+    ];
+    expect(planResearch(menu({ tasks: prerequisite }), autonomous).recommended)
+      .toEqual([{ task: 1, minutes: 12 }, { task: 2, minutes: 2 }]);
   });
 
   it("never takes away what the menu recommends without the marks, on any mix of marks", () => {
@@ -3590,11 +3600,15 @@ describe("the menu always recommends tasks the person asked for (21 Nov 2026)", 
       const tasks = pool.map((task, index) => ((marks >> index) & 1) === 1 ? { ...task, person_asked: true } : task);
       const before = planResearch(menu({ tasks: pool }), autonomous).recommended;
       const after = planResearch(menu({ tasks }), autonomous).recommended;
-      expect(after.slice(0, before.length), String(marks)).toEqual(before);
       const asked = tasks.flatMap((task, index) => task.person_asked === true ? [index + 1] : []);
-      expect(after.slice(before.length).map(({ task }) => task), String(marks))
-        .toEqual(asked.filter((n) => !before.some(({ task }) => task === n)));
-      expect(new Set(after.map(({ task }) => task)).size, String(marks)).toBe(after.length);
+      const added = asked.filter((n) => !before.some(({ task }) => task === n));
+      // Nothing the menu recommends anyway is taken away, or given other minutes; the person's tasks are added.
+      for (const kept of before) expect(after, String(marks)).toContainEqual(kept);
+      expect(after.map(({ task }) => task).sort((a, b) => a - b), String(marks))
+        .toEqual([...before.map(({ task }) => task), ...added].sort((a, b) => a - b));
+      // Nothing added: exactly as before, order too; something added: the menu's order.
+      if (added.length === 0) expect(after, String(marks)).toEqual(before);
+      else expect(after.map(({ task }) => task), String(marks)).toEqual(after.map(({ task }) => task).sort((a, b) => a - b));
     }
   });
 
@@ -3607,7 +3621,7 @@ describe("the menu always recommends tasks the person asked for (21 Nov 2026)", 
       allocation: [{ task: 4, minutes: 0 }, { task: 5, minutes: 0 }] }), autonomous).recommended).toEqual([]);
   });
 
-  it("keeps a light look-up as it was, and makes it research when a task the person asked for goes beyond it", () => {
+  it("keeps a light look-up as it was: a mark adds nothing to it and never widens it", () => {
     const tasks: ResearchMenuInput["tasks"] = [
       { task: "Read the named source", kind: "other", could_change: "detail", minutes: [1, 1], person_asked: true },
       { task: "Check the named figure", kind: "other", could_change: "conclusion", minutes: [1, 1] },
@@ -3619,24 +3633,24 @@ describe("the menu always recommends tasks the person asked for (21 Nov 2026)", 
       expect(before.recommended).toEqual([{ task: 2, minutes: 1 }, { task: 1, minutes: 1 }]);
       expect(after.recommended).toEqual(before.recommended);
     }
-    expect(planResearch(menu({ tasks, lane: "light" }), autonomous).lane).toBe("light");
-    // A light menu whose source task fits and whose requested forum task does not: as research, with both.
+    // A light menu whose requested second task does not fit its allowance: still the light look-up, with its source
+    // task alone, as without the mark (a request for more is the planning call's to put in lane research).
     const beyond: ResearchMenuInput["tasks"] = [
       { task: "Open the named paper and quote the line", kind: "full_text", could_change: "conclusion", minutes: [2, 2] },
       { task: "Read what people report", kind: "forum_thread", could_change: "confidence", minutes: [12, 12],
         person_asked: true },
     ];
-    const asLight = planResearch(menu({ tasks: beyond.map(({ person_asked: _asked, ...task }) => task),
-      lane: "light" }), autonomous);
+    const unmarkedBeyond = beyond.map(({ person_asked: _asked, ...task }) => task);
+    const asLight = planResearch(menu({ tasks: unmarkedBeyond, lane: "light" }), autonomous);
+    const asked = planResearch(menu({ tasks: beyond, lane: "light" }), autonomous);
     expect(asLight.lane).toBe("light");
     expect(asLight.recommended).toEqual([{ task: 1, minutes: 2 }]);
-    const asked = planResearch(menu({ tasks: beyond, lane: "light" }), autonomous);
-    expect(asked.lane).toBeUndefined();
-    expect(asked.recommended).toEqual([{ task: 1, minutes: 2 }, { task: 2, minutes: 12 }]);
-    expect(planResearchText(asked, new Set())).not.toContain(LIGHT_LOOKUP);
-    const long = tasks.map((task) => ({ ...task, minutes: [12, 12] as [number, number] }));
-    expect(planResearch(menu({ tasks: long, person_go_ahead: "all", person_reason: "Do every task" }), autonomous)
-      .recommended).toEqual([{ task: 2, minutes: 12 }, { task: 1, minutes: 12 }]);
+    expect(asked.lane).toBe("light");
+    expect(asked.recommended).toEqual(asLight.recommended);
+    expect(planResearchText(asked, new Set())).toContain(LIGHT_LOOKUP);
+    // As research, the same menu adds the requested task.
+    expect(planResearch(menu({ tasks: beyond }), autonomous).recommended)
+      .toEqual([{ task: 1, minutes: 2 }, { task: 2, minutes: 12 }]);
   });
 
   it("preserves both old signatures without a true mark and binds gaining or losing one", () => {
@@ -3671,12 +3685,13 @@ describe("the menu always recommends tasks the person asked for (21 Nov 2026)", 
     expect(readResearchMenu({ researchMenu: given }).menu).toEqual(given);
     expect(correctedMenu(given).researchMenu.tasks).toEqual(tasks);
     expect(RESEARCH_MENU_SHAPE).toContain("; person_asked, true only for a task doing a way of researching the " +
-      "person's own words ask for (a method, source, comparison or check they named or described; naming a subject or " +
-      "a study, or asking the question itself, asks for none), which AskRigor then always recommends");
+      "person's own words still ask for, or one such a task needs first (a method, source, comparison or check they " +
+      "named or described, also loosely; naming a subject or a study, or asking about it without saying how to research " +
+      "it, asks for none), which AskRigor then always recommends");
     expect(planTaskSchema.shape.person_asked.description).toBe("true only for a task doing a way of researching the " +
-      "person's own words ask for: a method, source, comparison or check they named or described. Naming a subject or " +
-      "a study, or asking the question itself, asks for none. AskRigor always recommends such a task. Leave it out " +
-      "otherwise.");
+      "person's own words still ask for, or one such a task needs first: a method, source, comparison or check they " +
+      "named or described, also loosely. Naming a subject or a study, or asking about it without saying how to " +
+      "research it, asks for none. AskRigor always recommends such a task. Leave it out otherwise.");
     const invalid = { ...given, tasks: [{ ...TASKS[0]!, person_asked: "true" }] };
     expect(researchMenuSchema.safeParse(invalid).success).toBe(false);
     expect(correctedMenu(invalid).researchMenu.tasks[0])

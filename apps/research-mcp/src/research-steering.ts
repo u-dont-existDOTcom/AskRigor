@@ -139,9 +139,10 @@ export const planTaskSchema = z.object({
     .describe("people_to_studies: a study search for something people's reports raised; studies_to_people: a look " +
       "at people's reports for something a study found."),
   person_asked: z.boolean().optional()
-    .describe("true only for a task doing a way of researching the person's own words ask for: a method, source, " +
-      "comparison or check they named or described. Naming a subject or a study, or asking the question itself, " +
-      "asks for none. AskRigor always recommends such a task. Leave it out otherwise."),
+    .describe("true only for a task doing a way of researching the person's own words still ask for, or one such a " +
+      "task needs first: a method, source, comparison or check they named or described, also loosely. Naming a " +
+      "subject or a study, or asking about it without saying how to research it, asks for none. AskRigor always " +
+      "recommends such a task. Leave it out otherwise."),
   minutes: z.tuple([minutesSchema, minutesSchema]).optional()
     .describe("Your own estimate, low and high, for a task of kind other, or when the task is much longer or shorter " +
       "than its kind's usual time."),
@@ -819,9 +820,10 @@ export const RESEARCH_MENU_SHAPE = "later_inputs.researchMenu in exactly this sh
   "method_audit, forum_thread, video_comments, video_claims, trial_registry or other; could_change, one of conclusion, " +
   "confidence or detail; sources, how many searches, abstracts, papers, threads, videos or records it covers; loop, " +
   "people_to_studies or studies_to_people, only for a task between people's reports and studies; person_asked, true " +
-  "only for a task doing a way of researching the person's own words ask for (a method, source, comparison or check " +
-  "they named or described; naming a subject or a study, or asking the question itself, asks for none), which " +
-  "AskRigor then always recommends; and minutes, [low, " +
+  "only for a task doing a way of researching the person's own words still ask for, or one such a task needs first " +
+  "(a method, source, comparison or check they named or described, also loosely; naming a subject or a study, or " +
+  "asking about it without saying how to research it, asks for none), which AskRigor then always recommends; and " +
+  "minutes, [low, " +
   "high], only for a task of kind other or one much longer or shorter than its kind's usual time}. Leave out any other " +
   "field: allocation and done come only after the person answers or stops you, and menu_digest, as the last " +
   "plan_research result gave it, on every call after the first.";
@@ -1407,7 +1409,7 @@ export function planResearch(
   // Owner answer 302: a light look-up changes what the go-ahead says, never whether the menu asks first. Its tasks are
   // the whole look-up, so they are recommended whatever they were said to change: a task marked as detail would
   // otherwise leave the menu with nothing to do.
-  let light = isLightLane(plan);
+  const light = isLightLane(plan);
   const middle = (task: PlannedTask): number =>
     task.minutes === null ? 2 : roundEstimate((task.minutes[0] + task.minutes[1]) / 2);
   // The recommendation the menu's own judgments give: tasks that could change the conclusion first, then how sure it
@@ -1437,20 +1439,18 @@ export function planResearch(
     // the model's declaration) is recommended too, whatever its length or what it could change. A mark only adds: what
     // the menu's own judgments recommend stays recommended, so a task the person asked for never takes the place of
     // another, a task for a serious risk among them (Codex's review of 21 Nov 2026).
-    let base = selected(light);
-    const askedOutside = (chosen: readonly { task: number }[]) =>
-      open.filter(({ n, person_asked }) => person_asked === true && !chosen.some(({ task }) => task === n));
-    // A light look-up opens one source and quotes its line: a task the person asked for beyond it makes the research a
-    // research, as the rubric's lanes say, so a mark never widens what a light look-up may do.
-    if (light && askedOutside(base).length > 0) {
-      light = false;
-      base = selected(false);
-    }
-    // After the menu's own recommendation, in the menu's order, which is the order to do them in: the go-ahead says to
-    // do the recommended tasks in order, and a task that carrying out the person's request needs first is marked too
-    // (the rubric), so it comes before the task that needs it (Codex's review of 21 Nov 2026). A menu with no mark is
-    // recommended exactly as before.
-    recommended = [...base, ...askedOutside(base).map((task) => ({ task: task.n, minutes: middle(task) }))];
+    const base = selected(light);
+    // A light look-up's one or two tasks are the whole look-up and are recommended anyway, and its go-ahead forbids
+    // anything beyond them: marks add nothing there (a request for more work makes the plan research, as the rubric's
+    // lanes say), so a mark never widens a light look-up (Codex's review of 21 Nov 2026).
+    const added = light ? [] : open
+      .filter(({ n, person_asked }) => person_asked === true && !base.some(({ task }) => task === n))
+      .map((task) => ({ task: task.n, minutes: middle(task) }));
+    // With tasks added for the person, all are listed in the menu's order, which is the order to do them in: the
+    // go-ahead says to do the recommended tasks in order, and a task that carrying out the person's request needs first
+    // comes before the task that needs it (Codex's review of 21 Nov 2026). A menu with nothing added is recommended
+    // exactly as before, in the order of what each task could change.
+    recommended = added.length === 0 ? base : [...base, ...added].sort((left, right) => left.task - right.task);
   }
   // A light menu with nothing to do is not a light look-up: the person gave its task no time, so the menu says what
   // any menu with nothing recommended says, and never to open and quote the source.

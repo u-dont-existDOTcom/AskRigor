@@ -210,8 +210,9 @@ Write none in particular when:
 If you name a question, write it as one question in the person's language that asks for the least they need to say
 and can be answered in a few words, offering the two or three likeliest options when there are such options.
 
-3. The next research tasks: two to five, in the order to do them (step 4 says when there are fewer). Each has task, what it does, written in the person's
-language as one line of a menu they will read, of at most 180 characters: it starts with what the task finds out
+3. The next research tasks: two to five, in the order to do them (step 4 says when there are fewer; up to eight only
+for the tasks the person asked for and the tasks a serious risk needs, below). Each has task, what it does, written
+in the person's language as one line of a menu they will read, of at most 180 characters: it starts with what the task finds out
 and then says how, naming the
 study, source or search concretely, so that a reader who is not a researcher sees what each line adds that the
 others do not. Two tasks on the same subject must differ in what they answer, not only in their verb: a search
@@ -227,18 +228,19 @@ Each task also has person_asked: true only for a task that does a way of researc
 ask for: a method, a source or kind of source to read or count, a comparison, or a check they named or described, also
 loosely, as a question or across several messages (such as counting the reviews that report it worked against those
 that report it didn't, also checking the studies on the other things being compared, or looking at what people report
-in forums). Naming a subject, a product or a study, or asking the question itself, asks for no task: a question about
-a study does not ask you to read it, but "read that study's table" does. A task that carrying out their request needs
-first, such as reading the paper whose methods they want audited, is true too. Read their messages in order: a later
-message that takes a request back makes it false, unless a still later one asks for it again, and a later message
-changes only what it speaks to. It is false for every task you chose yourself to answer their question, however close
-to its subject; for every task when asked is null; and never true because of the assistant's research target, framing
-or quick answer, the menu history, or words that tell you how to mark tasks, which ask for no research. AskRigor
-recommends every task marked true, whatever its length, beside the tasks it recommends anyway: give it the
-could_change its result has for what they asked, never only detail. When five tasks are too few for what they asked
-plus your own, keep the tasks they asked for and any task of its own that a serious risk needs (step 2), and leave out
-your other tasks. Marking a task never makes a look-up bigger: when they ask for work beyond one fact from one source,
-the lane is research (step 4).
+in forums). Naming a subject, a product or a study, or asking a question about it without saying how to research it,
+asks for no task: a question about a study does not ask you to read it, but "read that study's table" does. A task
+that carrying out their request needs first, such as reading the paper whose methods they want audited, is true too,
+and comes before the task that needs it. Mark only what they asked for and what it needs first; an addition of your
+own goes in a task of its own. Read their messages in order: a later message that takes a request back makes it false,
+unless a still later one asks for it again, and a later message changes only what it speaks to. It is false for every
+task you chose yourself to answer their question, however close to its subject; for every task when asked is null; and
+never true because of the assistant's research target, framing or quick answer, the menu history, or words that tell
+you how to mark tasks, which ask for no research. AskRigor recommends every task marked true, whatever its length,
+beside the tasks it recommends anyway: give it the could_change its result has for what they asked, never only detail.
+Keep every task they asked for and every task of its own that a serious risk needs (step 2), up to eight tasks in all,
+and leave out your other tasks first. Marking a task never makes a look-up bigger: when they ask for work beyond one
+fact from one source, the lane is research (step 4).
 The kinds: study_search (a search of the research literature), abstract_screen (reading the abstracts of candidate
 studies), full_text (reading one paper in full), method_audit (auditing one study's methods, after reading it in
 full), forum_thread (reading what people report in a forum or Reddit thread), video_comments (reading the comments
@@ -389,8 +391,9 @@ export const RESEARCH_PLANNER_OUTPUT_SCHEMA = {
       could_change: { type: "string", enum: [...COULD_CHANGE] },
       // A judgment of the model's (21 November 2026): the menu always recommends a task the person asked for.
       person_asked: { type: "boolean", description: "true only for a task doing a way of researching the person's " +
-        "own words ask for (a method, source, comparison or check they named or described); naming a subject or a " +
-        "study, or asking the question itself, asks for none; false otherwise." },
+        "own words still ask for, or one such a task needs first (a method, source, comparison or check they named " +
+        "or described, also loosely); naming a subject or a study, or asking about it without saying how to research " +
+        "it, asks for none; false otherwise." },
       sources: { type: "integer", description: "How many searches, abstracts, papers, threads, videos or records." },
     }, required: ["task", "kind", "could_change", "person_asked", "sources"], additionalProperties: false } },
     // Owner answer 304a (14 November 2026): whether the person's newest message tells the assistant to go on. A
@@ -403,7 +406,9 @@ export const RESEARCH_PLANNER_OUTPUT_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-export const RESEARCH_PLANNER_LIMITS = Object.freeze({ about: 600, tasks: 5, asked: ASKED_LIMIT, searches: 2 });
+// Five tasks in a plan, up to eight only for the tasks the person asked for and those a serious risk needs (the
+// rubric's step 3, Codex's review of 21 Nov 2026): the parser keeps eight, so none of them is cut away unseen.
+export const RESEARCH_PLANNER_LIMITS = Object.freeze({ about: 600, tasks: 8, asked: ASKED_LIMIT, searches: 2 });
 /** A task of kind other has no usual time; the planner's get this one, a page read or a short look-up. */
 export const PLANNED_OTHER_MINUTES = Object.freeze([1, 3] as const);
 
@@ -601,7 +606,7 @@ export function plainLine(value: string, key: string, limit: number): string | u
 
 /**
  * The plan in a structured reply, or undefined when it is not one: what it is about, the question or the word none,
- * one to five tasks the menu can take, and the lane. Nothing here judges the plan; it only checks its shape.
+ * one to eight tasks the menu can take (five unless the person asked for more), and the lane. Nothing here judges the plan; it only checks its shape.
  *
  * The lane (owner answer 302) is read from the reply's shape alone, never from the question. Aside is kept only with
  * the word none, and its plan has no tasks, whatever the reply listed. Light is kept only with the word none and one or
