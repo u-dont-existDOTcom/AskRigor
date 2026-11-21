@@ -2764,12 +2764,17 @@ const DOSSIER_REVIEW_FUNCTIONS = ["erase_research_dossiers"] as const;
 // Migration 0043 (Atlas news, stage 1): the access role stages; the review role commits, withdraws and reads.
 const ATLAS_NEWS_ACCESS_FUNCTIONS = ["stage_atlas_news_card"] as const;
 const ATLAS_NEWS_REVIEW_FUNCTIONS = ["commit_atlas_news_day", "inspect_atlas_news", "withdraw_atlas_news_items"] as const;
-// AskRigor#477 stage 2 (migration 0040, its own acceptance: research-dossier-publications-postgres-acceptance.mts).
+// AskRigor#477 stage 2 (migration 0040, its own acceptance: research-dossier-publications-postgres-acceptance.mts): the
+// functions its two role scripts grant (the access role's second is the conflict candidates, as its script says; the
+// review role's eleven as its script lists them).
 const DOSSIER_PUBLICATION_ACCESS_FUNCTIONS = [
-  "publish_research_dossier_version", "research_dossier_topic_publications",
+  "publish_research_dossier_version", "research_dossier_conflict_candidates",
 ] as const;
 const DOSSIER_PUBLICATION_REVIEW_FUNCTIONS = [
   "decide_research_dossier_publication", "inspect_research_dossier_publication", "list_research_dossier_publications",
+  "decide_research_dossier_living_person", "research_dossier_show_candidates", "state_research_dossier_living_person",
+  "list_research_dossier_privacy_pending", "record_research_dossier_privacy_reading",
+  "admit_research_dossier_after_privacy", "list_research_dossier_admission_pending", "revise_research_dossier_importance",
 ] as const;
 const MIGRATIONS_BEFORE_ATLAS = [
   "0001_living_evidence", "0002_research_frontier", "0003_community_forum_synthetic_lab",
