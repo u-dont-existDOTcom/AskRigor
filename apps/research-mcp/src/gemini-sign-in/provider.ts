@@ -87,7 +87,9 @@ export function createGeminiAuthorizationServer(
       },
       resourceIndicators: {
         enabled: true,
-        defaultResource: async () => resource,
+        // No default: a link names its resource (the dispatcher refuses an authorization request without it), so a
+        // token request without one gets the resource its grant was made for (useGrantedResource) and nothing else.
+        defaultResource: async () => undefined,
         useGrantedResource: async () => true,
         getResourceServerInfo: async (_ctx: unknown, indicator: string) => {
           if (indicator !== resource) throw new errors.InvalidTarget();

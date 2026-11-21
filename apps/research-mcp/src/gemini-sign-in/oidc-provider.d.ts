@@ -112,6 +112,7 @@ declare module "oidc-provider" {
     readonly issuer: string;
     readonly Grant: typeof Grant;
     readonly AccessToken: { find(value: string): Promise<AccessTokenInstance | undefined> };
+    readonly Session: { find(id: string): Promise<{ destroy(): Promise<void> } | undefined> };
     callback(): (request: IncomingMessage, response: ServerResponse) => Promise<void>;
     use(middleware: (ctx: KoaContextWithOIDC, next: () => Promise<void>) => Promise<void>): this;
     interactionDetails(request: IncomingMessage, response: ServerResponse): Promise<InteractionDetails>;

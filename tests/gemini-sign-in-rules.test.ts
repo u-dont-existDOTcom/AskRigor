@@ -141,16 +141,24 @@ describe("Gemini's sign-in rules (design v2)", () => {
         .rejects.toThrow(/error=invalid_scope/u);
     });
 
-    it("works without a resource parameter (the one resource is the default) and refuses another resource", async () => {
-      const { code, verifier } = await linkToCode(fixture, browser, { resource: null });
-      expect((await exchange(code, verifier)).status).toBe(200);
+    it("refuses a link that does not name /mcp/gemini as its one resource, before any login (Fable, finding 3)", async () => {
       const { challenge } = pkce();
-      const other = await browser.request(authorizeUrl({
+      for (const resource of [undefined, "https://mcp.askrigor.com/mcp", "https://evil.example/mcp"]) {
+        const response = await browser.request(authorizeUrl({
+          response_type: "code", client_id: CLIENT_ID, redirect_uri: GOOGLE_REDIRECT, scope: "research:use", state: "s",
+          code_challenge: challenge, code_challenge_method: "S256", resource,
+        }));
+        expect(response.status, String(resource)).toBe(400);
+        expect(response.headers.get("location")).toBeNull();
+      }
+      const twice = `${authorizeUrl({
         response_type: "code", client_id: CLIENT_ID, redirect_uri: GOOGLE_REDIRECT, scope: "research:use", state: "s",
-        code_challenge: challenge, code_challenge_method: "S256", resource: "https://mcp.askrigor.com/mcp",
-      }));
-      const location = new URL(other.headers.get("location") ?? "about:blank");
-      expect(location.searchParams.get("error")).toBe("invalid_target");
+        code_challenge: challenge, code_challenge_method: "S256", resource: RESOURCE,
+      })}&resource=${encodeURIComponent("https://evil.example/mcp")}`;
+      expect((await browser.request(twice)).status).toBe(400);
+      // The token request may leave it out: the code's grant names it.
+      const { code, verifier } = await linkToCode(fixture, browser);
+      expect((await exchange(code, verifier)).status).toBe(200);
     });
   });
 
@@ -205,8 +213,8 @@ describe("Gemini's sign-in rules (design v2)", () => {
       ]) {
         const response = await browser.request(authorizeUrl({
           response_type: "code", client_id: clientId, redirect_uri: GOOGLE_REDIRECT, scope: "research:use", state: "s",
-          code_challenge: challenge, code_challenge_method: "S256",
-        }));
+          code_challenge: challenge, code_challenge_method: "S256", resource: RESOURCE,
+      }));
         expect(response.status, clientId).toBe(400);
         expect(response.headers.get("location")).toBeNull();
       }
@@ -230,8 +238,8 @@ describe("Gemini's sign-in rules (design v2)", () => {
         const fresh = await startFreshFixture();
         const response = await new Browser(fresh.baseUrl).request(authorizeUrl({
           response_type: "code", client_id: CLIENT_ID, redirect_uri: GOOGLE_REDIRECT, scope: "research:use",
-          state: "s", code_challenge: challenge, code_challenge_method: "S256",
-        }));
+          state: "s", code_challenge: challenge, code_challenge_method: "S256", resource: RESOURCE,
+      }));
         expect(response.status, JSON.stringify(variant)).toBe(400);
         expect(response.headers.get("location")).toBeNull();
         await fresh.close();
@@ -251,7 +259,7 @@ describe("Gemini's sign-in rules (design v2)", () => {
       const { challenge } = pkce();
       let response = await browser.request(authorizeUrl({
         response_type: "code", client_id: CLIENT_ID, redirect_uri: GOOGLE_REDIRECT, scope: "research:use", state: "s",
-        code_challenge: challenge, code_challenge_method: "S256",
+        code_challenge: challenge, code_challenge_method: "S256", resource: RESOURCE,
       }));
       while (response.status === 302 || response.status === 303) {
         response = await browser.request(new URL(response.headers.get("location")!, "https://mcp.askrigor.com").href);
@@ -276,7 +284,7 @@ describe("Gemini's sign-in rules (design v2)", () => {
       const { challenge } = pkce();
       let response = await browser.request(authorizeUrl({
         response_type: "code", client_id: CLIENT_ID, redirect_uri: GOOGLE_REDIRECT, scope: "research:use", state: "s",
-        code_challenge: challenge, code_challenge_method: "S256",
+        code_challenge: challenge, code_challenge_method: "S256", resource: RESOURCE,
       }));
       while (response.status === 302 || response.status === 303) {
         response = await browser.request(new URL(response.headers.get("location")!, "https://mcp.askrigor.com").href);
@@ -373,6 +381,64 @@ describe("Gemini's sign-in rules (design v2)", () => {
 });
 
 describe("Gemini's sign-in: one login session per link", () => {
+  it("makes a new link sign in again after a consent page was left unanswered (Fable, finding 2)", async () => {
+    const fixture = await startGeminiFixture();
+    const browser = new Browser(fixture.baseUrl);
+    try {
+      // Person A signs in and stops at the consent page.
+      const { challenge } = pkce();
+      let response = await browser.request(authorizeUrl({
+        response_type: "code", client_id: CLIENT_ID, redirect_uri: GOOGLE_REDIRECT, scope: "research:use", state: "a",
+        code_challenge: challenge, code_challenge_method: "S256", resource: RESOURCE,
+      }));
+      while (response.status === 302 || response.status === 303) {
+        response = await browser.request(new URL(response.headers.get("location")!, "https://mcp.askrigor.com").href);
+      }
+      expect(response.status).toBe(200);
+      expect(await response.text()).toContain("Connect Google Gemini to AskRigor?");
+      // Someone else, in the same browser, starts a link and skips the login, going straight to the library's resume.
+      const second = pkce();
+      response = await browser.request(authorizeUrl({
+        response_type: "code", client_id: CLIENT_ID, redirect_uri: GOOGLE_REDIRECT, scope: "research:use", state: "b",
+        code_challenge: second.challenge, code_challenge_method: "S256", resource: RESOURCE,
+      }));
+      const uid = /\/oauth\/gemini\/interaction\/([A-Za-z0-9_-]+)$/u.exec(response.headers.get("location") ?? "")?.[1];
+      expect(uid).toBeDefined();
+      response = await browser.request(`https://mcp.askrigor.com/oauth/gemini/auth/${uid}`);
+      for (let step = 0; step < 6 && (response.status === 302 || response.status === 303); step += 1) {
+        const location = new URL(response.headers.get("location")!, "https://mcp.askrigor.com");
+        if (location.origin === "https://askrigor-test.example.auth0.com") {
+          expect(location.searchParams.get("prompt")).toBe("login");
+          return;
+        }
+        expect(location.origin).not.toBe("https://oauth-redirect.googleusercontent.com");
+        response = await browser.request(location.href);
+      }
+      throw new Error(`the second link did not go to the login: ${response.status}`);
+    } finally {
+      await fixture.close();
+    }
+  });
+
+  it("fetches a client document Google does not know only once in five minutes (Fable, finding 6)", async () => {
+    const fixture = await startGeminiFixture();
+    const browser = new Browser(fixture.baseUrl);
+    try {
+      const unknown = "https://accountlinking.google.com/clientidmetadata/user_bound_provider/user_bound_custom-mcp-ffffffffffffffffffffffff";
+      const { challenge } = pkce();
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const response = await browser.request(authorizeUrl({
+          response_type: "code", client_id: unknown, redirect_uri: GOOGLE_REDIRECT, scope: "research:use", state: "s",
+          code_challenge: challenge, code_challenge_method: "S256", resource: RESOURCE,
+        }));
+        expect(response.status).toBe(400);
+      }
+      expect(fixture.googleFetches.filter((url) => url === unknown)).toHaveLength(1);
+    } finally {
+      await fixture.close();
+    }
+  });
+
   it("asks a second link in the same browser to sign in again, and gives a different person their own link", async () => {
     const fixture = await startGeminiFixture();
     const browser = new Browser(fixture.baseUrl);

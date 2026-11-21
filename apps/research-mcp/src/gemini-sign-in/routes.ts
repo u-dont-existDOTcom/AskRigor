@@ -264,9 +264,23 @@ export function createGeminiSignInRoutes(
           return true;
         }
         const path = pathname.slice(GEMINI_ISSUER_PATH.length) || "/";
-        if (path === "/auth" && method === "GET" || path === "/auth" && method === "POST") {
+        if (path === "/auth" && (method === "GET" || method === "POST")) {
+          // Finding 3 of Fable's recheck: a link must say which resource it is for. Gemini sends it (its requests to Auth0
+          // on 20 Nov 2026 carried resource=), so a request without it is refused before any login, and no token is ever
+          // issued for /mcp/gemini to a connector that belongs to some other MCP server.
+          if (!hasExactlyOneResource(query, server.settings.resource.href)) {
+            note("library", "resource_missing");
+            fail(response, 400, "invalid_target");
+            return true;
+          }
           // A new authorization never reuses an earlier login session: every link asks the person to sign in, and the
-          // library's account-switch path (a logout confirmation, which is off) can never arise.
+          // library's account-switch path (a logout confirmation, which is off) can never arise. The session an earlier
+          // link left in this browser (a consent page left unanswered) is deleted, not only hidden from this request,
+          // so no later step of this link can pick it up (Fable's recheck, finding 2).
+          for (const id of cookieValues(request, "_session")) {
+            const earlier = await server.provider.Session.find(id);
+            await earlier?.destroy();
+          }
           dropLibraryCookies(request, /^_session/u);
         }
         await toLibrary(request, response, path, query);
@@ -297,6 +311,23 @@ function queryOf(target: string | undefined): string {
   if (target === undefined) return "";
   const at = target.indexOf("?");
   return at < 0 ? "" : target.slice(at);
+}
+
+/** Every value of one cookie name in the request (a planted duplicate included). */
+function cookieValues(request: IncomingMessage, name: string): string[] {
+  const header = request.headers.cookie;
+  if (typeof header !== "string" || header.length > 8_192) return [];
+  return header.split(";").flatMap((part) => {
+    const at = part.indexOf("=");
+    const value = at > 0 && part.slice(0, at).trim() === name ? part.slice(at + 1).trim() : "";
+    return /^[A-Za-z0-9_-]{1,128}$/u.test(value) ? [value] : [];
+  });
+}
+
+/** Exactly one resource parameter, equal to this server's one resource. */
+function hasExactlyOneResource(query: string, resource: string): boolean {
+  const values = new URLSearchParams(query.startsWith("?") ? query.slice(1) : query).getAll("resource");
+  return values.length === 1 && values[0] === resource;
 }
 
 function dropLibraryCookies(request: IncomingMessage, names: RegExp): void {

@@ -51,7 +51,12 @@ const MAX_CONCURRENT_FETCHES = 4;
 const JWKS_MAX_BYTES = 64 * 1_024;
 const JWKS_MAX_KEYS = 20;
 const JWKS_MIN_SECONDS = 60;
-const JWKS_MAX_SECONDS = 600;
+// Five minutes at most (Fable's recheck, finding 5): a key Google rotates in, or withdraws, is seen within that time.
+const JWKS_MAX_SECONDS = 300;
+// A client id Google answered without a document is not fetched again for five minutes, and at most 1,000 are kept
+// (finding 6), so made-up ids cannot keep the outbound slots busy or turn AskRigor into a source of requests to Google.
+const UNKNOWN_CLIENT_MS = 5 * 60_000;
+const UNKNOWN_CLIENT_MAX = 1_000;
 
 /**
  * The authorization server library's only way out (its `fetch` option): a Gemini connector's document, passed through
@@ -68,6 +73,7 @@ export function geminiSignInFetch(options: {
   let active = 0;
   let cached: { body: string; freshUntil: number } | undefined;
   let pending: Promise<{ body: string; freshUntil: number }> | undefined;
+  const unknownClients = new Map<string, number>();
 
   const limited = async <T>(work: () => Promise<T>): Promise<T> => {
     if (active >= MAX_CONCURRENT_FETCHES) throw new Error("GEMINI_SIGN_IN_FETCH_BUSY");
@@ -110,7 +116,15 @@ export function geminiSignInFetch(options: {
       });
     }
     if (allowGeminiClientFetch(url)) {
-      return await limited(() => upstream(url, { ...init, redirect: "error" }));
+      const until = unknownClients.get(url);
+      if (until !== undefined && until > now()) throw new Error("GEMINI_SIGN_IN_CLIENT_UNKNOWN");
+      unknownClients.delete(url);
+      const response = await limited(() => upstream(url, { ...init, redirect: "error" }));
+      if (response.status !== 200) {
+        if (unknownClients.size >= UNKNOWN_CLIENT_MAX) unknownClients.delete(unknownClients.keys().next().value!);
+        unknownClients.set(url, now() + UNKNOWN_CLIENT_MS);
+      }
+      return response;
     }
     throw new Error("GEMINI_SIGN_IN_FETCH_REFUSED");
   }) as typeof fetch;

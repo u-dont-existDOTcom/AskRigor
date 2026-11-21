@@ -89,7 +89,7 @@ describe("Gemini's sign-in: AskRigor's own authorization server (owner answer 38
     ]) {
       const response = await browser.request(authorizeUrl({
         response_type: "code", client_id: CLIENT_ID, redirect_uri: redirect, scope: "research:use",
-        state: "s", code_challenge: challenge, code_challenge_method: "S256",
+        state: "s", code_challenge: challenge, code_challenge_method: "S256", resource: RESOURCE,
       }));
       expect(response.status).toBe(400);
       expect(response.headers.get("location")).toBeNull();
@@ -99,16 +99,16 @@ describe("Gemini's sign-in: AskRigor's own authorization server (owner answer 38
 
   it("refuses an authorization without PKCE, or with plain PKCE", async () => {
     const missing = await browser.request(authorizeUrl({
-      response_type: "code", client_id: CLIENT_ID, redirect_uri: GOOGLE_REDIRECT, scope: "research:use", state: "s",
-    }));
+      response_type: "code", client_id: CLIENT_ID, redirect_uri: GOOGLE_REDIRECT, scope: "research:use", state: "s", resource: RESOURCE,
+      }));
     const missingLocation = new URL(missing.headers.get("location") ?? "about:blank");
     expect(missingLocation.origin).toBe("https://oauth-redirect.googleusercontent.com");
     expect(missingLocation.searchParams.get("error")).toBe("invalid_request");
     expect(missingLocation.searchParams.get("code")).toBeNull();
     const plain = await browser.request(authorizeUrl({
       response_type: "code", client_id: CLIENT_ID, redirect_uri: GOOGLE_REDIRECT, scope: "research:use", state: "s",
-      code_challenge: "a".repeat(43), code_challenge_method: "plain",
-    }));
+      code_challenge: "a".repeat(43), code_challenge_method: "plain", resource: RESOURCE,
+      }));
     const plainLocation = new URL(plain.headers.get("location") ?? "about:blank");
     expect(plainLocation.searchParams.get("error")).toBe("invalid_request");
     expect(plainLocation.searchParams.get("code")).toBeNull();

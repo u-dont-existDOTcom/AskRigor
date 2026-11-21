@@ -19,7 +19,9 @@ every plan. So Gemini signs in through AskRigor's own authorization server, buil
 - **Tokens:** opaque; access 1 hour, links (grant and refresh token, not rotated) 180 days. Stored encrypted in
   `living_evidence.gemini_oauth_store`, tokens only as HMACs (privacy data map, "Gemini's sign-in").
 - **Ending a link:** Gemini's revocation call; `manage_research_access` action `disconnect_gemini` from any connected
-  app; or switching the feature off (below).
+  app; or switching the feature off (below). A password change at Auth0 does not end a link.
+- **Resource:** an authorization request must carry exactly one `resource=https://mcp.askrigor.com/mcp/gemini`
+  (Gemini sends `resource`); without it, or with another, it is refused before any login.
 - **Research notice:** Gemini's tool list has no `manage_research_access`, so a person accepts AskRigor's research
   notice once in Claude or ChatGPT; a Gemini research call on an account without it says so.
 
@@ -50,6 +52,8 @@ In the application this login uses (the Atlas's, or a new Regular Web Applicatio
    `https://mcp.askrigor.com/oauth/gemini`; `/mcp/gemini` without a token still initializes; a made-up token gets 401
    naming `/.well-known/oauth-protected-resource/mcp/gemini`; then a real link from a Gemini app (the owner's or a
    tester's), a research call, and removing the connector in Gemini (does Google's revocation arrive and end the link?).
+   With `ASKRIGOR_GEMINI_OAUTH_DIAGNOSTICS=enabled` for that test, the log shows each stage, a missing `resource` and
+   the login's outcome (Auth0's `iss` response parameter is required: the tenant's metadata advertises it).
 5. Only after a real link works: the Add page's Gemini section goes public.
 
 ## Rollback

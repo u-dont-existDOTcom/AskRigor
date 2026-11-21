@@ -23,8 +23,20 @@ Nothing reaches production before the owner's typed release.
 | Codex notes | Clock tolerance default is 15 s; `revokeGrantPolicy` is a function; with S256 the library lets the token request omit `redirect_uri` (OAuth 2.1 behavior, accepted); the registration-endpoint fallback was unproven; persistent linking also asks to extend expiry. | `clockTolerance: 30` explicitly; `revokeGrantPolicy: () => true`; the always-refusing registration fallback is dropped (the first live test decides, see 11); the 180-day absolute lifetime is a deliberate choice (re-link twice a year), stated to the owner. |
 | Codex notes | Gemini may need HTTP 401 to refresh; Auth0 fallback must keep its own resource check; link phishing; leakage. | On `/mcp/gemini` a **present but invalid** token gets a transport 401 with the Gemini resource metadata (no token stays optional, as today); the Auth0 fallback runs the existing verifier against `/mcp`'s own resource; the consent page says to cancel if someone else sent the link; pages send `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. |
 
-The sections below are v1's text with the v2 decisions applied where they conflict; where they still differ, section 0
-wins.
+### v3: Fable's recheck of the built code (21 Nov 2026, 03:2x UTC; report `reviews/fable-recheck.md`, verdict "ship with the listed fixes")
+
+| # | Finding | v3 decision |
+|---|---|---|
+| 1 | The login requires Auth0's `iss` response parameter (RFC 9207); if the tenant never sends it, no link completes. | Kept: AskRigor's tenant advertises `authorization_response_iss_parameter_supported: true` in both metadata documents (read 21 Nov), so it must send it; the first live login confirms it, with diagnostics on. |
+| 2 (confirmed by run) | A consent page left unanswered kept its login session; a new link in the same browser could skip the login through the library's resume address and finish for the first person. | A new authorization deletes every session the browser's `_session` cookies name (the rows), not only hides the cookie. Test: the probe's sequence must end at the Auth0 login. |
+| 3 | With a default resource, a connector belonging to another MCP server that names this authorization server could obtain a `/mcp/gemini` token for a person who clicks Allow. | No default: an authorization request must carry exactly one `resource` equal to `/mcp/gemini` (Gemini sends `resource`: its requests to Auth0 on 20 Nov did), or it is refused before any login; the token request may leave it out (its grant names it). |
+| 4 | A link outlives a password change or an Auth0 block. | Stated on the privacy page and in the data map; ending stays Gemini's revocation, `disconnect_gemini`, or research-account revocation (which stops research). |
+| 5 | Key rotation: the JWKS cache could refuse new keys, or keep a withdrawn one, for up to 10 minutes. | Cache capped at 5 minutes. |
+| 6 | Made-up client ids could keep the four outbound slots busy. | A client id Google answered without a document is not fetched again for 5 minutes (at most 1,000 remembered). Test. |
+| 7 | `expires_at`, `consumed_at` and the indexes are outside the seal: a database writer without the keys could clear a code's use or a replay mark. | No change: neither yields a token without the code's PKCE verifier and a fresh Google assertion, and expiry inside the sealed payload still applies. Added to the threat table. |
+
+The sections below are v1's text with the v2 and v3 decisions applied where they conflict; where they still differ,
+section 0 wins.
 
 ## 1. The problem, with what was verified
 
@@ -265,6 +277,9 @@ One new table, `living_evidence.gemini_oauth_store` (migration `0039_gemini_oaut
 | Spoofed `X-Forwarded-*` | `proxy = true` only behind Caddy; the service port is not published (checked at release). |
 | Google's signing key compromised, or Google's CIMD service | Out of AskRigor's control; revocation by unsetting the flag. |
 | A person's research data reaching Google | Unchanged: Gemini already receives what the tools return to it; the token carries no subject (opaque). |
+| A connector of another MCP server naming this authorization server (v3) | Every authorization must name `/mcp/gemini` as its one resource; another resource is refused, so no token for AskRigor reaches another server. |
+| A database writer without the keys (v3) | Can clear `consumed_at` or delete replay marks; gains no token without a code's PKCE verifier and a fresh Google assertion; expiry inside the sealed payload still applies. |
+| A login session left behind in a browser (v3) | A new authorization deletes it; each finished link deletes its own. |
 
 ## 9. Privacy
 
