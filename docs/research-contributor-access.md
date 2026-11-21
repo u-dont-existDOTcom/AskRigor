@@ -270,12 +270,13 @@ was released on 12 November:
   first menu (nothing carried, nothing done, not changed) no longer waits for its length: "drop the 10-minute stop for a
   first question on the balanced style, for every account (it's everyone's default): the research goes on, opening
   with how it read your question and how long it may take; the guided style still asks." Its go-ahead says why
-  (`went_on_long`) and has the AI tell the person how it read the question and that the research may take the
-  recommended tasks' time with the final check and the answer, before its first research call where the app shows
-  what it writes then, otherwise at the top of the answer. Before, it asked whenever the recommended tasks could take
-  more than about 10 minutes (the high end of their range), which a later menu still does, unless the menu carries
-  AskRigor's own mark that the person's newest message told the AI to go on (owner answer 304a, 14 November 2026; "A
-  follow-up that says to go on", below); autonomous goes on, and after the allowance checks what it has and gives that answer, ending with the
+  (`went_on_long`) and has the AI write one line to the person before its first research call: how it read the
+  question, and that the research may take the recommended tasks' time with the final check and the answer. An app
+  that shows nothing the AI writes until the answer is its limit, and the line then opens the answer. Before, a menu
+  asked whenever the recommended tasks could take more than about 10 minutes (the high end of their range), unless it
+  carried AskRigor's own mark that the person's newest message told the AI to go on (owner answer 304a, 14 November
+  2026; "A follow-up that says to go on", below). A later menu (one carrying an allocation not yet the person's, say)
+  still asks past 10 minutes, whatever mark it carries; autonomous goes on, and after the allowance checks what it has and gives that answer, ending with the
   open tasks as a numbered menu and the question whether to spend more time on them; a person's allocation is followed,
   in their own minutes as given (only AskRigor's own estimates are rounded for the menu; 12 November 2026).
   An allocation that names no task on the menu still open counts as none, so the menu recommends and decides as if

@@ -601,8 +601,8 @@ const STYLE_WORDS: Readonly<Record<ResearchStyle, string>> = Object.freeze({
   guided: "guided (asks you at the start and before every long task)",
   balanced: "balanced (asks questions that could redirect the research, shows the menu of next tasks when your " +
     "choices could steer the research, as they usually can unless the question is precise, and asks again when the " +
-    "plan changes on the way; otherwise the research goes on, saying first how it read the question and how long it " +
-    "may take)",
+    "plan changes on the way or a later step could take more than about 10 minutes; otherwise the research goes on, " +
+    "saying first how it read the question and how long it may take)",
   autonomous: "autonomous (goes on through the research and reports as it goes)",
 });
 
@@ -1573,9 +1573,9 @@ const HOW_TO_SPEND = "How should I spend the time? Reply with task numbers and m
  */
 export function menuPreferenceLine(style: ResearchStyle): string {
   return "To change how often I ask you, say \"guided\" (I ask at the start and before every long task), " +
-    "\"balanced\" (I ask when your answer could change the research or the plan changes on the way; otherwise I go " +
-    `on, saying how I read your question and how long it may take) or "autonomous" (I go on and report as I go). ` +
-    `Yours is ${style} now.`;
+    "\"balanced\" (I ask when your answer could change the research, when the plan changes on the way, or when a " +
+    "later step could take more than about 10 minutes; otherwise I go on, saying how I read your question and how " +
+    `long it may take) or "autonomous" (I go on and report as I go). Yours is ${style} now.`;
 }
 /** What the AI does when the person's reply to a menu names a style: the setting first, then the plan again. */
 export const STYLE_REPLY = "If the reply asks for another research style, set it first with action " +

@@ -579,9 +579,10 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
       const question = lines.findIndex((line) => line.startsWith("How should I spend the time?"));
       expect(question).toBeGreaterThanOrEqual(0);
       expect(lines[question + 1]).toBe("To change how often I ask you, say \"guided\" (I ask at the start and before " +
-        "every long task), \"balanced\" (I ask when your answer could change the research or the plan changes on the " +
-        "way; otherwise I go on, saying how I read your question and how long it may take) or \"autonomous\" (I go on " +
-        `and report as I go). Yours is ${style} now.`);
+        "every long task), \"balanced\" (I ask when your answer could change the research, when the plan changes on " +
+        "the way, or when a later step could take more than about 10 minutes; otherwise I go on, saying how I read " +
+        "your question and how long it may take) or \"autonomous\" (I go on and report as I go). Yours is " +
+        `${style} now.`);
       const going = planResearch(menu({ allocation: [{ task: 1, minutes: 5 }], person_answered: true }), steering);
       expect(going.next).toBe("go_on");
       expect(planResearchText(going, new Set()).split("\n")
@@ -620,9 +621,9 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
       "How should I spend the time? Reply with task numbers and minutes, such as \"1. 5 min, 2. 4 min\", in your own " +
         "words, or \"you decide\".",
       "To change how often I ask you, say \"guided\" (I ask at the start and before every long task), \"balanced\" " +
-        "(I ask when your answer could change the research or the plan changes on the way; otherwise I go on, saying " +
-        "how I read your question and how long it may take) or \"autonomous\" (I go on and report as I go). Yours " +
-        "is balanced now.",
+        "(I ask when your answer could change the research, when the plan changes on the way, or when a later step " +
+        "could take more than about 10 minutes; otherwise I go on, saying how I read your question and how long it " +
+        "may take) or \"autonomous\" (I go on and report as I go). Yours is balanced now.",
       "When the person replies: call manage_research_access action plan_research again with the same " +
         "plain_answer_receipt, tasks and menu_digest (researchMenu.menu_digest in this result), research_target word " +
         `for word ${JSON.stringify(TARGET)}, and their ` +
@@ -826,7 +827,8 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
       "already fixes all of that, such as one result of one named study");
     expect(steeringSentence(DEFAULT_RESEARCH_STEERING)).toContain("shows the menu of next tasks when your choices could " +
       "steer the research, as they usually can unless the question is precise, and asks again when the plan changes " +
-      "on the way; otherwise the research goes on, saying first how it read the question and how long it may take");
+      "on the way or a later step could take more than about 10 minutes; otherwise the research goes on, saying " +
+      "first how it read the question and how long it may take");
   });
 
   it("mentions only doubtful adjustments by default, and all of them when the person chose that", () => {
