@@ -970,6 +970,8 @@ export interface RegisterToolsOptions {
   /** Whether the findings actions are open; defaults to ASKRIGOR_ATLAS_REVIEW. */
   atlasReviewEnabled?: boolean;
   researchAccessRequired?: boolean;
+  /** Gemini's sign-in (owner answer 386b): the account's Gemini links, for manage_research_access. */
+  geminiLinks?: import("./research-contributor-access-tool.js").GeminiLinks;
   /** Replaces the production lesson queue, for tests. */
   lessonSubmission?: (raw: unknown, context: LessonSubmissionContext) => Promise<ConnectorLessonSubmissionResult>;
   /** Replaces the production findings library, for tests. */
@@ -2126,6 +2128,7 @@ function defineResearchOperations(
     createManageResearchAccessHandler({
       service: options.researchContributorAccessService,
       callRecord: options.researchCallRecord,
+      ...(options.geminiLinks === undefined ? {} : { geminiLinks: options.geminiLinks }),
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
       signIn: options.signIn,
       toolListVersion: options.toolListVersion,
@@ -4734,6 +4737,8 @@ function collectResearchOperations(
             service: options.researchContributorAccessService,
             resourceMetadataUrl: options.oauthResourceMetadataUrl,
             signIn: options.signIn,
+            // Gemini's compact tool list has no manage_research_access (gemini-tool-catalog.ts).
+            noticeElsewhere: options.mcpSurface === "/mcp/gemini",
           })
         : evolvingExecute;
       const mcpConfig = Object.freeze({
