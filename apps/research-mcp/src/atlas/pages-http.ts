@@ -1358,28 +1358,30 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       Promise<boolean> {
       const { pathname } = dispatchOptions;
       if (!isAtlasPath(pathname)) return false;
+      const method = request.method ?? "";
+      if (pathname === USER_COUNTS_IMAGE_PATH) {
+        // The home page always shows this image, so it answers even while the pages are off (then empty). Like the
+        // stylesheet, it is outside the rate limit: every home page view asks for it, and it reads no session, page or
+        // database but the day's one count. When nothing shows, it is an empty image, never an error the home page
+        // would show as a broken image.
+        if (method !== "GET" && method !== "HEAD") {
+          write(response, 405, TEXT, "Method not allowed\n", { allow: "GET, HEAD", connection: "close" });
+        } else {
+          const view: UserCountsView = options.enabled ? await userCountsView() : { state: "off" };
+          write(response, 200, SVG, renderUserCountsSvg(view), { "cache-control": "public, max-age=3600" });
+        }
+        return true;
+      }
       if (!options.enabled) {
         write(response, 404, TEXT, "Not found\n");
         return true;
       }
-      const method = request.method ?? "";
       const route = atlasRouteOf(pathname, participation !== undefined);
       if (route?.kind === "stylesheet") {
         if (method !== "GET" && method !== "HEAD") {
           write(response, 405, TEXT, "Method not allowed\n", { allow: "GET, HEAD", connection: "close" });
         } else {
           write(response, 200, "text/css; charset=utf-8", ATLAS_CSS, { "cache-control": "public, max-age=3600" });
-        }
-        return true;
-      }
-      if (route?.kind === "users-image") {
-        // Like the stylesheet, outside the rate limit: every home page view asks for it, and it reads no session, page
-        // or database but the day's one count. When nothing shows, it is an empty image, never an error the home page
-        // would show as a broken image.
-        if (method !== "GET" && method !== "HEAD") {
-          write(response, 405, TEXT, "Method not allowed\n", { allow: "GET, HEAD", connection: "close" });
-        } else {
-          write(response, 200, SVG, renderUserCountsSvg(await userCountsView()), { "cache-control": "public, max-age=3600" });
         }
         return true;
       }
@@ -1426,7 +1428,8 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         // The count's text page reads no Atlas data and no session: it is the same for every reader.
         const view = await userCountsView();
         if (view.state === "off") {
-          await failurePage(request, response, 404, renderAtlasNotFound);
+          // Not found, without the reader's session: this page reads none in any state.
+          plainFailure(response, 404, renderAtlasNotFound());
           return true;
         }
         if (view.state === "unavailable") {

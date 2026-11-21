@@ -8,10 +8,11 @@ import { escapeHtml } from "./page-guard.js";
 import { html, page, type AtlasPageReader } from "./pages.js";
 
 /**
- * The public user count (the owner's request of 20 Nov 2026): how many people have AskRigor accounts, and how many of
- * them used it in the past 7 days, with the owner's own and test accounts left out. Two numbers, counted once a UTC day
- * and kept in process memory only; numbers under USER_COUNTS_SHOWN_FROM show as "fewer than 10", so the count never
- * shows when one person signs up or uses AskRigor. The text page is the count's accessible form; the image is what the
+ * The public user count (the owner's request of 20 Nov 2026): how many AskRigor accounts have research turned on, and
+ * how many of them used it in the past 7 days, with the owner's own and test accounts left out. Two numbers, counted
+ * once a UTC day as of the day's start (a recount after a restart shows nothing that happened that day) and kept in
+ * process memory only; numbers under USER_COUNTS_SHOWN_FROM show as "fewer than 10", so a small count doesn't move when
+ * one person signs up or uses AskRigor. The text page is the count's accessible form; the image is what the
  * script-free home page can show.
  */
 export const USER_COUNTS_PATH = "/atlas/users";
@@ -54,6 +55,19 @@ export function userCountsView(mode: PublicUserCountsMode, counts: ResearchUserC
 
 /** After a failed read, the next try waits this long, so a database outage costs one query per 5 minutes at most. */
 export const USER_COUNTS_RETRY_MS = 5 * 60_000;
+/** A read that hasn't answered by then counts as failed, so no request waits on a stalled database for longer. */
+export const USER_COUNTS_DEADLINE_MS = 3_000;
+
+/** The source's answer, or a rejection once the deadline passes; a late answer or failure is dropped. */
+function withinDeadline<T>(work: Promise<T>, deadlineMs: number): Promise<T> {
+  work.catch(() => undefined);
+  let timer: NodeJS.Timeout | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("USER_COUNTS_DEADLINE")), deadlineMs);
+    timer.unref();
+  });
+  return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
+}
 
 export interface PublicUserCountsOptions {
   mode: PublicUserCountsMode;
@@ -64,11 +78,13 @@ export interface PublicUserCountsOptions {
   /** The dev accounts' 12-character references (ASKRIGOR_DEV_ACCOUNT_KEYS): the owner's test accounts. */
   devAccountReferences: readonly string[];
   now?: () => number;
+  deadlineMs?: number;
 }
 
 /**
- * The count, read at most once per UTC day (and after each restart), one read at a time. Its view never names a time, so
- * no page tells when within the day anyone signed up or made a call.
+ * The count, read at most once per UTC day (and after each restart), one read at a time, as of the day's start. Its view
+ * never names a time, and a recount the same day leaves out what happened that day, so no page tells when within a day
+ * anyone signed up or made a call.
  */
 export class PublicUserCounts {
   private kept: { day: string; counts: ResearchUserCounts } | undefined;
@@ -89,6 +105,7 @@ export class PublicUserCounts {
   private async counts(): Promise<ResearchUserCounts | undefined> {
     const now = this.options.now?.() ?? Date.now();
     const day = new Date(now).toISOString().slice(0, 10);
+    const startOfDay = new Date(`${day}T00:00:00.000Z`);
     if (this.kept?.day === day) return this.kept.counts;
     const source = this.options.source;
     // Without the owner's own account to leave out, a count would include the owner: none is better than a wrong one.
@@ -96,11 +113,12 @@ export class PublicUserCounts {
     if (this.failedAt !== undefined && now - this.failedAt < USER_COUNTS_RETRY_MS) return undefined;
     this.loading ??= (async () => {
       try {
-        const counts = await source.counts({
+        const counts = await withinDeadline(source.counts({
           excludedAccountKeys: this.options.ownerAccountKeys,
           excludedReferences: this.options.devAccountReferences,
           at: new Date(now),
-        });
+          upTo: startOfDay,
+        }), this.options.deadlineMs ?? USER_COUNTS_DEADLINE_MS);
         this.kept = { day, counts: { accounts: counts.accounts, usedLast7Days: counts.usedLast7Days } };
         this.failedAt = undefined;
         return this.kept.counts;
@@ -201,11 +219,14 @@ export function renderUserCountsSvg(view: UserCountsView): string {
 // The page ----------------------------------------------------------------------------------------------------------
 
 const HOW_COUNTED = html`<h2>How these numbers are counted</h2>
-<p>An account is a person who signed in to AskRigor and turned research on. "Used it in the past 7 days" counts those
-accounts whose AI app made at least one call that AskRigor answered in the 7 days before the count.</p>
+<p>"AskRigor accounts" counts the accounts that signed in to AskRigor and turned research on. It counts accounts, not
+people: someone who signs in with two different logins has two. "Used it in the past 7 days" counts those accounts
+whose AI app had at least one call answered by AskRigor in the week before the count.</p>
 <p>AskRigor's owner's own accounts and test accounts are left out.</p>
-<p>The count is made once a day, and again when AskRigor's server restarts. Numbers under ${USER_COUNTS_SHOWN_FROM}
-show as "fewer than ${USER_COUNTS_SHOWN_FROM}", so the count never shows when one person signs up or uses AskRigor.</p>
+<p>The count is made once a day, as of the start of the day (UTC): accounts made and calls answered later that day wait
+for the next day's count, even when AskRigor's server restarts and counts again. Numbers under
+${USER_COUNTS_SHOWN_FROM} show as "fewer than ${USER_COUNTS_SHOWN_FROM}", so while the count is small it doesn't change
+when one person signs up or uses AskRigor.</p>
 <p>Nothing about any person is shown or kept for this. The two numbers are counted from AskRigor's account records and
 its 7-day call record, and kept only in the server's memory until the next count. The
 <a href="https://askrigor.com/privacy">privacy notice</a> says what those records hold.</p>`;
@@ -219,12 +240,12 @@ export function renderUserCountsPage(view: Extract<UserCountsView, { state: "sho
   const shown = view.state === "shown" ? html`<dl class="user-counts">
 ${userCountsLines(view).map(([label, value]) => html`<dt>${label}</dt><dd>${value}</dd>
 `)}</dl>`
-    : html`<p>AskRigor will show how many people use it here once ${USER_COUNTS_SHOWN_FROM} people have accounts.</p>`;
+    : html`<p>AskRigor will show how many people use it here once there are ${USER_COUNTS_SHOWN_FROM} accounts.</p>`;
   return page({
     reader,
     path: USER_COUNTS_PATH,
     title: "How many people use AskRigor | AskRigor Atlas",
-    description: "How many people have AskRigor accounts, and how many of them used it in the past 7 days.",
+    description: "How many AskRigor accounts there are, and how many of them used it in the past 7 days.",
     body: html`<h1>How many people use AskRigor</h1>
 ${shown}
 ${HOW_COUNTED}`,

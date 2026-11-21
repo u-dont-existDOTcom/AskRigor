@@ -15,6 +15,7 @@ import { atlasPageProblems } from "../apps/research-mcp/src/atlas/pages.js";
 import {
   EMPTY_USER_COUNTS_SVG,
   PublicUserCounts,
+  USER_COUNTS_DEADLINE_MS,
   USER_COUNTS_IMAGE_PATH,
   USER_COUNTS_PATH,
   USER_COUNTS_RETRY_MS,
@@ -36,6 +37,8 @@ const OWNER_KEY = key(1);
 const DEV_KEY = "abcdef012345".padEnd(64, "9");
 const DAY = 24 * 60 * 60 * 1_000;
 const AT = new Date("2026-11-21T09:00:00.000Z");
+const START_OF_DAY = new Date("2026-11-21T00:00:00.000Z");
+const LONG_AGO = new Date("2026-10-01T00:00:00.000Z");
 
 /** A source that counts its reads and answers what the test sets. */
 class CountingSource implements ResearchUserCountsSource {
@@ -49,17 +52,18 @@ class CountingSource implements ResearchUserCountsSource {
 }
 
 function counter(mode: PublicUserCountsMode, source: ResearchUserCountsSource | undefined, clock: { now: number },
-  ownerAccountKeys: readonly string[] = [OWNER_KEY]) {
+  ownerAccountKeys: readonly string[] = [OWNER_KEY], deadlineMs?: number) {
   return new PublicUserCounts({
     mode, ownerAccountKeys, devAccountReferences: [DEV_KEY.slice(0, 12)],
     ...(source === undefined ? {} : { source }), now: () => clock.now,
+    ...(deadlineMs === undefined ? {} : { deadlineMs }),
   });
 }
 
 describe("what the count counts", () => {
-  it("counts active accounts outside the owner's keys and the dev references, and those of them with an answered call in the 7 days before", async () => {
+  it("counts active accounts outside the owner's keys and the dev references, and those of them with an answered call in the week before, up to the start of the day", async () => {
     const accounts = [OWNER_KEY, DEV_KEY, key(2), key(3), key(4), key(5)]
-      .map((accountKey) => ({ accountKey, status: "ACTIVE" as const }));
+      .map((accountKey) => ({ accountKey, status: "ACTIVE" as const, createdAt: LONG_AGO }));
     const calls = [
       { accountKey: OWNER_KEY, receivedAt: new Date(AT.getTime() - DAY), outcome: "answered" as const },
       { accountKey: DEV_KEY, receivedAt: new Date(AT.getTime() - DAY), outcome: "answered" as const },
@@ -67,18 +71,23 @@ describe("what the count counts", () => {
       { accountKey: key(2), receivedAt: new Date(AT.getTime() - 2 * DAY), outcome: "answered" as const },
       { accountKey: key(3), receivedAt: new Date(AT.getTime() - DAY), outcome: "refused" as const },
       { accountKey: key(4), receivedAt: new Date(AT.getTime() - RESEARCH_CALL_RECORD_RETENTION_MS), outcome: "answered" as const },
-      { accountKey: key(5), receivedAt: new Date(AT.getTime() + 1), outcome: "answered" as const },
+      // Answered today, after the start of the day: it waits for tomorrow's count.
+      { accountKey: key(5), receivedAt: new Date(START_OF_DAY.getTime() + 1), outcome: "answered" as const },
       // A signed-in caller with no account row, and a revoked account's call: neither counts.
       { accountKey: key(6), receivedAt: new Date(AT.getTime() - DAY), outcome: "answered" as const },
       { accountKey: key(7), receivedAt: new Date(AT.getTime() - DAY), outcome: "answered" as const },
     ];
-    const source = new InMemoryResearchUserCounts([...accounts, { accountKey: key(7), status: "REVOKED" }], calls);
-    expect(await source.counts({ excludedAccountKeys: [OWNER_KEY], excludedReferences: [DEV_KEY.slice(0, 12)], at: AT }))
+    const source = new InMemoryResearchUserCounts([...accounts,
+      { accountKey: key(7), status: "REVOKED", createdAt: LONG_AGO },
+      // Made today: it waits for tomorrow's count.
+      { accountKey: key(8), status: "ACTIVE", createdAt: new Date(START_OF_DAY.getTime() + 1) }], calls);
+    const upTo = START_OF_DAY;
+    expect(await source.counts({ excludedAccountKeys: [OWNER_KEY], excludedReferences: [DEV_KEY.slice(0, 12)], at: AT, upTo }))
       .toEqual({ accounts: 4, usedLast7Days: 1 });
-    expect(await source.counts({ excludedAccountKeys: [], excludedReferences: [], at: AT }))
+    expect(await source.counts({ excludedAccountKeys: [], excludedReferences: [], at: AT, upTo }))
       .toEqual({ accounts: 6, usedLast7Days: 3 });
     // Malformed exclusions match nothing rather than something.
-    expect(await source.counts({ excludedAccountKeys: ["OWNER"], excludedReferences: ["", "abc"], at: AT }))
+    expect(await source.counts({ excludedAccountKeys: ["OWNER"], excludedReferences: ["", "abc"], at: AT, upTo }))
       .toEqual({ accounts: 6, usedLast7Days: 3 });
   });
 });
@@ -131,11 +140,13 @@ describe("what the count shows", () => {
     expect(shown).toContain("<dt>AskRigor accounts</dt><dd>15</dd>");
     expect(shown).toContain("<dt>Used it in the past 7 days</dt><dd>fewer than 10</dd>");
     expect(shown).toContain("own accounts and test accounts are left out");
-    expect(shown).toContain('show as "fewer than 10", so the count never shows when one person signs up');
+    expect(shown).toContain("It counts accounts, not");
+    expect(shown).toContain("as of the start of the day (UTC)");
+    expect(shown).toContain("while the count is small it doesn't change\nwhen one person signs up");
     expect(shown).toContain('<link rel="canonical" href="https://askrigor.com/atlas/users">');
     const notYet = renderUserCountsPage({ state: "not-yet" });
     expect(atlasPageProblems(notYet)).toEqual([]);
-    expect(notYet).toContain("once 10 people have accounts");
+    expect(notYet).toContain("once there are 10 accounts");
     expect(notYet).not.toContain("<dd>");
   });
 });
@@ -151,11 +162,27 @@ describe("when the count is read", () => {
     clock.now = new Date("2026-11-21T23:59:59.999Z").getTime();
     await counts.view();
     expect(source.reads).toHaveLength(1);
-    expect(source.reads[0]).toEqual({ excludedAccountKeys: [OWNER_KEY], excludedReferences: [DEV_KEY.slice(0, 12)], at: AT });
+    expect(source.reads[0]).toEqual({ excludedAccountKeys: [OWNER_KEY], excludedReferences: [DEV_KEY.slice(0, 12)], at: AT,
+      upTo: START_OF_DAY });
     clock.now = new Date("2026-11-22T00:00:00.000Z").getTime();
     source.answer = async () => ({ accounts: 13, usedLast7Days: 11 });
     expect(await counts.view()).toEqual({ state: "shown", accounts: { exact: 13 }, usedLast7Days: { exact: 11 } });
     expect(source.reads).toHaveLength(2);
+    expect(source.reads[1]?.upTo).toEqual(new Date("2026-11-22T00:00:00.000Z"));
+  });
+
+  it("gives up on a read that hasn't answered by the deadline, so no request waits on a stalled database", async () => {
+    expect(USER_COUNTS_DEADLINE_MS).toBe(3_000);
+    const source = new CountingSource();
+    source.answer = () => new Promise(() => undefined);
+    const clock = { now: AT.getTime() };
+    const counts = counter("on", source, clock, [OWNER_KEY], 20);
+    const started = Date.now();
+    expect(await Promise.all([counts.view(), counts.view()])).toEqual([{ state: "unavailable" }, { state: "unavailable" }]);
+    expect(Date.now() - started).toBeLessThan(2_000);
+    // The stalled read counts as a failure: no second read for 5 minutes.
+    expect(await counts.view()).toEqual({ state: "unavailable" });
+    expect(source.reads).toHaveLength(1);
   });
 
   it("is unavailable after a failed read, and tries again only after 5 minutes", async () => {
@@ -287,7 +314,20 @@ describe("the count's two addresses", () => {
     expect(await (await fetch(`${base}${USER_COUNTS_IMAGE_PATH}`)).text()).toBe(EMPTY_USER_COUNTS_SVG);
     const page = await fetch(`${base}${USER_COUNTS_PATH}`);
     expect(page.status).toBe(200);
-    expect(await page.text()).toContain("once 10 people have accounts");
+    expect(await page.text()).toContain("once there are 10 accounts");
+  });
+
+  it("answer an empty image, not an error, while the Atlas pages are off, since the home page always shows it", async () => {
+    const handler = createAtlasPagesHandler({ enabled: false });
+    const server = createAskRigorHttpServer({ publicServerEnabled: false, atlasPagesHandler: handler });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    closers.push(() => new Promise<void>((resolve, reject) => server.close((error) => error === undefined ? resolve() : reject(error))));
+    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const image = await fetch(`${base}${USER_COUNTS_IMAGE_PATH}`);
+    expect(image.status).toBe(200);
+    expect(image.headers.get("content-type")).toBe("image/svg+xml; charset=utf-8");
+    expect(await image.text()).toBe(EMPTY_USER_COUNTS_SVG);
+    expect((await fetch(`${base}${USER_COUNTS_PATH}`)).status).toBe(404);
   });
 
   it("keep the image outside the pages' rate limit, which every home page view would otherwise spend", async () => {

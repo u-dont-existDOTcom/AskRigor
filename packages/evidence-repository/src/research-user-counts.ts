@@ -3,19 +3,25 @@ import { RESEARCH_CALL_RECORD_RETENTION_MS } from "./research-call-record.js";
 
 /**
  * The public user count (the owner's request of 20 Nov 2026): two numbers, never a key, time or row of anyone.
- * `accounts` is the research accounts with research access on; `usedLast7Days` is how many of them had a call AskRigor
- * answered in the 7 days before the count, read from the content-free call record (migration 0032), which holds 7 days.
+ * `accounts` is the research accounts with research access on that existed at `upTo`; `usedLast7Days` is how many of
+ * them had a call AskRigor answered between 7 days before the count and `upTo`, read from the content-free call record
+ * (migration 0032), which holds 7 days.
  */
 export interface ResearchUserCounts {
   accounts: number;
   usedLast7Days: number;
 }
 
-/** What a count leaves out: the owner's own accounts, by full key or by the 12-character reference the dev list uses. */
+/**
+ * What a count leaves out: the owner's own accounts, by full key or by the 12-character reference the dev list uses.
+ * `at` is when the count is made; `upTo` is the start of its day: no account made and no call answered after it counts,
+ * so a second count the same day (after a restart) shows nothing that happened that day.
+ */
 export interface ResearchUserCountsQuery {
   excludedAccountKeys: readonly string[];
   excludedReferences: readonly string[];
   at: Date;
+  upTo: Date;
 }
 
 export interface ResearchUserCountsSource {
@@ -38,17 +44,17 @@ const since = (at: Date): Date => new Date(at.getTime() - RESEARCH_CALL_RECORD_R
 /** For tests: accounts and calls as plain rows, counted as the Postgres query counts them. */
 export class InMemoryResearchUserCounts implements ResearchUserCountsSource {
   constructor(
-    private readonly accounts: ReadonlyArray<{ accountKey: string; status: "ACTIVE" | "REVOKED" }>,
+    private readonly accounts: ReadonlyArray<{ accountKey: string; status: "ACTIVE" | "REVOKED"; createdAt: Date }>,
     private readonly calls: ReadonlyArray<{ accountKey: string; receivedAt: Date; outcome: "answered" | "refused" | "failed" }>,
   ) {}
 
   async counts(query: ResearchUserCountsQuery): Promise<ResearchUserCounts> {
     const { keys, references } = exclusions(query);
-    const counted = this.accounts.filter((account) => account.status === "ACTIVE" &&
+    const counted = this.accounts.filter((account) => account.status === "ACTIVE" && account.createdAt <= query.upTo &&
       !keys.includes(account.accountKey) && !references.includes(account.accountKey.slice(0, 12)));
     const from = since(query.at);
     const used = counted.filter((account) => this.calls.some((call) => call.accountKey === account.accountKey &&
-      call.outcome === "answered" && call.receivedAt > from && call.receivedAt <= query.at));
+      call.outcome === "answered" && call.receivedAt > from && call.receivedAt <= query.upTo));
     return { accounts: counted.length, usedLast7Days: used.length };
   }
 }
@@ -80,9 +86,10 @@ export class PostgresResearchUserCounts implements ResearchUserCountsSource {
               ))::int AS used
          FROM ${this.accountsTable} AS account
         WHERE account.status = 'ACTIVE'
+          AND account.created_at <= $4
           AND NOT (account.account_key::text = ANY($1::text[])
                    OR left(account.account_key::text, 12) = ANY($2::text[]))`,
-      [keys, references, since(query.at), query.at],
+      [keys, references, since(query.at), query.upTo],
     );
     const row = result.rows[0];
     const accounts = Number(row?.accounts);
