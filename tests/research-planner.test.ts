@@ -26,6 +26,7 @@ import {
   RESEARCH_PLANNER_LIMITS,
   RESEARCH_PLANNER_OUTPUT_SCHEMA,
   RESEARCH_PLANNER_RUBRIC,
+  RESEARCH_PLANNER_RUBRIC_VERSION,
   createResearchPlanner,
   researchPlanOf,
   researchPlannerBundle,
@@ -2435,5 +2436,22 @@ describe("a test round's pause of the planning call (owner answer 395b)", () => 
     expect(await row(Date.parse("2026-11-21T14:45:00Z"), false)).toMatchObject({ on: false,
       forYou: "It runs only for the owner's dev accounts." });
     expect(asked).toHaveLength(2);
+  });
+});
+
+// The owner's Inbox reply of 21 Nov 2026, 13:25 UTC: "i turned off the menu because it was often asking for
+// clarifdication where none was needed, make sure it's not doing that or nobody will use it". What the call does with
+// the rule is measured on the API (the replay of 21 Nov: no question on 15 of 15 plans of his cases, against 9 of 15
+// before; a question on 8 of 9 invented cases that need one); this keeps the rule's text from drifting back.
+describe("the plan names a question only when the research needs the person's answer (21 Nov 2026)", () => {
+  it("asks for a fact only the person can give, or between two things one answer can't serve, and else goes on", () => {
+    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-21.1");
+    expect(RESEARCH_PLANNER_RUBRIC).toContain("Write none unless the research needs\nthe person's answer");
+    expect(RESEARCH_PLANNER_RUBRIC).toContain("- A fact only they can give, for a decision about one person or one thing:");
+    expect(RESEARCH_PLANNER_RUBRIC).toContain("- Two different things: their words can mean two or more different things");
+    expect(RESEARCH_PLANNER_RUBRIC).toContain("Never rely on the person correcting the first answer for their safety.");
+    expect(RESEARCH_PLANNER_RUBRIC).not.toContain("Try to name the question first");
+    expect(RESEARCH_PLANNER_RUBRIC).not.toContain("neither is a plan that could cover each of two different readings");
+    expect(RESEARCH_PLANNER_RUBRIC).not.toContain("that is still the question to ask");
   });
 });

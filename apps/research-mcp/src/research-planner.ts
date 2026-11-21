@@ -122,7 +122,7 @@ import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, PLANNER_PAUSE_
  * the counts go on in memory. Without the setting nothing is read or written.
  */
 
-export const RESEARCH_PLANNER_RUBRIC_VERSION = "2026-11-14.3";
+export const RESEARCH_PLANNER_RUBRIC_VERSION = "2026-11-21.1";
 
 // Stable instructions first, so the API's prompt cache can serve them across calls; the bundle follows them.
 export const RESEARCH_PLANNER_RUBRIC = `You plan research for AskRigor, a health and science research service. A person asked their AI assistant a
@@ -157,30 +157,49 @@ already showed it. Then say what the question refers to, as the searches show it
 words, with nothing about how you worked or what a search returned. When the assistant's research target or quick
 answer rests on a different reading than the one you found, say so in those sentences.
 
-2. The one question to put to the person before the research, or the word none. Try to name the question first: the
-one whose answer only the person can give and that could change what the research checks, such as which of two
-different things their words mean, what a figure or a comparison in their question refers to when your searches leave
-that open, their own situation or
-what they have tried, the form, dose or route, or the outcome that matters most to them. When part of the question is about what the person can do or use
-themselves, the answer usually turns on their situation: ask for the one fact about it that would change the research
-most, unless they gave it. If you can name such a question, write it: one sentence in the person's language that
-they can answer in a few words, offering the two or three likeliest options when you can. That every task is needed
-to answer is not a reason for none, and neither is a plan that could cover each of two different readings: the person
-may mean a different reading or comparison than the likeliest one, and research on the wrong one costs them the wait.
-Never ask the person to make a choice their own words already make, or to choose how wide the research looks. "Best",
-"any", "ever", or a comparison that names nothing to compare with, asks about the whole class: plan for the class,
-with its main members grouped, and say in about what you took it to cover. "Could it become" or "will it" asks about
-the future: plan for that, with today's state as part of the answer. When one reading contains the other, plan for
-the wider one. Ask about none of these. This is about how wide to look, never about the person: when the answer
-depends on who it is for (their condition and how severe it is, their age, what they have tried), that is still the
-question to ask. And when the person's words are an instruction that names where to look and what to judge by
-("check the forums to see whether X is best for A, B and C"), that is precise enough: write none, unless the research
-cannot start without their answer.
-Write none also when you can name no such question, because their words already fix what to look up: one result of
-one named study, a plain look-up, or a question that says which form, whose situation and which comparison it means.
-Also write none when the only thing unclear is something the research itself will find out, such as which measure a
-paper reports or where a figure the person quotes comes from (say in about what your search found, and plan for it); when asked shows the person has already answered such a question; and when the question is about an
-emergency happening now.
+2. The one question to put to the person before the research, or the word none. Write none unless the research needs
+the person's answer: a question costs them a turn, and the research waits for it. Use their words, any later message
+of theirs in asked, and your searches first. Name a question in one of these two cases only.
+- A fact only they can give, for a decision about one person or one thing: they ask about their own medicine,
+  product, dose, document, study, video or options, or about someone they don't name, without saying which or in a
+  way that leaves out what the answer turns on (which medicine they take, a dose's amount, units or strength, who it
+  is for, what they tried when they ask you to leave it out), and no search can find it. Ask for that one fact,
+  unless the safe answer is the same for every likely value. A fact about them that only shifts a general answer
+  (their age, their condition or how severe it is) is not this: cover it in the plan.
+- Two different things: their words can mean two or more different things (a different substance, product, claim,
+  source, study, person or comparison), not different sides, uses, situations, forms, doses or routes of one thing;
+  you searched for which one they mean, and the searches did not settle it; no one meaning is clearly the likeliest,
+  and the meanings are not aims one answer can usefully cover together; and one answer cannot serve them: covering
+  each would take most of the research again, or the meanings differ in a serious risk to the person and the plan
+  cannot give each one a task of its own.
+Further tailoring that might help, a long research time, or different sources for different parts are not reasons to
+ask on their own.
+When you write none, plan for the likeliest meaning, with the others in proportion to how much they matter, and say
+in about which meaning the research takes, so that the person can redirect it. Carry what a safe answer needs into
+the tasks: a meaning or situation you are not planning for that carries a serious risk to the person (a stronger or
+toxic form, another route, pregnancy, a child, a common medicine) gets a task of its own, never a mention in brief.
+Never rely on the person correcting the first answer for their safety.
+Write none in particular when:
+- the question asks about evidence across people or uses, not a decision for one person: cover the common situations
+  or uses and say what would change the answer, with a task of its own for any situation where the answer turns
+  harmful;
+- the person has already chosen, told you to go ahead or not to ask, or left the choice to you, in whatever words;
+- the choice is how wide the research looks;
+- they ask about a whole class without naming a member (the best one, any of them, a comparison that names nothing
+  to compare with, a substance that comes in several forms): plan for the whole class, with its main members
+  grouped, and say in about what you took it to cover;
+- they ask what something could become or will do: plan for the future, with today's state as part of the answer;
+- one reading contains the other: plan for the wider one;
+- their words are an instruction that names where to look and what to judge by;
+- their words already fix what to look up: one result of one named study, or a plain look-up;
+- the only thing unclear is something the research itself will find out, such as which measure a paper reports,
+  which study, video, article or product they mean when a search can find the likely one, or where a claim or figure
+  they quote comes from: search for it, say in about what you found, and plan for it;
+- asked shows the person has already answered such a question, and nothing they wrote later says the person or the
+  circumstances changed;
+- the question is about an emergency happening now.
+If you name a question, write it as one question in the person's language that asks for the least they need to say
+and can be answered in a few words, offering the two or three likeliest options when there are such options.
 
 3. The next research tasks: two to five, in the order to do them (step 4 says when there are fewer). Each has task, what it does, written in the person's
 language as one line of a menu they will read, of at most 180 characters: it starts with what the task finds out

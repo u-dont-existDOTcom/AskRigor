@@ -499,6 +499,18 @@ owner's ChatGPT runs had left that judgment to the person's AI, and it went wron
   (`fallbacks: "default"`); when the whole chain declines, the AI plans as before. The SDK's own logging and
   tracing are off for this client and the meaning judge's, whatever the environment says: at debug level the SDK
   logs requests and replies whole.
+- **When it asks (the owner's Inbox reply of 21 November 2026; rubric 2026-11-21.1; built, not yet released).** "i
+  turned off the menu because it was often asking for clarifdication where none was needed". The call names a
+  question only when the research needs the person's answer:
+  - a fact only they can give for a decision about one person or one thing (an unnamed medicine, a dose's units or
+    strength, who it is for, what they tried when they ask to leave it out), unless the safe answer is the same
+    either way;
+  - or two different things their words can mean, which its search couldn't settle, with no meaning clearly
+    likeliest and no one answer that can serve them.
+  Otherwise it writes none, says in `about` which reading it took, and gives any risky reading or situation (a
+  stronger form, another route, pregnancy, a child, a common medicine) a task of its own. A general question about
+  evidence gets no questions about the person: the plan covers the common situations. The balanced style's
+  10-minute menu is unchanged; it is the owner's to decide.
 - **A test round's pause (owner answer 395b, 21 November 2026; built, not yet released).** To compare a dev
   account's research with and without the call on the same day and build, a session pauses that account's own call
   with the runtime-only action `pause_research_planner` and `later_inputs.pauseMinutes` (so the published tool list
