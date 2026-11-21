@@ -710,7 +710,8 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     const replan = menu({ tasks: [...DECLINED, DECLINED_FORK], done: [1], steering_could_help: false });
     const again = planResearch(replan, DEFAULT_RESEARCH_STEERING);
     expect(again).toMatchObject({ next: "ask", recommended_minutes: [3, 9] });
-    expect(again.recommended.map(({ task }) => task)).toEqual([3, 4, 2]);
+    // Chosen by what each could change; listed in the menu's order, the order to do them in (21 Nov 2026).
+    expect(again.recommended.map(({ task }) => task)).toEqual([2, 3, 4]);
     const asked = planResearchText(again, new Set([1]), true, TARGET);
     // AskRigor#467: a re-plan comes back to the person, with no go-ahead line (the review of #473, finding 1).
     expect(asked).not.toContain(GO_AHEAD_BEFORE_ASK);
@@ -3621,7 +3622,7 @@ describe("the menu always recommends tasks the person asked for (21 Nov 2026)", 
       allocation: [{ task: 4, minutes: 0 }, { task: 5, minutes: 0 }] }), autonomous).recommended).toEqual([]);
   });
 
-  it("keeps a light look-up as it was: a mark adds nothing to it and never widens it", () => {
+  it("adds to a light look-up only what its go-ahead lets it do, and never widens it", () => {
     const tasks: ResearchMenuInput["tasks"] = [
       { task: "Read the named source", kind: "other", could_change: "detail", minutes: [1, 1], person_asked: true },
       { task: "Check the named figure", kind: "other", could_change: "conclusion", minutes: [1, 1] },
@@ -3630,25 +3631,29 @@ describe("the menu always recommends tasks the person asked for (21 Nov 2026)", 
     for (const overrides of [{ lane: "light" as const }, { person_go_ahead: "all", person_reason: "Do every task" }]) {
       const before = planResearch(menu({ tasks: unmarked, ...overrides }), autonomous);
       const after = planResearch(menu({ tasks, ...overrides }), autonomous);
-      expect(before.recommended).toEqual([{ task: 2, minutes: 1 }, { task: 1, minutes: 1 }]);
+      expect(before.recommended).toEqual([{ task: 1, minutes: 1 }, { task: 2, minutes: 1 }]);
       expect(after.recommended).toEqual(before.recommended);
     }
-    // A light menu whose requested second task does not fit its allowance: still the light look-up, with its source
-    // task alone, as without the mark (a request for more is the planning call's to put in lane research).
-    const beyond: ResearchMenuInput["tasks"] = [
+    // A requested second page past the allowance: added, and still the light look-up.
+    const page: ResearchMenuInput["tasks"] = [
       { task: "Open the named paper and quote the line", kind: "full_text", could_change: "conclusion", minutes: [2, 2] },
+      { task: "Open the registry record and quote its line", kind: "trial_registry", could_change: "confidence",
+        minutes: [12, 12], person_asked: true },
+    ];
+    const pageResult = planResearch(menu({ tasks: page, lane: "light" }), autonomous);
+    expect(pageResult.lane).toBe("light");
+    expect(pageResult.recommended).toEqual([{ task: 1, minutes: 2 }, { task: 2, minutes: 12 }]);
+    // A requested forum task past the allowance: not added to the light look-up, whose go-ahead forbids it; as
+    // research, the same menu adds it.
+    const beyond: ResearchMenuInput["tasks"] = [
+      { ...page[0]! },
       { task: "Read what people report", kind: "forum_thread", could_change: "confidence", minutes: [12, 12],
         person_asked: true },
     ];
-    const unmarkedBeyond = beyond.map(({ person_asked: _asked, ...task }) => task);
-    const asLight = planResearch(menu({ tasks: unmarkedBeyond, lane: "light" }), autonomous);
     const asked = planResearch(menu({ tasks: beyond, lane: "light" }), autonomous);
-    expect(asLight.lane).toBe("light");
-    expect(asLight.recommended).toEqual([{ task: 1, minutes: 2 }]);
     expect(asked.lane).toBe("light");
-    expect(asked.recommended).toEqual(asLight.recommended);
+    expect(asked.recommended).toEqual([{ task: 1, minutes: 2 }]);
     expect(planResearchText(asked, new Set())).toContain(LIGHT_LOOKUP);
-    // As research, the same menu adds the requested task.
     expect(planResearch(menu({ tasks: beyond }), autonomous).recommended)
       .toEqual([{ task: 1, minutes: 2 }, { task: 2, minutes: 12 }]);
   });

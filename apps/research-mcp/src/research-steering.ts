@@ -118,6 +118,11 @@ export function isLightLane(plan: { lane?: string | undefined; tasks: readonly {
   return plan.lane === "light" && plan.tasks.length >= 1 && plan.tasks.length <= 2 &&
     plan.tasks.every(({ kind }) => kind !== "method_audit");
 }
+/**
+ * The kinds of task a mark may add to a light look-up (planResearch): opening a paper (full_text), a registry record
+ * (trial_registry) or another page (other) and quoting the line, which is all its go-ahead (LIGHT_LOOKUP) allows.
+ */
+const LIGHT_ADDABLE_KINDS: ReadonlySet<string> = new Set(["full_text", "trial_registry", "other"]);
 export const COULD_CHANGE = ["conclusion", "confidence", "detail"] as const;
 export const RESEARCH_LOOPS = ["people_to_studies", "studies_to_people"] as const;
 export const PLAN_LIMITS = Object.freeze({ tasks: 12, task: 200, sources: 50, minutes: 240, provisional: 1_500,
@@ -1362,10 +1367,11 @@ export function steeringChoiceUnclearText(choice: string, example: CorrectedMenu
 }
 
 /**
- * The menu: each task with its time range; a recommendation, when the person gave none (every task the person asked
- * for first, whatever its time; then tasks that could change the conclusion, then how sure it is, each given its
- * range's middle, while the total stays within the check-back allowance, or the first such task alone when even it
- * is longer); and whether to ask the person before working.
+ * The menu: each task with its time range; a recommendation, when the person gave none (tasks that could change the
+ * conclusion first, then how sure it is, each given its range's middle, while the total stays within the check-back
+ * allowance, or the first such task alone when even it is longer; and, whatever their time, every task the person's
+ * own words asked for, person_asked; listed in the menu's order, the order to do them in); and whether to ask the
+ * person before working.
  * An allocation is the person's answer only with person_answered true (PERSON_ANSWER_DECLARED), and a steering_choice
  * the menu gives decides in place of its steering_could_help (STEERING_CHOICE).
  */
@@ -1440,17 +1446,18 @@ export function planResearch(
     // the menu's own judgments recommend stays recommended, so a task the person asked for never takes the place of
     // another, a task for a serious risk among them (Codex's review of 21 Nov 2026).
     const base = selected(light);
-    // A light look-up's one or two tasks are the whole look-up and are recommended anyway, and its go-ahead forbids
-    // anything beyond them: marks add nothing there (a request for more work makes the plan research, as the rubric's
-    // lanes say), so a mark never widens a light look-up (Codex's review of 21 Nov 2026).
-    const added = light ? [] : open
-      .filter(({ n, person_asked }) => person_asked === true && !base.some(({ task }) => task === n))
+    // In a light look-up only what its go-ahead (LIGHT_LOOKUP) lets it do, opening one source and quoting its line:
+    // a mark never adds people's reports, a search or an audit to it (a request for those makes the plan research, as
+    // the rubric's lanes say).
+    const added = open.filter(({ n, kind, person_asked }) => person_asked === true &&
+        !base.some(({ task }) => task === n) && (!light || LIGHT_ADDABLE_KINDS.has(kind)))
       .map((task) => ({ task: task.n, minutes: middle(task) }));
-    // With tasks added for the person, all are listed in the menu's order, which is the order to do them in: the
-    // go-ahead says to do the recommended tasks in order, and a task that carrying out the person's request needs first
-    // comes before the task that needs it (Codex's review of 21 Nov 2026). A menu with nothing added is recommended
-    // exactly as before, in the order of what each task could change.
-    recommended = added.length === 0 ? base : [...base, ...added].sort((left, right) => left.task - right.task);
+    // Which tasks are chosen goes by what each could change (above); the order they are done in is the menu's own,
+    // the order to do them in (the planner's rubric and RESEARCH_MENU_SHAPE): the go-ahead says to do the recommended
+    // tasks in order, and a task that uses an earlier one's result, or that the person's request needs first, comes
+    // after it (Codex's rechecks of 21 Nov 2026; until then the list followed what each task could change, which could
+    // put an audit before the reading it needs).
+    recommended = [...base, ...added].sort((left, right) => left.task - right.task);
   }
   // A light menu with nothing to do is not a light look-up: the person gave its task no time, so the menu says what
   // any menu with nothing recommended says, and never to open and quote the source.
