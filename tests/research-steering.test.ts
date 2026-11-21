@@ -424,6 +424,19 @@ describe("balanced research goes on as asked (owner answer 304a)", () => {
       expect(words).not.toContain(WENT_ON_AS_ASKED);
       expect(planNextStep(going)).toContain(wentOnLongSentence(going));
     }
+    // One instruction for the reading, before the research, not READING_FIRST's second one (Codex's review of 21 Nov).
+    const once = planResearch(plan, DEFAULT_RESEARCH_STEERING, undefined, { digest, changed: false });
+    expect(once).toMatchObject({ say_reading_first: true, went_on_long: true });
+    expect(planResearchText(once, new Set())).not.toContain(READING_FIRST);
+    expect(planNextStep(once)).not.toContain(READING_FIRST);
+    expect(wentOnLongSentence(once)).toContain("before your first research call, write one line to the person");
+    // A later menu waits for its length whatever mark it carries: here one with an allocation not yet the person's
+    // (Codex's review of 21 Nov: the mark let it go on).
+    const carried = planResearch({ ...plan, allocation: [{ task: 1, minutes: 9 }] }, DEFAULT_RESEARCH_STEERING,
+      undefined, { digest, changed: false, goOnAsked: true });
+    expect(carried).toMatchObject({ next: "ask", allocation_not_used: true });
+    expect(carried).not.toHaveProperty("went_on_as_asked");
+    expect(carried).not.toHaveProperty("went_on_long");
     // How long: the recommended tasks with the final check and the answer (ANSWER_MINUTES, 4 to 10).
     expect(wentOnLongSentence({ recommended_minutes: [3, 11] })).toContain("the research may take about 7 to 21 " +
       "minutes with the final check and the answer");
@@ -566,9 +579,9 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
       const question = lines.findIndex((line) => line.startsWith("How should I spend the time?"));
       expect(question).toBeGreaterThanOrEqual(0);
       expect(lines[question + 1]).toBe("To change how often I ask you, say \"guided\" (I ask at the start and before " +
-        "every long task), \"balanced\" (I ask only when your answer could change the research; otherwise I go on, " +
-        "saying how I read your question and how long it may take) or \"autonomous\" (I go on and report as I go). " +
-        `Yours is ${style} now.`);
+        "every long task), \"balanced\" (I ask when your answer could change the research or the plan changes on the " +
+        "way; otherwise I go on, saying how I read your question and how long it may take) or \"autonomous\" (I go on " +
+        `and report as I go). Yours is ${style} now.`);
       const going = planResearch(menu({ allocation: [{ task: 1, minutes: 5 }], person_answered: true }), steering);
       expect(going.next).toBe("go_on");
       expect(planResearchText(going, new Set()).split("\n")
@@ -607,8 +620,9 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
       "How should I spend the time? Reply with task numbers and minutes, such as \"1. 5 min, 2. 4 min\", in your own " +
         "words, or \"you decide\".",
       "To change how often I ask you, say \"guided\" (I ask at the start and before every long task), \"balanced\" " +
-        "(I ask only when your answer could change the research; otherwise I go on, saying how I read your question " +
-        "and how long it may take) or \"autonomous\" (I go on and report as I go). Yours is balanced now.",
+        "(I ask when your answer could change the research or the plan changes on the way; otherwise I go on, saying " +
+        "how I read your question and how long it may take) or \"autonomous\" (I go on and report as I go). Yours " +
+        "is balanced now.",
       "When the person replies: call manage_research_access action plan_research again with the same " +
         "plain_answer_receipt, tasks and menu_digest (researchMenu.menu_digest in this result), research_target word " +
         `for word ${JSON.stringify(TARGET)}, and their ` +
@@ -811,8 +825,8 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     expect(RESEARCH_MENU_SHAPE).toContain("even when the question is clearly worded; false only when the question " +
       "already fixes all of that, such as one result of one named study");
     expect(steeringSentence(DEFAULT_RESEARCH_STEERING)).toContain("shows the menu of next tasks when your choices could " +
-      "steer the research, as they usually can unless the question is precise; otherwise the research goes on, saying " +
-      "first how it read the question and how long it may take");
+      "steer the research, as they usually can unless the question is precise, and asks again when the plan changes " +
+      "on the way; otherwise the research goes on, saying first how it read the question and how long it may take");
   });
 
   it("mentions only doubtful adjustments by default, and all of them when the person chose that", () => {
@@ -1616,8 +1630,8 @@ describe("a short menu on a dev account names the question it would ask, or none
     next_step: string; you_decide_later_inputs: { researchMenu: Record<string, unknown> } };
   const LEFT_OUT = "later_inputs.researchMenu.steering_choice: left out; name the one question you would ask this " +
     "person, or write none";
-  const refusalText = (example: unknown) => "AskRigor planned nothing yet. These tasks are short, so whether to ask " +
-    "the person first rests on later_inputs.researchMenu.steering_choice, which this call left out " +
+  const refusalText = (example: unknown) => "AskRigor planned nothing yet. Whether this menu asks the person first " +
+    "rests on your steering judgment, later_inputs.researchMenu.steering_choice, which this call left out " +
     `(steering_could_help alone, true or false, does not replace it): ${STEERING_CHOICE}.\nCall ` +
     "manage_research_access with action plan_research again with these later_inputs, which are yours, after " +
     `replacing ${PLACEHOLDER} with that question or with the word none: ${JSON.stringify(example)}`;
@@ -1745,8 +1759,8 @@ describe("a short menu on a dev account names the question it would ask, or none
     const claude = await session("auth0|dev-claude", true, "/mcp/claude");
     const refused = await claude.plan(short({ steering_could_help: false }));
     expect(refused.isError).toBe(true);
-    expect((refused.structuredContent as Refused).error.message).toBe("plan_research planned nothing yet: this " +
-      "menu's tasks are short, so whether to ask the person first rests on " +
+    expect((refused.structuredContent as Refused).error.message).toBe("plan_research planned nothing yet: whether " +
+      "this menu asks the person first rests on your steering judgment, " +
       "later_inputs.researchMenu.steering_choice, which the call left out (steering_could_help alone, true or " +
       `false, does not replace it). Call it again with corrected_later_inputs, after replacing ${PLACEHOLDER} with ` +
       `that question or with the word none: ${STEERING_CHOICE}.`);
@@ -2311,7 +2325,7 @@ describe("an allocation needs the person's answer declared, on every account (ro
         // The call handed back is the AI's own, with the question's place marked and no place for person_answered.
         expect(refused.corrected_later_inputs).toEqual({ researchMenu: { ...researchMenu,
           steering_choice: MENU_PLACEHOLDERS.steering_choice } });
-        expect(text(result)).toMatch(/^AskRigor planned nothing yet\. These tasks are short/u);
+        expect(text(result)).toMatch(/^AskRigor planned nothing yet\. Whether this menu asks the person first/u);
         expect(text(result)).not.toContain("was not used");
       }
       // The question given, the allocation is still not the person's: a named question asks again with the stop

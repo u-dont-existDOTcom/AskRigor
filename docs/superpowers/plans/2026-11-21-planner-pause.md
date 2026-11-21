@@ -89,5 +89,6 @@ Opus, the live model and effort, through the planner's own request (kit and resu
 | Invented questions that need none, in English, Japanese, German and Spanish (13) | not run | a question in 0, and a task of its own for each risky situation (a baby's age, swallowing, a damaged eardrum, a unit mix-up) |
 
 Lanes were unchanged, and 3 of the 15 plans of his questions ran no web search, as 3 did before. Cost about USD 0.04
-a plan, as before. The balanced style's 10-minute menu is unchanged: on 13 of the 15 plans it asks on its own, which
-is the owner's to decide (the release question).
+a plan, as before. The balanced style's 10-minute menu asked on its own before 13 of the 15 plans (14 of the new
+ones); owner answer 399b (21 Nov 2026) dropped that stop for a balanced first menu, which now goes on and says first
+how it read the question and how long the research may take.

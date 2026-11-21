@@ -1896,8 +1896,8 @@ function steeringChoiceUnclearRefusal(plan: ResearchMenuInput): CallToolResult {
 
 function steeringChoiceRefusal(plan: ResearchMenuInput): CallToolResult {
   const example = correctedMenu(plan, true);
-  const message = "plan_research planned nothing yet: this menu's tasks are short, so whether to ask the person " +
-    "first rests on later_inputs.researchMenu.steering_choice, which the call left out (steering_could_help alone, " +
+  const message = "plan_research planned nothing yet: whether this menu asks the person first rests on your " +
+    "steering judgment, later_inputs.researchMenu.steering_choice, which the call left out (steering_could_help alone, " +
     "true or false, does not replace it). Call it again with corrected_later_inputs, after replacing " +
     `${MENU_PLACEHOLDERS.steering_choice} with that question or with the word none: ${STEERING_CHOICE}.`;
   return {

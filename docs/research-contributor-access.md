@@ -517,7 +517,8 @@ owner's ChatGPT runs had left that judgment to the person's AI, and it went wron
   Otherwise it writes none, says in `about` which reading it took, and gives any risky reading or situation (a
   stronger form, another route, pregnancy, a child, a common medicine) a task of its own. A general question about
   evidence gets no questions about the person: the plan covers the common situations. The balanced style's
-  10-minute menu is unchanged; it is the owner's to decide.
+  10-minute stop, which on its own asked before 14 of the 15 replayed plans, went for a first menu by owner answer
+  399b (the research style, above).
 - **A test round's pause (owner answer 395b, 21 November 2026; built, not yet released).** To compare a dev
   account's research with and without the call on the same day and build, a session pauses that account's own call
   with the runtime-only action `pause_research_planner` and `later_inputs.pauseMinutes` (so the published tool list
@@ -678,10 +679,14 @@ difference there; it is still made and checked.
   the registered research target is not asked about for its length alone: it goes on with the recommended tasks, the
   result says `went_on_as_asked`, and the go-ahead adds "AskRigor did not ask first, though these tasks could take
   more than about 10 minutes: its own plan read the person's latest message as telling you to go on." The
-  recommended tasks are those of any menu, within the account's check-back allowance.
+  recommended tasks are those of any menu, within the account's check-back allowance. Superseded by owner answer 399b
+  (21 November 2026): every balanced first menu goes on whatever its length (`went_on_long`), so the mark, which
+  comes only with a first menu, changes no decision, and `went_on_as_asked` is no longer given; the mark is still
+  made and checked.
 - **What still asks.** Guided research, as it asks before every long task; a plan that names a question; a menu
-  changed after the person saw it; a re-plan; and any menu without the mark, which is every menu the AI writes
-  itself and every menu of an account whose research AskRigor does not plan. A mark written by the AI, altered, or
+  changed after the person saw it; a re-plan; and, before owner answer 399b, any long menu without the mark, which is
+  every menu the AI writes itself and every menu of an account whose research AskRigor does not plan; since 399b a
+  balanced first menu goes on whatever its length, mark or no mark, and a later one past 10 minutes asks. A mark written by the AI, altered, or
   copied to another menu or another registration is not one, and is never an error: the menu is planned as if it
   carried none. A menu refused for another field goes back for correction with its mark.
 - **The plan cache.** Words that came as a list of more than one message are kept under a key that holds the newest

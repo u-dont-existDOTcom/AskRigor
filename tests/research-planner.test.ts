@@ -1187,7 +1187,8 @@ function memoryPlanner(answer: (source: ResearchPlannerSource, accountKey: strin
 
 // Owner answer 399b (21 Nov 2026): a balanced first menu goes on whatever its length, so the mark no longer makes
 // the difference there: with it, without it or with a mark that is not AskRigor's, the menu goes on (went_on_long);
-// guided research still asks. The mark itself is still made and checked as before.
+// guided research still asks. The mark itself is still made and checked as before; its signing and checking are tested
+// in tests/research-steering.test.ts (goOnMark). Here only the outcome is, which no longer depends on it.
 describe("the planning call's signed go-on menu (owner answer 304a)", () => {
   const latest = "Keep digging on the same question.";
   const asked = [SOURCE.asked!, latest];
