@@ -340,6 +340,12 @@ BEGIN
       forced := 'other_day';
     ELSIF stored.staged_at < commit_time - interval '24 hours' THEN
       forced := 'expired';
+    ELSIF (decision ->> 'passed')::boolean AND (given_reading IS NULL
+        OR given_reading ->> 'card' IS DISTINCT FROM stored.card_sha256
+        OR given_reading ->> 'draft' IS DISTINCT FROM stored.draft_sha256) THEN
+      -- A passing item's reading must name the card and the draft this row holds now: a card staged again with a newer
+      -- draft after the application read it is kept back, never kept with a reading of another draft.
+      forced := 'reading_not_bound';
     END IF;
     IF forced IS NULL AND (decision ->> 'passed')::boolean THEN
       IF decision ->> 'kind' = 'main' THEN

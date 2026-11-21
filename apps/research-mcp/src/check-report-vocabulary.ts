@@ -1403,6 +1403,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "doi",
   "doi_exact",
   "doi_not_a_source",
+  "doi_not_verified",
   "doi_resolution",
   "domestic_orderable",
   "dose",

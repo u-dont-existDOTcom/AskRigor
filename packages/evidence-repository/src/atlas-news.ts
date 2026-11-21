@@ -302,7 +302,10 @@ export class InMemoryAtlasNewsStore implements AtlasNewsStagingStore, AtlasNewsR
         ((stored.state === "shadow" || stored.state === "kept_back") && stored.committedDay === commit.day));
       const forced = !redecidable ? "not_staged"
         : utcDay(stored.stagedAt) !== commit.day ? "other_day"
-        : Date.parse(stored.stagedAt) < Date.parse(at) - ATLAS_NEWS_STAGED_LIFE_MS ? "expired" : undefined;
+        : Date.parse(stored.stagedAt) < Date.parse(at) - ATLAS_NEWS_STAGED_LIFE_MS ? "expired"
+        // A passing item's reading must name the card and the draft this row holds now.
+        : decision.passed && (decision.reading === null || decision.reading.card !== stored.cardSha256 ||
+          decision.reading.draft !== stored.draftSha256) ? "reading_not_bound" : undefined;
       const common = { kind: decision.kind, committedDay: commit.day, committedVersion: version,
         reading: decision.reading === null ? null : structuredClone(decision.reading), readingModel: decision.readingModel,
         retraction: decision.retraction, changedAt: commitTime };

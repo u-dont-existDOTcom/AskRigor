@@ -1794,9 +1794,11 @@ async function verifyAtlasNews(context: {
     const commit = (overrides: Partial<AtlasNewsDayCommit> = {}): AtlasNewsDayCommit => ({
       day: today, payloadSha256: hex("payload:one"), base, rerank: false, order: [carried.number, one.number],
       decisions: [
-        { number: one.number, kind: "main" as const, passed: true, reasons: [], reading: { model: "synthetic" },
+        { number: one.number, kind: "main" as const, passed: true, reasons: [],
+          reading: { model: "synthetic", card: hex("card:one"), draft: hex("draft:one") },
           readingModel: "synthetic", retraction: "no_retraction_record_found" as const },
-        { number: line.number, kind: "line" as const, passed: true, reasons: [], reading: null, readingModel: null,
+        { number: line.number, kind: "line" as const, passed: true, reasons: [],
+          reading: { model: "synthetic", card: hex("card:line"), draft: hex("draft:line") }, readingModel: "synthetic",
           retraction: null },
       ],
       moves: [{ number: one.number, reason: "first", kind: "place" }], lines: [{ kind: "checked", number: line.number }],

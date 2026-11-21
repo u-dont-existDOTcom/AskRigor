@@ -472,17 +472,20 @@ describe("the in-memory store keeps migration 0043's rules", () => {
     const commit = (order: string[], decisions: AtlasNewsDayCommit["decisions"], version = "a"): AtlasNewsDayCommit => ({
       day: DAY, payloadSha256: sha256(version), base: null, rerank: false, order, decisions, moves: [], lines: [], footer: null,
     });
-    const passing = (number: string) => ({ number, kind: "main" as const, passed: true, reasons: [], reading: null,
+    const passing = (number: string, value: Record<string, any> = CARD) => ({ number, kind: "main" as const, passed: true,
+      reasons: [], reading: { card: newsCardDigest(checked(value).card), draft: sha256(DRAFT.trim()) },
       readingModel: null, retraction: null });
     const result = await store.commitDay(commit([yesterday.number], [passing(yesterday.number)]), AT.toISOString(),
       new Date(AT.getTime() + 60_000).toISOString());
     expect(result).toMatchObject({ status: "committed", order: [], keptBack: [{ number: yesterday.number, reasons: ["other_day"] }] });
     const older = await stage(store, card((value) => { value.how_much = `${value.how_much}.`; }));
     const newer = await stage(store, card((value) => { value.how_much = `${value.how_much}!`; }));
-    await store.commitDay(commit([older.number], [passing(older.number)], "b"), AT.toISOString(),
-      new Date(AT.getTime() + 60_000).toISOString());
-    await store.commitDay(commit([newer.number], [passing(newer.number)], "c"), AT.toISOString(),
-      new Date(AT.getTime() + 60_000).toISOString());
+    await store.commitDay(commit([older.number], [passing(older.number,
+      card((value) => { value.how_much = `${value.how_much}.`; }))], "b"), AT.toISOString(),
+    new Date(AT.getTime() + 60_000).toISOString());
+    await store.commitDay(commit([newer.number], [passing(newer.number,
+      card((value) => { value.how_much = `${value.how_much}!`; }))], "c"), AT.toISOString(),
+    new Date(AT.getTime() + 60_000).toISOString());
     const [olderItem, newerItem] = await store.inspectNumbers([older.number, newer.number], AT.toISOString());
     expect(olderItem).toMatchObject({ state: "withdrawn", withdrawnReason: "replaced" });
     expect(newerItem?.state).toBe("shadow");
@@ -495,6 +498,21 @@ describe("the in-memory store keeps migration 0043's rules", () => {
     expect(again).toEqual({ ...first, alreadyStaged: true });
     const [item] = await store.inspectNumbers([first.number], AT.toISOString());
     expect(item!.draftSha256).toBe(sha256(`${DRAFT} A later revision.`));
+  });
+
+  it("keeps back an item whose card was staged again with a newer draft after its reading was made", async () => {
+    const store = new InMemoryAtlasNewsStore(databaseClock);
+    const good = await stage(store, CARD);
+    const racing: AtlasNewsReviewStore = { inspectDay: store.inspectDay.bind(store),
+      inspectBefore: store.inspectBefore.bind(store), inspectNumbers: store.inspectNumbers.bind(store),
+      withdraw: store.withdraw.bind(store),
+      commitDay: async (commit, at, deadline) => {
+        await stage(store, CARD, `${DAY}T06:45:00.000Z`, `${DRAFT} A revision made while the day call ran.`);
+        return await store.commitDay(commit, at, deadline);
+      } };
+    expect(await publishNewsDay(payload({ order: [good.number], places: [{ number: good.number, reason: "First." }],
+      readings: [reading(good.number, CARD)] }), deps(racing)))
+      .toMatchObject({ status: "committed", order: [], keptBack: [{ number: good.number, reasons: ["reading_not_bound"] }] });
   });
 
   it("stores each checked line with its card's final decision, even when the card is withdrawn mid-call", async () => {
