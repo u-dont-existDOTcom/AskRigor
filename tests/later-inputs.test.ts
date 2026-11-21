@@ -206,6 +206,8 @@ describe("later_inputs (owner answer 189a)", () => {
         : operation.name === "finalize_research" ? ["community_evidence", "treatment_choice", "open_leads", "another_pass_estimate", "findings_card", "source_lines", "study_map", "user_observations", "community_leads", "source_reading", "name_forms", "key_name", "search_coverage",
           // AskRigor#431: each listed video claim's status, a note only.
           "claim_coverage", "findings_save",
+          // Promise P69: the research steps a model's own safety rules limited, notes and limits only.
+          "safety_limits",
           // Owner answer 301a: the person's words, for AskRigor's own review of a dev account's draft.
           "asked",
           // Owner answer 310a: the app that sends the call makes the check's AI readings itself.

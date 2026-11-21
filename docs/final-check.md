@@ -597,6 +597,37 @@ checking them (`apps/research-mcp/src/absence-searches.ts`):
   gave way to the out-of-date top-level card, which was saved): its later form is read, and a card that doesn't parse is
   kept privately, with its note, as before. Other tools still refuse a call whose `later_inputs` has a problem.
 
+Promise P69 (the owner, chat, 21 November 2026: "explain to people in the answer when a guardrail is preventing you
+from considering something at your max intelligence"; built, off by default, not yet released) adds one later input,
+notes, limits and no blocking rule. With `ASKRIGOR_SAFETY_LIMITS=on`:
+
+- **The declaration.** `later_inputs.safety_limits` holds up to 20 entries, one for each research step a model's or
+  app's own safety rules refused, stopped with a model switch, narrowed or softened, as the AI observed it or as the
+  person reported it (such as an app's prompt to switch models): the step; the kind; what was left out, in neutral
+  words; whether it was not examined or examined but not reported; whether it was done again (no, by the same model,
+  by another) and whether that recovered it; what it could change (a detail, the confidence, the conclusion, no loss
+  identified, unknown) and, optionally, which conclusion; who reports it; and the answer's own sentence saying it. An
+  entry's own words may hold no link, web address or DOI (an exact test): it names a kind of content, never where to
+  find what a model declined to give.
+- **A limit that says who reports it.** Each entry becomes one limit that starts "As the AI reports," or "As the
+  person reports," then "a model's safety rules limited a research step", with the step and topic inside fixed words,
+  so the panel lists it whatever the answer wrote, without AskRigor vouching for the report; the panel also shows one
+  line above its fold saying how many steps were reported limited.
+- **Notes only, and no request for none.** The answer's sentence is looked up with the other declared quotes; one the
+  draft doesn't show is a note naming the entry's place, never its words. Nothing asks for a declaration when none
+  comes, and none is ever shown as "no limit": a model often cannot see its own guardrail (a classifier stops it from
+  outside, or an app switches models without telling the next one). Limit: whether a safety rule did it, and what it
+  cost, are the reporter's judgment, which the check doesn't make or confirm; neutral wording, too, is the AI's to
+  keep (no word list judges it).
+- **AskRigor's own calls.** When Anthropic's fallback model served the planning call or the draft review, the API's own
+  record of it (the last `fallback_message` entry in `usage.iterations`, never a comparison of model names) is logged
+  by its class, `fallback_answered`, or `fallback_refused` when the chain ended in a refusal, and kept with the call's
+  outcome in memory. It shows that a fallback ran, not how many models declined. This part is not behind the switch:
+  it only logs. Telling the person's AI that a plan or a review came from the fallback model is the next step.
+
+The record of every guardrail event the sessions and the runner see, and how answers will say it once the owner
+chooses HRP's wording, is on the owner's private pages (`askrigor/guardrails/`).
+
 AskRigor#431 (7 November 2026; released 9 November 2026) adds two notes, one later input and no blocking rule. A ChatGPT
 run fact-checked a video whose 22 claims `extract_youtube_video_claims` listed, answered a few of them, cited with
 markers no reader could follow and never called `finalize_research`:

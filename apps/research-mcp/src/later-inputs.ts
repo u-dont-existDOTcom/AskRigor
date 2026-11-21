@@ -21,6 +21,7 @@ import { glanceRowIdSchema, glanceRowInputSchema } from "./atlas/glance-review.j
 import { challengeMarkInputShape } from "./atlas/challenge-review.js";
 import { newsDateInputSchema, newsNumberInputSchema } from "./news/inputs.js";
 import { claimCoverageSchema } from "./claim-coverage.js";
+import { safetyLimitsSchema } from "./safety-limits.js";
 import { ASKED_LIMIT, PLANNER_PAUSE_MAX_MINUTES, framingSchema, researchMenuSchema, researchSteeringInputSchema }
   from "./research-steering.js";
 
@@ -167,6 +168,15 @@ const LATER_INPUT_SHAPES = Object.freeze({
     findings_save: findingsSaveMarkerSchema
       .describe("off: save no findings card from this call, whatever the account's setting, as a test run does. It " +
         "can only turn saving off; any value other than off leaves the account's setting to decide."),
+    // Promise P69 (the owner, 21 Nov 2026): each research step a model's or app's own safety rules limited
+    // (safety-limits.ts); read only while ASKRIGOR_SAFETY_LIMITS is on.
+    safety_limits: safetyLimitsSchema.optional()
+      .describe("Each research step a model's or app's own safety rules refused, stopped with a model switch, " +
+        "narrowed or softened, as you observed it or as the person reported it (such as an app's prompt to switch " +
+        "models): what was left out in neutral words, whether it was examined, whether it was done again and recovered, " +
+        "what it could change, and the answer's own sentence saying it. No withheld details, links or ways to find them. " +
+        "AskRigor lists each as a limit, saying who reports it, and looks the sentence up in answer_draft; what it finds " +
+        "are notes. Declare only what you observed or were told; never infer a limit, or its absence."),
     // Owner answer 301a (13 Nov 2026): the person's words, for AskRigor's own review of the draft on a dev account. Read
     // from the raw call (finalCheckAsked), so any value parses here and none is ever a problem or a step; used in memory
     // for that call only, and never signed, stored or logged.

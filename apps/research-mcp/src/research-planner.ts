@@ -412,6 +412,12 @@ export interface ResearchPlannerCall {
   model?: string;
   /** A refusal's category as the API names it (bio, cyber, ...), when it gave one: a class, never content. */
   refusalCategory?: string;
+  /**
+   * Promise P69: the model Anthropic's fallback served the reply with, when the reply's own record shows one
+   * (fallbackModelOf). Logged as fallback_answered, or fallback_refused when the chain ended in a refusal; never with
+   * content.
+   */
+  fallbackModel?: string;
   usage?: { input: number; output: number; cacheWrite: number; cacheRead: number; searches: number };
 }
 
@@ -515,6 +521,20 @@ export function replyCost(message: Anthropic.Beta.BetaMessage): { costUsd: numbe
       cacheWrite: count(entry.cache_creation_input_tokens), cacheRead: count(entry.cache_read_input_tokens),
     }), 0);
   return { costUsd: tokenUsd + searches * SEARCH_USD, tokens, searches };
+}
+
+/**
+ * Promise P69: the model that served a reply through Anthropic's fallback, the last fallback_message entry in
+ * usage.iterations: the API's own signal that a fallback model served the response (the SDK's account of the fallback
+ * block). Only that counts: comparing model names would misfire, since a reply can name a dated version of the model
+ * asked for. It shows that a fallback ran, not how many models declined (an earlier declined hop can be an ordinary
+ * message entry) nor the final outcome, which stop_reason gives (Codex's red team of 21 Nov 2026).
+ */
+export function fallbackModelOf(message: Anthropic.Beta.BetaMessage): string | undefined {
+  const entry = (message.usage?.iterations ?? []).findLast((item) => item.type === "fallback_message");
+  if (entry === undefined) return undefined;
+  const model: unknown = entry.model;
+  return typeof model === "string" && /^[A-Za-z0-9._:-]{1,80}$/u.test(model) ? model : "unnamed";
 }
 
 /** A refusal's category as the API names it (bio, cyber, ...), when it is a class; never its explanation. */
@@ -871,7 +891,12 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
       // model's); otherwise the whole reply at the answering model's.
       const { costUsd, tokens, searches } = replyCost(message);
       settle(costUsd);
-      const measured = { costUsd, milliseconds: now() - started, model: message.model, usage: { ...tokens, searches } };
+      // Promise P69: a reply Anthropic's fallback model served is logged by its event alone; a chain whose last model
+      // refused too is the refusal read below, logged as a fallback that refused.
+      const fallbackModel = fallbackModelOf(message);
+      if (fallbackModel !== undefined) log(message.stop_reason === "refusal" ? "fallback_refused" : "fallback_answered");
+      const measured = { costUsd, milliseconds: now() - started, model: message.model, usage: { ...tokens, searches },
+        ...(fallbackModel === undefined ? {} : { fallbackModel }) };
       // A refusal is read before the content, which it may leave incomplete. Its category is logged with it, a class
       // of the API's own naming, so the trial can count which questions the model's classifiers decline.
       if (message.stop_reason === "refusal") {
