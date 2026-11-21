@@ -4,6 +4,7 @@ import {
   researchUseNoticeCovered,
   stableJson,
   type ResearchDossierIdentifierScheme,
+  type ResearchDossierPublisher,
   type ResearchDossierStore,
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
@@ -19,6 +20,10 @@ import {
   DOSSIER_PRIVACY_REFUSALS, type DossierPrivacyReader, type DossierPrivacyReading, type DossierText,
 } from "./dossier-privacy-reading.js";
 import { findingsQuestionKey, findingsThreadKey } from "./service.js";
+import {
+  dossierPublicationNote, dossierPublicationSentence, publishResearchDossier,
+} from "./dossier-publication.js";
+import type { DossierConflictReader } from "./dossier-conflict-reading.js";
 
 /**
  * AskRigor#477, stage 1 (owner answer 329a, 16 November 2026): a research run's dossier, saved privately for the
@@ -46,7 +51,7 @@ export const RESEARCH_DOSSIER_LIMITS = Object.freeze({
   question: 300, topicName: 200, otherNames: 10, otherName: 80, forms: 12, form: 80, searches: 40, query: 300,
   studies: 40, identifiers: 4, identifier: 300, studyField: 120, design: 200, reason: 200, results: 60, outcome: 200,
   unit: 40, findings: 30, claim: 500, appliesTo: 300, change: 300, restsOn: 20, trails: 10, trail: 200,
-  quickAnswer: 400, valueReason: 400, adds: 8, threads: 20,
+  quickAnswer: 400, valueReason: 400, adds: 8, threads: 20, related: 10,
 });
 
 export const DOSSIER_STUDY_KINDS = ["human_trial", "human_observational", "case_report", "animal", "lab", "review"] as const;
@@ -72,6 +77,9 @@ const valueSchema = z.object({
   quick_answer: text(L.quickAnswer).optional(),
   adds: z.array(localId).max(L.adds).default([]),
   reason: text(L.valueReason).optional(),
+  // AskRigor#477 stage 2 (owner answer 332a): how sure the researching AI is that the dossier is right and complete;
+  // anything but high sends a public copy for AskRigor's check instead of the pages.
+  confidence: z.enum(["high", "moderate", "low"]).optional(),
 }).strict();
 
 const searchSchema = z.object({
@@ -91,6 +99,8 @@ const studySchema = z.object({
   population: text(L.studyField).optional(),
   comparator: text(L.studyField).optional(),
   design: text(L.design).optional(),
+  // Stage 2: the people studied, so every comparison a page shows carries its size (the owner's standing rule).
+  participants: count.min(1).optional(),
   decision: z.enum(["used", "set_aside"]),
   decision_reason: text(L.reason).optional(),
 }).strict();
@@ -126,6 +136,8 @@ const resultSchema = z.object({
     operation: z.enum(["difference", "ratio", "percent_change"]),
     from: z.tuple([finite, finite]),
   }).strict().optional(),
+  // Stage 2: the people in each group compared; a counts figure gives them already.
+  group_sizes: z.object({ option: count.min(1), comparator: count.min(1).optional() }).strict().optional(),
 }).strict();
 
 const findingSchema = z.object({
@@ -145,6 +157,9 @@ const findingSchema = z.object({
   // says which card finding it is, by its place on the card (1 for the first), or none; one that is a held finding
   // refuses the dossier. An explicit declaration bound to the receipt's signed places, never a comparison of words.
   card_finding: z.union([z.number().int().min(1).max(5), z.literal("none")]).optional(),
+  // Stage 2 (Codex's review of stage 2, finding 7): the people it applies to as a short key, the same key wherever the
+  // same people are meant, so the ranking's rule 3 compares the declared people as well as the declared form.
+  population_key: z.string().trim().regex(/^[a-z0-9][a-z0-9._-]{0,79}$/u).optional(),
 }).strict();
 
 const coverageEntrySchema = z.object({
@@ -161,15 +176,24 @@ const communitySchema = z.object({
   report_quality: z.object({ detailed: count, measured: count, bare: count }).strict(),
 }).strict();
 
+const topicSchema = z.object({
+  key: z.string().trim().regex(/^[a-z0-9][a-z0-9._-]{0,199}$/u),
+  name: text(L.topicName),
+  other_names: z.array(text(L.otherName)).max(L.otherNames).default([]),
+  // Stage 2: the keys of related topics, which the topic page links (one navigable collection, AskRigor#477).
+  related: z.array(z.string().trim().regex(/^[a-z0-9][a-z0-9._-]{0,199}$/u)).max(L.related).optional(),
+}).strict();
+
+/**
+ * The dossier with stage 2's declarations (AskRigor#477 stage 2), taken only while public dossiers are on
+ * (ASKRIGOR_PUBLIC_DOSSIERS=enabled); otherwise RELEASED_RESEARCH_DOSSIER_INPUT_SCHEMA, stage 1 as released under
+ * notice 6, takes the dossier (Codex's review of stage 2, finding 6).
+ */
 export const researchDossierInputSchema = z.object({
   scope: z.enum(["public", "personal_only"]),
   value: valueSchema,
   question: text(L.question),
-  topic: z.object({
-    key: z.string().trim().regex(/^[a-z0-9][a-z0-9._-]{0,199}$/u),
-    name: text(L.topicName),
-    other_names: z.array(text(L.otherName)).max(L.otherNames).default([]),
-  }).strict(),
+  topic: topicSchema,
   forms: z.array(text(L.form)).max(L.forms).default([]),
   searches: z.array(searchSchema).max(L.searches).default([]),
   studies: z.array(studySchema).min(1).max(L.studies),
@@ -179,9 +203,26 @@ export const researchDossierInputSchema = z.object({
     Record<typeof DOSSIER_COVERAGE_AREAS[number], typeof coverageEntrySchema>).strict(),
   community: communitySchema.optional(),
   open_trails: z.array(text(L.trail)).max(L.trails).default([]),
+  // Stage 2: whether any text makes a claim about a named living person; such a dossier waits for the owner, and one
+  // that does not say waits for AskRigor's check (the owner's standing rule: those claims are out of scope).
+  names_living_people: z.boolean().optional(),
+  // Stage 2 (owner answer 332a: "we should mark what came from plugin vs runner"): runner, sent only by AskRigor's own
+  // research runner. The server records the connector surface itself.
+  run: z.literal("runner").optional(),
 }).strict();
 
 export type ResearchDossierInput = z.output<typeof researchDossierInputSchema>;
+
+/** Stage 1's dossier as released under notice 6: none of stage 2's declarations, each refused by name if sent. */
+export const RELEASED_RESEARCH_DOSSIER_INPUT_SCHEMA = researchDossierInputSchema
+  .omit({ names_living_people: true, run: true })
+  .extend({
+    value: valueSchema.omit({ confidence: true }),
+    topic: topicSchema.omit({ related: true }),
+    studies: z.array(studySchema.omit({ participants: true })).min(1).max(L.studies),
+    results: z.array(resultSchema.omit({ group_sizes: true })).max(L.results).default([]),
+    findings: z.array(findingSchema.omit({ population_key: true })).min(1).max(L.findings),
+  });
 
 /**
  * What the AI is told the dossier holds, in the result that asks for one. The first real dossier (16 Nov 2026) failed
@@ -221,6 +262,23 @@ export const RESEARCH_DOSSIER_SHAPE = "later_inputs.research_dossier: {scope: pu
   "the dossier. " +
   "Everything in general terms: never the person, the chat, the answer, quotes from papers or YouTube comments.";
 
+/**
+ * Stage 2's declarations (AskRigor#477 stage 2), asked for only while public dossiers are on; with them off the shape
+ * is stage 1's as released (Codex's review of stage 2, finding 6).
+ */
+export const RESEARCH_DOSSIER_PUBLIC_DECLARATIONS = "Also give, wherever they apply: value.confidence (high, moderate " +
+  "or low: how sure you are that the dossier is right and complete, judged truthfully); names_living_people (true " +
+  "when any text makes a claim about a named living person, else false); topic.related (keys of up to 10 related " +
+  "topics); each study's participants (the people studied); each comparing result's group_sizes ({option, " +
+  "comparator}, the people in each group; a counts figure gives them already); each finding's population_key (a " +
+  "short lower-case key for the people it applies to, such as adults-metabolic-syndrome, the same key wherever the " +
+  "same people are meant); run: runner only from AskRigor's own research runner.";
+
+/** The shape the AI is given: stage 1's, and stage 2's declarations after it while public dossiers are on. */
+export function researchDossierShape(publicDossiers: boolean): string {
+  return publicDossiers ? `${RESEARCH_DOSSIER_SHAPE} ${RESEARCH_DOSSIER_PUBLIC_DECLARATIONS}` : RESEARCH_DOSSIER_SHAPE;
+}
+
 export interface DossierProblem {
   path: string;
   rule: string;
@@ -259,6 +317,7 @@ const DOSSIER_CHECK_PROBLEMS = {
   calculation_mismatch: "the calculation's operation on its two numbers does not give the figure's value, at the " +
     "figure's own rounding",
   calculation_unexpected: "only a figure whose provenance is calculated has a calculation",
+  group_sizes_mismatch: "a counts figure's totals are its group sizes: group_sizes, when given too, gives the same",
   counts_exceed_total: "a group's events cannot outnumber its people",
   nnt_and_nnh: "a figure gives nnt or nnh, not both",
   no_difference_no_nnt: "with the same event rate in both groups there is no number needed to treat or harm",
@@ -542,6 +601,11 @@ export function checkResearchDossier(
         }
       }
     } else if (result.calculation !== undefined) problem(`${at}.calculation`, "calculation_unexpected");
+    if (figure?.kind === "counts" && result.group_sizes !== undefined &&
+      (result.group_sizes.option !== figure.option_total || (result.group_sizes.comparator !== undefined &&
+        result.group_sizes.comparator !== figure.comparator_total))) {
+      problem(`${at}.group_sizes`, "group_sizes_mismatch");
+    }
     if (figure?.kind === "counts") {
       if (figure.option_events > figure.option_total) problem(`${at}.figure.option_events`, "counts_exceed_total");
       if (figure.comparator_events > figure.comparator_total) problem(`${at}.figure.comparator_events`, "counts_exceed_total");
@@ -664,9 +728,10 @@ export function checkResearchDossier(
 // Every string a dossier holds is screened but its fixed values; a key or an id is read as words.
 const NOT_TEXT_KEYS: ReadonlySet<string> = new Set([
   "identifiers", "threads", "scope", "saves_work", "database", "kind", "decision", "direction", "certainty",
-  "provenance", "operation", "status", "importance", "start", "end",
+  "provenance", "operation", "status", "importance", "start", "end", "confidence", "run",
 ]);
-const SLUG_KEYS: ReadonlySet<string> = new Set(["id", "study", "rests_on", "adds", "search", "key"]);
+const SLUG_KEYS: ReadonlySet<string> = new Set(["id", "study", "rests_on", "adds", "search", "key", "related",
+  "population_key"]);
 
 function dossierTexts(value: unknown, path = "", slug = false, idsToo = true): Array<[string, string]> {
   if (typeof value === "string") return [[path, slug ? value.replace(/[-_.]+/gu, " ") : value]];
@@ -680,6 +745,17 @@ function dossierTexts(value: unknown, path = "", slug = false, idsToo = true): A
 /** The dossier's text fields as the privacy reading reads them: the screen's, its ids and references left out. */
 export function dossierReadingTexts(input: ResearchDossierInput): DossierText[] {
   return dossierTexts(input, "", false, false).map(([path, text]) => ({ path, text }));
+}
+
+/**
+ * A public copy's text fields as a privacy reading made later reads them (Codex's re-review of stage 2): what its
+ * pages show in words, without its ids, references, fixed codes or the server's own stamp.
+ */
+export function publicDossierReadingTexts(payload: Record<string, unknown>): DossierText[] {
+  const { schema: _schema, checked: _checked, ...shown } = payload;
+  return dossierTexts(shown, "", false, false)
+    .filter(([path]) => !/(?:^|\.)(?:read|judged_by|scheme)$/u.test(path))
+    .map(([path, text]) => ({ path, text }));
 }
 
 /** The dossier as stored: the checked input, what the server read of each study and search, and its stamp. */
@@ -715,6 +791,8 @@ export function storedResearchDossier(checked: CheckedDossier, stamp: Record<str
       },
     }),
     open_trails: input.open_trails,
+    // Stage 2: the AI's declaration on named living people decides only whether a public copy waits for the owner.
+    ...(input.names_living_people === undefined ? {} : { names_living_people: input.names_living_people }),
     value: { ...input.value, judged_by: "researching_ai" },
     stamp,
   };
@@ -804,6 +882,15 @@ export interface ResearchDossierSaveRequest {
   privacyReading?: DossierPrivacyReader;
   secret: string | undefined;
   versions: { askrigor: string; build: string; hrp?: string; universal?: string };
+  /** The connector surface the call came through (/mcp, /mcp/claude, /mcp/gemini): where the research ran (332a). */
+  surface?: string;
+  /**
+   * AskRigor#477 stage 2, behind ASKRIGOR_PUBLIC_DOSSIERS=enabled (off by default): a saved dossier's public copy,
+   * shown or held for AskRigor's check, for an account whose notice covers public dossiers (dossier-publication.ts).
+   */
+  publication?: { publisher: ResearchDossierPublisher; noticeCovering?: readonly string[];
+    /** AskRigor's paid conflict reading, on the planner's path while it is on (dossier-conflict-reading.ts). */
+    conflictReader?: DossierConflictReader };
   now?: () => Date;
   newVersionId?: () => string;
 }
@@ -837,11 +924,16 @@ export const RESEARCH_DOSSIER_GUARDS = "Include all approved parts supplied by t
   "rewrite it to get past the screen.";
 
 /** The reminder at a check that is not ready, and after a passing one without a dossier (the same red team, item 2). */
-export const RESEARCH_DOSSIER_REMINDER = "At the next final check already needed for this research, include " +
-  "later_inputs.research_dossier only if the completed research saves a later reader substantial work beyond a good " +
-  "ordinary one-turn answer and saving remains allowed. A card need not qualify. A missing or rejected dossier does not " +
-  `change the check's result. Do not make another check solely to add or repair it. ${RESEARCH_DOSSIER_SHAPE} ` +
-  RESEARCH_DOSSIER_GUARDS;
+export const RESEARCH_DOSSIER_REMINDER = researchDossierReminder(false);
+
+/** The reminder with the shape the setting gives (researchDossierShape). */
+export function researchDossierReminder(publicDossiers: boolean): string {
+  return "At the next final check already needed for this research, include later_inputs.research_dossier only if " +
+    "the completed research saves a later reader substantial work beyond a good ordinary one-turn answer and saving " +
+    "remains allowed. A card need not qualify. A missing or rejected dossier does not change the check's result. Do " +
+    `not make another check solely to add or repair it. ${researchDossierShape(publicDossiers)} ` +
+    RESEARCH_DOSSIER_GUARDS;
+}
 
 
 const PROBLEMS_SHOWN = 50;
@@ -863,9 +955,13 @@ export async function saveResearchDossier(
   const account = request.account;
   const allowed = researchDossierAllowed(true, account, request.callSavingOff);
   const researched = !request.shortLookup && request.validatedSources > 0;
+  // Stage 2's declarations, its guidance and its connector record only while public dossiers are on (a publisher is
+  // given); otherwise stage 1 exactly as released under notice 6 (Codex's review of stage 2, finding 6).
+  const publicDossiers = request.publication !== undefined;
+  const reminderText = researchDossierReminder(publicDossiers);
   if (request.finalizationReceipt === undefined) {
     // Not ready: a dossier waits for the check that passes, and the run is reminded of one, whether or not one came.
-    const reminder = allowed && researched ? { note: `Research dossier: ${RESEARCH_DOSSIER_REMINDER}` } : undefined;
+    const reminder = allowed && researched ? { note: `Research dossier: ${reminderText}` } : undefined;
     return given ? { disposition: { status: "insufficient", reason: "final_check_not_passed" }, ...reminder } : reminder;
   }
   if (request.secret === undefined) return quiet({ status: "unavailable", reason: "receipts_unavailable" });
@@ -884,7 +980,7 @@ export async function saveResearchDossier(
       ? {
           disposition: { status: "not_sent" },
           note: "Research dossier: No research dossier was sent, so none was saved. This does not establish whether " +
-            `the research would save a later reader substantial work. ${RESEARCH_DOSSIER_REMINDER}`,
+            `the research would save a later reader substantial work. ${reminderText}`,
         }
       : undefined;
   }
@@ -904,12 +1000,14 @@ export async function saveResearchDossier(
               "another check solely to repair it."),
     };
   };
-  const declared = z.object({ scope: z.enum(["public", "personal_only"]), value: valueSchema }).safeParse(request.dossier.value);
+  const declared = z.object({ scope: z.enum(["public", "personal_only"]),
+    value: publicDossiers ? valueSchema : valueSchema.omit({ confidence: true }) }).safeParse(request.dossier.value);
   if (declared.success && declared.data.scope === "personal_only") return { disposition: { status: "private", reason: "personal_only" } };
   if (declared.success && declared.data.value.saves_work !== "substantial") {
     return insufficient([{ path: "value.saves_work", rule: "value_not_substantial" }], "value_not_substantial");
   }
-  const parsed = researchDossierInputSchema.safeParse(request.dossier.value);
+  const parsed = (publicDossiers ? researchDossierInputSchema : RELEASED_RESEARCH_DOSSIER_INPUT_SCHEMA)
+    .safeParse(request.dossier.value);
   if (!parsed.success) {
     return insufficient(parsed.error.issues.map((issue) => ({
       path: issue.path.map((part, index) => typeof part === "number" ? `[${part}]` : `${index === 0 ? "" : "."}${String(part)}`)
@@ -936,29 +1034,10 @@ export async function saveResearchDossier(
   });
   if (checked === undefined) return insufficient(problems, "checks_failed", final);
 
-  const cardNumber = request.cardId === undefined ? null : Number(/^ARF-0*([1-9][0-9]*)$/u.exec(request.cardId)?.[1]);
-  const savedAt = now();
-  const payload = storedResearchDossier(checked, {
-    saved_at: savedAt.toISOString(),
-    askrigor_version: request.versions.askrigor,
-    askrigor_build: request.versions.build,
-    ...(request.versions.hrp === undefined ? {} : { hrp: request.versions.hrp }),
-    ...(request.versions.universal === undefined ? {} : { universal: request.versions.universal }),
-    finalized_at: receipt.issued_at,
-    receipts_checked: receipts.length,
-    checks: ["receipts", "papers", "searches", "arithmetic", "references", "coverage", "forms", "forum_reads",
-      "youtube_comments", "privacy_screen"],
-    not_checked: ["papers_support_claims", "figures_match_papers", "value_judgement"],
-    ...(cardNumber === null || !Number.isSafeInteger(cardNumber) ? {} : { card_number: cardNumber }),
-    ...(receipt.claims.ar === "caller" ? { ai_readings: "caller" } : {}),
-  });
-  const payloadSha256 = researchDossierDigest(payload);
-  const inputSha256 = researchDossierDigest(checked.input);
-  const dossierKey = researchDossierKey(request.secret, account.accountKey, target, checked.input.question);
-  const identifiers = [...new Map([...checked.studies.values()].flatMap(({ identifiers: own }) => own)
-    .map((identifier) => [identifierKey(identifier), identifier])).values()];
   // With the privacy reading on, nothing is saved unread: a refusal is final for the research, as the screen's is, and a
-  // reading that could not be made keeps the dossier unsaved with its reason (Codex's final check).
+  // reading that could not be made keeps the dossier unsaved with its reason (Codex's final check). It reads the checked
+  // input, which the payload below is made from, so its pass can be kept in the saved record.
+  let privacyPassed = false;
   if (request.privacyReading !== undefined) {
     let reading: DossierPrivacyReading;
     try {
@@ -984,8 +1063,36 @@ export async function saveResearchDossier(
           "make another check solely for it.",
       };
     }
+    privacyPassed = reading.status === "pass";
   }
 
+  const cardNumber = request.cardId === undefined ? null : Number(/^ARF-0*([1-9][0-9]*)$/u.exec(request.cardId)?.[1]);
+  const savedAt = now();
+  const payload = storedResearchDossier(checked, {
+    saved_at: savedAt.toISOString(),
+    askrigor_version: request.versions.askrigor,
+    askrigor_build: request.versions.build,
+    ...(request.versions.hrp === undefined ? {} : { hrp: request.versions.hrp }),
+    ...(request.versions.universal === undefined ? {} : { universal: request.versions.universal }),
+    finalized_at: receipt.issued_at,
+    receipts_checked: receipts.length,
+    checks: ["receipts", "papers", "searches", "arithmetic", "references", "coverage", "forms", "forum_reads",
+      "youtube_comments", "privacy_screen"],
+    not_checked: ["papers_support_claims", "figures_match_papers", "value_judgement"],
+    ...(cardNumber === null || !Number.isSafeInteger(cardNumber) ? {} : { card_number: cardNumber }),
+    ...(receipt.claims.ar === "caller" ? { ai_readings: "caller" } : {}),
+    // Owner answer 332a: where the research ran, the plugin, ChatGPT or the runner; private, never on a page. Recorded
+    // only while public dossiers are on, for their review.
+    ...(publicDossiers ? { origin: researchOrigin(request.surface, checked.input.run, receipt.claims.ar === "caller") } : {}),
+    // Stage 2: the semantic privacy reading passed exactly this content, kept in the saved record itself, so a public
+    // copy reads the pass from what was saved and nothing else (Codex's review of stage 2, finding 1).
+    ...(publicDossiers && privacyPassed ? { privacy_reading: "pass" } : {}),
+  });
+  const payloadSha256 = researchDossierDigest(payload);
+  const inputSha256 = researchDossierDigest(checked.input);
+  const dossierKey = researchDossierKey(request.secret, account.accountKey, target, checked.input.question);
+  const identifiers = [...new Map([...checked.studies.values()].flatMap(({ identifiers: own }) => own)
+    .map((identifier) => [identifierKey(identifier), identifier])).values()];
   // Nothing is written before the append: a store that fails here leaves nothing behind. From the append on, a failure
   // may come after the write landed, so the save is unconfirmed, never unavailable (Codex's review, finding 10).
   let latest: Awaited<ReturnType<ResearchDossierStore["latestVersion"]>>;
@@ -1032,6 +1139,19 @@ export async function saveResearchDossier(
     read.versionNumber !== appended.versionNumber) {
     return unconfirmed("readback_mismatch");
   }
+  // Stage 2: the saved version's public copy, from exactly what was read back, shown or held, or why not.
+  const publication = request.publication === undefined ? undefined : await publishResearchDossier({
+    publisher: request.publication.publisher,
+    accountKey: account.accountKey,
+    noticeVersion: account.noticeVersion,
+    ...(request.publication.noticeCovering === undefined ? {} : { noticeCovering: request.publication.noticeCovering }),
+    ...(request.publication.conflictReader === undefined ? {} : { conflictReader: request.publication.conflictReader }),
+    versionId: appended.versionId,
+    dossierNumber: appended.dossierNumber,
+    stored: read.payload,
+    at: savedAt,
+  });
+  const publicationNote = publication === undefined ? undefined : dossierPublicationNote(publication);
   return {
     disposition: {
       status: appended.outcome === "inserted" ? "saved" : "duplicate",
@@ -1040,7 +1160,22 @@ export async function saveResearchDossier(
       visibility: "private_review",
       digest: appended.payloadSha256.slice(0, 16),
       ...(appended.writtenAlongside ? { written_alongside: true } : {}),
+      ...(publication === undefined ? {} : { publication }),
     },
+    ...(publicationNote === undefined ? {} : { note: publicationNote }),
+  };
+}
+
+/**
+ * Where the research ran (owner answer 332a: "we should mark what came from plugin vs runner"): the connector surface
+ * the server saw, whether the caller made the final check's AI readings, and the runner's own declaration.
+ */
+export function researchOrigin(surface: string | undefined, run: "runner" | undefined, callerReadings: boolean):
+  { surface: string; run: "runner" | "chat"; readings: "askrigor" | "caller" } {
+  return {
+    surface: surface === "/mcp" || surface === "/mcp/claude" || surface === "/mcp/gemini" ? surface : "unknown",
+    run: run ?? "chat",
+    readings: callerReadings ? "caller" : "askrigor",
   };
 }
 
@@ -1050,12 +1185,16 @@ export async function saveResearchDossier(
  */
 export function researchDossierLine(disposition: ResearchDossierDisposition): string {
   switch (disposition.status) {
-    case "saved":
+    case "saved": {
+      const published = dossierPublicationSentence(disposition.publication);
       return `Research dossier ${disposition.dossier_id} was saved privately for AskRigor's owner to review ` +
-        `(version ${disposition.version}); it is not public.`;
-    case "duplicate":
+        `(version ${disposition.version})${published === undefined ? "; it is not public." : `. ${published}`}`;
+    }
+    case "duplicate": {
+      const published = dossierPublicationSentence(disposition.publication);
       return `Research dossier ${disposition.dossier_id} was already saved privately for AskRigor's owner to review ` +
-        `(version ${disposition.version}).`;
+        `(version ${disposition.version}).${published === undefined ? "" : ` ${published}`}`;
+    }
     case "insufficient":
       return disposition.reason === "final_check_not_passed"
         ? "No research dossier was saved: one is saved only with a final check that passed."

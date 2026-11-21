@@ -57,6 +57,7 @@ import {
   type ResearchContributionReviewService,
   type ResearchContributorAccessService,
   type ResearchCallRecordStore,
+  type ResearchDossierPublisher,
   type ResearchDossierStore,
 } from "@askrigor/evidence-repository";
 import {
@@ -330,6 +331,11 @@ import {
   DOSSIER_PRIVACY_READING_LIMITS,
   type DossierPrivacyReader,
 } from "./findings/dossier-privacy-reading.js";
+import {
+  DOSSIER_CONFLICT_READING_LIMITS,
+  deadlineConflictReader,
+  type DossierConflictReader,
+} from "./findings/dossier-conflict-reading.js";
 import {
   researchDossierAllowed,
   researchDossierFromCall,
@@ -995,6 +1001,13 @@ export interface RegisterToolsOptions {
    * actions. With the mode off, a news card is neither signed nor staged, and the news actions say news is off.
    */
   atlasNews?: AtlasNewsOptions;
+  /**
+   * AskRigor#477 stage 2: where a saved dossier's public copy is published, shown or held for AskRigor's check. Set by
+   * the server only when ASKRIGOR_PUBLIC_DOSSIERS=enabled; without it nothing is published.
+   */
+  researchDossierPublisher?: ResearchDossierPublisher;
+  /** For tests: the notices that cover public dossiers, in place of PUBLIC_DOSSIER_NOTICE_VERSIONS (none until v7). */
+  publicDossierNotices?: readonly string[];
   /**
    * AskRigor#477 stage 1, off by default: every dossier read for personal details before it is stored, on the research
    * planner's Claude API path; defaults to ASKRIGOR_DOSSIER_PRIVACY_READING=on. With it on and the planner off, no
@@ -2156,6 +2169,8 @@ function defineResearchOperations(
       askrigorHolds: ASKRIGOR_HOLDS,
       // AskRigor#477 stage 1: plan_research asks for the research dossier where one can be saved.
       ...(options.researchDossiers === undefined ? {} : { researchDossiers: true }),
+      // AskRigor#477 stage 2: stage 2's declarations in the shape only while public dossiers are on.
+      ...(options.researchDossierPublisher === undefined ? {} : { publicDossiers: true }),
       // Enforcing HRP, stage 1: plan_research says what can stop an answer while the findings ledger is on for the account.
       findingsLedger: (devAccount) => findingsLedgerFor(options, () => devAccount),
       ...(atlasReports === undefined ? {} : { atlasReports }),
@@ -2235,6 +2250,12 @@ function defineResearchOperations(
           paperStatus: options.atlasNews?.paperStatus ?? crossrefPaperStatus(crossrefConfig),
           ...(options.atlasNews?.now === undefined ? {} : { now: options.atlasNews.now }),
         },
+        // AskRigor#477 stage 2 (Codex's re-review): a held dossier copy's privacy reading, made later on the owner's
+        // action, on the planner's own path and only while the reading is on.
+        dossierPrivacyReader: () => dossierPrivacyReaderOf(options),
+        // Codex's third review: a show of a held dossier copy is compared first with the shown dossiers, on the
+        // planner's own paid path, as automatic publication is; a planner that is off answers that the reading is off.
+        dossierConflictReader: () => dossierConflictReaderOf(options),
       },
       ...(sharing === undefined ? {} : { sharedAnswers: sharing.vault }),
     }),
@@ -2997,10 +3018,14 @@ function defineResearchOperations(
         const dossierStore = options.researchDossiers;
         // Codex's final check, off by default: the meaning-based privacy reading, on the planner's own API path. With it
         // on, a planner that is off reads nothing, and nothing is saved.
-        const reading = options.dossierPrivacyReading ?? dossierPrivacyReadingFromEnv();
-        const privacyReading: DossierPrivacyReader | undefined = !reading ? undefined
-          : async (texts) => await configuredPlanner(options).readDossierPrivacy?.(texts) ??
-            { status: "unavailable", reason: "off" };
+        const privacyReading = dossierPrivacyReaderOf(options);
+        // The save's outer deadline: past it the answer goes on without the save, and the conflict reader starts no
+        // further paid call (Codex's re-review of stage 2), so the copy is held, waiting for the conflict check.
+        const saveDeadline = (options.findingsSaveDeadlineMilliseconds ?? FINDINGS_SAVE_DEADLINE_MILLISECONDS) +
+          (privacyReading === undefined ? 0 : DOSSIER_PRIVACY_READING_LIMITS.timeoutMs) +
+          // Stage 2: one conflict comparison's wait, while public dossiers are on.
+          (options.researchDossierPublisher === undefined ? 0 : DOSSIER_CONFLICT_READING_LIMITS.timeoutMs);
+        const saveStopsAt = Date.now() + saveDeadline;
         const outcome = await withinDeadline(saveResearchDossier(dossierStore, {
           dossier: researchDossierFromCall(input),
           account: researcher,
@@ -3016,6 +3041,16 @@ function defineResearchOperations(
           commentsRead,
           ...(checkedInput.findings_card === undefined ? {} : { cardFindings: checkedInput.findings_card.findings.length }),
           ...(privacyReading === undefined ? {} : { privacyReading }),
+          // AskRigor#477 stage 2: where the research ran, and the public copy, only while public dossiers are on.
+          ...(options.mcpSurface === undefined ? {} : { surface: options.mcpSurface }),
+          ...(options.researchDossierPublisher === undefined ? {} : { publication: {
+            publisher: options.researchDossierPublisher,
+            ...(options.publicDossierNotices === undefined ? {} : { noticeCovering: options.publicDossierNotices }),
+            // Codex's review of stage 2, finding 3: the meaning-based conflict check on the planner's own paid path,
+            // made only here, while public dossiers are on; with the planner off a copy with candidates is held.
+            conflictReader: async (conflictRequest) =>
+              await deadlineConflictReader(configuredPlanner(options).readDossierConflicts, saveStopsAt)(conflictRequest),
+          } }),
           secret,
           versions: {
             askrigor: SERVICE_VERSION,
@@ -3025,8 +3060,7 @@ function defineResearchOperations(
             }),
           },
         }).catch((): ResearchDossierSaveOutcome => ({ disposition: { status: "unavailable", reason: "store_unavailable" } })),
-        (options.findingsSaveDeadlineMilliseconds ?? FINDINGS_SAVE_DEADLINE_MILLISECONDS) +
-          (privacyReading === undefined ? 0 : DOSSIER_PRIVACY_READING_LIMITS.timeoutMs),
+        saveDeadline,
         { disposition: { status: "unconfirmed", reason: "not_confirmed_in_time" } } as ResearchDossierSaveOutcome);
         if (outcome !== undefined) {
           if (outcome.disposition !== undefined) result.research_dossier = outcome.disposition;
@@ -3299,6 +3333,29 @@ function findingsSaveAccount(account: {
   noticeVersion: string | null;
 }): FindingsSaveAccount {
   return { mode: account.mode, noticeVersion: account.noticeVersion };
+}
+
+/**
+ * AskRigor's privacy reading of a research dossier (findings/dossier-privacy-reading.ts), on the research planner's own
+ * Claude API path, while ASKRIGOR_DOSSIER_PRIVACY_READING is on (or the tests' own setting); undefined while it is off.
+ * A planner that is off answers that the reading is off.
+ */
+export function dossierPrivacyReaderOf(options: Pick<RegisterToolsOptions, "dossierPrivacyReading" |
+  "researchPlanner" | "meaningJudge"> = {}): DossierPrivacyReader | undefined {
+  if (!(options.dossierPrivacyReading ?? dossierPrivacyReadingFromEnv())) return undefined;
+  return async (texts) => await configuredPlanner(options as RegisterToolsOptions).readDossierPrivacy?.(texts) ??
+    { status: "unavailable", reason: "off" };
+}
+
+/**
+ * AskRigor's conflict reading for an owner's show or a later admission of a dossier copy (Codex's third review, P1), on
+ * the research planner's own path with its own day's cap, each comparison within four calls' waits.
+ */
+export function dossierConflictReaderOf(options: Pick<RegisterToolsOptions, "researchPlanner" | "meaningJudge"> = {}):
+  DossierConflictReader {
+  return async (conflictRequest) => await deadlineConflictReader(
+    configuredPlanner(options as RegisterToolsOptions).readDossierConflicts,
+    Date.now() + 4 * DOSSIER_CONFLICT_READING_LIMITS.timeoutMs)(conflictRequest);
 }
 
 /**

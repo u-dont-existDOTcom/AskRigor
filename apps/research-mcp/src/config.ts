@@ -384,6 +384,19 @@ export function researchDossiersEnabledFromEnv(
 }
 
 /**
+ * AskRigor#477 stage 2 (owner answers 331a, 332a and 333a, 16 November 2026), off by default: research dossiers on the
+ * public Atlas only while ASKRIGOR_PUBLIC_DOSSIERS=enabled, after migration 0040 and the role scripts' grants. With it
+ * on, a saved dossier gets a public copy, shown or held for AskRigor's check, only for an account whose accepted notice
+ * covers public dossiers (none until notice v7 is released on the owner's yes); the Atlas pages show the shown copies;
+ * the owner's review lists and decides them.
+ */
+export function publicDossiersEnabledFromEnv(
+  value = process.env.ASKRIGOR_PUBLIC_DOSSIERS
+): boolean {
+  return value?.trim() === "enabled";
+}
+
+/**
  * AskRigor#477 stage 1, off by default (the owner's decision): ASKRIGOR_DOSSIER_PRIVACY_READING set to "on" has every
  * research dossier read for personal details by the research planner's Claude API path before it is stored
  * (findings/dossier-privacy-reading.ts); with it on, a dossier that is not read, or not passed, is not saved.

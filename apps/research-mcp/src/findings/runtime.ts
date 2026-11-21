@@ -7,6 +7,7 @@ import {
   PostgresAtlasReader,
   PostgresAtlasReviewStore,
   PostgresResearchDossierEraser,
+  PostgresResearchDossierPublicationReview,
 } from "@askrigor/evidence-repository";
 import { getProtocolManifest } from "@askrigor/protocol";
 
@@ -17,6 +18,7 @@ import {
   announcingGlanceStore,
   announcingPublicationStore,
   announcingReviewStore,
+  announcingDossierReview,
 } from "../atlas/change-signal.js";
 import { AtlasCardPublisher } from "../atlas/publication.js";
 import {
@@ -26,6 +28,7 @@ import {
   findingsLibraryEnabledFromEnv,
   livingEvidenceReuseConfigFromEnv,
   ncbiConfigFromEnv,
+  publicDossiersEnabledFromEnv,
   researchContributionReviewConfigFromEnv,
   SERVICE_VERSION,
 } from "../config.js";
@@ -266,6 +269,14 @@ export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): 
         schema: review.schema,
         ssl: review.ssl,
       }),
+      // AskRigor#477 stage 2: the dossiers' public copies, through the same review role, while public dossiers are on.
+      ...(publicDossiersEnabledFromEnv(env.ASKRIGOR_PUBLIC_DOSSIERS) ? {
+        dossierPublications: announcingDossierReview(new PostgresResearchDossierPublicationReview({
+          connectionString: review.connectionString,
+          schema: review.schema,
+          ssl: review.ssl,
+        })),
+      } : {}),
       // publish_cards looks a card's sources up for their titles and years, with the call's provider settings.
       sourceTitles: (providers) => atlasSourceTitleLookup({ ...providers, now }),
     });
