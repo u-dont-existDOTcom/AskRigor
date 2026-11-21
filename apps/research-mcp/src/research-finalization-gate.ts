@@ -128,7 +128,7 @@ import {
   type ResearchReceiptRejection
 } from "./research-receipts.js";
 import { claimCoverageNotes, extractedClaimIds } from "./claim-coverage.js";
-import { isSafetyLimit, reviewSafetyLimits } from "./safety-limits.js";
+import { SAFETY_LIMIT_FOR_JUDGE, isSafetyLimit, reviewSafetyLimits, withoutSafetyLimits } from "./safety-limits.js";
 import { untraceableCitationNote } from "./citation-markers.js";
 import type { NewsCard } from "./news/card.js";
 import { signedNewsClaims } from "./news/claims.js";
@@ -1980,7 +1980,10 @@ export function finalizeResearch(
   rawInput: unknown,
   options: FinalizeResearchOptions
 ): FinalizeResearchOutput {
-  const parsed = parseFinalizeResearchInput(rawInput, { findingsLedger: options.findingsLedger !== undefined });
+  // Promise P69: with the switch off, safety_limits is taken out before anything reads the call, so no note of any kind
+  // (a duplicate, a bad value) can come from it (Codex's recheck of 21 Nov 2026).
+  const parsed = parseFinalizeResearchInput(options.safetyLimits === true ? rawInput : withoutSafetyLimits(rawInput),
+    { findingsLedger: options.findingsLedger !== undefined });
   if (!parsed.success) return invalidFinalizeResearchInput(parsed.error, options, parsed.notes);
   const input = parsed.data;
   // A test run's call, marked findings_save "off", read from the raw call on its own: it offers no save and files no
@@ -4884,7 +4887,8 @@ export function finalizeResearch(
       }
       for (const { limit, why } of judgment.limits) {
         const text = limits[limit - 1];
-        if (text === undefined) continue;
+        // A safety limit is the AI's report, which the judge never reads (promise P69): no verdict on it counts.
+        if (text === undefined || isSafetyLimit(text)) continue;
         judgeNotes.push(`The meaning judge reads limits[${limit - 1}] (${JSON.stringify(limitOpening(text))}) as not ` +
           `applying to this answer${because(why)}. Leave it out of the answer's own words; the panel still lists it.`);
       }
@@ -5253,8 +5257,9 @@ export function finalizeResearch(
           }) } : {}),
       keySources: input.key_sources,
       // A safety limit holds the AI's own words about its research, which stay in this result (promise P69; Codex's
-      // review of 21 Nov 2026): the judge reads the answer, which says it, and never the limit.
-      limits: parsedOutput.limits.filter((limit) => !isSafetyLimit(limit))
+      // review of 21 Nov 2026): the judge reads the answer, which says it, and a fixed line in the limit's place, so the
+      // list keeps the numbering the check reads its verdicts by (Codex's recheck).
+      limits: parsedOutput.limits.map((limit) => isSafetyLimit(limit) ? SAFETY_LIMIT_FOR_JUDGE : limit)
     });
   }
   return parsedOutput;

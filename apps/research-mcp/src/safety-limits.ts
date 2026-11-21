@@ -38,12 +38,15 @@ const REPORTED_BY: Readonly<Record<(typeof SAFETY_LIMIT_REPORTERS)[number], stri
 /** Each start a safety limit of AskRigor's can have. */
 export const SAFETY_LIMIT_PREFIXES: readonly string[] = Object.values(REPORTED_BY).map((by) => by + SAFETY_LIMIT_MARK);
 
-// A link, a web address or a DOI in an entry would point to what a model declined to give: refused, as an exact,
-// structural test (no word list judges an entry's meaning). Any scheme ("https://", "ftp://"), a protocol-relative
-// "//host", "www.", a DOI, or a host name with a dot and a top-level part ("example.org", "example.org/path"). Its
-// limits (Codex's review of 21 Nov 2026): a file name ("table.pdf") or a missing space ("Dr.Smith") reads as a host,
-// and a version written as "10.1234/5" as a DOI; such an entry is not used, and its note names the field to reword.
-const LINK = /[a-z][a-z0-9+.-]*:\/\/|(?:^|[\s(\[])\/\/\S|\bwww\.|\b10\.\d{4,9}\/\S|\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,24}\b(?![.\d])/iu;
+// A link or an address in an entry would point to what a model declined to give. Refused only in the forms whose shape
+// is unambiguous (an exact, structural test): a scheme ("https://", "ftp://", "file:/", "mailto:"), a protocol-relative
+// "//host", "www.", a DOI and a numeric IP address. A bare host name ("example.org") can't be told from ordinary text
+// ("mg.kg", "dott.ssa") by its shape, so it is not tested: two rounds of review found a pattern for it either missing
+// addresses or dropping ordinary words (Codex's review and recheck of 21 Nov 2026), and AGENTS.md leaves a question of
+// meaning to a model, not a longer pattern. The input's description asks for no address of any kind, and the limit is
+// shown only to the person whose AI wrote it, in words attributed to that AI. A version written like a DOI
+// ("10.1234/5") is refused; that entry is not used, and its note names the field to reword.
+const LINK = /[a-z][a-z0-9+.-]*:\/\/|\bfile:\/|\bmailto:\S|(?:^|[^\w:/])\/\/[^\s/]|\bwww\.|\b10\.\d{4,9}\/\S|\b\d{1,3}(?:\.\d{1,3}){3}\b/iu;
 const words = (max: number) => z.string().trim().min(1).max(max)
   .refine((text) => !LINK.test(text), "No links, web addresses or DOIs: name the kind of content only.");
 
@@ -171,6 +174,31 @@ export function reviewSafetyLimits(declared: unknown): SafetyLimitReview {
     quotes: usable.map(({ entry, index }) => ({ at: `safety_limits[${index}].answer_quote`, quote: entry.answer_quote })),
     notes,
   };
+}
+
+/**
+ * What the meaning judge reads in a safety limit's place: the AI's own words stay in the result (Codex's review of 21
+ * Nov 2026), and the list keeps its numbering, by which the check reads the judge's verdicts on limits.
+ */
+export const SAFETY_LIMIT_FOR_JUDGE = "A limit the AI reports about a model's safety rules; its words are not shown here.";
+
+/** The call without safety_limits, at its top level and in later_inputs, for a check with the switch off. */
+export function withoutSafetyLimits(raw: unknown): unknown {
+  const plain = (value: unknown): value is Record<string, unknown> =>
+    value !== null && typeof value === "object" && !Array.isArray(value);
+  if (!plain(raw)) return raw;
+  const { safety_limits: _top, ...rest } = raw;
+  // later_inputs sent as text stays text, without the key, so every other reading of the call is as it was.
+  const asText = typeof rest.later_inputs === "string";
+  let later: unknown = rest.later_inputs;
+  if (asText) {
+    try { later = JSON.parse(rest.later_inputs as string); } catch { later = undefined; }
+  }
+  if (plain(later) && "safety_limits" in later) {
+    const { safety_limits: _later, ...others } = later;
+    return { ...rest, later_inputs: asText ? JSON.stringify(others) : others };
+  }
+  return "safety_limits" in raw ? rest : raw;
 }
 
 /** Whether a limit is one of AskRigor's safety limits, by its fixed start. */

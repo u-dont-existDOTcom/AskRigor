@@ -607,16 +607,18 @@ notes, limits and no blocking rule. With `ASKRIGOR_SAFETY_LIMITS=on`:
   words; whether it was not examined or examined but not reported; whether it was done again (no, by the same model,
   by another) and whether that recovered it; what it could change (a detail, the confidence, the conclusion, no loss
   identified, unknown) and, optionally, which conclusion; who reports it; and the answer's own sentence saying it. An
-  entry's own words may hold no link, web address, host name or DOI (an exact, structural test, which also catches a
-  file name such as "table.pdf" or a missing space such as "Dr.Smith"): it names a kind of content, never where to
-  find what a model declined to give. The input is read entry by entry, and only with the switch on: with it off, any
-  value is ignored and noted nowhere; with it on, an entry that isn't usable is a note by its place and the schema's
-  own field names, never a key or value it gave, and the others still count.
+  entry's own words may hold no link or address (an exact, structural test of the forms whose shape is unambiguous:
+  a scheme such as "https://", "file:/" or "mailto:", a "//host", "www.", a DOI, a numeric IP address): it names a
+  kind of content, never where to find what a model declined to give. A bare host name ("example.org") is not tested,
+  since its shape can't be told from ordinary words ("mg.kg", "dott.ssa"); the description asks for none. The input
+  is read entry by entry, and only with the switch on: with it off, it is taken out of the call before anything reads
+  it, at the top level or in later_inputs, so it is noted nowhere; with it on, an entry that isn't usable is a note by
+  its place and the schema's own field names, never a key or value it gave, and the others still count.
 - **A limit that says who reports it.** Each entry becomes one limit that starts "As the AI reports," or "As the
   person reports," then "a model's safety rules limited a research step", with the step and topic inside fixed words,
   so the panel lists it whatever the answer wrote, without AskRigor vouching for the report; the panel also shows one
-  line above its fold saying how many steps were reported limited. The meaning judge never reads a safety limit: it
-  reads the answer, which says it.
+  line above its fold saying how many steps were reported limited. The meaning judge never reads a safety limit's
+  words: a fixed line holds its place in the list it reads, and no verdict on that place counts.
 - **Notes only, and no request for none.** The answer's sentence is looked up with the other declared quotes; one the
   draft doesn't show is a note naming the entry's place, never its words. Nothing asks for a declaration when none
   comes, and none is ever shown as "no limit": a model often cannot see its own guardrail (a classifier stops it from

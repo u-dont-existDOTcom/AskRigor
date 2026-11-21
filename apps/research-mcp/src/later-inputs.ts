@@ -177,7 +177,8 @@ const LATER_INPUT_SHAPES = Object.freeze({
       .describe("Each research step a model's or app's own safety rules refused, stopped with a model switch, " +
         "narrowed or softened, as you observed it or as the person reported it (such as an app's prompt to switch " +
         "models): what was left out in neutral words, whether it was examined, whether it was done again and recovered, " +
-        "what it could change, and the answer's own sentence saying it. No withheld details, links or ways to find them. " +
+        "what it could change, and the answer's own sentence saying it. No withheld details, links, addresses or ways " +
+        "to find them. " +
         "AskRigor lists each as a limit, saying who reports it, and looks the sentence up in answer_draft; what it finds " +
         "are notes. Declare only what you observed or were told; never infer a limit, or its absence."),
     // Owner answer 301a (13 Nov 2026): the person's words, for AskRigor's own review of the draft on a dev account. Read

@@ -12,7 +12,7 @@ import {
 import { fallbackModelOf } from "../apps/research-mcp/src/research-planner.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import {
-  SAFETY_LIMIT_MARK, reviewSafetyLimits, safetyLimitCount, safetyLimitSentence, safetyLimitsSchema, type SafetyLimitEntry,
+  SAFETY_LIMIT_FOR_JUDGE, SAFETY_LIMIT_MARK, reviewSafetyLimits, safetyLimitCount, safetyLimitSentence, safetyLimitsSchema, type SafetyLimitEntry,
 } from "../apps/research-mcp/src/safety-limits.js";
 import { withSourceReading } from "./helpers/source-reading.js";
 
@@ -83,12 +83,16 @@ describe("the safety_limits declaration", () => {
     expect(safetyLimitsSchema.safeParse([{ ...entry(), reason: "extra" }]).success).toBe(false);
     // No link, web address or DOI in an entry's own words: it would point to what a model declined to give.
     for (const left_out of ["the tables at https://example.org/t", "see www.example.org", "the paper 10.1000/xyz.1",
-      "the tables at example.org/path", "the copy at //example.org/path", "ftp://example.org/t", "threads on forum.example.net",
-      "las tablas en ejemplo.es"]) {
+      "the copy at //example.org/path", "the copy at \"//example.org/path\"", "ftp://example.org/t", "file:/tmp/example",
+      "write to mailto:someone", "the server at 192.0.2.10", "(//example.org)"]) {
       expect(safetyLimitsSchema.safeParse([{ ...entry(), left_out }]).success, left_out).toBe(false);
     }
+    // Ordinary words in any language pass, a bare host name among them: its shape can't be told from "mg.kg" or
+    // "dott.ssa", so it is left to the description and the attribution (Codex's recheck of 21 Nov 2026).
     for (const step of ["Lecture des tableaux de l'essai, version 10.2", "St. John's wort reports", "10.1234 mg doses",
-      "読んだ試験の表", "e.g. the dose tables", "قراءة جداول الجرعات", "Dr. Smith's 2019 trial"]) {
+      "読んだ試験の表", "e.g. the dose tables", "قراءة جداول الجرعات", "Dr. Smith's 2019 trial", "dott.ssa Rossi's cases",
+      "doses in mg.kg", "data: the dose tables", "the trial's file: dose tables", "ratio 1:2 at 12:30",
+      "See example.org."]) {
       expect(safetyLimitsSchema.safeParse([{ ...entry(), step }]).success, step).toBe(true);
     }
   });
@@ -115,7 +119,7 @@ describe("the safety_limits declaration", () => {
 
   it("uses each usable entry and notes the others by place and the schema's own field names, never a key or value given", () => {
     const review = reviewSafetyLimits([entry(), { ...entry(), "private topic sentinel": 1 },
-      { ...entry(), left_out: "see example.org/hidden-sentinel" }, { ...entry(), kind: "sentinel-kind" }, "sentinel text"]);
+      { ...entry(), left_out: "see https://example.org/hidden-sentinel" }, { ...entry(), kind: "sentinel-kind" }, "sentinel text"]);
     expect(review.limits).toEqual([safetyLimitSentence(entry())]);
     expect(review.quotes.map(({ at }) => at)).toEqual(["safety_limits[0].answer_quote"]);
     expect(review.notes).toEqual([
@@ -134,25 +138,48 @@ describe("the safety_limits declaration", () => {
 });
 
 describe("finalize_research with safety_limits (promise P69)", () => {
-  it("changes nothing while the switch is off, whatever is declared", () => {
+  it("changes nothing while the switch is off, whatever is declared and wherever", () => {
     const plain = run(undefined, false);
-    for (const declared of [[entry()], [], "sentinel", [{ ...entry(), "private topic sentinel": 1 }]]) {
-      const off = run({ safety_limits: declared }, false);
-      expect(off.status).toBe(plain.status);
-      expect(off.limits ?? []).toEqual(plain.limits ?? []);
-      expect(off.notes ?? []).toEqual(plain.notes ?? []);
-      expect(off.next_steps).toEqual(plain.next_steps);
+    const calls = [[entry()], [], "sentinel", [{ ...entry(), "private topic sentinel": 1 }]].flatMap((declared) => [
+      finalizeResearch({ ...fixture(), later_inputs: { safety_limits: declared } } as never, { secret: SECRET, findings: "closed" }),
+      // Given at the top level and in later_inputs too, which would otherwise be a duplicate's note.
+      finalizeResearch({ ...fixture(), safety_limits: declared, later_inputs: { safety_limits: declared } } as never,
+        { secret: SECRET, findings: "closed" }),
+      finalizeResearch({ ...fixture(), later_inputs: JSON.stringify({ safety_limits: declared }) } as never,
+        { secret: SECRET, findings: "closed" }),
+    ]);
+    const asText = finalizeResearch({ ...fixture(), later_inputs: JSON.stringify({}) } as never, { secret: SECRET, findings: "closed" });
+    for (const [index, off] of calls.entries()) {
+      const base = index % 3 === 2 ? asText : plain;
+      expect(off.status).toBe(base.status);
+      expect(off.limits ?? []).toEqual(base.limits ?? []);
+      expect(off.notes ?? []).toEqual(base.notes ?? []);
+      expect(off.next_steps).toEqual(base.next_steps);
       expect(JSON.stringify(off)).not.toContain(SAFETY_LIMIT_MARK);
       expect(JSON.stringify(off)).not.toMatch(/sentinel|safety_limits/u);
     }
   });
 
-  it("keeps a safety limit out of what the meaning judge reads", () => {
-    const on = run({ safety_limits: [entry({ left_out: "Zq7 synthetic topic words" })] }, true);
-    expect(on.limits).toContain(safetyLimitSentence(entry({ left_out: "Zq7 synthetic topic words" })));
+  it("keeps a safety limit's words from the meaning judge, its place in the list kept, and no verdict on it counted", () => {
+    const declared = { safety_limits: [entry({ left_out: "Zq7 synthetic topic words" })] };
+    const on = run(declared, true);
+    const sentence = safetyLimitSentence(entry({ left_out: "Zq7 synthetic topic words" }));
+    expect(on.limits).toContain(sentence);
     const judged = meaningJudgeSourceOf(on);
     expect(judged).toBeDefined();
     expect(JSON.stringify(judged)).not.toContain("Zq7");
+    // The same numbering as the result's limits, the safety limit's place held by a fixed line.
+    expect(judged!.limits).toHaveLength((on.limits ?? []).length);
+    const place = (on.limits ?? []).indexOf(sentence);
+    expect(judged!.limits[place]).toBe(SAFETY_LIMIT_FOR_JUDGE);
+    // A verdict on that place, from the judge's reading of this pass, makes no note.
+    const verdicts = { status: "ran" as const, youtube: [], comparison: [], standalone: [], sourceLines: [], significance: [],
+      limits: (on.limits ?? []).map((_, index) => ({ limit: index + 1, why: "synthetic verdict" })) };
+    const next = finalizeResearch({ ...fixture(), later_inputs: declared } as never,
+      { secret: SECRET, findings: "closed", safetyLimits: true, meaningJudgment: verdicts });
+    const judgeNotes = (next.notes ?? []).filter((note) => note.startsWith("The meaning judge reads limits["));
+    expect(judgeNotes).toHaveLength((on.limits ?? []).length - 1);
+    expect(judgeNotes.join("\n")).not.toContain(`limits[${place}]`);
   });
 
   it("lists each declared limit in its own words, with the answer's sentence found, and blocks nothing", () => {
