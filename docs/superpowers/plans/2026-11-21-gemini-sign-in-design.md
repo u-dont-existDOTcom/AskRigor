@@ -1,8 +1,30 @@
 # Gemini's sign-in: AskRigor's own authorization server for Google's Gemini app
 
-Status: design v1, 21 Nov 2026, for red team (Codex, read-only) before the build. Owner decision: question 386,
-answer **386b** (20 Nov 2026, 23:25 UTC): "Build Gemini's sign-in now: AskRigor's server checks Google's signed key
-itself and uses Auth0 only for the person's own login." Nothing reaches production before the owner's typed release.
+Status: **design v2**, 21 Nov 2026 02:2x UTC, after Codex's read-only red team (GPT-6.1 Sol, xhigh; report in the
+release folder, `reviews/codex-design-redteam.md`, verdict "build with the listed changes") and an own review
+(`reviews/self-review-v1.md`). Owner decision: question 386, answer **386b** (20 Nov 2026, 23:25 UTC): "Build Gemini's
+sign-in now: AskRigor's server checks Google's signed key itself and uses Auth0 only for the person's own login."
+Nothing reaches production before the owner's typed release.
+
+## 0. What v2 changes (every red-team finding adopted)
+
+| # | Finding | v2 decision |
+|---|---|---|
+| F1 high | A refresh racing a revocation could store a fresh access token after the link was revoked; nothing at the resource checked the Grant. | `/mcp/gemini` accepts a Gemini access token only while its **Grant exists, is unexpired and names the same client and account**; revoking deletes the Grant, so any token written late is dead on arrival. Access-token lifetime is clamped to the Grant's remaining life. Test: refresh paused after grant validation, revoke, resume, call refused. |
+| F2 high | The configuration rejects Google's real document: an ES256-only keystore clashes with the client default `id_token_signed_response_alg` RS256, and the document's `scope` (`research:use cases:review`) must be among the server's scopes. | An **RS256** ephemeral key (nothing it signs is used); `scopes` statics `openid offline_access research:use cases:review` so the document validates; only `research:use` can ever be granted (the one resource's only scope; consent grants only it); metadata advertises `scopes_supported: ["research:use"]` (post-middleware on the discovery route, since the library's `discovery` extras cannot override). **The unmodified real document is a required test.** |
+| F3 medium | Login could not complete: the resume route `/oauth/gemini/auth/:uid` was not routed; the interaction cookie (path `/oauth/gemini/interaction/<uid>`) does not reach `/oauth/gemini/callback`; mounting needs prefix stripping; an account switch posts to a logout route that is off. | Every path under `/oauth/gemini/` goes to the library except AskRigor's own `/oauth/gemini/interaction/*` and `/oauth/gemini/callback`; mounting strips the prefix and keeps `originalUrl`. The callback validates Auth0, then sets a 2-minute sealed `__Host-` login-result cookie (interaction uid, `sub`) and redirects to `/oauth/gemini/interaction/<uid>/login`, where the interaction cookie is present; the uids must match, then `interactionFinished` (`remember: false`). The library's `_session` cookies are removed from every **new** authorization request, so each link starts a fresh session and the account-switch path never arises; Auth0 is asked with `prompt=login`. |
+| F4 medium | No refresh token without `offline_access` under the default policy. | `issueRefreshToken` returns true for an accepted Gemini client; `allowClient` requires both `authorization_code` and `refresh_token` grant types. |
+| F5 medium | Google's JWKS is fetched for every token request (a new key store per client instance), with no size limit, no shared cache, no global bound. | One fetch boundary (the library's `fetch` option) that refuses every destination but the CIMD pattern and the exact gstatic JWKS URL, refuses redirects, caps bodies (CIMD 5 KiB, JWKS 64 KiB, at most 20 keys), caches and coalesces the JWKS (`max-age` honored within 60 s to 10 min) and allows at most 4 outbound fetches at once (fail fast). The new paths get their **own** per-IP rate limiter, separate from research. |
+| F6 medium | If Google's unlink call carries no assertion, the link stays until expiry; no per-person revocation. | RFC 7009 stays (authenticated). Added: `manage_research_access` gains the runtime action `disconnect_gemini` (frozen tool list unchanged: a new action goes only in the runtime enum), which ends every Gemini link of the calling account from any connected app; `inspect` reports how many links exist. Grants carry an HMAC `account_ref` for this. A real unlink is a release acceptance step. |
+| F7 medium | Encrypting the whole payload keeps recoverable tokens (the library's `jti` is the token value). | `jti` is removed from stored AuthorizationCode, AccessToken and RefreshToken payloads and restored from the presented value on lookup; only HMACs of those values exist at rest. |
+| F8 low | Migration `0034` is taken (last is `0038`); migrations load from an explicit list; the role script rebuilds grants. | Migration **`0039_gemini_oauth_store`**, added to the list; grants in `provision-research-access-role.sh`; adapter tests against a real PostgreSQL 17.6 (the production image) including privileges after reprovisioning. |
+| S1 (own) | The library derives endpoint URLs, and so accepted assertion audiences, from the request's Host and `X-Forwarded-Host`. | The dispatcher forces `Host` to the issuer's host, drops `X-Forwarded-Host`, sets `X-Forwarded-Proto: https`; and `assertJwtClientAuthClaimsAndHeader` accepts only audiences computed from the configured issuer (issuer, token URL, revocation URL). Test: forged Host. |
+| S2 (own) | Privacy page sentences become untrue: "does not store the raw Auth0 subject", "do not place or recognize cookies". | Amended precisely: a Gemini link stores the subject encrypted for the link's life; the link steps set short-lived strictly necessary cookies on mcp.askrigor.com. |
+| Codex notes | Clock tolerance default is 15 s; `revokeGrantPolicy` is a function; with S256 the library lets the token request omit `redirect_uri` (OAuth 2.1 behavior, accepted); the registration-endpoint fallback was unproven; persistent linking also asks to extend expiry. | `clockTolerance: 30` explicitly; `revokeGrantPolicy: () => true`; the always-refusing registration fallback is dropped (the first live test decides, see 11); the 180-day absolute lifetime is a deliberate choice (re-link twice a year), stated to the owner. |
+| Codex notes | Gemini may need HTTP 401 to refresh; Auth0 fallback must keep its own resource check; link phishing; leakage. | On `/mcp/gemini` a **present but invalid** token gets a transport 401 with the Gemini resource metadata (no token stays optional, as today); the Auth0 fallback runs the existing verifier against `/mcp`'s own resource; the consent page says to cancel if someone else sent the link; pages send `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. |
+
+The sections below are v1's text with the v2 decisions applied where they conflict; where they still differ, section 0
+wins.
 
 ## 1. The problem, with what was verified
 
@@ -176,16 +198,17 @@ AskRigor's extra check (`assertJwtClientAuthClaimsAndHeader`):
 ### 4.6 Library configuration (production)
 
 `clients: []`; `clientAuthMethods: ['private_key_jwt']`; `enabledJWA.clientAuthSigningAlgValues: ['RS256']`;
-`responseTypes: ['code']`; `pkce.required: () => true` (S256 only); `scopes: ['openid','offline_access']` (statics,
-never granted here); `features`: `clientIdMetadataDocument` on (ack `draft-03`), `resourceIndicators` on (one resource,
+`responseTypes: ['code']`; `pkce.required: () => true` (S256 only); `scopes: ['openid','offline_access','research:use','cases:review']`
+(statics, so Google's declared scope validates; never granted here except `research:use` through the resource); `features`: `clientIdMetadataDocument` on (ack `draft-03`), `resourceIndicators` on (one resource,
 default and only), `revocation` on; **off**: `devInteractions`, `userinfo`, `rpInitiatedLogout`, `introspection`,
 `registration`, `deviceFlow`, `clientCredentials`, `ciba`, `pushedAuthorizationRequests`, `requestObjects`, `dPoP`,
 `claimsParameter`, `jwtResponseModes`, `jwtUserinfo`, `encryption`, `webMessageResponseMode`, `backchannelLogout`,
 `richAuthorizationRequests`, `openid4vci`, `attestClientAuth`, `mTLS`, `rpMetadataChoices`, `externalSigningSupport`.
 `ttl`: Session and Interaction 10 min, AuthorizationCode 60 s, AccessToken 1 h, RefreshToken and Grant 180 days.
 `cookies.keys` from the server secret; `proxy = true` (Caddy terminates TLS); `renderError` a fixed AskRigor page that
-never reflects request text. An ephemeral ES256 key satisfies the library's keystore (nothing it signs is used: no ID
-tokens, JWT access tokens or signed responses are issued).
+never reflects request text. An ephemeral RS256 key satisfies the library's keystore and the client default
+`id_token_signed_response_alg` (nothing it signs is used: no ID tokens, JWT access tokens or signed responses are
+issued). `clockTolerance: 30`; `revokeGrantPolicy: () => true`; `issueRefreshToken` true for accepted clients.
 
 ## 5. Which requests reach the library
 
@@ -195,12 +218,14 @@ today. The library parses its own bodies (the MCP body reader never runs on thes
 
 ## 6. What is stored, and how
 
-One new table, `living_evidence.gemini_oauth_store` (migration `0034_gemini_oauth_store`), for every library model
+One new table, `living_evidence.gemini_oauth_store` (migration `0039_gemini_oauth_store`), for every library model
 (Session, Interaction, AuthorizationCode, AccessToken, RefreshToken, Grant, ReplayDetection):
 - `key`: HMAC-SHA-256 of `model:id` under a key derived from `ASKRIGOR_GEMINI_OAUTH_SECRET`; the token value itself
   (which is the library's id for opaque tokens and codes) is never stored.
 - `payload`: AES-256-GCM of the library's JSON, with `model` and `key` as associated data (a row cannot be moved to
-  another row). The Auth0 `sub` (the payload's `accountId`) is therefore stored only encrypted.
+  another row), and without `jti` for codes, access tokens and refresh tokens (restored from the presented value on
+  lookup). The Auth0 `sub` (the payload's `accountId`) is therefore stored only encrypted.
+- `account_ref` (Grant rows only): an HMAC of the `sub`, so `disconnect_gemini` can find one person's links.
 - `grant_key`, `uid_key`: HMACs for the library's revoke-by-grant and session-by-uid lookups.
 - `expires_at`, `consumed_at`. `consume` is one `UPDATE … WHERE consumed_at IS NULL` that must change a row;
   ReplayDetection's insert is `INSERT … ON CONFLICT DO UPDATE … WHERE expires_at < now()` that must change a row.
@@ -265,7 +290,8 @@ tool lists unchanged.
 
 - Which `aud` Google puts in its assertion (issuer or token endpoint): both are accepted.
 - Whether Google's revoke call carries an assertion.
-- Whether the Gemini app wants a `registration_endpoint` after all. If it does, the fallback is a registration
-  endpoint that answers every request with `invalid_client_metadata`, which no Gemini flow that uses CIMD reaches.
+- Whether the Gemini app wants a `registration_endpoint` after all (Google's guide says yes; Gemini reached Auth0's
+  authorization endpoint without one, which does not prove a full link). If the first live test shows it, that is a
+  follow-up with the owner, using the library's own registration feature under a narrow policy.
 - Google forum reports (Gemini Spark, 2026) of Gemini never exchanging the code after the redirect: a Gemini-side
   failure AskRigor cannot fix; the opt-in diagnostics would show whether the token call ever arrives.
