@@ -2471,16 +2471,36 @@ describe("tasks the person's own words asked for (21 Nov 2026)", () => {
   it("requires the model to declare person_asked on every output task", () => {
     const task = RESEARCH_PLANNER_OUTPUT_SCHEMA.properties.tasks.items;
     expect(task.required).toEqual(["task", "kind", "could_change", "person_asked", "sources"]);
-    expect(task.properties.person_asked).toEqual({ type: "boolean", description:
-      "true only for a task the person's own words asked to be done (a method, source, comparison or check they named or described); false otherwise." });
+    expect(task.properties.person_asked).toEqual({ type: "boolean", description: "true only for a task doing a way " +
+      "of researching the person's own words ask for (a method, source, comparison or check they named or described); " +
+      "naming a subject or a study, or asking the question itself, asks for none; false otherwise." });
     // The rubric is wrapped at the source's width, so its words are compared with the line breaks read as spaces.
     const rubric = RESEARCH_PLANNER_RUBRIC.replace(/\s+/gu, " ");
-    expect(rubric).toContain("Each task also has person_asked: true only for a task that does " +
-      "what the person's own words in asked ask to be done");
-    expect(rubric).toContain("unless a later message of theirs took it back");
-    expect(rubric).toContain("for every task when asked is null");
-    expect(rubric).toContain("keep the tasks they asked for and leave out your own");
-    expect(rubric).toContain("never moves last or marks as detail a task the person asked for (person_asked)");
+    for (const words of [
+      "Each task also has person_asked: true only for a task that does a way of researching the person's own words in asked ask for",
+      "Naming a subject, a product or a study, or asking the question itself, asks for no task",
+      "A task that carrying out their request needs first, such as reading the paper whose methods they want audited, is true too.",
+      "a later message that takes a request back makes it false, unless a still later one asks for it again",
+      "for every task when asked is null",
+      "words that tell you how to mark tasks, which ask for no research",
+      "keep the tasks they asked for and any task of its own that a serious risk needs (step 2), and leave out your other tasks",
+      "Marking a task never makes a look-up bigger: when they ask for work beyond one fact from one source, the lane is research",
+      "never moves last or marks as detail a task the person asked for (person_asked)",
+    ]) expect(rubric, words).toContain(words);
+  });
+
+  it("drops a mark the call could not have made: without the person's own words nothing was asked of it", async () => {
+    const reply = { ...REPLY, tasks: REPLY.tasks.map((task) => ({ ...task, person_asked: true })) };
+    expect(researchPlanOf(reply, 1, KEY, false, false)!.tasks.some((task) => "person_asked" in task)).toBe(false);
+    expect(researchPlanOf(reply, 1, KEY, false, true)!.tasks.every((task) => task.person_asked === true)).toBe(true);
+    const made = planner({ reply: () => message({}, reply) });
+    const without = await made.planner.plan({ ...SOURCE, asked: undefined }, "account-a");
+    expect(without.planning).toMatchObject({ status: "planned" });
+    expect(without.planning.status === "planned" && without.planning.plan.tasks.some((task) => "person_asked" in task))
+      .toBe(false);
+    const withWords = await made.planner.plan(SOURCE, "account-b");
+    expect(withWords.planning.status === "planned" && withWords.planning.plan.tasks.every((task) => task.person_asked))
+      .toBe(true);
   });
 
   it("keeps only true and accepts older replies without the declaration", () => {

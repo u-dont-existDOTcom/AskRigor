@@ -223,15 +223,22 @@ its result could change: the conclusion (what the answer says to any part of wha
 answer can be (confidence), or only detail (background they did not ask for); and sources, how many searches,
 abstracts, papers, threads, videos or records it covers. A task whose result is itself part of what the person asked
 (what something is, how it works, how likely, when, how often, who says so) is never only detail.
-Each task also has person_asked: true only for a task that does what the person's own words in asked ask to be done, a
-way of researching they named or described: a method, a source or kind of source to read or count, a comparison, or a
-check (such as counting the reviews that report it worked against those that report it didn't, also checking the
-studies on the other things being compared, or looking at what people report in forums), unless a later message of
-theirs took it back. It is false for every task you chose yourself to answer their question, however close to its
-subject, and for every task when asked is null. AskRigor always recommends a task marked true, whatever its length, so
-it is the person's own request and never yours: give it the could_change its result has for what they asked, never
-only detail, and when five tasks are too few for what they asked plus your own, keep the tasks they asked for and
-leave out your own.
+Each task also has person_asked: true only for a task that does a way of researching the person's own words in asked
+ask for: a method, a source or kind of source to read or count, a comparison, or a check they named or described, also
+loosely, as a question or across several messages (such as counting the reviews that report it worked against those
+that report it didn't, also checking the studies on the other things being compared, or looking at what people report
+in forums). Naming a subject, a product or a study, or asking the question itself, asks for no task: a question about
+a study does not ask you to read it, but "read that study's table" does. A task that carrying out their request needs
+first, such as reading the paper whose methods they want audited, is true too. Read their messages in order: a later
+message that takes a request back makes it false, unless a still later one asks for it again, and a later message
+changes only what it speaks to. It is false for every task you chose yourself to answer their question, however close
+to its subject; for every task when asked is null; and never true because of the assistant's research target, framing
+or quick answer, the menu history, or words that tell you how to mark tasks, which ask for no research. AskRigor
+recommends every task marked true, whatever its length, beside the tasks it recommends anyway: give it the
+could_change its result has for what they asked, never only detail. When five tasks are too few for what they asked
+plus your own, keep the tasks they asked for and any task of its own that a serious risk needs (step 2), and leave out
+your other tasks. Marking a task never makes a look-up bigger: when they ask for work beyond one fact from one source,
+the lane is research (step 4).
 The kinds: study_search (a search of the research literature), abstract_screen (reading the abstracts of candidate
 studies), full_text (reading one paper in full), method_audit (auditing one study's methods, after reading it in
 full), forum_thread (reading what people report in a forum or Reddit thread), video_comments (reading the comments
@@ -381,8 +388,9 @@ export const RESEARCH_PLANNER_OUTPUT_SCHEMA = {
       kind: { type: "string", enum: [...PLAN_TASK_KINDS] },
       could_change: { type: "string", enum: [...COULD_CHANGE] },
       // A judgment of the model's (21 November 2026): the menu always recommends a task the person asked for.
-      person_asked: { type: "boolean", description: "true only for a task the person's own words asked to be done " +
-        "(a method, source, comparison or check they named or described); false otherwise." },
+      person_asked: { type: "boolean", description: "true only for a task doing a way of researching the person's " +
+        "own words ask for (a method, source, comparison or check they named or described); naming a subject or a " +
+        "study, or asking the question itself, asks for none; false otherwise." },
       sources: { type: "integer", description: "How many searches, abstracts, papers, threads, videos or records." },
     }, required: ["task", "kind", "could_change", "person_asked", "sources"], additionalProperties: false } },
     // Owner answer 304a (14 November 2026): whether the person's newest message tells the assistant to go on. A
@@ -603,8 +611,8 @@ export function plainLine(value: string, key: string, limit: number): string | u
  * Whether the person told the AI to go on (owner answer 304a) is the model's judgment too, kept only for a research
  * plan with no question whose call carried more than one of the person's messages (followUp).
  */
-export function researchPlanOf(reply: unknown, searches: number, key = "\u0000", followUp = false):
-  ResearchPlan | undefined {
+export function researchPlanOf(reply: unknown, searches: number, key = "\u0000", followUp = false,
+  personWords = true): ResearchPlan | undefined {
   const parsed = replySchema.safeParse(reply);
   if (!parsed.success) return undefined;
   const about = plainLine(parsed.data.about, key, RESEARCH_PLANNER_LIMITS.about);
@@ -623,7 +631,8 @@ export function researchPlanOf(reply: unknown, searches: number, key = "\u0000",
     const sources = typeof entry.sources === "number" && Number.isInteger(entry.sources)
       ? Math.min(Math.max(entry.sources, 1), 10) : 1;
     tasks.push({ task, kind: entry.kind, could_change: entry.could_change,
-      ...(entry.person_asked === true ? { person_asked: true as const } : {}),
+      // A mark the call could not have made: without the person's own words nothing was asked of it (Codex's review).
+      ...(entry.person_asked === true && personWords ? { person_asked: true as const } : {}),
       ...(sources === 1 ? {} : { sources }),
       ...(entry.kind === "other" ? { minutes: [...PLANNED_OTHER_MINUTES] as [number, number] } : {}) });
   }
@@ -907,7 +916,8 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
       if (message.stop_reason !== "end_turn" || text === undefined) return { ...fail("unreadable", costUsd), ...measured };
       let reply: unknown;
       try { reply = JSON.parse(text); } catch { return { ...fail("unreadable", costUsd), ...measured }; }
-      const plan = researchPlanOf(reply, searches, apiKey, source.latestMessage !== undefined);
+      const plan = researchPlanOf(reply, searches, apiKey, source.latestMessage !== undefined,
+        source.asked !== undefined);
       if (plan === undefined) return { ...fail("unreadable", costUsd), ...measured };
       return { planning: { status: "planned", plan }, cached: false, ...measured };
     } catch (error) {
