@@ -68,6 +68,9 @@ GRANT INSERT, SELECT, DELETE ON TABLE living_evidence.research_call_record
 -- Owner answer 303a (migration 0035): a dev account's own menu choices, while its learn mode is on.
 GRANT INSERT, SELECT, DELETE ON TABLE living_evidence.research_menu_choices
   TO askrigor_research_access;
+-- Owner answer 386b (migration 0039): Gemini's sign-in, sealed rows of AskRigor's own authorization server.
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE living_evidence.gemini_oauth_store
+  TO askrigor_research_access;
 GRANT EXECUTE ON FUNCTION living_evidence.withdraw_pending_research_contribution_proposals(
   text, timestamptz
 ) TO askrigor_research_access;

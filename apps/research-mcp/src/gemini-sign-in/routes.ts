@@ -1,0 +1,315 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
+import type { IncomingMessage, ServerResponse } from "node:http";
+
+import { cookieHeader, readCookie, readForm, sameSitePost } from "../atlas/participation.js";
+import type { TokenBucketLimiter } from "../rate-limit.js";
+import { GEMINI_ISSUER_PATH, GEMINI_RESOURCE_PATH, GEMINI_SCOPE } from "./config.js";
+import {
+  GEMINI_CALLBACK_PATH,
+  GeminiLogin,
+  GeminiLoginError,
+  LOGIN_RESULT_COOKIE,
+  LOGIN_STATE_COOKIE,
+} from "./login.js";
+import { consentPage, errorPage } from "./pages.js";
+import { LOGIN_SECONDS, setPageHeaders, type GeminiAuthorizationServer } from "./provider.js";
+
+/**
+ * Which requests belong to Gemini's sign-in, and how each is handled (design sections 3 to 5, v2 F3 and S1).
+ *
+ * - The resource metadata of /mcp/gemini, naming AskRigor's own authorization server.
+ * - The authorization server's metadata at the four discovery addresses clients use.
+ * - AskRigor's own steps: /oauth/gemini/interaction/<uid> (sign in, then consent), /oauth/gemini/interaction/<uid>/login
+ *   (the hand-off from Auth0's return) and /oauth/gemini/callback (Auth0's return).
+ * - Every other path under /oauth/gemini/ goes to the library, with the prefix stripped and the original URL kept so the
+ *   library computes its own addresses.
+ *
+ * Before the library sees any request, Host is pinned to the issuer's host, X-Forwarded-Host is removed and the forwarded
+ * protocol is https: the library derives its endpoint URLs, and so the audiences it accepts, from them.
+ */
+export interface GeminiSignInRoutes {
+  /** Handles the request when its path belongs to Gemini's sign-in, and says so; false leaves it to the server. */
+  dispatch(request: IncomingMessage, response: ServerResponse, context: { pathname: string; clientIp: string }):
+    Promise<boolean>;
+  /** The resource metadata's address, for the challenges of /mcp/gemini. */
+  readonly resourceMetadataUrl: URL;
+}
+
+const DISCOVERY_ALIASES = new Set([
+  `/.well-known/oauth-authorization-server${GEMINI_ISSUER_PATH}`,
+  `/.well-known/openid-configuration${GEMINI_ISSUER_PATH}`,
+  `${GEMINI_ISSUER_PATH}/.well-known/openid-configuration`,
+  `${GEMINI_ISSUER_PATH}/.well-known/oauth-authorization-server`,
+]);
+export const GEMINI_RESOURCE_METADATA_PATH = `/.well-known/oauth-protected-resource${GEMINI_RESOURCE_PATH}`;
+const INTERACTION = new RegExp(`^${GEMINI_ISSUER_PATH}/interaction/([A-Za-z0-9_-]{1,64})(/login)?$`, "u");
+const LIBRARY_COOKIES = /^_(session|interaction|interaction_resume|state)(\.legacy)?(\.sig)?$/u;
+
+export function createGeminiSignInRoutes(
+  server: GeminiAuthorizationServer,
+  login: GeminiLogin,
+  options: { rateLimiter: TokenBucketLimiter; diagnostic?: (record: GeminiSignInDiagnostic) => void },
+): GeminiSignInRoutes {
+  const issuer = server.settings.issuer;
+  const origin = issuer.origin;
+  const resourceMetadataUrl = new URL(GEMINI_RESOURCE_METADATA_PATH, origin);
+  const resourceMetadata = JSON.stringify({
+    resource: server.settings.resource.href,
+    authorization_servers: [issuer.href.replace(/\/$/u, "")],
+    scopes_supported: [GEMINI_SCOPE],
+    bearer_methods_supported: ["header"],
+    resource_name: "AskRigor for Google Gemini",
+  });
+  const note = (stage: GeminiSignInDiagnostic["stage"], outcome: string) => options.diagnostic?.({
+    event: "askrigor_gemini_sign_in",
+    stage,
+    outcome,
+  });
+
+  const pinHeaders = (request: IncomingMessage) => {
+    request.headers.host = issuer.host;
+    delete request.headers["x-forwarded-host"];
+    request.headers["x-forwarded-proto"] = "https";
+  };
+
+  const toLibrary = async (request: IncomingMessage, response: ServerResponse, path: string, query: string) => {
+    pinHeaders(request);
+    (request as IncomingMessage & { originalUrl?: string }).originalUrl = `${GEMINI_ISSUER_PATH}${path}${query}`;
+    request.url = `${path}${query}`;
+    await server.handle(request, response);
+  };
+
+  const fail = (response: ServerResponse, status: number, code: string) => {
+    if (response.headersSent) return;
+    setPageHeaders((field, value) => response.setHeader(field, value));
+    response.writeHead(status, { "content-type": "text/html; charset=utf-8" });
+    response.end(errorPage(code));
+  };
+
+  const formToken = (uid: string, sessionUid: string) => createHmac("sha256", server.settings.keys.consentForm)
+    .update(`askrigor-gemini-consent-v1\u0000${uid}\u0000${sessionUid}`, "utf8")
+    .digest("base64url");
+
+  const interactionStep = async (request: IncomingMessage, response: ServerResponse, uid: string) => {
+    pinHeaders(request);
+    const details = await server.provider.interactionDetails(request, response);
+    if (details.uid !== uid) return fail(response, 400, "session_expired");
+    if (details.prompt.name === "login") {
+      const { location, stateCookie } = await login.start(uid);
+      response.writeHead(303, {
+        location,
+        "set-cookie": cookieHeader(LOGIN_STATE_COOKIE, stateCookie, LOGIN_SECONDS),
+        "cache-control": "no-store",
+        "referrer-policy": "no-referrer",
+      });
+      response.end();
+      note("login", "sent_to_auth0");
+      return;
+    }
+    if (details.prompt.name === "consent" && details.session !== undefined) {
+      setPageHeaders((field, value) => response.setHeader(field, value));
+      // A form's redirects go on to Google's addresses after Allow, so the policy names them (browsers apply
+      // form-action to the redirects that follow a submission).
+      response.setHeader("content-security-policy", "default-src 'none'; style-src 'unsafe-inline'; " +
+        "form-action 'self' https://oauth-redirect.googleusercontent.com https://oauth-redirect-sandbox.googleusercontent.com " +
+        "https://oauth-redirect-test.googleusercontent.com; frame-ancestors 'none'; base-uri 'none'");
+      response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      response.end(consentPage({ uid, formToken: formToken(uid, details.session.uid) }));
+      note("consent", "shown");
+      return;
+    }
+    fail(response, 400, "server_error");
+  };
+
+  const consentDecision = async (request: IncomingMessage, response: ServerResponse, uid: string) => {
+    if (!sameSitePost(request, origin)) return fail(response, 403, "invalid_request");
+    let form: URLSearchParams;
+    try {
+      form = await readForm(request);
+    } catch {
+      return fail(response, 400, "invalid_request");
+    }
+    pinHeaders(request);
+    const details = await server.provider.interactionDetails(request, response);
+    if (details.uid !== uid || details.prompt.name !== "consent" || details.session === undefined) {
+      return fail(response, 400, "session_expired");
+    }
+    if (!sameToken(formToken(uid, details.session.uid), form.get("form_token"))) {
+      return fail(response, 403, "invalid_request");
+    }
+    const decision = form.get("decision");
+    if (decision === "allow") {
+      const clientId = details.params.client_id;
+      if (typeof clientId !== "string") return fail(response, 400, "invalid_request");
+      const grant = new server.provider.Grant({ accountId: details.session.accountId, clientId });
+      // Only research:use on the one resource is ever granted. Every other requested scope is recorded as refused, so
+      // the library does not ask again and issues nothing for it (no ID token, no owner review scope).
+      const requested = typeof details.params.scope === "string" ? details.params.scope.split(" ").filter(Boolean) : [];
+      const refused = requested.filter((scope) => scope !== GEMINI_SCOPE);
+      if (refused.length > 0) grant.rejectOIDCScope(refused.join(" "));
+      if (requested.includes(GEMINI_SCOPE)) grant.rejectOIDCScope(GEMINI_SCOPE);
+      grant.addResourceScope(server.settings.resource.href, GEMINI_SCOPE);
+      const grantId = await grant.save();
+      await server.provider.interactionFinished(request, response, { consent: { grantId } }, {
+        mergeWithLastSubmission: true,
+      });
+      note("consent", "allowed");
+      return;
+    }
+    if (decision === "cancel") {
+      await server.provider.interactionFinished(request, response, {
+        error: "access_denied",
+        error_description: "The person cancelled the connection.",
+      }, { mergeWithLastSubmission: false });
+      note("consent", "cancelled");
+      return;
+    }
+    fail(response, 400, "invalid_request");
+  };
+
+  const loginHandOff = async (request: IncomingMessage, response: ServerResponse, uid: string) => {
+    const outcome = login.readResult(readCookie(request, LOGIN_RESULT_COOKIE), uid);
+    pinHeaders(request);
+    const details = await server.provider.interactionDetails(request, response);
+    if (outcome === undefined || details.uid !== uid || details.prompt.name !== "login") {
+      return fail(response, 400, "session_expired");
+    }
+    response.setHeader("set-cookie", cookieHeader(LOGIN_RESULT_COOKIE, "", 0));
+    if ("denied" in outcome) {
+      await server.provider.interactionFinished(request, response, {
+        error: "access_denied",
+        error_description: "The person cancelled the sign-in.",
+      }, { mergeWithLastSubmission: false });
+      note("login", "cancelled");
+      return;
+    }
+    await server.provider.interactionFinished(request, response, {
+      login: { accountId: outcome.subject, remember: false },
+    }, { mergeWithLastSubmission: false });
+    note("login", "signed_in");
+  };
+
+  const callback = async (request: IncomingMessage, response: ServerResponse) => {
+    const url = new URL(request.url ?? "/", origin);
+    try {
+      const { uid, resultCookie } = await login.finish(url, readCookie(request, LOGIN_STATE_COOKIE));
+      response.writeHead(303, {
+        location: `${GEMINI_ISSUER_PATH}/interaction/${uid}/login`,
+        "set-cookie": [cookieHeader(LOGIN_STATE_COOKIE, "", 0), cookieHeader(LOGIN_RESULT_COOKIE, resultCookie, 120)],
+        "cache-control": "no-store",
+        "referrer-policy": "no-referrer",
+      });
+      response.end();
+    } catch (error) {
+      const code = error instanceof GeminiLoginError && error.code === "session_expired" ? "session_expired" : "login_required";
+      note("callback", code);
+      fail(response, 400, code);
+    }
+  };
+
+  return {
+    resourceMetadataUrl,
+    async dispatch(request, response, { pathname, clientIp }) {
+      const inScope = pathname === GEMINI_RESOURCE_METADATA_PATH || DISCOVERY_ALIASES.has(pathname) ||
+        pathname === GEMINI_ISSUER_PATH || pathname.startsWith(`${GEMINI_ISSUER_PATH}/`);
+      if (!inScope) return false;
+      if (!options.rateLimiter.consume(clientIp)) {
+        response.writeHead(429, { "content-type": "application/json", "retry-after": "60", "cache-control": "no-store" });
+        response.end(JSON.stringify({ error: "rate_limit_exceeded" }));
+        return true;
+      }
+      const method = request.method ?? "GET";
+      const query = queryOf(request.url);
+      try {
+        if (pathname === GEMINI_RESOURCE_METADATA_PATH) {
+          if (method !== "GET" && method !== "HEAD") return methodNotAllowed(response);
+          response.writeHead(200, {
+            "content-type": "application/json",
+            "cache-control": "public, max-age=300",
+            "x-content-type-options": "nosniff",
+          });
+          response.end(method === "HEAD" ? undefined : resourceMetadata);
+          return true;
+        }
+        if (DISCOVERY_ALIASES.has(pathname)) {
+          if (method !== "GET" && method !== "HEAD") return methodNotAllowed(response);
+          await toLibrary(request, response, "/.well-known/openid-configuration", "");
+          return true;
+        }
+        if (pathname === GEMINI_CALLBACK_PATH) {
+          if (method !== "GET") return methodNotAllowed(response);
+          await callback(request, response);
+          return true;
+        }
+        const interaction = INTERACTION.exec(pathname);
+        if (interaction !== null) {
+          const uid = interaction[1]!;
+          if (interaction[2] === "/login") {
+            if (method !== "GET") return methodNotAllowed(response);
+            await loginHandOff(request, response, uid);
+          } else if (method === "GET") {
+            await interactionStep(request, response, uid);
+          } else if (method === "POST") {
+            await consentDecision(request, response, uid);
+          } else {
+            return methodNotAllowed(response);
+          }
+          return true;
+        }
+        const path = pathname.slice(GEMINI_ISSUER_PATH.length) || "/";
+        if (path === "/auth" && method === "GET" || path === "/auth" && method === "POST") {
+          // A new authorization never reuses an earlier login session: every link asks the person to sign in, and the
+          // library's account-switch path (a logout confirmation, which is off) can never arise.
+          dropLibraryCookies(request, /^_session/u);
+        }
+        await toLibrary(request, response, path, query);
+        return true;
+      } catch (error) {
+        const code = isSessionNotFound(error) ? "session_expired" : "server_error";
+        note("library", code);
+        fail(response, code === "session_expired" ? 400 : 500, code);
+        return true;
+      }
+    },
+  };
+}
+
+export interface GeminiSignInDiagnostic {
+  readonly event: "askrigor_gemini_sign_in";
+  readonly stage: "login" | "consent" | "callback" | "library" | "token" | "resource";
+  readonly outcome: string;
+}
+
+function methodNotAllowed(response: ServerResponse): true {
+  response.writeHead(405, { "content-type": "application/json", allow: "GET, POST", "cache-control": "no-store" });
+  response.end(JSON.stringify({ error: "method_not_allowed" }));
+  return true;
+}
+
+function queryOf(target: string | undefined): string {
+  if (target === undefined) return "";
+  const at = target.indexOf("?");
+  return at < 0 ? "" : target.slice(at);
+}
+
+function dropLibraryCookies(request: IncomingMessage, names: RegExp): void {
+  const header = request.headers.cookie;
+  if (typeof header !== "string") return;
+  const kept = header.split(";").map((part) => part.trim()).filter((part) => {
+    const name = part.slice(0, Math.max(0, part.indexOf("="))).trim();
+    return !(LIBRARY_COOKIES.test(name) && names.test(name));
+  });
+  if (kept.length === 0) delete request.headers.cookie;
+  else request.headers.cookie = kept.join("; ");
+}
+
+function sameToken(expected: string, actual: unknown): boolean {
+  if (typeof actual !== "string") return false;
+  const left = Buffer.from(expected, "utf8");
+  const right = Buffer.from(actual, "utf8");
+  return left.byteLength === right.byteLength && timingSafeEqual(left, right);
+}
+
+function isSessionNotFound(error: unknown): boolean {
+  return typeof error === "object" && error !== null && (error as { name?: unknown }).name === "SessionNotFound";
+}
