@@ -234,7 +234,9 @@ describe("later_inputs (owner answer 189a)", () => {
                 // Codex's third review of stage 2: the owner's override of the conflict check when he shows a copy.
                 "dossierOverrideConflicts",
                 // Codex's fourth review of 17 Nov 2026: who shows a finding, which show_on_pages needs.
-                "shown_by"] : [];
+                "shown_by",
+                // Atlas Release B: the owner's notice to acknowledge.
+                "personNotice"] : [];
       expect(laterInputNames(operation.name)).toEqual(expected);
       // An MCP call always carries its request context; an empty one stands in for it here.
       const result = await operation.execute({ later_inputs: { synthetic_future_input: 1 } }, {} as never);

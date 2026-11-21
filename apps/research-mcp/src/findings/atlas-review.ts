@@ -110,6 +110,14 @@ import {
   type AtlasChallenges,
 } from "../atlas/challenge-review.js";
 import {
+  ATLAS_PERSON_NOTICE_ACTIONS,
+  ATLAS_PERSON_NOTICE_OUTCOMES,
+  AtlasPersonNoticeReview,
+  type AtlasPersonNoticeAction,
+  type AtlasPersonNotices,
+  type AtlasPersonNoticeStore,
+} from "../atlas/person-notice-review.js";
+import {
   ATLAS_PLACEMENT_ACTIONS,
   ATLAS_PLACEMENT_OUTCOMES,
   AtlasPlacementReview,
@@ -239,6 +247,8 @@ export const ATLAS_REVIEW_ACTIONS = [
   ...ATLAS_CHALLENGE_ACTIONS,
   // AskRigor#477 stage 2 (owner answer 332a): research dossiers on the public Atlas.
   ...ATLAS_DOSSIER_ACTIONS,
+  // Atlas Release B (Fable's recheck): the owner's notices on claims about named people.
+  ...ATLAS_PERSON_NOTICE_ACTIONS,
 ] as const;
 export type AtlasReviewAction = typeof ATLAS_REVIEW_ACTIONS[number];
 
@@ -272,6 +282,7 @@ export const ATLAS_REVIEW_OUTCOMES = [
   ...ATLAS_GLANCE_OUTCOMES,
   ...ATLAS_CHALLENGE_OUTCOMES,
   ...ATLAS_DOSSIER_OUTCOMES,
+  ...ATLAS_PERSON_NOTICE_OUTCOMES,
 ] as const;
 export type AtlasReviewOutcome = typeof ATLAS_REVIEW_OUTCOMES[number];
 
@@ -498,6 +509,8 @@ export interface AtlasReviewRequest {
   dossierConflictReader?: import("./dossier-conflict-reading.js").DossierConflictReader;
   /** The owner's override of the conflict check, from later_inputs.dossierOverrideConflicts. */
   dossierOverrideConflicts?: string[];
+  /** Atlas Release B: the owner's notice to acknowledge, from later_inputs.personNotice. */
+  personNotice?: number;
   /** mark_challenge (the owner, 6 Nov 2026): the usual view, its source and the quick-answer verdict, from later_inputs. */
   usual_view?: AtlasChallengeRequest["usual_view"];
   usual_view_source_url?: AtlasChallengeRequest["usual_view_source_url"];
@@ -590,6 +603,9 @@ const FIELDS_BY_ACTION: Record<AtlasReviewAction | "edit_after", readonly AtlasF
   state_dossier_living_person: [],
   // Codex's re-review of stage 2: a privacy reading made later of a copy held waiting for it.
   read_dossier_privacy: [],
+  // Atlas Release B: the notice to acknowledge comes in later_inputs.personNotice.
+  list_person_notices: [],
+  ack_person_notice: [],
 };
 
 /**
@@ -1074,6 +1090,8 @@ export interface AtlasReviewResult {
   challenges?: AtlasChallenges;
   /** AskRigor#477 stage 2: the research dossiers' public copies listed, inspected or decided. */
   dossiers?: AtlasDossiers;
+  /** Atlas Release B: the owner's open notices on claims about named people, or the one acknowledged. */
+  personNotices?: AtlasPersonNotices;
 }
 
 // Dependencies ----------------------------------------------------------------------------------------------------------
@@ -1124,6 +1142,8 @@ export interface AtlasReviewDependencies {
   reports?: AtlasReportReviewStore;
   /** A problem's rows at a glance, through the review role's three glance functions. */
   glance?: AtlasGlanceStore;
+  /** Atlas Release B: the owner's notices on claims about named people, through the review role's notice functions. */
+  personNotices?: AtlasPersonNoticeStore;
   /**
    * The titles and years publish_cards publishes with a card's sources (plan
    * docs/superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md), with the call's provider settings: production
@@ -1295,6 +1315,9 @@ export class AtlasReview {
         case "state_dossier_living_person":
         case "read_dossier_privacy":
           return await this.dossierAction(request.action, request);
+        case "list_person_notices":
+        case "ack_person_notice":
+          return await this.personNoticeAction(request.action, request);
       }
     } catch (error) {
       return errorResult(error);
@@ -1436,6 +1459,23 @@ export class AtlasReview {
     const store = this.deps.dossierPublications;
     return store === undefined ? undefined : await readPendingDossierPrivacy(store, reader, { now: this.now,
       ...(conflictReader === undefined ? {} : { conflictReader }) });
+  }
+
+  private async personNoticeAction(action: AtlasPersonNoticeAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const store = this.deps.personNotices;
+    if (store === undefined) {
+      return errorOf("review_service_unavailable", "The owner's notices are not configured: they need the review " +
+        "database. Nothing was changed.");
+    }
+    const result = await new AtlasPersonNoticeReview({ store, now: this.now }).run({
+      action, ...(request.personNotice === undefined ? {} : { personNotice: request.personNotice }) });
+    return {
+      ok: result.ok,
+      text: result.text,
+      ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
+      ...(result.error === undefined ? {} : { error: result.error }),
+      ...(result.personNotices === undefined ? {} : { personNotices: result.personNotices }),
+    };
   }
 
   private async glanceAction(action: AtlasGlanceAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {

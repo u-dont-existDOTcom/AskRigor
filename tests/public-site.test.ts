@@ -208,7 +208,15 @@ describe("AskRigor public site", () => {
     expect(section).toContain("erases it. Before a research dossier is stored, its text (never your chat or anything " +
       "about you) is checked for personal details by an AI model from Anthropic, on AskRigor’s own account. Each " +
       "submission first enters");
-    expect(privacy.match(/Anthropic/gu)).toHaveLength(1);
+    // Two AI readings by Anthropic, each disclosed once: this one, and Atlas Release B's reading for claims about named
+    // people (design of 19 Nov 2026, section 6; Codex's red team: "Anthropic also receives that memory"); and, once,
+    // the Claude session that reads disputes for the owner (Fable's recheck of B, change 5).
+    expect(privacy.match(/Anthropic/gu)).toHaveLength(3);
+    expect(privacy).toContain("AskRigor’s operator handles disputes with Claude, an AI model from Anthropic, which reads " +
+      "disputes, with any link and email address given with them, for AskRigor’s owner.");
+    expect(privacy).toContain("To find claims about people, AskRigor sends each finding’s text, the sentences it quotes " +
+      "from its sources and any taken-off claims about the names in it to an AI model from Anthropic, on AskRigor’s own " +
+      "account.");
     expect(privacy).toContain("Effective November 21, 2026");
     // After the exclusions it relies on, and before the paid private sentence, which it does not change.
     expect(section.indexOf("private research dossier")).toBeGreaterThan(section.indexOf("It excludes raw chat"));
@@ -274,7 +282,7 @@ describe("AskRigor public site", () => {
   it("says free cards publish on save, paid findings wait for acceptance, and how votes and comments work", async () => {
     const privacy = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "<p>Findings cards saved in free contributor mode are published in AskRigor’s public Atlas as soon as they are saved, written without the person and marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed them. Findings from a paid private card are published only after AskRigor’s owner accepts them. An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify anyone.</p></section>",
+      "<p>Findings cards saved in free contributor mode are published in AskRigor’s public Atlas as soon as they are saved, written without the person and marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed them. Findings from a paid private card are published only after AskRigor’s owner accepts them. An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify the person who asked. Findings may name other people, such as study authors, sellers and people who make public health claims; see “People named in the Atlas” below.</p></section>",
       "Paid private mode sends no research contribution to that path. Findings cards saved in free contributor mode are published in AskRigor’s public Atlas as soon as they are saved, written without the person and marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed them. Findings from a paid private card are published only after AskRigor’s owner accepts them.",
       "<section><h2>Votes and comments in the Atlas</h2><p>To vote on a finding or comment on it, you sign in with an AskRigor account. AskRigor stores each vote and comment with a key derived from the account, never its email address. Votes are shown only as totals. A comment is public and is shown with the display name you choose, so don’t post contact details or anything that identifies you or someone else. AskRigor checks comments for contact details and links before showing them, and its owner may hide or remove any comment. You can delete your own votes and comments at any time.</p></section>",
       "To request deletion of a findings card, send its <code>ARF-####</code> id to the same address. No reason is " +
@@ -285,7 +293,7 @@ describe("AskRigor public site", () => {
     ]) expect(privacy).toContain(fragment);
     const terms = await pageHtml("site/terms/index.html");
     for (const fragment of [
-      "rather than silently rewritten. Findings cards saved in free contributor mode are published in AskRigor’s public Atlas as soon as they are saved, written without you and marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed them. Findings from a paid private card are published only after AskRigor’s owner accepts them. If you ask to delete a findings card, everything that ties it to you is removed, and the card leaves the Atlas unless AskRigor’s owner has already accepted its findings; no reason is needed. An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify anyone.</p></section>",
+      "rather than silently rewritten. Findings cards saved in free contributor mode are published in AskRigor’s public Atlas as soon as they are saved, written without you and marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed them. Findings from a paid private card are published only after AskRigor’s owner accepts them. If you ask to delete a findings card, everything that ties it to you is removed, and the card leaves the Atlas unless AskRigor’s owner has already accepted its findings; no reason is needed. An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify the person who asked. Findings may name other people, such as study authors, sellers and people who make public health claims; see “Claims about people in the Atlas” below and the privacy notice.</p></section>",
       "<section><h2>Comments in the Atlas</h2><p>Comments in the Atlas must be about the finding. Your own experiences are welcome, and comments are not medical advice. Don’t post contact details, personal information about anyone else, advertising or harassment. AskRigor may hide or remove any comment and stop an account from commenting. By posting a comment you let AskRigor show it in the Atlas, and you can delete it at any time.</p></section>",
       "does not promise attribution, publication, compensation, or a particular outcome",
       "Effective November 16, 2026",

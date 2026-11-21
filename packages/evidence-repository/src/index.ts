@@ -725,3 +725,4 @@ export {
   type GeminiSignInRowStore,
   type GeminiSignInStoredRow,
 } from "./gemini-sign-in-rows.js";
+export * from "./atlas-person-claims.js";

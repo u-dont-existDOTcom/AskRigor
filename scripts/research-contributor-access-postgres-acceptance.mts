@@ -2736,6 +2736,12 @@ const ATLAS_GLANCE_FUNCTIONS = ["inspect_atlas_glance_rows", "propose_atlas_glan
 const ATLAS_CHALLENGE_FUNCTIONS = ["inspect_atlas_challenges", "mark_atlas_challenges"] as const;
 // Codex's third review of 17 Nov 2026, finding 2 (migration 0041): show_on_pages records how it shows a finding.
 const ATLAS_SHOW_FUNCTIONS = ["show_atlas_publications"] as const;
+// Atlas Release B (migration 0042): the person-claim readings, claims, disputes, decisions, notices and spend.
+const ATLAS_PERSON_FUNCTIONS = ["ack_atlas_person_hint", "atlas_person_removed_texts_for", "claim_atlas_person_reading",
+  "decide_atlas_person_claim", "fail_atlas_person_reading", "list_atlas_person_notices", "list_atlas_person_queue",
+  "list_atlas_person_unchecked_removals",
+  "purge_atlas_person_disputes", "record_atlas_person_notice", "reserve_atlas_person_spend", "save_atlas_person_reading",
+  "settle_atlas_person_spend", "submit_atlas_person_dispute", "take_atlas_person_hints", "take_atlas_person_notices"] as const;
 const ATLAS_PARTICIPATION_FUNCTIONS = [
   "atlas_session_current", "delete_atlas_comment", "end_atlas_sessions", "forget_atlas_participant",
   "inspect_atlas_participant", "post_atlas_comment", "report_atlas_comment", "set_atlas_display_name", "set_atlas_vote",
@@ -4196,8 +4202,10 @@ async function migrateAsTheImageBefore0041(adminUrl: string, schema: string): Pr
   const repository = await readFile(new URL("../packages/evidence-repository/src/postgres.ts", import.meta.url), "utf8");
   const listed = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
   const order = [...listed.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!)
-    // That image (main's, with Atlas news) has neither 0041 nor this release's other new migration, 0040.
-    .filter((id) => id !== "0040_research_dossier_publications" && id !== "0041_atlas_show_saved_findings");
+    // That image (main's, with Atlas news) has neither 0041 nor this release's other new migrations, 0040 and 0042
+    // (Atlas Release B's).
+    .filter((id) => id !== "0040_research_dossier_publications" && id !== "0041_atlas_show_saved_findings" &&
+      id !== "0042_atlas_person_readings");
   assert(order.length > 30 && order.at(-1) === "0043_atlas_news_items", "EARLIER_IMAGE_MIGRATION_LIST");
   const pool = new Pool({ connectionString: adminUrl, max: 1 });
   const client = await pool.connect();
@@ -5721,7 +5729,7 @@ export async function verifyAtlasStorage(context: {
       executable.rows.map(({ proname }) => proname).join() ===
         [...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
           ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS,
-          ...ATLAS_CHALLENGE_FUNCTIONS, ...ATLAS_SHOW_FUNCTIONS,
+          ...ATLAS_CHALLENGE_FUNCTIONS, ...ATLAS_SHOW_FUNCTIONS, ...ATLAS_PERSON_FUNCTIONS,
           ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS, ...DOSSIER_REVIEW_FUNCTIONS,
           ...ATLAS_NEWS_REVIEW_FUNCTIONS, ...DOSSIER_PUBLICATION_REVIEW_FUNCTIONS].sort().join(),
       `ATLAS_REVIEW_ROLE_FUNCTIONS_MISMATCH ${executable.rows.map(({ proname }) => proname).join()}`,

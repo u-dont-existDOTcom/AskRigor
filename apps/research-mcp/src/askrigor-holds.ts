@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { ATLAS_NEAR, nearAtlasMatches } from "./atlas/near-match.js";
 import { loadAtlasSearchIndex, NOT_CHECKED_LABEL, type AtlasSearchIndex, type ShownFinding } from "./atlas/page-data.js";
+import { machineFinding } from "./atlas/person-claims.js";
 import { atlasPageUrl } from "./atlas/reuse.js";
 import { ownerPointersFor, type OwnerPointer } from "./owner-pointers.js";
 
@@ -75,7 +76,10 @@ export function shownOwnerPointer({ id, about, says, link, checked, limits, adde
   return { id, about, says, ...(link === undefined ? {} : { link: { ...link } }), checked, limits, added };
 }
 
-function heldFinding(finding: ShownFinding, words: readonly string[], origin: string): HeldAtlasFinding {
+function heldFinding(shown: ShownFinding, words: readonly string[], origin: string): HeldAtlasFinding {
+  // Atlas Release B (Fable's recheck, change 2): what another AI app is handed follows the lookup's rule, so an
+  // unverified claim about a named person is left out, with the line saying so, never handed over in brackets.
+  const finding = machineFinding(shown);
   return {
     publication_number: finding.publicationNumber,
     state: finding.status.kind === "unreviewed" ? NOT_CHECKED_LABEL : "checked",
@@ -107,6 +111,12 @@ export const ATLAS_NEAR_RETRY_MS = 30_000;
 export function atlasNearFinder(source: AtlasPageSource, settings: {
   origin?: string; now?: () => number; keepMs?: number; waitMs?: number; retryMs?: number;
   load?: (source: AtlasPageSource) => Promise<AtlasSearchIndex>;
+  /**
+   * Atlas Release B, while the mark is on (Fable's recheck, change 2): a reading older than keepMs is never used, so a
+   * claim taken off after a dispute is not handed over from it; a registration waits for the new one, at most waitMs,
+   * or gets none.
+   */
+  fresh?: boolean;
 } = {}): (text: string) => Promise<HeldAtlasFinding[]> {
   const origin = settings.origin ?? "https://askrigor.com";
   const now = settings.now ?? Date.now;
@@ -115,19 +125,32 @@ export function atlasNearFinder(source: AtlasPageSource, settings: {
   const retryMs = settings.retryMs ?? ATLAS_NEAR_RETRY_MS;
   const load = settings.load ?? ((from: AtlasPageSource) => loadAtlasSearchIndex(from, true));
   let ready: AtlasSearchIndex | undefined;
+  /** When the reading that is ready began: its findings are as of then. */
+  let readyAt = Number.NEGATIVE_INFINITY;
   let readAgainAt = Number.NEGATIVE_INFINITY;
   let noWaitUntil = Number.NEGATIVE_INFINITY;
   let reading: Promise<AtlasSearchIndex> | undefined;
+  /** When the reading in flight began. */
+  let readingBegan = Number.NEGATIVE_INFINITY;
+  const fresh = settings.fresh === true;
   const read = (): void => {
-    if (reading !== undefined) return;
+    // While the mark is on, a reading in flight that began keepMs ago or more no longer stands for a new one (Codex's
+    // check of the last fix round): its findings would be too old to hand over when it ends.
+    if (reading !== undefined && !(fresh && now() - readingBegan >= keepMs)) return;
+    const began = now();
+    readingBegan = began;
     const mine = Promise.resolve().then(() => load(source)).then((index): AtlasSearchIndex => ({
       // A finding a later one replaced is not handed over; its replacement is, where it is near.
       entries: index.entries.filter(({ finding }) => finding.status.kind !== "superseded"), bytes: index.bytes,
     }));
     reading = mine;
     mine.then((index) => {
+      // A reading that ends after a newer one never replaces it.
+      if (began < readyAt) return;
       ready = index;
-      readAgainAt = now() + keepMs;
+      readyAt = began;
+      // While the mark is on, the keep time counts from when the reading began, as its findings are as of then.
+      readAgainAt = fresh ? began + keepMs : now() + keepMs;
     }, () => {
       readAgainAt = now() + retryMs;
     }).finally(() => {
@@ -138,9 +161,10 @@ export function atlasNearFinder(source: AtlasPageSource, settings: {
     try {
       const current = now();
       if (current >= readAgainAt) read();
-      let index = ready;
+      let index = fresh && current - readyAt >= keepMs ? undefined : ready;
       if (index === undefined) {
         const first = reading;
+        const firstBegan = readingBegan;
         if (first === undefined || current < noWaitUntil) return [];
         let timer: ReturnType<typeof setTimeout> | undefined;
         const late = new Promise<never>((_, reject) => {
@@ -154,6 +178,8 @@ export function atlasNearFinder(source: AtlasPageSource, settings: {
         } finally {
           clearTimeout(timer);
         }
+        // Never one that began keepMs ago or more, even if it ended during this wait.
+        if (fresh && now() - firstBegan >= keepMs) return [];
       }
       return nearAtlasMatches(index, text).map(({ finding, words }) => heldFinding(finding, words, origin));
     } catch {

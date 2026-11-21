@@ -12,6 +12,7 @@ import { COMMUNITY_LEADS_GUIDANCE } from "./community-leads.js";
 import { aiReadingsMarker, finalCheckAsked, findingsSaveOff, withLaterInputs } from "./later-inputs.js";
 import { openToolOutputSchema } from "./connector-input-schema.js";
 import { atlasLookupInputSchema, atlasLookupOutputSchema, atlasLookupToolResult, atlasOrigin, configuredAtlasLookupSource } from "./atlas/lookup-tool.js";
+import { personMarkSinceFromEnv } from "./atlas/person-reading.js";
 import { atlasNearFinder, type AskRigorHoldsOptions } from "./askrigor-holds.js";
 import { OWNER_POINTERS } from "./owner-pointers.js";
 import type { AtlasPageSource } from "@askrigor/evidence-repository";
@@ -381,7 +382,9 @@ const ATLAS_LOOKUP_SOURCE = configuredAtlasLookupSource();
 // five minutes) and the owner's pointers.
 const ASKRIGOR_HOLDS: AskRigorHoldsOptions = {
   ...(ATLAS_LOOKUP_SOURCE === undefined ? {}
-    : { atlas: atlasNearFinder(ATLAS_LOOKUP_SOURCE, { origin: atlasOrigin(process.env.ASKRIGOR_ATLAS_PUBLIC_ORIGIN) }) }),
+    : { atlas: atlasNearFinder(ATLAS_LOOKUP_SOURCE, { origin: atlasOrigin(process.env.ASKRIGOR_ATLAS_PUBLIC_ORIGIN),
+      // Atlas Release B (Fable's recheck, change 2): while the mark is on, never from a reading older than its keep time.
+      fresh: personMarkSinceFromEnv(process.env, () => undefined) !== undefined }) }),
   pointers: () => OWNER_POINTERS,
 };
 

@@ -34,6 +34,7 @@ import { atlasParticipationSchema } from "./atlas/participation-review.js";
 import { atlasKeptSchema } from "./atlas/kept-review.js";
 import { ATLAS_CHALLENGE_MARK_INPUTS, atlasChallengesSchema } from "./atlas/challenge-review.js";
 import { atlasDossiersSchema } from "./atlas/dossier-review.js";
+import { atlasPersonNoticesSchema } from "./atlas/person-notice-review.js";
 import { atlasPlacementsSchema } from "./atlas/placement-review.js";
 import { atlasReportsSchema } from "./atlas/report-review.js";
 import { atlasGlanceSchema } from "./atlas/glance-review.js";
@@ -66,7 +67,9 @@ export const researchContributionReviewInputSchema = z.object({
       "list_publications, unpublish_finding, publish_cards or set_aside_cards. publish_cards takes topicKey and " +
       "topicLabel for cards that declare no topic; a stored topic's label is reused, and topicless publications " +
       "are withdrawn then published again with their P numbers. Comments and the home page: " +
-      "list_comments, hide_comment, show_comment, remove_comment, stop_commenter, restore_commenter or set_picks."),
+      "list_comments, hide_comment, show_comment, remove_comment, stop_commenter, restore_commenter or set_picks. " +
+      "The owner's notices on claims about named people: list_person_notices, or ack_person_notice with " +
+      "later_inputs.personNotice."),
   proposalId: z.string().uuid().optional().describe("Proposals: the proposal's ID."),
   expectedPayloadSha256: z.string().regex(/^[a-f0-9]{64}$/u).optional()
     .describe("Proposals: the payload hash inspect returned."),
@@ -179,6 +182,11 @@ export const researchContributionReviewInputSchema = z.object({
       if (glanceInputs[field as keyof typeof glanceInputs] !== undefined && !(actions as readonly string[]).includes(value.action)) {
         context.addIssue({ code: "custom", message: `${value.action} does not take ${field}` });
       }
+    }
+    // Atlas Release B: later_inputs.personNotice goes with ack_person_notice, which needs it.
+    if ((value.action === "ack_person_notice") !== ((value as { personNotice?: unknown }).personNotice !== undefined)) {
+      context.addIssue({ code: "custom", message: value.action === "ack_person_notice"
+        ? "ack_person_notice needs later_inputs.personNotice" : `${value.action} does not take personNotice` });
     }
     refineAtlasReviewInput({ ...value, action: value.action }, context);
     return;
@@ -349,6 +357,8 @@ export const researchContributionReviewRuntimeOutputSchema = researchContributio
   news: atlasNewsResultSchema.optional(),
   // AskRigor#477 stage 2: the research dossiers' public copies, runtime-only (owner answer 189a).
   dossiers: atlasDossiersSchema.optional(),
+  // Atlas Release B: list_person_notices and ack_person_notice, runtime-only.
+  personNotices: atlasPersonNoticesSchema.optional(),
   sharedAnswers: z.object({
     kept: z.array(sharedAnswerSummarySchema).optional(),
     answer: sharedAnswerSummarySchema.extend({
@@ -706,6 +716,7 @@ function atlasToolResult(result: AtlasReviewResult): CallToolResult {
     ...(result.glance === undefined ? {} : { glance: result.glance }),
     ...(result.challenges === undefined ? {} : { challenges: result.challenges }),
     ...(result.dossiers === undefined ? {} : { dossiers: result.dossiers }),
+    ...(result.personNotices === undefined ? {} : { personNotices: result.personNotices }),
     canonicalEvidenceChangedByThisCall: false,
     ...(result.error === undefined ? {} : { error: result.error }),
   });

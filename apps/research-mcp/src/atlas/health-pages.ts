@@ -1,7 +1,7 @@
 import type { AtlasGlanceRow, AtlasPagePlacement, AtlasPageReport, AtlasPageSource } from "@askrigor/evidence-repository";
 
 import { HEALTH, healthPath, type AtlasCategory, type AtlasSubcategory } from "./health-tree.js";
-import { allShown, byStrength, oncePerFinding, sourceIdentifierOf, type ShownFinding } from "./page-data.js";
+import { allShown, byStrength, markedGlanceRows, oncePerFinding, sourceIdentifierOf, type ShownFinding } from "./page-data.js";
 import { opensYouTube, rowPassesPageGuard } from "./page-guard.js";
 import { differenceRange } from "../difference-range.js";
 import { findingList, findingPath, html, outOf100, page, sourceLink, unreviewedOnly, type AtlasPageReader } from "./pages.js";
@@ -143,8 +143,9 @@ async function placedItems(source: AtlasPageSource, category: AtlasCategory): Pr
       findings: oncePerFinding(shown).map((finding) => ({ finding, subcategoryKey: placementOf(finding, placements, category) })),
       reports: (await reads.listReports()).filter(reportShowable)
         .map((report) => ({ report, subcategoryKey: subcategoryOf(report.publicId) })),
-      glanceRows: (await reads.listGlanceRows()).filter(({ categoryKey }) => categoryKey === category.key)
-        .filter(glanceRowShowable),
+      // Atlas Release B, while the mark is on: the owner's curated rows are read like findings (Codex's second review).
+      glanceRows: await markedGlanceRows(reads, (await reads.listGlanceRows())
+        .filter(({ categoryKey }) => categoryKey === category.key).filter(glanceRowShowable)),
     };
   });
 }
