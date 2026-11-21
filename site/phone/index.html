@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AskRigor runner</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<meta name="theme-color" content="#1d4f91">
+<meta name="referrer" content="no-referrer">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="pl-status" id="plStatus"><span class="pl-dot wait"></span>Starting…</div>
+<div class="pl-banner" id="plBanner" hidden>This phone page was built from another version of the runner's page than your laptop runs. Most views work; some may look different.</div>
+<div class="pl-overlay" id="phoneLink" hidden></div>
+<header class="bar">
+  <div class="brand">AskRigor runner <small>on this laptop, on your Claude plan</small></div>
+  <div class="meter" id="meter"><span>Claude plan: no reading yet</span></div>
+  
+</header>
+
+
+<main class="layout">
+  <div class="card ask-card">
+      <label class="label" for="q">Your question</label>
+      <textarea id="q" rows="4" placeholder="For example: does the SMILES trial show that diet has a bigger effect on depression than antidepressants?"></textarea>
+      <div class="row">
+        <button id="start" class="primary">Start</button>
+        <span id="startNote" class="muted"></span><span class="muted desk-only">Ctrl+Enter starts too.</span>
+      </div>
+  </div>
+
+  <section class="runcol">
+    <nav class="tabs" role="tablist">
+      <button id="tab-run" class="on" role="tab">This run</button>
+      <button id="tab-past" role="tab">Past runs</button>
+    </nav>
+    <div class="going" id="going"></div>
+    <article class="card" id="runView"><p class="empty">Loading…</p></article>
+    <div class="card" id="pastView" hidden><p class="empty">Loading…</p></div>
+  </section>
+
+  <div class="card settings-card">
+      <h2>Settings</h2>
+      <div class="grid">
+        <label>Provider <select id="s-provider"></select></label>
+        <label>Model <select id="s-model"></select></label>
+        <label>Thinking level <select id="s-effort"></select></label>
+        <label>Workers at once <select id="s-workers"></select></label>
+        <label>Time <select id="s-minutes"></select></label>
+        <label>Plan share for a run <select id="s-plan_share"></select></label>
+      </div>
+      <label class="check"><input type="checkbox" id="s-ask"> <span>Let the plan ask me one question before it researches</span></label>
+      <label class="check"><input type="checkbox" id="s-askrigor_tools"> <span>Give the workers AskRigor's research tools (off: web search and page fetch only)</span></label>
+      <label class="check"><input type="checkbox" id="s-compare"> <span>After each run, plain ChatGPT answers the same question and GPT compares the two answers without knowing which is which (uses your ChatGPT plan, in the background)</span></label>
+      <div class="hint">
+        <p><b>Time and plan share.</b> Today a run does one round of up to five research tasks; the test runs took 1 to 7 minutes and about half a point to one point of the weekly limit. A limit can leave tasks out, never the writing, review and revision, which are set aside first. More time will buy more research once deep research's rounds are in.</p>
+        <p>Your settings are kept for next time. GPT, Gemini and Grok for every step are not built yet. In research runs, Gemini already suggests candidate explanations, which Claude's workers check against sources (when agy, Google's Antigravity CLI, is installed and signed in).</p>
+      </div>
+      <p class="muted" id="saveNote"></p>
+  </div>
+</main>
+
+<script src="link.js" defer></script>
+<script src="app.js" defer></script>
+</body>
+</html>

@@ -11,8 +11,8 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "tsc -b packages/contracts packages/protocol packages/sources packages/evidence-repository apps/research-mcp",
-    "typecheck": "tsc -b --pretty false packages/contracts packages/protocol packages/sources packages/evidence-repository apps/research-mcp",
+    "build": "tsc -b packages/contracts packages/protocol packages/sources packages/evidence-repository apps/research-mcp apps/phone-relay",
+    "typecheck": "tsc -b --pretty false packages/contracts packages/protocol packages/sources packages/evidence-repository apps/research-mcp apps/phone-relay",
     "test": "vitest",
     "test:run": "vitest run",
     "test:site": "tsx scripts/validate-public-site.mts",

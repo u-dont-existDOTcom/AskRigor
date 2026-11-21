@@ -1,0 +1,19 @@
+{
+ "built_by": "askrigor-runner phone-link/build-phone-page.mjs",
+ "runner_commit": "b2e7f17203d2",
+ "page_html_sha256": "db6b275f7091830faa1ffa2950494ebcdcef6dc23a7d25eacf1c2889e964ae8c",
+ "link_version": 1,
+ "protocols": [
+  "Noise_XXpsk0_25519_ChaChaPoly_BLAKE2b (pairing)",
+  "Noise_IK_25519_ChaChaPoly_BLAKE2b (each connection)"
+ ],
+ "libraries": {
+  "noise-handshake": "4.2.1",
+  "b4a": "1.9.0",
+  "nanoassert": "2.0.0",
+  "@noble/curves": "2.4.0",
+  "@noble/ciphers": "2.4.0",
+  "@noble/hashes": "2.4.0",
+  "esbuild": "0.28.2"
+ }
+}

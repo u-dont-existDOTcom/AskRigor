@@ -1,5 +1,7 @@
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { createHash } from "node:crypto";
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 import { validatePublicSite, validateRobots, validateWhatsNew } from "../scripts/validate-public-site.mts";
@@ -384,5 +386,132 @@ describe("AskRigor public site", () => {
     expect(css).toContain("prefers-color-scheme: dark");
     expect(css).toContain("max-width");
     expect(css).toMatch(/@media\s*\([^)]*(?:48rem|[0-4]?\d(?:\.\d+)?rem)[^)]*\)/);
+  });
+});
+
+describe("the phone page's folder (owner answer 385b)", () => {
+  const sha256 = (content: string | Buffer) => createHash("sha256").update(content).digest("hex");
+  const sums = (files: Map<string, string | Buffer>) =>
+    [...files].map(([name, content]) => `${sha256(content)}  ${name}\n`).join("");
+  const goodIndex = [
+    "<!doctype html>",
+    '<html lang="en">',
+    '<head><meta charset="utf-8"><link rel="stylesheet" href="app.css"><link rel="manifest" href="manifest.webmanifest">',
+    '<script src="app.js" defer></script><script type="module" src="./link.js"></script></head>',
+    '<body><main id="app"></main><script src="link.js"></script></body>',
+    "</html>",
+    ""
+  ].join("\n");
+  const phoneFiles = (index = goodIndex) => new Map<string, string | Buffer>([
+    ["index.html", index],
+    ["app.css", "body { margin: 0; }\n"],
+    ["app.js", "export const app = 1;\n"],
+    ["link.js", "export const link = 2;\n"],
+    ["manifest.webmanifest", '{"name":"AskRigor"}\n'],
+    ["icon-192.png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 1])],
+    ["icon-512.png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 2])],
+    ["BUILD.json", '{"built":"test"}\n']
+  ]);
+
+  /** A copy of the real site with a phone folder (or none), validated as a whole. */
+  async function validateWith(phone?: { files: Map<string, string | Buffer>; sums?: string },
+    change?: (site: string) => Promise<void>): Promise<string[]> {
+    const fixture = await mkdtemp(join(tmpdir(), "askrigor-phone-site-"));
+    try {
+      const site = join(fixture, "site");
+      const realSite = fileURLToPath(rootFile("site"));
+      await cp(realSite, site, { recursive: true, filter: (source) => !source.startsWith(join(realSite, "phone")) });
+      if (phone !== undefined) {
+        await mkdir(join(site, "phone"));
+        for (const [name, content] of phone.files) await writeFile(join(site, "phone", name), content);
+        await writeFile(join(site, "phone", "SHA256SUMS"), phone.sums ?? sums(phone.files));
+      }
+      await change?.(site);
+      return (await validatePublicSite(pathToFileURL(`${site}/`))).errors;
+    } finally {
+      await rm(fixture, { recursive: true, force: true });
+    }
+  }
+
+  it("accepts a site without the folder and a complete folder with its right hashes", async () => {
+    expect(await validateWith()).toEqual([]);
+    expect(await validateWith({ files: phoneFiles() })).toEqual([]);
+  });
+
+  it("refuses inline script in the phone page", async () => {
+    for (const script of ["<script>alert(1)</script>", '<script src="app.js">alert(1)</script>']) {
+      const errors = await validateWith({ files: phoneFiles(goodIndex.replace("</body>", `${script}</body>`)) });
+      expect(errors, script).toContain("phone/index.html: must not contain inline script");
+    }
+    const handler = await validateWith({ files: phoneFiles(goodIndex.replace("<body>", '<body onload="go()">')) });
+    expect(handler).toEqual(["phone/index.html: must not contain inline script: onload"]);
+    const url = await validateWith({ files: phoneFiles(goodIndex.replace('<main id="app">', '<a href="javascript:go()">x</a><main id="app">')) });
+    expect(url).toEqual(["phone/index.html: must not contain javascript: URLs"]);
+    const unclosed = await validateWith({ files: phoneFiles(goodIndex.replace("</body>", '<script src="app.js"></body>')) });
+    expect(unclosed).toContain("phone/index.html: has a script tag that is not a whole <script src></script>");
+  });
+
+  it("refuses a script from another origin or another folder", async () => {
+    for (const source of ["https://cdn.example.com/app.js", "//cdn.example.com/app.js", "/phone/app.js", "../assets/app.js",
+      "missing.js", "data:text/javascript,1"]) {
+      const errors = await validateWith({ files: phoneFiles(goodIndex.replace('src="link.js"', `src="${source}"`)) });
+      expect(errors, source).toEqual([`phone/index.html: may load script only from its own folder: ${source}`]);
+    }
+  });
+
+  it("refuses a wrong hash, a missing file and an extra file", async () => {
+    const files = phoneFiles();
+    const listed = sums(files);
+    files.set("app.js", "export const app = 666;\n");
+    expect(await validateWith({ files, sums: listed })).toEqual(["phone/SHA256SUMS: has the wrong SHA-256 for app.js"]);
+
+    const missing = phoneFiles();
+    const missingSums = sums(missing);
+    missing.delete("icon-512.png");
+    expect(await validateWith({ files: missing, sums: missingSums })).toEqual([
+      "phone/icon-512.png: required file is missing",
+      "phone/SHA256SUMS: lists icon-512.png, which is not one of the folder's other files"
+    ]);
+
+    const unlisted = phoneFiles();
+    const unlistedSums = sums(new Map([...unlisted].filter(([name]) => name !== "BUILD.json")));
+    expect(await validateWith({ files: unlisted, sums: unlistedSums })).toEqual(["phone/SHA256SUMS: does not list BUILD.json"]);
+
+    const extra = phoneFiles();
+    extra.set("extra.js", "export {};\n");
+    expect(await validateWith({ files: extra })).toEqual(["phone/extra.js: unexpected file"]);
+    const nested = await validateWith({ files: phoneFiles() }, async (site) => {
+      await mkdir(join(site, "phone", "more"));
+      await writeFile(join(site, "phone", "more", "x.js"), "1");
+    });
+    expect(nested).toContain("phone/more/x.js: unexpected file");
+    expect(nested).toContain("phone/SHA256SUMS: does not list more/x.js");
+  });
+
+  it("reads SHA256SUMS strictly: sha256sum's lines, each file once, never itself", async () => {
+    const files = phoneFiles();
+    const listed = sums(files);
+    const [first] = listed.split("\n");
+    for (const [sumsText, error] of [
+      [listed.replace("  ", " "), "has a line that is not"],
+      [listed.replace(first, first.toUpperCase().replace("  INDEX.HTML", "  index.html")), "has a line that is not"],
+      [listed.replaceAll("\n", "\r\n"), "has a line that is not"],
+      [`${listed}\n`, "has a line that is not"],
+      [`${listed}${first}\n`, "lists index.html twice"],
+      [`${listed}${sha256("x")}  SHA256SUMS\n`, "lists SHA256SUMS, which is not one of the folder's other files"]
+    ] as const) {
+      const errors = await validateWith({ files, sums: sumsText });
+      expect(errors.some((entry) => entry.startsWith("phone/SHA256SUMS: ") && entry.includes(error)), error).toBe(true);
+    }
+    // sha256sum's own output, with or without its last newline, is accepted.
+    expect(await validateWith({ files, sums: listed.slice(0, -1) })).toEqual([]);
+  });
+
+  it("keeps the no-script rule on every other page", async () => {
+    const errors = await validateWith({ files: phoneFiles() }, async (site) => {
+      const page = join(site, "index.html");
+      await writeFile(page, (await readFile(page, "utf8")).replace("</body>", '<script src="phone/app.js"></script></body>'));
+    });
+    expect(errors).toEqual(["index.html: must not contain scripts"]);
   });
 });

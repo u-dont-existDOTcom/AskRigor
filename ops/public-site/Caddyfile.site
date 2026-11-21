@@ -2,8 +2,8 @@ askrigor.com {
 	root * /srv/askrigor-site
 	encode zstd gzip
 
-	# Every response but the Atlas pages', which set their own headers below.
-	@site not path /atlas /atlas/*
+	# Every response but the Atlas pages', the phone page's and the phone relay's, which set their own headers below.
+	@site not path /atlas /atlas/* /phone /phone/* /relay /relay/*
 	header @site {
 		Content-Security-Policy "default-src 'none'; style-src 'self'; img-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'; connect-src 'none'; upgrade-insecure-requests"
 		X-Frame-Options DENY
@@ -84,6 +84,40 @@ askrigor.com {
 		# requests for askrigor.com. Behind a CDN, use {client_ip} instead, with the CDN's ranges as trusted_proxies in the
 		# global server options.
 		reverse_proxy {$ASKRIGOR_ATLAS_UPSTREAM} {
+			header_up X-AskRigor-Client-IP {remote_host}
+			header_up X-AskRigor-Proxy-Secret {$ASKRIGOR_ATLAS_PROXY_SECRET}
+		}
+	}
+
+	# The phone page (owner answer 385b): the committed site/phone/ folder, under its own policy, which lets the page
+	# run its own scripts and connect to this origin (askrigor.com, the relay's WebSocket included) and nowhere else.
+	# no-cache makes a phone fetch a changed page.
+	handle /phone {
+		redir * /phone/
+	}
+
+	@phone path /phone/*
+	handle @phone {
+		header {
+			Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' wss://askrigor.com; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'; worker-src 'none'"
+			X-Content-Type-Options nosniff
+			X-Frame-Options DENY
+			Referrer-Policy no-referrer
+			Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=(), interest-cohort=()"
+			Strict-Transport-Security "max-age=31536000"
+			Cache-Control no-cache
+			-Server
+		}
+		file_server
+	}
+
+	# The phone relay (owner answer 385b): only /relay (its WebSocket) and /relay/health, straight to its own container
+	# on the production network. The reader's address comes from this connection, replacing any value a client sent,
+	# and the relay believes it only with the proxy secret (the Atlas one, rendered by the installer), so another
+	# container on the network can't name addresses to slip its limits.
+	@relay path /relay /relay/health
+	handle @relay {
+		reverse_proxy phone-relay:8787 {
 			header_up X-AskRigor-Client-IP {remote_host}
 			header_up X-AskRigor-Proxy-Secret {$ASKRIGOR_ATLAS_PROXY_SECRET}
 		}

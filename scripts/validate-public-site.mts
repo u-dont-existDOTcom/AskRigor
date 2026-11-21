@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { lstat, readdir, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { relative, resolve } from "node:path";
@@ -145,6 +146,114 @@ const expectedFiles = new Set([
   "assets/piliostigma/sign-senegal.jpg",
   "robots.txt"
 ]);
+
+/**
+ * The phone page (owner answer 385b): site/phone/, built by the runner's phone-link/build-phone-page.mjs and committed
+ * with its SHA256SUMS and BUILD.json. The folder may be absent. When present it holds exactly these files, SHA256SUMS
+ * lists every other one with its SHA-256 (sha256sum's "<64 hex>  <name>" lines), and index.html is the one page on the
+ * site that may load script: <script src> naming a file in its own folder, never inline script or another origin.
+ */
+const PHONE_FOLDER = "phone/";
+const phoneFiles = new Set([
+  "index.html",
+  "app.css",
+  "app.js",
+  "link.js",
+  "manifest.webmanifest",
+  "icon-192.png",
+  "icon-512.png",
+  "SHA256SUMS",
+  "BUILD.json"
+]);
+
+/** The attributes of one start tag, names lowercased, values unquoted. */
+function tagAttributes(tag: string): Array<[string, string]> {
+  const inner = tag.replace(/^<[a-z][^\s/>]*/iu, "").replace(/\/?>$/u, "");
+  return [...inner.matchAll(/([^\s"'=<>/`]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/gu)]
+    .map((match) => [match[1].toLowerCase(), match[2] ?? match[3] ?? match[4] ?? ""]);
+}
+
+/** index.html's scripts: each a complete, empty <script src> element naming a file in its own folder. */
+export function validatePhoneScripts(html: string, folderFiles: ReadonlySet<string>): string[] {
+  const errors: string[] = [];
+  const add = (message: string) => errors.push(pathError(`${PHONE_FOLDER}index.html`, message));
+  const elements = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/giu)];
+  if (countMatches(html, /<script\b/giu) !== elements.length) add("has a script tag that is not a whole <script src></script>");
+  for (const [element, , body] of elements) {
+    if (body.trim() !== "") add("must not contain inline script");
+    const sources = tagAttributes(element.slice(0, element.indexOf(">") + 1)).filter(([name]) => name === "src");
+    if (sources.length !== 1) {
+      add("has a script without exactly one src");
+      continue;
+    }
+    const source = sources[0][1];
+    const name = source.replace(/^\.\//u, "");
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(name) || !folderFiles.has(name)) {
+      add(`may load script only from its own folder: ${source}`);
+    }
+  }
+  for (const [tag] of html.matchAll(/<[a-z][^>]*>/giu)) {
+    for (const [name, value] of tagAttributes(tag)) {
+      if (name.startsWith("on")) add(`must not contain inline script: ${name}`);
+      if (/^\s*javascript:/iu.test(value)) add("must not contain javascript: URLs");
+    }
+  }
+  return errors;
+}
+
+/** SHA256SUMS lists exactly the folder's other files, each with its right SHA-256. */
+export function validatePhoneSums(text: string, hashes: ReadonlyMap<string, string>): string[] {
+  const errors: string[] = [];
+  const add = (message: string) => errors.push(pathError(`${PHONE_FOLDER}SHA256SUMS`, message));
+  const listed = new Set<string>();
+  for (const line of (text.endsWith("\n") ? text.slice(0, -1) : text).split("\n")) {
+    const match = /^([0-9a-f]{64}) {2}([A-Za-z0-9][A-Za-z0-9._-]*)$/u.exec(line);
+    if (match === null) {
+      add(`has a line that is not "<64 lowercase hex>  <name>": ${JSON.stringify(line.slice(0, 100))}`);
+      continue;
+    }
+    const [, hash, name] = match;
+    if (listed.has(name)) add(`lists ${name} twice`);
+    listed.add(name);
+    const actual = hashes.get(name);
+    if (actual === undefined) add(`lists ${name}, which is not one of the folder's other files`);
+    else if (actual !== hash) add(`has the wrong SHA-256 for ${name}`);
+  }
+  for (const name of hashes.keys()) {
+    if (!listed.has(name)) add(`does not list ${name}`);
+  }
+  return errors;
+}
+
+async function validatePhoneFolder(rootPath: string, files: readonly string[]): Promise<string[]> {
+  let status;
+  try {
+    status = await lstat(resolve(rootPath, PHONE_FOLDER));
+  } catch {
+    return [];
+  }
+  // A file or link named phone is reported with the site's other files.
+  if (!status.isDirectory()) return [];
+  const errors: string[] = [];
+  const names = files.filter((file) => file.startsWith(PHONE_FOLDER)).map((file) => file.slice(PHONE_FOLDER.length));
+  for (const name of names) {
+    if (!phoneFiles.has(name)) errors.push(pathError(`${PHONE_FOLDER}${name}`, "unexpected file"));
+  }
+  for (const name of phoneFiles) {
+    if (!names.includes(name)) errors.push(pathError(`${PHONE_FOLDER}${name}`, "required file is missing"));
+  }
+  const hashes = new Map<string, string>();
+  for (const name of names.filter((entry) => entry !== "SHA256SUMS")) {
+    hashes.set(name, createHash("sha256").update(await readFile(resolve(rootPath, PHONE_FOLDER, name))).digest("hex"));
+  }
+  if (names.includes("SHA256SUMS")) {
+    errors.push(...validatePhoneSums(await readFile(resolve(rootPath, PHONE_FOLDER, "SHA256SUMS"), "utf8"), hashes));
+  }
+  if (names.includes("index.html")) {
+    errors.push(...validatePhoneScripts(await readFile(resolve(rootPath, PHONE_FOLDER, "index.html"), "utf8"), new Set(names)));
+  }
+  return errors;
+}
 
 /**
  * robots.txt (owner answer 224a): the sitemap of reviewed findings, and no rule that keeps crawlers from a finding or
@@ -361,7 +470,8 @@ export async function validatePublicSite(root: URL): Promise<SiteValidationResul
   const { files, errors: fileErrors } = await collectFiles(rootPath);
   errors.push(...fileErrors);
   for (const file of files) {
-    if (!expectedFiles.has(file)) errors.push(pathError(file, "unexpected file"));
+    // The phone page's folder has its own rules, below.
+    if (!file.startsWith(PHONE_FOLDER) && !expectedFiles.has(file)) errors.push(pathError(file, "unexpected file"));
   }
   for (const file of expectedFiles) {
     if (!files.includes(file)) errors.push(pathError(file, "required file is missing"));
@@ -380,6 +490,8 @@ export async function validatePublicSite(root: URL): Promise<SiteValidationResul
     internalLinks += result.internalLinks;
     errors.push(...result.errors);
   }
+
+  errors.push(...await validatePhoneFolder(rootPath, files));
 
   try {
     errors.push(...validateRobots(await readFile(resolve(rootPath, "robots.txt"), "utf8")));
