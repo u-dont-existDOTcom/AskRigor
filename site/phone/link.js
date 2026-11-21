@@ -5134,6 +5134,7 @@
                 if (handshake && !done) {
                   const hello = handshake.second(bytes2);
                   done = await handshake.third({ v: LINK_VERSION, device: this.device });
+                  if (finished2) return done.transport.close();
                   psk.fill(0);
                   seat.send(done.message);
                   this.setState("pair-confirm", { sas: sixDigits(done.handshakeHash), laptopName: String(hello.name || "").slice(0, 80) });
@@ -5147,8 +5148,7 @@
                   committing = true;
                   clearTimeout(savedTimer);
                   try {
-                    await this.storage.save(record);
-                    await this.storage.clearPending();
+                    await this.storage.promote(record);
                   } catch {
                     committing = false;
                     return fail("This phone could not keep the pairing (its storage refused). Nothing usable was paired; the laptop lists a phone you can unpair there.");
@@ -5532,6 +5532,17 @@
     },
     async clearPending() {
       await run("readwrite", (store) => store.delete(PENDING));
+    },
+    // The commit: the new pairing becomes current and the pending copy goes, in one transaction (all or nothing).
+    async promote(record) {
+      await run("readwrite", (store) => {
+        store.put(record, KEY);
+        return store.delete(PENDING);
+      });
+      try {
+        if (navigator.storage && navigator.storage.persist) await navigator.storage.persist();
+      } catch {
+      }
     }
   };
   async function storageIsKept() {
@@ -5543,8 +5554,8 @@
   }
 
   // phone/phone.js
-  var PAGE_SHA = true ? "e78ba004f9174a186a276ab6ef2b6d0b94d50cc152f3db5c6cfda9a4b5b18ce6" : "";
-  var RUNNER_COMMIT = true ? "e263073c2783" : "";
+  var PAGE_SHA = true ? "a1efcfcb61f524a04809595a3fce1a7c9d6e3a30b322e77429d0d7f591cd9a53" : "";
+  var RUNNER_COMMIT = true ? "9ff568f533f7" : "";
   var $ = (id) => document.getElementById(id);
   var esc = (text) => String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   function device() {
