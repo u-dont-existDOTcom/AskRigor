@@ -1,6 +1,7 @@
 // Owner answer 279a (9 Nov 2026), from the owner's report AskRigor#434: research the person can steer. The framing goes
 // with the plain answer, a quick screen ends in a numbered menu of next tasks with times, and each account sets its
 // research style once. Nothing here blocks research: AskRigor's results say what to do next.
+import { createHmac } from "node:crypto";
 import type { Server as HttpServer } from "node:http";
 import type { AddressInfo } from "node:net";
 
@@ -2575,10 +2576,10 @@ describe("a dev account's refused menu marks the question's place, and an answer
   });
 
   it("keeps the shape every account is given, to the letter", async () => {
-    // The shape as it was on the build before 297c (ea3a9283), by its SHA-256.
+    // The shape including person_asked (21 Nov 2026), by its SHA-256.
     const { createHash } = await import("node:crypto");
     expect(createHash("sha256").update(RESEARCH_MENU_SHAPE, "utf8").digest("hex"))
-      .toBe("4f4ce6e9576c57aab4499663d433543993060b85df0fd6514a18d5949f0c0c55");
+      .toBe("4a1a62d3214950dc7106190b0eb687d9d3671af76d89f6288639aff30e31c7ff");
   });
 
   it("gives a dev account register_plain_answer's words as every account gets them, on both surfaces", async () => {
@@ -3514,5 +3515,140 @@ describe("what can stop an answer, said when the research is planned", () => {
     expect(text(await plan())).toContain(WHAT_STOPS_TEXT);
     vi.stubEnv("ASKRIGOR_FINDINGS_LEDGER", "");
     expect(text(await plan())).not.toContain(WHAT_STOPS_TEXT);
+  });
+});
+
+describe("the menu always recommends tasks the person asked for (21 Nov 2026)", () => {
+  const autonomous: ResearchSteering = { ...DEFAULT_RESEARCH_STEERING, style: "autonomous", checkBackMinutes: 10 };
+  // The five lines from the inositol deep dive. Test the recommendation directly, preserving their original words.
+  const inositol: ResearchMenuInput["tasks"] = [
+    { kind: "study_search", could_change: "conclusion", sources: 3,
+      task: "Finds out what pooled trials show for pregnancy and ovulation with myo-inositol in PCOS, and how wide the uncertainty is, using recent meta-analyses and Cochrane reviews" },
+    { kind: "other", could_change: "conclusion", minutes: [1, 3],
+      task: "Shows how big an effect the typical inositol trial could reliably detect by doing a power calculation from its size and pregnancy rates, with a plain explanation of the CI that could go in a tooltip" },
+    { kind: "other", could_change: "confidence", sources: 2, minutes: [1, 3],
+      task: "Shows how pooling small trials whose CIs cross zero can still give a firm answer, with a worked example; also when very large samples mislead (tiny effects that are significant but don't matter)" },
+    { kind: "other", could_change: "confidence", sources: 6, minutes: [1, 3], person_asked: true,
+      task: "Counts pregnancy 'worked' vs 'didn't work' reviews for inositol and for CoQ10, NAC and fertility blends on iHerb and Amazon, noting how long people had been trying and what they had tried before" },
+    { kind: "study_search", could_change: "conclusion", sources: 3, minutes: [2, 8], person_asked: true,
+      task: "Checks the trials of the comparison supplements (CoQ10, NAC, vitamin D, prenatal fertility blends) in PCOS, so the review ratios can be set against the evidence" },
+  ];
+
+  it("keeps the inositol review count and comparison trials ahead of the allowance", () => {
+    const unmarked = inositol.map(({ person_asked: _asked, ...task }) => task);
+    expect(planResearch(menu({ tasks: unmarked }), autonomous).recommended)
+      .toEqual([{ task: 1, minutes: 5 }, { task: 2, minutes: 2 }, { task: 3, minutes: 2 }]);
+    const result = planResearch(menu({ tasks: inositol }), autonomous);
+    expect(result.next).toBe("go_on");
+    expect(result.recommended).toEqual([{ task: 4, minutes: 2 }, { task: 5, minutes: 5 }, { task: 2, minutes: 2 }]);
+    expect(result.tasks.filter(({ person_asked }) => person_asked === true).map(({ n }) => n)).toEqual([4, 5]);
+    expect(result.tasks[0]).not.toHaveProperty("person_asked");
+    const words = planResearchText(result, new Set());
+    expect(words).toContain("could change how sure the answer is, you asked for this; about 1 to 3 min");
+    expect(words).toContain("could change the conclusion, you asked for this; about 2 to 8 min");
+    // Even when their minutes alone exceed the allowance, both tasks stay recommended.
+    expect(planResearch(menu({ tasks: inositol }), { ...autonomous, checkBackMinutes: 5 }).recommended)
+      .toEqual([{ task: 4, minutes: 2 }, { task: 5, minutes: 5 }]);
+  });
+
+  it("includes a person-asked detail task and spends only the remaining allowance on other tasks", () => {
+    const tasks: ResearchMenuInput["tasks"] = [
+      { task: "Search the related studies", kind: "study_search", could_change: "conclusion", minutes: [2, 2] },
+      { task: "Count the requested reviews", kind: "other", could_change: "detail", minutes: [5, 9], person_asked: true },
+      { task: "Check the requested source", kind: "other", could_change: "confidence", minutes: [3, 7], person_asked: true },
+    ];
+    expect(planResearch(menu({ tasks }), autonomous).recommended)
+      .toEqual([{ task: 2, minutes: 7 }, { task: 3, minutes: 5 }]);
+    const short = tasks.map((task) => task.person_asked ? { ...task, minutes: [2, 4] as [number, number] } : task);
+    expect(planResearch(menu({ tasks: short }), autonomous).recommended)
+      .toEqual([{ task: 2, minutes: 3 }, { task: 3, minutes: 3 }, { task: 1, minutes: 2 }]);
+    expect(planResearch(menu({ tasks, done: [2] }), autonomous).recommended)
+      .toEqual([{ task: 3, minutes: 5 }, { task: 1, minutes: 2 }]);
+    // False behaves exactly as an absent declaration, including omission from the result's tasks.
+    const unmarked = tasks.map(({ person_asked: _asked, ...task }) => task);
+    expect(planResearch(menu({ tasks: unmarked.map((task) => ({ ...task, person_asked: false })) }), autonomous))
+      .toEqual(planResearch(menu({ tasks: unmarked }), autonomous));
+    expect(planResearch(menu({ tasks: unmarked }), autonomous).recommended)
+      .toEqual([{ task: 1, minutes: 2 }, { task: 3, minutes: 5 }]);
+    const noEstimate = [{ ...tasks[1]!, minutes: undefined }];
+    expect(planResearch(menu({ tasks: noEstimate }), autonomous).recommended).toEqual([{ task: 1, minutes: 2 }]);
+  });
+
+  it("lets the person's answered allocation alone decide, including zero for a person-asked task", () => {
+    const result = planResearch(menu({ tasks: inositol, person_answered: true,
+      allocation: [{ task: 4, minutes: 0 }, { task: 2, minutes: 1.5 }] }), autonomous);
+    expect(result.recommended).toEqual([{ task: 2, minutes: 1.5 }]);
+    expect(result.recommended_minutes).toEqual([1.5, 1.5]);
+    expect(planResearch(menu({ tasks: inositol, person_answered: true,
+      allocation: [{ task: 4, minutes: 0 }, { task: 5, minutes: 0 }] }), autonomous).recommended).toEqual([]);
+  });
+
+  it("keeps light and all including detail tasks, with person-asked tasks first", () => {
+    const tasks: ResearchMenuInput["tasks"] = [
+      { task: "Read the named source", kind: "other", could_change: "detail", minutes: [1, 1], person_asked: true },
+      { task: "Check the named figure", kind: "other", could_change: "conclusion", minutes: [1, 1] },
+    ];
+    const unmarked = tasks.map(({ person_asked: _asked, ...task }) => task);
+    for (const overrides of [{ lane: "light" as const }, { person_go_ahead: "all", person_reason: "Do every task" }]) {
+      const before = planResearch(menu({ tasks: unmarked, ...overrides }), autonomous);
+      const after = planResearch(menu({ tasks, ...overrides }), autonomous);
+      expect(after.recommended.map(({ task }) => task).sort()).toEqual(before.recommended.map(({ task }) => task).sort());
+      expect(before.recommended).toEqual([{ task: 2, minutes: 1 }, { task: 1, minutes: 1 }]);
+      expect(after.recommended).toEqual([{ task: 1, minutes: 1 }, { task: 2, minutes: 1 }]);
+    }
+    const long = tasks.map((task) => ({ ...task, minutes: [12, 12] as [number, number] }));
+    expect(planResearch(menu({ tasks: long, lane: "light" }), autonomous).recommended)
+      .toEqual([{ task: 1, minutes: 12 }]);
+    expect(planResearch(menu({ tasks: long, person_go_ahead: "all", person_reason: "Do every task" }), autonomous)
+      .recommended).toEqual([{ task: 1, minutes: 12 }, { task: 2, minutes: 12 }]);
+  });
+
+  it("preserves both old signatures without a true mark and binds gaining or losing one", () => {
+    const tasks = menu().tasks;
+    const receipt = "rr1~person-asked-synthetic-receipt";
+    const oldDigestCanonical = JSON.stringify(tasks.map(({ kind, could_change, loop }) =>
+      [kind, could_change, loop ?? null]));
+    const oldGoOnCanonical = JSON.stringify([tasks.map(({ task, kind, could_change, loop, sources, minutes }) =>
+      [task, kind, could_change, loop ?? null, sources ?? null, minutes ?? null]), receipt]);
+    const oldSign = (prefix: string, label: string, canonical: string) => {
+      const key = createHmac("sha256", SECRET).update(label).digest();
+      return `${prefix}~${createHmac("sha256", key).update(canonical).digest().subarray(0, 16).toString("base64url")}`;
+    };
+    const digest = oldSign("md1", "askrigor research menu digest v1", oldDigestCanonical);
+    const mark = oldSign("go1", "askrigor research menu go-on v1", oldGoOnCanonical);
+    expect(menuDigest(tasks, SECRET)).toBe(digest);
+    expect(goOnMark(tasks, receipt, SECRET)).toBe(mark);
+    const falseMarks = tasks.map((task) => ({ ...task, person_asked: false }));
+    expect(menuDigest(falseMarks, SECRET)).toBe(digest);
+    expect(goOnMark(falseMarks, receipt, SECRET)).toBe(mark);
+    const marked = tasks.map((task, index) => index === 1 ? { ...task, person_asked: true } : task);
+    expect(menuDigest(marked, SECRET)).not.toBe(digest);
+    expect(goOnMark(marked, receipt, SECRET)).not.toBe(mark);
+    expect(menuDigest(marked.map(({ person_asked: _asked, ...task }) => task), SECRET)).toBe(digest);
+    expect(goOnMark(marked.map(({ person_asked: _asked, ...task }) => task), receipt, SECRET)).toBe(mark);
+  });
+
+  it("reads the declaration, teaches its meaning and preserves it in a refusal's example", () => {
+    const tasks = [true, false, undefined].map((person_asked) => ({ ...TASKS[0]!,
+      ...(person_asked === undefined ? {} : { person_asked }) }));
+    const given = menu({ tasks });
+    expect(readResearchMenu({ researchMenu: given }).menu).toEqual(given);
+    expect(correctedMenu(given).researchMenu.tasks).toEqual(tasks);
+    expect(RESEARCH_MENU_SHAPE).toContain("; person_asked, true only for a task the person's own words asked to be " +
+      "done (a method, source, comparison or check they named or described), which AskRigor then always recommends");
+    expect(planTaskSchema.shape.person_asked.description).toBe("true only for a task the person's own words asked " +
+      "to be done: a method, source, comparison or check they named or described. AskRigor always recommends such a " +
+      "task. Leave it out otherwise.");
+    const invalid = { ...given, tasks: [{ ...TASKS[0]!, person_asked: "true" }] };
+    expect(researchMenuSchema.safeParse(invalid).success).toBe(false);
+    expect(correctedMenu(invalid).researchMenu.tasks[0])
+      .not.toHaveProperty("person_asked");
+    // The menu's reading takes the exact words true and false, in any case, as it takes person_answered; anything
+    // else stays as given, and the schema refuses it.
+    const words = menu({ tasks: [" TRUE ", "false", "yes"].map((person_asked) => ({ ...TASKS[0]!, person_asked })) });
+    const read = readResearchMenu({ researchMenu: words }).menu as { tasks: Array<{ person_asked?: unknown }> };
+    expect(read.tasks.map(({ person_asked }) => person_asked)).toEqual([true, false, "yes"]);
+    expect(researchMenuSchema.safeParse(read).success).toBe(false);
+    expect(researchMenuSchema.safeParse({ ...read, tasks: read.tasks.slice(0, 2) }).success).toBe(true);
   });
 });

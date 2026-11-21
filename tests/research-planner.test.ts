@@ -2456,7 +2456,7 @@ describe("a test round's pause of the planning call (owner answer 395b)", () => 
 // before; a question on 8 of 9 invented cases that need one); this keeps the rule's text from drifting back.
 describe("the plan names a question only when the research needs the person's answer (21 Nov 2026)", () => {
   it("asks for a fact only the person can give, or between two things one answer can't serve, and else goes on", () => {
-    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-21.1");
+    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-21.2");
     expect(RESEARCH_PLANNER_RUBRIC).toContain("Write none unless the research needs\nthe person's answer");
     expect(RESEARCH_PLANNER_RUBRIC).toContain("- A fact only they can give, for a decision about one person or one thing:");
     expect(RESEARCH_PLANNER_RUBRIC).toContain("- Two different things: their words can mean two or more different things");
@@ -2464,5 +2464,36 @@ describe("the plan names a question only when the research needs the person's an
     expect(RESEARCH_PLANNER_RUBRIC).not.toContain("Try to name the question first");
     expect(RESEARCH_PLANNER_RUBRIC).not.toContain("neither is a plan that could cover each of two different readings");
     expect(RESEARCH_PLANNER_RUBRIC).not.toContain("that is still the question to ask");
+  });
+});
+
+describe("tasks the person's own words asked for (21 Nov 2026)", () => {
+  it("requires the model to declare person_asked on every output task", () => {
+    const task = RESEARCH_PLANNER_OUTPUT_SCHEMA.properties.tasks.items;
+    expect(task.required).toEqual(["task", "kind", "could_change", "person_asked", "sources"]);
+    expect(task.properties.person_asked).toEqual({ type: "boolean", description:
+      "true only for a task the person's own words asked to be done (a method, source, comparison or check they named or described); false otherwise." });
+    // The rubric is wrapped at the source's width, so its words are compared with the line breaks read as spaces.
+    const rubric = RESEARCH_PLANNER_RUBRIC.replace(/\s+/gu, " ");
+    expect(rubric).toContain("Each task also has person_asked: true only for a task that does " +
+      "what the person's own words in asked ask to be done");
+    expect(rubric).toContain("unless a later message of theirs took it back");
+    expect(rubric).toContain("for every task when asked is null");
+    expect(rubric).toContain("keep the tasks they asked for and leave out your own");
+    expect(rubric).toContain("never moves last or marks as detail a task the person asked for (person_asked)");
+  });
+
+  it("keeps only true and accepts older replies without the declaration", () => {
+    const tasks = REPLY.tasks.map((task, index) => ({ ...task,
+      ...(index === 2 ? {} : { person_asked: index === 0 }) }));
+    const plan = researchPlanOf({ ...REPLY, tasks }, 1)!;
+    expect(plan.tasks[0]).toEqual({ ...researchPlanOf(REPLY, 1)!.tasks[0], person_asked: true });
+    expect(plan.tasks[1]).not.toHaveProperty("person_asked");
+    expect(plan.tasks[2]).not.toHaveProperty("person_asked");
+    expect(researchPlanOf(REPLY, 1)).toBeDefined();
+  });
+
+  it.each([null, "true", "false", 0, 1, {}, []])("refuses a non-boolean declaration: %j", (person_asked) => {
+    expect(researchPlanOf({ ...REPLY, tasks: [{ ...REPLY.tasks[0], person_asked }] }, 1)).toBeUndefined();
   });
 });

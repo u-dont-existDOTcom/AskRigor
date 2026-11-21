@@ -263,8 +263,10 @@ was released on 12 November:
   declaration, without which an allocation is not used: below), the tasks done, and optionally the
   plain answer's receipt. Each task gets a time range from its kind's
   planning estimate per source (`PLAN_TASK_MINUTES` in `apps/research-mcp/src/research-steering.ts`, measured on the
-  timing runs of 9 November 2026); tasks that could change the conclusion are recommended first, then those that could
-  change how sure it is, within the check-back allowance; detail alone is never recommended. Guided always asks;
+  timing runs of 9 November 2026). A task the person's own words asked for is marked `person_asked` by the planning
+  call, or by the AI writing the menu, and is always recommended, whatever its length. The remaining tasks that could
+  change the conclusion are recommended first, then those that could change how sure it is, within the check-back
+  allowance left; detail alone is otherwise never recommended. Guided always asks;
   balanced asks when the person's choices could steer the research, as they usually can unless the question is precise
   (owner answer 284, 10 November 2026). Since owner answer 399b (21 November 2026; built, not yet released) a research's
   first menu (nothing carried, nothing done, not changed) no longer waits for its length: "drop the 10-minute stop for a
