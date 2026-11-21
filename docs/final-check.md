@@ -607,12 +607,16 @@ notes, limits and no blocking rule. With `ASKRIGOR_SAFETY_LIMITS=on`:
   words; whether it was not examined or examined but not reported; whether it was done again (no, by the same model,
   by another) and whether that recovered it; what it could change (a detail, the confidence, the conclusion, no loss
   identified, unknown) and, optionally, which conclusion; who reports it; and the answer's own sentence saying it. An
-  entry's own words may hold no link, web address or DOI (an exact test): it names a kind of content, never where to
-  find what a model declined to give.
+  entry's own words may hold no link, web address, host name or DOI (an exact, structural test, which also catches a
+  file name such as "table.pdf" or a missing space such as "Dr.Smith"): it names a kind of content, never where to
+  find what a model declined to give. The input is read entry by entry, and only with the switch on: with it off, any
+  value is ignored and noted nowhere; with it on, an entry that isn't usable is a note by its place and the schema's
+  own field names, never a key or value it gave, and the others still count.
 - **A limit that says who reports it.** Each entry becomes one limit that starts "As the AI reports," or "As the
   person reports," then "a model's safety rules limited a research step", with the step and topic inside fixed words,
   so the panel lists it whatever the answer wrote, without AskRigor vouching for the report; the panel also shows one
-  line above its fold saying how many steps were reported limited.
+  line above its fold saying how many steps were reported limited. The meaning judge never reads a safety limit: it
+  reads the answer, which says it.
 - **Notes only, and no request for none.** The answer's sentence is looked up with the other declared quotes; one the
   draft doesn't show is a note naming the entry's place, never its words. Nothing asks for a declaration when none
   comes, and none is ever shown as "no limit": a model often cannot see its own guardrail (a classifier stops it from

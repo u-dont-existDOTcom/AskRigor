@@ -128,7 +128,7 @@ import {
   type ResearchReceiptRejection
 } from "./research-receipts.js";
 import { claimCoverageNotes, extractedClaimIds } from "./claim-coverage.js";
-import { reviewSafetyLimits } from "./safety-limits.js";
+import { isSafetyLimit, reviewSafetyLimits } from "./safety-limits.js";
 import { untraceableCitationNote } from "./citation-markers.js";
 import type { NewsCard } from "./news/card.js";
 import { signedNewsClaims } from "./news/claims.js";
@@ -2907,6 +2907,7 @@ export function finalizeResearch(
   // reporter's judgment, which AskRigor doesn't confirm; nothing asks for a declaration of none. Notes and limits only:
   // the six blocking checks stay six.
   const safetyLimits = options.safetyLimits === true ? reviewSafetyLimits(input.safety_limits) : undefined;
+  for (const note of safetyLimits?.notes ?? []) addStep("declaration", rule`${note}`);
   for (const limit of safetyLimits?.limits ?? []) caveatOnce(rule`${limit}`, limit);
   const markerNote = untraceableCitationNote(input.answer_draft);
   if (markerNote !== undefined) addStep("declaration", markerNote);
@@ -5251,7 +5252,9 @@ export function finalizeResearch(
             return [{ ...entry, number: place + 1, ...(result === undefined ? {} : { researchResult: result }) }];
           }) } : {}),
       keySources: input.key_sources,
-      limits: [...parsedOutput.limits]
+      // A safety limit holds the AI's own words about its research, which stay in this result (promise P69; Codex's
+      // review of 21 Nov 2026): the judge reads the answer, which says it, and never the limit.
+      limits: parsedOutput.limits.filter((limit) => !isSafetyLimit(limit))
     });
   }
   return parsedOutput;

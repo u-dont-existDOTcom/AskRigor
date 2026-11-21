@@ -7,7 +7,7 @@ import { safetyLimitsFromEnv } from "../apps/research-mcp/src/config.js";
 import { FINAL_CHECK_PANEL_RENDER_SOURCE } from "../apps/research-mcp/src/final-check-panel.js";
 import { laterInputShape } from "../apps/research-mcp/src/later-inputs.js";
 import {
-  communitySkipCaveat, finalizeResearch as finalizeResearchUnwrapped, type FinalizeResearchInput,
+  communitySkipCaveat, finalizeResearch as finalizeResearchUnwrapped, meaningJudgeSourceOf, type FinalizeResearchInput,
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { fallbackModelOf } from "../apps/research-mcp/src/research-planner.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
@@ -82,10 +82,15 @@ describe("the safety_limits declaration", () => {
     expect(safetyLimitsSchema.safeParse([{ ...entry(), step: "  " }]).success).toBe(false);
     expect(safetyLimitsSchema.safeParse([{ ...entry(), reason: "extra" }]).success).toBe(false);
     // No link, web address or DOI in an entry's own words: it would point to what a model declined to give.
-    for (const left_out of ["the tables at https://example.org/t", "see www.example.org", "the paper 10.1000/xyz.1"]) {
-      expect(safetyLimitsSchema.safeParse([{ ...entry(), left_out }]).success).toBe(false);
+    for (const left_out of ["the tables at https://example.org/t", "see www.example.org", "the paper 10.1000/xyz.1",
+      "the tables at example.org/path", "the copy at //example.org/path", "ftp://example.org/t", "threads on forum.example.net",
+      "las tablas en ejemplo.es"]) {
+      expect(safetyLimitsSchema.safeParse([{ ...entry(), left_out }]).success, left_out).toBe(false);
     }
-    expect(safetyLimitsSchema.safeParse([{ ...entry(), step: "Lecture des tableaux de l'essai, version 10.2" }]).success).toBe(true);
+    for (const step of ["Lecture des tableaux de l'essai, version 10.2", "St. John's wort reports", "10.1234 mg doses",
+      "読んだ試験の表", "e.g. the dose tables", "قراءة جداول الجرعات", "Dr. Smith's 2019 trial"]) {
+      expect(safetyLimitsSchema.safeParse([{ ...entry(), step }]).success, step).toBe(true);
+    }
   });
 
   it("becomes a limit in AskRigor's fixed words, saying who reports it, around the reporter's step and topic", () => {
@@ -101,22 +106,53 @@ describe("the safety_limits declaration", () => {
   });
 
   it("gives nothing without a declaration, and each limit once", () => {
-    expect(reviewSafetyLimits(undefined)).toEqual({ limits: [], quotes: [] });
+    expect(reviewSafetyLimits(undefined)).toEqual({ limits: [], quotes: [], notes: [] });
     const twice = reviewSafetyLimits([entry(), entry(), entry({ kind: "narrowed" })]);
     expect(twice.limits).toHaveLength(2);
     expect(twice.quotes.map(({ at }) => at)).toEqual(["safety_limits[0].answer_quote", "safety_limits[1].answer_quote",
       "safety_limits[2].answer_quote"]);
   });
+
+  it("uses each usable entry and notes the others by place and the schema's own field names, never a key or value given", () => {
+    const review = reviewSafetyLimits([entry(), { ...entry(), "private topic sentinel": 1 },
+      { ...entry(), left_out: "see example.org/hidden-sentinel" }, { ...entry(), kind: "sentinel-kind" }, "sentinel text"]);
+    expect(review.limits).toEqual([safetyLimitSentence(entry())]);
+    expect(review.quotes.map(({ at }) => at)).toEqual(["safety_limits[0].answer_quote"]);
+    expect(review.notes).toEqual([
+      "later_inputs.safety_limits[1]: not used: leave out fields it doesn't take.",
+      "later_inputs.safety_limits[2]: not used: check left_out; take out the link, web address or DOI.",
+      "later_inputs.safety_limits[3]: not used: check kind.",
+      "later_inputs.safety_limits[4]: not used: give an object with its fields.",
+    ]);
+    expect(review.notes.join("\n")).not.toMatch(/sentinel/u);
+    expect(reviewSafetyLimits([]).notes).toEqual(["later_inputs.safety_limits: not used: give a list of 1 to 20 entries."]);
+    expect(reviewSafetyLimits("sentinel").notes).toEqual(["later_inputs.safety_limits: not used: give a list of 1 to 20 entries."]);
+    const many = reviewSafetyLimits(Array.from({ length: 22 }, (_, index) => entry({ step: `Step ${index}` })));
+    expect(many.limits).toHaveLength(20);
+    expect(many.notes).toEqual(["later_inputs.safety_limits: only the first 20 entries are used; put steps limited the same way in one entry."]);
+  });
 });
 
 describe("finalize_research with safety_limits (promise P69)", () => {
-  it("changes nothing while the switch is off, even with a declaration", () => {
-    const off = run({ safety_limits: [entry()] }, false);
+  it("changes nothing while the switch is off, whatever is declared", () => {
     const plain = run(undefined, false);
-    expect(off.status).toBe(plain.status);
-    expect(off.limits ?? []).toEqual(plain.limits ?? []);
-    expect(JSON.stringify(off)).not.toContain(SAFETY_LIMIT_MARK);
-    expect((off.notes ?? []).join("\n")).not.toContain("safety_limits");
+    for (const declared of [[entry()], [], "sentinel", [{ ...entry(), "private topic sentinel": 1 }]]) {
+      const off = run({ safety_limits: declared }, false);
+      expect(off.status).toBe(plain.status);
+      expect(off.limits ?? []).toEqual(plain.limits ?? []);
+      expect(off.notes ?? []).toEqual(plain.notes ?? []);
+      expect(off.next_steps).toEqual(plain.next_steps);
+      expect(JSON.stringify(off)).not.toContain(SAFETY_LIMIT_MARK);
+      expect(JSON.stringify(off)).not.toMatch(/sentinel|safety_limits/u);
+    }
+  });
+
+  it("keeps a safety limit out of what the meaning judge reads", () => {
+    const on = run({ safety_limits: [entry({ left_out: "Zq7 synthetic topic words" })] }, true);
+    expect(on.limits).toContain(safetyLimitSentence(entry({ left_out: "Zq7 synthetic topic words" })));
+    const judged = meaningJudgeSourceOf(on);
+    expect(judged).toBeDefined();
+    expect(JSON.stringify(judged)).not.toContain("Zq7");
   });
 
   it("lists each declared limit in its own words, with the answer's sentence found, and blocks nothing", () => {
@@ -180,7 +216,7 @@ describe("the final check's panel", () => {
     const limit = safetyLimitSentence(entry());
     expect(visibleLines(render({ status: "ready_with_limits", limits: [limit, "Another limit."] })))
       .toContain("As reported, a model's safety rules limited one research step; the limits below say which, and who reports it.");
-    expect(visibleLines(render({ status: "not_ready", limits: [limit, safetyLimitSentence(entry({ kind: "refused" }))] })))
+    expect(visibleLines(render({ status: "not_ready", limits: [limit, safetyLimitSentence(entry({ kind: "refused", reported_by: "person" }))] })))
       .toContain("As reported, a model's safety rules limited 2 research steps.");
     // Only AskRigor's own fixed start counts: a limit that merely mentions safety rules, or none, shows no line.
     for (const limits of [[], ["The model's safety rules were discussed in a source."], [`Note: ${limit}`],

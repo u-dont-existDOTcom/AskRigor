@@ -39,8 +39,11 @@ const REPORTED_BY: Readonly<Record<(typeof SAFETY_LIMIT_REPORTERS)[number], stri
 export const SAFETY_LIMIT_PREFIXES: readonly string[] = Object.values(REPORTED_BY).map((by) => by + SAFETY_LIMIT_MARK);
 
 // A link, a web address or a DOI in an entry would point to what a model declined to give: refused, as an exact,
-// structural test (no word list judges an entry's meaning).
-const LINK = /\bhttps?:\/\/|\bwww\.|\b10\.\d{4,9}\/\S/iu;
+// structural test (no word list judges an entry's meaning). Any scheme ("https://", "ftp://"), a protocol-relative
+// "//host", "www.", a DOI, or a host name with a dot and a top-level part ("example.org", "example.org/path"). Its
+// limits (Codex's review of 21 Nov 2026): a file name ("table.pdf") or a missing space ("Dr.Smith") reads as a host,
+// and a version written as "10.1234/5" as a DOI; such an entry is not used, and its note names the field to reword.
+const LINK = /[a-z][a-z0-9+.-]*:\/\/|(?:^|[\s(\[])\/\/\S|\bwww\.|\b10\.\d{4,9}\/\S|\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,24}\b(?![.\d])/iu;
 const words = (max: number) => z.string().trim().min(1).max(max)
   .refine((text) => !LINK.test(text), "No links, web addresses or DOIs: name the kind of content only.");
 
@@ -70,6 +73,7 @@ export const safetyLimitsSchema = z.array(safetyLimitEntrySchema).min(1).max(SAF
   .describe("At most 20: steps limited the same way go in one entry.");
 export type SafetyLimitEntry = z.output<typeof safetyLimitEntrySchema>;
 export type SafetyLimits = z.output<typeof safetyLimitsSchema>;
+const ENTRY_FIELDS: ReadonlySet<string> = new Set(Object.keys(safetyLimitEntrySchema.shape));
 
 const KIND_WORDS: Readonly<Record<SafetyLimitEntry["kind"], string>> = {
   refused: "a model refused it",
@@ -115,23 +119,66 @@ export function safetyLimitSentence(entry: SafetyLimitEntry): string {
 }
 
 export interface SafetyLimitReview {
-  /** AskRigor's fixed-word limit for each declared entry, in the order given, each once. */
+  /** AskRigor's fixed-word limit for each usable entry, in the order given, each once. */
   limits: string[];
-  /** Each entry's answer_quote, at its place, for the draft's declared-quote check. */
+  /** Each usable entry's answer_quote, at its place, for the draft's declared-quote check. */
   quotes: Array<{ at: string; quote: string }>;
+  /** Content-free notes: an entry not used, by its place and the schema's own field names, never a value or a key given. */
+  notes: string[];
 }
 
-/** What the final check does with the declaration, when the switch is on; nothing when none was given. */
-export function reviewSafetyLimits(declared: SafetyLimits | undefined): SafetyLimitReview {
-  if (declared === undefined) return { limits: [], quotes: [] };
+/** Why an entry is not used, in the schema's own words: its fields as the schema names them, never a key given. */
+function unusedReason(issues: readonly z.core.$ZodIssue[]): string {
+  const fields = new Set<string>();
+  let unknown = false;
+  let link = false;
+  for (const issue of issues) {
+    if (issue.code === "unrecognized_keys") { unknown = true; continue; }
+    const field = issue.path[0];
+    if (typeof field === "string" && ENTRY_FIELDS.has(field)) fields.add(field);
+    if (issue.code === "custom") link = true;
+  }
+  const parts = [
+    ...(fields.size === 0 ? [] : [`check ${[...fields].join(", ")}`]),
+    ...(link ? ["take out the link, web address or DOI"] : []),
+    ...(unknown ? ["leave out fields it doesn't take"] : []),
+  ];
+  return parts.length === 0 ? "give an object with its fields" : parts.join("; ");
+}
+
+/**
+ * What the final check does with the declaration, when the switch is on: read here, entry by entry, so the input's
+ * later shape takes any value and a call with the switch off parses and notes nothing (Codex's review of 21 Nov 2026).
+ * A usable entry becomes a limit; one that isn't is a note by its place; nothing is asked when none was given.
+ */
+export function reviewSafetyLimits(declared: unknown): SafetyLimitReview {
+  if (declared === undefined) return { limits: [], quotes: [], notes: [] };
+  if (!Array.isArray(declared) || declared.length === 0) {
+    return { limits: [], quotes: [], notes: [`later_inputs.safety_limits: not used: give a list of 1 to ${SAFETY_LIMITS_MAX} entries.`] };
+  }
+  const notes: string[] = [];
+  const usable: Array<{ entry: SafetyLimitEntry; index: number }> = [];
+  for (const [index, given] of declared.slice(0, SAFETY_LIMITS_MAX).entries()) {
+    const parsed = safetyLimitEntrySchema.safeParse(given);
+    if (parsed.success) usable.push({ entry: parsed.data, index });
+    else notes.push(`later_inputs.safety_limits[${index}]: not used: ${unusedReason(parsed.error.issues)}.`);
+  }
+  if (declared.length > SAFETY_LIMITS_MAX) {
+    notes.push(`later_inputs.safety_limits: only the first ${SAFETY_LIMITS_MAX} entries are used; put steps limited the same way in one entry.`);
+  }
   return {
-    limits: [...new Set(declared.map(safetyLimitSentence))],
-    quotes: declared.map(({ answer_quote: quote }, index) => ({ at: `safety_limits[${index}].answer_quote`, quote })),
+    limits: [...new Set(usable.map(({ entry }) => safetyLimitSentence(entry)))],
+    quotes: usable.map(({ entry, index }) => ({ at: `safety_limits[${index}].answer_quote`, quote: entry.answer_quote })),
+    notes,
   };
 }
 
-/** How many of a result's limits are AskRigor's safety limits, by their fixed start. */
+/** Whether a limit is one of AskRigor's safety limits, by its fixed start. */
+export function isSafetyLimit(limit: unknown): boolean {
+  return typeof limit === "string" && SAFETY_LIMIT_PREFIXES.some((prefix) => limit.startsWith(prefix));
+}
+
+/** How many of a result's limits are AskRigor's safety limits. */
 export function safetyLimitCount(limits: readonly unknown[]): number {
-  return limits.filter((limit) => typeof limit === "string" &&
-    SAFETY_LIMIT_PREFIXES.some((prefix) => limit.startsWith(prefix))).length;
+  return limits.filter(isSafetyLimit).length;
 }
