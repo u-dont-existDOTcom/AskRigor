@@ -421,10 +421,12 @@ export interface ResearchPlanner {
    * Owner answer 395b (21 November 2026): pauses this account's planning call for a test round, from now for the given
    * whole minutes (1 to PLANNER_PAUSE_MAX_MINUTES), or ends its pause with 0. While it runs, the account is planned for
    * as with the planner off: plan() makes no call and lane() gives no lane. Starting one forgets the plans and lanes
-   * the hour keeps for the account, so research registered during the pause never takes a plan made before it, also
-   * after the pause ends. It returns when the pause ends (milliseconds since the epoch), or undefined once none runs.
-   * Kept in memory only, by the account's digest: a restart ends every pause. Any other number throws a RangeError.
-   * Present only while the planner is on.
+   * the hour keeps for the account, and a registration that began before it keeps none, so research registered during
+   * or after the pause never takes a plan made before it. Set again while it runs, it keeps its start and ends at most
+   * PLANNER_PAUSE_MAX_MINUTES after it, so no run of pauses set again outlasts that. It returns when the pause ends
+   * (milliseconds since the epoch), or undefined once none runs. Kept in memory only, by the account's digest, until an
+   * hour after the pause's end: a restart ends every pause. Any other number throws a RangeError. Present only while
+   * the planner is on.
    */
   pause?(accountKey: string, minutes: number): number | undefined;
   /** When this account's pause ends, or undefined while none runs; it never throws. Present only while it is on. */
@@ -703,38 +705,47 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
   }
   const timeoutMs = Math.round(timeoutSeconds * 1_000);
   const client = (dependencies.client ?? sdkClient)({ apiKey, workspaceId: workspace, timeoutMs });
-  // Each entry names its account by digest, so a pause (owner answer 395b) can forget the account's plans.
-  const cache = new Map<string, { until: number; call: Promise<ResearchPlannerCall>; account: string }>();
+  // Each entry names its account by digest, so a pause (owner answer 395b) can forget the account's plans, and the
+  // registration's number (sequence), so one that began before the account's latest pause is never taken.
+  const cache = new Map<string, { until: number; call: Promise<ResearchPlannerCall>; account: string; seq: number }>();
   // The lane of the last plan registered for an account's research target, under a digest of the two: what the final
   // check asks when the person's words it is given are not the ones the plan was made from. Nothing of the target is
   // kept, and no more than 200 entries. An entry lasts as long as its plan does in the cache (until), never longer: a
   // plan registered again from the cache keeps its own hour. started is when the registration that gave the entry
   // began, so a slow call that began earlier and ends later does not replace a newer registration's lane.
-  const lanes = new Map<string, { started: number; until: number; lane: ResearchLane; account: string }>();
-  // Owner answer 395b (21 November 2026): each paused account, by its digest, with when its pause started and when it
-  // ends. An ended pause is kept for the hour after its end, so a plan whose call was running when the pause began
-  // keeps no lane (keepLane).
-  const pauses = new Map<string, { started: number; until: number }>();
+  const lanes = new Map<string, { started: number; until: number; lane: ResearchLane; account: string; seq: number }>();
+  // Owner answer 395b (21 November 2026): registrations and pauses are numbered in the order they begin (a count, not
+  // a clock, so two in the same millisecond keep their order). Each paused account, by its digest, keeps the number of
+  // its latest pause, when that pause started and when it ends. The record goes an hour after its end, when every
+  // registration that began before the pause has long ended: until then a plan or lane from such a registration is
+  // never taken (afterLatestPause).
+  let sequence = 0;
+  const pauses = new Map<string, { seq: number; started: number; until: number }>();
   const pausedUntil = (accountKey: string): number | undefined => {
     const until = pauses.get(accountDigest(accountKey))?.until;
     return until !== undefined && until > now() ? until : undefined;
   };
+  const afterLatestPause = (account: string, seq: number): boolean => seq > (pauses.get(account)?.seq ?? 0);
+  const keepPause = (account: string, record: { seq: number; started: number; until: number }) => {
+    pauses.set(account, record);
+    const forget = setTimeout(() => { if (pauses.get(account) === record) pauses.delete(account); },
+      Math.max(0, record.until + HOUR - now()) + 1);
+    forget.unref?.();
+  };
   const targetKey = (accountKey: string, researchTarget: string): string =>
     createHash("sha256").update(JSON.stringify([accountKey, researchTargetDigest(researchTarget)])).digest("hex");
   const keepLane = (call: ResearchPlannerCall, accountKey: string, researchTarget: string, started: number,
-    until: number) => {
+    until: number, seq: number) => {
     if (call.planning.status !== "planned" || until <= now()) return;
-    // A registration that began before the account's latest pause started, or in its very millisecond (a paused
-    // account's registration makes no call, so this one began first), keeps no lane: the pause forgot its plan.
+    // A registration that began before the account's latest pause keeps no lane: the pause forgot its plan.
     const account = accountDigest(accountKey);
-    const paused = pauses.get(account);
-    if (paused !== undefined && started <= paused.started) return;
+    if (!afterLatestPause(account, seq)) return;
     const key = targetKey(accountKey, researchTarget);
     const kept = lanes.get(key);
     if (kept !== undefined && kept.until > now() && kept.started > started) return;
     lanes.delete(key);
     if (lanes.size >= 200) lanes.delete(lanes.keys().next().value!);
-    lanes.set(key, { started, until, lane: call.planning.plan.lane, account });
+    lanes.set(key, { started, until, lane: call.planning.plan.lane, account, seq });
     // The entry leaves memory when its plan does, also when no later call comes to sweep it out.
     const forget = setTimeout(() => {
       const entry = lanes.get(key);
@@ -925,27 +936,28 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
       if (!Number.isInteger(minutes) || minutes < 0 || minutes > PLANNER_PAUSE_MAX_MINUTES) {
         throw new RangeError(`A pause of the planning call is 0 to ${PLANNER_PAUSE_MAX_MINUTES} whole minutes.`);
       }
-      const current = now();
-      for (const [entry, kept] of pauses) if (kept.until + HOUR <= current) pauses.delete(entry);
+      const at = now();
       const account = accountDigest(accountKey);
       const running = pauses.get(account);
-      const runs = running !== undefined && running.until > current;
+      const runs = running !== undefined && running.until > at;
       if (minutes === 0) {
-        // It ends now; its start is kept, so a plan whose call began before it still keeps no lane.
-        if (runs) pauses.set(account, { started: running.started, until: current });
+        // It ends now; its number is kept, so a registration that began before it still takes nothing of it.
+        if (runs) keepPause(account, { ...running, until: at });
         return undefined;
       }
-      // What the hour keeps of the account's plans is forgotten, so no registration during or after the pause takes a
-      // plan made before it. A new pause while one runs sets a new end from now, and keeps the first one's start.
+      // What the hour keeps of the account's plans is forgotten. Set again while it runs, the pause keeps its start,
+      // and ends at most two hours after it, however often it is set again.
       for (const [entry, cached] of cache) if (cached.account === account) cache.delete(entry);
       for (const [entry, kept] of lanes) if (kept.account === account) lanes.delete(entry);
-      const until = current + minutes * 60_000;
-      pauses.set(account, { started: runs ? running.started : current, until });
+      const started = runs ? running.started : at;
+      const until = Math.min(at + minutes * 60_000, started + PLANNER_PAUSE_MAX_MINUTES * 60_000);
+      keepPause(account, { seq: ++sequence, started, until });
       return until;
     },
     async plan(source, accountKey) {
       // Owner answer 395b: a paused account is planned for as with the planner off: no call, no count, no cache.
       if (pausedUntil(accountKey) !== undefined) return skipped("off");
+      const seq = ++sequence;
       const current = now();
       turnDay();
       // Keyed by the account and what the plan is made from: the person's words when given, otherwise the research
@@ -963,11 +975,11 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
       for (const [entry, cached] of cache) if (cached.until <= current) cache.delete(entry);
       for (const [entry, kept] of lanes) if (kept.until <= current) lanes.delete(entry);
       const cached = cache.get(hash);
-      if (cached !== undefined) {
+      if (cached !== undefined && afterLatestPause(cached.account, cached.seq)) {
         const call = await cached.call;
         // The same words registered again for a corrected research target keep the plan, and its lane for that
         // target, for what is left of the plan's hour.
-        keepLane(call, accountKey, source.researchTarget, current, cached.until);
+        keepLane(call, accountKey, source.researchTarget, current, cached.until, seq);
         return { ...call, cached: true, costUsd: 0, milliseconds: 0 };
       }
       // A call is sent only while the cap has room for what is held for it, so the cap is passed only by a call that
@@ -980,13 +992,13 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
       save();
       if (cache.size >= 200) cache.delete(cache.keys().next().value!);
       const call = request(source);
-      cache.set(hash, { until: current + HOUR, call, account });
+      cache.set(hash, { until: current + HOUR, call, account, seq });
       // The plan leaves memory at the hour, also when no later call comes to sweep it out.
       const forget = setTimeout(() => { if (cache.get(hash)?.call === call) cache.delete(hash); }, HOUR);
       forget.unref?.();
       const result = await call;
       if (result.planning.status !== "planned" && cache.get(hash)?.call === call) cache.delete(hash);
-      keepLane(result, accountKey, source.researchTarget, current, current + HOUR);
+      keepLane(result, accountKey, source.researchTarget, current, current + HOUR, seq);
       return result;
     },
     // Owner answer 302: what the final check asks, to leave a light look-up's draft unreviewed. Read only: no call, no
@@ -995,18 +1007,23 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
     // the research target does, as for words that changed.
     async lane(asked, accountKey, researchTarget) {
       try {
-        // Owner answer 395b: a paused account has no plan, so no lane.
+        // Owner answer 395b: a paused account has no plan, so no lane; nor has a registration from before its latest
+        // pause, also when the plan it waits for comes after the pause began.
         if (pausedUntil(accountKey) !== undefined) return undefined;
+        const account = accountDigest(accountKey);
         const current = now();
-        const cached = asked === undefined ? undefined : cache.get(planKey(accountKey, asked));
+        const found = asked === undefined ? undefined : cache.get(planKey(accountKey, asked));
+        const cached = found !== undefined && afterLatestPause(account, found.seq) ? found : undefined;
         const kept = researchTarget === undefined ? undefined : lanes.get(targetKey(accountKey, researchTarget));
-        const byTarget = kept !== undefined && kept.until > current ? kept : undefined;
+        const byTarget = kept !== undefined && kept.until > current && afterLatestPause(account, kept.seq) ? kept
+          : undefined;
         // The words find a plan only when no later registration planned this research target: the same words sent
         // again as a list are another plan, with a lane of its own, and the target's entry is then the newer one
         // (the review of 14 Nov 2026: the older plan's lane was read, and a light look-up's draft was reviewed).
         if (cached !== undefined && cached.until > current &&
             (byTarget === undefined || byTarget.started <= cached.until - HOUR)) {
           const call = await cached.call;
+          if (pausedUntil(accountKey) !== undefined || !afterLatestPause(account, cached.seq)) return undefined;
           if (call.planning.status === "planned") return call.planning.plan.lane;
         }
         return byTarget?.lane;

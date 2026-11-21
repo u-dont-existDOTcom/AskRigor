@@ -507,14 +507,18 @@ owner's ChatGPT runs had left that judgment to the person's AI, and it went wron
   `plan_research` names no learn mode and keeps no menu answer, and the final check finds no plan's lane, so a light
   look-up's draft is reviewed like any other. AskRigor's review of a draft still runs, from the research target alone
   unless the AI passes the person's words. Starting a pause forgets what the hour kept of the account's plans and
-  lanes, so research registered during or after it never takes a plan made before it; a call already running when it
-  began still answers its own registration, and keeps no lane. A paused registration costs nothing and counts nothing
-  toward the account's calls for the day. Learn mode's setting can still be changed. `inspect` says the call is
-  paused and until when (`plannerPausedUntil` gives the time) without naming the action, so the person's own AI is
-  never invited to end it. Only a dev account can pause, only its own call, and only while the call is on
-  (`planner_off` otherwise). The pause is kept in process memory only, under the account's 16-hex-character digest:
-  a restart ends every pause, so a round checks `inspect` before and after its runs. A session turns it on only for
-  a test round, and the person's own research in that window goes without plans too.
+  lanes, and registrations are numbered in the order they begin, so no research registered during or after the pause
+  takes a plan made before it, even a final check waiting on a plan still being made; research registered before it
+  keeps its own plan. A paused registration costs nothing and counts nothing toward the account's calls for the day.
+  Learn mode's setting can still be changed. Set again while it runs, a pause keeps its start and ends at most two
+  hours after it. `inspect` says nothing of a pause: every AI calls it before research, so a "without" chat told of a
+  test would be a third condition (Fable's recheck, 21 Nov). The pause's own result gives its end
+  (`plannerPausedUntil`), the owner's account page says the call is paused and until when, and the call record
+  (`list_calls`) shows a plan's lane on each registration that was planned, so a round can prove each run's arm.
+  Only a dev account can pause, only its own call, and only while the call is on (`planner_off` otherwise). The pause
+  is kept in process memory only, under the account's 16-hex-character digest, until an hour after its end; a
+  restart ends every pause. A session turns it on only for a test round, and the person's own research in that window
+  goes without plans too.
 - **What it costs and keeps.** Paid from the owner's monthly Claude API credit
   (`governance/chat-work-authority-policy.json`, `OWNER_ANSWER_298B`). Measured on 13 November on the five test
   questions: 6 to 9 cents and 10 to 22 seconds a call with one or two searches. AskRigor stores nothing it sends or

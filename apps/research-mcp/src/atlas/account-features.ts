@@ -73,6 +73,11 @@ export interface AtlasResearchAccount {
   devAccount: boolean;
   /** AskRigor's owner, the subject the owner review admits (ASKRIGOR_OAUTH_ALLOWED_SUBJECT). */
   owner: boolean;
+  /**
+   * Owner answer 395b (21 Nov 2026): when a test round's pause of this account's planning call ends, while one runs.
+   * The account page says so, as inspect does not (every AI reads inspect before research).
+   */
+  plannerPausedUntil?: number;
 }
 
 export interface AtlasFeatureRow {
@@ -103,6 +108,14 @@ export interface AtlasFeaturesRuntime {
   ownerAccountKeys: ReadonlySet<string>;
   /** The dev accounts' references, as the connector reads them. */
   devAccountKeys: () => ReadonlySet<string>;
+  /** When a test round's pause of an account's planning call ends (owner answer 395b); the process's planner by default. */
+  plannerPausedUntil?: (accountKey: string) => number | undefined;
+}
+
+/** When a test round's pause of this account's planning call ends (owner answer 395b): the process's own planner's. */
+function plannerPausedUntilFromEnv(accountKey: string): number | undefined {
+  const judge = meaningJudgeFromEnv();
+  return researchPlannerFromEnv(judge.enabled ? judge.dailyCapUsd : undefined).pausedUntil?.(accountKey);
 }
 
 /**
@@ -135,6 +148,12 @@ async function researchAccountOf(runtime: AtlasFeaturesRuntime, accountKey: stri
       entitlementLapsed = true;
     }
   }
+  const devAccount = isDevAccount(accountKey, runtime.devAccountKeys());
+  // A pause that cannot be read is none: the page never fails for it.
+  let plannerPausedUntil: number | undefined;
+  try {
+    plannerPausedUntil = devAccount ? (runtime.plannerPausedUntil ?? plannerPausedUntilFromEnv)(accountKey) : undefined;
+  } catch { plannerPausedUntil = undefined; }
   return {
     status: access.status,
     mode: access.mode,
@@ -142,8 +161,9 @@ async function researchAccountOf(runtime: AtlasFeaturesRuntime, accountKey: stri
     ...(access.acceptance === undefined ? {} : { acceptance: access.acceptance }),
     settings,
     entitlementLapsed,
-    devAccount: isDevAccount(accountKey, runtime.devAccountKeys()),
+    devAccount,
     owner: runtime.ownerAccountKeys.has(accountKey),
+    ...(plannerPausedUntil === undefined ? {} : { plannerPausedUntil }),
   };
 }
 
@@ -397,11 +417,15 @@ export function atlasFeatureRows(account: AtlasResearchAccount, server: AtlasSer
     {
       id: "research-planner",
       name: "AskRigor's own research plan",
-      on: server.researchPlanner.on && account.devAccount && usable,
+      on: server.researchPlanner.on && account.devAccount && usable && account.plannerPausedUntil === undefined,
       forYou: !server.researchPlanner.on
         ? "Switched off on this server. When it is on, it runs only for the owner's dev accounts."
         : !account.devAccount ? "It runs only for the owner's dev accounts."
           : !usable ? NEEDS_ACCESS
+            : account.plannerPausedUntil !== undefined
+              ? `Paused until ${new Date(account.plannerPausedUntil).toISOString().slice(11, 16)} UTC for a test round, ` +
+                "which compares research with and without it: until then your AI plans the research itself, as when " +
+                "it is off. It turns back on by itself."
             : "Your account is one of the owner's dev accounts: right after your AI's quick answer, Claude, " +
               "Anthropic's AI, looks up what your question is about with up to two web searches, then names the " +
               "one question to put to you before the research, or none, and the research tasks. Your question as " +

@@ -16,7 +16,8 @@ import {
   researchAccountReference,
 } from "@askrigor/evidence-repository";
 
-import { atlasFeatureRows, type AtlasResearchAccount, type AtlasServerFeatures } from "../apps/research-mcp/src/atlas/account-features.js";
+import { atlasFeatureRows, loadAtlasAccountFeatures, type AtlasResearchAccount, type AtlasServerFeatures }
+  from "../apps/research-mcp/src/atlas/account-features.js";
 import { laterInputNames, withLaterInputs } from "../apps/research-mcp/src/later-inputs.js";
 import { registerTools, type RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
 import {
@@ -39,8 +40,7 @@ import { FINALIZE_REMINDER } from "../apps/research-mcp/src/research-finalizatio
 import { heldFor, heldText } from "../apps/research-mcp/src/askrigor-holds.js";
 import { OWNER_POINTERS } from "../apps/research-mcp/src/owner-pointers.js";
 import { PLANNER_OFF_NOTHING_PAUSED, PLANNER_PAUSE_ENDED, createManageResearchAccessHandler,
-  manageResearchAccessInputSchema, menuHistoryOf, personReasonOf, plannerPausedInspectSentence, plannerPausedText,
-  waitForPendingMenuChoices }
+  manageResearchAccessInputSchema, menuHistoryOf, personReasonOf, plannerPausedText, waitForPendingMenuChoices }
   from "../apps/research-mcp/src/research-contributor-access-tool.js";
 import { issueResearchReceipt, plainAnswerAccountBinding, verifyResearchReceipt }
   from "../apps/research-mcp/src/research-receipts.js";
@@ -2111,7 +2111,7 @@ describe("a test round's pause of the planning call (owner answer 395b)", () => 
     expect(made.bodies).toHaveLength(2);
   });
 
-  it("pauses for 1 to 120 whole minutes, sets a new end when paused again, and ends at once with 0", () => {
+  it("pauses for 1 to 120 whole minutes, never past two hours from its start, and ends at once with 0", () => {
     let at = START;
     const made = planner({ now: () => at });
     const pause = made.planner.pause!;
@@ -2126,6 +2126,17 @@ describe("a test round's pause of the planning call (owner answer 395b)", () => 
     // Paused again while it runs: a new end from now, shorter here.
     expect(pause("account-a", 5)).toBe(at + 5 * MINUTE);
     expect(pausedUntil("account-a")).toBe(at + 5 * MINUTE);
+    // Paused again and again, it keeps its start: never more than two hours from it (Codex's review of 21 Nov).
+    at = START + 14 * MINUTE;
+    expect(pause("account-a", 60)).toBe(START + 74 * MINUTE);
+    at = START + 73 * MINUTE;
+    expect(pause("account-a", 120)).toBe(START + 120 * MINUTE);
+    at = START + 119 * MINUTE;
+    expect(pause("account-a", 120)).toBe(START + 120 * MINUTE);
+    at = START + 120 * MINUTE;
+    expect(pausedUntil("account-a")).toBeUndefined();
+    // A pause set after one ended is a new one, with its own start.
+    expect(pause("account-a", 30)).toBe(at + 30 * MINUTE);
     expect(pause("account-a", 0)).toBeUndefined();
     expect(pausedUntil("account-a")).toBeUndefined();
     // Ending a pause that does not run changes nothing.
@@ -2159,6 +2170,31 @@ describe("a test round's pause of the planning call (owner answer 395b)", () => 
     expect(made.bodies).toHaveLength(3);
   });
 
+  it("gives no lane to a final check that waits on a plan the pause forgot (Codex's review of 21 Nov)", async () => {
+    const at = START;
+    let release: (() => void) | undefined;
+    const made = planner({ now: () => at,
+      reply: () => new Promise<Anthropic.Beta.BetaMessage>((resolve) => { release = () => resolve(message()); }) });
+    const running = made.planner.plan(SOURCE, "account-a");
+    await vi.waitFor(() => expect(release).toBeDefined());
+    // The final check asks for the lane while the plan is still being made, then the pause begins, then the plan comes.
+    const lane = made.planner.lane(SOURCE.asked, "account-a", SOURCE.researchTarget);
+    made.planner.pause!("account-a", 5);
+    made.planner.pause!("account-a", 0);
+    release!();
+    await running;
+    expect(await lane).toBeUndefined();
+  });
+
+  it("keeps the lane of a plan registered right after a pause ends, in the same millisecond", async () => {
+    const made = planner({ now: () => START });
+    made.planner.pause!("account-a", 10);
+    made.planner.pause!("account-a", 0);
+    expect((await made.planner.plan(SOURCE, "account-a")).planning.status).toBe("planned");
+    expect(await made.planner.lane(undefined, "account-a", SOURCE.researchTarget)).toBe("research");
+    expect(await made.planner.lane(SOURCE.asked, "account-a", SOURCE.researchTarget)).toBe("research");
+  });
+
   it("gives a call running when the pause began its plan, and keeps no lane from it", async () => {
     let at = START;
     let release: (() => void) | undefined;
@@ -2181,6 +2217,7 @@ describe("a test round's pause of the planning call (owner answer 395b)", () => 
     const made = planner({ now: () => at });
     const dev = ["auth0|dev", "auth0|person"];
     const off = await tool(disabled, dev);
+    const offInspected = await off.call({ action: "inspect" });
     const offRegistered = await off.call(register);
     const { call } = await tool(made.planner, dev);
     const paused = await call({ action: "pause_research_planner", later_inputs: { pauseMinutes: 45 } });
@@ -2189,13 +2226,13 @@ describe("a test round's pause of the planning call (owner answer 395b)", () => 
     expect(paused.structuredContent).toEqual({ ok: true, plannerPausedUntil: new Date(until).toISOString() });
     expect(first(paused)).toBe(plannerPausedText(until));
     expect(first(paused)).toContain("until 14:45 UTC (2026-11-21T14:45:00.000Z)");
-    // inspect tells of the pause and its end, names no action an AI could end it with, and asks for no words.
+    // inspect, which every AI calls before research, reads as with the call off: no request for the person's words,
+    // and no word of the pause or a test (Fable's recheck of 21 Nov).
     const inspected = await call({ action: "inspect" });
-    expect(words(inspected)).toContain(` ${plannerPausedInspectSentence(until)} `);
-    expect(plannerPausedInspectSentence(until)).not.toMatch(/pause_research_planner|pauseMinutes|0 minutes/u);
+    expect(first(inspected)).toBe(first(offInspected));
+    expect(Object.keys(inspected.structuredContent!).sort()).toEqual(Object.keys(offInspected.structuredContent!).sort());
+    expect(words(inspected)).not.toMatch(/pause|test round|plannerPausedUntil/iu);
     expect(words(inspected)).not.toContain(ASKED_REQUEST);
-    expect(inspected.structuredContent).toMatchObject({ ok: true, plannerPausedUntil: new Date(until).toISOString() });
-    expect(inspected.structuredContent).not.toHaveProperty("next_step");
     // The other dev account is asked for its words and told of no pause.
     const other = await call({ action: "inspect" }, "auth0|person");
     expect(words(other)).toContain(ASKED_REQUEST);
@@ -2216,8 +2253,6 @@ describe("a test round's pause of the planning call (owner answer 395b)", () => 
     at = until;
     const after = await call({ action: "inspect" });
     expect(words(after)).toContain(ASKED_REQUEST);
-    expect(words(after)).not.toContain("is paused");
-    expect(after.structuredContent).not.toHaveProperty("plannerPausedUntil");
     expect((await call(register)).structuredContent).toHaveProperty("research_plan");
     expect(made.bodies).toHaveLength(2);
   });
@@ -2273,13 +2308,13 @@ describe("a test round's pause of the planning call (owner answer 395b)", () => 
         expect(stray.structuredContent, action).toMatchObject({ ok: false, error: { code: "invalid_request" } });
       }
       expect(made.planner.pausedUntil!(devKey)).toBeUndefined();
-      // 0 ends a running pause, and inspect then tells of none.
+      // 0 ends a running pause.
       expect((await call({ action: "pause_research_planner", later_inputs: { pauseMinutes: 30 } })).isError).not.toBe(true);
       expect(made.planner.pausedUntil!(devKey)).toBe(START + 30 * MINUTE);
       const ended = await call({ action: "pause_research_planner", later_inputs: { pauseMinutes: 0 } });
       expect(ended.structuredContent).toEqual({ ok: true, plannerPausedUntil: null });
       expect(first(ended)).toBe(PLANNER_PAUSE_ENDED);
-      expect((await call({ action: "inspect" })).structuredContent).not.toHaveProperty("plannerPausedUntil");
+      expect(made.planner.pausedUntil!(devKey)).toBeUndefined();
       // While the call is off, or absent, there is nothing to pause.
       for (const offPlanner of [undefined, disabled]) {
         const offTool = await tool(offPlanner);
@@ -2291,4 +2326,73 @@ describe("a test round's pause of the planning call (owner answer 395b)", () => 
       expect(laterInputNames("manage_research_access")).toContain("pauseMinutes");
       expect(manageResearchAccessInputSchema.shape.action.options).toContain("pause_research_planner");
     });
+
+  it("asks for no words at the final check when the call was off for the registration, as a pause begun during it",
+    async () => {
+      const reviewer = { enabled: true, review: async () => { throw new Error("never"); } } as unknown as ResearchReviewer;
+      // A planner on when the registration began, whose call then came back off: what a pause begun meanwhile does.
+      const offCall = memoryPlanner(() => ({ status: "skipped", reason: "off" }));
+      const { call } = await tool(offCall.planner, ["auth0|dev"], { researchReviewer: reviewer });
+      const registered = await call(register);
+      expect(offCall.seen).toHaveLength(1);
+      expect(words(registered)).not.toContain(ANSWER_REVIEW_ASKED);
+      // A plan that was made still asks for them, as before.
+      const planned = await (await tool(memoryPlanner().planner, ["auth0|dev"], { researchReviewer: reviewer }))
+        .call(register);
+      expect(words(planned)).toContain(ANSWER_REVIEW_ASKED);
+    });
+
+  it("keeps no menu answer and names no learn mode when a pause begins while plan_research reads the account",
+    async () => {
+      const made = planner({ now: () => START });
+      const { call, service } = await tool(made.planner);
+      await call({ action: "set_research_steering", later_inputs: { researchSteering: { learnMenuChoices: true } } });
+      const registered = await call(register);
+      const planned = (registered.structuredContent as { planned_later_inputs: { researchMenu: Record<string, unknown> } })
+        .planned_later_inputs;
+      const menu = { researchMenu: { ...planned.researchMenu, plain_answer_receipt: undefined } };
+      const key = service.accountKeyForSubject("auth0|dev");
+      const read = service.activeAccount.bind(service);
+      service.activeAccount = async (subject: string) => {
+        made.planner.pause!(key, 20);
+        return await read(subject);
+      };
+      const asked = await call({ action: "plan_research", later_inputs: menu });
+      expect(words(asked).replaceAll(GO_AHEAD_BEFORE_ASK, "")).not.toMatch(/learn mode|person_reason/iu);
+      const answered = { researchMenu: { ...menu.researchMenu, allocation: [{ task: 1, minutes: 3 }], person_answered: true,
+        person_reason: "A reason that is not kept." } };
+      made.planner.pause!(key, 0);
+      expect((await call({ action: "plan_research", later_inputs: answered })).isError).not.toBe(true);
+      await waitForPendingMenuChoices(service);
+      expect(await service.menuChoices(key)).toEqual([]);
+    });
+
+  it("shows the pause on the owner's own account page, where inspect no longer does", async () => {
+    const store = new InMemoryResearchContributorAccessStore();
+    const service = new ResearchContributorAccessService({ store, identitySecret: IDENTITY_SECRET });
+    await service.acceptFreeContributor("auth0|dev", AGREEMENT);
+    const key = service.accountKeyForSubject("auth0|dev");
+    const serverOn: AtlasServerFeatures = { redditReader: false, youtube: false, gemini: false,
+      aiBudgetLeftNanoUsd: null, videoSecondsLeft: null, meaningJudge: { on: false, dailyCapUsd: null },
+      researchPlanner: { on: true, dailyCapUsd: 3, accountDailyCalls: 10 }, ownerLibrary: false, sharedAnswers: false,
+      findingsLibrary: false };
+    const asked: string[] = [];
+    const row = async (paused: number | undefined, dev = true) => {
+      const shown = await loadAtlasAccountFeatures({ research: service, server: async () => serverOn,
+        ownerAccountKeys: new Set(), devAccountKeys: () => new Set(dev ? [researchAccountReference(key)] : []),
+        plannerPausedUntil: (accountKey) => { asked.push(accountKey); return paused; } }, key, new Date(START));
+      expect(shown.state).toBe("shown");
+      return (shown as { rows: Array<{ id: string; on: boolean; forYou: string }> }).rows
+        .find(({ id }) => id === "research-planner")!;
+    };
+    expect(await row(Date.parse("2026-11-21T14:45:00Z"))).toMatchObject({ on: false, forYou: "Paused until 14:45 UTC " +
+      "for a test round, which compares research with and without it: until then your AI plans the research itself, " +
+      "as when it is off. It turns back on by itself." });
+    expect(await row(undefined)).toMatchObject({ on: true });
+    expect(asked).toEqual([key, key]);
+    // Another account's page never asks, and reads as before.
+    expect(await row(Date.parse("2026-11-21T14:45:00Z"), false)).toMatchObject({ on: false,
+      forYou: "It runs only for the owner's dev accounts." });
+    expect(asked).toHaveLength(2);
+  });
 });
