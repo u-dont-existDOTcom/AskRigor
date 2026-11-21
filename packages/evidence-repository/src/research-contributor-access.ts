@@ -43,7 +43,9 @@ import {
 
 import { RESEARCH_USE_NOTICE_CHANGES, type ResearchUseNoticeChange } from "./research-use-notice-changes.js";
 import { PostgresResearchCallRecordStore } from "./research-call-record.js";
+import { PostgresResearchUserCounts } from "./research-user-counts.js";
 import { PostgresResearchDossierStore } from "./research-dossiers.js";
+import { PostgresGeminiSignInRowStore } from "./gemini-sign-in-rows.js";
 export { contributionPrivacyBoundarySchema, researchContributionProposalInputSchema };
 export { RESEARCH_USE_NOTICE_CHANGES, type ResearchUseNoticeChange };
 
@@ -1184,6 +1186,16 @@ implements ResearchContributorAccessStore {
   /** AskRigor#477 stage 1 (owner answer 329a): the private research dossiers, on this store's pool and schema. */
   dossierStore(): PostgresResearchDossierStore {
     return new PostgresResearchDossierStore(this.pool, this.schema);
+  }
+
+  /** The public user count (the owner's request of 20 Nov 2026): two aggregates, on this store's pool and schema. */
+  userCounts(): PostgresResearchUserCounts {
+    return new PostgresResearchUserCounts(this.pool, this.schema);
+  }
+
+  /** Gemini's sign-in (owner answer 386b): the authorization server's sealed rows, on this store's pool and schema. */
+  geminiSignInRows(): PostgresGeminiSignInRowStore {
+    return new PostgresGeminiSignInRowStore(this.pool, this.schema);
   }
 
   async getAccount(accountKey: string): Promise<ResearchUseAccountRecord | null> {

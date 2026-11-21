@@ -68,6 +68,9 @@ GRANT INSERT, SELECT, DELETE ON TABLE living_evidence.research_call_record
 -- Owner answer 303a (migration 0035): a dev account's own menu choices, while its learn mode is on.
 GRANT INSERT, SELECT, DELETE ON TABLE living_evidence.research_menu_choices
   TO askrigor_research_access;
+-- Owner answer 386b (migration 0039): Gemini's sign-in, sealed rows of AskRigor's own authorization server.
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE living_evidence.gemini_oauth_store
+  TO askrigor_research_access;
 GRANT EXECUTE ON FUNCTION living_evidence.withdraw_pending_research_contribution_proposals(
   text, timestamptz
 ) TO askrigor_research_access;
@@ -109,6 +112,9 @@ GRANT EXECUTE ON FUNCTION living_evidence.take_down_atlas_report(text, text)
 GRANT EXECUTE ON FUNCTION living_evidence.set_atlas_report_answer(text, text, text, timestamptz)
   TO askrigor_research_access;
 GRANT EXECUTE ON FUNCTION living_evidence.forget_atlas_reports(text)
+  TO askrigor_research_access;
+-- Atlas news, stage 1 (migration 0043): a passing news check stages its own card, inside finalize_research.
+GRANT EXECUTE ON FUNCTION living_evidence.stage_atlas_news_card(jsonb, timestamptz)
   TO askrigor_research_access;
 ALTER ROLE askrigor_research_access SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_access SET idle_in_transaction_session_timeout = '5s';

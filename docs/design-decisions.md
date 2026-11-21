@@ -204,6 +204,10 @@ Decided: 1 Sep 2026 (free and paid modes); 30 Sep (automatic free saves, owner a
 Why: the owner: "we need all the research that backs the interesting finding right there for people to inspect".\
 Not done: quotes from the owner's library copies or from text the AI supplied; anything drawn from YouTube comments. · Decided: 5 Nov 2026 (owner answers 252a, 255a).
 
+**Atlas news is checked news that publishes itself: sorted by impact with the verdict in the title, beside a list of "science news not worth reading", after a shadow period that shows nothing; each day is stored whole or not at all, never after the run's deadline.**\
+Why: the owner, 17 Nov: "make sure these are auto-published on the site's atlas news section, and rank them by default by how usable the news is, with sortability, searchability", and "i shouldn't be reviewing everything"; 18 Nov: "news sorted by impact with the verdict in the title and a list of "science news not worth reading"".\
+Not done: the writer's prose on the pages (only the check's own signed card); a page before a clean shadow period and its own release; word lists on the server for advice in the text (a model reads it, in any language). · Decided: 17 and 18 Nov 2026 (the owner); design v4, 20 Nov; stage 1 (shadow) built 21 Nov (plan `docs/superpowers/plans/2026-11-21-atlas-news-stage1.md`).
+
 **Cards that fail on a technicality are kept privately for review, never published; rescuing one means rereading the paper and sending a corrected card through the final check.**\
 Why: the owner, 4 Nov: "so we don't lose findings on technicalities".\
 Decided: 4 Nov 2026 (owner answer 242a).
@@ -337,6 +341,10 @@ Not done: changing a published field or description in between (such fixes wait 
 **Every tool result also carries its payload as text, except in ChatGPT, which shows the model both; a protocol page's bytes go in raw, so an app that reads only text can check them.**\
 Why: some apps hand the model only a result's text, so the protocol, its index, PubMed records and full-text pages never reached it there (lesson #59), while ChatGPT's context and time limits make a copy costly. A call is ChatGPT's only by exact signals: a `_meta` key starting `openai/`, or a User-Agent starting `openai-mcp/`; any other call gets the copy, since a copy costs tokens where a missing payload breaks research. Each part stays under 50,000 characters, which Claude Code counts in the part it shows, and the whole under the about 150,000 claude.ai takes (measured 8 Nov).\
 Not done: patches tool by tool; guessing the app from anything else; changing the tool list, a higher Claude Code limit included. · Decided: 7 Nov 2026 (lesson #59's build); released 9 Nov.
+
+**Google's Gemini app signs in through AskRigor's own authorization server at `/oauth/gemini`, for `/mcp/gemini` only: AskRigor checks Google's signed key itself and uses Auth0 only for the person's own login; `/mcp` and `/mcp/claude` keep Auth0.**\
+Why: Gemini names its connector by a Client ID Metadata Document that authenticates with `private_key_jwt` against keys on www.gstatic.com, which Auth0 refuses on every plan (20 Nov 2026). Built on panva's `oidc-provider` (exact version) rather than hand-built protocol code; tokens are opaque and stored only as HMACs, the subject only encrypted; refresh tokens are not rotated (Google's guide asks so, and every refresh needs Google's single-use signed assertion), a link lasts 180 days at most, and `disconnect_gemini` ends a person's links from any app. Design: `docs/superpowers/plans/2026-11-21-gemini-sign-in-design.md`, red-teamed by Codex.\
+Not done: Gemini on `/mcp` (it can't be told from ChatGPT before sign-in); a registration endpoint; showing AskRigor's research notice inside Gemini, whose compact tool list has no `manage_research_access` (the notice is accepted once in Claude or ChatGPT). · Decided: 20 Nov 2026 (owner answer 386b); built 21 Nov, not yet released.
 
 **New work targets the ChatGPT app, the Claude connector and the Codex plugin, not Custom GPTs.**\
 Why: the owner, 17 Oct: "GPTs are on the way out, so it doesn't make sense to build a new feature for custom GPT if it doesn't work for plugins".\

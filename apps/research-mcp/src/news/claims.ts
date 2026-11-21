@@ -1,0 +1,51 @@
+import { receiptText } from "../research-receipts.js";
+import type { SourceLineLookup } from "../source-lines.js";
+import type { NewsCard } from "./card.js";
+
+/**
+ * Atlas news, stage 1 (design v4, section 3.3): the news card's own claims in the finalization receipt, beside the
+ * findings card's and under their own condition. `news`: the card's digest; `nl`: what each backing line's lookup found
+ * and where, in its order (`<line>:<f|n|u>:<text kind>`, as `bl` gives a findings card's); `ns`: the section of each
+ * quote found (`<line>:<section>`); `nr`: how each of the card's sources was read (`<place>:<reading>:<figures>`, as `rd`
+ * gives a findings card's). The day call and the shadow readers read them; the server stages a card only with them.
+ */
+
+const OUTCOME_CODES = { found: "f", not_found: "n", not_checked: "u" } as const;
+/** A signed section, cut at whole characters to the findings card's limit. */
+const SECTION_LIMIT = 80;
+
+export interface NewsClaims {
+  news: string;
+  nl: string[];
+  ns: string[];
+  nr: string[];
+}
+
+export function signedNewsClaims(
+  checked: { card: NewsCard; digest: string },
+  lookups: readonly SourceLineLookup[],
+  readingOf: (source: string) => { read: string; figures?: string | undefined } | undefined,
+): NewsClaims {
+  const nl: string[] = [];
+  const ns: string[] = [];
+  lookups.forEach((lookup, line) => {
+    nl.push(`${line + 1}:${OUTCOME_CODES[lookup.sentence]}:${lookup.text ?? "none"}`);
+    const section = lookup.sentence_section === undefined ? undefined
+      : receiptText(lookup.sentence_section.replace(/[\s\p{Cc}]+/gu, " ").trim(), SECTION_LIMIT).trim();
+    if (lookup.sentence === "found" && section !== undefined && section !== "") ns.push(`${line + 1}:${section}`);
+  });
+  const nr = checked.card.sources.flatMap((source, place) => {
+    const reading = readingOf(source);
+    return reading === undefined ? [] : [`${place + 1}:${reading.read}:${reading.figures ?? "-"}`];
+  });
+  return { news: checked.digest, nl, ns, nr };
+}
+
+/** The news claims a verified receipt signed, or undefined when it signed none (no news card, or no lookups). */
+export function newsClaimsOf(claims: Record<string, string | string[]>): NewsClaims | undefined {
+  const list = (value: unknown): string[] | undefined => Array.isArray(value) ? value.map(String) : undefined;
+  const news = claims.news;
+  const nl = list(claims.nl);
+  if (typeof news !== "string" || nl === undefined) return undefined;
+  return { news, nl, ns: list(claims.ns) ?? [], nr: list(claims.nr) ?? [] };
+}

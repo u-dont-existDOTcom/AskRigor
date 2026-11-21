@@ -28,6 +28,13 @@ export {
   type ResearchPlanLane,
 } from "./research-call-record.js";
 export {
+  InMemoryResearchUserCounts,
+  PostgresResearchUserCounts,
+  type ResearchUserCounts,
+  type ResearchUserCountsQuery,
+  type ResearchUserCountsSource,
+} from "./research-user-counts.js";
+export {
   InMemoryResearchDossierStore,
   PostgresResearchDossierEraser,
   PostgresResearchDossierStore,
@@ -491,6 +498,36 @@ export {
   type AtlasPageState,
 } from "./atlas-pages.js";
 export {
+  ATLAS_NEWS_CARRIED_DAYS,
+  ATLAS_NEWS_DAY_BYTES,
+  ATLAS_NEWS_ERROR_CODES,
+  ATLAS_NEWS_ITEM_STATES,
+  ATLAS_NEWS_NUMBER,
+  ATLAS_NEWS_RETRACTION_STATUSES,
+  ATLAS_NEWS_STAGED_LIFE_MS,
+  ATLAS_NEWS_STAGED_PER_DAY,
+  AtlasNewsError,
+  InMemoryAtlasNewsStore,
+  atlasNewsDaySizesFit,
+  PostgresAtlasNewsStore,
+  type AtlasNewsBase,
+  type AtlasNewsCommitOutcome,
+  type AtlasNewsDayCommit,
+  type AtlasNewsDayRecord,
+  type AtlasNewsDecision,
+  type AtlasNewsErrorCode,
+  type AtlasNewsItem,
+  type AtlasNewsItemState,
+  type AtlasNewsItemSummary,
+  type AtlasNewsKeptBack,
+  type AtlasNewsReceiptClaims,
+  type AtlasNewsRetractionStatus,
+  type AtlasNewsReviewStore,
+  type AtlasNewsStageInput,
+  type AtlasNewsStaged,
+  type AtlasNewsStagingStore,
+} from "./atlas-news.js";
+export {
   ATLAS_GLANCE_CLASSES,
   ATLAS_GLANCE_LIMITS,
   ATLAS_GLANCE_SOURCES_MAX,
@@ -613,3 +650,12 @@ export {
   type ResearchFrontierSearchInput,
   type TopicLinkContributionReceipt,
 } from "./postgres.js";
+export {
+  GEMINI_SIGN_IN_MODELS,
+  MemoryGeminiSignInRowStore,
+  PostgresGeminiSignInRowStore,
+  type GeminiSignInModel,
+  type GeminiSignInRow,
+  type GeminiSignInRowStore,
+  type GeminiSignInStoredRow,
+} from "./gemini-sign-in-rows.js";

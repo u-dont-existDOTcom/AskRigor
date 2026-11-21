@@ -1434,7 +1434,9 @@ describe("Codex's sixth review of 17 Nov 2026", () => {
     // finalize_research's later inputs on main, before the ledger.
     const main = ["community_evidence", "treatment_choice", "open_leads", "another_pass_estimate", "findings_card",
       "source_lines", "study_map", "user_observations", "community_leads", "source_reading", "name_forms", "key_name",
-      "search_coverage", "claim_coverage", "findings_save", "asked", "ai_readings", "research_dossier"];
+      "search_coverage", "claim_coverage", "findings_save", "asked", "ai_readings", "research_dossier",
+      // Atlas news, stage 1: the owner's news check's card.
+      "news_card"];
     const unknown = (name: string, names: readonly string[]) => `later_inputs.${name}: dropped. Unknown later input ` +
       `"${name}" for finalize_research. Its later inputs: ${names.join(", ")}.`;
     const later = { finding_responses: [{ id: "F-0123456789", response: "disputed", reason: "A reason." }],

@@ -192,6 +192,8 @@ export const manageResearchAccessInputSchema = z.object({
     "list_calls",
     // The owner, 14 Nov 2026 (runtime only): one of the owner's pointers, by the id a registration's result lists.
     "owner_pointer",
+    // Owner answer 386b (21 Nov 2026; runtime only): end every Gemini link of this account, from any connected app.
+    "disconnect_gemini",
   ]),
   agreement: freeContributorAgreementSchema.extend({ noticeVersion: noticeVersionSchema }).strict().optional(),
   plainAnswer: plainAnswerInputSchema.optional()
@@ -290,8 +292,11 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
   error: researchAccessErrorSchema.extend({
     // Owner answer 303a: learn mode asked of an account that is not a dev account, or while the planning call is off.
     code: z.union([researchAccessErrorSchema.shape.code, z.literal("call_record_unavailable"),
-      z.literal("learn_mode_unavailable")]),
+      z.literal("learn_mode_unavailable"), z.literal("gemini_links_unavailable")]),
   }).optional(),
+  // Owner answer 386b (runtime only): how many Gemini links the account has, and how many a disconnect ended.
+  geminiLinks: z.number().int().nonnegative().optional(),
+  geminiLinksEnded: z.number().int().nonnegative().optional(),
   calls: z.array(z.object({
     received_at: z.iso.datetime(), tool: z.string(), action: z.string().nullable(),
     route: z.enum(["/mcp", "/mcp/claude", "/mcp/gemini"]), chatgpt: z.boolean(),
@@ -545,12 +550,25 @@ export function researchMapFiledStep(): string {
     "receipts, and its result gives that line.";
 }
 
+/** One person's Gemini links, by their OAuth subject (gemini-sign-in/resource.ts). */
+export interface GeminiLinks {
+  count(subject: string): Promise<number>;
+  disconnect(subject: string): Promise<number>;
+}
+
 export interface ResearchContributorToolOptions {
   service?: ResearchContributorAccessService;
   callRecord?: ResearchCallRecordStore;
   resourceMetadataUrl?: URL;
   /** What happened to this request's sign-in on /mcp; undefined without OAuth. */
   signIn?: SignInState;
+  /**
+   * On a surface whose tool list has no manage_research_access (Gemini's compact list), a refusal for an account that has
+   * not accepted the notice says where the person can accept it, instead of naming a tool the AI cannot call.
+   */
+  noticeElsewhere?: boolean;
+  /** Gemini's sign-in (owner answer 386b): one account's links, to count in inspect and to end with disconnect_gemini. */
+  geminiLinks?: GeminiLinks;
   /** The canonical store's read-only identity view, which a submitted frontier is reconciled with. */
   canonical?: CanonicalIdentityReader;
   /** The plain answer before research, on the MCP connector only (owner answer 140b); undefined elsewhere. */
@@ -951,6 +969,23 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       return listedCalls(calls, page.data,
         (result) => clientResultBytes(withToolListNotice(result, input, options.toolListVersion)));
     }
+    // Owner answer 386b: ending this account's Gemini links needs no active research account, only its sign-in.
+    if (input.action === "disconnect_gemini") {
+      if (options.geminiLinks === undefined) {
+        const message = "This AskRigor server has no Gemini sign-in, so there is no Gemini link to end.";
+        return { content: [{ type: "text", text: message }], isError: true,
+          structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
+            ok: false, error: { code: "gemini_links_unavailable", message },
+          }) };
+      }
+      const ended = await options.geminiLinks.disconnect(auth.subject);
+      const text = ended === 0
+        ? "This account had no Gemini link to end."
+        : `Ended ${ended === 1 ? "this account's Gemini link" : `this account's ${ended} Gemini links`}: Gemini can't ` +
+          "use AskRigor as this account any more, until the person connects it again from Gemini.";
+      return { content: [{ type: "text", text }],
+        structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: true, geminiLinksEnded: ended }) };
+    }
     if (options.service === undefined) {
       return accessError(
         "research_access_service_unavailable",
@@ -1186,6 +1221,10 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       const learnOn = settings?.steering.learnMenuChoices === true;
       const learnMode = settings === undefined || !devAccount ? undefined : { on: learnOn,
         kept: learnOn ? (await options.service.menuChoices(accountKey).catch(() => undefined))?.length : 0 };
+      // Owner answer 386b: inspect says how many Gemini links the account has, and how to end them.
+      const geminiLinks = parsed.action === "inspect" && options.geminiLinks !== undefined
+        ? await options.geminiLinks.count(auth.subject).catch(() => undefined)
+        : undefined;
       return {
         content: [{
           type: "text",
@@ -1205,6 +1244,9 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
             (settings === undefined ? "" : ` ${steeringInspectText(settings.steering)}`) +
             (learnMode === undefined ? "" : ` ${learnModeInspectSentence(learnMode.on, learnMode.kept)}`) +
             (options.callRecord === undefined ? "" : ` ${CALL_RECORD_SENTENCE}`) +
+            (geminiLinks === undefined || geminiLinks === 0 ? "" : ` This account is connected to Google Gemini ` +
+              `(${geminiLinks === 1 ? "one link" : `${geminiLinks} links`}); if the person asks to disconnect Gemini, ` +
+              "call manage_research_access with action disconnect_gemini.") +
             ` This account's reference, to give the user only when they ask for it: ${accountReference}.`,
         }],
         structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
@@ -1215,6 +1257,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           ...(settings === undefined || !devAccount ? {} : { findingsSave: settings.findingsSave }),
           ...(settings === undefined ? {} : { steering: shownSteering(settings.steering, devAccount) }),
           accountReference,
+          ...(geminiLinks === undefined || geminiLinks === 0 ? {} : { geminiLinks }),
           ...(nextStep !== undefined ? { next_step: nextStep } : planned ? { next_step: ASKED_REQUEST } : {}),
         }),
       };
@@ -2100,9 +2143,12 @@ export function createResearchAccessGuard(
       const mapped = mapError(error);
       return plainError(
         mapped.code,
-        mapped.code === "research_access_required"
-          ? `${mapped.message} Call manage_research_access with action inspect, show the user the notice it returns, and let them choose.`
-          : mapped.message,
+        mapped.code !== "research_access_required"
+          ? mapped.message
+          : options.noticeElsewhere === true
+            ? `${mapped.message} This connector can't show AskRigor's research notice. Tell the person to open AskRigor ` +
+              "once in Claude or ChatGPT (https://askrigor.com/add), read the notice there and choose; then retry here."
+            : `${mapped.message} Call manage_research_access with action inspect, show the user the notice it returns, and let them choose.`,
       );
     }
     return handler(input, extra);

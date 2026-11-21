@@ -17,7 +17,10 @@ const pageRequirements = [
       "does not diagnose",
       "does not treat or prescribe",
       "not a substitute for professional advice",
-      "provider data may be incomplete, delayed, or unavailable"
+      "provider data may be incomplete, delayed, or unavailable",
+      // The public user count (user-counts.ts): the research server's image, and its text page in the footer.
+      '<p class="user-count"><img src="/atlas/users.svg" alt="How many people use AskRigor',
+      '<li><a href="/atlas/users">User count</a></li>'
     ]
   },
   {

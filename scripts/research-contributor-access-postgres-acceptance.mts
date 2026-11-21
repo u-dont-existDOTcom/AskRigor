@@ -11,11 +11,13 @@ import {
   ATLAS_PUBLICATION_SCHEMA_V2,
   ATLAS_PUBLICATION_SCHEMA_V3,
   AtlasFindingPromotionRunner,
+  AtlasNewsError,
   AtlasParticipationError,
   AtlasPublicationError,
   AtlasReviewError,
   AtlasWriteConflict,
   PostgresAtlasModerationStore,
+  PostgresAtlasNewsStore,
   PostgresAtlasPageSource,
   PostgresAtlasParticipationStore,
   PostgresAtlasPromotionStore,
@@ -27,6 +29,7 @@ import {
   PostgresHeldYouTubeFindingsStore,
   PostgresResearchContributorAccessStore,
   PostgresResearchCallRecordStore,
+  PostgresResearchUserCounts,
   PostgresResearchDossierEraser,
   PostgresResearchDossierStore,
   RESEARCH_CALL_RECORD_RETENTION_MS,
@@ -50,6 +53,7 @@ import {
   type AtlasFindingIntent,
   type AtlasFindingPromotionRun,
   type AtlasIntentView,
+  type AtlasNewsDayCommit,
   type AtlasPublicationDraft,
   type AtlasPublishedFinding,
   type ContributionPrivacyBoundary,
@@ -488,12 +492,17 @@ async function verify(
     // without it (an image from before 0031) clears both, and only the two named ways are admitted.
     await verifyNoticeAcceptance({ admin, restricted, store, adminUrl, checks });
     await verifyCallRecord({ admin, restricted, checks });
+    // The public user count (the owner's request of 20 Nov 2026): two aggregates, on the access role.
+    await verifyUserCounts({ admin, restricted, checks });
     // Owner answer 303a: learn mode, a dev account's own menu choices, and the plan's lane in the call record (0035).
     await verifyMenuLearning({ admin, restricted, store, checks });
     // AskRigor#477 stage 1 (owner answer 329a): the private research dossiers (0037).
     await verifyResearchDossiers({ admin, restricted, service, reviewUrl, readerUrl, checks });
     // 16 Nov 2026: the index for the proposal lookup by idempotency key (0038).
     await verifyProposalIdempotencyIndex({ admin, store, service, checks });
+    // Atlas news, stage 1 (0043): staged by the access role, committed whole or not at all by the review role, closed to
+    // every role's table reads, the reader's included.
+    await verifyAtlasNews({ admin, accessUrl, reviewUrl, readerUrl, checks });
 
     // Owner answer 143a: a paid private account files only this research's map, and only under the user's yes to the
     // answer's offer. The database stores that finalization receipt's SHA-256, never the receipt, and takes it once;
@@ -766,6 +775,72 @@ async function verify(
 
 const OWNER_SUBJECT = "auth0|synthetic-postgres-owner-login";
 const STANDING = "OWNER_STANDING_INSTRUCTION_2026_11_06";
+
+/**
+ * The public user count on the access role: active accounts made by the start of the count's day outside the owner's
+ * keys and the dev references, and of those, the accounts with an answered call from 7 days before the count up to the
+ * start of its day. Synthetic rows only, removed afterwards.
+ */
+async function verifyUserCounts(context: { admin: Pool; restricted: Pool; checks: string[] }): Promise<void> {
+  const { admin, restricted, checks } = context;
+  const at = new Date("2026-11-21T00:30:00.000Z");
+  const upTo = new Date("2026-11-21T00:00:00.000Z");
+  const day = 24 * 60 * 60 * 1_000;
+  const key = (label: string) => createHash("sha256").update(`user-counts:${label}`).digest("hex");
+  const [owner, dev, used, quiet, refusedOnly, oldCall, revoked, today] =
+    ["owner", "dev", "used", "quiet", "refused-only", "old-call", "revoked", "made-today"].map(key) as [string, string,
+      string, string, string, string, string, string];
+  const signedInOnly = key("signed-in-only");
+  // Earlier checks' accounts are left out by key, so the count sees only this check's rows.
+  const earlier = (await admin.query<{ account_key: string }>(`SELECT account_key FROM ${SCHEMA}.research_use_accounts`))
+    .rows.map((row) => row.account_key.trim());
+  const ours = [owner, dev, used, quiet, refusedOnly, oldCall, revoked, today, signedInOnly];
+  const created = new Date(at.getTime() - 10 * day);
+  try {
+    for (const accountKey of [owner, dev, used, quiet, refusedOnly, oldCall]) {
+      await admin.query(`INSERT INTO ${SCHEMA}.research_use_accounts
+        (account_key, status, mode, notice_version, agreement_json, activated_at, revoked_at, created_at, updated_at)
+        VALUES ($1, 'ACTIVE', 'PAID_PRIVATE', NULL, '{}'::jsonb, $2, NULL, $2, $2)`, [accountKey, created]);
+    }
+    await admin.query(`INSERT INTO ${SCHEMA}.research_use_accounts
+      (account_key, status, mode, notice_version, agreement_json, activated_at, revoked_at, created_at, updated_at)
+      VALUES ($1, 'REVOKED', NULL, NULL, '{}'::jsonb, NULL, $2, $2, $2)`, [revoked, created]);
+    // Made after the start of the count's day: it waits for the next day's count.
+    const madeToday = new Date(upTo.getTime() + 1);
+    await admin.query(`INSERT INTO ${SCHEMA}.research_use_accounts
+      (account_key, status, mode, notice_version, agreement_json, activated_at, revoked_at, created_at, updated_at)
+      VALUES ($1, 'ACTIVE', 'PAID_PRIVATE', NULL, '{}'::jsonb, $2, NULL, $2, $2)`, [today, madeToday]);
+    const call = (accountKey: string, receivedAt: Date, outcome: "answered" | "refused") => admin.query(
+      `INSERT INTO ${SCHEMA}.research_call_record
+        (account_key, received_at, tool, action, route, chatgpt, outcome, code, duration_ms)
+        VALUES ($1, $2, 'load_protocol', NULL, '/mcp', false, $3, NULL, 10)`, [accountKey, receivedAt, outcome]);
+    await call(owner, new Date(at.getTime() - day), "answered");
+    await call(dev, new Date(at.getTime() - day), "answered");
+    await call(used, new Date(at.getTime() - day), "answered");
+    await call(used, new Date(at.getTime() - 2 * day), "answered");
+    await call(revoked, new Date(at.getTime() - day), "answered");
+    await call(refusedOnly, new Date(at.getTime() - day), "refused");
+    await call(oldCall, new Date(at.getTime() - RESEARCH_CALL_RECORD_RETENTION_MS), "answered");
+    await call(quiet, new Date(upTo.getTime() + 1), "answered");
+    await call(today, new Date(upTo.getTime() + 2), "answered");
+    await call(signedInOnly, new Date(at.getTime() - day), "answered");
+    const counts = new PostgresResearchUserCounts(restricted, SCHEMA);
+    const result = await counts.counts({
+      excludedAccountKeys: [...earlier, owner, "NOT-A-KEY"],
+      excludedReferences: [dev.slice(0, 12), "x"],
+      at,
+      upTo,
+    });
+    // Counted: used, quiet, refused-only and old-call; of them only used had an answered call in the 7 days before.
+    assert(result.accounts === 4 && result.usedLast7Days === 1, "USER_COUNTS_WRONG");
+    const withOwner = await counts.counts({ excludedAccountKeys: earlier, excludedReferences: [], at, upTo });
+    assert(withOwner.accounts === 6 && withOwner.usedLast7Days === 3, "USER_COUNTS_EXCLUSION_WRONG");
+    checks.push("public_user_counts_two_aggregates_without_owner_and_dev_accounts");
+  } finally {
+    await admin.query(`DELETE FROM ${SCHEMA}.research_call_record WHERE account_key = ANY($1::text[])`, [ours]);
+    await admin.query(`DELETE FROM ${SCHEMA}.research_use_accounts WHERE account_key = ANY($1::bpchar[])`, [ours]);
+  }
+}
 
 async function verifyCallRecord(context: { admin: Pool; restricted: Pool; checks: string[] }): Promise<void> {
   const { admin, restricted, checks } = context;
@@ -1232,11 +1307,11 @@ async function verifyProposalIdempotencyIndex(context: {
   }
   checks.push("proposal_lookup_by_idempotency_key_answered_from_the_0038_index");
 
-  // An earlier image (bc71b90e and before) runs its own migrations, every one but 0038, in one transaction, and checks
-  // each one's recorded digest: the index stays, unchanged.
+  // An earlier image (bc71b90e and before) runs its own migrations, every one before 0038 (and so before 0039, Gemini's
+  // sign-in, and 0043, Atlas news), in one transaction, and checks each one's recorded digest: the index stays, unchanged.
   const earlier = (await readdir(migrationsDirectory))
     .filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/u.test(name) && !name.endsWith("_down.sql") &&
-      name !== "0038_research_proposal_idempotency_index.sql")
+      name < "0038_")
     .sort();
   assert(earlier.at(-1) === "0037_research_dossiers.sql", "EARLIER_IMAGE_MIGRATION_LIST");
   const migrator = await admin.connect();
@@ -1686,6 +1761,235 @@ const FREE_AGREEMENT = {
  * Owner answer 138b: stored times compare as instants, a deterministic conflict ends its intent FAILED with its code
  * while the activation moves on to the next intent, and a transient error leaves the intent pending.
  */
+async function verifyAtlasNews(context: {
+  admin: Pool;
+  accessUrl: string;
+  reviewUrl: string;
+  readerUrl: string;
+  checks: string[];
+}): Promise<void> {
+  const { admin, checks } = context;
+  const applied = await admin.query(`SELECT migration_id FROM ${SCHEMA}.schema_migrations
+    WHERE migration_id = '0043_atlas_news_items'`);
+  assert(applied.rowCount === 1, "MIGRATION_0043_NOT_APPLIED");
+  const snapshot = async () => JSON.stringify({
+    tables: (await admin.query(`SELECT c.relname, c.relacl::text AS acl FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relname LIKE 'atlas_news%'
+      ORDER BY c.relname`, [SCHEMA])).rows,
+    constraints: (await admin.query(`SELECT conrelid::regclass::text AS on_table, conname,
+      pg_get_constraintdef(oid) AS definition FROM pg_constraint
+      WHERE conrelid::regclass::text LIKE '${SCHEMA}.atlas_news%' ORDER BY 1, 2`)).rows,
+    functions: (await admin.query(`SELECT p.proname, p.prosecdef, p.proacl::text AS acl FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = $1 AND p.proname LIKE '%atlas_news%'
+      ORDER BY p.proname`, [SCHEMA])).rows,
+  });
+  const original = await snapshot();
+  const migration = (await readFile(resolve("packages/evidence-repository/migrations/0043_atlas_news_items.sql"), "utf8"))
+    .replaceAll("__SCHEMA__", SCHEMA);
+  await admin.query(migration);
+  await admin.query(migration);
+  assert(await snapshot() === original, "NEWS_MIGRATION_NOT_IDEMPOTENT");
+  checks.push("news_migration_0043_applied_and_safe_to_run_again");
+
+  // No table or sequence right for any role, PUBLIC or the canonical reader; each function for its one role.
+  for (const role of ["public", "askrigor_research_access", "askrigor_research_review", "askrigor_reader"]) {
+    for (const table of ["atlas_news_items", "atlas_news_days"]) {
+      for (const privilege of ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"]) {
+        const result = await admin.query<{ allowed: boolean }>(
+          `SELECT has_table_privilege($1, $2, $3) AS allowed`, [role, `${SCHEMA}.${table}`, privilege]);
+        assert(result.rows[0]?.allowed === false, `NEWS_TABLE_PRIVILEGE_${role}_${table}_${privilege}`);
+      }
+    }
+    const sequence = await admin.query<{ allowed: boolean }>(
+      `SELECT has_sequence_privilege($1, $2, 'USAGE') AS allowed`, [role, `${SCHEMA}.atlas_news_number_seq`]);
+    assert(sequence.rows[0]?.allowed === false, `NEWS_SEQUENCE_PRIVILEGE_${role}`);
+  }
+  const functions: Record<string, string> = {
+    [`${SCHEMA}.stage_atlas_news_card(jsonb, timestamptz)`]: "askrigor_research_access",
+    [`${SCHEMA}.commit_atlas_news_day(jsonb, timestamptz, timestamptz)`]: "askrigor_research_review",
+    [`${SCHEMA}.withdraw_atlas_news_items(text, text, timestamptz)`]: "askrigor_research_review",
+    [`${SCHEMA}.inspect_atlas_news(jsonb, timestamptz)`]: "askrigor_research_review",
+  };
+  for (const [signature, owner] of Object.entries(functions)) {
+    for (const role of ["public", "askrigor_research_access", "askrigor_research_review", "askrigor_reader"]) {
+      const result = await admin.query<{ allowed: boolean }>(
+        `SELECT has_function_privilege($1, $2, 'EXECUTE') AS allowed`, [role, signature]);
+      assert(result.rows[0]?.allowed === (role === owner), `NEWS_FUNCTION_PRIVILEGE_${role}_${signature}`);
+    }
+  }
+  const reader = new Pool({ connectionString: context.readerUrl, max: 1 });
+  const access = new Pool({ connectionString: context.accessUrl, max: 1 });
+  try {
+    await expectPermissionDenied(() => reader.query(`SELECT * FROM ${SCHEMA}.atlas_news_items`));
+    await expectPermissionDenied(() => reader.query(`SELECT * FROM ${SCHEMA}.atlas_news_days`));
+    await expectPermissionDenied(() => access.query(`SELECT * FROM ${SCHEMA}.atlas_news_items`));
+    await expectPermissionDenied(() => access.query(
+      `SELECT ${SCHEMA}.inspect_atlas_news('{"day":"2026-11-23"}'::jsonb, now())`));
+  } finally {
+    await reader.end();
+    await access.end();
+  }
+  checks.push("news_tables_closed_to_every_role_and_functions_granted_to_exactly_one");
+
+  // Through the roles' own connections, as the server makes them. The day call commits only the database's own UTC
+  // date, so the flow runs on today's: yesterday's committed day is written directly, as the migrator.
+  const staging = new PostgresAtlasNewsStore({ connectionString: context.accessUrl, schema: SCHEMA });
+  const review = new PostgresAtlasNewsStore({ connectionString: context.reviewUrl, schema: SCHEMA });
+  const hex = (label: string) => createHash("sha256").update(`news-acceptance:${label}`).digest("hex");
+  const nowIso = () => new Date().toISOString();
+  // The database's own UTC date, which the day call's final check reads.
+  const today = (await admin.query<{ today: string }>(
+    "SELECT to_char((now() AT TIME ZONE 'UTC')::date, 'YYYY-MM-DD') AS today")).rows[0]!.today;
+  const yesterday = new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+  const item = (label: string) => ({
+    itemId: `item-${label}`, checkId: `check-${label}`, card: { item_id: `item-${label}`, finding: `Synthetic ${label}` },
+    cardSha256: hex(`card:${label}`), draft: `Synthetic draft ${label}`, draftSha256: hex(`draft:${label}`),
+    receiptClaims: { news: hex(`card:${label}`), nl: ["1:f:full_text"], ns: [], nr: ["1:full_text_read:-"] },
+    receiptIssuedAt: nowIso(), doi: "10.1000/synthetic.news",
+  });
+  const future = () => new Date(Date.now() + 60_000).toISOString();
+  try {
+    const carried = await staging.stage(item("carried"), `${yesterday}T06:00:00.000Z`);
+    await admin.query(`UPDATE ${SCHEMA}.atlas_news_items SET state = 'shadow', item_kind = 'main', committed_day = $1::date,
+      committed_version = 1 WHERE news_number = $2`, [yesterday, Number(carried.number.slice(2))]);
+    await admin.query(`INSERT INTO ${SCHEMA}.atlas_news_days (news_day, day_version, payload_sha256, rerank, stored_order,
+      moves, lines, kept_back, committed_at) VALUES ($1::date, 1, $2, false, $3::jsonb, '[]', '[]', '[]', now())`,
+    [yesterday, hex("payload:yesterday"), JSON.stringify([carried.number])]);
+    const base = { day: yesterday, version: 1 };
+    const one = await staging.stage(item("one"), nowIso());
+    const again = await staging.stage(item("one"), nowIso());
+    assert(!one.alreadyStaged && again.alreadyStaged && again.number === one.number && /^N-[1-9][0-9]{3,}$/u.test(one.number),
+      "NEWS_STAGE_NOT_IDEMPOTENT");
+    const line = await staging.stage(item("line"), nowIso());
+    const old = await staging.stage(item("old"), new Date(Date.now() - 25 * 3_600_000).toISOString());
+    const commit = (overrides: Partial<AtlasNewsDayCommit> = {}): AtlasNewsDayCommit => ({
+      day: today, payloadSha256: hex("payload:one"), base, rerank: false, order: [carried.number, one.number],
+      decisions: [
+        { number: one.number, kind: "main" as const, passed: true, reasons: [],
+          reading: { model: "synthetic", card: hex("card:one"), draft: hex("draft:one") },
+          readingModel: "synthetic", retraction: "no_retraction_record_found" as const },
+        { number: line.number, kind: "line" as const, passed: true, reasons: [],
+          reading: { model: "synthetic", card: hex("card:line"), draft: hex("draft:line") }, readingModel: "synthetic",
+          retraction: null },
+      ],
+      moves: [{ number: one.number, reason: "first", kind: "place" }], lines: [{ kind: "checked", number: line.number }],
+      footer: { text: "Synthetic footer." }, ...overrides,
+    });
+    // A call past its deadline stores nothing.
+    let late = false;
+    try {
+      await review.commitDay(commit({ payloadSha256: hex("payload:late") }), nowIso(), new Date(Date.now() - 1_000).toISOString());
+    } catch (error) {
+      late = error instanceof AtlasNewsError && error.code === "LATE";
+    }
+    assert(late, "NEWS_LATE_COMMIT_NOT_REFUSED");
+    const afterLate = await review.inspectDay(today, nowIso());
+    assert(afterLate.day === null && afterLate.items.every(({ state }) => state === "staged"), "NEWS_LATE_COMMIT_STORED");
+    // A day other than the call's UTC date is refused.
+    let otherDay = false;
+    try {
+      await review.commitDay(commit({ day: yesterday, payloadSha256: hex("payload:yesterday-again"), base: null }),
+        nowIso(), future());
+    } catch (error) {
+      otherDay = error instanceof AtlasNewsError && error.code === "OTHER_DAY";
+    }
+    assert(otherDay, "NEWS_OTHER_DAY_NOT_REFUSED");
+    // The final check reads the database's own date: a day whose call time says yesterday, with a future deadline, is
+    // still refused at its last step, and nothing of it is stored.
+    let pastMidnight = false;
+    try {
+      await review.commitDay(commit({ day: yesterday, payloadSha256: hex("payload:yesterday-late"), base: null, order: [],
+        decisions: [], lines: [], moves: [] }), `${yesterday}T12:00:00.000Z`, future());
+    } catch (error) {
+      pastMidnight = error instanceof AtlasNewsError && error.code === "LATE";
+    }
+    const yesterdayVersions = await admin.query(`SELECT day_version FROM ${SCHEMA}.atlas_news_days WHERE news_day = $1::date`,
+      [yesterday]);
+    assert(pastMidnight && yesterdayVersions.rowCount === 1, "NEWS_FINAL_DATE_CHECK_NOT_ENFORCED");
+    // A stale base stores nothing and returns the latest record; a dropped carried item is refused.
+    const stale = await review.commitDay(commit({ base: null, payloadSha256: hex("payload:stale") }), nowIso(), future());
+    assert(stale.status === "stale_base" && stale.latest?.day === yesterday && stale.latest.version === 1,
+      "NEWS_STALE_BASE_NOT_RETURNED");
+    let orderRefused = false;
+    try {
+      await review.commitDay(commit({ payloadSha256: hex("payload:dropped"), order: [one.number] }), nowIso(), future());
+    } catch (error) {
+      orderRefused = error instanceof AtlasNewsError && error.code === "ORDER_INVALID";
+    }
+    assert(orderRefused, "NEWS_DROPPED_CARRIED_ITEM_NOT_REFUSED");
+    const started = Date.now();
+    const first = await review.commitDay(commit(), nowIso(), future());
+    assert(Date.now() - started < 5_000, "NEWS_COMMIT_SLOWER_THAN_THE_STATEMENT_LIMIT");
+    assert(first.status === "committed" && first.version === 1 && first.order.join() === `${carried.number},${one.number}` &&
+      first.keptBack.length === 0 && first.lines[0]?.passed === true, "NEWS_FIRST_DAY_NOT_COMMITTED");
+    const replay = await review.commitDay(commit(), nowIso(), future());
+    assert(replay.status === "replayed" && replay.version === 1, "NEWS_REPLAY_NOT_RECOGNISED");
+    const readBack = await review.inspectDay(today, nowIso(), hex("payload:one"));
+    assert(readBack.day?.version === 1, "NEWS_REPLAY_READ_BACK_WRONG");
+    // The owner withdraws the carried item; the news check doesn't know and carries it: a new version commits without it.
+    const withdrawn = await review.withdraw(carried.number, "A synthetic withdrawal.", nowIso());
+    assert(withdrawn.length === 1 && withdrawn[0]!.state === "withdrawn", "NEWS_WITHDRAWAL_WRONG");
+    const [gone] = await review.inspectNumbers([carried.number], nowIso());
+    assert(gone?.state === "withdrawn" && gone.withdrawnReason === "owner_unpublished", "NEWS_WITHDRAWAL_NOT_KEPT");
+    const kept = await staging.stage(item("kept"), nowIso());
+    const second = await review.commitDay(commit({ payloadSha256: hex("payload:second"),
+      order: [carried.number, one.number, kept.number],
+      moves: [{ number: one.number, reason: "first", kind: "place" }, { number: kept.number, reason: "second", kind: "place" }],
+      decisions: [...commit().decisions, { number: kept.number, kind: "main" as const, passed: false, reasons: ["no_reading"],
+        reading: null, readingModel: null, retraction: null }] }), nowIso(), future());
+    assert(second.status === "committed" && second.version === 2 && second.order.join() === one.number &&
+      second.keptBack.length === 1 && second.keptBack[0]!.number === kept.number, "NEWS_WITHDRAWN_CARRIED_ITEM_STORED");
+    // A card staged over 24 hours before reads as expired.
+    const [oldItem] = await review.inspectNumbers([old.number], nowIso());
+    assert(oldItem?.state === "expired", "NEWS_OLD_STAGED_CARD_NOT_EXPIRED");
+    // At most 20 staged cards a UTC day.
+    let full = false;
+    for (let index = 0; index < 21; index += 1) {
+      try {
+        await staging.stage(item(`full-${index}`), "2030-01-01T06:00:00.000Z");
+      } catch (error) {
+        full = error instanceof AtlasNewsError && error.code === "DAY_FULL" && index === 20;
+      }
+    }
+    assert(full, "NEWS_TWENTY_FIRST_CARD_NOT_REFUSED");
+    // Withdrawing every item at once takes staged, shown and kept-back rows alike.
+    const everything = await review.withdraw("all", "A synthetic withdrawal of everything.", nowIso());
+    const left = await admin.query(`SELECT count(*)::int AS n FROM ${SCHEMA}.atlas_news_items WHERE state <> 'withdrawn'`);
+    assert(everything.length > 20 && left.rows[0]!.n === 0, "NEWS_WITHDRAW_ALL_INCOMPLETE");
+    // Another draft of a staged card signed in the same second is refused, never silently dropped.
+    const sameSecond = { ...item("same"), receiptIssuedAt: nowIso() };
+    await staging.stage(sameSecond, nowIso());
+    let conflict = false;
+    try {
+      await staging.stage({ ...sameSecond, draft: "Another synthetic draft", draftSha256: hex("draft:same:other") }, nowIso());
+    } catch (error) {
+      conflict = error instanceof AtlasNewsError && error.code === "DRAFT_CONFLICT";
+    }
+    assert(conflict, "NEWS_SAME_SECOND_DRAFT_NOT_REFUSED");
+    // An older version of an item never displaces a newer one already on show.
+    const version = (label: string, issued: string) => ({ ...item(label), itemId: "item-versioned", receiptIssuedAt: issued });
+    const newer = await staging.stage(version("versioned-new", nowIso()), nowIso());
+    const older = await staging.stage(version("versioned-old", new Date(Date.now() - 3_600_000).toISOString()), nowIso());
+    const decided = (number: string, label: string, passed = true) => ({ number, kind: "main" as const, passed,
+      reasons: [], reading: { model: "synthetic", card: hex(`card:${label}`), draft: hex(`draft:${label}`) },
+      readingModel: "synthetic", retraction: "no_retraction_record_found" as const });
+    const third = await review.commitDay(commit({ payloadSha256: hex("payload:third"), order: [newer.number],
+      moves: [{ number: newer.number, reason: "newer", kind: "place" }], lines: [],
+      decisions: [decided(newer.number, "versioned-new")] }), nowIso(), future());
+    const fourth = await review.commitDay(commit({ payloadSha256: hex("payload:fourth"), order: [older.number],
+      moves: [{ number: older.number, reason: "older", kind: "place" }], lines: [],
+      decisions: [decided(older.number, "versioned-old")] }), nowIso(), future());
+    const [stillShown] = await review.inspectNumbers([newer.number], nowIso());
+    assert(third.status === "committed" && third.order.join() === newer.number && fourth.status === "committed" &&
+      fourth.order.length === 0 && fourth.keptBack[0]?.reasons.join() === "superseded" && stillShown?.state === "shadow",
+    "NEWS_OLDER_VERSION_DISPLACED_A_NEWER_ONE");
+  } finally {
+    await staging.close();
+    await review.close();
+  }
+  checks.push("news_staged_by_access_committed_whole_by_review_late_and_stale_store_nothing");
+}
+
 async function verifyPromotionFailures(context: {
   adminUrl: string;
   admin: Pool;
@@ -2448,6 +2752,9 @@ const DOSSIER_ACCESS_FUNCTIONS = [
   "append_research_dossier_version", "latest_research_dossier_version", "read_research_dossier_version",
 ] as const;
 const DOSSIER_REVIEW_FUNCTIONS = ["erase_research_dossiers"] as const;
+// Migration 0043 (Atlas news, stage 1): the access role stages; the review role commits, withdraws and reads.
+const ATLAS_NEWS_ACCESS_FUNCTIONS = ["stage_atlas_news_card"] as const;
+const ATLAS_NEWS_REVIEW_FUNCTIONS = ["commit_atlas_news_day", "inspect_atlas_news", "withdraw_atlas_news_items"] as const;
 const MIGRATIONS_BEFORE_ATLAS = [
   "0001_living_evidence", "0002_research_frontier", "0003_community_forum_synthetic_lab",
   "0004_community_forum_composer_frontier_queues", "0005_community_forum_hostile_lifecycle_research",
@@ -4411,7 +4718,7 @@ export async function verifyAtlasParticipation(context: {
     assert(
       accessFunctions.join() === [...ATLAS_PARTICIPATION_FUNCTIONS, ...HELD_ACCESS_FUNCTIONS,
         ...ATLAS_REPORT_ACCESS_FUNCTIONS, "withdraw_pending_research_contribution_proposals",
-        ...DOSSIER_ACCESS_FUNCTIONS].sort().join(),
+        ...DOSSIER_ACCESS_FUNCTIONS, ...ATLAS_NEWS_ACCESS_FUNCTIONS].sort().join(),
       `ATLAS_ACCESS_ROLE_FUNCTIONS_MISMATCH ${accessFunctions.join()}`,
     );
     const migration0022Functions: readonly string[] = [...ATLAS_PARTICIPATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
@@ -5163,7 +5470,8 @@ export async function verifyAtlasStorage(context: {
         [...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
           ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS,
           ...ATLAS_CHALLENGE_FUNCTIONS,
-          ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS, ...DOSSIER_REVIEW_FUNCTIONS].sort().join(),
+          ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS, ...DOSSIER_REVIEW_FUNCTIONS,
+          ...ATLAS_NEWS_REVIEW_FUNCTIONS].sort().join(),
       `ATLAS_REVIEW_ROLE_FUNCTIONS_MISMATCH ${executable.rows.map(({ proname }) => proname).join()}`,
     );
     const now = tick();

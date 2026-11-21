@@ -92,3 +92,8 @@ ASKRIGOR_RESEARCH_ACCESS_DATABASE_URL="$access_url" \
 ASKRIGOR_RESEARCH_REVIEW_DATABASE_URL="$review_url" \
 ASKRIGOR_LIVING_EVIDENCE_READER_DATABASE_URL="$reader_url" \
   npx tsx scripts/research-contributor-access-postgres-acceptance.mts verify
+
+# Gemini's sign-in (owner answer 386b): its sealed rows as the research-access role, after the same provisioning.
+ASKRIGOR_RESEARCH_ACCESS_DATABASE_URL="$access_url" \
+ASKRIGOR_LIVING_EVIDENCE_READER_DATABASE_URL="$reader_url" \
+  npx tsx scripts/gemini-sign-in-postgres-acceptance.mts
