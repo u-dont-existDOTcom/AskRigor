@@ -57,7 +57,9 @@ High quota, in his ChatGPT in the built-in browser, card saving off for the roun
    one round a UTC day. A "with" chat whose plan was not used (`research_plan_not_used`, the day's limit for
    example) counts in neither arm and is run again, on another day if need be, marked as such.
 7. Judge each answer with its arm hidden, as the 21 Nov measurement did: read the way he meant, questions he didn't
-   need, minutes, and his wanted answers. Report refusals or softened answers.
+   need, minutes, and his wanted answers. Report refusals or softened answers. For each "with" chat, also record the
+   plan's question (`research_plan.steering_choice`, which the result carries even on the autonomous style, where it
+   is never asked) and judge whether he needed it: the owner's Inbox reply of 21 Nov asks that it ask only then.
 8. Report per round, with which arm came first, and show the spread between the two runs of the same arm beside the
    difference between the arms: one question's difference is within what ChatGPT varies from chat to chat. Say in
    the result that the review of a draft reads his words only in the "with" arm, so part of any gain may come from
@@ -71,3 +73,21 @@ owner's own research during a "without" window, which goes without plans too.
 Build `263048eb` plus this branch, after AskRigor#501 lands (rebase first). No setting, migration or tool-list change.
 The release record says the action exists and that nothing changes for an account until a session pauses it.
 Rollback: the previous image; a running pause ends with the restart.
+
+## The plan's question (the owner's Inbox reply of 21 Nov 2026)
+
+"i turned off the menu because it was often asking for clarifdication where none was needed, make sure it's not doing
+that or nobody will use it". Step 2 of the planner's rubric (2026-11-21.1) now names a question only when the research
+needs the person's answer (design-decisions.md). Drafted, red-teamed by Fable and Codex, then replayed on the API with
+Opus, the live model and effort, through the planner's own request (kit and results in
+`/home/joel/askrigor-releases/20261121-planner-measurement/replay/`, `out/v3-*`):
+
+| Plans | Before (2026-11-14.3) | After (2026-11-21.1) |
+|---|---|---|
+| His test and regression questions (15 plans, 13 questions) | a question in 9 | a question in 0 |
+| Invented questions that need the person's answer (9) | not run | a question in 8; the ninth (two supplements both called PEA) covered both, each with its tasks |
+| Invented questions that need none, in English, Japanese, German and Spanish (13) | not run | a question in 0, and a task of its own for each risky situation (a baby's age, swallowing, a damaged eardrum, a unit mix-up) |
+
+Lanes were unchanged, and 3 of the 15 plans of his questions ran no web search, as 3 did before. Cost about USD 0.04
+a plan, as before. The balanced style's 10-minute menu is unchanged: on 13 of the 15 plans it asks on its own, which
+is the owner's to decide (the release question).
