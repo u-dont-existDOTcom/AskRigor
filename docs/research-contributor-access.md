@@ -265,11 +265,17 @@ was released on 12 November:
   planning estimate per source (`PLAN_TASK_MINUTES` in `apps/research-mcp/src/research-steering.ts`, measured on the
   timing runs of 9 November 2026); tasks that could change the conclusion are recommended first, then those that could
   change how sure it is, within the check-back allowance; detail alone is never recommended. Guided always asks;
-  balanced asks when the recommended tasks could take more than about 10 minutes (the high end of their range) or the
-  person's choices could steer the research, as they usually can unless the question is precise (owner answer 284, 10
-  November 2026), except that length alone is no reason to ask when the menu carries AskRigor's own mark that the
-  person's newest message told the AI to go on (owner answer 304a, 14 November 2026; "A follow-up that says to go
-  on", below); autonomous goes on, and after the allowance checks what it has and gives that answer, ending with the
+  balanced asks when the person's choices could steer the research, as they usually can unless the question is precise
+  (owner answer 284, 10 November 2026). Since owner answer 399b (21 November 2026; built, not yet released) a research's
+  first menu (nothing carried, nothing done, not changed) no longer waits for its length: "drop the 10-minute stop for a
+  first question on the balanced style, for every account (it's everyone's default): the research goes on, opening
+  with how it read your question and how long it may take; the guided style still asks." Its go-ahead says why
+  (`went_on_long`) and has the AI tell the person how it read the question and that the research may take the
+  recommended tasks' time with the final check and the answer, before its first research call where the app shows
+  what it writes then, otherwise at the top of the answer. Before, it asked whenever the recommended tasks could take
+  more than about 10 minutes (the high end of their range), which a later menu still does, unless the menu carries
+  AskRigor's own mark that the person's newest message told the AI to go on (owner answer 304a, 14 November 2026; "A
+  follow-up that says to go on", below); autonomous goes on, and after the allowance checks what it has and gives that answer, ending with the
   open tasks as a numbered menu and the question whether to spend more time on them; a person's allocation is followed,
   in their own minutes as given (only AskRigor's own estimates are rounded for the menu; 12 November 2026).
   An allocation that names no task on the menu still open counts as none, so the menu recommends and decides as if
@@ -349,8 +355,9 @@ was released on 12 November:
   the question itself fixes exactly what to look up, as with one result of one named study; and that every task on
   the menu is needed to answer is not by itself a reason for none, since the person may mean a different reading or
   comparison than the one the model picked. The placeholder left in is read as not given, exactly, so the call sent
-  back unchanged is handed back again and not planned. Guided and autonomous research, tasks past 10 minutes, the
-  person's declared allocation, a changed menu and a re-plan need no `steering_choice`, as they needed no judgment.
+  back unchanged is handed back again and not planned. Guided and autonomous research, the person's declared
+  allocation, a changed menu and a re-plan need no `steering_choice`, as they need no judgment; since owner answer 399b
+  a balanced first menu past 10 minutes does, since its length no longer asks on its own.
   When the menu asks and a question was named, whatever the reason for the ask, the result carries it as
   `researchMenu.steering_choice`; the reply the text hands over puts it to the person, in their language, in place
   of the general sentence on what their choices could change; `next_step` says to put it to them, right after "Ask
@@ -650,7 +657,9 @@ answered `ask`, since balanced research asks first whenever the recommended task
 minutes. The option the owner chose in the Inbox on 14 November at 10:05 UTC: "when your latest message tells the AI
 to go on, continue or dig deeper, and the plan has no question for you, the research goes on with the recommended
 tasks without asking. The planning call judges whether your message says that. A first question still follows the
-10-minute rule. The cost: a follow-up can then run longer than 10 minutes before you hear back."
+10-minute rule. The cost: a follow-up can then run longer than 10 minutes before you hear back." Since owner answer
+399b (21 November 2026) no first menu on the balanced style waits for its length, so the mark no longer makes the
+difference there; it is still made and checked.
 
 - **The judgment is the planning call's.** When the AI passes on the person's words as a list of more than one
   message (`later_inputs.asked`), the planning call's bundle also carries the newest one as `latest_message`

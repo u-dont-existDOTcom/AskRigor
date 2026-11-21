@@ -372,6 +372,9 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     // Owner answer 304a (14 Nov 2026; runtime only): a balanced menu that could take more than about 10 minutes goes
     // on, since AskRigor's own plan read the person's newest message as telling the AI to go on.
     went_on_as_asked: z.literal(true).optional(),
+    // Owner answer 399b (21 Nov 2026; runtime only): a balanced first menu that could take more than about 10 minutes
+    // goes on, saying first how the question was read and how long the research may take.
+    went_on_long: z.literal(true).optional(),
     // AskRigor#467 (15 Nov 2026; runtime only): the menu went on on the person's own go-ahead, given before it was
     // shown, and the question it named, which the answer says what it assumed for.
     went_ahead: z.enum(PERSON_GO_AHEADS).optional(),

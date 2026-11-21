@@ -1185,6 +1185,9 @@ function memoryPlanner(answer: (source: ResearchPlannerSource, accountKey: strin
   return { planner: made, seen };
 }
 
+// Owner answer 399b (21 Nov 2026): a balanced first menu goes on whatever its length, so the mark no longer makes
+// the difference there: with it, without it or with a mark that is not AskRigor's, the menu goes on (went_on_long);
+// guided research still asks. The mark itself is still made and checked as before.
 describe("the planning call's signed go-on menu (owner answer 304a)", () => {
   const latest = "Keep digging on the same question.";
   const asked = [SOURCE.asked!, latest];
@@ -1244,18 +1247,19 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
     expect(data.research_plan).not.toHaveProperty("person_said_go_on");
   });
 
-  it("goes on with the handed-over long balanced menu and explains why", async () => {
+  it("goes on with the handed-over long balanced menu and explains why, now as any first menu does", async () => {
     const { call, data } = await session();
     const result = await call({ action: "plan_research", later_inputs: data.planned_later_inputs });
     expect(result.isError, words(result)).not.toBe(true);
-    expect(result.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on", went_on_as_asked: true,
+    expect(result.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on", went_on_long: true,
       target_matches_plain_answer: true } });
     const menu = result.structuredContent!.researchMenu as { recommended_minutes: number[] };
     expect(menu.recommended_minutes[1]).toBeGreaterThan(10);
-    expect(words(result)).toContain(WENT_ON_AS_ASKED);
+    expect(words(result)).not.toContain(WENT_ON_AS_ASKED);
+    expect(words(result)).toContain("on the balanced style a research's first menu goes on whatever its length");
   });
 
-  it("asks when a signed menu's task text, minutes, sources or same-kind task is changed", async () => {
+  it("goes on, as any balanced first menu, when a signed menu's task text, minutes, sources or same-kind task is changed", async () => {
     const { call, data } = await session();
     const menu = data.planned_later_inputs.researchMenu;
     const first = menu.tasks[0]!;
@@ -1270,20 +1274,20 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
       expect(changed.go_on_asked, what).toBe(menu.go_on_asked);
       const result = await call({ action: "plan_research", later_inputs: { researchMenu: changed } });
       expect(result.isError, `${what}: ${words(result)}`).not.toBe(true);
-      expect(result.structuredContent, what).toMatchObject({ ok: true, researchMenu: { next: "ask",
-        target_matches_plain_answer: true } });
+      expect(result.structuredContent, what).toMatchObject({ ok: true, researchMenu: { next: "go_on",
+        went_on_long: true, target_matches_plain_answer: true } });
       expect(result.structuredContent!.researchMenu, what).not.toHaveProperty("went_on_as_asked");
     }
   });
 
   it.each(["account removed", "planner disabled", "planner absent"] as const)(
-    "asks for the same signed menu with the %s", async (what) => {
+    "goes on, as any balanced first menu, for the same signed menu with the %s", async (what) => {
       const { call, service, memory, data } = await session();
       const input = { action: "plan_research", later_inputs: data.planned_later_inputs };
       const original = await call(input);
       expect(original.isError, words(original)).not.toBe(true);
       expect(original.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
-        went_on_as_asked: true, target_matches_plain_answer: true } });
+        went_on_long: true, target_matches_plain_answer: true } });
       const handler = createManageResearchAccessHandler({ service, menuDigestSecret: () => SECRET,
         devAccountKeys: () => new Set(what === "account removed" ? []
           : [researchAccountReference(service.accountKeyForSubject("auth0|dev"))]),
@@ -1305,8 +1309,8 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
       const result = await execute(input, { authInfo: { token: "synthetic-token", clientId: "synthetic-client",
         scopes: ["research:use"], expiresAt: Math.floor(Date.now() / 1_000) + 60, extra: { subject: "auth0|dev" } } });
       expect(result.isError, words(result)).not.toBe(true);
-      expect(result.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask",
-        target_matches_plain_answer: true } });
+      expect(result.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
+        went_on_long: true, target_matches_plain_answer: true } });
       expect(result.structuredContent!.researchMenu).not.toHaveProperty("went_on_as_asked");
     });
 
@@ -1323,7 +1327,7 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
     const again = await call({ action: "plan_research", later_inputs: corrected });
     expect(again.isError, words(again)).not.toBe(true);
     expect(again.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
-      went_on_as_asked: true, target_matches_plain_answer: true } });
+      went_on_long: true, target_matches_plain_answer: true } });
   });
 
   it("leaves a numeric or overlong mark out of a refused menu's correction", async () => {
@@ -1338,7 +1342,7 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
     }
   });
 
-  it("asks for a tampered or copied mark, another receipt, arbitrary text, or guided research", async () => {
+  it("goes on for a tampered or copied mark, another receipt or arbitrary text, and guided research asks", async () => {
     const { call, service, data } = await session();
     const menu = data.planned_later_inputs.researchMenu;
     const mark = menu.go_on_asked!;
@@ -1355,8 +1359,8 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
     ] as const) {
       const result = await call({ action: "plan_research", later_inputs: { researchMenu: changed } });
       expect(result.isError, what).not.toBe(true);
-      expect(result.structuredContent, what).toMatchObject({ ok: true, researchMenu: { next: "ask",
-        target_matches_plain_answer: true } });
+      expect(result.structuredContent, what).toMatchObject({ ok: true, researchMenu: { next: "go_on",
+        went_on_long: true, target_matches_plain_answer: true } });
       expect(result.structuredContent!.researchMenu, what).not.toHaveProperty("went_on_as_asked");
       expect(words(result), what).not.toContain(WENT_ON_AS_ASKED);
     }
@@ -1369,14 +1373,14 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
   });
 
   // As for person_reason: a value in the mark's place that is not the mark must never refuse a menu.
-  it("never refuses a menu for what stands in the mark's place: any value that is not the mark asks", async () => {
+  it("never refuses a menu for what stands in the mark's place: any value that is not the mark goes on as any first menu", async () => {
     const { call, data } = await session();
     const menu = data.planned_later_inputs.researchMenu;
     for (const value of ["x".repeat(201), "x".repeat(5_000), 7, true, null, { mark: menu.go_on_asked }, [menu.go_on_asked]]) {
       const asking = await call({ action: "plan_research", later_inputs: { researchMenu: { ...menu,
         go_on_asked: value } } });
       expect(asking.isError, `${JSON.stringify(value).slice(0, 40)}: ${words(asking)}`).not.toBe(true);
-      expect(asking.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask" } });
+      expect(asking.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on", went_on_long: true } });
       expect(asking.structuredContent!.researchMenu).not.toHaveProperty("went_on_as_asked");
       expect(words(asking)).not.toContain(WENT_ON_AS_ASKED);
     }
@@ -1775,11 +1779,17 @@ describe("a steering_choice that is neither the word none nor a question is hand
       steering_choice: "none_needed", allocation: [{ task: 1, minutes: 2 }], person_answered: true }) } });
     expect(answered.isError, words(answered)).not.toBe(true);
     expect(answered.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on" } });
-    // Long tasks ask either way.
+    // A re-plan asks either way.
+    const replan = await call({ action: "plan_research", later_inputs: { researchMenu: menu({ steering_choice: "n/a",
+      done: [1] }) } });
+    expect(replan.isError, words(replan)).not.toBe(true);
+    expect(replan.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask" } });
+    // Long tasks used to ask either way; since owner answer 399b a balanced first menu doesn't wait for its length, so
+    // there the decision rests on the judgment, and one that is neither none nor a question is handed back.
     const long = await call({ action: "plan_research", later_inputs: { researchMenu: menu({ steering_choice: "n/a",
       tasks: [{ task: "Read twelve papers in full", kind: "full_text", could_change: "conclusion", sources: 12 }] }) } });
-    expect(long.isError, words(long)).not.toBe(true);
-    expect(long.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "ask" } });
+    expect(long.isError).toBe(true);
+    expect(words(long)).toContain("whether to ask the person first rests on it");
   });
 });
 

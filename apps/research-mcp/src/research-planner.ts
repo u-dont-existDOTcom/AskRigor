@@ -73,7 +73,8 @@ import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, PLANNER_PAUSE_
  *
  * Whether the person said to go on (rubric 2026-11-14.3, owner answer 304a). The owner's note of 14 November 2026
  * on AskRigor#457: a follow-up told the AI to continue digging, the plan named no question, and the menu still asked
- * how to spend the time, since balanced research asks first past about 10 minutes. The owner chose that such a
+ * how to spend the time, since balanced research then asked first past about 10 minutes (since owner answer 399b of
+ * 21 November 2026, a balanced first menu no longer does). The owner chose that such a
  * follow-up goes on, and that this call judges whether the message says so. So when the AI passed on more than one of
  * the person's messages, the bundle carries the newest as latest_message, and the reply says in person_said_go_on
  * whether it is an instruction to carry on with research already under way: a judgment of meaning, in any language,

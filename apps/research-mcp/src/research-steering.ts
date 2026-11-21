@@ -55,9 +55,9 @@ export type Framing = z.output<typeof framingSchema>;
 export const researchSteeringInputSchema = z.object({
   style: z.enum(RESEARCH_STYLES).optional()
     .describe("guided: ask at the framing and before every long task; balanced (the default): ask only questions " +
-      "that could redirect the research, and show the menu of next tasks and wait when they could take more than " +
-      "about 10 minutes or the person's choices could steer the research, as they usually can unless the question is " +
-      "precise; autonomous: go on through the passes and check back after the time allowance."),
+      "that could redirect the research, and show the menu of next tasks and wait when the person's choices could " +
+      "steer the research, as they usually can unless the question is precise; a first menu does not wait for its " +
+      "length alone; autonomous: go on through the passes and check back after the time allowance."),
   checkBackMinutes: z.number().int().min(CHECK_BACK_MINUTES.min).max(CHECK_BACK_MINUTES.max).optional()
     .describe("Minutes of research before checking back with the person, 1 to 120; 10 by default."),
   adjustmentDetail: z.enum(ADJUSTMENT_DETAILS).optional()
@@ -599,8 +599,8 @@ export const READING_FIRST = "You named no question for this person, so before t
 const STYLE_WORDS: Readonly<Record<ResearchStyle, string>> = Object.freeze({
   guided: "guided (asks you at the start and before every long task)",
   balanced: "balanced (asks only questions that could redirect the research, and shows the menu of next tasks when " +
-    "they could take more than about 10 minutes or when your choices could steer the research, as they usually can " +
-    "unless the question is precise)",
+    "your choices could steer the research, as they usually can unless the question is precise; otherwise the " +
+    "research goes on, saying first how it read the question and how long it may take)",
   autonomous: "autonomous (goes on through the research and reports as it goes)",
 });
 
@@ -1093,6 +1093,15 @@ export function plannerNotUsedSentence(reason: PlannerNotUsedReason, accountDail
  * person's choices could steer the research is the model's judgment from the screen, in any language, as HRP's
  * StructuredUserSteeringAndApproval asks (approval_required against clear_scope_no_pause); this module only compares.
  * It was five minutes: with the measured times, all 14 of the timing runs' first menus came to more than five.
+ *
+ * Owner answer 399b (21 November 2026), the option as he chose it: "drop the 10-minute stop for a first question on the
+ * balanced style, for every account (it's everyone's default): the research goes on, opening with how it read your
+ * question and how long it may take; the guided style still asks." He had written in his Inbox that day: "i turned off
+ * the menu because it was often asking for clarifdication where none was needed". The replay of that day: the length
+ * alone asked before 14 of 15 first menus of his own questions. So a balanced research's first menu (nothing carried,
+ * nothing done, not changed) no longer waits for its length; it goes on with WENT_ON_LONG. The 10 minutes still count
+ * for a menu that is not the first, guided research still asks before every long task, and a named question (or a
+ * judgment left out), a changed menu and a re-plan ask as before.
  */
 export const ASK_ABOVE_MINUTES = 10;
 
@@ -1111,6 +1120,22 @@ export const ASK_ABOVE_MINUTES = 10;
  */
 export const WENT_ON_AS_ASKED = "AskRigor did not ask first, though these tasks could take more than about " +
   `${ASK_ABOVE_MINUTES} minutes: its own plan read the person's latest message as telling you to go on.`;
+
+/**
+ * Owner answer 399b: why a balanced first menu this long did not ask, and what the person is told instead: how the AI
+ * read their question and how long the research may take, the recommended tasks with the final check and the answer
+ * (ANSWER_MINUTES), said before the first research call where the app shows what the AI writes then, otherwise at the
+ * top of the answer.
+ */
+export function wentOnLongSentence(result: Pick<ResearchPlanResult, "recommended_minutes">): string {
+  const low = roundEstimate(result.recommended_minutes[0] + ANSWER_MINUTES[0]);
+  const high = roundEstimate(result.recommended_minutes[1] + ANSWER_MINUTES[1]);
+  return `AskRigor did not ask first, though these tasks could take more than about ${ASK_ABOVE_MINUTES} minutes: on ` +
+    "the balanced style a research's first menu goes on whatever its length. Tell the person, in one line in their " +
+    `language, how you read their question and that the research may take about ${low} to ${high} minutes with the ` +
+    "final check and the answer: before your first research call where your app shows what you write then, " +
+    "otherwise at the top of the answer.";
+}
 
 export interface PlannedTask {
   n: number;
@@ -1159,9 +1184,16 @@ export interface ResearchPlanResult {
   allocation_not_used?: true;
   /**
    * Owner answer 304a: the recommended tasks could take more than about 10 minutes and the menu goes on all the same,
-   * since AskRigor's own plan read the person's newest message as telling the AI to go on (WENT_ON_AS_ASKED).
+   * since AskRigor's own plan read the person's newest message as telling the AI to go on (WENT_ON_AS_ASKED). Since
+   * owner answer 399b a balanced first menu goes on whatever its length, so the mark no longer makes the difference
+   * there, and this is given only where it still could: never, while only first menus carry the mark.
    */
   went_on_as_asked?: true;
+  /**
+   * Owner answer 399b: a balanced first menu whose recommended tasks could take more than about 10 minutes went on,
+   * where it used to ask for its length alone (wentOnLongSentence).
+   */
+  went_on_long?: true;
   /**
    * AskRigor#467: the menu went on on the person's own go-ahead, given before it was shown (personGoAheadOf): all, every
    * open task, or recommended, AskRigor's recommendation.
@@ -1399,13 +1431,15 @@ export function planResearch(
   // named question (or a judgment left out), a menu changed after they saw it, a re-plan, and a research target that
   // is not the registered one, which gets no go-ahead at all.
   const asked = menu?.goOnAsked === true && steerable === false && !replanned && plainAnswer?.matches !== false;
+  // Owner answer 399b: on the balanced style a research's first menu does not wait for its length alone.
+  const firstBalanced = steering.style === "balanced" && firstMenu;
+  const lengthAsks = long && !asked && !firstBalanced;
   const next = steering.style === "autonomous" ? "go_on"
     : answered ? "go_on"
     // AskRigor#467: the person said to go ahead without waiting for a menu, so nothing here asks them.
     : goAhead !== undefined ? "go_on"
     : changed ? "ask"
-    : steering.style === "guided" || (long && !asked) || steerable !== false ||
-        (replanned && recommended.length > 0)
+    : steering.style === "guided" || lengthAsks || steerable !== false || (replanned && recommended.length > 0)
       ? "ask"
       : "go_on";
   return {
@@ -1436,9 +1470,16 @@ export function planResearch(
     ...(menu === undefined ? {} : { menu_digest: menu.digest }),
     ...(changed ? { menu_changed: true as const } : {}),
     ...(carried && !answered ? { allocation_not_used: true as const } : {}),
-    // Only where the mark made the difference: a balanced menu that would have asked for its length alone.
-    ...(next === "go_on" && long && asked && steering.style === "balanced" && !answered && goAhead === undefined
+    // Only where the mark made the difference: a balanced menu that would have asked for its length alone. Since owner
+    // answer 399b a first menu doesn't, so this is given only for a later one, which the mark never comes with.
+    ...(next === "go_on" && long && asked && steering.style === "balanced" && !firstBalanced && !answered &&
+        goAhead === undefined
       ? { went_on_as_asked: true as const } : {}),
+    // Owner answer 399b: a balanced first menu that went on though its tasks could take more than about 10 minutes, the
+    // person's go-ahead aside (which says its own why), and not a light look-up (whose go-ahead is LIGHT_LOOKUP alone).
+    ...(next === "go_on" && long && firstBalanced && !answered && goAhead === undefined && !lightWork &&
+        plainAnswer?.matches !== false
+      ? { went_on_long: true as const } : {}),
     // AskRigor#467: and a question the menu named, which the answer then says what it assumed for. A light look-up
     // says nothing more than its own line, and a menu held back for its research target gets no go-ahead.
     ...(goAhead === undefined || plainAnswer?.matches === false ? {} : {
@@ -1488,8 +1529,11 @@ const range = ([low, high]: [number, number]): string => low === high ? `about $
  */
 function askReason(result: ResearchPlanResult, done: ReadonlySet<number>): string {
   if (result.style === "guided") return "This person chose guided research, which asks before every long task";
+  // Owner answer 399b: a first menu (nothing done, not changed, no allocation carried) no longer asks for its length.
+  const firstMenu = !result.tasks.some(({ n }) => done.has(n)) && result.menu_changed !== true &&
+    result.allocation_not_used !== true;
   const reasons = [
-    ...(result.recommended_minutes[1] > ASK_ABOVE_MINUTES
+    ...(!firstMenu && result.recommended_minutes[1] > ASK_ABOVE_MINUTES
       ? [`the recommended tasks could take more than about ${ASK_ABOVE_MINUTES} minutes, as these could`] : []),
     ...(result.steering_could_help === false ? [] : [result.steering_could_help === true
       ? "their choices could steer the research, as they could here"
@@ -1530,8 +1574,8 @@ const HOW_TO_SPEND = "How should I spend the time? Reply with task numbers and m
  */
 export function menuPreferenceLine(style: ResearchStyle): string {
   return "To change how often I ask you, say \"guided\" (I ask at the start and before every long task), " +
-    "\"balanced\" (I ask only when your answer could change the research, or when it could take more than about 10 " +
-    `minutes) or "autonomous" (I go on and report as I go). Yours is ${style} now.`;
+    "\"balanced\" (I ask only when your answer could change the research; otherwise I go on, saying how I read your " +
+    `question and how long it may take) or "autonomous" (I go on and report as I go). Yours is ${style} now.`;
 }
 /** What the AI does when the person's reply to a menu names a style: the setting first, then the plan again. */
 export const STYLE_REPLY = "If the reply asks for another research style, set it first with action " +
@@ -1886,6 +1930,8 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
           "doing; then check the answer with finalize_research and give it in this turn.",
       // Owner answer 304a: why a plan this long did not ask.
       ...(result.went_on_as_asked === true ? [WENT_ON_AS_ASKED] : []),
+      // Owner answer 399b: why a balanced first menu this long did not ask, and what the person is told instead.
+      ...(result.went_on_long === true ? [wentOnLongSentence(result)] : []),
       // AskRigor#467: why it did not ask, and what the answer says first for a question the menu named.
       ...(result.went_ahead === undefined ? [] : [goAheadSentence(result)]),
       // Owner answer 297c: with no question named, the answer says its reading first.
@@ -1954,6 +2000,8 @@ export function planNextStep(result: ResearchPlanResult, learnMode?: boolean): s
       "and give it in this turn.") +
     // Owner answer 304a: an app that hands its model only next_step is told too why a plan this long did not ask.
     (result.went_on_as_asked === true ? ` ${WENT_ON_AS_ASKED}` : "") +
+    // Owner answer 399b: and why a balanced first menu this long did not.
+    (result.went_on_long === true ? ` ${wentOnLongSentence(result)}` : "") +
     // AskRigor#467: the same, when the person's own words said to go ahead.
     (result.went_ahead === undefined ? "" : ` ${goAheadSentence(result)}`) +
     (result.say_reading_first === true ? ` ${READING_FIRST}` : "");
