@@ -1,4 +1,4 @@
-// The runner's own page script (app/page.html at runner 4b90f3fc26e4), with api() handed to the phone link.
+// The runner's own page script (app/page.html at runner d3358413cc73), with api() handed to the phone link.
 
 "use strict";
 const $ = (id) => document.getElementById(id);
@@ -581,6 +581,7 @@ function renderJob(id) {
     html += '<div class="errbox"><b>' + (v.status === "interrupted" ? "You stopped this run." : "This run did not finish.") + "</b>" +
       (v.status === "interrupted" ? "" : "<pre>" + esc(why) + "</pre>") + "</div>";
   }
+  if (v.cleanup_pending) html += '<p class="err">Some of this run\'s processes could not be ended yet (systemd did not answer): the page keeps trying every 30 seconds while it runs.</p>';
   boxContext = { source: "here", folder: v.folder, dig: Boolean(v.dig_deeper), done: !v.running && v.status === "done" };
   if (v.answer) html += answerHtml(v.answer, v.presentation);
   if (v.answer && !v.running && v.status === "done" && v.folder) html += replyBoxHtml();
