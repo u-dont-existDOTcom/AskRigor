@@ -22,7 +22,8 @@ export const NEWS_STAGE_DEADLINE_MS = 5_000;
 
 export const NEWS_NOT_STAGED_REASONS = [
   "news_off", "card_rejected", "check_not_passed", "not_marked_off", "no_research_account", "not_a_dev_account",
-  "doi_not_verified", "no_news_claims", "no_draft", "store_unavailable", "day_full", "not_confirmed_in_time",
+  "doi_not_verified", "no_news_claims", "no_draft", "store_unavailable", "day_full", "draft_conflict",
+  "not_confirmed_in_time",
 ] as const;
 export type NewsNotStagedReason = typeof NEWS_NOT_STAGED_REASONS[number];
 
@@ -101,6 +102,8 @@ export async function stageNewsCard(input: NewsStagingInput): Promise<NewsStagin
     return { status: "staged", number: staged.number, card_digest: staged.cardSha256, already_staged: staged.alreadyStaged };
   } catch (error) {
     if (error instanceof AtlasNewsError && error.code === "DAY_FULL") return notStaged("day_full");
+    // Another draft of the same card signed in the same second as the stored one: a later check stages it.
+    if (error instanceof AtlasNewsError && error.code === "DRAFT_CONFLICT") return notStaged("draft_conflict");
     return notStaged("store_unavailable");
   } finally {
     if (timer !== undefined) clearTimeout(timer);

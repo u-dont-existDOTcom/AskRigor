@@ -5099,9 +5099,12 @@ export function finalizeResearch(
   // card whose DOI is the paper this check read: a key source whose own record, full text or audit receipts name that DOI
   // (a DOI resolution or a failed acquisition doesn't count), so the paper the day call checks for retraction is the
   // paper the check read (Codex's reviews of 21 Nov 2026, finding 3 and its second round's B).
+  // It must also be the paper the card quotes: a backing line's source is that DOI's paper (Codex's third round, B).
   const newsDoi = options.newsCard?.card.doi;
-  const newsDoiVerified = newsDoi === undefined || (input.key_sources.some(({ id }) =>
-    sourceLinks(id).linkIds.map(normalizeIdentifier).includes(normalizeIdentifier(newsDoi))) &&
+  const namesNewsDoi = (source: string) => newsDoi !== undefined &&
+    sourceLinks(source).linkIds.map(normalizeIdentifier).includes(normalizeIdentifier(newsDoi));
+  const newsDoiVerified = newsDoi === undefined || (input.key_sources.some(({ id }) => namesNewsDoi(id)) &&
+    (options.newsCard!.card.backing.length === 0 || options.newsCard!.card.backing.some(({ source }) => namesNewsDoi(source))) &&
     paperReceipts(sourceLinks(newsDoi)).some(({ kind }) =>
       kind === "pubmed_record" || SOURCE_TEXT_KINDS.has(kind)));
   const newsClaims = options.newsCard !== undefined && newsDoiVerified &&

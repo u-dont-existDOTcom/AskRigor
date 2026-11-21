@@ -116,9 +116,16 @@ BEGIN
   SELECT stored.news_number INTO found_number FROM atlas_news_items stored
    WHERE stored.item_id = new_item ->> 'itemId' AND stored.card_sha256 = new_item ->> 'cardSha256';
   IF FOUND THEN
-    -- The same card checked again with another draft, still staged, by a newer receipt: it takes that draft and its
-    -- receipt's claims, so the day call's reading is bound to the draft the news check's last passing call checked; an
-    -- older receipt delivered late changes nothing. A committed or withdrawn card keeps what it had.
+    -- The same card checked again, still staged: a newer receipt brings its draft and claims, whether or not the draft
+    -- changed, so the stored receipt is always the newest and the day call's reading is bound to the draft the news
+    -- check's last passing call checked; an older receipt delivered late changes nothing. Receipts carry whole seconds:
+    -- another draft signed in the same second as the stored one is refused, never silently dropped, and a later call
+    -- gets a later receipt. A committed or withdrawn card keeps what it had.
+    IF EXISTS (SELECT 1 FROM atlas_news_items stored WHERE stored.news_number = found_number AND stored.state = 'staged'
+                 AND stored.draft_sha256 <> new_item ->> 'draftSha256'
+                 AND stored.receipt_issued_at = (new_item ->> 'receiptIssuedAt')::timestamptz) THEN
+      RAISE EXCEPTION 'ATLAS_NEWS_DRAFT_CONFLICT';
+    END IF;
     BEGIN
       UPDATE atlas_news_items stored
          SET draft = new_item ->> 'draft', draft_sha256 = new_item ->> 'draftSha256',
@@ -126,7 +133,6 @@ BEGIN
              receipt_issued_at = (new_item ->> 'receiptIssuedAt')::timestamptz,
              changed_at = greatest(stage_time, stored.changed_at)
        WHERE stored.news_number = found_number AND stored.state = 'staged'
-         AND stored.draft_sha256 <> new_item ->> 'draftSha256'
          AND (new_item ->> 'receiptIssuedAt')::timestamptz > stored.receipt_issued_at;
     EXCEPTION WHEN check_violation OR not_null_violation OR invalid_datetime_format OR datetime_field_overflow THEN
       RAISE EXCEPTION 'ATLAS_NEWS_INPUT_INVALID';
@@ -354,6 +360,12 @@ BEGIN
       -- A passing item's reading must name the card and the draft this row holds now: a card staged again with a newer
       -- draft after the application read it is kept back, never kept with a reading of another draft.
       forced := 'reading_not_bound';
+    ELSIF (decision ->> 'passed')::boolean AND EXISTS (
+        SELECT 1 FROM atlas_news_items other
+         WHERE other.item_id = stored.item_id AND other.news_number <> stored.news_number AND other.state = 'shadow'
+           AND (other.receipt_issued_at, other.news_number) > (stored.receipt_issued_at, stored.news_number)) THEN
+      -- An older version of an item never displaces a newer one already on show.
+      forced := 'superseded';
     END IF;
     IF forced IS NULL AND (decision ->> 'passed')::boolean THEN
       IF decision ->> 'kind' = 'main' THEN

@@ -1408,6 +1408,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "domestic_orderable",
   "dose",
   "dose_or_intensity",
+  "draft_conflict",
   "due",
   "duplicate",
   "duplicate_cohorts_publication_families_and_ancestry",

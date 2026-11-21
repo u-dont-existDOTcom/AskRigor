@@ -1887,6 +1887,33 @@ async function verifyAtlasNews(context: {
     const everything = await review.withdraw("all", "A synthetic withdrawal of everything.", nowIso());
     const left = await admin.query(`SELECT count(*)::int AS n FROM ${SCHEMA}.atlas_news_items WHERE state <> 'withdrawn'`);
     assert(everything.length > 20 && left.rows[0]!.n === 0, "NEWS_WITHDRAW_ALL_INCOMPLETE");
+    // Another draft of a staged card signed in the same second is refused, never silently dropped.
+    const sameSecond = { ...item("same"), receiptIssuedAt: nowIso() };
+    await staging.stage(sameSecond, nowIso());
+    let conflict = false;
+    try {
+      await staging.stage({ ...sameSecond, draft: "Another synthetic draft", draftSha256: hex("draft:same:other") }, nowIso());
+    } catch (error) {
+      conflict = error instanceof AtlasNewsError && error.code === "DRAFT_CONFLICT";
+    }
+    assert(conflict, "NEWS_SAME_SECOND_DRAFT_NOT_REFUSED");
+    // An older version of an item never displaces a newer one already on show.
+    const version = (label: string, issued: string) => ({ ...item(label), itemId: "item-versioned", receiptIssuedAt: issued });
+    const newer = await staging.stage(version("versioned-new", nowIso()), nowIso());
+    const older = await staging.stage(version("versioned-old", new Date(Date.now() - 3_600_000).toISOString()), nowIso());
+    const decided = (number: string, label: string, passed = true) => ({ number, kind: "main" as const, passed,
+      reasons: [], reading: { model: "synthetic", card: hex(`card:${label}`), draft: hex(`draft:${label}`) },
+      readingModel: "synthetic", retraction: "no_retraction_record_found" as const });
+    const third = await review.commitDay(commit({ payloadSha256: hex("payload:third"), order: [newer.number],
+      moves: [{ number: newer.number, reason: "newer", kind: "place" }], lines: [],
+      decisions: [decided(newer.number, "versioned-new")] }), nowIso(), future());
+    const fourth = await review.commitDay(commit({ payloadSha256: hex("payload:fourth"), order: [older.number],
+      moves: [{ number: older.number, reason: "older", kind: "place" }], lines: [],
+      decisions: [decided(older.number, "versioned-old")] }), nowIso(), future());
+    const [stillShown] = await review.inspectNumbers([newer.number], nowIso());
+    assert(third.status === "committed" && third.order.join() === newer.number && fourth.status === "committed" &&
+      fourth.order.length === 0 && fourth.keptBack[0]?.reasons.join() === "superseded" && stillShown?.state === "shadow",
+    "NEWS_OLDER_VERSION_DISPLACED_A_NEWER_ONE");
   } finally {
     await staging.close();
     await review.close();

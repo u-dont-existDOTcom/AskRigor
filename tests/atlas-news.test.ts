@@ -502,6 +502,45 @@ describe("the in-memory store keeps migration 0043's rules", () => {
     expect(item!.draftSha256).toBe(sha256(`${DRAFT} A later revision.`));
   });
 
+  it("keeps the newest receipt whatever its draft, and refuses another draft signed in the same second", async () => {
+    const store = new InMemoryAtlasNewsStore(databaseClock);
+    const first = await stage(store, CARD, `${DAY}T05:00:00.000Z`);
+    // The same draft, newer receipt: the receipt advances.
+    await stage(store, CARD, `${DAY}T06:00:00.000Z`);
+    // Another draft with a receipt between the two: changes nothing.
+    await stage(store, CARD, `${DAY}T05:30:00.000Z`, `${DRAFT} An older revision.`);
+    const [item] = await store.inspectNumbers([first.number], AT.toISOString());
+    expect(item).toMatchObject({ draftSha256: sha256(DRAFT.trim()), receiptIssuedAt: `${DAY}T06:00:00.000Z` });
+    await expect(stage(store, CARD, `${DAY}T06:00:00.000Z`, `${DRAFT} Signed in the same second.`))
+      .rejects.toEqual(new AtlasNewsError("DRAFT_CONFLICT"));
+  });
+
+  it("never lets an older version of an item displace a newer one already on show", async () => {
+    const store = new InMemoryAtlasNewsStore(databaseClock);
+    const olderCard = card((value) => { value.limits = "One trial"; });
+    const older = await stage(store, olderCard, `${DAY}T05:00:00.000Z`);
+    const newer = await stage(store, CARD, `${DAY}T06:00:00.000Z`);
+    expect(await publishNewsDay(payload({ order: [newer.number], places: [{ number: newer.number, reason: "First." }],
+      readings: [reading(newer.number, CARD)] }), deps(store))).toMatchObject({ status: "committed", order: [newer.number] });
+    expect(await publishNewsDay(payload({ order: [older.number], places: [{ number: older.number, reason: "Changed." }],
+      readings: [reading(older.number, olderCard)] }), deps(store)))
+      .toMatchObject({ status: "committed", order: [], keptBack: [{ number: older.number, reasons: ["superseded"] }] });
+    const [stillShown] = await store.inspectNumbers([newer.number], AT.toISOString());
+    expect(stillShown?.state).toBe("shadow");
+  });
+
+  it("lets a version that fails on any count, a missing DOI included, never displace one that passes", async () => {
+    const store = new InMemoryAtlasNewsStore(databaseClock);
+    const older = await stage(store, CARD, `${DAY}T05:00:00.000Z`);
+    const noDoi = card((value) => { delete value.doi; value.limits = "One trial, no DOI given"; });
+    const newer = await stage(store, noDoi, `${DAY}T06:00:00.000Z`);
+    const result = await publishNewsDay(payload({ order: [older.number, newer.number],
+      places: [older, newer].map(({ number }) => ({ number, reason: "Placed." })),
+      readings: [reading(older.number, CARD), reading(newer.number, noDoi)] }), deps(store));
+    expect(result).toMatchObject({ status: "committed", order: [older.number],
+      keptBack: [{ number: newer.number, reasons: ["no_doi"] }] });
+  });
+
   it("keeps one version of a news check item a day, the newest, and keeps back the rest as superseded", async () => {
     const store = new InMemoryAtlasNewsStore(databaseClock);
     const older = await stage(store, CARD, `${DAY}T05:00:00.000Z`);

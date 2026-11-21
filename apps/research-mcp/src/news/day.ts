@@ -309,26 +309,31 @@ export async function publishNewsDay(raw: unknown, deps: NewsDayDependencies): P
       if (card.doi === undefined) return "no_doi";
       return await settles(deps.paperStatus(card.doi).catch(() => "unknown" as const), NEWS_PAPER_CHECK_MS, "unknown");
     }));
-    // One version of a news check item a day: of its cards that pass, the one its newest receipt signed (then the
-    // highest number); every other is kept back as superseded (Codex's second round, C).
-    const newest = new Map<string, { number: string; at: number }>();
-    decided.forEach(({ number, reasons }, place) => {
-      const item = items.get(number);
-      if (item === undefined || reasons.length > 0 || papers[place] === "retracted" || papers[place] === "unknown") return;
-      const at = Date.parse(item.receiptIssuedAt);
-      const best = newest.get(item.itemId);
-      if (best === undefined || at > best.at || (at === best.at && Number(number.slice(2)) > Number(best.number.slice(2)))) {
-        newest.set(item.itemId, { number, at });
-      }
-    });
-    const decisions: AtlasNewsDecision[] = decided.map(({ number, kind, reasons, card }, place) => {
+    // Every reason first, the paper's included, so a version that fails on any count can't displace one that passes.
+    const evaluated = decided.map(({ number, kind, reasons, card }, place) => {
       const paper = papers[place] ?? null;
-      const item = items.get(number);
       const all = [...reasons,
         ...(paper === "retracted" ? ["paper_retracted"] : []),
         ...(paper === "unknown" ? ["paper_unchecked"] : []),
         ...(paper === "no_doi" && card !== undefined && card.design !== "official_notice" ? ["no_doi"] : []),
       ];
+      return { number, kind, paper, all };
+    });
+    // One version of a news check item a day: of its cards that pass, the one its newest receipt signed (then the
+    // highest number); every other is kept back as superseded (Codex's second and third rounds, C). The database also
+    // keeps back a version older than one already on show.
+    const newest = new Map<string, { number: string; at: number }>();
+    for (const { number, all } of evaluated) {
+      const item = items.get(number);
+      if (item === undefined || all.length > 0) continue;
+      const at = Date.parse(item.receiptIssuedAt);
+      const best = newest.get(item.itemId);
+      if (best === undefined || at > best.at || (at === best.at && Number(number.slice(2)) > Number(best.number.slice(2)))) {
+        newest.set(item.itemId, { number, at });
+      }
+    }
+    const decisions: AtlasNewsDecision[] = evaluated.map(({ number, kind, paper, all }) => {
+      const item = items.get(number);
       if (all.length === 0 && item !== undefined && newest.get(item.itemId)?.number !== number) all.push("superseded");
       const reading = readings.get(number);
       // At most 20 reasons are kept on an item's row; the first ones are the decisive ones.

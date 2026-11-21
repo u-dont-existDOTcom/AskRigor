@@ -39,13 +39,15 @@ network or the connector stalls, and a call is never accepted after its cutoff, 
   (design 3.8, 14), so no third wait is ever needed. Under normal scheduling, 2 × 330 s = 11 minutes of waiting at
   most, plus the rebase and the record's update, which have no proven bound; usually under 2 minutes in all.
 - A publish call starts only with at least 120 seconds before `not_after`; the read-back may be made after it.
-- The run's deadline bounds the writes, not the status note: with both waits silent, the waits alone end up to 4
-  minutes after the deadline (a call started 7 minutes before it, plus 11), and the note comes after them, with no
-  bound claimed. Nothing waits on that note: the digest and the record are already written, and no day is accepted
+- The run's deadline bounds the writes, not the status note. Each publish call starts at least 2 minutes before
+  `not_after` (7 before the deadline); only the read-back may start later, and it is the last wait. So under normal
+  scheduling, with both waits silent, the waits end at most 4 minutes after the deadline (a publish call started 7
+  minutes before it, silent for 5.5, then a silent read-back of 5.5), and the note comes after them, with no bound
+  claimed. Nothing waits on that note: the digest and the record are already written, and no day is accepted
   after `not_after`.
 - Each wait's start and end (`date -u +%s`) go in the published.json note, so the shadow period measures them (3.10).
 
-If a later Claude Code changed the idle default, nothing could be stored late (the server's bound), and only the
+If a later Claude Code changed the idle default, no day could be accepted late (the server's final check), and only the
 Inbox update could be later; the measured waits would show it.
 
 ## Scope of this pull request
@@ -101,7 +103,16 @@ version a day, the newest; the others are kept back as superseded, and the datab
 withdrawing a kept-back item breaking its row's rule (a withdrawal clears its reasons; the day's record keeps them);
 and text whose JSON form could overrun the row (no control characters in stored text, and the day's size checked
 against three quarters of the row's limits). Its acceptance remarks are taken in: the run's date comes from the
-database, and the final date check has its own case. Codex hasn't re-read these last fixes.
+database, and the final date check has its own case.
+
+Codex's third round (`codex-review-3.md`, of `fdc1e5d8`) found D, E and the acceptance remarks fixed and A to C
+partly, with two defects the fixes brought in; each now has a fix and a test: a newer receipt for an unchanged draft
+now advances the stored receipt too, so a receipt between them can't bring an older draft back, and another draft
+signed in the same second as the stored one is refused (`draft_conflict`), never silently dropped; the DOI must also
+be the paper the card's backing lines quote; an older version of an item never displaces a newer one already on show
+(the database keeps it back as superseded); and every reason, the missing DOI included, is settled before one version
+is chosen, so a version that fails can't displace one that passes. Its wording remarks are taken in above. Codex
+hasn't re-read these third-round fixes.
 
 Further differences from design v4 that Codex named, left for stage 2: "abstract read" lines live in the day's row,
 not as numbered items, so they can't be withdrawn one by one (withdrawing every item leaves them, unshown); no outlet

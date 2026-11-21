@@ -20,7 +20,9 @@ export const ATLAS_NEWS_RETRACTION_STATUSES = [
 ] as const;
 export type AtlasNewsRetractionStatus = typeof ATLAS_NEWS_RETRACTION_STATUSES[number];
 
-export const ATLAS_NEWS_ERROR_CODES = ["INPUT_INVALID", "DAY_FULL", "OTHER_DAY", "ORDER_INVALID", "LATE"] as const;
+export const ATLAS_NEWS_ERROR_CODES = [
+  "INPUT_INVALID", "DAY_FULL", "OTHER_DAY", "ORDER_INVALID", "LATE", "DRAFT_CONFLICT",
+] as const;
 export type AtlasNewsErrorCode = typeof ATLAS_NEWS_ERROR_CODES[number];
 export class AtlasNewsError extends Error {
   constructor(readonly code: AtlasNewsErrorCode) {
@@ -230,9 +232,14 @@ export class InMemoryAtlasNewsStore implements AtlasNewsStagingStore, AtlasNewsR
     checkStageInput(item, at);
     for (const [number, stored] of this.items) {
       if (stored.itemId === item.itemId && stored.cardSha256 === item.cardSha256) {
-        // The same card checked again with another draft, still staged, takes the newer draft and its claims.
-        if (stored.state === "staged" && stored.draftSha256 !== item.draftSha256 &&
-          Date.parse(item.receiptIssuedAt) > Date.parse(stored.receiptIssuedAt)) {
+        // The same card checked again, still staged: a newer receipt brings its draft and claims; another draft signed
+        // in the same second as the stored one is refused, never silently dropped.
+        const given = Date.parse(item.receiptIssuedAt);
+        const kept = Date.parse(stored.receiptIssuedAt);
+        if (stored.state === "staged" && stored.draftSha256 !== item.draftSha256 && given === kept) {
+          throw new AtlasNewsError("DRAFT_CONFLICT");
+        }
+        if (stored.state === "staged" && given > kept) {
           this.items.set(number, { ...stored, draft: item.draft, draftSha256: item.draftSha256,
             receiptClaims: structuredClone(item.receiptClaims),
             receiptIssuedAt: new Date(item.receiptIssuedAt).toISOString(),
@@ -325,7 +332,14 @@ export class InMemoryAtlasNewsStore implements AtlasNewsStagingStore, AtlasNewsR
         : Date.parse(stored.stagedAt) < Date.parse(at) - ATLAS_NEWS_STAGED_LIFE_MS ? "expired"
         // A passing item's reading must name the card and the draft this row holds now.
         : decision.passed && (decision.reading === null || decision.reading.card !== stored.cardSha256 ||
-          decision.reading.draft !== stored.draftSha256) ? "reading_not_bound" : undefined;
+          decision.reading.draft !== stored.draftSha256) ? "reading_not_bound"
+        // An older version of an item never displaces a newer one already on show.
+        : decision.passed && [...this.items.keys()].some((other) => {
+          const item = current(other)!;
+          return other !== number && item.itemId === stored.itemId && item.state === "shadow" &&
+            (Date.parse(item.receiptIssuedAt) > Date.parse(stored.receiptIssuedAt) ||
+              (item.receiptIssuedAt === stored.receiptIssuedAt && other > number));
+        }) ? "superseded" : undefined;
       const common = { kind: decision.kind, committedDay: commit.day, committedVersion: version,
         reading: decision.reading === null ? null : structuredClone(decision.reading), readingModel: decision.readingModel,
         retraction: decision.retraction, changedAt: commitTime };

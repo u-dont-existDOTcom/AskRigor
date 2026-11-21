@@ -98,7 +98,7 @@ describe("finalize_research stages the owner's news check's own card (Atlas news
     });
   }
 
-  const call = (laterInputs: Record<string, unknown>, extraReceipts: string[] = []) => ({
+  const call = (laterInputs: Record<string, unknown>, extraReceipts: string[] = [], secondSource = false) => ({
     ...finalizeResearchInputSchema.parse({
       lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
       full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates the news card's staging." },
@@ -113,10 +113,14 @@ describe("finalize_research stages the owner's news check's own card (Atlas news
       research_target: "How the body clears a drug in adults",
       research_depth: "deep",
       intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded product." },
-      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "PMC10518852", status: "validated" }],
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "PMC10518852", status: "validated" },
+        ...(secondSource ? [{ read_depth: "abstract_only" as const, answer_marker: "Second", id: "33333333",
+          status: "validated" }] : [])],
       absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [],
       safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [],
-      answer_draft: `${QUOTE}\n\n[Study](https://pmc.ncbi.nlm.nih.gov/articles/PMC10518852/)\n\n${SKIP}`,
+      answer_draft: `${QUOTE}\n\n[Study](https://pmc.ncbi.nlm.nih.gov/articles/PMC10518852/)` +
+        `${secondSource ? "\n\nA second invented study was read too. [Second](https://pubmed.ncbi.nlm.nih.gov/33333333/)" : ""}` +
+        `\n\n${SKIP}`,
     }),
     later_inputs: laterInputs,
   });
@@ -181,6 +185,13 @@ describe("finalize_research stages the owner's news check's own card (Atlas news
       [issueResearchReceipt("doi_resolution", { doi: "10.1000/another.paper" }, { secret: SECRET })])))
       .structuredContent as Record<string, any>;
     expect(resolved.news).toEqual({ status: "not_staged", reason: "doi_not_verified" });
+    // Nor does a key source the card doesn't quote: the DOI must be the paper behind its backing lines.
+    const unquoted = { ...NEWS_CARD, sources: ["PMC10518852", "10.1002/art.41142", "33333333"], doi: "10.1000/second.paper" };
+    const second = (await finalize(call({ news_card: { ...unquoted, sources: [...unquoted.sources, "10.1000/second.paper"] },
+      findings_save: "off" }, [issueResearchReceipt("pubmed_record", { pmid: "33333333", doi: "10.1000/second.paper", abs: "1" },
+      { secret: SECRET })], true))).structuredContent as Record<string, any>;
+    expect(second.status).toMatch(/^ready/u);
+    expect(second.news).toEqual({ status: "not_staged", reason: "doi_not_verified" });
     expect(await store.inspectDay(new Date().toISOString().slice(0, 10), new Date().toISOString()))
       .toEqual({ day: null, items: [] });
   });
