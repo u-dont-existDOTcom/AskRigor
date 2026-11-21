@@ -40,13 +40,13 @@ export const SAFETY_LIMIT_PREFIXES: readonly string[] = Object.values(REPORTED_B
 
 // A link or an address in an entry would point to what a model declined to give. Refused only in the forms whose shape
 // is unambiguous (an exact, structural test): a scheme ("https://", "ftp://", "file:/", "mailto:"), a protocol-relative
-// "//host", "www.", a DOI and a numeric IP address. A bare host name ("example.org") can't be told from ordinary text
-// ("mg.kg", "dott.ssa") by its shape, so it is not tested: two rounds of review found a pattern for it either missing
-// addresses or dropping ordinary words (Codex's review and recheck of 21 Nov 2026), and AGENTS.md leaves a question of
-// meaning to a model, not a longer pattern. The input's description asks for no address of any kind, and the limit is
+// "//host", "www." and a DOI. A bare host name ("example.org") can't be told from ordinary text ("mg.kg", "dott.ssa") by
+// its shape, nor a numeric IP address from a section number ("1.2.3.4"), so neither is tested: three rounds of review
+// found such patterns either missing addresses or dropping ordinary words (Codex's review and rechecks of 21 Nov 2026),
+// and AGENTS.md leaves a question of meaning to a model, not a longer pattern. The input's description asks for no address of any kind, and the limit is
 // shown only to the person whose AI wrote it, in words attributed to that AI. A version written like a DOI
 // ("10.1234/5") is refused; that entry is not used, and its note names the field to reword.
-const LINK = /[a-z][a-z0-9+.-]*:\/\/|\bfile:\/|\bmailto:\S|(?:^|[^\w:/])\/\/[^\s/]|\bwww\.|\b10\.\d{4,9}\/\S|\b\d{1,3}(?:\.\d{1,3}){3}\b/iu;
+const LINK = /[a-z][a-z0-9+.-]*:\/\/|\bfile:\/|\bmailto:\S|(?:^|[^\w:/])\/\/[^\s/]|\bwww\.|\b10\.\d{4,9}\/\S/iu;
 const words = (max: number) => z.string().trim().min(1).max(max)
   .refine((text) => !LINK.test(text), "No links, web addresses or DOIs: name the kind of content only.");
 

@@ -608,9 +608,10 @@ notes, limits and no blocking rule. With `ASKRIGOR_SAFETY_LIMITS=on`:
   by another) and whether that recovered it; what it could change (a detail, the confidence, the conclusion, no loss
   identified, unknown) and, optionally, which conclusion; who reports it; and the answer's own sentence saying it. An
   entry's own words may hold no link or address (an exact, structural test of the forms whose shape is unambiguous:
-  a scheme such as "https://", "file:/" or "mailto:", a "//host", "www.", a DOI, a numeric IP address): it names a
-  kind of content, never where to find what a model declined to give. A bare host name ("example.org") is not tested,
-  since its shape can't be told from ordinary words ("mg.kg", "dott.ssa"); the description asks for none. The input
+  a scheme such as "https://", "file:/" or "mailto:", a "//host", "www.", a DOI): it names a kind of content, never
+  where to find what a model declined to give. A bare host name ("example.org") or a numeric address is not tested,
+  since its shape can't be told from ordinary words ("mg.kg", "dott.ssa", a section "1.2.3.4"); the description asks
+  for none. The input
   is read entry by entry, and only with the switch on: with it off, it is taken out of the call before anything reads
   it, at the top level or in later_inputs, so it is noted nowhere; with it on, an entry that isn't usable is a note by
   its place and the schema's own field names, never a key or value it gave, and the others still count.
