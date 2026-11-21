@@ -204,6 +204,10 @@ Decided: 1 Sep 2026 (free and paid modes); 30 Sep (automatic free saves, owner a
 Why: the owner: "we need all the research that backs the interesting finding right there for people to inspect".\
 Not done: quotes from the owner's library copies or from text the AI supplied; anything drawn from YouTube comments. · Decided: 5 Nov 2026 (owner answers 252a, 255a).
 
+**Atlas news is checked news that publishes itself: sorted by impact with the verdict in the title, beside a list of "science news not worth reading", after a shadow period that shows nothing; each day is stored whole or not at all, never after the run's deadline.**\
+Why: the owner, 17 Nov: "make sure these are auto-published on the site's atlas news section, and rank them by default by how usable the news is, with sortability, searchability", and "i shouldn't be reviewing everything"; 18 Nov: "news sorted by impact with the verdict in the title and a list of "science news not worth reading"".\
+Not done: the writer's prose on the pages (only the check's own signed card); a page before a clean shadow period and its own release; word lists on the server for advice in the text (a model reads it, in any language). · Decided: 17 and 18 Nov 2026 (the owner); design v4, 20 Nov; stage 1 (shadow) built 21 Nov (plan `docs/superpowers/plans/2026-11-21-atlas-news-stage1.md`).
+
 **Cards that fail on a technicality are kept privately for review, never published; rescuing one means rereading the paper and sending a corrected card through the final check.**\
 Why: the owner, 4 Nov: "so we don't lose findings on technicalities".\
 Decided: 4 Nov 2026 (owner answer 242a).

@@ -538,6 +538,29 @@ next `migrate` that includes 0038 builds it again. Should it ever have to go, dr
 blocking writes: `DROP INDEX CONCURRENTLY IF EXISTS living_evidence.research_contribution_proposals_idempotency_idx;`.
 Undo no migration.
 
+Migration `0043_atlas_news_items` (21 November 2026; built, not yet released; plan
+`../../docs/superpowers/plans/2026-11-21-atlas-news-stage1.md`) adds Atlas news in shadow: two tables,
+`atlas_news_items` (each news check's card as its final check passed it, its draft and the receipt's news claims) and
+`atlas_news_days` (each day the owner's day call committed, whole), a sequence for the N-numbers, and four SECURITY
+DEFINER functions. It is numbered after the open branches' 0039 to 0042, which may land before or after it; none of
+them reads these tables. No role gets a table right, the canonical reader included (the migration revokes the reader's
+default privilege, as 0037 does), so no page can read a shadow item or a draft. The research-access role executes
+`stage_atlas_news_card` (`provision-research-access-role.sh`); the review role executes `commit_atlas_news_day`,
+`withdraw_atlas_news_items` and `inspect_atlas_news` (`provision-research-review-role.sh`). The release runs the
+migration, then both provisioning scripts, then deploys with `ASKRIGOR_ATLAS_NEWS=shadow`; with the variable unset or
+`off`, nothing stages or commits. `commit_atlas_news_day` compares the run's deadline with `clock_timestamp()` as its
+last step, so a late call stores nothing. Read-only, as the migrator:
+
+```sql
+SELECT state, count(*) FROM living_evidence.atlas_news_items GROUP BY state;
+SELECT news_day, day_version, jsonb_array_length(stored_order), committed_at FROM living_evidence.atlas_news_days
+  ORDER BY news_day DESC, day_version DESC LIMIT 14;
+```
+
+To stop news, set `ASKRIGOR_ATLAS_NEWS=off` and restart: staging and the news actions stop, and nothing is shown in any
+case. The owner's `withdraw_news_item` with `news_number` "all" withdraws every item and keeps each withdrawal on its row.
+An earlier image needs no step: it never reads these tables. Undo no migration.
+
 Owner answers 254a and 255a (2026-11-05; built, not yet released; plan
 `../../docs/superpowers/plans/2026-11-05-atlas-research-behind.md`): migration
 `0029_atlas_research_behind` admits `forum_read` among the verified bases of

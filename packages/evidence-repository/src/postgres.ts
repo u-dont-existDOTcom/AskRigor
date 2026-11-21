@@ -192,6 +192,9 @@ export class PostgresEvidenceRepository {
   }
 
   async migrate(): Promise<void> {
+    // 0043 (Atlas news, stage 1) is numbered after the open branches' 0039 to 0042 (Gemini's sign-in, the write-ups,
+    // Releases A and B), which may land before or after it: each migration runs on every start, in this list's order,
+    // and none of those reads the news tables.
     const migrations = await Promise.all([
       "0001_living_evidence",
       "0002_research_frontier",
@@ -231,6 +234,7 @@ export class PostgresEvidenceRepository {
       "0036_research_use_notice_v6",
       "0037_research_dossiers",
       "0038_research_proposal_idempotency_index",
+      "0043_atlas_news_items",
     ].map(async (migrationId) => ({
       migrationId,
       sql: await readFile(new URL(`../migrations/${migrationId}.sql`, import.meta.url), "utf8"),

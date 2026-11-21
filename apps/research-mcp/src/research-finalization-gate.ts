@@ -129,6 +129,9 @@ import {
 } from "./research-receipts.js";
 import { claimCoverageNotes, extractedClaimIds } from "./claim-coverage.js";
 import { untraceableCitationNote } from "./citation-markers.js";
+import type { NewsCard } from "./news/card.js";
+import { signedNewsClaims } from "./news/claims.js";
+import { newsStagingSchema } from "./news/staging.js";
 
 /**
  * Server-side completion gate for MCP research (finalize_research).
@@ -1831,6 +1834,8 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
   // AskRigor#477 stage 1 (owner answer 329a, 16 November 2026), runtime only (owner answer 189a): this research's
   // dossier, saved privately for the owner's review. Never a blocking step: the six blocking checks stay six.
   research_dossier: researchDossierDispositionSchema.optional(),
+  // Atlas news, stage 1, runtime only (owner answer 189a): whether this call's news card was staged for the day's call.
+  news: newsStagingSchema.optional(),
   // Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026), runtime only (owner answer 189a), with ASKRIGOR_FINDINGS_LEDGER
   // on: every problem this check found, with its id and disposition, and the signed ledger for the next call.
   check_findings: checkFindingsSchema.optional()
@@ -1874,6 +1879,14 @@ export interface FinalizeResearchOptions {
    * line, which the finalization receipt signs.
    */
   backingLookups?: readonly BackingLookup[];
+  /**
+   * Atlas news, stage 1 (news/card.ts): the call's news card as checked, whose backing lines are looked up once this
+   * check passes, like a findings card's, and whose own claims (`news`, `nl`, `ns`, `nr`) the finalization receipt
+   * signs under their own condition. It never changes what the check finds, stops or holds.
+   */
+  newsCard?: { card: NewsCard; digest: string };
+  /** The news card's backing lines as looked up after this check's earlier pass, in their order. */
+  newsLookups?: readonly SourceLineLookup[];
   /** Told whether this research read YouTube comments, for a kept copy of a card that wasn't saved to leave them out. */
   onCommentsRead?: (read: boolean) => void;
   /**
@@ -4736,6 +4749,9 @@ export function finalizeResearch(
       ({ finding: index, line: place, source: line.source, sentence: line.sentence, conclusion: line.conclusion })))
     : [];
   const backingRequests: SourceLineRequest[] = backingLines.map(({ source }, line) => quoteRequest(source, line));
+  // Atlas news, stage 1: the news card's backing lines are looked up the same way, once the check passes.
+  const newsLines = options.newsCard?.card.backing ?? [];
+  const newsRequests: SourceLineRequest[] = newsLines.map(({ source }, line) => quoteRequest(source, line));
   const backingLookups = options.backingLookups ?? [];
   const backingItems: Array<{ item: string; full: boolean; notes: string[]; passages: string[];
     objected?: Map<string, string[]> }> = [];
@@ -5079,6 +5095,9 @@ export function finalizeResearch(
       const read = readsOf(url);
       return read?.reader === "reddit" ? read.subreddit : undefined;
     }) : [];
+  // Atlas news, stage 1: the news card's own claims, signed once its lines are looked up (or it has none).
+  const newsClaims = options.newsCard !== undefined && (options.newsLookups !== undefined || newsLines.length === 0)
+    ? signedNewsClaims(options.newsCard, options.newsLookups ?? [], sourceReadingOf) : undefined;
   // The recheck of #417: each forum thread whose id-only link, as the card gives it, is the link its reader read, as the
   // read's receipt signed it (`l`): the save publishes no other page's link.
   const threadLinks = findingsCard.status === "checked" && input.findings_card !== undefined
@@ -5122,6 +5141,8 @@ export function finalizeResearch(
       // An offer that asks to file this research's map, made to this account: a paid private map is filed only with
       // this receipt and the user's yes to it (owner answer 143a).
       ...(mapOffered && mapAccount !== undefined ? { map: "offered", acct: mapAccount } : {}),
+      // Atlas news, stage 1: the news card's digest, its lines' lookups and sections, and how its sources were read.
+      ...(newsClaims === undefined ? {} : { news: newsClaims.news, nl: newsClaims.nl, ns: newsClaims.ns, nr: newsClaims.nr }),
       // A call marked findings_save "off": save_research_findings refuses this receipt's card.
       ...(savingOff ? { fs: "off" } : {}),
       // Owner answer 310a: the check's AI readings were made by the call's caller, not by the server.
@@ -5166,6 +5187,10 @@ export function finalizeResearch(
   }
   if (passed && backingLines.length > 0 && options.backingLookups === undefined) {
     BACKING_REQUESTS.set(parsedOutput, { lines: backingLines, requests: backingRequests });
+  }
+  if (passed && newsLines.length > 0 && options.newsCard !== undefined && options.newsLookups === undefined) {
+    NEWS_REQUESTS.set(parsedOutput, { lines: newsLines.map(({ source, quote }) => ({ source, sentence: quote })),
+      requests: newsRequests });
   }
   // Stage 1 of enforcing HRP: the ledger is built here unless the caller gives notes of its own after the check.
   if (ledgerSource !== undefined) {
@@ -5350,6 +5375,19 @@ const BACKING_REQUESTS = new WeakMap<FinalizeResearchOutput, BackingRequests>();
 /** Where this result's card's backing lines may be looked up: a passing check whose lines haven't been yet. */
 export function backingRequestsOf(result: FinalizeResearchOutput): BackingRequests | undefined {
   return BACKING_REQUESTS.get(result);
+}
+
+/** A checked news card's backing lines, as quotes to look up, and where each may be (Atlas news, stage 1). */
+export interface NewsRequests {
+  lines: ReadonlyArray<{ source: string; sentence: string }>;
+  requests: readonly SourceLineRequest[];
+}
+
+const NEWS_REQUESTS = new WeakMap<FinalizeResearchOutput, NewsRequests>();
+
+/** Where this result's news card's backing lines may be looked up: a passing check whose lines haven't been yet. */
+export function newsRequestsOf(result: FinalizeResearchOutput): NewsRequests | undefined {
+  return NEWS_REQUESTS.get(result);
 }
 
 // Why the meaning judge did not run, as its note says it.

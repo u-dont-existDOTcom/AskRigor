@@ -420,6 +420,19 @@ export function atlasPagesEnabledFromEnv(
 }
 
 /**
+ * Atlas news (plan 2026-11-21-atlas-news-stage1.md): ASKRIGOR_ATLAS_NEWS. "shadow" lets the owner's news run stage its
+ * checked cards in finalize_research and commit each day with the owner's news actions, storing everything privately:
+ * no page, search, lookup or sitemap reads the news tables. "off", the default, and any other value turn both off:
+ * a news card is then neither staged nor signed, and the news actions answer that news is off. "on", the public
+ * stage, comes with its own release.
+ */
+export const ATLAS_NEWS_MODES = ["off", "shadow"] as const;
+export type AtlasNewsMode = typeof ATLAS_NEWS_MODES[number];
+export function atlasNewsModeFromEnv(value = process.env.ASKRIGOR_ATLAS_NEWS): AtlasNewsMode {
+  return value?.trim() === "shadow" ? "shadow" : "off";
+}
+
+/**
  * The dev accounts (owner answer 140b, 2026-10-20): ASKRIGOR_DEV_ACCOUNT_KEYS, a comma-separated list of account
  * references, the 12 characters manage_research_access shows a signed-in user (owner question, 2026-10-21), or of the
  * 64-character keys research_use_accounts stores. Like every active research account, a dev account registers a plain answer

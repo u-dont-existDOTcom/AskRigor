@@ -211,7 +211,9 @@ describe("later_inputs (owner answer 189a)", () => {
           // Owner answer 310a: the app that sends the call makes the check's AI readings itself.
           "ai_readings",
           // AskRigor#477 stage 1 (owner answer 329a): this research's dossier, saved privately for the owner's review.
-          "research_dossier"]
+          "research_dossier",
+          // Atlas news, stage 1: the owner's news check's card, staged privately for the day's call.
+          "news_card"]
           : operation.name === "save_research_findings" ? ["findings_card"]
           // The recheck of 5 Nov 2026: a test run's audits are marked, so nothing of them is held for the review inbox.
           : operation.name === "validate_study_method_audit" ? ["audit", "findings_save"]
@@ -221,7 +223,9 @@ describe("later_inputs (owner answer 189a)", () => {
               "framing", "researchMenu", "asked", "researchSteering", "findings_save", "callsPage", "ownerPointer"]
               : operation.name === "review_research_contribution" ? ["sharedAnswerId", "items", "placements", "reportState", "report", "verdict", "glanceRow", "glanceRowId", "glanceState",
                 // The owner, 6 Nov 2026: a challenge mark's usual view, its source and the quick-answer verdict.
-                "usual_view", "usual_view_source_url", "usual_view_source_label", "quick_answer_verdict"] : [];
+                "usual_view", "usual_view_source_url", "usual_view_source_label", "quick_answer_verdict",
+                // Atlas news, stage 1: the day's payload, an item (or all) and a day, for the owner's news actions.
+                "news_day", "news_number", "news_date"] : [];
       expect(laterInputNames(operation.name)).toEqual(expected);
       // An MCP call always carries its request context; an empty one stands in for it here.
       const result = await operation.execute({ later_inputs: { synthetic_future_input: 1 } }, {} as never);

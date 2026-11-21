@@ -136,6 +136,13 @@ GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_challenges()
 -- thread key alone (never by a card number, which several people's saves share).
 GRANT EXECUTE ON FUNCTION living_evidence.erase_research_dossiers(text, timestamptz)
   TO askrigor_research_review;
+-- Atlas news, stage 1 (migration 0043): the owner's day call, withdrawals and reads; no table right.
+GRANT EXECUTE ON FUNCTION living_evidence.commit_atlas_news_day(jsonb, timestamptz, timestamptz)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.withdraw_atlas_news_items(text, text, timestamptz)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_news(jsonb, timestamptz)
+  TO askrigor_research_review;
 ALTER ROLE askrigor_research_review SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_review SET idle_in_transaction_session_timeout = '5s';
 ALTER ROLE askrigor_research_review SET search_path = living_evidence, pg_catalog;

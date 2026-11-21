@@ -11,11 +11,13 @@ import {
   ATLAS_PUBLICATION_SCHEMA_V2,
   ATLAS_PUBLICATION_SCHEMA_V3,
   AtlasFindingPromotionRunner,
+  AtlasNewsError,
   AtlasParticipationError,
   AtlasPublicationError,
   AtlasReviewError,
   AtlasWriteConflict,
   PostgresAtlasModerationStore,
+  PostgresAtlasNewsStore,
   PostgresAtlasPageSource,
   PostgresAtlasParticipationStore,
   PostgresAtlasPromotionStore,
@@ -50,6 +52,7 @@ import {
   type AtlasFindingIntent,
   type AtlasFindingPromotionRun,
   type AtlasIntentView,
+  type AtlasNewsDayCommit,
   type AtlasPublicationDraft,
   type AtlasPublishedFinding,
   type ContributionPrivacyBoundary,
@@ -494,6 +497,9 @@ async function verify(
     await verifyResearchDossiers({ admin, restricted, service, reviewUrl, readerUrl, checks });
     // 16 Nov 2026: the index for the proposal lookup by idempotency key (0038).
     await verifyProposalIdempotencyIndex({ admin, store, service, checks });
+    // Atlas news, stage 1 (0043): staged by the access role, committed whole or not at all by the review role, closed to
+    // every role's table reads, the reader's included.
+    await verifyAtlasNews({ admin, accessUrl, reviewUrl, readerUrl, checks });
 
     // Owner answer 143a: a paid private account files only this research's map, and only under the user's yes to the
     // answer's offer. The database stores that finalization receipt's SHA-256, never the receipt, and takes it once;
@@ -1232,11 +1238,11 @@ async function verifyProposalIdempotencyIndex(context: {
   }
   checks.push("proposal_lookup_by_idempotency_key_answered_from_the_0038_index");
 
-  // An earlier image (bc71b90e and before) runs its own migrations, every one but 0038, in one transaction, and checks
-  // each one's recorded digest: the index stays, unchanged.
+  // An earlier image (bc71b90e and before) runs its own migrations, every one but 0038 (and 0043, Atlas news, which came
+  // after it), in one transaction, and checks each one's recorded digest: the index stays, unchanged.
   const earlier = (await readdir(migrationsDirectory))
     .filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/u.test(name) && !name.endsWith("_down.sql") &&
-      name !== "0038_research_proposal_idempotency_index.sql")
+      name !== "0038_research_proposal_idempotency_index.sql" && name !== "0043_atlas_news_items.sql")
     .sort();
   assert(earlier.at(-1) === "0037_research_dossiers.sql", "EARLIER_IMAGE_MIGRATION_LIST");
   const migrator = await admin.connect();
@@ -1686,6 +1692,179 @@ const FREE_AGREEMENT = {
  * Owner answer 138b: stored times compare as instants, a deterministic conflict ends its intent FAILED with its code
  * while the activation moves on to the next intent, and a transient error leaves the intent pending.
  */
+async function verifyAtlasNews(context: {
+  admin: Pool;
+  accessUrl: string;
+  reviewUrl: string;
+  readerUrl: string;
+  checks: string[];
+}): Promise<void> {
+  const { admin, checks } = context;
+  const applied = await admin.query(`SELECT migration_id FROM ${SCHEMA}.schema_migrations
+    WHERE migration_id = '0043_atlas_news_items'`);
+  assert(applied.rowCount === 1, "MIGRATION_0043_NOT_APPLIED");
+  const snapshot = async () => JSON.stringify({
+    tables: (await admin.query(`SELECT c.relname, c.relacl::text AS acl FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relname LIKE 'atlas_news%'
+      ORDER BY c.relname`, [SCHEMA])).rows,
+    constraints: (await admin.query(`SELECT conrelid::regclass::text AS on_table, conname,
+      pg_get_constraintdef(oid) AS definition FROM pg_constraint
+      WHERE conrelid::regclass::text LIKE '${SCHEMA}.atlas_news%' ORDER BY 1, 2`)).rows,
+    functions: (await admin.query(`SELECT p.proname, p.prosecdef, p.proacl::text AS acl FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = $1 AND p.proname LIKE '%atlas_news%'
+      ORDER BY p.proname`, [SCHEMA])).rows,
+  });
+  const original = await snapshot();
+  const migration = (await readFile(resolve("packages/evidence-repository/migrations/0043_atlas_news_items.sql"), "utf8"))
+    .replaceAll("__SCHEMA__", SCHEMA);
+  await admin.query(migration);
+  await admin.query(migration);
+  assert(await snapshot() === original, "NEWS_MIGRATION_NOT_IDEMPOTENT");
+  checks.push("news_migration_0043_applied_and_safe_to_run_again");
+
+  // No table or sequence right for any role, PUBLIC or the canonical reader; each function for its one role.
+  for (const role of ["public", "askrigor_research_access", "askrigor_research_review", "askrigor_reader"]) {
+    for (const table of ["atlas_news_items", "atlas_news_days"]) {
+      for (const privilege of ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"]) {
+        const result = await admin.query<{ allowed: boolean }>(
+          `SELECT has_table_privilege($1, $2, $3) AS allowed`, [role, `${SCHEMA}.${table}`, privilege]);
+        assert(result.rows[0]?.allowed === false, `NEWS_TABLE_PRIVILEGE_${role}_${table}_${privilege}`);
+      }
+    }
+    const sequence = await admin.query<{ allowed: boolean }>(
+      `SELECT has_sequence_privilege($1, $2, 'USAGE') AS allowed`, [role, `${SCHEMA}.atlas_news_number_seq`]);
+    assert(sequence.rows[0]?.allowed === false, `NEWS_SEQUENCE_PRIVILEGE_${role}`);
+  }
+  const functions: Record<string, string> = {
+    [`${SCHEMA}.stage_atlas_news_card(jsonb, timestamptz)`]: "askrigor_research_access",
+    [`${SCHEMA}.commit_atlas_news_day(jsonb, timestamptz, timestamptz)`]: "askrigor_research_review",
+    [`${SCHEMA}.withdraw_atlas_news_items(text, text, timestamptz)`]: "askrigor_research_review",
+    [`${SCHEMA}.inspect_atlas_news(jsonb, timestamptz)`]: "askrigor_research_review",
+  };
+  for (const [signature, owner] of Object.entries(functions)) {
+    for (const role of ["public", "askrigor_research_access", "askrigor_research_review", "askrigor_reader"]) {
+      const result = await admin.query<{ allowed: boolean }>(
+        `SELECT has_function_privilege($1, $2, 'EXECUTE') AS allowed`, [role, signature]);
+      assert(result.rows[0]?.allowed === (role === owner), `NEWS_FUNCTION_PRIVILEGE_${role}_${signature}`);
+    }
+  }
+  const reader = new Pool({ connectionString: context.readerUrl, max: 1 });
+  const access = new Pool({ connectionString: context.accessUrl, max: 1 });
+  try {
+    await expectPermissionDenied(() => reader.query(`SELECT * FROM ${SCHEMA}.atlas_news_items`));
+    await expectPermissionDenied(() => reader.query(`SELECT * FROM ${SCHEMA}.atlas_news_days`));
+    await expectPermissionDenied(() => access.query(`SELECT * FROM ${SCHEMA}.atlas_news_items`));
+    await expectPermissionDenied(() => access.query(
+      `SELECT ${SCHEMA}.inspect_atlas_news('{"day":"2026-11-23"}'::jsonb, now())`));
+  } finally {
+    await reader.end();
+    await access.end();
+  }
+  checks.push("news_tables_closed_to_every_role_and_functions_granted_to_exactly_one");
+
+  // Through the roles' own connections, as the server makes them.
+  const staging = new PostgresAtlasNewsStore({ connectionString: context.accessUrl, schema: SCHEMA });
+  const review = new PostgresAtlasNewsStore({ connectionString: context.reviewUrl, schema: SCHEMA });
+  const hex = (label: string) => createHash("sha256").update(`news-acceptance:${label}`).digest("hex");
+  const item = (label: string) => ({
+    itemId: `item-${label}`, checkId: `check-${label}`, card: { item_id: `item-${label}`, finding: `Synthetic ${label}` },
+    cardSha256: hex(`card:${label}`), draft: `Synthetic draft ${label}`, draftSha256: hex(`draft:${label}`),
+    receiptClaims: { news: hex(`card:${label}`), nl: ["1:f:full_text"], ns: [], nr: ["1:full_text_read:-"] },
+    receiptIssuedAt: "2026-11-23T05:30:00.000Z", doi: "10.1000/synthetic.news",
+  });
+  const future = () => new Date(Date.now() + 60_000).toISOString();
+  try {
+    const one = await staging.stage(item("one"), "2026-11-23T06:00:00.000Z");
+    const again = await staging.stage(item("one"), "2026-11-23T06:01:00.000Z");
+    assert(!one.alreadyStaged && again.alreadyStaged && again.number === one.number && /^N-[1-9][0-9]{3,}$/u.test(one.number),
+      "NEWS_STAGE_NOT_IDEMPOTENT");
+    const line = await staging.stage(item("line"), "2026-11-23T06:02:00.000Z");
+    const old = await staging.stage(item("old"), "2026-11-21T06:00:00.000Z");
+    const commit = (overrides: Partial<AtlasNewsDayCommit> = {}): AtlasNewsDayCommit => ({
+      day: "2026-11-23", payloadSha256: hex("payload:one"), base: null, rerank: false, order: [one.number],
+      decisions: [
+        { number: one.number, kind: "main" as const, passed: true, reasons: [], reading: { model: "synthetic" },
+          readingModel: "synthetic", retraction: "no_retraction_record_found" as const },
+        { number: line.number, kind: "line" as const, passed: true, reasons: [], reading: null, readingModel: null,
+          retraction: null },
+      ],
+      moves: [{ number: one.number, reason: "first", kind: "place" }], lines: [{ kind: "checked", number: line.number }],
+      footer: { text: "Synthetic footer." }, ...overrides,
+    });
+    // A call past its deadline stores nothing.
+    let late = false;
+    try {
+      await review.commitDay(commit({ payloadSha256: hex("payload:late") }), "2026-11-23T07:00:00.000Z",
+        new Date(Date.now() - 1_000).toISOString());
+    } catch (error) {
+      late = error instanceof AtlasNewsError && error.code === "LATE";
+    }
+    assert(late, "NEWS_LATE_COMMIT_NOT_REFUSED");
+    const afterLate = await review.inspectDay("2026-11-23", "2026-11-23T07:00:00.000Z");
+    assert(afterLate.day === null && afterLate.items.every(({ state }) => state === "staged"), "NEWS_LATE_COMMIT_STORED");
+    // A day on another UTC date than the call's is refused.
+    let otherDay = false;
+    try {
+      await review.commitDay(commit(), "2026-11-24T07:00:00.000Z", future());
+    } catch (error) {
+      otherDay = error instanceof AtlasNewsError && error.code === "OTHER_DAY";
+    }
+    assert(otherDay, "NEWS_OTHER_DAY_NOT_REFUSED");
+    const started = Date.now();
+    const first = await review.commitDay(commit(), "2026-11-23T07:00:00.000Z", future());
+    assert(Date.now() - started < 5_000, "NEWS_COMMIT_SLOWER_THAN_THE_STATEMENT_LIMIT");
+    assert(first.status === "committed" && first.version === 1 && first.order.join() === one.number &&
+      first.keptBack.length === 0, "NEWS_FIRST_DAY_NOT_COMMITTED");
+    const replay = await review.commitDay(commit(), "2026-11-23T07:05:00.000Z", future());
+    assert(replay.status === "replayed" && replay.version === 1, "NEWS_REPLAY_NOT_RECOGNISED");
+    // The next day: a stale base stores nothing and returns the latest record; the right base commits, carrying day one.
+    const two = await staging.stage(item("two"), "2026-11-24T06:00:00.000Z");
+    const nextDay = (base: { day: string; version: number } | null) => commit({
+      day: "2026-11-24", payloadSha256: hex(`payload:two:${base === null ? "none" : "one"}`), base,
+      order: [one.number, two.number], lines: [], moves: [{ number: two.number, reason: "second", kind: "place" }],
+      decisions: [{ number: two.number, kind: "main", passed: false, reasons: ["no_reading"], reading: null,
+        readingModel: null, retraction: null }],
+    });
+    const stale = await review.commitDay(nextDay(null), "2026-11-24T07:00:00.000Z", future());
+    assert(stale.status === "stale_base" && stale.latest?.day === "2026-11-23" && stale.latest.version === 1,
+      "NEWS_STALE_BASE_NOT_RETURNED");
+    const second = await review.commitDay(nextDay({ day: "2026-11-23", version: 1 }), "2026-11-24T07:00:00.000Z", future());
+    assert(second.status === "committed" && second.order.join() === one.number &&
+      second.keptBack.length === 1 && second.keptBack[0]!.number === two.number, "NEWS_SECOND_DAY_WRONG");
+    // A carried item must keep its place; an item it can't carry is refused.
+    let orderRefused = false;
+    try {
+      await review.commitDay(commit({ day: "2026-11-24", payloadSha256: hex("payload:dropped"),
+        base: { day: "2026-11-23", version: 1 }, order: [], decisions: [], lines: [], moves: [] }),
+        "2026-11-24T07:10:00.000Z", future());
+    } catch (error) {
+      orderRefused = error instanceof AtlasNewsError && error.code === "ORDER_INVALID";
+    }
+    assert(orderRefused, "NEWS_DROPPED_CARRIED_ITEM_NOT_REFUSED");
+    // A card staged over 24 hours before reads as expired; withdrawal is kept on the row.
+    const [oldItem] = await review.inspectNumbers([old.number], "2026-11-23T07:00:00.000Z");
+    assert(oldItem?.state === "expired", "NEWS_OLD_STAGED_CARD_NOT_EXPIRED");
+    const withdrawn = await review.withdraw(one.number, "A synthetic withdrawal.", "2026-11-24T08:00:00.000Z");
+    assert(withdrawn.length === 1 && withdrawn[0]!.state === "withdrawn", "NEWS_WITHDRAWAL_WRONG");
+    const [gone] = await review.inspectNumbers([one.number], "2026-11-24T08:00:00.000Z");
+    assert(gone?.state === "withdrawn" && gone.withdrawnReason === "owner_unpublished", "NEWS_WITHDRAWAL_NOT_KEPT");
+    // At most 20 staged cards a UTC day.
+    let full = false;
+    for (let index = 0; index < 21; index += 1) {
+      try {
+        await staging.stage(item(`full-${index}`), "2026-11-25T06:00:00.000Z");
+      } catch (error) {
+        full = error instanceof AtlasNewsError && error.code === "DAY_FULL" && index === 20;
+      }
+    }
+    assert(full, "NEWS_TWENTY_FIRST_CARD_NOT_REFUSED");
+  } finally {
+    await staging.close();
+    await review.close();
+  }
+  checks.push("news_staged_by_access_committed_whole_by_review_late_and_stale_store_nothing");
+}
+
 async function verifyPromotionFailures(context: {
   adminUrl: string;
   admin: Pool;
@@ -2448,6 +2627,9 @@ const DOSSIER_ACCESS_FUNCTIONS = [
   "append_research_dossier_version", "latest_research_dossier_version", "read_research_dossier_version",
 ] as const;
 const DOSSIER_REVIEW_FUNCTIONS = ["erase_research_dossiers"] as const;
+// Migration 0043 (Atlas news, stage 1): the access role stages; the review role commits, withdraws and reads.
+const ATLAS_NEWS_ACCESS_FUNCTIONS = ["stage_atlas_news_card"] as const;
+const ATLAS_NEWS_REVIEW_FUNCTIONS = ["commit_atlas_news_day", "inspect_atlas_news", "withdraw_atlas_news_items"] as const;
 const MIGRATIONS_BEFORE_ATLAS = [
   "0001_living_evidence", "0002_research_frontier", "0003_community_forum_synthetic_lab",
   "0004_community_forum_composer_frontier_queues", "0005_community_forum_hostile_lifecycle_research",
@@ -4411,7 +4593,7 @@ export async function verifyAtlasParticipation(context: {
     assert(
       accessFunctions.join() === [...ATLAS_PARTICIPATION_FUNCTIONS, ...HELD_ACCESS_FUNCTIONS,
         ...ATLAS_REPORT_ACCESS_FUNCTIONS, "withdraw_pending_research_contribution_proposals",
-        ...DOSSIER_ACCESS_FUNCTIONS].sort().join(),
+        ...DOSSIER_ACCESS_FUNCTIONS, ...ATLAS_NEWS_ACCESS_FUNCTIONS].sort().join(),
       `ATLAS_ACCESS_ROLE_FUNCTIONS_MISMATCH ${accessFunctions.join()}`,
     );
     const migration0022Functions: readonly string[] = [...ATLAS_PARTICIPATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
@@ -5163,7 +5345,8 @@ export async function verifyAtlasStorage(context: {
         [...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
           ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS,
           ...ATLAS_CHALLENGE_FUNCTIONS,
-          ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS, ...DOSSIER_REVIEW_FUNCTIONS].sort().join(),
+          ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS, ...DOSSIER_REVIEW_FUNCTIONS,
+          ...ATLAS_NEWS_REVIEW_FUNCTIONS].sort().join(),
       `ATLAS_REVIEW_ROLE_FUNCTIONS_MISMATCH ${executable.rows.map(({ proname }) => proname).join()}`,
     );
     const now = tick();

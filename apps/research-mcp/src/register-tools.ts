@@ -259,6 +259,10 @@ import {
   type ResearchMapOptions,
 } from "./research-contributor-access-tool.js";
 import { SHARE_OFFER, sharedAnswersFromEnv, type SharedAnswers } from "./shared-answers.js";
+import { checkNewsCard, newsCardFromCall } from "./news/card.js";
+import { crossrefPaperStatus } from "./news/paper.js";
+import type { AtlasNewsOptions } from "./news/runtime.js";
+import { stageNewsCard } from "./news/staging.js";
 import { atlasReportDoorFromEnv } from "./atlas/report-door.js";
 import {
   AnalysisStaging,
@@ -312,6 +316,7 @@ import {
   finalizeResearchPublishedOutputSchema,
   findingsCardRequested,
   meaningJudgeSourceOf,
+  newsRequestsOf,
   sourceLineRequestsOf,
   studyMapRequestsOf,
   backingRequestsOf,
@@ -981,6 +986,12 @@ export interface RegisterToolsOptions {
    * none is asked for or saved. Set by the server when ASKRIGOR_RESEARCH_DOSSIERS=enabled.
    */
   researchDossiers?: ResearchDossierStore;
+  /**
+   * Atlas news, stage 1 (plan 2026-11-21-atlas-news-stage1.md): ASKRIGOR_ATLAS_NEWS, the research-access role's staging
+   * store for finalize_research, and the review role's store and the papers' retraction lookup for the owner's news
+   * actions. With the mode off, a news card is neither signed nor staged, and the news actions say news is off.
+   */
+  atlasNews?: AtlasNewsOptions;
   /**
    * AskRigor#477 stage 1, off by default: every dossier read for personal details before it is stored, on the research
    * planner's Claude API path; defaults to ASKRIGOR_DOSSIER_PRIVACY_READING=on. With it on and the planner off, no
@@ -2212,6 +2223,14 @@ function defineResearchOperations(
         review: options.atlasReview,
         // The source checks use the provider settings the connector's own provider tools use.
         providers: () => ({ crossref: crossrefConfig(), pubmed: ncbiConfig() }),
+        // Atlas news, stage 1: the owner's news actions, through the review role, with each paper's retraction status
+        // read through the check_retraction_status tool's own call.
+        news: {
+          mode: options.atlasNews?.mode ?? "off",
+          ...(options.atlasNews?.review === undefined ? {} : { store: options.atlasNews.review }),
+          paperStatus: options.atlasNews?.paperStatus ?? crossrefPaperStatus(crossrefConfig),
+          ...(options.atlasNews?.now === undefined ? {} : { now: options.atlasNews.now }),
+        },
       },
       ...(sharing === undefined ? {} : { sharedAnswers: sharing.vault }),
     }),
@@ -2727,8 +2746,15 @@ function defineResearchOperations(
       // of the instruction proposal, item 3).
       const dossierAsk = researchDossierAllowed(options.researchDossiers !== undefined, researcher, findingsSaveOff(input)) &&
         checkedInput !== undefined && !shortLookupDeclared(checkedInput);
+      // Atlas news, stage 1: the news card, read from the raw call on its own while news isn't off. Its backing lines are
+      // looked up with the findings card's, and its own claims signed into the receipt; it never changes the check.
+      const newsMode = options.atlasNews?.mode ?? "off";
+      const newsGiven = newsCardFromCall(input);
+      const newsChecked = newsGiven === undefined ? undefined : checkNewsCard(newsGiven);
       let gateOptions: FinalizeResearchOptions = { ...finalizeOptions, onCommentsRead: (read) => { commentsRead = read; },
-        ...(dossierAsk ? { researchDossierAsk: true } : {}) };
+        ...(dossierAsk ? { researchDossierAsk: true } : {}),
+        ...(newsMode !== "off" && newsChecked?.status === "checked"
+          ? { newsCard: { card: newsChecked.card, digest: newsChecked.digest } } : {}) };
       let result = finalizeResearch(input, gateOptions);
       // Owner answer 237a: a passing check's source lines are looked up in the text AskRigor fetched, exactly and with
       // no model. Owner answer 252a: a checked card's backing lines are looked up with them, in one pass over the same
@@ -2739,7 +2765,8 @@ function defineResearchOperations(
       const lookups = checkedInput?.source_lines === undefined ? undefined : sourceLineRequestsOf(result);
       const backing = backingRequestsOf(result);
       const mapRequests = studyMapRequestsOf(result);
-      if (lookups !== undefined || backing !== undefined || mapRequests !== undefined) {
+      const news = newsRequestsOf(result);
+      if (lookups !== undefined || backing !== undefined || mapRequests !== undefined || news !== undefined) {
         const lineTexts = options.sourceLineTexts ?? AskRigorSourceLineTexts;
         const mapTexts = options.studyMapTexts ?? AskRigorStudyMapTexts;
         // One paper's text is read once when both look in the same texts.
@@ -2747,9 +2774,12 @@ function defineResearchOperations(
         const mapCache = mapTexts.fullText === lineTexts.fullText && mapTexts.abstract === lineTexts.abstract
           ? lineCache : quoteCache();
         const given = lookups === undefined ? [] : checkedInput!.source_lines!;
-        const lines = [...given, ...(backing?.lines ?? [])];
+        const backingCount = backing?.lines.length ?? 0;
+        // Atlas news, stage 1: the news card's lines join the same lookups, after the findings card's.
+        const lines = [...given, ...(backing?.lines ?? []), ...(news?.lines ?? [])];
         const requests = [...(lookups ?? []),
-          ...(backing?.requests ?? []).map((request) => ({ ...request, line: given.length + request.line }))];
+          ...(backing?.requests ?? []).map((request) => ({ ...request, line: given.length + request.line })),
+          ...(news?.requests ?? []).map((request) => ({ ...request, line: given.length + backingCount + request.line }))];
         const late = requests.map(({ line }) => ({ source: lines[line]!.source,
           sentence: "not_checked" as const, conclusion: "not_checked" as const, reason: "text_unavailable" as const }));
         const looking = requests.length === 0 ? undefined : withinDeadline(
@@ -2776,10 +2806,17 @@ function defineResearchOperations(
           backingLookups: backing.lines.map(({ finding, line }, place) =>
             ({ finding, line, lookup: looked?.[fromLines + place] ?? late[fromLines + place]! }))
         };
+        // Atlas news, stage 1: the news lines' lookups, which the receipt signs as `nl`.
+        const withNews: FinalizeResearchOptions = news === undefined ? withBacking : {
+          ...withBacking,
+          newsLookups: news.lines.map((_, place) =>
+            looked?.[fromLines + backingCount + place] ?? late[fromLines + backingCount + place]!)
+        };
         // The review of 5 November (finding 6): a receipt that can't be issued with what the lookups found (one too
-        // long, say) never stops the call: the check is made again without the backing lines' lookups, and otherwise
-        // stands as the first pass made it.
-        for (const attempt of withBacking === withLines ? [withLines] : [withBacking, withLines]) {
+        // long, say) never stops the call: the check is made again without the news lines' lookups, then without the
+        // backing lines' too, and otherwise stands as the first pass made it. A receipt without the news claims stages
+        // nothing (news/staging.ts).
+        for (const attempt of [...new Set([withNews, withBacking, withLines])]) {
           try {
             result = finalizeResearch(input, attempt);
             gateOptions = attempt;
@@ -2927,6 +2964,22 @@ function defineResearchOperations(
           );
         }
       }
+      // Atlas news, stage 1 (plan 2026-11-21-atlas-news-stage1.md): the check stages its own news card, for the owner's
+      // news run only (a dev account, the call marked findings_save "off", a receipt signing the news claims), bounded
+      // like the dossier's save; whatever happens, the check stands, and the result says whether and why.
+      const newsStaging = await stageNewsCard({
+        mode: newsMode,
+        checked: newsChecked,
+        passed: result.status === "ready" || result.status === "ready_with_limits",
+        receipt: result.finalization_receipt,
+        savingOff: callSavingOff,
+        devAccount: researcher === undefined ? undefined : isDevAccount(researcher.accountKey, devAccountKeysFromEnv()),
+        draft: checkedInput?.answer_draft,
+        store: options.atlasNews?.staging,
+        secret,
+        now: options.atlasNews?.now ?? (() => new Date()),
+      });
+      if (newsStaging !== undefined) result.news = newsStaging;
       // AskRigor#477, stage 1 (owner answer 329a, 16 Nov 2026): this research's dossier, saved privately for AskRigor's
       // owner to review, for a free contributor whose yes covers notice v6, with card saving on. Saved whole or not at
       // all, read back, and said in one line before the check line; never a step of the check. Paid private accounts
