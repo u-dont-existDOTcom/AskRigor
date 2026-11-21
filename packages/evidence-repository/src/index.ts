@@ -28,6 +28,13 @@ export {
   type ResearchPlanLane,
 } from "./research-call-record.js";
 export {
+  InMemoryResearchUserCounts,
+  PostgresResearchUserCounts,
+  type ResearchUserCounts,
+  type ResearchUserCountsQuery,
+  type ResearchUserCountsSource,
+} from "./research-user-counts.js";
+export {
   InMemoryResearchDossierStore,
   PostgresResearchDossierEraser,
   PostgresResearchDossierStore,

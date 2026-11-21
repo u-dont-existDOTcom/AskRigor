@@ -27,6 +27,7 @@ import {
   PostgresHeldYouTubeFindingsStore,
   PostgresResearchContributorAccessStore,
   PostgresResearchCallRecordStore,
+  PostgresResearchUserCounts,
   PostgresResearchDossierEraser,
   PostgresResearchDossierStore,
   RESEARCH_CALL_RECORD_RETENTION_MS,
@@ -488,6 +489,8 @@ async function verify(
     // without it (an image from before 0031) clears both, and only the two named ways are admitted.
     await verifyNoticeAcceptance({ admin, restricted, store, adminUrl, checks });
     await verifyCallRecord({ admin, restricted, checks });
+    // The public user count (the owner's request of 20 Nov 2026): two aggregates, on the access role.
+    await verifyUserCounts({ admin, restricted, checks });
     // Owner answer 303a: learn mode, a dev account's own menu choices, and the plan's lane in the call record (0035).
     await verifyMenuLearning({ admin, restricted, store, checks });
     // AskRigor#477 stage 1 (owner answer 329a): the private research dossiers (0037).
@@ -766,6 +769,72 @@ async function verify(
 
 const OWNER_SUBJECT = "auth0|synthetic-postgres-owner-login";
 const STANDING = "OWNER_STANDING_INSTRUCTION_2026_11_06";
+
+/**
+ * The public user count on the access role: active accounts made by the start of the count's day outside the owner's
+ * keys and the dev references, and of those, the accounts with an answered call from 7 days before the count up to the
+ * start of its day. Synthetic rows only, removed afterwards.
+ */
+async function verifyUserCounts(context: { admin: Pool; restricted: Pool; checks: string[] }): Promise<void> {
+  const { admin, restricted, checks } = context;
+  const at = new Date("2026-11-21T00:30:00.000Z");
+  const upTo = new Date("2026-11-21T00:00:00.000Z");
+  const day = 24 * 60 * 60 * 1_000;
+  const key = (label: string) => createHash("sha256").update(`user-counts:${label}`).digest("hex");
+  const [owner, dev, used, quiet, refusedOnly, oldCall, revoked, today] =
+    ["owner", "dev", "used", "quiet", "refused-only", "old-call", "revoked", "made-today"].map(key) as [string, string,
+      string, string, string, string, string, string];
+  const signedInOnly = key("signed-in-only");
+  // Earlier checks' accounts are left out by key, so the count sees only this check's rows.
+  const earlier = (await admin.query<{ account_key: string }>(`SELECT account_key FROM ${SCHEMA}.research_use_accounts`))
+    .rows.map((row) => row.account_key.trim());
+  const ours = [owner, dev, used, quiet, refusedOnly, oldCall, revoked, today, signedInOnly];
+  const created = new Date(at.getTime() - 10 * day);
+  try {
+    for (const accountKey of [owner, dev, used, quiet, refusedOnly, oldCall]) {
+      await admin.query(`INSERT INTO ${SCHEMA}.research_use_accounts
+        (account_key, status, mode, notice_version, agreement_json, activated_at, revoked_at, created_at, updated_at)
+        VALUES ($1, 'ACTIVE', 'PAID_PRIVATE', NULL, '{}'::jsonb, $2, NULL, $2, $2)`, [accountKey, created]);
+    }
+    await admin.query(`INSERT INTO ${SCHEMA}.research_use_accounts
+      (account_key, status, mode, notice_version, agreement_json, activated_at, revoked_at, created_at, updated_at)
+      VALUES ($1, 'REVOKED', NULL, NULL, '{}'::jsonb, NULL, $2, $2, $2)`, [revoked, created]);
+    // Made after the start of the count's day: it waits for the next day's count.
+    const madeToday = new Date(upTo.getTime() + 1);
+    await admin.query(`INSERT INTO ${SCHEMA}.research_use_accounts
+      (account_key, status, mode, notice_version, agreement_json, activated_at, revoked_at, created_at, updated_at)
+      VALUES ($1, 'ACTIVE', 'PAID_PRIVATE', NULL, '{}'::jsonb, $2, NULL, $2, $2)`, [today, madeToday]);
+    const call = (accountKey: string, receivedAt: Date, outcome: "answered" | "refused") => admin.query(
+      `INSERT INTO ${SCHEMA}.research_call_record
+        (account_key, received_at, tool, action, route, chatgpt, outcome, code, duration_ms)
+        VALUES ($1, $2, 'load_protocol', NULL, '/mcp', false, $3, NULL, 10)`, [accountKey, receivedAt, outcome]);
+    await call(owner, new Date(at.getTime() - day), "answered");
+    await call(dev, new Date(at.getTime() - day), "answered");
+    await call(used, new Date(at.getTime() - day), "answered");
+    await call(used, new Date(at.getTime() - 2 * day), "answered");
+    await call(revoked, new Date(at.getTime() - day), "answered");
+    await call(refusedOnly, new Date(at.getTime() - day), "refused");
+    await call(oldCall, new Date(at.getTime() - RESEARCH_CALL_RECORD_RETENTION_MS), "answered");
+    await call(quiet, new Date(upTo.getTime() + 1), "answered");
+    await call(today, new Date(upTo.getTime() + 2), "answered");
+    await call(signedInOnly, new Date(at.getTime() - day), "answered");
+    const counts = new PostgresResearchUserCounts(restricted, SCHEMA);
+    const result = await counts.counts({
+      excludedAccountKeys: [...earlier, owner, "NOT-A-KEY"],
+      excludedReferences: [dev.slice(0, 12), "x"],
+      at,
+      upTo,
+    });
+    // Counted: used, quiet, refused-only and old-call; of them only used had an answered call in the 7 days before.
+    assert(result.accounts === 4 && result.usedLast7Days === 1, "USER_COUNTS_WRONG");
+    const withOwner = await counts.counts({ excludedAccountKeys: earlier, excludedReferences: [], at, upTo });
+    assert(withOwner.accounts === 6 && withOwner.usedLast7Days === 3, "USER_COUNTS_EXCLUSION_WRONG");
+    checks.push("public_user_counts_two_aggregates_without_owner_and_dev_accounts");
+  } finally {
+    await admin.query(`DELETE FROM ${SCHEMA}.research_call_record WHERE account_key = ANY($1::text[])`, [ours]);
+    await admin.query(`DELETE FROM ${SCHEMA}.research_use_accounts WHERE account_key = ANY($1::bpchar[])`, [ours]);
+  }
+}
 
 async function verifyCallRecord(context: { admin: Pool; restricted: Pool; checks: string[] }): Promise<void> {
   const { admin, restricted, checks } = context;
