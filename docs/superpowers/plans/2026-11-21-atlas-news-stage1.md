@@ -114,15 +114,72 @@ be the paper the card's backing lines quote; an older version of an item never d
 is chosen, so a version that fails can't displace one that passes. Its wording remarks are taken in above. Codex
 hasn't re-read these third-round fixes.
 
+Codex's fourth round (`codex-review-4.md`, of `2f88ed8c` and `466d5cb6` with the news check's side) found A and the
+same-second drafts fixed, `466d5cb6` right on both paths (now with a test of the commit-time path), no public route, no
+review bypass and no late acceptance. Two server findings came back a third time, so they are named as classes, not
+patched again (AGENTS.md, the recurring-finding check), and left for stage 2, where they would matter:
+
+- **Which paper a card rests on (B).** Receipts can show that the card's DOI is a paper the check read and quoted, not
+  that it is the paper behind the finding and its figures; a card can name a background paper's DOI, and the day's
+  retraction check then reads that paper. Which paper supports which claim is a judgment of meaning, so before stage 2
+  it moves to the card (a source declared for each public claim, each quote bound to it) and the reading, and the
+  retraction check covers every paper the public claims rest on.
+- **Versions of one item across calls of one day (C).** Choosing an item's standing version and changing the rows are
+  separate steps, so two calls of one day, or two orders of one payload, can end differently (a newer version committed
+  earlier can drop out of a later version's order; a failing newer version can hold back a passing older one). The fix
+  is one step that decides each item's version from the stored and the incoming ones before any row changes, then
+  derives the order from it. In stage 1 the news check sends one version of an item a day (its last check's), so this
+  needs a same-day call that leaves out a version committed earlier that day.
+
+The news check's findings are fixed with tests: the reading is one call a day, recorded in the state store before it
+starts, so a run started again the same day reuses it; one malformed reading is refused alone; Sunday's re-rank gives
+every item a reason, so a withdrawal since the base can't leave one unexplained on the server; the re-rank's order rule
+is a flag for the audit, as the writer's is since 21 Nov; one version of an item a day. Its "abstract read" lines stay
+out of stage 1, as said above.
+
 Further differences from design v4 that Codex named, left for stage 2: "abstract read" lines live in the day's row,
 not as numbered items, so they can't be withdrawn one by one (withdrawing every item leaves them, unshown); no outlet
 counts or upkeep re-reads of corrections yet; the reading covers the narrative fields, and the closed fields
 (availability, funding) need their coverage rule before any page shows them.
 
+## The news check's side (built 21 Nov, outside this repository)
+
+The news check is not a Git repository; its stage-1 copy is `news-digest-stage1/` in the release folder
+(`/home/joel/askrigor-releases/20261121-atlas-news-stage1/`), copied from the live folder at 05:21 UTC with a manifest
+of every file's digest (`base-manifest.txt`; the untouched base is `news-digest-base/`, the whole change
+`news-check.diff`). Everything is behind `NEWS_CARD`, off by default: with it off, the run is today's except that a step
+outliving its time limit is killed 30 seconds later. With it on: each check's case asks for `later_inputs.news_card`
+and `findings_save: "off"` (`news-card.md`); `log-read` takes the staged N-number, the card and the draft from the
+check's event log; one `claude -p` call on the owner's Claude plan (a clean environment, so no API key reaches it; no
+tools, servers or settings; one turn; at most 5 minutes) reads each card against its draft, and `reading-check` keeps a
+reading only when it covers every public field; the writer inserts the day's items into the seven days' order by
+N-number (or the fallback rule does); Sundays re-rank once; `publish-json` writes the day call's payload and
+`publish-record` the Inbox note and tomorrow's base. The task's new step (the copy `SKILL.md` in the release folder)
+makes at most two calls, never a publish call after `not_after`. Tests: 139 unit tests and a stub run of 36 checks,
+with the switch off and on, its stand-in `claude` answering once and timing out once.
+
+One server change came from it (`466d5cb6`): a `stale_base` answer's latest day gives `carried` and `committed`, so the
+news check re-inserts its items into exactly the base the server checks.
+
+Deliberate differences from design 12.3: the card's instructions are one block appended to every case template, so
+the five templates the news check's other lane keeps editing aren't duplicated; `publish-json` runs after `assemble`,
+so the footer is the digest's own; "abstract read" lines aren't sent yet (only lines from full checks); an item whose
+label the news check's code corrected, or whose card and bar disagree, isn't sent.
+
+## The private trial (21 Nov, `trial.md` in the release folder)
+
+This server, run locally against a local Postgres with `ASKRIGOR_ATLAS_NEWS` "shadow" and a local sign-in, fed three of
+20 Nov's real checks (their last step made again here: a real PubMed read, then `finalize_research` with the check's
+real answer and a card): each staged; then a stale base answered and rebased, a day stored, its replay recognised, a
+new version stored with one item passing and two kept back for the right reasons, a call after `not_after` refused as
+late, an item withdrawn and the day listed. The payload digest computed by the news check equals the server's. The plan
+worker's reading was refused by the Claude plan's weekly limit (reset 24 Nov), so the second version's reading was
+written by the build session and stored under a name that says so.
+
 ## Left for later in stage 1
 
-- The news check's changes (design 12.3) in a copy on the HDD, behind `NEWS_CARD`, and the task's new step.
 - The owner-only preview pages at "shadow" (design 12.2), if still wanted.
+- "Abstract read" lines from the news check.
 
 ## Steps
 

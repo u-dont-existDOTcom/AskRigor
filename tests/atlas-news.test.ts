@@ -374,6 +374,24 @@ describe("the day call: one day, whole or nothing, never late", () => {
     expect(rebased).toMatchObject({ status: "committed", order: [first.number, second.number] });
   });
 
+  it("answers a day committed between the base check and the commit with the base read again, carried items and days", async () => {
+    const store = new InMemoryAtlasNewsStore(databaseClock);
+    const good = await stage(store, CARD);
+    const raced = { number: "N-1999", state: "shadow" as const, committedDay: "2026-11-22" };
+    let reads = 0;
+    // The database sees a newer day at the commit (another call stored it after this call's base check).
+    const racing: AtlasNewsReviewStore = { inspectDay: store.inspectDay.bind(store), inspectNumbers: store.inspectNumbers.bind(store),
+      withdraw: store.withdraw.bind(store),
+      inspectBefore: async () => (reads += 1) === 1 ? null
+        : { day: "2026-11-22", version: 1, order: [raced.number], items: [raced] },
+      commitDay: async () => ({ status: "stale_base", latest: { day: "2026-11-22", version: 1, order: [raced.number] } }) };
+    expect(await publishNewsDay(payload({ order: [good.number], places: [{ number: good.number, reason: "First." }],
+      readings: [reading(good.number, CARD)] }), deps(racing))).toEqual({ status: "stale_base", latest: {
+      day: "2026-11-22", version: 1, order: [raced.number], carried: [raced.number],
+      committed: { [raced.number]: "2026-11-22" } } });
+    expect(reads).toBe(2);
+  });
+
   it("leaves out of a stale base's carried items the withdrawn ones and those older than seven days", () => {
     const base = { day: "2026-11-27", version: 2, order: ["N-1001", "N-1002", "N-1003", "N-1004"], items: [
       { number: "N-1001", state: "shadow" as const, committedDay: "2026-11-27" },
