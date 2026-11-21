@@ -29,6 +29,7 @@ import {
   type StoredForumSignal
 } from "./research-behind.js";
 import { withoutSourceIdentifiers } from "./research-identifiers.js";
+import { topicKeyText } from "./topic-key.js";
 import {
   containsSecretLikeData,
   screenPrivateText,
@@ -932,15 +933,8 @@ const STUDY_IDENTIFIER = new RegExp(
 );
 const YOUTUBE_VIDEO_ID = /^[A-Za-z0-9_-]{11}$/u;
 
-/**
- * A topic key as the privacy screen reads it (review finding 4): the key, then its words, with each . and _, and each
- * dash not between two digits, read as a space. The Atlas keeps a topic's key for good (topics are never erased), and
- * one joined token hides from the screen what its parts hold, such as 555_867_5309; a dash between digits stays, so a
- * year range such as 2019-2024 is still set aside as one, and the key itself stays for the card-reference guard.
- */
-export function topicKeyText(key: string): string {
-  return `${key} ${key.replace(/[._]|-(?!\p{Nd})|(?<!\p{Nd})-/gu, " ")}`;
-}
+/** A topic key as the privacy screen reads it: its own module (topic-key.ts), so the Atlas's reading shares it. */
+export { topicKeyText };
 
 function cardTexts(card: FindingsCard): Array<[string, string]> {
   // The public-value declaration's words are stored with a saved card (owner answer 156a), so they are screened too,

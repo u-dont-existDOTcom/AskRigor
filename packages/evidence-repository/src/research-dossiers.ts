@@ -238,6 +238,10 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
   /** Each request key and the version it got (the database's research_dossier_requests). */
   private readonly requests = new Map<string, string>();
   private readonly queues = new Map<string, Promise<unknown>>();
+  /** Each dossier's newest version, kept as versions are appended. */
+  private readonly newest = new Map<string, MemoryVersion>();
+  /** Accounts revoked here (revoke), as research_use_accounts says REVOKED; the public copies follow them. */
+  private readonly revoked = new Set<string>();
   private nextNumber = 1;
 
   constructor(private readonly options: {
@@ -294,6 +298,7 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
 
   /** What the database's revocation trigger does: withdraws the account's versions still waiting for review. */
   revoke(accountKey: string, at: Date): number {
+    this.revoked.add(accountKey);
     let withdrawn = 0;
     for (const version of this.versions.values()) {
       const dossier = this.dossiers.get(version.dossierNumber)!;
@@ -303,6 +308,35 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
       withdrawn += 1;
     }
     return withdrawn;
+  }
+
+  /**
+   * What the public copies need to know of a private version (AskRigor#477 stage 2, research-dossier-publications.ts),
+   * as the database's publish function and triggers read it: whose it is, whether it is its dossier's newest,
+   * whether it was withdrawn, rejected or erased, and whether its account was revoked.
+   */
+  versionFacts(versionId: string): {
+    accountKey: string | null; dossierNumber: string; versionNumber: number; newest: boolean; closed: boolean;
+    erased: boolean; accountRevoked: boolean;
+  } | undefined {
+    const version = this.versions.get(versionId);
+    if (version === undefined) return undefined;
+    const dossier = this.dossiers.get(version.dossierNumber)!;
+    return {
+      accountKey: dossier.accountKey,
+      dossierNumber: version.dossierNumber,
+      versionNumber: version.versionNumber,
+      newest: this.latestOf(version.dossierNumber)?.versionId === versionId,
+      closed: version.events.some(({ event }) => event === "withdrawn" || event === "rejected" || event === "erased"),
+      erased: version.erasedAt !== null,
+      accountRevoked: dossier.accountKey !== null && this.revoked.has(dossier.accountKey),
+    };
+  }
+
+  /** A version's saved record, as the public copies' publish function reads it; null once erased. */
+  versionPayload(versionId: string): Record<string, unknown> | null | undefined {
+    const version = this.versions.get(versionId);
+    return version === undefined ? undefined : version.payload === null ? null : structuredClone(version.payload);
   }
 
   /** Every version's events and state, for tests. */
@@ -323,13 +357,7 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
   }
 
   private latestOf(dossierNumber: string): MemoryVersion | undefined {
-    let latest: MemoryVersion | undefined;
-    for (const version of this.versions.values()) {
-      if (version.dossierNumber === dossierNumber && (latest === undefined || version.versionNumber > latest.versionNumber)) {
-        latest = version;
-      }
-    }
-    return latest;
+    return this.newest.get(dossierNumber);
   }
 
   private async appendNow(input: ResearchDossierAppendInput): Promise<ResearchDossierAppendResult> {
@@ -380,6 +408,10 @@ export class InMemoryResearchDossierStore implements ResearchDossierStore, Resea
     };
     if (this.versions.has(version.versionId)) throw new Error("RESEARCH_DOSSIER_VERSION_EXISTS");
     this.versions.set(version.versionId, version);
+    const newestSoFar = this.newest.get(version.dossierNumber);
+    if (newestSoFar === undefined || version.versionNumber > newestSoFar.versionNumber) {
+      this.newest.set(version.dossierNumber, version);
+    }
     this.requests.set(input.requestKey, version.versionId);
     return { outcome: "inserted", ...this.resultOf(version) };
   }

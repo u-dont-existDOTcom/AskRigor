@@ -132,6 +132,9 @@ GRANT EXECUTE ON FUNCTION living_evidence.mark_atlas_challenges(text[], text, te
   TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_challenges()
   TO askrigor_research_review;
+-- Codex's third review of 17 Nov 2026, finding 2 (migration 0041): show_on_pages records how it showed a finding.
+GRANT EXECUTE ON FUNCTION living_evidence.show_atlas_publications(text[], text[], text, text, timestamptz)
+  TO askrigor_research_review;
 -- AskRigor#477 stage 1 (migration 0037): forget_card erases the dossiers of the research thread it forgets, by its
 -- thread key alone (never by a card number, which several people's saves share).
 GRANT EXECUTE ON FUNCTION living_evidence.erase_research_dossiers(text, timestamptz)
@@ -143,6 +146,72 @@ GRANT EXECUTE ON FUNCTION living_evidence.withdraw_atlas_news_items(text, text, 
   TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_news(jsonb, timestamptz)
   TO askrigor_research_review;
+-- AskRigor#477 stage 2 (migration 0040): the dossiers' public copies, listed, inspected and decided (show, hold, take
+-- down, accept) through these functions; no table right.
+GRANT EXECUTE ON FUNCTION living_evidence.list_research_dossier_publications(text, integer)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.inspect_research_dossier_publication(text)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.decide_research_dossier_publication(
+  text, integer, text, text, text[], text, text[], text, text[], timestamptz
+) TO askrigor_research_review;
+-- The owner's own decision to show a copy whose claim names a living person, with his typed reason (Codex's review of
+-- stage 2, finding 2).
+GRANT EXECUTE ON FUNCTION living_evidence.decide_research_dossier_living_person(
+  text, integer, text, text, text[], text, text[], text, text[], timestamptz
+) TO askrigor_research_review;
+-- The shown dossiers a copy is compared with before the review shows it (Codex's third review, P1).
+GRANT EXECUTE ON FUNCTION living_evidence.research_dossier_show_candidates(text, integer, text, integer, integer)
+  TO askrigor_research_review;
+-- The owner's own statement, for a copy whose AI did not say, of whether a claim names a living person ("didn't say"
+-- is not "no"; Codex's re-review of stage 2).
+GRANT EXECUTE ON FUNCTION living_evidence.state_research_dossier_living_person(text, integer, text, text, timestamptz)
+  TO askrigor_research_review;
+-- A privacy reading made later of a copy held waiting for it, bound to the digest of the content read, and the copies
+-- waiting for one (Codex's re-review of stage 2).
+GRANT EXECUTE ON FUNCTION living_evidence.list_research_dossier_privacy_pending(integer)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.record_research_dossier_privacy_reading(
+  text, integer, text, text, text, text, timestamptz
+) TO askrigor_research_review;
+-- A copy held only for the privacy reading shows by itself once a later reading passes it, if it otherwise qualifies,
+-- after fresh conflict and eligibility checks; and the copies waiting for that (Codex's third review).
+GRANT EXECUTE ON FUNCTION living_evidence.admit_research_dossier_after_privacy(
+  text, integer, text[], text, text[], timestamptz
+) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.list_research_dossier_admission_pending(integer)
+  TO askrigor_research_review;
+-- A reviewed revision of an importance mark: a new version with the reviewer and reason, never an edit in place (Codex's
+-- review of stage 2, finding 7).
+GRANT EXECUTE ON FUNCTION living_evidence.revise_research_dossier_importance(
+  text, integer, text, text, text, text, text[], text, text[], text, text[], timestamptz
+) TO askrigor_research_review;
+-- Atlas Release B (migration 0042): the person-claim readings, disputes, decisions and spend, through their functions.
+GRANT EXECUTE ON FUNCTION living_evidence.save_atlas_person_reading(text, text, text, jsonb, text, timestamptz)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.fail_atlas_person_reading(text, text, text, text, timestamptz, integer)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.reserve_atlas_person_spend(date, numeric, numeric, boolean, integer)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.settle_atlas_person_spend(date, numeric, numeric)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.claim_atlas_person_reading(text, text, text, boolean, timestamptz, integer,
+  integer) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.submit_atlas_person_dispute(text, text, text, text, text, text, boolean, text,
+  text[], text[], text, text, text, text, timestamptz, integer, integer, integer, integer, text, text)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.decide_atlas_person_claim(text, text, text, text, text, text[], text[], bigint,
+  text, timestamptz) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.list_atlas_person_queue(integer) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.take_atlas_person_hints(text, integer, timestamptz) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.ack_atlas_person_hint(bigint, timestamptz) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.atlas_person_removed_texts_for(bigint[]) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.take_atlas_person_notices(integer, timestamptz) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.record_atlas_person_notice(bigint, text, text, timestamptz)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.list_atlas_person_notices(integer) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.list_atlas_person_unchecked_removals(integer) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.purge_atlas_person_disputes(timestamptz) TO askrigor_research_review;
 ALTER ROLE askrigor_research_review SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_review SET idle_in_transaction_session_timeout = '5s';
 ALTER ROLE askrigor_research_review SET search_path = living_evidence, pg_catalog;

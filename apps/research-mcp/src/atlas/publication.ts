@@ -583,6 +583,13 @@ export const QUICK_ANSWER_TEST_WAITING = "waiting for the quick-answer test (own
  * Owner answer 240a: what publishing makes is kept for AskRigor's research, off every list, until a separate AI's
  * quick-answer test shows it (docs/atlas-quick-answer-test.md), since the AI that did the research can't fairly judge
  * its own card. Held findings stay held, and a card the owner publishes shows at once.
+ *
+ * The owner, 17 Nov 2026 ("show all the findings automatically when they pass quality checks like this one, i
+ * shouldn't be reviewing everything"): with showOnPages (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS=enabled), a finding that
+ * passed the final check and the publication checks shows on the pages at once, unreviewed, labelled "Not checked by
+ * supervisors yet", and nothing is kept. What is held, left out or never published stays so: a finding whose text
+ * holds contact details, a card reference or a YouTube link is held, one drawn from YouTube comments is left out, and
+ * a paid private or earlier-notice card publishes nothing here (planCardPublication, cardPublicationProblems).
  */
 export class AtlasCardPublisher implements FindingsCardPublisher {
   private readonly now: () => Date;
@@ -592,6 +599,8 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
     now?: () => Date;
     /** The sources' titles and years for the pages; without it, a page shows each source's identifier alone. */
     sourceTitles?: AtlasSourceTitleLookup;
+    /** Show what the save publishes at once instead of keeping it for the quick-answer test (the owner, 17 Nov 2026). */
+    showOnPages?: boolean;
   }) {
     this.now = options.now ?? (() => new Date());
   }
@@ -622,16 +631,21 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
         sourceTitles: await cardSourceTitles(saved.record, this.options.sourceTitles),
       });
       if (plan.problems.length === 0 && plan.drafts.length > 0) {
+        // Codex's review of 17 Nov 2026, finding 4: what the save shows at once is stored as such (migration 0041), so
+        // its page says nothing of the quick-answer test whether the setting is on or later turned off.
+        const showing = this.options.showOnPages === true;
         const rows = await this.options.store.publish({
           cardNumber: saved.issueNumber,
           cardSha256: saved.record.card_sha256,
-          findings: plan.drafts,
+          findings: showing
+            ? plan.drafts.map((draft) => draft.state === "unreviewed" ? { ...draft, shownBy: "automatic_showing" as const } : draft)
+            : plan.drafts,
           publishedAt: this.now().toISOString(),
           revive: false,
         });
         const waiting = rows.filter(({ outcome, state }) => outcome === "published" && state === "unreviewed")
           .map(({ publicationNumber }) => publicationNumber);
-        if (waiting.length > 0) {
+        if (waiting.length > 0 && !showing) {
           await this.options.store.keep({ publicationNumbers: waiting, atlasNumbers: [], keep: true,
             reason: QUICK_ANSWER_TEST_WAITING, at: this.now().toISOString() });
         }
@@ -710,7 +724,8 @@ export async function reconcileCardPublications(input: {
       const target = decidedPublicationState(decision, intents);
       const draft = target === undefined ? undefined
         : decidedPublicationDraft(input.card!.record, decision.itemNumber, target);
-      return draft === undefined ? [] : [draft];
+      // The owner's decision publishes it: the owner's action (Codex's re-review of 17 Nov 2026, finding 4).
+      return draft === undefined ? [] : [{ ...draft, shownBy: "owner_action" as const }];
     });
     if (drafts.length > 0) {
       changed.push(...(await input.store.publish({

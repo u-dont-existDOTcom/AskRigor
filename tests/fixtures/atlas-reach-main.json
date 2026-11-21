@@ -1,0 +1,155 @@
+{
+ "made": {
+  "commit": "263048eb",
+  "how": "tests/helpers/atlas-reach-scenario.ts, run with vitest on main's tree at that commit (origin/main, 19 Nov 2026), after building main's packages (npx tsc -b packages/contracts packages/protocol packages/sources packages/evidence-repository), since @askrigor/evidence-repository resolves to its dist: atlasReachSnapshot() written as JSON"
+ },
+ "publications": {
+  "before": "P-1001",
+  "person": "P-1002",
+  "tested": "P-1003",
+  "owner": "P-1004"
+ },
+ "pages": {
+  "/atlas": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 0,
+   "homeSentence": 0,
+   "digest": "4e7a3a4a011b743fd9c8fb6822d4d8c7de591ffe610bd07527fcdf774d3ea39e"
+  },
+  "/atlas/findings": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "f7212dec07096e0117995e928cfc3c2ab0dfb4d0eea498fcaaa0704d5191a0db"
+  },
+  "/atlas/topics": {
+   "status": 200,
+   "noindex": false,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "7b4af8c20a155b84ebeb41b1449d3af32336487b577be552251afcd4eca923f2"
+  },
+  "/atlas/topics/velmor-syndrome": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "38d870a83e2be342c2c37c89079864a6f6e78e99a2d487768e9877add1b72c74"
+  },
+  "/atlas/search?q=zentarine": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "35febdbcd319e0a123b69e1daef87a5ace5db189765bfa26ca153e9577d8fce1"
+  },
+  "/atlas/search?q=Zentaro": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "29f0d1406df6de82de9b6591cbb7b2915ec712a6ed109b50d8eff14631250533"
+  },
+  "/atlas/map": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "1be84c726cffeaf58195d77163a04becd781983e6e751ad64d73a74c4f2247bb"
+  },
+  "/atlas/sitemap.xml": {
+   "status": 200,
+   "noindex": false,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "4d3c612d67c7ba906a9378549502db90454b8cdb96f509d2e39f3a2c62c85d0e"
+  },
+  "/atlas/changes": {
+   "status": 200,
+   "noindex": false,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "1e779d58dea7bc381c52181200c62a3c999833906b40caca1bbd5a5c5b71872d"
+  },
+  "/atlas/challenges": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "40fa20a4baaa6cc2033a5e0926e2beabbb3e9b9abd67c995e54bfa8e70e2d01b"
+  },
+  "/atlas/health": {
+   "status": 200,
+   "noindex": false,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "079ebfac971fb0f59911aadceb5702afcf4e484f3ff9b381a11619f6634887ab"
+  },
+  "/atlas/health/colds-flu-and-infections": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "28264d432ee8a79a4e241a4d72804ebae3de9571b91215afb5b4859a7c8ae926"
+  },
+  "/atlas/findings/P-1001": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 1,
+   "homeSentence": -1,
+   "digest": "5a46fa5f5dc5af1481832adc63281b2c01f05f6804f376ac2254527b47446046"
+  },
+  "/atlas/findings/P-1002": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 0,
+   "homeSentence": -1,
+   "digest": "ac19e3ce08b1748e78a2fbec127ce0e2652039ff3c1f19c305c7b7182c4bb449"
+  },
+  "/atlas/findings/P-1003": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 1,
+   "homeSentence": -1,
+   "digest": "c63ef37e949bf6040447573dccd58432f3ed63d88ac039b2864acbd51807cc19"
+  },
+  "/atlas/findings/P-1004": {
+   "status": 200,
+   "noindex": true,
+   "testSentences": 1,
+   "homeSentence": -1,
+   "digest": "8a0a5ccb0e4e51b28c8773a7db7e93282967a00da82d9fad2a3ff1f34a7d0c19"
+  }
+ },
+ "lookup": {
+  "query zentarine": {
+   "status": "partial",
+   "findings": [
+    "P-1004",
+    "P-1003",
+    "P-1002",
+    "P-1001"
+   ],
+   "digest": "3a98a09703b8a9126cd9ba3949d2bdb5a0fec75686d8a3aa4e36bc79e5deb4a1"
+  },
+  "query Zentaro": {
+   "status": "partial",
+   "findings": [
+    "P-1002"
+   ],
+   "digest": "96a0590c3da2c17e898ec9a20ded29fd6f3e400aa13e09b959c3c1fa2f74b004"
+  },
+  "topic": {
+   "status": "partial",
+   "findings": [
+    "P-1004",
+    "P-1003",
+    "P-1002",
+    "P-1001"
+   ],
+   "digest": "2e0a60416b339557191927f465b827b884b8732bec1b97e5034cc0fe3269d997"
+  }
+ }
+}

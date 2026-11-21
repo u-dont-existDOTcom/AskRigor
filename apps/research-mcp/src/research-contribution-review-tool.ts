@@ -33,6 +33,8 @@ import {
 import { atlasParticipationSchema } from "./atlas/participation-review.js";
 import { atlasKeptSchema } from "./atlas/kept-review.js";
 import { ATLAS_CHALLENGE_MARK_INPUTS, atlasChallengesSchema } from "./atlas/challenge-review.js";
+import { atlasDossiersSchema } from "./atlas/dossier-review.js";
+import { atlasPersonNoticesSchema } from "./atlas/person-notice-review.js";
 import { atlasPlacementsSchema } from "./atlas/placement-review.js";
 import { atlasReportsSchema } from "./atlas/report-review.js";
 import { atlasGlanceSchema } from "./atlas/glance-review.js";
@@ -43,6 +45,8 @@ import type { PaperStatusLookup } from "./news/day.js";
 import { ATLAS_NEWS_ACTIONS, atlasNewsResultSchema, isAtlasNewsAction, runAtlasNewsAction } from "./news/review.js";
 import { laterInputShape } from "./later-inputs.js";
 import { CASE_REVIEW_SCOPE } from "./oauth-resource-server.js";
+import type { DossierConflictReader } from "./findings/dossier-conflict-reading.js";
+import type { DossierPrivacyReader } from "./findings/dossier-privacy-reading.js";
 import type { ResearchOperationExtra } from "./research-operation.js";
 import type { SharedAnswerVault } from "./shared-answers.js";
 
@@ -63,7 +67,9 @@ export const researchContributionReviewInputSchema = z.object({
       "list_publications, unpublish_finding, publish_cards or set_aside_cards. publish_cards takes topicKey and " +
       "topicLabel for cards that declare no topic; a stored topic's label is reused, and topicless publications " +
       "are withdrawn then published again with their P numbers. Comments and the home page: " +
-      "list_comments, hide_comment, show_comment, remove_comment, stop_commenter, restore_commenter or set_picks."),
+      "list_comments, hide_comment, show_comment, remove_comment, stop_commenter, restore_commenter or set_picks. " +
+      "The owner's notices on claims about named people: list_person_notices, or ack_person_notice with " +
+      "later_inputs.personNotice."),
   proposalId: z.string().uuid().optional().describe("Proposals: the proposal's ID."),
   expectedPayloadSha256: z.string().regex(/^[a-f0-9]{64}$/u).optional()
     .describe("Proposals: the payload hash inspect returned."),
@@ -120,11 +126,20 @@ export const researchContributionReviewInputSchema = z.object({
       value.action !== "show_on_pages" && value.action !== "mark_challenge" && value.action !== "clear_challenge") {
       context.addIssue({ code: "custom", message: `${value.action} does not take items` });
     }
-    // The owner, 6 Nov: the usual view, its source and the quick-answer verdict go only with mark_challenge.
+    // The owner, 6 Nov: the usual view, its source and the quick-answer verdict go only with mark_challenge; and, since
+    // Codex's third review of 17 Nov 2026 (finding 2), the verdict with show_on_pages too, where the quick-answer test
+    // says it shows a finding, which is recorded.
     for (const field of ATLAS_CHALLENGE_MARK_INPUTS) {
-      if ((value as Record<string, unknown>)[field] !== undefined && value.action !== "mark_challenge") {
+      if ((value as Record<string, unknown>)[field] !== undefined && value.action !== "mark_challenge" &&
+        !(field === "quick_answer_verdict" && value.action === "show_on_pages")) {
         context.addIssue({ code: "custom", message: `${value.action} does not take ${field}` });
       }
+    }
+    // Codex's fourth review of 17 Nov 2026 (P1s): later_inputs.shown_by goes only with show_on_pages, which needs it,
+    // and, since its fifth review, with publish_cards, which needs it too.
+    if ((value as { shown_by?: unknown }).shown_by !== undefined && value.action !== "show_on_pages" &&
+      value.action !== "publish_cards") {
+      context.addIssue({ code: "custom", message: `${value.action} does not take shown_by` });
     }
     // Owner answer 229a: later_inputs.placements goes with place_items, and place_items needs it.
     const placements = (value as { placements?: unknown }).placements;
@@ -141,6 +156,24 @@ export const researchContributionReviewInputSchema = z.object({
         context.addIssue({ code: "custom", message: `${value.action} does not take ${field}` });
       }
     }
+    // AskRigor#477 stage 2: the dossier inputs go only with the dossier actions.
+    const dossierInputs = value as { dossier?: unknown; dossierVersion?: unknown; dossierState?: unknown;
+      dossierFinding?: unknown; dossierImportance?: unknown; dossierLivingPerson?: unknown;
+      dossierOverrideConflicts?: unknown };
+    const dossierTakes = { dossier: ["inspect_dossier", "show_dossier", "hold_dossier", "take_down_dossier", "accept_dossier",
+      "show_dossier_naming_living_person", "revise_dossier_importance", "state_dossier_living_person",
+      "read_dossier_privacy"],
+      dossierVersion: ["show_dossier", "hold_dossier", "take_down_dossier", "accept_dossier",
+        "show_dossier_naming_living_person", "revise_dossier_importance", "state_dossier_living_person",
+        "read_dossier_privacy"],
+      dossierState: ["list_dossiers"], dossierFinding: ["revise_dossier_importance"],
+      dossierImportance: ["revise_dossier_importance"], dossierLivingPerson: ["state_dossier_living_person"],
+      dossierOverrideConflicts: ["show_dossier", "accept_dossier", "show_dossier_naming_living_person"] } as const;
+    for (const [field, actions] of Object.entries(dossierTakes)) {
+      if (dossierInputs[field as keyof typeof dossierInputs] !== undefined && !(actions as readonly string[]).includes(value.action)) {
+        context.addIssue({ code: "custom", message: `${value.action} does not take ${field}` });
+      }
+    }
     // The rows at a glance: each later input only with the action that takes it.
     const glanceInputs = value as { glanceRow?: unknown; glanceRowId?: unknown; glanceState?: unknown };
     const glanceTakes = { glanceRow: ["propose_glance_row"], glanceRowId: ["show_glance_row", "withdraw_glance_row"],
@@ -149,6 +182,11 @@ export const researchContributionReviewInputSchema = z.object({
       if (glanceInputs[field as keyof typeof glanceInputs] !== undefined && !(actions as readonly string[]).includes(value.action)) {
         context.addIssue({ code: "custom", message: `${value.action} does not take ${field}` });
       }
+    }
+    // Atlas Release B: later_inputs.personNotice goes with ack_person_notice, which needs it.
+    if ((value.action === "ack_person_notice") !== ((value as { personNotice?: unknown }).personNotice !== undefined)) {
+      context.addIssue({ code: "custom", message: value.action === "ack_person_notice"
+        ? "ack_person_notice needs later_inputs.personNotice" : `${value.action} does not take personNotice` });
     }
     refineAtlasReviewInput({ ...value, action: value.action }, context);
     return;
@@ -317,6 +355,10 @@ export const researchContributionReviewRuntimeOutputSchema = researchContributio
   challenges: atlasChallengesSchema.optional(),
   // Atlas news, stage 1: publish_news_day, withdraw_news_item and list_news_items, runtime-only (owner answer 189a).
   news: atlasNewsResultSchema.optional(),
+  // AskRigor#477 stage 2: the research dossiers' public copies, runtime-only (owner answer 189a).
+  dossiers: atlasDossiersSchema.optional(),
+  // Atlas Release B: list_person_notices and ack_person_notice, runtime-only.
+  personNotices: atlasPersonNoticesSchema.optional(),
   sharedAnswers: z.object({
     kept: z.array(sharedAnswerSummarySchema).optional(),
     answer: sharedAnswerSummarySchema.extend({
@@ -348,6 +390,10 @@ export interface ResearchContributionReviewToolOptions {
      * store isn't configured, the news actions say so and record nothing.
      */
     news?: { mode: AtlasNewsMode; store?: AtlasNewsReviewStore; paperStatus: PaperStatusLookup; now?: () => Date };
+    /** AskRigor's privacy reading for read_dossier_privacy, while it is on; undefined otherwise. */
+    dossierPrivacyReader?: () => DossierPrivacyReader | undefined;
+    /** AskRigor's conflict reading for the dossier actions that show a copy (Codex's third review, P1). */
+    dossierConflictReader?: () => DossierConflictReader | undefined;
   };
   /** The shared questions and answers (owner answer 200a); undefined when the server keeps none. */
   sharedAnswers?: SharedAnswerVault;
@@ -402,8 +448,17 @@ export function createResearchContributionReviewHandler(
       // The owner, 6 Nov: a challenge mark keeps who marked it, the reviewer login authorizeOwnerReview admitted, only
       // as a digest (challenge-review.ts); it is never an input.
       const reviewer = extra?.authInfo?.extra?.subject;
+      // AskRigor#477 stage 2 (Codex's re-review): the privacy reading a held dossier copy may get later, never an input.
+      const dossierPrivacyReader = parsed.action === "read_dossier_privacy" ? options.atlas.dossierPrivacyReader?.()
+        : undefined;
+      // Codex's third review: the conflict reading a show of a held copy is compared with, never an input.
+      const dossierConflictReader = parsed.action === "show_dossier" || parsed.action === "accept_dossier" ||
+        parsed.action === "show_dossier_naming_living_person" || parsed.action === "read_dossier_privacy"
+        ? options.atlas.dossierConflictReader?.() : undefined;
       return atlasToolResult(await options.atlas.review.run(
-        { ...parsed, action: parsed.action, ...(typeof reviewer === "string" ? { reviewer } : {}) } as AtlasReviewRequest,
+        { ...parsed, action: parsed.action, ...(typeof reviewer === "string" ? { reviewer } : {}),
+          ...(dossierPrivacyReader === undefined ? {} : { dossierPrivacyReader }),
+          ...(dossierConflictReader === undefined ? {} : { dossierConflictReader }) } as AtlasReviewRequest,
         options.atlas.providers(),
       ));
     }
@@ -660,6 +715,8 @@ function atlasToolResult(result: AtlasReviewResult): CallToolResult {
     ...(result.reports === undefined ? {} : { reports: result.reports }),
     ...(result.glance === undefined ? {} : { glance: result.glance }),
     ...(result.challenges === undefined ? {} : { challenges: result.challenges }),
+    ...(result.dossiers === undefined ? {} : { dossiers: result.dossiers }),
+    ...(result.personNotices === undefined ? {} : { personNotices: result.personNotices }),
     canonicalEvidenceChangedByThisCall: false,
     ...(result.error === undefined ? {} : { error: result.error }),
   });
