@@ -174,7 +174,14 @@ export function createGeminiSignInRoutes(
     if (outcome === undefined || details.uid !== uid || details.prompt.name !== "login") {
       return fail(response, 400, "session_expired");
     }
-    response.setHeader("set-cookie", cookieHeader(LOGIN_RESULT_COOKIE, "", 0));
+    // Any earlier login session in this browser (an abandoned link) is dropped here, so the link continues with a fresh
+    // one for the person who just signed in; the library's account-switch path never arises.
+    dropLibraryCookies(request, /^_session/u);
+    response.setHeader("set-cookie", [
+      cookieHeader(LOGIN_RESULT_COOKIE, "", 0),
+      "_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax",
+      "_session.sig=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax",
+    ]);
     if ("denied" in outcome) {
       await server.provider.interactionFinished(request, response, {
         error: "access_denied",

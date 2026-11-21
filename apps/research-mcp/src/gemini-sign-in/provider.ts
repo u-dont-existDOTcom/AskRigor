@@ -163,14 +163,23 @@ export function createGeminiAuthorizationServer(
   });
   // Caddy terminates TLS; the dispatcher pins Host and the forwarded protocol before any request reaches the library.
   provider.proxy = true;
-  // The metadata names only the scope that can be granted (the library lists every static scope otherwise).
   provider.use(async (ctx, next) => {
     await next();
+    // The metadata names only the scope that can be granted (the library lists every static scope otherwise).
     if (ctx.oidc?.route === "discovery" && typeof ctx.body === "object" && ctx.body !== null) {
       const body = ctx.body as Record<string, unknown>;
       body.scopes_supported = [GEMINI_SCOPE];
       delete body.claims_supported;
       delete body.claims_parameter_supported;
+    }
+    // A login session serves one link only: once the authorization ends at Gemini's address (a code or an error), it is
+    // deleted, so a later link in the same browser always signs in again and never reuses another person's session.
+    if ((ctx.oidc?.route === "resume" || ctx.oidc?.route === "authorization") && ctx.status >= 300 && ctx.status < 400) {
+      const location = ctx.response.get("location");
+      if (typeof location === "string" && location.length > 0 && !location.startsWith(issuer) &&
+        new URL(location, issuer).origin !== new URL(issuer).origin) {
+        await (ctx.oidc.session as { destroy?: () => Promise<void> } | undefined)?.destroy?.();
+      }
     }
   });
 

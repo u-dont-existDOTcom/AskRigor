@@ -47,8 +47,10 @@ declare module "oidc-provider" {
     readonly path: string;
     status: number;
     body: unknown;
+    readonly response: { get(field: string): string | string[] | undefined };
     readonly oidc: {
       readonly route: string;
+      readonly session?: unknown;
       readonly issuer: string;
       readonly client?: Client;
       readonly params?: Record<string, unknown>;
