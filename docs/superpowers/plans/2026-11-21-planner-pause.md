@@ -10,6 +10,8 @@ Status (21 Nov): built on `claude/planner-pause-20261121` (first commit 81d9ba5e
 after it), not released. The release needs the owner's yes; the comparison runs only after it. Reviews:
 `/home/joel/askrigor-releases/20261121-planner-measurement/pause-review/` (Codex: fix first, three races and the
 renewal; Fable: say nothing of the pause in `inspect`, and four lines for the round's procedure). All are built.
+Codex's recheck of the fixes found no P1 and two P2s (a cleanup timer per account, a pre-pause menu's light lane),
+fixed after it with tests, not rechecked again (one repair, one recheck).
 
 ## What is built
 
@@ -24,7 +26,8 @@ renewal; Fable: say nothing of the pause in `inspect`, and four lines for the ro
 - Starting a pause forgets what the hour kept of the account's plans and lanes, and registrations are numbered in
   the order they begin, so a "without" chat never takes the "with" chat's plan for the same words, during or after
   the pause, even at a final check that waits on a plan still being made. A call already running when it began still
-  answers its own registration, and keeps no lane.
+  answers its own registration, and keeps no lane; a light lane in a menu handed over before the pause isn't honoured
+  while it runs.
 - Set again while it runs, a pause keeps its start and ends at most two hours after it.
 - `inspect` says nothing of a pause, since every AI calls it before research. The pause's own result gives its end
   (`plannerPausedUntil`), and the owner's account page says the call is paused and until when.

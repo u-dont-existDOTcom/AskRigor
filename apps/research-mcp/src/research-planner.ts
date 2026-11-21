@@ -726,11 +726,17 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
     return until !== undefined && until > now() ? until : undefined;
   };
   const afterLatestPause = (account: string, seq: number): boolean => seq > (pauses.get(account)?.seq ?? 0);
+  // One timer per account: a record set again replaces the timer with its own, so no superseded record is held
+  // (Codex's recheck of 21 Nov).
+  const pauseTimers = new Map<string, ReturnType<typeof setTimeout>>();
   const keepPause = (account: string, record: { seq: number; started: number; until: number }) => {
     pauses.set(account, record);
-    const forget = setTimeout(() => { if (pauses.get(account) === record) pauses.delete(account); },
-      Math.max(0, record.until + HOUR - now()) + 1);
+    clearTimeout(pauseTimers.get(account));
+    const forget = setTimeout(() => {
+      if (pauses.get(account) === record) { pauses.delete(account); pauseTimers.delete(account); }
+    }, Math.max(0, record.until + HOUR - now()) + 1);
     forget.unref?.();
+    pauseTimers.set(account, forget);
   };
   const targetKey = (accountKey: string, researchTarget: string): string =>
     createHash("sha256").update(JSON.stringify([accountKey, researchTargetDigest(researchTarget)])).digest("hex");

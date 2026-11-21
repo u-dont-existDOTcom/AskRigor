@@ -697,6 +697,12 @@ export const PLANNER_PAUSE_ENDED = "AskRigor's own planning call is on for this 
 export const PLANNER_OFF_NOTHING_PAUSED = "AskRigor's own planning call is off on this server, so there is nothing to " +
   "pause; nothing was changed.";
 
+/** A menu without the light lane only AskRigor's own plan sets (owner answer 395b: not honoured during a pause). */
+function withoutLane<T extends { lane?: unknown }>(menu: T): T {
+  const { lane: _lane, ...rest } = menu;
+  return rest as T;
+}
+
 /**
  * AskRigor's own planning call for this account (owner answer 298b): the planner while it is on, for a dev account
  * whose call no test round has paused (owner answer 395b); otherwise undefined, and the account plans as with the
@@ -1211,7 +1217,12 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         const learning = activePlanner(options, accountKey, devAccount) !== undefined
           ? { log: options.log ?? defaultLog, active: () => activePlanner(options, accountKey, devAccount) !== undefined }
           : undefined;
-        return await planResearchAction(options.service, auth.subject, parsed.researchMenu!, options.plainAnswer,
+        // Owner answer 395b: while a test round has paused this dev account's call, a light lane, which AskRigor's own
+        // plan alone sets, is not honoured: a menu handed over before the pause goes as research (Codex's recheck).
+        const paused = devAccount && learning === undefined && options.researchPlanner?.()?.enabled === true &&
+          options.researchPlanner?.()?.pausedUntil?.(accountKey) !== undefined;
+        return await planResearchAction(options.service, auth.subject,
+          paused ? withoutLane(parsed.researchMenu!) : parsed.researchMenu!, options.plainAnswer,
           options.menuDigestSecret?.(), devAccount, learning, options.researchDossiers === true, findingsSaveOff(parsed),
           options.findingsLedger?.(devAccount) === true);
       }
@@ -1934,6 +1945,9 @@ async function planResearchAction(
   const account = await service.activeAccount(subject);
   // Owner answer 395b: a pause begun while the account was read counts, as when the call is off.
   const learningNow = learning?.active?.() === false ? undefined : learning;
+  // A light lane is set by AskRigor's own plan only, so a menu handed over before a pause begun meanwhile goes as
+  // research while it runs (Codex's recheck of 21 Nov); a pause already running is read before this call.
+  if (learning !== undefined && learningNow === undefined) plan = withoutLane(plan);
   const accountKey = service.accountKeyForSubject(subject);
   const read = plan.plain_answer_receipt === undefined ? undefined : plain?.read?.(plan.plain_answer_receipt, accountKey);
   const problems: string[] = [];

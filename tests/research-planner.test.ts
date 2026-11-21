@@ -2367,6 +2367,47 @@ describe("a test round's pause of the planning call (owner answer 395b)", () => 
       expect(await service.menuChoices(key)).toEqual([]);
     });
 
+  it("holds one cleanup timer per paused account, however often the pause is set again (Codex's recheck)", () => {
+    vi.useFakeTimers();
+    try {
+      const made = planner({ now: () => Date.now() });
+      const base = vi.getTimerCount();
+      made.planner.pause!("account-a", 120);
+      expect(vi.getTimerCount()).toBe(base + 1);
+      for (const minutes of [60, 30, 0]) made.planner.pause!("account-a", minutes);
+      expect(vi.getTimerCount()).toBe(base + 1);
+      // The record goes an hour after the pause's end, when it was ended by hand too, and its timer with it.
+      vi.advanceTimersByTime(60 * MINUTE + 2);
+      expect(vi.getTimerCount()).toBe(base);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not honour a light lane handed over before the pause while it runs (Codex's recheck)", async () => {
+    const made = planner({ now: () => START, reply: () => message({}, LIGHT_REPLY) });
+    const { call, service } = await tool(made.planner);
+    const registered = await call(register);
+    const menu = (registered.structuredContent as { planned_later_inputs: { researchMenu: Record<string, unknown> } })
+      .planned_later_inputs;
+    expect(menu.researchMenu.lane).toBe("light");
+    const light = await call({ action: "plan_research", later_inputs: menu });
+    expect(JSON.stringify(light.structuredContent)).toContain('"lane":"light"');
+    made.planner.pause!(service.accountKeyForSubject("auth0|dev"), 15);
+    const paused = await call({ action: "plan_research", later_inputs: menu });
+    expect(paused.isError).not.toBe(true);
+    expect(JSON.stringify(paused.structuredContent)).not.toContain('"lane":"light"');
+    // And when the pause begins while plan_research reads the account.
+    made.planner.pause!(service.accountKeyForSubject("auth0|dev"), 0);
+    const read = service.activeAccount.bind(service);
+    service.activeAccount = async (subject: string) => {
+      made.planner.pause!(service.accountKeyForSubject("auth0|dev"), 15);
+      return await read(subject);
+    };
+    const meanwhile = await call({ action: "plan_research", later_inputs: menu });
+    expect(JSON.stringify(meanwhile.structuredContent)).not.toContain('"lane":"light"');
+  });
+
   it("shows the pause on the owner's own account page, where inspect no longer does", async () => {
     const store = new InMemoryResearchContributorAccessStore();
     const service = new ResearchContributorAccessService({ store, identitySecret: IDENTITY_SECRET });

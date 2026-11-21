@@ -509,7 +509,7 @@ owner's ChatGPT runs had left that judgment to the person's AI, and it went wron
   unless the AI passes the person's words. Starting a pause forgets what the hour kept of the account's plans and
   lanes, and registrations are numbered in the order they begin, so no research registered during or after the pause
   takes a plan made before it, even a final check waiting on a plan still being made; research registered before it
-  keeps its own plan. A paused registration costs nothing and counts nothing toward the account's calls for the day.
+  keeps its own plan, but not its light lane: a menu handed over before the pause goes as research while it runs. A paused registration costs nothing and counts nothing toward the account's calls for the day.
   Learn mode's setting can still be changed. Set again while it runs, a pause keeps its start and ends at most two
   hours after it. `inspect` says nothing of a pause: every AI calls it before research, so a "without" chat told of a
   test would be a third condition (Fable's recheck, 21 Nov). The pause's own result gives its end
