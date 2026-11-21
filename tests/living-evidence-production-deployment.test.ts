@@ -1356,8 +1356,10 @@ describe("production living-evidence deployment", () => {
     const runbook = await read("infra/living-evidence-production/README.md");
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
-    // Right after 0038; 0043 (Atlas news, owner answer 397a) was released with it and comes last.
-    expect(order.slice(-3)).toEqual(["0038_research_proposal_idempotency_index", "0039_gemini_oauth_store",
+    // Right after 0038; 0043 (Atlas news, owner answer 397a) was released with it and comes last, after the next
+    // release's 0040 to 0042, which are numbered before it.
+    expect(order.slice(-6)).toEqual(["0038_research_proposal_idempotency_index", "0039_gemini_oauth_store",
+      "0040_research_dossier_publications", "0041_atlas_show_saved_findings", "0042_atlas_person_readings",
       "0043_atlas_news_items"]);
     // One new table and its indexes, each made once; nothing existing is dropped or altered.
     expect([...migration.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)/gu)].map(([, name]) => name)).toEqual(["gemini_oauth_store"]);
@@ -1470,7 +1472,10 @@ describe("migration 0041", () => {
     expect(readme).not.toContain("The recommended value is `enabled`");
     expect(readme).toContain("whatever calls `show_on_pages` or `publish_cards` says who acts in\n`later_inputs.shown_by`");
     expect(readme).toContain("To roll back to the image before this release, leave the setting off.");
-    expect(readme).not.toMatch(new RegExp(["living" + "_person", "LIVING" + "_PERSON", "atlas-hold-" + "living"].join("|"), "u"));
+    // Nothing of #488's hold. The write-ups' own two functions (AskRigor#487, migration 0040) carry the words in their
+    // names and are not the hold.
+    const withoutDossierFunctions = readme.replace(/\b(?:decide|state)_research_dossier_living_person\b/gu, "");
+    expect(withoutDossierFunctions).not.toMatch(new RegExp(["living" + "_person", "LIVING" + "_PERSON", "atlas-hold-" + "living"].join("|"), "u"));
   });
 });
 

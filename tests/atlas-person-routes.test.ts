@@ -116,7 +116,10 @@ describe("what a signed-out reader and the lookup tool see while the mark is on"
       "/atlas/challenges", "/atlas/health", `/atlas/health/${HEALTH.subcategories[0]!.key}`,
       ...Object.values(numbers).map((number) => `/atlas/findings/${number}`), `/atlas/findings/${numbers.person}/person`];
     const store = person;
-    await serve({ enabled: true, source, signal: new AtlasChangeSignal(), personClaims: { store } }, async (base) => {
+    // The pages read the scenario's clock, so the dispute below is dated 19 Nov whatever day the test runs (on the
+    // real clock it was dated the run's own day, and failed from 20 Nov).
+    await serve({ enabled: true, source, signal: new AtlasChangeSignal(), personClaims: { store },
+      now: () => now().getTime() }, async (base) => {
       const bodies: Record<string, { status: number; body: string }> = {};
       for (const path of paths) {
         const response = await fetch(`${base}${path}`);
