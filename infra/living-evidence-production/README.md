@@ -538,6 +538,27 @@ next `migrate` that includes 0038 builds it again. Should it ever have to go, dr
 blocking writes: `DROP INDEX CONCURRENTLY IF EXISTS living_evidence.research_contribution_proposals_idempotency_idx;`.
 Undo no migration.
 
+Migration `0039_gemini_oauth_store` (owner answer 386b, 20 November 2026; built, not yet released; design
+`../../docs/superpowers/plans/2026-11-21-gemini-sign-in-design.md`, operator notes `../../docs/gemini-connector.md`)
+adds one table, `gemini_oauth_store`, and its four indexes: the state of AskRigor's own authorization server for
+Google's Gemini app (login sessions, interactions, codes, tokens, grants and client-assertion replay marks). Keys and
+indexes are 32-byte HMACs and payloads AES-256-GCM ciphertext under keys derived from `ASKRIGOR_GEMINI_OAUTH_SECRET`,
+so the table holds no token, code or subject in the clear. It changes no existing table, row, constraint or grant. It
+revokes the table from PUBLIC and `askrigor_reader`; after `migrate`, rerun `provision-research-access-role.sh`, which
+grants `askrigor_research_access` SELECT, INSERT, UPDATE and DELETE on it and nothing else. The lock is only the new
+table's. Read-only checks, as the migrator:
+
+```sql
+SELECT model, count(*) FROM living_evidence.gemini_oauth_store GROUP BY model;
+SELECT grantee, privilege_type FROM information_schema.role_table_grants
+  WHERE table_schema = 'living_evidence' AND table_name = 'gemini_oauth_store';
+```
+
+An earlier image never reads the table, so it needs no step. Rollback: unset `ASKRIGOR_GEMINI_OAUTH` and recreate the
+research service; every Gemini path answers 404 again and no link works. Leave the table. To end every link for good
+before switching it on again, `DELETE FROM living_evidence.gemini_oauth_store;` as the migrator (or change the secret).
+Undo no migration.
+
 Owner answers 254a and 255a (2026-11-05; built, not yet released; plan
 `../../docs/superpowers/plans/2026-11-05-atlas-research-behind.md`): migration
 `0029_atlas_research_behind` admits `forum_read` among the verified bases of

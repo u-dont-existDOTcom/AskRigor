@@ -533,6 +533,8 @@ records decisions and their sources; it adds no authority to the list above.
   protected paid-provider configuration, privacy/cost bounds, strict query-
   reconciled candidate packet, independent YouTube identity validation,
   provisional-summary boundary, removal path, and acceptance check
+- `gemini-connector.md`: disabled-by-default sign-in for Google's Gemini app (owner answer 386b): AskRigor's own
+  authorization server at `/oauth/gemini` for `/mcp/gemini`, its settings, Auth0 callback, release steps and rollback.
 - `claude-connector.md`: disabled-by-default `/mcp/claude` surface for the
   Claude custom connector (own OAuth audience and client, transport-level 401,
   same functionality as `/mcp`), Auth0 setup, verification and rollback

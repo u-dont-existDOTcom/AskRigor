@@ -574,7 +574,7 @@ describe("production living-evidence deployment", () => {
       '"0031_research_notice_acceptance",\n      "0032_research_call_record",\n      "0033_research_steering",\n      ' +
       '"0034_research_call_record_plan_next",\n      "0035_research_menu_learning",\n      ' +
       '"0036_research_use_notice_v6",\n      "0037_research_dossiers",\n      ' +
-      '"0038_research_proposal_idempotency_index",\n    ]');
+      '"0038_research_proposal_idempotency_index",\n      "0039_gemini_oauth_store",\n    ]');
     // append_only_guard on exactly the eight canonical tables; the two private review tables are not among them.
     const guarded = migration.slice(migration.indexOf("FOREACH table_name IN ARRAY ARRAY["));
     expect([...guarded.slice(0, guarded.indexOf("] LOOP")).matchAll(/'([a-z_]+)'/gu)].map(([, table]) => table))
@@ -944,14 +944,15 @@ describe("production living-evidence deployment", () => {
     // people's reports (owner answer 229a), 0027, a problem's rows at a glance, 0028, notice version 5 (owner answer
     // 253a), 0029, the research behind each finding (owner answers 254a and 255a), and 0030, the findings that challenge
     // the usual view (the owner, 6 November 2026). After the account migrations 0031 to 0035 comes 0036, notice
-    // version 6 (owner answer 307b), then 0037, the private research dossiers (AskRigor#477 stage 1), and last 0038,
-    // the index for the proposal lookup by idempotency key.
-    expect(order.slice(-18)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
+    // version 6 (owner answer 307b), then 0037, the private research dossiers (AskRigor#477 stage 1), 0038, the index
+    // for the proposal lookup by idempotency key, and last 0039, Gemini's sign-in (owner answer 386b).
+    expect(order.slice(-19)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
       "0023_research_findings_save_switch", "0024_atlas_kept_for_research", "0025_atlas_placements", "0026_atlas_reports",
       "0027_atlas_glance_rows", "0028_research_use_notice_v5", "0029_atlas_research_behind", "0030_atlas_challenges",
       "0031_research_notice_acceptance", "0032_research_call_record",
       "0033_research_steering", "0034_research_call_record_plan_next", "0035_research_menu_learning",
-      "0036_research_use_notice_v6", "0037_research_dossiers", "0038_research_proposal_idempotency_index"]);
+      "0036_research_use_notice_v6", "0037_research_dossiers", "0038_research_proposal_idempotency_index",
+      "0039_gemini_oauth_store"]);
     // One table and its sequence, safe to run again; the reason lists replaced on every run.
     expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS atlas_publication_number_seq AS bigint START WITH 1001");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS atlas_publications (");
@@ -1127,8 +1128,9 @@ describe("production living-evidence deployment", () => {
     // Right after 0034 in the migrate list; only 0036 (notice version 6, owner answer 307b), 0037 and 0038 follow it.
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
-    expect(order.slice(-5)).toEqual(["0034_research_call_record_plan_next", "0035_research_menu_learning",
-      "0036_research_use_notice_v6", "0037_research_dossiers", "0038_research_proposal_idempotency_index"]);
+    expect(order.slice(-6)).toEqual(["0034_research_call_record_plan_next", "0035_research_menu_learning",
+      "0036_research_use_notice_v6", "0037_research_dossiers", "0038_research_proposal_idempotency_index",
+      "0039_gemini_oauth_store"]);
     // Safe to run again: the columns, the table and the index come once, and every check is added by its name only
     // when it is missing.
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS learn_menu_choices boolean NOT NULL DEFAULT false");
@@ -1185,7 +1187,8 @@ describe("production living-evidence deployment", () => {
     const runbook = await read("infra/living-evidence-production/README.md");
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
-    expect(order.slice(-2)).toEqual(["0037_research_dossiers", "0038_research_proposal_idempotency_index"]);
+    expect(order.slice(-3)).toEqual(["0037_research_dossiers", "0038_research_proposal_idempotency_index",
+      "0039_gemini_oauth_store"]);
     // Additive: new objects only, each made once; nothing existing is dropped or altered but one trigger it owns.
     expect(migration).not.toMatch(/DROP (?!TRIGGER IF EXISTS)|ALTER TABLE|CREATE TABLE (?!IF NOT EXISTS)/u);
     expect([...migration.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)/gu)].map(([, name]) => name)).toEqual([
@@ -1288,7 +1291,7 @@ describe("production living-evidence deployment", () => {
     const runbook = await read("infra/living-evidence-production/README.md");
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
-    expect(order.at(-1)).toBe("0038_research_proposal_idempotency_index");
+    expect(order.slice(-2)).toEqual(["0038_research_proposal_idempotency_index", "0039_gemini_oauth_store"]);
     // One index, made once; no table, row, constraint, trigger, function or grant, and not CONCURRENTLY, which migrate()'s
     // single transaction cannot run.
     const statements = migration.replace(/--[^\n]*\n/gu, "").split(";").map((part) => part.trim()).filter(Boolean);
@@ -1311,6 +1314,35 @@ describe("production living-evidence deployment", () => {
     expect(section).toContain("Leave the index in place on a rollback");
     expect(section).toContain("SELECT count(*), pg_size_pretty(pg_total_relation_size('living_evidence.research_contribution_proposals'))");
     expect(section).toContain("research_contribution_proposals_idempotency_idx");
+  });
+
+  // Owner answer 386b (20 Nov 2026): Gemini's sign-in keeps its authorization server's state in one sealed table.
+  it("ships migration 0039's Gemini sign-in table, additive, safe to run again, kept from every role but the access role", async () => {
+    const migration = await read("packages/evidence-repository/migrations/0039_gemini_oauth_store.sql");
+    const repository = await read("packages/evidence-repository/src/postgres.ts");
+    const provision = await read("infra/living-evidence-production/provision-research-access-role.sh");
+    const runbook = await read("infra/living-evidence-production/README.md");
+    const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
+    const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
+    expect(order.at(-1)).toBe("0039_gemini_oauth_store");
+    // One new table and its indexes, each made once; nothing existing is dropped or altered.
+    expect([...migration.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)/gu)].map(([, name]) => name)).toEqual(["gemini_oauth_store"]);
+    expect([...migration.matchAll(/CREATE INDEX IF NOT EXISTS (\w+)/gu)]).toHaveLength(4);
+    expect(migration).not.toMatch(/\b(DROP|ALTER TABLE|TRUNCATE|DELETE|UPDATE|INSERT)\b/u);
+    // Keys and indexes are 32-byte HMACs; payloads sealed and bounded; no text column could hold a token or subject.
+    expect(migration).toContain("key bytea NOT NULL CHECK (octet_length(key) = 32)");
+    expect(migration).toContain("payload bytea NOT NULL CHECK (octet_length(payload) BETWEEN 29 AND 65536)");
+    expect(migration).not.toMatch(/\b(subject|token|account_id|client_id)\s+text\b/u);
+    // Kept from PUBLIC and the canonical reader; only the research-access role gets it, and only these four rights.
+    expect(migration).toContain("REVOKE ALL ON TABLE gemini_oauth_store FROM PUBLIC;");
+    expect(migration).toContain("REVOKE ALL ON TABLE gemini_oauth_store FROM askrigor_reader;");
+    expect(migration).not.toMatch(/\bGRANT\b/u);
+    expect(provision).toContain("GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE living_evidence.gemini_oauth_store\n  TO askrigor_research_access;");
+    // The runbook gives the order (migrate, then the role script), what an earlier image does, and the rollback.
+    const section = runbook.slice(runbook.indexOf("Migration `0039_gemini_oauth_store`"));
+    expect(section).toContain("provision-research-access-role.sh");
+    expect(section).toContain("An earlier image never reads the table");
+    expect(section).toContain("DELETE FROM living_evidence.gemini_oauth_store");
   });
 });
 

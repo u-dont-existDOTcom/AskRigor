@@ -118,6 +118,12 @@ import {
   type SignInState,
 } from "./oauth-resource-server.js";
 
+import {
+  attachGeminiSurfaceIdentity,
+  geminiSignInFromEnv,
+  writeGeminiChallenge,
+  type GeminiSignIn,
+} from "./gemini-sign-in/index.js";
 import type { InfoAccessClient } from "./infoaccess-client.js";
 import type { LessonSubmissionResult } from "./lessons/contracts.js";
 import type { FindingsSaveResult } from "./findings/contracts.js";
@@ -161,6 +167,8 @@ export interface AskRigorMcpServerOptions {
   toolListVersion?: string;
   /** What happened to this request's sign-in on /mcp; undefined without OAuth. */
   signIn?: SignInState;
+  /** Gemini's sign-in (owner answer 386b): the account's Gemini links, for manage_research_access. */
+  geminiLinks?: import("./research-contributor-access-tool.js").GeminiLinks;
 }
 
 export function createAskRigorServer(
@@ -246,6 +254,8 @@ export interface AskRigorHttpServerOptions {
   oauthResourceServer?: AskRigorOAuthResourceServer;
   // Claude custom-connector resource (/mcp/claude). null forces it off.
   claudeOAuthResourceServer?: AskRigorOAuthResourceServer | null;
+  /** Gemini's sign-in (owner answer 386b): from the environment by default; null forces it off. */
+  geminiSignIn?: GeminiSignIn | null;
   researchContributorAccessService?: ResearchContributorAccessService;
   researchContributionReviewService?: ResearchContributionReviewService;
   /** The owner's findings actions for the Atlas; from the environment by default, and only while they are open. */
@@ -453,6 +463,12 @@ export function createAskRigorHttpServer(
       });
   // Owner answer 280a: the content-free call record, on the research-access database and pool.
   const researchCallRecord = options.researchCallRecord ?? researchAccessStore?.callRecordStore();
+  // Owner answer 386b: AskRigor's own authorization server for Google's Gemini app, on the same database and pool. It
+  // exists only beside the primary OAuth resource (its settings refuse to load without it).
+  const geminiSignIn = options.geminiSignIn === null
+    ? undefined
+    : options.geminiSignIn ?? geminiSignInFromEnv(researchAccessStore?.geminiSignInRows());
+  const geminiLinks = geminiSignIn?.links;
   // AskRigor#477 stage 1 (owner answer 329a): research dossiers, on the research-access database and pool, once enabled.
   const researchDossiers = options.researchDossiers ??
     (researchDossiersEnabledFromEnv() ? researchAccessStore?.dossierStore() : undefined);
@@ -528,6 +544,11 @@ export function createAskRigorHttpServer(
     researchAccessRequired,
     mcpSurface: profile === "gemini" ? GEMINI_COMPATIBLE_MCP_PATH : "/mcp",
     signIn,
+    ...(geminiLinks === undefined ? {} : { geminiLinks }),
+    // A tool's sign-in challenge on /mcp/gemini names AskRigor's own authorization server once Gemini's sign-in is on.
+    ...(profile === "gemini" && geminiSignIn !== undefined
+      ? { oauthResourceMetadataUrl: geminiSignIn.routes.resourceMetadataUrl }
+      : {}),
     ...(options.sharedAnswers === undefined ? {} : { sharedAnswers: options.sharedAnswers }),
   });
   const claudeMcpServerOptions = (signIn?: SignInState): AskRigorMcpServerOptions => ({
@@ -545,6 +566,7 @@ export function createAskRigorHttpServer(
     researchAccessRequired,
     mcpSurface: CLAUDE_MCP_PATH,
     signIn,
+    ...(geminiLinks === undefined ? {} : { geminiLinks }),
     ...(options.sharedAnswers === undefined ? {} : { sharedAnswers: options.sharedAnswers }),
   });
   // Each surface's tool list version (owner request, 2026-10-22), taken at its first MCP request from a server made
@@ -605,6 +627,17 @@ export function createAskRigorHttpServer(
 
     if (
       await atlasPagesHandler.dispatch(request, response, {
+        pathname,
+        clientIp: resolveClientIp(request, trustedClientIpHeader),
+      })
+    ) {
+      return;
+    }
+
+    // Gemini's sign-in: /mcp/gemini's resource metadata, the authorization server's metadata and /oauth/gemini/*.
+    if (
+      geminiSignIn !== undefined &&
+      await geminiSignIn.routes.dispatch(request, response, {
         pathname,
         clientIp: resolveClientIp(request, trustedClientIpHeader),
       })
@@ -781,9 +814,18 @@ export function createAskRigorHttpServer(
       let server: McpServer | undefined;
       try {
         // /mcp/claude refused the request above unless its sign-in was valid.
+        const geminiSurface = pathname === GEMINI_COMPATIBLE_MCP_PATH;
         const signIn: SignInState | undefined = claudeSurface
           ? { state: "accepted" }
-          : await attachOptionalOAuthIdentity(request, oauthResourceServer);
+          : geminiSurface && geminiSignIn !== undefined
+            ? await attachGeminiSurfaceIdentity(request, geminiSignIn.server, oauthResourceServer)
+            : await attachOptionalOAuthIdentity(request, oauthResourceServer);
+        // A token that was sent and refused gets the transport challenge on /mcp/gemini, so Gemini refreshes it or signs
+        // in again; a request without a token stays open, as before.
+        if (geminiSurface && geminiSignIn !== undefined && signIn?.state === "refused") {
+          writeGeminiChallenge(response, geminiSignIn.routes.resourceMetadataUrl);
+          return;
+        }
         const profile = pathname === GEMINI_COMPATIBLE_MCP_PATH
           ? "gemini"
           : "standard";
@@ -813,6 +855,9 @@ export function createAskRigorHttpServer(
   if (researchCallRecord !== undefined) {
     const sweepTimer = startResearchCallRecordSweep(researchCallRecord);
     httpServer.once("close", () => clearInterval(sweepTimer));
+  }
+  if (geminiSignIn !== undefined && options.geminiSignIn === undefined) {
+    httpServer.once("close", () => geminiSignIn.stop());
   }
   return httpServer;
 }

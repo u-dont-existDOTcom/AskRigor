@@ -620,3 +620,12 @@ export {
   type ResearchFrontierSearchInput,
   type TopicLinkContributionReceipt,
 } from "./postgres.js";
+export {
+  GEMINI_SIGN_IN_MODELS,
+  MemoryGeminiSignInRowStore,
+  PostgresGeminiSignInRowStore,
+  type GeminiSignInModel,
+  type GeminiSignInRow,
+  type GeminiSignInRowStore,
+  type GeminiSignInStoredRow,
+} from "./gemini-sign-in-rows.js";
