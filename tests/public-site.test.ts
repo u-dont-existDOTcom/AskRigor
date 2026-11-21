@@ -47,7 +47,8 @@ describe("AskRigor public site", () => {
     const result = await validatePublicSite(rootFile("site/"));
     // 105 since 16 Nov 2026: the new inositol Atlas overview link in the roadmap adds one to the previous 104.
     // 106 since 21 Nov 2026: the home page footer's "User count" link to the public user count's text page.
-    expect(result.internalLinks).toBe(106);
+    // 108 since the 21 Nov 2026 release record: the roadmap's "What's new" links the user count page and the privacy notice.
+    expect(result.internalLinks).toBe(108);
   });
 
   it("discloses connected research and the bounded legacy checkpoint", async () => {
