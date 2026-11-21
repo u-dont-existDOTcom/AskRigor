@@ -5555,7 +5555,7 @@
 
   // phone/phone.js
   var PAGE_SHA = true ? "db6b275f7091830faa1ffa2950494ebcdcef6dc23a7d25eacf1c2889e964ae8c" : "";
-  var RUNNER_COMMIT = true ? "d3358413cc73" : "";
+  var RUNNER_COMMIT = true ? "74f2d7cb7347" : "";
   var $ = (id) => document.getElementById(id);
   var esc = (text) => String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   function device() {
