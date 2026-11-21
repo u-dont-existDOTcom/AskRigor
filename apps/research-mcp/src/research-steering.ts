@@ -947,6 +947,12 @@ export const ASKED_REQUEST = "On this account AskRigor plans the research itself
 export const ANSWER_REVIEW_ASKED = "At the final check, give later_inputs.asked again, with any later message of " +
   "theirs about this question added: AskRigor's review of your draft reads them, and AskRigor keeps none of them.";
 
+/**
+ * Owner answer 395b (21 November 2026): the longest one dev account's planning call is paused, for a test round that
+ * compares research with and without it (research-planner.ts, pause). A session turns a pause on only for such a round.
+ */
+export const PLANNER_PAUSE_MAX_MINUTES = 120;
+
 /** Why a dev account's registration came back without AskRigor's own plan, when the planning call is on. */
 export const PLANNER_NOT_USED_REASONS = ["daily_budget", "account_limit", "error", "timeout", "refusal",
   "unreadable"] as const;

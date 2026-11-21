@@ -499,6 +499,22 @@ owner's ChatGPT runs had left that judgment to the person's AI, and it went wron
   (`fallbacks: "default"`); when the whole chain declines, the AI plans as before. The SDK's own logging and
   tracing are off for this client and the meaning judge's, whatever the environment says: at debug level the SDK
   logs requests and replies whole.
+- **A test round's pause (owner answer 395b, 21 November 2026; built, not yet released).** To compare a dev
+  account's research with and without the call on the same day and build, a session pauses that account's own call
+  with the runtime-only action `pause_research_planner` and `later_inputs.pauseMinutes` (so the published tool list
+  is unchanged): whole minutes from now, 1 to 120, or 0 to end it. While it runs the account goes as with the call
+  off: `register_plain_answer` makes no call and hands on no plan, `inspect` asks for none of the person's words,
+  `plan_research` names no learn mode and keeps no menu answer, and the final check finds no plan's lane, so a light
+  look-up's draft is reviewed like any other. AskRigor's review of a draft still runs, from the research target alone
+  unless the AI passes the person's words. Starting a pause forgets what the hour kept of the account's plans and
+  lanes, so research registered during or after it never takes a plan made before it; a call already running when it
+  began still answers its own registration, and keeps no lane. A paused registration costs nothing and counts nothing
+  toward the account's calls for the day. Learn mode's setting can still be changed. `inspect` says the call is
+  paused and until when (`plannerPausedUntil` gives the time) without naming the action, so the person's own AI is
+  never invited to end it. Only a dev account can pause, only its own call, and only while the call is on
+  (`planner_off` otherwise). The pause is kept in process memory only, under the account's 16-hex-character digest:
+  a restart ends every pause, so a round checks `inspect` before and after its runs. A session turns it on only for
+  a test round, and the person's own research in that window goes without plans too.
 - **What it costs and keeps.** Paid from the owner's monthly Claude API credit
   (`governance/chat-work-authority-policy.json`, `OWNER_ANSWER_298B`). Measured on 13 November on the five test
   questions: 6 to 9 cents and 10 to 22 seconds a call with one or two searches. AskRigor stores nothing it sends or

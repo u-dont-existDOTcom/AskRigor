@@ -21,7 +21,8 @@ import { glanceRowIdSchema, glanceRowInputSchema } from "./atlas/glance-review.j
 import { challengeMarkInputShape } from "./atlas/challenge-review.js";
 import { newsDateInputSchema, newsNumberInputSchema } from "./news/inputs.js";
 import { claimCoverageSchema } from "./claim-coverage.js";
-import { ASKED_LIMIT, framingSchema, researchMenuSchema, researchSteeringInputSchema } from "./research-steering.js";
+import { ASKED_LIMIT, PLANNER_PAUSE_MAX_MINUTES, framingSchema, researchMenuSchema, researchSteeringInputSchema }
+  from "./research-steering.js";
 
 /**
  * list_calls' page: the calls received before a time, as a previous listing's next_before gave it (the review of 12 Nov
@@ -277,6 +278,10 @@ const LATER_INPUT_SHAPES = Object.freeze({
     // The owner, 14 Nov 2026: one of the owner's pointers, by the id a registration's result lists.
     ownerPointer: z.string().trim().regex(/^[A-Za-z0-9][A-Za-z0-9-]{0,63}$/u).optional()
       .describe("With owner_pointer: the pointer's id, as register_plain_answer's askrigor_holds lists it."),
+    // Owner answer 395b (21 Nov 2026): a test round's pause of a dev account's planning call, in whole minutes.
+    pauseMinutes: z.number().int().min(0).max(PLANNER_PAUSE_MAX_MINUTES).optional()
+      .describe(`With pause_research_planner, on a dev account for a test round only: whole minutes from now, at most ` +
+        `${PLANNER_PAUSE_MAX_MINUTES}, to pause AskRigor's own planning call; 0 ends the pause.`),
   },
   review_research_contribution: {
     sharedAnswerId: sharedAnswerIdSchema.optional()

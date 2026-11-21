@@ -83,6 +83,7 @@ import {
   PERSON_GO_AHEADS,
   personGoAheadProblem,
   PLANNER_NOT_USED_REASONS,
+  PLANNER_PAUSE_MAX_MINUTES,
   PLAN_TASK_KINDS,
   RESEARCH_LANES,
   RESEARCH_LOOPS,
@@ -194,6 +195,8 @@ export const manageResearchAccessInputSchema = z.object({
     "owner_pointer",
     // Owner answer 386b (21 Nov 2026; runtime only): end every Gemini link of this account, from any connected app.
     "disconnect_gemini",
+    // Owner answer 395b (21 Nov 2026, runtime only): a test round's pause of a dev account's planning call.
+    "pause_research_planner",
   ]),
   agreement: freeContributorAgreementSchema.extend({ noticeVersion: noticeVersionSchema }).strict().optional(),
   plainAnswer: plainAnswerInputSchema.optional()
@@ -292,7 +295,7 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
   error: researchAccessErrorSchema.extend({
     // Owner answer 303a: learn mode asked of an account that is not a dev account, or while the planning call is off.
     code: z.union([researchAccessErrorSchema.shape.code, z.literal("call_record_unavailable"),
-      z.literal("learn_mode_unavailable"), z.literal("gemini_links_unavailable")]),
+      z.literal("learn_mode_unavailable"), z.literal("gemini_links_unavailable"), z.literal("planner_off")]),
   }).optional(),
   // Owner answer 386b (runtime only): how many Gemini links the account has, and how many a disconnect ended.
   geminiLinks: z.number().int().nonnegative().optional(),
@@ -430,6 +433,10 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     .describe("With plan_research, while AskRigor keeps a findings ledger: the six checks that stop a whole answer, " +
       "each in its scope, once the call gives a usable answer_draft and research_target; everything else is a note to " +
       "fix or dispute."),
+  // Owner answer 395b (runtime only): when a dev account's paused planning call starts again; null once none runs.
+  plannerPausedUntil: z.iso.datetime().nullable().optional()
+    .describe("With pause_research_planner, and with inspect while a pause runs on a dev account: when AskRigor's own " +
+      "planning call starts again for this account, in UTC; null when no pause runs."),
 }).strict();
 
 /**
@@ -661,6 +668,60 @@ export const DETAILED_REPORTS_OFF = "Detailed lesson reports are off for this ac
 export const FINDINGS_SAVE_ON = "Findings-card saving is on for this dev account.";
 export const FINDINGS_SAVE_OFF = "Findings-card saving is off for this dev account; its final check still checks " +
   "the findings card and the answer.";
+
+/** A time as the pause's texts give it: hours and minutes, UTC. */
+const utcClock = (at: number): string => new Date(at).toISOString().slice(11, 16);
+
+/**
+ * Owner answer 395b (21 Nov 2026): the pause's own result, for the session that runs a test round, which compares the
+ * account's research with and without AskRigor's own planning call.
+ */
+export function plannerPausedText(until: number): string {
+  return `AskRigor's own planning call is paused for this dev account until ${utcClock(until)} UTC ` +
+    `(${new Date(until).toISOString()}). Until then this account's research goes as with that call off: a ` +
+    "registration makes no plan, inspect asks for none of the person's words, a menu's answers are not kept for learn " +
+    "mode, and the final check finds no plan's lane; the final check's review of a draft still runs, from the research " +
+    "target alone unless the person's words come with the call. The plans the last hour kept for this account are " +
+    "forgotten, so no research takes one made before the pause. The call starts again by itself at that time. Pausing " +
+    `again sets a new end, at most ${PLANNER_PAUSE_MAX_MINUTES} minutes from now; 0 minutes ends the pause now. A ` +
+    "restart of AskRigor's server ends it too: inspect shows whether it still runs.";
+}
+
+/** Owner answer 395b: a pause ended, or none ran. */
+export const PLANNER_PAUSE_ENDED = "AskRigor's own planning call is on for this dev account: no pause runs.";
+
+/** Owner answer 395b: nothing to pause while the planning call is off on the server. */
+export const PLANNER_OFF_NOTHING_PAUSED = "AskRigor's own planning call is off on this server, so there is nothing to " +
+  "pause; nothing was changed.";
+
+/**
+ * Owner answer 395b: inspect's sentence while a pause runs on a dev account, for whoever reads it, the person's own AI
+ * included. It names no action, so an AI is never invited to end the pause.
+ */
+export function plannerPausedInspectSentence(until: number): string {
+  return `AskRigor's own planning call is paused for this account until ${utcClock(until)} UTC, for a test round; ` +
+    "until then its research is planned as without that call.";
+}
+
+/**
+ * AskRigor's own planning call for this account (owner answer 298b): the planner while it is on, for a dev account
+ * whose call no test round has paused (owner answer 395b); otherwise undefined, and the account plans as with the
+ * call off.
+ */
+function activePlanner(options: ResearchContributorToolOptions, accountKey: string, devAccount: boolean):
+  ResearchPlanner | undefined {
+  if (!devAccount) return undefined;
+  const planner = options.researchPlanner?.();
+  return planner?.enabled === true && planner.pausedUntil?.(accountKey) === undefined ? planner : undefined;
+}
+
+/** When this dev account's paused planning call starts again (owner answer 395b), or undefined while none runs. */
+function plannerPauseEnd(options: ResearchContributorToolOptions, accountKey: string, devAccount: boolean):
+  number | undefined {
+  if (!devAccount) return undefined;
+  const planner = options.researchPlanner?.();
+  return planner?.enabled === true ? planner.pausedUntil?.(accountKey) : undefined;
+}
 
 /**
  * What inspect asks of an account whose research waits on the free-use notice: one not enrolled, one revoked, or one
@@ -945,6 +1006,11 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       return accessError("invalid_request",
         "later_inputs.ownerPointer goes only with action owner_pointer, which needs it.");
     }
+    // Owner answer 395b: so is later_inputs.pauseMinutes with pause_research_planner, for the same reason.
+    if ((input.action === "pause_research_planner") !== (input.pauseMinutes !== undefined)) {
+      return accessError("invalid_request",
+        "later_inputs.pauseMinutes goes only with action pause_research_planner, which needs it.");
+    }
     if (input.action === "list_calls") {
       if (options.callRecord === undefined || options.service === undefined) {
         const message = "This AskRigor server keeps no call record, so there is nothing to show.";
@@ -1119,9 +1185,10 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       if (parsed.action === "register_plain_answer") {
         // Owner answer 298b: on a dev account, AskRigor's own planning call makes the plan. Any other account's
         // later_inputs.asked is read only for the YouTube videos the person named (owner answer 307b), and not kept.
-        const devAccount = isDevAccount(options.service.accountKeyForSubject(auth.subject),
-          options.devAccountKeys?.() ?? new Set());
-        const planner = devAccount ? options.researchPlanner?.() : undefined;
+        const accountKey = options.service.accountKeyForSubject(auth.subject);
+        const devAccount = isDevAccount(accountKey, options.devAccountKeys?.() ?? new Set());
+        // Owner answer 395b: a dev account whose planning call a test round paused registers as with the call off.
+        const planner = activePlanner(options, accountKey, devAccount);
         // The person's words as one text: a list's messages in order, a blank line between them (askedText, which the
         // final check's review reads them with too).
         const asked = parsed.asked === undefined ? undefined : askedText(parsed.asked);
@@ -1141,18 +1208,20 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           options.askrigorHolds, asked);
       }
       if (parsed.action === "set_research_steering") {
-        // Owner answer 303a: learn mode only for a dev account, while AskRigor's own planning call is on.
+        // Owner answer 303a: learn mode only for a dev account, while AskRigor's own planning call is on. A test round's
+        // pause (owner answer 395b) leaves the setting free: it is a setting kept for later, not a use of the call.
         const devAccount = isDevAccount(options.service.accountKeyForSubject(auth.subject),
           options.devAccountKeys?.() ?? new Set());
         return await setResearchSteering(options.service, auth.subject, parsed.researchSteering!, devAccount,
           devAccount && options.researchPlanner?.()?.enabled === true);
       }
       if (parsed.action === "plan_research") {
-        const devAccount = isDevAccount(options.service.accountKeyForSubject(auth.subject),
-          options.devAccountKeys?.() ?? new Set());
+        const accountKey = options.service.accountKeyForSubject(auth.subject);
+        const devAccount = isDevAccount(accountKey, options.devAccountKeys?.() ?? new Set());
         // Owner answer 303a: on a dev account while AskRigor's own planning call is on, the menu names learn mode, and a
-        // call that carries the person's answer is kept while learn mode is on.
-        const learning = devAccount && options.researchPlanner?.()?.enabled === true
+        // call that carries the person's answer is kept while learn mode is on; not while a test round has paused the
+        // call (owner answer 395b).
+        const learning = activePlanner(options, accountKey, devAccount) !== undefined
           ? { log: options.log ?? defaultLog } : undefined;
         return await planResearchAction(options.service, auth.subject, parsed.researchMenu!, options.plainAnswer,
           options.menuDigestSecret?.(), devAccount, learning, options.researchDossiers === true, findingsSaveOff(parsed),
@@ -1174,6 +1243,30 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         return {
           content: [{ type: "text", text: parsed.findingsSave ? FINDINGS_SAVE_ON : FINDINGS_SAVE_OFF }],
           structuredContent: manageResearchAccessOutputSchema.parse({ ok: true, findingsSave: parsed.findingsSave }),
+        };
+      }
+      // Owner answer 395b (21 Nov 2026): a test round pauses a dev account's planning call for at most two hours, so its
+      // research goes as with the call off, and the call starts again by itself; 0 minutes ends the pause sooner.
+      if (parsed.action === "pause_research_planner") {
+        const accountKey = options.service.accountKeyForSubject(auth.subject);
+        if (!isDevAccount(accountKey, options.devAccountKeys?.() ?? new Set())) {
+          return accessError("dev_account_required", "Only a dev account listed in AskRigor's settings may pause " +
+            "AskRigor's own planning call; this account is not listed, so nothing was changed.");
+        }
+        const planner = options.researchPlanner?.();
+        if (planner?.enabled !== true || planner.pause === undefined) {
+          return {
+            content: [{ type: "text", text: PLANNER_OFF_NOTHING_PAUSED }],
+            structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: false,
+              error: { code: "planner_off", message: PLANNER_OFF_NOTHING_PAUSED } }),
+            isError: true,
+          };
+        }
+        const until = planner.pause(accountKey, parsed.pauseMinutes!);
+        return {
+          content: [{ type: "text", text: until === undefined ? PLANNER_PAUSE_ENDED : plannerPausedText(until) }],
+          structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: true,
+            plannerPausedUntil: until === undefined ? null : new Date(until).toISOString() }),
         };
       }
       // Consent counts only for the notice the user was shown: an earlier
@@ -1216,7 +1309,9 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       // the text too, for an app that shows the model a tool's text alone.
       const nextStep = parsed.action === "inspect" && access.status !== "ACTIVE" ? noticeNextStep() : undefined;
       // Owner answer 298b: a dev account whose research AskRigor plans itself is asked for the person's own words.
-      const planned = devAccount && plain !== undefined && options.researchPlanner?.()?.enabled === true;
+      const planned = plain !== undefined && activePlanner(options, accountKey, devAccount) !== undefined;
+      // Owner answer 395b: a dev account is told while a test round has paused its planning call, and until when.
+      const pausedUntil = plannerPauseEnd(options, accountKey, devAccount);
       // Owner answer 303a: a dev account is told whether learn mode is on and how many of its menu choices are kept.
       const learnOn = settings?.steering.learnMenuChoices === true;
       const learnMode = settings === undefined || !devAccount ? undefined : { on: learnOn,
@@ -1243,6 +1338,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
             (settings === undefined || !devAccount ? "" : ` ${settings.findingsSave ? FINDINGS_SAVE_ON : FINDINGS_SAVE_OFF}`) +
             (settings === undefined ? "" : ` ${steeringInspectText(settings.steering)}`) +
             (learnMode === undefined ? "" : ` ${learnModeInspectSentence(learnMode.on, learnMode.kept)}`) +
+            (pausedUntil === undefined ? "" : ` ${plannerPausedInspectSentence(pausedUntil)}`) +
             (options.callRecord === undefined ? "" : ` ${CALL_RECORD_SENTENCE}`) +
             (geminiLinks === undefined || geminiLinks === 0 ? "" : ` This account is connected to Google Gemini ` +
               `(${geminiLinks === 1 ? "one link" : `${geminiLinks} links`}); if the person asks to disconnect Gemini, ` +
@@ -1256,6 +1352,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           ...(settings === undefined ? {} : { detailedLessonReports: settings.detailedLessonReports }),
           ...(settings === undefined || !devAccount ? {} : { findingsSave: settings.findingsSave }),
           ...(settings === undefined ? {} : { steering: shownSteering(settings.steering, devAccount) }),
+          ...(pausedUntil === undefined ? {} : { plannerPausedUntil: new Date(pausedUntil).toISOString() }),
           accountReference,
           ...(geminiLinks === undefined || geminiLinks === 0 ? {} : { geminiLinks }),
           ...(nextStep !== undefined ? { next_step: nextStep } : planned ? { next_step: ASKED_REQUEST } : {}),
