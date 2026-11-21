@@ -352,7 +352,7 @@ describe("Gemini's sign-in rules (design v2)", () => {
       const { code, verifier } = await linkToCode(fixture, browser);
       const response = await exchange(code, verifier);
       const { access_token: access, refresh_token: refreshToken } = await response.json() as Record<string, string>;
-      const everything = Buffer.concat(fixture.rows.snapshot().flatMap((row) =>
+      const everything = Buffer.concat(fixture.memoryRows!.snapshot().flatMap((row) =>
         [row.key, row.payload, row.grantKey ?? Buffer.alloc(0), row.uidKey ?? Buffer.alloc(0), row.accountRef ?? Buffer.alloc(0)]));
       for (const secret of [code, access!, refreshToken!, PERSON, CLIENT_ID, "research:use"]) {
         expect(everything.includes(Buffer.from(secret, "utf8")), secret).toBe(false);

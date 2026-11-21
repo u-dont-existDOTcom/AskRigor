@@ -2,7 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import { MemoryGeminiSignInRowStore } from "@askrigor/evidence-repository";
+import { MemoryGeminiSignInRowStore, type GeminiSignInRowStore } from "@askrigor/evidence-repository";
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
 
 import { deriveGeminiSignInKeys, type GeminiSignInSettings } from "../../apps/research-mcp/src/gemini-sign-in/config.js";
@@ -59,7 +59,9 @@ export interface GeminiFixture {
   readonly baseUrl: string;
   readonly server: GeminiAuthorizationServer;
   readonly routes: GeminiSignInRoutes;
-  readonly rows: MemoryGeminiSignInRowStore;
+  readonly rows: GeminiSignInRowStore;
+  /** The in-memory rows, unless the fixture was given other rows (a real PostgreSQL in the acceptance script). */
+  readonly memoryRows: MemoryGeminiSignInRowStore | undefined;
   readonly login: GeminiLogin;
   readonly google: { kid: string; sign(claims: Record<string, unknown>, options?: { kid?: string; key?: CryptoKey }): Promise<string> };
   /** Fetches to Google's addresses, in order (tests of caching and refusal). */
@@ -76,7 +78,8 @@ export interface GeminiFixture {
   };
 }
 
-export async function startGeminiFixture(options: { now?: () => Date } = {}): Promise<GeminiFixture> {
+export async function startGeminiFixture(options: { now?: () => Date; rows?: GeminiSignInRowStore } = {}):
+  Promise<GeminiFixture> {
   const googleKeys = await generateKeyPair("RS256", { extractable: true });
   const stranger = await generateKeyPair("RS256", { extractable: true });
   const auth0Keys = await generateKeyPair("RS256", { extractable: true });
@@ -159,7 +162,8 @@ export async function startGeminiFixture(options: { now?: () => Date } = {}): Pr
     keys: deriveGeminiSignInKeys(Buffer.alloc(32, 7)),
     diagnostics: false,
   };
-  const rows = new MemoryGeminiSignInRowStore();
+  const memoryRows = options.rows === undefined ? new MemoryGeminiSignInRowStore() : undefined;
+  const rows: GeminiSignInRowStore = options.rows ?? memoryRows!;
   const server = createGeminiAuthorizationServer(settings, rows, {
     fetch: googleFetch,
     ...(options.now === undefined ? {} : { now: options.now }),
@@ -201,6 +205,7 @@ export async function startGeminiFixture(options: { now?: () => Date } = {}): Pr
     server,
     routes,
     rows,
+    memoryRows,
     login,
     googleFetches,
     strangerKey: stranger.privateKey as CryptoKey,
