@@ -19,6 +19,7 @@ import { reportVerdictSchema } from "./atlas/report-review.js";
 import { atlasReportShareSchema, reportNumberSchema } from "./atlas/report-door.js";
 import { glanceRowIdSchema, glanceRowInputSchema } from "./atlas/glance-review.js";
 import { challengeMarkInputShape } from "./atlas/challenge-review.js";
+import { newsDateInputSchema, newsNumberInputSchema } from "./news/inputs.js";
 import { claimCoverageSchema } from "./claim-coverage.js";
 import { ASKED_LIMIT, framingSchema, researchMenuSchema, researchSteeringInputSchema } from "./research-steering.js";
 
@@ -187,6 +188,13 @@ const LATER_INPUT_SHAPES = Object.freeze({
       .describe("When this research would save a later reader substantial work compared with one ordinary AI answer: " +
         "its dossier, in general terms, as this check's result describes it. AskRigor checks it against this call's " +
         "receipts and saves it whole, privately for its owner's review, or says why not."),
+    // Atlas news, stage 1 (plan 2026-11-21-atlas-news-stage1.md): the news check's card. Read from the raw call
+    // (newsCardFromCall), so any value parses here and its own checks name every problem: a news card never holds back
+    // the answer.
+    news_card: z.unknown().optional()
+      .describe("Only for AskRigor's own news check: the news card, as the news check's instructions give its fields. " +
+        "AskRigor checks it, looks its backing lines up in the texts it fetched, signs it into the receipt and, for " +
+        "the owner's news run, stages it privately for the day's call."),
   },
   // Owner answer 219b: the card exactly as finalize_research checked it, its findings' declarations included.
   save_research_findings: {
@@ -296,6 +304,14 @@ const LATER_INPUT_SHAPES = Object.freeze({
     // The owner, 6 Nov 2026: findings that challenge the usual view, with mark_challenge (items too, and with
     // clear_challenge).
     ...challengeMarkInputShape,
+    // Atlas news, stage 1 (plan 2026-11-21-atlas-news-stage1.md): the day's payload, an item or every item, and a day.
+    // news_day is checked by the day call itself, which names every problem.
+    news_day: z.unknown().optional()
+      .describe("With publish_news_day: the day's publish.json from the news check, unchanged."),
+    news_number: newsNumberInputSchema.optional()
+      .describe("With withdraw_news_item: an N-number, or all. With list_news_items: one N-number, read in full."),
+    news_date: newsDateInputSchema.optional()
+      .describe("With list_news_items: the day to list, YYYY-MM-DD."),
   },
 } satisfies Record<string, z.ZodRawShape>);
 

@@ -133,6 +133,7 @@ import { toolListVersionOf } from "./tool-list-currency.js";
 import type { AtlasReview } from "./findings/atlas-review.js";
 import { createAtlasReviewFromEnv } from "./findings/runtime.js";
 import { createAtlasPagesHandlerFromEnv, type AtlasPagesHandler } from "./atlas/pages-http.js";
+import { atlasNewsFromEnv, type AtlasNewsOptions } from "./news/runtime.js";
 
 export type McpToolCatalogProfile = "standard" | "gemini";
 
@@ -140,6 +141,8 @@ export interface AskRigorMcpServerOptions {
   researchCallRecord?: ResearchCallRecordStore;
   /** AskRigor#477 stage 1: where free contributors' research dossiers are saved privately; none without it. */
   researchDossiers?: ResearchDossierStore;
+  /** Atlas news, stage 1: its mode and its two roles' stores; news is off without it. */
+  atlasNews?: AtlasNewsOptions;
   infoAccess?: InfoAccessClient;
   publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
   oauthResourceMetadataUrl?: URL;
@@ -222,6 +225,8 @@ function semverBuildMetadata(running: RunningVersions): string {
 }
 
 export interface AskRigorHttpServerOptions {
+  /** Replaces Atlas news's mode and stores, for tests; otherwise ASKRIGOR_ATLAS_NEWS decides. */
+  atlasNews?: AtlasNewsOptions;
   researchCallRecord?: ResearchCallRecordStore;
   /** Replaces the research dossiers' store, for tests; otherwise ASKRIGOR_RESEARCH_DOSSIERS decides. */
   researchDossiers?: ResearchDossierStore;
@@ -498,6 +503,10 @@ export function createAskRigorHttpServer(
             ssl: researchContributionReviewConfig.ssl,
           }),
         ));
+  // Atlas news, stage 1: off unless ASKRIGOR_ATLAS_NEWS is "shadow". Staging goes through the research-access role, as the
+  // dossiers are written; the owner's news actions through the review role, as the Atlas publications are. Each pool is
+  // made once per process.
+  const atlasNews = options.atlasNews ?? atlasNewsFromEnv(researchContributorAccessConfig);
   // The Atlas review's database pools and GitHub App token: made once per process, and only while it is open.
   const atlasReviewEnabled = options.atlasReviewEnabled ?? atlasReviewEnabledFromEnv();
   const atlasReview = options.atlasReview ?? (atlasReviewEnabled ? createAtlasReviewFromEnv() : undefined);
@@ -534,6 +543,7 @@ export function createAskRigorHttpServer(
   const mcpServerOptions = (profile?: McpToolCatalogProfile, signIn?: SignInState): AskRigorMcpServerOptions => ({
     researchCallRecord,
     ...(researchDossiers === undefined ? {} : { researchDossiers }),
+    ...(atlasNews === undefined ? {} : { atlasNews }),
     publicEvidenceGapReviewService,
     oauthResourceMetadataUrl,
     allowedReviewerSubjects: oauthResourceServer?.reviewerSubjects,
@@ -554,6 +564,7 @@ export function createAskRigorHttpServer(
   const claudeMcpServerOptions = (signIn?: SignInState): AskRigorMcpServerOptions => ({
     researchCallRecord,
     ...(researchDossiers === undefined ? {} : { researchDossiers }),
+    ...(atlasNews === undefined ? {} : { atlasNews }),
     publicEvidenceGapReviewService,
     oauthResourceMetadataUrl: claudeOAuthResourceServer === undefined
       ? undefined

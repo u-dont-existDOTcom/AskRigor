@@ -113,6 +113,9 @@ GRANT EXECUTE ON FUNCTION living_evidence.set_atlas_report_answer(text, text, te
   TO askrigor_research_access;
 GRANT EXECUTE ON FUNCTION living_evidence.forget_atlas_reports(text)
   TO askrigor_research_access;
+-- Atlas news, stage 1 (migration 0043): a passing news check stages its own card, inside finalize_research.
+GRANT EXECUTE ON FUNCTION living_evidence.stage_atlas_news_card(jsonb, timestamptz)
+  TO askrigor_research_access;
 ALTER ROLE askrigor_research_access SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_access SET idle_in_transaction_session_timeout = '5s';
 ALTER ROLE askrigor_research_access SET search_path = living_evidence, pg_catalog;

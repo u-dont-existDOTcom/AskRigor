@@ -37,6 +37,10 @@ import { atlasPlacementsSchema } from "./atlas/placement-review.js";
 import { atlasReportsSchema } from "./atlas/report-review.js";
 import { atlasGlanceSchema } from "./atlas/glance-review.js";
 import { atlasPublicationsSchema } from "./atlas/publication-review.js";
+import type { AtlasNewsReviewStore } from "@askrigor/evidence-repository";
+import type { AtlasNewsMode } from "./config.js";
+import type { PaperStatusLookup } from "./news/day.js";
+import { ATLAS_NEWS_ACTIONS, atlasNewsResultSchema, isAtlasNewsAction, runAtlasNewsAction } from "./news/review.js";
 import { laterInputShape } from "./later-inputs.js";
 import { CASE_REVIEW_SCOPE } from "./oauth-resource-server.js";
 import type { ResearchOperationExtra } from "./research-operation.js";
@@ -51,7 +55,7 @@ function isSharedAnswerReviewAction(action: string): action is SharedAnswerRevie
 }
 
 export const researchContributionReviewInputSchema = z.object({
-  action: z.enum([...PROPOSAL_ACTIONS, ...ATLAS_REVIEW_ACTIONS, ...SHARED_ANSWER_REVIEW_ACTIONS])
+  action: z.enum([...PROPOSAL_ACTIONS, ...ATLAS_REVIEW_ACTIONS, ...SHARED_ANSWER_REVIEW_ACTIONS, ...ATLAS_NEWS_ACTIONS])
     .describe("Proposals: inspect, status, accept or reject. Findings for the Atlas: list_findings, inspect_finding, " +
       "accept_finding, edit_finding, reject_finding, withdraw_finding, link_findings or forget_card. Held YouTube " +
       "findings: list_youtube_findings, move_youtube_findings, delete_youtube_findings or delete_all_youtube_findings. " +
@@ -68,6 +72,34 @@ export const researchContributionReviewInputSchema = z.object({
       "unpublish one."),
   ...atlasReviewInputShape,
 }).strict().superRefine((value, context) => {
+  // Atlas news, stage 1: each news input only with the action that takes it, and nothing else with a news action.
+  const news = value as { news_day?: unknown; news_number?: unknown; news_date?: unknown };
+  const newsTakes = { news_day: ["publish_news_day"], news_number: ["withdraw_news_item", "list_news_items"],
+    news_date: ["list_news_items"] } as const;
+  for (const [field, actions] of Object.entries(newsTakes)) {
+    if (news[field as keyof typeof news] !== undefined && !(actions as readonly string[]).includes(value.action)) {
+      context.addIssue({ code: "custom", path: [field], message: `${value.action} does not take ${field}` });
+    }
+  }
+  if (isAtlasNewsAction(value.action)) {
+    const given = (Object.keys(value) as Array<keyof typeof value>).filter((field) => value[field] !== undefined &&
+      field !== "action" && !Object.hasOwn(newsTakes, field) && !(field === "reason" && value.action === "withdraw_news_item"));
+    for (const field of given) {
+      context.addIssue({ code: "custom", path: [field], message: `${value.action} does not take ${String(field)}` });
+    }
+    if (value.action === "publish_news_day" && news.news_day === undefined) {
+      context.addIssue({ code: "custom", message: "publish_news_day needs later_inputs.news_day: the day's publish.json" });
+    }
+    if (value.action === "withdraw_news_item" && (news.news_number === undefined || value.reason === undefined)) {
+      context.addIssue({ code: "custom", message: "withdraw_news_item needs later_inputs.news_number (an N-number, or " +
+        "all) and your private reason" });
+    }
+    if (value.action === "list_news_items" && (news.news_date === undefined) === (news.news_number === undefined)) {
+      context.addIssue({ code: "custom", message: "list_news_items takes later_inputs.news_date or " +
+        "later_inputs.news_number, not both" });
+    }
+    return;
+  }
   if (isSharedAnswerReviewAction(value.action)) {
     const given = (Object.keys(value) as Array<keyof typeof value>)
       .filter((field) => field !== "action" && field !== ("sharedAnswerId" as keyof typeof value) && value[field] !== undefined);
@@ -283,6 +315,8 @@ export const researchContributionReviewRuntimeOutputSchema = researchContributio
   glance: atlasGlanceSchema.optional(),
   // The owner, 6 Nov: mark_challenge, clear_challenge and list_challenges, runtime-only (owner answer 189a).
   challenges: atlasChallengesSchema.optional(),
+  // Atlas news, stage 1: publish_news_day, withdraw_news_item and list_news_items, runtime-only (owner answer 189a).
+  news: atlasNewsResultSchema.optional(),
   sharedAnswers: z.object({
     kept: z.array(sharedAnswerSummarySchema).optional(),
     answer: sharedAnswerSummarySchema.extend({
@@ -309,6 +343,11 @@ export interface ResearchContributionReviewToolOptions {
     review?: AtlasReview;
     /** The provider settings the source checks use: crossrefConfig() and ncbiConfig(). */
     providers: () => AtlasProviderConfig;
+    /**
+     * Atlas news, stage 1: ASKRIGOR_ATLAS_NEWS and the review role's news functions; while the mode is off, or the
+     * store isn't configured, the news actions say so and record nothing.
+     */
+    news?: { mode: AtlasNewsMode; store?: AtlasNewsReviewStore; paperStatus: PaperStatusLookup; now?: () => Date };
   };
   /** The shared questions and answers (owner answer 200a); undefined when the server keeps none. */
   sharedAnswers?: SharedAnswerVault;
@@ -330,6 +369,26 @@ export function createResearchContributionReviewHandler(
     const parsed = request.data;
     if (isSharedAnswerReviewAction(parsed.action)) {
       return sharedAnswerReview(options.sharedAnswers, parsed.action, parsed.sharedAnswerId);
+    }
+    if (isAtlasNewsAction(parsed.action)) {
+      if (options.atlas?.enabled !== true) {
+        return reviewError("atlas_review_closed", "The owner's findings review for the Atlas is not open yet " +
+          "(ASKRIGOR_ATLAS_REVIEW); nothing was recorded.");
+      }
+      const news = options.atlas.news;
+      if (news === undefined || news.mode === "off" || news.store === undefined) {
+        return reviewError("review_service_unavailable", "Atlas news is off on this server (ASKRIGOR_ATLAS_NEWS), or its " +
+          "store isn't configured; nothing was recorded.");
+      }
+      const result = await runAtlasNewsAction({ ...(parsed as Record<string, unknown>), action: parsed.action } as
+        Parameters<typeof runAtlasNewsAction>[0], { store: news.store, now: news.now ?? (() => new Date()),
+        paperStatus: news.paperStatus });
+      return {
+        content: [{ type: "text", text: result.text }],
+        structuredContent: researchContributionReviewRuntimeOutputSchema.parse({
+          ok: result.ok, news: result.news, canonicalEvidenceChangedByThisCall: false,
+        }),
+      };
     }
     if (isAtlasReviewAction(parsed.action)) {
       if (options.atlas?.enabled !== true) {
