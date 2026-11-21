@@ -157,16 +157,42 @@ function publicKey(raw: Buffer): KeyObject {
  * by its /64 network (one subscriber usually holds a whole /64, so counting single addresses would let it rotate).
  */
 export function addressKey(address: string): string {
-  const lower = address.toLowerCase();
-  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/u.exec(lower);
-  if (mapped !== null && isIP(mapped[1]) === 4) return mapped[1];
+  const lower = address.toLowerCase().split("%")[0];
   if (isIP(lower) !== 6) return lower;
-  const [head, tail] = lower.split("::");
-  const left = head === "" ? [] : head.split(":");
-  const right = tail === undefined || tail === "" ? [] : tail.split(":");
-  const width = (groups: string[]) => groups.reduce((sum, group) => sum + (group.includes(".") ? 2 : 1), 0);
-  const groups = tail === undefined ? left : [...left, ...Array<string>(8 - width(left) - width(right)).fill("0"), ...right];
-  return `${groups.slice(0, 4).map((group) => group.padStart(4, "0")).join(":")}::/64`;
+  const groups = ipv6Groups(lower);
+  if (groups === undefined) return lower;
+  if (groups.slice(0, 5).every((group) => group === 0) && groups[5] === 0xffff) {
+    return `${groups[6] >> 8}.${groups[6] & 255}.${groups[7] >> 8}.${groups[7] & 255}`;
+  }
+  return `${groups.slice(0, 4).map((group) => group.toString(16).padStart(4, "0")).join(":")}::/64`;
+}
+
+/** The eight 16-bit groups of an IPv6 address (with "::" and a trailing IPv4 part expanded), or undefined. */
+function ipv6Groups(address: string): number[] | undefined {
+  const halves = address.split("::");
+  if (halves.length > 2) return undefined;
+  const expand = (part: string): number[] | undefined => {
+    const out: number[] = [];
+    const groups = part === "" ? [] : part.split(":");
+    for (const [index, group] of groups.entries()) {
+      if (group.includes(".")) {
+        if (index !== groups.length - 1 || isIP(group) !== 4) return undefined;
+        const [a, b, c, d] = group.split(".").map(Number);
+        out.push((a << 8) | b, (c << 8) | d);
+      } else if (/^[0-9a-f]{1,4}$/u.test(group)) {
+        out.push(Number.parseInt(group, 16));
+      } else {
+        return undefined;
+      }
+    }
+    return out;
+  };
+  const left = expand(halves[0]);
+  const right = halves.length === 2 ? expand(halves[1]) : [];
+  if (left === undefined || right === undefined) return undefined;
+  if (halves.length === 1) return left.length === 8 ? left : undefined;
+  const fill = 8 - left.length - right.length;
+  return fill < 0 ? undefined : [...left, ...Array<number>(fill).fill(0), ...right];
 }
 
 /**

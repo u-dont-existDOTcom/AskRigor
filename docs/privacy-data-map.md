@@ -2880,8 +2880,9 @@ connection) and encrypt every frame; the relay copies frames it cannot open.
 | Pairing (keys, phones, channel ids, names, dates, last seen) | the computer's `~/.config/askrigor-runner/phone-link.json` (0600) | the computer's side of the link | until unpaired or deleted |
 
 Not processed by the relay or the site: what the phone asked, what the runner answered, run folders, settings, the
-QR code's one-time secret (after `#`, never sent to a server). The computer writes no phone request or answer to a
-file or log. Limits of the protection: the phone page is served by askrigor.com each time it opens, so whoever
+QR code's one-time secret (after `#`, never sent to a server). On the computer, the link's connector writes no
+phone request or answer to a file or log; the runner itself keeps each run's question, progress and answer in its
+run folders, as it does for runs started on the computer. Limits of the protection: the phone page is served by askrigor.com each time it opens, so whoever
 controls the server could serve a changed page that uses the link, and that leaves code in the phone's browser (or hands
 the key to another site) to keep using it until the phone is unpaired at the computer; a key kept non-extractable in
 WebCrypto can't be copied out as bytes, but that does not stop such use. The privacy page says so.

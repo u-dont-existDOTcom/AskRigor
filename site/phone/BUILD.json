@@ -1,7 +1,7 @@
 {
  "built_by": "askrigor-runner phone-link/build-phone-page.mjs",
- "runner_commit": "ffefc3b7a8cc",
- "page_html_sha256": "746bbf9e09281e16c457182c070df6cd05b2c239e386e15d4330c1c04a7aeb37",
+ "runner_commit": "e263073c2783",
+ "page_html_sha256": "e78ba004f9174a186a276ab6ef2b6d0b94d50cc152f3db5c6cfda9a4b5b18ce6",
  "link_version": 1,
  "protocols": [
   "Noise_XXpsk0_25519_ChaChaPoly_BLAKE2b (pairing)",

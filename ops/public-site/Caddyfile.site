@@ -90,7 +90,8 @@ askrigor.com {
 	}
 
 	# The phone page (owner answer 385b): the committed site/phone/ folder, under its own policy, which lets the page
-	# run its own scripts and reach the relay's WebSocket and nothing else. no-cache makes a phone fetch a changed page.
+	# run its own scripts and connect to this origin (askrigor.com, the relay's WebSocket included) and nowhere else.
+	# no-cache makes a phone fetch a changed page.
 	handle /phone {
 		redir * /phone/
 	}

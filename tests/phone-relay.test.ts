@@ -362,6 +362,10 @@ describe("phone relay: admission before the upgrade", () => {
     expect(addressKey("2001:db8:1::1")).toBe("2001:0db8:0001:0000::/64");
     expect(addressKey("64:ff9b::192.0.2.1")).toBe("0064:ff9b:0000:0000::/64");
     expect(addressKey("::1")).toBe("0000:0000:0000:0000::/64");
+    // Every spelling of an IPv4-mapped address is that IPv4 address.
+    expect(addressKey("::ffff:c000:201")).toBe("192.0.2.1");
+    expect(addressKey("0:0:0:0:0:ffff:192.0.2.1")).toBe("192.0.2.1");
+    expect(addressKey("::FFFF:C000:0201")).toBe("192.0.2.1");
     const { url } = await start({ maxSocketsPerAddress: 1 });
     await open(url, { headers: from("2001:db8::1") });
     await expect(open(url, { headers: from("2001:db8::2") })).rejects.toMatchObject({ status: 429 });

@@ -4966,11 +4966,13 @@
       this.last = now;
       for (const kind of ["frames", "bytes"]) this.tokens[kind] = Math.min(this.bursts[kind], this.tokens[kind] + seconds * this.rates[kind]);
     }
-    // send(bytes) -> boolean; returns a promise that settles when every frame given was handed to the socket.
-    push(frames, seat) {
+    // Queues plaintext frames; each is sealed (seal) only at the moment it is sent, so dropping queued frames never
+    // leaves a gap in the transport's counters, and allowed() is asked again before each one (a phone unpaired or
+    // past its date gets nothing more). Settles when every frame was handed to the socket, or rejects.
+    push(frames, seat, { seal = (frame) => frame, allowed = () => true } = {}) {
       return new Promise((resolve, reject) => {
-        for (const frame of frames) this.queuedBytes += frame.byteLength;
-        this.queue.push({ frames: frames.slice(), seat, resolve, reject });
+        for (const frame of frames) this.queuedBytes += frame.byteLength + 16;
+        this.queue.push({ frames: frames.slice(), seat, seal, allowed, resolve, reject });
         if (!this.running) this.drain();
       });
     }
@@ -4978,9 +4980,9 @@
       this.running = true;
       while (this.queue.length) {
         const job = this.queue[0];
-        if (job.seat.state !== "joined") {
+        if (job.seat.state !== "joined" || !job.allowed()) {
           this.queue.shift();
-          for (const frame2 of job.frames) this.queuedBytes -= frame2.byteLength;
+          for (const frame2 of job.frames) this.queuedBytes -= frame2.byteLength + 16;
           job.reject(new Error("seat closed"));
           continue;
         }
@@ -4999,10 +5001,16 @@
         this.tokens.frames -= 1;
         this.tokens.bytes -= size;
         job.frames.shift();
-        this.queuedBytes -= frame.byteLength;
-        if (!job.seat.send(frame)) {
+        this.queuedBytes -= frame.byteLength + 16;
+        let sealed;
+        try {
+          sealed = job.seal(frame);
+        } catch {
+          sealed = null;
+        }
+        if (!sealed || !job.seat.send(sealed)) {
           this.queue.shift();
-          for (const left of job.frames) this.queuedBytes -= left.byteLength;
+          for (const left of job.frames) this.queuedBytes -= left.byteLength + 16;
           job.reject(new Error("seat closed"));
         }
       }
@@ -5065,6 +5073,7 @@
       this.onState(state, detail);
     }
     async load() {
+      await this.storage.clearPending?.();
       let record = await this.storage.load();
       if (record && record.tentative) {
         await this.storage.clear();
@@ -5084,16 +5093,17 @@
         let record = null;
         let savedTimer = null;
         let finished2 = false;
+        let committing = false;
         const pacer = new Pacer();
         const fail = (why, code = "pair-failed") => {
-          if (finished2) return;
+          if (finished2 || committing) return;
           finished2 = true;
           clearTimeout(savedTimer);
           psk.fill(0);
           pacer.clear();
           done?.transport.close();
           seat.close(1e3);
-          if (record) this.storage.clear().catch(() => {
+          if (record) this.storage.clearPending().catch(() => {
           });
           this.setState("pair-failed", { why });
           reject(new LinkFailure(why, code));
@@ -5133,9 +5143,16 @@
                 const frame = parseFrame(done.transport.open(bytes2));
                 if (frame.kind !== KIND_CONTROL) throw new Error("unexpected");
                 if (frame.message.t === "saved" && record) {
-                  record.tentative = false;
-                  await this.storage.save(record);
+                  if (finished2 || committing) return;
+                  committing = true;
                   clearTimeout(savedTimer);
+                  try {
+                    await this.storage.save(record);
+                    await this.storage.clearPending();
+                  } catch {
+                    committing = false;
+                    return fail("This phone could not keep the pairing (its storage refused). Nothing usable was paired; the laptop lists a phone you can unpair there.");
+                  }
                   finished2 = true;
                   this.pairing = record;
                   this.setState("paired", { laptopName: record.laptopName, expiresUtc: record.expiresUtc, justPaired: true });
@@ -5150,7 +5167,6 @@
                 const paired = frame.message;
                 record = {
                   v: LINK_VERSION,
-                  tentative: true,
                   laptopKey,
                   phoneKey: handshake.phoneKey,
                   channel: fromB64u(paired.channel, CHANNEL_BYTES),
@@ -5159,8 +5175,9 @@
                   expiresUtc: String(paired.expires_utc || ""),
                   pairedUtc: (/* @__PURE__ */ new Date()).toISOString().replace(/\.\d{3}Z$/, "Z")
                 };
-                await this.storage.save(record);
-                await pacer.push([done.transport.seal(controlFrame({ t: "stored" }))], seat);
+                await this.storage.savePending(record);
+                const transport = done.transport;
+                await pacer.push([controlFrame({ t: "stored" })], seat, { seal: (frame2) => transport.seal(frame2) });
                 this.setState("pairing", { step: "saving" });
                 savedTimer = setTimeout(() => fail("The laptop did not confirm that it saved the pairing. Nothing was paired; start again on the laptop for a new code."), SAVED_WAIT_MS);
               } catch (error) {
@@ -5168,7 +5185,7 @@
               }
             },
             closed: (code) => {
-              if (finished2) return;
+              if (finished2 || committing) return;
               fail(code === CLOSE.notHere ? "This pairing code is no longer open on the laptop (it works once, for 5 minutes). Start again on the laptop's Phone panel." : "The connection ended before pairing finished. Start again on the laptop for a new code.");
             }
           }
@@ -5241,12 +5258,13 @@
             expiresUtc: String(payload.expires_utc || this.pairing.expiresUtc)
           };
           this.setState("ready", this.info);
-          this.pacer.push([transport.seal(controlFrame({ t: "hello" }))], seat).catch(() => {
+          this.pacer.push([controlFrame({ t: "hello" })], seat, { seal: (frame2) => transport.seal(frame2), allowed: () => transport === this.transport }).catch(() => {
           });
           this.pump();
           return;
         }
         const frame = parseFrame(this.transport.open(bytes2));
+        for (const waiting of this.pending.values()) this.arm(waiting);
         if (frame.kind === KIND_CONTROL) {
           if (frame.message.t === "bye") {
             if (frame.message.why === "off") {
@@ -5261,8 +5279,6 @@
           return;
         }
         if (frame.kind !== KIND_RESPONSE) throw new Error("unexpected");
-        const waiting = this.pending.get(toHex(frame.id));
-        if (waiting) this.arm(waiting);
         const whole = this.assembler.add(frame);
         if (!whole) return;
         const entry = this.pending.get(toHex(whole.id));
@@ -5383,10 +5399,10 @@
       while (this.transport && this.queue.length && this.pending.size < MAX_IN_FLIGHT) {
         const entry = this.queue.shift();
         const transport = this.transport;
-        const frames = messageFrames(KIND_REQUEST, entry.id, encodeJson(entry.message)).map((frame) => transport.seal(frame));
+        const frames = messageFrames(KIND_REQUEST, entry.id, encodeJson(entry.message));
         this.pending.set(toHex(entry.id), entry);
         this.arm(entry);
-        this.pacer.push(frames, this.seat).catch(() => {
+        this.pacer.push(frames, this.seat, { seal: (frame) => transport.seal(frame), allowed: () => transport === this.transport }).catch(() => {
         });
       }
     }
@@ -5471,6 +5487,7 @@
   var DB_NAME = "askrigor-phone-link";
   var STORE = "pairing";
   var KEY = "current";
+  var PENDING = "pending";
   function openDb() {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, 1);
@@ -5507,6 +5524,14 @@
     },
     async clear() {
       await run("readwrite", (store) => store.delete(KEY));
+    },
+    // A pairing in progress, kept apart until the laptop confirms it saved its side: a failed new pairing never
+    // touches the one this phone already has.
+    async savePending(record) {
+      await run("readwrite", (store) => store.put(record, PENDING));
+    },
+    async clearPending() {
+      await run("readwrite", (store) => store.delete(PENDING));
     }
   };
   async function storageIsKept() {
@@ -5518,8 +5543,8 @@
   }
 
   // phone/phone.js
-  var PAGE_SHA = true ? "746bbf9e09281e16c457182c070df6cd05b2c239e386e15d4330c1c04a7aeb37" : "";
-  var RUNNER_COMMIT = true ? "ffefc3b7a8cc" : "";
+  var PAGE_SHA = true ? "e78ba004f9174a186a276ab6ef2b6d0b94d50cc152f3db5c6cfda9a4b5b18ce6" : "";
+  var RUNNER_COMMIT = true ? "e263073c2783" : "";
   var $ = (id) => document.getElementById(id);
   var esc = (text) => String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   function device() {
@@ -5573,7 +5598,7 @@
         return;
       case "unpaired":
         statusLine("Not paired", "off");
-        return screen("<h2>AskRigor runner on your phone</h2><p>This page reaches the runner on your laptop. It must be paired once, at the laptop:</p><ol><li>On the laptop, open the runner's page and press <b>Phone link</b>, then <b>Pair a phone</b>.</li><li>Scan the code it shows with this phone's camera. This page opens and pairs.</li><li>Check that both screens show the same six digits, and confirm on the laptop.</li></ol><details><summary>What this link can and can't protect</summary><p>" + esc(trust(null)) + "</p></details>");
+        return screen("<h2>AskRigor runner on your phone</h2><p>This page reaches the runner on your laptop. It must be paired once, at the laptop:</p><ol><li>On the laptop, open the runner's page and press <b>Phone link</b>, then <b>Pair a phone</b>.</li><li>Scan the code it shows with this phone's camera. This page opens and pairs.</li><li>Type the six digits this phone then shows into the laptop's Phone panel.</li></ol><details><summary>What this link can and can't protect</summary><p>" + esc(trust(null)) + "</p></details>");
       case "pairing":
         statusLine("Pairing…", "wait");
         return screen('<h2>Pairing with your laptop…</h2><p class="muted">' + (detail.step === "saving" ? "The laptop is saving the pairing…" : detail.step === "joined" ? "Found the laptop. Agreeing on keys…" : "Connecting through AskRigor's relay…") + "</p>");
