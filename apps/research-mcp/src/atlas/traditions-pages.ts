@@ -1,6 +1,6 @@
 import type { AtlasPageSource, AtlasTraditionDisagreement, AtlasTraditionRow } from "@askrigor/evidence-repository";
 import { allShown, byStrength, type ShownFinding } from "./page-data.js";
-import { html, page, findingPath, outOf100, unreviewedOnly, traditionLines, type AtlasPageReader } from "./pages.js";
+import { badge, html, page, findingPath, outOf100, unreviewedOnly, traditionLines, type AtlasPageReader } from "./pages.js";
 import { rowPassesPageGuard } from "./page-guard.js";
 import { ATLAS_TRADITIONS, traditionsPath, traditionSectionOf, type AtlasTraditionSection } from "./traditions-tree.js";
 import { traditionLabelsOf } from "./tradition-text.js";
@@ -17,15 +17,18 @@ async function shownTraditions(source: AtlasPageSource) {
     const labels = await reads.listTraditions?.() ?? { labels: [], disagreements: [] };
     const shown: ShownFinding[] = [];
     for await (const finding of allShown(reads)) shown.push(finding);
-    // Deduplicate after labeling: a P-number label on another publication of the same F-number still counts.
+    // Resolve labels across publications before keeping one entry per finding and section.
+    // An explicit P-number label beats an inherited F-number label, even on an older publication.
     const identity = (finding: ShownFinding) => finding.status.kind === "unreviewed"
       ? finding.publicationNumber : finding.status.atlasNumber;
-    const seen = new Set<string>();
-    const entries: TraditionEntry[] = [];
+    const resolved = new Map<string, TraditionEntry>();
     for (const finding of shown) for (const label of traditionLabelsOf(finding, labels.labels)) {
       const key = `${identity(finding)}:${label.section}`;
-      if (!seen.has(key)) { seen.add(key); entries.push({ finding, label }); }
+      const previous = resolved.get(key);
+      if (previous === undefined || (label.item === finding.publicationNumber &&
+        previous.label.item !== previous.finding.publicationNumber)) resolved.set(key, { finding, label });
     }
+    const entries = [...resolved.values()];
     const byNumber = new Map<string, string>();
     for (const finding of shown) {
       byNumber.set(finding.publicationNumber, identity(finding));
@@ -61,16 +64,16 @@ export function renderAtlasTraditions(model: AtlasTraditionsModel, reader?: Atla
     description: "What traditional medicine systems offer, and what modern evidence supports, corrects or has not tested.",
     body: html`<h1>Traditions</h1>
 <p>What these systems offer, and what modern evidence supports, corrects or has not tested.</p>
-<ul class="category-list">${model.sections.map((section) => html`<li><a href="${traditionsPath(section.key)}">${section.label}</a> <span class="meta">(${section.count === 1 ? "1 item" : `${section.count} items`})</span><p>${section.description}</p></li>`)}</ul>` });
+<ul class="category-list">${model.sections.map((section) => html`<li><a href="${traditionsPath(section.key)}">${section.label}</a>: <span class="meta">${section.count === 0 ? "no findings yet" : section.count === 1 ? "1 finding" : `${section.count} findings`}</span><p>${section.description}</p></li>`)}</ul>` });
 }
 function entryCard({ finding, label }: TraditionEntry) {
   const number = finding.numbers[0];
   return html`<li class="finding${finding.kind === "harm" || finding.direction === "harm" ? " tradition-harm" : ""}">
+${badge(finding)}
 <p class="finding-claim"><a href="${findingPath(finding.publicationNumber)}">${finding.claim}</a></p>
 ${number === undefined ? "" : html`<p>${number.outcome}: ${outOf100(number.optionEvents / number.optionTotal)} out of 100 with ${number.option}, against ${outOf100(number.comparatorEvents / number.comparatorTotal)} out of 100 with ${number.comparator}, over ${number.followUp}.</p>`}
 ${traditionLines(label)}
 ${label.quick_answer_misses ? html`<p class="badge">A quick AI answer misses this</p>` : ""}
-${finding.status.kind === "unreviewed" ? html`<p class="meta">Not checked by supervisors yet</p>` : ""}
 </li>`;
 }
 export function renderAtlasTradition(model: AtlasTraditionModel, reader?: AtlasPageReader): string {

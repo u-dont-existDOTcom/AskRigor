@@ -6,9 +6,9 @@ export const ATLAS_TRADITIONS: readonly AtlasTraditionSection[] = Object.freeze(
   { key: "ayurveda-and-siddha", label: "Ayurveda and Siddha",
     description: "Ayurveda’s texts, regional and household practices and modern products; Siddha is a separate Tamil system shown here with its own label." },
   { key: "tcm", label: "TCM: standardized Chinese medicine",
-    description: "Chinese medicine standardized in China from the 1950s, including its textbooks, pharmacopoeia and patent medicines." },
+    description: "Chinese medicine standardized in China from the 1950s. This includes its textbooks, official list of approved medicines and how they are made, and ready-made products sold under a brand." },
   { key: "ccm", label: "CCM: classical Chinese medicine",
-    description: "Classical Chinese texts and the lineages and schools that read them, with Japanese Kampo named when a finding comes from it." },
+    description: "Classical Chinese texts and the lineages and schools that read them. Findings from Kampo name it as Japan’s own tradition of using the classical Chinese formulas." },
 ]);
 export const traditionSectionOf = (key: string) => ATLAS_TRADITIONS.find((section) => section.key === key);
 export const traditionsPath = (key?: string) => key === undefined ? "/atlas/traditions" : `/atlas/traditions/${key}`;

@@ -498,7 +498,7 @@ ${pager.length === 0 ? "" : html`<nav aria-label="Search result pages"><p>${join
 
 // A finding in a list ---------------------------------------------------------------------------------------------------
 
-function badge(finding: ShownFinding): SafeHtml {
+export function badge(finding: ShownFinding): SafeHtml {
   return html`<p class="badge badge-${finding.status.kind}">${STATUS_WORDS[finding.status.kind]}</p>${needsChecking(finding)
     ? html` <p class="badge badge-needs-checking">${NEEDS_CHECKING_LABEL}</p>` : ""}${finding.status.kind === "unreviewed"
     ? html`<p class="ai-label">${AI_LABEL}</p>` : ""}`;

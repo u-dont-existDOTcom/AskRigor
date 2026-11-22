@@ -192,6 +192,15 @@ describe("public tradition pages", () => {
     expect(atlasRouteOf("/atlas/traditions")).toEqual({ kind: "traditions" });
     expect(await loadAtlasTradition(source, "unknown")).toBeUndefined();
   });
+  it.each([
+    [0, "no findings yet"], [1, "1 finding"], [2, "2 findings"],
+  ] as const)("writes index counts in plain words for %i findings", (count, words) => {
+    const body = renderAtlasTraditions({ sections: ATLAS_TRADITIONS.map((section) => ({ ...section, count })) });
+    for (const section of ATLAS_TRADITIONS) {
+      expect(body).toContain(`${section.label}</a>: <span class="meta">${words}</span>`);
+    }
+    expect(atlasPageProblems(body)).toEqual([]);
+  });
   it("counts shown items once per section, puts marked items before stronger items and renders short entries", async () => {
     const { source } = await fixture();
     expect((await loadAtlasTraditions(source)).sections.map(({ count }) => count)).toEqual([0, 0, 3, 1]);
