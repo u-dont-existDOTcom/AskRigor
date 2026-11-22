@@ -1375,6 +1375,10 @@ async function main(): Promise<void> {
           ),
         "community_operational_action_independent_review_gate",
       );
+      // The one exception, by table and column: Atlas Release B's migration 0042 keeps the email address a person gives
+      // with a dispute about a claim on them, privately, to answer it, and deletes it after 90 days (startAtlasPersonPurge;
+      // the privacy notice, "People named in the Atlas", says so). It is not the community forum's. Any other column of
+      // these names, in any table of the schema, still fails here.
       const prohibitedColumns = await sqlClient.query<{
         table_name: string;
         column_name: string;
@@ -1382,7 +1386,8 @@ async function main(): Promise<void> {
         `SELECT table_name, column_name
          FROM information_schema.columns
          WHERE table_schema = $1
-           AND column_name IN ('email', 'raw_body', 'raw_content', 'subject_private_ref')`,
+           AND column_name IN ('email', 'raw_body', 'raw_content', 'subject_private_ref')
+           AND NOT (table_name = 'atlas_person_disputes' AND column_name = 'email')`,
         [schema],
       );
       if (prohibitedColumns.rowCount !== 0)

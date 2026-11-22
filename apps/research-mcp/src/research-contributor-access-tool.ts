@@ -59,7 +59,7 @@ import { NAMED_VIDEOS_SIGNED, namedVideoIdsIn, researchMapSavedLine } from "./fi
 import {
   RESEARCH_DOSSIER_GUARDS,
   RESEARCH_DOSSIER_REQUEST,
-  RESEARCH_DOSSIER_SHAPE,
+  researchDossierShape,
   researchDossierAllowed,
 } from "./findings/dossier.js";
 import {
@@ -612,6 +612,11 @@ export interface ResearchContributorToolOptions {
   askrigorHolds?: AskRigorHoldsOptions;
   /** AskRigor#477 stage 1: research dossiers are saved (ASKRIGOR_RESEARCH_DOSSIERS), so plan_research may ask for one. */
   researchDossiers?: boolean;
+  /**
+   * AskRigor#477 stage 2: public dossiers are on (ASKRIGOR_PUBLIC_DOSSIERS), so the dossier's shape asks for stage 2's
+   * declarations too; otherwise it is stage 1's as released.
+   */
+  publicDossiers?: boolean;
   /**
    * Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026): while the findings ledger is on for the account (whether it is
    * one of the owner's development accounts is given), plan_research says up front what can stop an answer at the final
@@ -1227,6 +1232,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         return await planResearchAction(options.service, auth.subject,
           paused ? withoutLane(parsed.researchMenu!) : parsed.researchMenu!, options.plainAnswer,
           options.menuDigestSecret?.(), devAccount, learning, options.researchDossiers === true, findingsSaveOff(parsed),
+          options.publicDossiers === true,
           options.findingsLedger?.(devAccount) === true);
       }
       if (parsed.action === "set_plain_answer_note") {
@@ -1942,6 +1948,8 @@ async function planResearchAction(
   // findings_save "off", which asks for none.
   dossiers = false,
   callSavingOff = false,
+  // AskRigor#477 stage 2: public dossiers are on, so the shape asks for stage 2's declarations.
+  publicDossiers = false,
   // Enforcing HRP, stage 1: say up front what can stop the answer.
   upFront = false,
 ): Promise<CallToolResult> {
@@ -2026,7 +2034,8 @@ async function planResearchAction(
   return {
     content: [{ type: "text", text },
       ...(dossierRequest
-        ? [{ type: "text" as const, text: `${RESEARCH_DOSSIER_REQUEST} ${RESEARCH_DOSSIER_SHAPE} ${RESEARCH_DOSSIER_GUARDS}` }]
+        ? [{ type: "text" as const, text: `${RESEARCH_DOSSIER_REQUEST} ${researchDossierShape(publicDossiers)} ` +
+          RESEARCH_DOSSIER_GUARDS }]
         : []),
       // Enforcing HRP, stage 1 (the owner's note on question 338): what can stop the answer, before research.
       ...(upFront ? [{ type: "text" as const, text: WHAT_STOPS_TEXT }] : [])],
@@ -2037,7 +2046,7 @@ async function planResearchAction(
       next_step: planNextStep(result, learnMode),
       ...(youDecide === undefined ? {} : { you_decide_later_inputs: youDecide }),
       ...(dossierRequest ? { research_dossier_request: { instruction: RESEARCH_DOSSIER_REQUEST,
-        shape: RESEARCH_DOSSIER_SHAPE, guards: RESEARCH_DOSSIER_GUARDS } } : {}),
+        shape: researchDossierShape(publicDossiers), guards: RESEARCH_DOSSIER_GUARDS } } : {}),
       ...(upFront ? { what_stops: whatStops() } : {}),
     }),
   };

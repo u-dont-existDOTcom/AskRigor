@@ -13,13 +13,16 @@ import { SOURCE_LINE_LIMITS, sourceLineSchema } from "./source-lines.js";
 import { sourceReadingInputSchema } from "./source-reading.js";
 import { keyNameSchema, nameFormsSchema, searchCoverageSchema } from "./absence-searches.js";
 import { studyMapSchema } from "./study-map.js";
-import { keepItemsInputSchema } from "./atlas/kept-review.js";
+import { ATLAS_SHOWN_BY, keepItemsInputSchema } from "./atlas/kept-review.js";
 import { placementsInputSchema } from "./atlas/placement-review.js";
 import { reportVerdictSchema } from "./atlas/report-review.js";
 import { atlasReportShareSchema, reportNumberSchema } from "./atlas/report-door.js";
 import { glanceRowIdSchema, glanceRowInputSchema } from "./atlas/glance-review.js";
+import { personNoticeNumberSchema } from "./atlas/person-notice-review.js";
 import { challengeMarkInputShape } from "./atlas/challenge-review.js";
 import { newsDateInputSchema, newsNumberInputSchema } from "./news/inputs.js";
+import { dossierFindingInputSchema, dossierImportanceInputSchema, dossierLivingPersonInputSchema, dossierNumberInputSchema,
+  dossierOverrideConflictsInputSchema, dossierStateInputSchema, dossierVersionInputSchema } from "./atlas/dossier-review.js";
 import { claimCoverageSchema } from "./claim-coverage.js";
 import { ASKED_LIMIT, PLANNER_PAUSE_MAX_MINUTES, framingSchema, researchMenuSchema, researchSteeringInputSchema }
   from "./research-steering.js";
@@ -317,6 +320,40 @@ const LATER_INPUT_SHAPES = Object.freeze({
       .describe("With withdraw_news_item: an N-number, or all. With list_news_items: one N-number, read in full."),
     news_date: newsDateInputSchema.optional()
       .describe("With list_news_items: the day to list, YYYY-MM-DD."),
+    // AskRigor#477 stage 2: research dossiers on the public Atlas.
+    dossier: dossierNumberInputSchema.optional()
+      .describe("With inspect_dossier, show_dossier, hold_dossier, take_down_dossier, accept_dossier, " +
+        "show_dossier_naming_living_person, revise_dossier_importance, state_dossier_living_person or " +
+        "read_dossier_privacy: the dossier's public number, such as D-1001."),
+    dossierVersion: dossierVersionInputSchema.optional()
+      .describe("With show_dossier, hold_dossier, take_down_dossier, accept_dossier, " +
+        "show_dossier_naming_living_person, revise_dossier_importance, state_dossier_living_person or " +
+        "read_dossier_privacy: the version; its newest by default."),
+    dossierState: dossierStateInputSchema.optional()
+      .describe("With list_dossiers: shown, held (the check's queue, by default), superseded, taken_down or erased."),
+    dossierFinding: dossierFindingInputSchema.optional()
+      .describe("With revise_dossier_importance: the finding's id in the dossier, such as f3."),
+    dossierImportance: dossierImportanceInputSchema.optional()
+      .describe("With revise_dossier_importance: the finding's new mark, decision_changing, important or context; a " +
+        "new version of the copy gets it, with your reason."),
+    dossierLivingPerson: dossierLivingPersonInputSchema.optional()
+      .describe("With state_dossier_living_person: your own statement for a copy whose researching AI did not say " +
+        "whether a claim names a living person, names_no_living_person or names_a_living_person; recorded once, with " +
+        "who and when."),
+    dossierOverrideConflicts: dossierOverrideConflictsInputSchema.optional()
+      .describe("With show_dossier, accept_dossier, show_dossier_naming_living_person or revise_dossier_importance of " +
+        "a shown copy: the shown dossiers, such as D-1002, whose findings AskRigor's conflict check read as " +
+        "contradicting the copy's, in a pair with at least one important finding, or that it could not compare it " +
+        "with; naming them all shows it anyway, recorded with who and when, up to 50 of them."),
+    // Codex's fourth review of 17 Nov 2026 (P1s): the owner and the scheduled quick-answer test share one login, so a
+    // showing says who acts.
+    shown_by: z.enum(ATLAS_SHOWN_BY).optional()
+      .describe("With show_on_pages, which needs it: owner when AskRigor's owner shows them, or quick_answer_test, " +
+        "with quick_answer_verdict, when the quick-answer test does. With publish_cards, which needs it too: owner, " +
+        "AskRigor's owner, the only one who publishes cards."),
+    // Atlas Release B (Fable's recheck): the owner's notice to acknowledge.
+    personNotice: personNoticeNumberSchema.optional()
+      .describe("With ack_person_notice, which needs it: the notice's number, as list_person_notices gives it."),
   },
 } satisfies Record<string, z.ZodRawShape>);
 

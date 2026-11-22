@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { dossierPublicationSchema } from "./dossier-publication.js";
+
 /**
  * What finalize_research says of a research dossier (AskRigor#477, stage 1; owner answer 329a, 16 November 2026), in
  * its own module so the final check's output schema reads it without the save's dependencies.
@@ -27,6 +29,8 @@ export const researchDossierDispositionSchema = z.object({
   problems: z.array(z.object({ path: z.string(), rule: z.string() }).strict()).max(50).optional(),
   /** What each rule among the problems asks for, in plain words, once for each rule (dossier.ts). */
   explanations: z.record(z.string(), z.string()).optional(),
+  /** AskRigor#477 stage 2, behind ASKRIGOR_PUBLIC_DOSSIERS: the saved dossier on the public Atlas, or why not. */
+  publication: dossierPublicationSchema.optional(),
 }).strict().describe("This research's dossier (AskRigor#477): saved, stored privately for AskRigor's owner to review " +
   "and read back; duplicate, saved before; insufficient, not saved, with its problems by path and rule and what each " +
   "rule asks for in explanations; private, " +
