@@ -28,7 +28,7 @@ function onlyWhitespaceAndComments(text: string): boolean {
 
 describe("protocol sections", () => {
   it.each([
-    ["hrp", "HRP_Full.xml", 60],
+    ["hrp", "HRP_Full.xml", 61],
     ["universal", "Universal_Instructions.xml", 40]
   ] as const)("maps every top-level %s element to its exact canonical bytes", async (name, file, count) => {
     const bytes = await readFile(new URL(`../protocols/${file}`, import.meta.url));

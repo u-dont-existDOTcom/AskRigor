@@ -700,6 +700,16 @@ export const PEOPLE_TASK_MISSING = `No task on this menu reads people's own repo
 export const ALL_JOURNALS_AT_THE_SCREEN = "For a plant, food, farming or traditional remedy, or a question PubMed's " +
   "journals cover thinly, also search all journals once (search_europe_pmc with later_inputs.index \"all_journals\", " +
   "OpenAlex): many of their journals are outside PubMed and Europe PMC.";
+
+/**
+ * Owner answer 402a (22 Nov 2026): the baseline plans framed traditional questions as modern evidence only, and
+ * one chat loaded no HRP. Whether a question is traditional is the model's judgment.
+ */
+export const TRADITIONAL_SYSTEM_AT_THE_SCREEN = "For questions about a traditional, regional or folk medical system's concepts or claims, or a remedy, " +
+  "diagnosis or practice known or sold as traditional, regional or folk, even when no system is named, load " +
+  "HRP TraditionalSystemAccount and start finding that tradition's own sources (which tradition says what, " +
+  "its uses, who it is not for, its preparation and cautions) beside the studies; leave full reading for the " +
+  "research tasks, and never delay urgent action.";
 /**
  * The timing runs of 9 Nov 2026: in the made-up antivenom emergency, the run framed, screened, showed a menu and
  * researched for 17 minutes, first saying plainly not to delay the antivenom at minute 9.6. HRP already forbids it
@@ -847,7 +857,8 @@ export const RESEARCH_MENU_SHAPE = "later_inputs.researchMenu in exactly this sh
 const SCREEN_FIRST = "Screen first: a few calls (about eight) of searches, abstracts, thread titles and the Atlas, " +
   "with no full-text reading, long threads or video audits yet, ending with a provisional short answer. For each " +
   "claim on a premise of the person's question, include one search for what would show it wrong. " +
-  PEOPLE_FIRST_WHEN_USED + " " + ALL_JOURNALS_AT_THE_SCREEN + " " + WORDS_ARE_NOT_SIZES + " Then call " +
+  PEOPLE_FIRST_WHEN_USED + " " + ALL_JOURNALS_AT_THE_SCREEN + " " +
+  TRADITIONAL_SYSTEM_AT_THE_SCREEN + " " + WORDS_ARE_NOT_SIZES + " Then call " +
   "manage_research_access with action plan_research and " + RESEARCH_MENU_SHAPE + " AskRigor gives each task a time " +
   "range and says whether to ask the person first; when it says to ask, your reply is the message it gives, and the " +
   "turn ends there.";
@@ -924,7 +935,8 @@ export function framingGuidance(steering: ResearchSteering, framing: Framing | u
 /**
  * register_plain_answer's next step as a runtime field (owner answer 189a keeps the published shape): Claude Code hands
  * its model a result's structured content and leaves out its text (docs/claude-connector.md, "What the model sees"), so
- * the stop goes there too. It follows framingGuidance's branches.
+ * the stop goes there too. It follows framingGuidance's branches and carries the approved traditional-system screen
+ * guidance in structured content too (owner answer 402a).
  */
 export function framingNextStep(steering: ResearchSteering, framing: Framing | undefined): string {
   const asks = (framing?.redirecting_questions ?? []).length > 0;
@@ -933,18 +945,19 @@ export function framingNextStep(steering: ResearchSteering, framing: Framing | u
     return "Ask the person your framing's redirecting_questions now and end your turn: no research call until they " +
       "answer. Then register the plain answer again if their answers change the question" +
       (doubts ? " or a doubt that could be false is not yet a claim" : "") + ", leaving later_inputs.framing out (its " +
-      "result's request for a framing is for the next question); then screen and call action plan_research.";
+      "result's request for a framing is for the next question); then screen and call action plan_research. " +
+      TRADITIONAL_SYSTEM_AT_THE_SCREEN;
   }
   if (framing !== undefined && !asks && steering.style === "guided") {
     return "Confirm the question you will research in one line, ask for the person's yes and end your turn; after " +
       "their yes, " + (doubts ? "register the plain answer again, leaving later_inputs.framing out (its result's " +
         "request for a framing is for the next question), if a doubt that could be false is not yet a claim; then "
-        : "") + "screen and call action plan_research.";
+        : "") + "screen and call action plan_research. " + TRADITIONAL_SYSTEM_AT_THE_SCREEN;
   }
   return (doubts ? "If a doubt that could be false is not yet a claim of the plain answer, register the plain answer " +
     "again first, with the same later_inputs.framing. " : "") + "Screen in a few calls (searches, abstracts, thread " +
     "titles, the Atlas), then call action plan_research with later_inputs.researchMenu; its result says whether to ask " +
-    "the person first.";
+    "the person first. " + TRADITIONAL_SYSTEM_AT_THE_SCREEN;
 }
 
 /**
