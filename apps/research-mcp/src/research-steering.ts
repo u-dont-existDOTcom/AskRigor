@@ -307,7 +307,6 @@ const optionalFieldsOf = (shape: z.ZodRawShape) =>
   new Set(Object.keys(shape).filter((key) => z.safeParse(shape[key]!, undefined).success));
 const MENU_FIELDS = fieldsOf(researchMenuSchema.shape);
 const OPTIONAL_MENU_FIELDS = optionalFieldsOf(researchMenuSchema.shape);
-OPTIONAL_MENU_FIELDS.delete("person_steered");
 const TASK_FIELDS = fieldsOf(planTaskSchema.shape);
 const OPTIONAL_TASK_FIELDS = optionalFieldsOf(planTaskSchema.shape);
 const ALLOCATION_FIELDS: ReadonlySet<string> = new Set(["task", "minutes"]);
@@ -1486,15 +1485,17 @@ export function planResearch(
   const firstBalanced = steering.style === "balanced" && firstMenu;
   const lengthAsks = long && !firstBalanced;
   const steerContext = changed || tasks.some(({ n }) => done.has(n));
-  const steerApplies = steered && steerContext && question === undefined;
-  const steerProblem = plan.person_steered === undefined ? undefined
+  const steerApplies = steered && steerContext && (question === undefined || steering.style === "autonomous");
+  const steerAttempted = plan.person_steered !== undefined && plan.person_steered !== null &&
+    plan.person_steered !== false;
+  const steerProblem = !steerAttempted ? undefined
     : plan.person_steered !== true
       ? "later_inputs.researchMenu.person_steered: not used; it must be boolean true."
     : !steered
       ? "later_inputs.researchMenu.person_steered: not used; it goes with the person's words, word for word, in person_reason."
-    : !steerContext
+    : !steerContext && steering.style !== "autonomous"
       ? "later_inputs.researchMenu.person_steered: not used; it applies only to a changed menu or a re-plan with tasks done."
-    : question !== undefined
+    : question !== undefined && steering.style !== "autonomous"
       ? "later_inputs.researchMenu.person_steered: not used; it does not replace the answer to a named question."
       : undefined;
   const next = steering.style === "autonomous" ? "go_on"
@@ -1511,7 +1512,7 @@ export function planResearch(
     ...(tasks.some(({ n }) => done.has(n)) ? { research_started: true as const } : {}),
     ...(steerApplies ? { person_steered: true as const } : {}),
     ...(steerProblem === undefined ? {} : { person_steered_problem: steerProblem }),
-    ...(plan.person_steered !== undefined && !steered ? { person_steered_invalid: true as const } : {}),
+    ...(steerAttempted && !steered ? { person_steered_invalid: true as const } : {}),
     ...(firstMenu ? { first_menu: true as const } : {}),
     recommended,
     recommended_minutes: recommendedMinutes,
@@ -1605,8 +1606,10 @@ function askReason(result: ResearchPlanResult, done: ReadonlySet<number>): strin
 
 /** The first line the person sees when the menu waits. */
 export function askOpening(result: ResearchPlanResult): string {
-  if (result.person_steered_invalid === true) return "Before I go on, I need your choice on the plan; your last " +
-    "message didn't reach me as a change.";
+  if (result.person_steered_invalid === true &&
+      (result.menu_changed === true || result.research_started === true)) {
+    return "Before I go on, I need your choice on the plan; your last message didn't reach me as a change.";
+  }
   if (result.person_steered === true && result.style === "guided" && result.steering_choice === undefined) {
     return "You chose to approve the plan first; here is the plan with your change.";
   }
@@ -2035,7 +2038,8 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
       (result.steering_choice === undefined ? "" : ` ${NAMED_ANSWER_STEERS}`) + " If the reply " +
       "asks about a different thing, register the plain answer again for the new research target first, with " +
       `later_inputs.framing for it. Never send an allocation the person did not give or leave to you. ${STYLE_REPLY}` +
-      (learnMode === undefined ? "" : ` ${LEARN_MODE_REPLY}`) + ` ${STEER_REGISTER}`;
+      (learnMode === undefined ? "" : ` ${LEARN_MODE_REPLY}`) +
+      (result.menu_changed === true || result.research_started === true ? ` ${STEER_REGISTER}` : "");
     return [
       ...first,
       ...(before.length === 0 ? [] : [before.join(" ")]),
@@ -2108,7 +2112,7 @@ export function planNextStep(result: ResearchPlanResult, learnMode?: boolean, ch
   if (result.next === "ask") {
     // A menu with nothing recommended (detail only) gives "you decide" the text's own exit: an empty recommended
     // allocation counts as no answer, so the same menu would ask again (the review of 12 Nov 2026).
-    return first + `${STEER_REGISTER} ` + (result.go_ahead_may_answer === true ? `${GO_AHEAD_BEFORE_ASK} Otherwise, ask` : "Ask") +
+    return first + (result.go_ahead_may_answer === true ? `${GO_AHEAD_BEFORE_ASK} Otherwise, ask` : "Ask") +
       " the person now and end your turn. Open your reply with, in their language: " +
       `${JSON.stringify(askOpening(result))} Then ` + (result.steering_choice === undefined ? ""
         : "put the question you named to them, in their language (researchMenu.steering_choice), and ") +
@@ -2127,7 +2131,8 @@ export function planNextStep(result: ResearchPlanResult, learnMode?: boolean, ch
       " Send person_answered true only once they have answered this menu in a message of their own: " +
       `${PERSON_ANSWER_DECLARED}, and one sent without it is not used.` +
       (result.steering_choice === undefined ? "" : ` ${NAMED_ANSWER_STEERS}`) + ` ${STYLE_REPLY}` +
-      (learnMode === undefined ? "" : ` ${LEARN_MODE_REPLY}`);
+      (learnMode === undefined ? "" : ` ${LEARN_MODE_REPLY}`) +
+      (result.menu_changed === true || result.research_started === true ? ` ${STEER_REGISTER}` : "");
   }
   if (notRegistered) return first + NO_GO_AHEAD_YET;
   // Owner answer 302: a light look-up goes on with LIGHT_LOOKUP alone, in any style.

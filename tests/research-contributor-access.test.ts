@@ -820,7 +820,7 @@ describe("the first line and menu outline (22 Nov 2026)", () => {
     await waitForPendingMenuChoices(service);
     expect(await service.menuChoices(service.accountKeyForSubject(SUBJECT))).toEqual([]);
   });
-  it.each(["true", true, null])("explains unusable steer input %j through the runtime handler", async person_steered => {
+  it.each(["true", true])("explains unusable steer input %j through the runtime handler", async person_steered => {
     const { call } = await accessTool();
     const result = await call({ action: "plan_research", later_inputs: { researchMenu: {
       research_target: plain.researchTarget, steering_choice: "none", done: [1], person_steered,
@@ -836,6 +836,28 @@ describe("the first line and menu outline (22 Nov 2026)", () => {
       expect(text).toContain(`later_inputs.researchMenu.person_steered: not used; ${reason}`);
       expect(text).toContain("Before I go on, I need your choice on the plan; your last message didn't reach me as a change.");
       expect(text).not.toContain("The plan changed with what I found");
+    }
+  });
+  it.each([
+    [false, false], [null, false], [undefined, false],
+    [false, true], [null, true], [undefined, true],
+  ])("keeps no-steer input %j silent through runtime parsing, re-plan=%j", async (person_steered, replanned) => {
+    const { call } = await accessTool();
+    const result = await call({ action: "plan_research", later_inputs: { researchMenu: {
+      research_target: plain.researchTarget, steering_could_help: true,
+      ...(replanned ? { done: [1] } : {}),
+      ...(person_steered === undefined ? {} : { person_steered }),
+      tasks: [{ task: "Find the study", kind: "study_search", could_change: "conclusion" },
+        { task: "Read the original study", kind: "full_text", could_change: "conclusion" }],
+    } } });
+    expect(result.isError, words(result)).not.toBe(true);
+    expect(result.structuredContent).toMatchObject({ researchMenu: { next: "ask" } });
+    expect(result.structuredContent).not.toHaveProperty("problems");
+    expect(result.structuredContent).not.toHaveProperty("researchMenu.person_steered_problem");
+    expect(result.structuredContent).not.toHaveProperty("researchMenu.person_steered_invalid");
+    for (const text of [words(result), String(result.structuredContent?.next_step)]) {
+      expect(text).not.toContain("person_steered: not used");
+      expect(text).not.toContain("your last message didn't reach me as a change");
     }
   });
   it("keeps an unusable-steer diagnostic when a dev menu needs its steering judgment corrected", async () => {

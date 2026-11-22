@@ -133,8 +133,10 @@ named preparations, so it is not fitted to the test that found the miss):
 > ...a substance or thing that comes in several forms: plan for the whole class, with its main members grouped. Before
 > you plan, list for yourself the forms a person asking this could have in hand: what is sold, and what people make or
 > prepare themselves. When they differ much in strength, content or how they are used, the form a person is most
-> likely to have gets a task of its own. Say in about which forms the research covers and the nearest form it leaves
-> out.
+> likely to have gets a task of its own. Say in about what you took it to cover: which members or forms, and the
+> nearest one left out.
+
+(Final wording after Fable's recheck: the whole-class sentence is said once, not twice.)
 
 And for every reading: `about` says which meaning the research takes and the nearest one it leaves out. Step 2 is
 unchanged: forms are still not a reason to name a question on a dev account.

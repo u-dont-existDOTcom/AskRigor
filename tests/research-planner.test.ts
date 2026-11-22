@@ -2698,9 +2698,25 @@ describe("tasks the person's own words asked for (21 Nov 2026)", () => {
 describe("the planner's reading of forms (22 Nov 2026)", () => {
   it("plans for forms people buy or prepare and names the nearest excluded reading", () => {
     expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-22.1");
-    expect(RESEARCH_PLANNER_RUBRIC.replace(/\s+/gu, " ")).toContain("a substance or thing that comes in several forms: plan for the whole class, with its main members grouped. Before you plan, list for yourself the forms a person asking this could have in hand: what is sold, and what people make or prepare themselves. When they differ much in strength, content or how they are used, the form a person is most likely to have gets a task of its own. Say in about which forms the research covers and the nearest form it leaves out.");
-    expect(RESEARCH_PLANNER_RUBRIC).toContain("Say in about what you took it to cover: which members or forms, and the nearest one left out;");
+    expect(RESEARCH_PLANNER_RUBRIC.replace(/\s+/gu, " ")).toContain("a substance or thing that comes in several forms: plan for the whole class, with its main members grouped. Before you plan, list for yourself the forms a person asking this could have in hand: what is sold, and what people make or prepare themselves. When they differ much in strength, content or how they are used, the form a person is most likely to have gets a task of its own. Say in about what you took it to cover: which members or forms, and the nearest one left out;");
+    expect(RESEARCH_PLANNER_RUBRIC.replace(/\s+/gu, " ")).toContain("Say in about what you took it to cover: which members or forms, and the nearest one left out;");
     expect(RESEARCH_PLANNER_RUBRIC).toContain("In about, say which meaning the research takes and the nearest one it leaves out.");
     expect(RESEARCH_PLANNER_RUBRIC).toContain("not different sides, uses, situations, forms, doses or routes of one thing");
+  });
+});
+
+
+describe("Round 3: one whole-class reading instruction", () => {
+  it("says the coverage instruction once and keeps the changed rubric lines within 110 columns", () => {
+    const start = RESEARCH_PLANNER_RUBRIC.indexOf("- they ask about a whole class without naming a member");
+    const end = RESEARCH_PLANNER_RUBRIC.indexOf("\n- they ask what something could become", start);
+    const bullet = RESEARCH_PLANNER_RUBRIC.slice(start, end);
+    expect(bullet.match(/Say in about/gu)).toHaveLength(1);
+    expect(bullet.replace(/\s+/gu, " ")).toContain("Say in about what you took it to cover: which members or forms, and the nearest one left out;");
+    expect(bullet).not.toContain("Say in about which forms");
+    for (const line of bullet.split("\n")) expect(line.length, line).toBeLessThanOrEqual(110);
+    const safety = RESEARCH_PLANNER_RUBRIC.slice(RESEARCH_PLANNER_RUBRIC.indexOf("Carry what a safe answer needs"),
+      RESEARCH_PLANNER_RUBRIC.indexOf("\nNever rely on the person correcting"));
+    for (const line of safety.split("\n")) expect(line.length, line).toBeLessThanOrEqual(110);
   });
 });

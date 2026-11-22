@@ -464,8 +464,9 @@ its own reason: a needed answer, a changed plan, a later long step, the chosen g
 A steer goes in `later_inputs.researchMenu` as runtime-only `person_steered: true`, with the person's own words in
 `person_reason`; without non-empty words it is ignored. On a changed menu or re-plan without a named question, balanced and autonomous follow the revised recommendation,
 even past about 10 minutes. Guided asks until the person gives an allocation; an answered allocation goes on.
-A first menu keeps every existing reason to ask. An invalid steer is reported with its reason, and the opening
-says the last message did not reach AskRigor as a change. The AI keeps the same target and plain-answer receipt for narrowing, widening or redirecting the
+A first menu keeps every existing reason to ask. False, null and absent steer declarations are silent.
+An unusable attempted steer is reported with its reason; only a changed menu or re-plan uses the opening
+saying the last message did not reach AskRigor as a change. The AI keeps the same target and plain-answer receipt for narrowing, widening or redirecting the
 same question, passes the last menu digest and finished task numbers, and marks requested tasks `person_asked`.
 It shows what finished tasks found, what changed and what remains, avoids repeating finished tasks, and keeps their
 receipts. A different thing requires a new plain-answer registration and an explanation of which finished work
@@ -474,7 +475,9 @@ it adds no storage of steering messages.
 
 A registration without an AskRigor plan gives `menu_outline`: the corrected-menu example, its signed receipt, one
 task with placeholders. Ordinary accounts keep their existing steering field and wording; dev outlines omit
-`steering_choice`, so no account is asked for it before its first menu. The target is copied only through
+`steering_choice`, so no account is asked for it before its first menu. A dev account without an AskRigor plan
+can still have that first menu call returned for its steering judgment when the waiting decision needs it.
+The target is copied only through
 300 characters; longer targets use the existing placeholder. `heldVariants` still selects a result within the
 client byte limit. A handed-over research or light plan, or an aside, gets no outline.
 

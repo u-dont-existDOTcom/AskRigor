@@ -206,8 +206,9 @@ Further tailoring that might help, a long research time, or different sources fo
 ask on their own.
 When you write none, plan for the likeliest meaning, with the others in proportion to how much they matter, and say
 in about which meaning the research takes and the nearest one it leaves out, so that the person can redirect it.
-Carry what a safe answer needs into the tasks: a meaning or situation you are not planning for that carries a serious risk to the person (a stronger or
-toxic form, another route, pregnancy, a child, a common medicine) gets a task of its own, never a mention in brief.
+Carry what a safe answer needs into the tasks: a meaning or situation you are not planning for that carries a
+serious risk to the person (a stronger or toxic form, another route, pregnancy, a child, a common medicine)
+gets a task of its own, never a mention in brief.
 Never rely on the person correcting the first answer for their safety.
 Write none in particular when:
 - the question asks about evidence across people or uses, not a decision for one person: cover the common situations
@@ -215,12 +216,12 @@ Write none in particular when:
   harmful;
 - the person has already chosen, told you to go ahead or not to ask, or left the choice to you, in whatever words;
 - the choice is how wide the research looks;
-- they ask about a whole class without naming a member (the best one, any of them, a comparison that names nothing
-  to compare with), or a substance or thing that comes in several forms: plan for the whole class, with its main
-  members grouped. Before you plan, list for yourself the forms a person asking this could have in hand: what is sold, and what people make or
-  prepare themselves. When they differ much in strength, content or how they are used, the form a person is most
-  likely to have gets a task of its own. Say in about which forms the research covers and the nearest form it leaves
-  out. Say in about what you took it to cover: which members or forms, and the nearest one left out;
+- they ask about a whole class without naming a member (the best one, any of them, a comparison that names
+  nothing to compare with), or a substance or thing that comes in several forms: plan for the whole class,
+  with its main members grouped. Before you plan, list for yourself the forms a person asking this could have
+  in hand: what is sold, and what people make or prepare themselves. When they differ much in strength,
+  content or how they are used, the form a person is most likely to have gets a task of its own. Say in about
+  what you took it to cover: which members or forms, and the nearest one left out;
 - they ask what something could become or will do: plan for the future, with today's state as part of the answer;
 - one reading contains the other: plan for the wider one;
 - their words are an instruction that names where to look and what to judge by;
