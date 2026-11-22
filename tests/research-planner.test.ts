@@ -66,6 +66,7 @@ import {
   READING_FIRST,
   RESEARCH_LANES,
   STYLE_REPLY,
+  TRADITIONAL_SYSTEM_AT_THE_SCREEN,
   WENT_ON_AS_ASKED,
   asideGuidance,
   asideNextStep,
@@ -1341,6 +1342,44 @@ async function tool(researchPlanner: ResearchPlanner | undefined, dev: readonly 
       scopes: ["research:use"], expiresAt: Math.floor(Date.now() / 1_000) + 60, extra: { subject } } }) as Result;
   return { call, service };
 }
+
+describe("traditional accounts in registration's structured next step (owner answer 402a)", () => {
+  const cases = (["guided", "balanced", "autonomous"] as const).flatMap((style) => [
+    { style, questions: "without redirecting questions", redirecting_questions: [] },
+    { style, questions: "with redirecting questions", redirecting_questions: ["Which preparation do you mean?"] },
+  ]);
+
+  it.each(cases)("carries the exact approved sentence for $style $questions, after any ask-first stop", async ({
+    style, redirecting_questions,
+  }) => {
+    for (const mcpSurface of ["/mcp", "/mcp/claude"] as const) {
+      const { call, service } = await tool(undefined, [], { mcpSurface });
+      await service.setResearchSteering("auth0|person", { style });
+      const result = await call({ action: "register_plain_answer", plainAnswer: PLAIN, later_inputs: {
+        framing: { likely_question: PLAIN.researchTarget, redirecting_questions },
+      } }, "auth0|person");
+      expect(result.isError, mcpSurface).not.toBe(true);
+      expect(result.structuredContent, mcpSurface).toMatchObject({ ok: true, research_receipt: expect.any(String) });
+      const { next_step } = result.structuredContent as { next_step: string };
+      expect(next_step, mcpSurface).toContain(TRADITIONAL_SYSTEM_AT_THE_SCREEN);
+      if (style !== "autonomous" && redirecting_questions.length > 0) {
+        const stop = "Ask the person your framing's redirecting_questions now and end your turn: no research call " +
+          "until they answer.";
+        expect(next_step.startsWith(stop), mcpSurface).toBe(true);
+        expect(next_step.indexOf(TRADITIONAL_SYSTEM_AT_THE_SCREEN), mcpSurface).toBeGreaterThan(stop.length);
+      } else if (style === "guided") {
+        const stop = "Confirm the question you will research in one line, ask for the person's yes and end your " +
+          "turn; after their yes, ";
+        expect(next_step.startsWith(stop), mcpSurface).toBe(true);
+        expect(next_step.indexOf(TRADITIONAL_SYSTEM_AT_THE_SCREEN), mcpSurface).toBeGreaterThan(stop.length);
+      }
+      expect(next_step, mcpSurface).toContain((style === "guided" ||
+        (style === "balanced" && redirecting_questions.length > 0)
+        ? "screen and call action plan_research. "
+        : "its result says whether to ask the person first. ") + TRADITIONAL_SYSTEM_AT_THE_SCREEN);
+    }
+  });
+});
 
 function memoryPlanner(answer: (source: ResearchPlannerSource, accountKey: string) => ResearchPlannerCall["planning"] =
   () => ({ status: "planned", plan: researchPlanOf(REPLY, 1)! })) {

@@ -2557,8 +2557,9 @@ describe("a dev account's refused menu marks the question's place, and an answer
         expect(guidance.split(RESEARCH_MENU_SHAPE)).toHaveLength(2);
         expect(guidance).not.toContain("steering_choice");
         expect(framingNextStep(steering, framing)).not.toContain("steering_choice");
-        expect(framingNextStep(steering, framing).endsWith("screen and call action plan_research.") ||
-          framingNextStep(steering, framing).endsWith("its result says whether to ask the person first.")).toBe(true);
+        expect(framingNextStep(steering, framing).endsWith("screen and call action plan_research. " +
+          TRADITIONAL_SYSTEM_AT_THE_SCREEN) || framingNextStep(steering, framing)
+          .endsWith("its result says whether to ask the person first. " + TRADITIONAL_SYSTEM_AT_THE_SCREEN)).toBe(true);
       }
     }
     expect(RESEARCH_MENU_SHAPE).toContain("in a few sentences; steering_could_help, true when a choice the person " +

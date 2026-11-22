@@ -935,7 +935,8 @@ export function framingGuidance(steering: ResearchSteering, framing: Framing | u
 /**
  * register_plain_answer's next step as a runtime field (owner answer 189a keeps the published shape): Claude Code hands
  * its model a result's structured content and leaves out its text (docs/claude-connector.md, "What the model sees"), so
- * the stop goes there too. It follows framingGuidance's branches.
+ * the stop goes there too. It follows framingGuidance's branches and carries the approved traditional-system screen
+ * guidance in structured content too (owner answer 402a).
  */
 export function framingNextStep(steering: ResearchSteering, framing: Framing | undefined): string {
   const asks = (framing?.redirecting_questions ?? []).length > 0;
@@ -944,18 +945,19 @@ export function framingNextStep(steering: ResearchSteering, framing: Framing | u
     return "Ask the person your framing's redirecting_questions now and end your turn: no research call until they " +
       "answer. Then register the plain answer again if their answers change the question" +
       (doubts ? " or a doubt that could be false is not yet a claim" : "") + ", leaving later_inputs.framing out (its " +
-      "result's request for a framing is for the next question); then screen and call action plan_research.";
+      "result's request for a framing is for the next question); then screen and call action plan_research. " +
+      TRADITIONAL_SYSTEM_AT_THE_SCREEN;
   }
   if (framing !== undefined && !asks && steering.style === "guided") {
     return "Confirm the question you will research in one line, ask for the person's yes and end your turn; after " +
       "their yes, " + (doubts ? "register the plain answer again, leaving later_inputs.framing out (its result's " +
         "request for a framing is for the next question), if a doubt that could be false is not yet a claim; then "
-        : "") + "screen and call action plan_research.";
+        : "") + "screen and call action plan_research. " + TRADITIONAL_SYSTEM_AT_THE_SCREEN;
   }
   return (doubts ? "If a doubt that could be false is not yet a claim of the plain answer, register the plain answer " +
     "again first, with the same later_inputs.framing. " : "") + "Screen in a few calls (searches, abstracts, thread " +
     "titles, the Atlas), then call action plan_research with later_inputs.researchMenu; its result says whether to ask " +
-    "the person first.";
+    "the person first. " + TRADITIONAL_SYSTEM_AT_THE_SCREEN;
 }
 
 /**
