@@ -2723,6 +2723,8 @@ const ATLAS_MODERATION_FUNCTIONS = [
 ] as const;
 // Owner answers 229a and 231a: migration 0024's two functions for findings kept for research.
 const ATLAS_KEPT_FUNCTIONS = ["inspect_atlas_kept_publications", "keep_atlas_publications"] as const;
+// Owner answer 403: migration 0044's tradition functions, for the review role.
+const ATLAS_TRADITION_FUNCTIONS = ["inspect_atlas_traditions", "set_atlas_traditions"] as const;
 // Owner answer 229a: migration 0025's two placement functions, for the review role.
 const ATLAS_PLACEMENT_FUNCTIONS = ["inspect_atlas_placements", "set_atlas_placements"] as const;
 // Owner answer 229a: migration 0026's report functions, four for the access role and two for the review role.
@@ -4210,7 +4212,7 @@ async function migrateAsTheImageBefore0041(adminUrl: string, schema: string): Pr
     // That image (main's, with Atlas news) has neither 0041 nor this release's other new migrations, 0040 and 0042
     // (Atlas Release B's).
     .filter((id) => id !== "0040_research_dossier_publications" && id !== "0041_atlas_show_saved_findings" &&
-      id !== "0042_atlas_person_readings");
+      id !== "0042_atlas_person_readings" && id !== "0044_atlas_traditions");
   assert(order.length > 30 && order.at(-1) === "0043_atlas_news_items", "EARLIER_IMAGE_MIGRATION_LIST");
   const pool = new Pool({ connectionString: adminUrl, max: 1 });
   const client = await pool.connect();
@@ -5733,7 +5735,7 @@ export async function verifyAtlasStorage(context: {
     assert(
       executable.rows.map(({ proname }) => proname).join() ===
         [...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
-          ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS,
+          ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_TRADITION_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS,
           ...ATLAS_CHALLENGE_FUNCTIONS, ...ATLAS_SHOW_FUNCTIONS, ...ATLAS_PERSON_FUNCTIONS,
           ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS, ...DOSSIER_REVIEW_FUNCTIONS,
           ...ATLAS_NEWS_REVIEW_FUNCTIONS, ...DOSSIER_PUBLICATION_REVIEW_FUNCTIONS].sort().join(),

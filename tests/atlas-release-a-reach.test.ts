@@ -12,7 +12,8 @@ import {
 
 // Release A's acceptance (the design of 19 Nov 2026, section 3.1, and its Fable recheck, 2.1): with
 // ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS off, this release neither widens nor narrows what the public reaches. The snapshot
-// is the same scenario run on main (263048eb); only the sentences on how findings reached the pages may differ.
+// is the same scenario run on main (263048eb); only the sentences on how findings reached the pages and the
+// separately tested Traditions navigation tab (owner answer 403) may differ.
 describe("what a signed-out reader and the lookup tool reach, with saved findings not shown at once", () => {
   it("is what main reaches, page by page and finding by finding, but for how findings got there", async () => {
     const main = JSON.parse(await readFile(new URL("./fixtures/atlas-reach-main.json", import.meta.url), "utf8")) as

@@ -110,6 +110,11 @@ GRANT EXECUTE ON FUNCTION living_evidence.keep_atlas_publications(text[], text[]
   TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_kept_publications()
   TO askrigor_research_review;
+-- Owner answer 403 (migration 0044): public tradition labels, reviewer-only writes.
+GRANT EXECUTE ON FUNCTION living_evidence.set_atlas_traditions(jsonb, jsonb, timestamptz)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_traditions()
+  TO askrigor_research_review;
 -- Owner answer 229a (migration 0025): where items sit under Health.
 GRANT EXECUTE ON FUNCTION living_evidence.set_atlas_placements(jsonb, timestamptz)
   TO askrigor_research_review;

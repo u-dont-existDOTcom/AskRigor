@@ -1,3 +1,5 @@
+import { PostgresAtlasTraditionStore } from "@askrigor/evidence-repository";
+import { announcingTraditionStore } from "../atlas/change-signal.js";
 import {
   PostgresAtlasModerationStore,
   PostgresAtlasPlacementStore,
@@ -222,7 +224,11 @@ export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): 
         schema: review.schema,
         ssl: review.ssl,
       })),
-      // Owner answer 229a: where items sit under Health, through the same role's two placement functions.
+      // Owner answer 403: reviewed tradition labels, through the same review role.
+      traditions: announcingTraditionStore(new PostgresAtlasTraditionStore({
+        connectionString: review.connectionString, schema: review.schema, ssl: review.ssl,
+      })),
+      // Owner answer 229a: where items sit under Health.
       placements: announcingPlacementStore(new PostgresAtlasPlacementStore({
         connectionString: review.connectionString,
         schema: review.schema,

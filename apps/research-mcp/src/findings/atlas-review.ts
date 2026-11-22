@@ -1,3 +1,6 @@
+import { AtlasTraditionReview, ATLAS_TRADITION_ACTIONS, ATLAS_TRADITION_OUTCOMES,
+  type AtlasTraditionRequest, type atlasTraditionsSchema } from "../atlas/traditions-review.js";
+import type { AtlasTraditionStore } from "@askrigor/evidence-repository";
 import { atlasBasisSchema } from "../atlas/reuse.js";
 import { randomUUID } from "node:crypto";
 
@@ -240,6 +243,7 @@ export const ATLAS_REVIEW_ACTIONS = [
   ...ATLAS_KEEP_ACTIONS,
   // Owner answer 229a: where items sit under Health, and people's reports.
   ...ATLAS_PLACEMENT_ACTIONS,
+  ...ATLAS_TRADITION_ACTIONS,
   ...ATLAS_REPORT_ACTIONS,
   // The owner, 3 Nov: a problem's rows at a glance, each shown on the owner's yes.
   ...ATLAS_GLANCE_ACTIONS,
@@ -278,6 +282,7 @@ export const ATLAS_REVIEW_OUTCOMES = [
   ...ATLAS_PARTICIPATION_OUTCOMES,
   ...ATLAS_KEEP_OUTCOMES,
   ...ATLAS_PLACEMENT_OUTCOMES,
+  ...ATLAS_TRADITION_OUTCOMES,
   ...ATLAS_REPORT_OUTCOMES,
   ...ATLAS_GLANCE_OUTCOMES,
   ...ATLAS_CHALLENGE_OUTCOMES,
@@ -481,6 +486,8 @@ export interface AtlasReviewRequest {
   items?: string[];
   /** place_items (owner answer 229a), from later_inputs.placements. */
   placements?: import("zod").infer<typeof placementsInputSchema>;
+  traditions?: AtlasTraditionRequest["traditions"];
+  tradition_disagreements?: AtlasTraditionRequest["tradition_disagreements"];
   /** People's reports (owner answer 229a), from later_inputs.reportState, later_inputs.report and later_inputs.verdict. */
   reportState?: "received" | "published" | "held" | "refused";
   report?: string;
@@ -573,6 +580,8 @@ const FIELDS_BY_ACTION: Record<AtlasReviewAction | "edit_after", readonly AtlasF
   show_on_pages: ["publication", "atlasNumber"],
   list_kept: [],
   // Owner answer 229a: the placements come in later_inputs.placements.
+  label_traditions: [],
+  list_traditions: [],
   place_items: [],
   list_unplaced: ["cursor"],
   // Owner answer 229a: the report, its verdict and the state to list come in later_inputs.
@@ -1082,6 +1091,7 @@ export interface AtlasReviewResult {
   kept?: AtlasKept;
   /** Owner answer 229a: the placements set, or the publications that sit in no subcategory. */
   placements?: AtlasPlacements;
+  traditions?: import("zod").infer<typeof atlasTraditionsSchema>;
   /** Owner answer 229a: the reports listed, or the one checked or decided. */
   reports?: AtlasReports;
   /** The rows at a glance listed, or the one proposed or changed. */
@@ -1138,6 +1148,7 @@ export interface AtlasReviewDependencies {
   participation?: AtlasModerationStore;
   /** Where items sit under Health (owner answer 229a), through the review role's two placement functions. */
   placements?: AtlasPlacementStore;
+  traditions?: AtlasTraditionStore;
   /** People's reports (owner answer 229a), through the review role's two report functions. */
   reports?: AtlasReportReviewStore;
   /** A problem's rows at a glance, through the review role's three glance functions. */
@@ -1288,6 +1299,15 @@ export class AtlasReview {
         case "show_on_pages":
         case "list_kept":
           return await this.keepAction(request.action, request);
+        case "label_traditions":
+        case "list_traditions": {
+          if (this.deps.traditions === undefined) return errorOf("review_service_unavailable", "The tradition labels need the review database. Nothing was changed.");
+          return await new AtlasTraditionReview({ traditions: this.deps.traditions, now: this.now }).run({
+            action: request.action,
+            ...(request.traditions === undefined ? {} : { traditions: request.traditions }),
+            ...(request.tradition_disagreements === undefined ? {} : { tradition_disagreements: request.tradition_disagreements }),
+          });
+        }
         case "place_items":
         case "list_unplaced":
           return await this.placementAction(request.action, request);

@@ -416,3 +416,18 @@ Decided: 5 Nov 2026 (the owner); comments open with the Atlas, email until then.
 **Site and Atlas pages run no scripts and no inline styles, under a strict content security policy.**\
 Why: not recorded.\
 Decided: by 25 Oct 2026 (the Atlas pages' security headers); topic maps drawn without scripts, 26 Oct (183b).
+
+## Atlas Traditions
+
+**Traditions has four separate sections: Tibetan medicine (Sowa Rigpa), Ayurveda and Siddha, standardized Chinese
+medicine (TCM), and classical Chinese medicine (CCM). Important findings can appear in short form even when well
+known; findings a quick AI answer misses or gets wrong are marked and come first.**\
+Why: the owner wants the most useful findings and the most important corrections from modern science for each
+system, including TCM/CCM disagreements, without the Health pages changing their bar. A finding keeps its Health
+placement and can carry more than one tradition label. Siddha is a separate Tamil system. Sections come from one
+list so another needs only one entry. Religious preparations get the tradition's own account respectfully; the
+modern check covers contents, contaminants and measurable health claims, and says that a blessing's spiritual
+effect is outside what studies can test.\
+Not done: option 2b, only showing findings a quick AI answer misses; treating Siddha as part of Ayurveda; judging
+blessings in code; adding research lanes or publishing findings in this local build. · Decided: 22 November 2026
+(owner answer 403 1b 2a); built locally, not released.

@@ -2966,3 +2966,13 @@ The owner, 7 Nov 2026: bigger research jobs are asked for by email and quoted by
 - The emails and payment details never enter AskRigor's research repository, the Atlas or any AskRigor log; whether
   any research from a job is published is settled in its quote. The privacy notice's section "Emails, research jobs
   and payments" (effective November 7, 2026) says so publicly.
+
+### Tradition labels (local build, owner answer 403, 22 November 2026)
+
+Migration 0044 stores reviewed public descriptions apart from Health placements: P- or F-number, section key,
+tradition, optional region and preparation, modern check, match to traditional use, list, quick-answer mark and label
+time. A second table holds the two public item numbers and the short line for each TCM/CCM disagreement. No account,
+contributor, private research content or report is added. Reviewer-only functions replace and inspect these rows;
+the Atlas reader selects them in its page snapshot. Labels publish nothing and bypass no hidden, erased, withdrawn
+or research-only state. Text is escaped and filtered through the page guard. The existing report form and its data
+rules apply to reports reached from Traditions. No new report data or retention period is introduced.

@@ -790,3 +790,5 @@ Current owner requirements and verified code/evidence outrank stale plans or sum
 ## Task-mode integration
 
 - `superpowers/plans/2026-09-30-task-mode-integration.md`: portable task/capability routing, exact source preservation, and separate memory, source, and deployment boundaries.
+
+- [Traditions review labels](atlas-traditions-review.md): sections, modern checks, quick-answer marks and disagreements (local build).

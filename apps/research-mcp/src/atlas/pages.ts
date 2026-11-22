@@ -1,3 +1,6 @@
+import type { AtlasTraditionLabel } from "@askrigor/evidence-repository";
+import { modernCheckLine, traditionLine } from "./tradition-text.js";
+import { traditionSectionOf, traditionsPath } from "./traditions-tree.js";
 import {
   ATLAS_CALLER_READINGS_SENTENCE,
   type AtlasForumSignalStudies,
@@ -298,7 +301,7 @@ export interface PageFrame {
   noindex?: boolean;
   title: string;
   description: string;
-  current?: "home" | "changes" | "account" | "private" | "findings" | "health" | "topics" | "map" | "search";
+  current?: "home" | "changes" | "account" | "private" | "findings" | "health" | "traditions" | "topics" | "map" | "search";
   reader?: AtlasPageReader;
   noReferrer?: boolean;
   body: SafeHtml;
@@ -327,6 +330,7 @@ ${frame.path === null ? "" : html`<link rel="canonical" href="${CANONICAL_ORIGIN
 <li><a href="/atlas"${current("home")}>Atlas home</a></li>
 <li><a href="/atlas/findings"${current("findings")}>All findings</a></li>
 <li><a href="/atlas/health"${current("health")}>Health</a></li>
+<li><a href="/atlas/traditions"${current("traditions")}>Traditions</a></li>
 <li><a href="/atlas/topics"${current("topics")}>Topics</a></li>
 <li><a href="${MAP_PATH}"${current("map")}>Findings map</a></li>
 <li><a href="/atlas/changes"${current("changes")}>What changed</a></li>
@@ -1460,7 +1464,8 @@ ${finding.kept ? html`<p class="notice-line" role="note">${KEPT_FOR_RESEARCH_LIN
 ` : ""}${personBanner(finding)}${statusBlock(finding)}
 ${challengeBox(finding)}${question}
 <h1 class="claim">${personText(finding, "claim")}</h1>
-<p class="meta">${joined(dates, " · ")}</p>
+${(model.traditions ?? []).map((label) => html`<p class="meta"><a href="${traditionsPath(label.section)}">${traditionSectionOf(label.section)?.label ?? label.section}</a></p>${traditionLines(label)}
+`)}<p class="meta">${joined(dates, " · ")}</p>
 ${facts.length === 0 ? "" : html`<dl class="facts">
 ${joined(facts, "\n")}
 </dl>`}
@@ -1905,6 +1910,7 @@ p, li, dd { max-width: 72ch; }
 .notice p:first-child, .figure p:first-child { margin-top: 0; }
 .notice p:last-child, .figure p:last-child { margin-bottom: 0; }
 
+.finding.tradition-harm { border-left: 4px solid var(--red, #b42318); padding-left: 1rem; }
 .finding-list, .pair-list, .change-list, .source-list, .search-list { margin: 0; padding: 0; list-style: none; }
 .finding, .change, .contested-pair {
   margin: 1rem 0;
@@ -2122,3 +2128,8 @@ button:hover, button:focus-visible { background: var(--accent-hover); border-col
 .person-banner { border-left: 3px solid #b45309; padding-left: 0.5em; }
 .person-dispute { margin-top: 1.5em; font-size: 0.95em; }
 `;
+
+/** The two reviewed tradition lines, shared by short entries and the full finding. */
+export function traditionLines(label: AtlasTraditionLabel): SafeHtml {
+  return html`<p class="tradition-line">${traditionLine(label)}</p><p class="modern-check">Modern check: ${modernCheckLine(label)}</p>`;
+}
