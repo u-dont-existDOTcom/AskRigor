@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { IncomingMessage } from "node:http";
 
 import { sameSitePost } from "../apps/research-mcp/src/atlas/participation.js";
+import { consentPostFromThisSite } from "../apps/research-mcp/src/gemini-sign-in/routes.js";
 import { GOOGLE_JWKS_URL } from "../apps/research-mcp/src/gemini-sign-in/google-client.js";
 import {
   countGeminiLinks,
@@ -483,6 +484,17 @@ describe("the consent form's Origin (the owner's Gemini links of 21 and 22 Nov 2
     expect(browserFormOrigin(page, action, "same-origin")).toBe("https://mcp.askrigor.com");
     expect(browserFormOrigin(page, new URL("https://evil.example/x"), "same-origin")).toBe("null");
     expect(sameSitePost(post("https://mcp.askrigor.com"), "https://mcp.askrigor.com")).toBe(true);
+  });
+
+  it("accepts Allow behind a proxy that forces no-referrer: Origin null, but the browser says same-origin (release E)", () => {
+    const origin = "https://mcp.askrigor.com";
+    const with_ = (headers: Record<string, string>) => ({ headers: { host: "mcp.askrigor.com", ...headers } }) as unknown as IncomingMessage;
+    expect(consentPostFromThisSite(with_({ origin: "null", "sec-fetch-site": "same-origin" }), origin)).toBe(true);
+    expect(consentPostFromThisSite(with_({ origin: "null", "sec-fetch-site": "cross-site" }), origin)).toBe(false);
+    expect(consentPostFromThisSite(with_({ origin: "null", "sec-fetch-site": "same-site" }), origin)).toBe(false);
+    expect(consentPostFromThisSite(with_({ origin: "null" }), origin)).toBe(false);
+    expect(consentPostFromThisSite(with_({ origin: "https://evil.example", "sec-fetch-site": "same-origin" }), origin)).toBe(false);
+    expect(consentPostFromThisSite(with_({ origin, "sec-fetch-site": "same-origin" }), origin)).toBe(true);
   });
 
   it("serves the consent page with a referrer policy that lets Allow through, and never a referrer to Google", async () => {

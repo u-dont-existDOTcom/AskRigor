@@ -253,7 +253,12 @@ export class Browser {
   /** The page shown last: its address and referrer policy decide what its forms send. */
   private page: { url: URL; referrerPolicy: string | null } | undefined;
 
-  constructor(private readonly baseUrl: string) {}
+  /**
+   * proxyReferrerPolicy: the Referrer-Policy production's proxy puts on every page (mcp.askrigor.com's Caddy sets
+   * no-referrer and replaces the server's own value, which ended release E on 22 Nov 2026), so a test sees what a
+   * browser behind it receives.
+   */
+  constructor(private readonly baseUrl: string, private readonly options: { proxyReferrerPolicy?: string } = {}) {}
 
   local(location: string): string {
     const url = new URL(location, "https://mcp.askrigor.com");
@@ -298,7 +303,10 @@ export class Browser {
       else this.cookies.set(name, { value, path });
     }
     if (response.status === 200 && (response.headers.get("content-type") ?? "").startsWith("text/html")) {
-      this.page = { url: new URL(target, "https://mcp.askrigor.com"), referrerPolicy: response.headers.get("referrer-policy") };
+      this.page = {
+        url: new URL(target, "https://mcp.askrigor.com"),
+        referrerPolicy: this.options.proxyReferrerPolicy ?? response.headers.get("referrer-policy"),
+      };
     }
     return response;
   }

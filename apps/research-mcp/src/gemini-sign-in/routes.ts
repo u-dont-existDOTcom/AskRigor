@@ -122,7 +122,7 @@ export function createGeminiSignInRoutes(
   };
 
   const consentDecision = async (request: IncomingMessage, response: ServerResponse, uid: string) => {
-    if (!sameSitePost(request, origin)) return fail(response, 403, "invalid_request");
+    if (!consentPostFromThisSite(request, origin)) return fail(response, 403, "invalid_request");
     let form: URLSearchParams;
     try {
       form = await readForm(request);
@@ -293,6 +293,21 @@ export function createGeminiSignInRoutes(
       }
     },
   };
+}
+
+/**
+ * Whether the consent form's POST came from this server's own page. The shared same-site check needs the page's origin
+ * in Origin (or Referer); production's proxy sends `Referrer-Policy: no-referrer` on every mcp.askrigor.com response,
+ * whatever the page set, and under that policy a browser sends `Origin: null` and no Referer with a form's POST (Fetch
+ * standard). That refused the owner's Allow on 21 and 22 Nov 2026, and #511's same-origin header never reached him
+ * (release E, rolled back 22 Nov 14:29 UTC). So `Origin: null` also passes when the browser itself says the request is
+ * same-origin: Sec-Fetch-Site is set by the browser and no page can forge it. A cross-site page's POST still fails (its
+ * Sec-Fetch-Site is cross-site, and it carries none of the SameSite=Lax cookies the interaction needs), and so does a
+ * browser that sends neither header. The form token and the interaction's cookies remain the main defence.
+ */
+export function consentPostFromThisSite(request: IncomingMessage, origin: string): boolean {
+  if (sameSitePost(request, origin)) return true;
+  return request.headers.origin === "null" && request.headers["sec-fetch-site"] === "same-origin";
 }
 
 export interface GeminiSignInDiagnostic {
