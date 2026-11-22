@@ -30,7 +30,7 @@ describe("HRP 20.6.44: the safety-limit sentence in LimitsNote (owner answer 400
     expect(flat(rule!)).toContain(QUESTION_400);
     expect(flat(text).split(QUESTION_400)).toHaveLength(2);
     expect(text).toContain('<Revision version="20.6.44" priority="Critical">');
-    await expect(getProtocolManifest("hrp")).resolves.toMatchObject({ version: "20.6.44", revisionDate: "2026-11-22" });
+    await expect(getProtocolManifest("hrp")).resolves.toMatchObject({ version: "20.6.45", revisionDate: "2026-11-22" });
   });
 
   it("names an input finalize_research takes, and a rule HRP has", async () => {

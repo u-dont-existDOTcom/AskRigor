@@ -44,6 +44,8 @@ import {
   LIGHT_LOOKUP,
   MENU_PLACEHOLDERS,
   PEOPLE_FIRST_WHEN_USED,
+  ALL_JOURNALS_AT_THE_SCREEN,
+  TRADITIONAL_SYSTEM_AT_THE_SCREEN,
   PEOPLE_TASK_MISSING,
   PERSON_ANSWER_DECLARED,
   PLAN_TASK_KINDS,
@@ -3991,6 +3993,24 @@ describe("Round 3: absent steering and ask order", () => {
     for (const text of textAndStep(result)) {
       expect(text).not.toContain("person_steered: not used");
       expect(text.includes("what changes because of their message")).toBe(phase !== "first");
+    }
+  });
+});
+
+
+describe("traditional accounts at the first screen (owner answer 402a)", () => {
+  it("gives every style the exact approved guidance immediately after the all-journals instruction", () => {
+    expect(TRADITIONAL_SYSTEM_AT_THE_SCREEN).toBe("For questions about a traditional, regional or folk medical system's concepts or claims, or a remedy, " +
+      "diagnosis or practice known or sold as traditional, regional or folk, even when no system is named, load " +
+      "HRP TraditionalSystemAccount and start finding that tradition's own sources (which tradition says what, " +
+      "its uses, who it is not for, its preparation and cautions) beside the studies; leave full reading for " +
+      "the research tasks, and never delay urgent action.");
+    for (const style of ["guided", "balanced", "autonomous"] as const) {
+      const steering: ResearchSteering = { ...DEFAULT_RESEARCH_STEERING, style };
+      for (const framing of [undefined, { likely_question: TARGET }]) {
+        expect(framingGuidance(steering, framing))
+          .toContain(`${ALL_JOURNALS_AT_THE_SCREEN} ${TRADITIONAL_SYSTEM_AT_THE_SCREEN} ${WORDS_ARE_NOT_SIZES}`);
+      }
     }
   });
 });

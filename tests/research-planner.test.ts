@@ -2629,7 +2629,7 @@ describe("a test round's pause of the planning call (owner answer 395b)", () => 
 // before; a question on 8 of 9 invented cases that need one); this keeps the rule's text from drifting back.
 describe("the plan names a question only when the research needs the person's answer (21 Nov 2026)", () => {
   it("asks for a fact only the person can give, or between two things one answer can't serve, and else goes on", () => {
-    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-22.1");
+    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-22.2");
     expect(RESEARCH_PLANNER_RUBRIC).toContain("Write none unless the research needs\nthe person's answer");
     expect(RESEARCH_PLANNER_RUBRIC).toContain("- A fact only they can give, for a decision about one person or one thing:");
     expect(RESEARCH_PLANNER_RUBRIC).toContain("- Two different things: their words can mean two or more different things");
@@ -2697,7 +2697,7 @@ describe("tasks the person's own words asked for (21 Nov 2026)", () => {
 
 describe("the planner's reading of forms (22 Nov 2026)", () => {
   it("plans for forms people buy or prepare and names the nearest excluded reading", () => {
-    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-22.1");
+    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-22.2");
     expect(RESEARCH_PLANNER_RUBRIC.replace(/\s+/gu, " ")).toContain("a substance or thing that comes in several forms: plan for the whole class, with its main members grouped. Before you plan, list for yourself the forms a person asking this could have in hand: what is sold, and what people make or prepare themselves. When they differ much in strength, content or how they are used, the form a person is most likely to have gets a task of its own. Say in about what you took it to cover: which members or forms, and the nearest one left out;");
     expect(RESEARCH_PLANNER_RUBRIC.replace(/\s+/gu, " ")).toContain("Say in about what you took it to cover: which members or forms, and the nearest one left out;");
     expect(RESEARCH_PLANNER_RUBRIC).toContain("In about, say which meaning the research takes and the nearest one it leaves out.");
@@ -2718,5 +2718,26 @@ describe("Round 3: one whole-class reading instruction", () => {
     const safety = RESEARCH_PLANNER_RUBRIC.slice(RESEARCH_PLANNER_RUBRIC.indexOf("Carry what a safe answer needs"),
       RESEARCH_PLANNER_RUBRIC.indexOf("\nNever rely on the person correcting"));
     for (const line of safety.split("\n")) expect(line.length, line).toBeLessThanOrEqual(110);
+  });
+});
+
+
+describe("traditional accounts in the plan (owner answer 402a)", () => {
+  it("keeps the approved instruction exactly in step 3 after people's reports", () => {
+    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-22.2");
+    const approved = "When the question is about a traditional, regional or folk medical system's concepts or claims, or about " +
+      "a remedy, diagnostic method or practice known or sold as traditional even when no system is named, the " +
+      "tasks include what that tradition's own sources say that could change the answer (who it is for and not " +
+      "for, its preparation, its cautions) and where its traditions differ (such as classical and standardized " +
+      "Chinese medicine), naming which tradition; give it a task of its own only when it answers a different " +
+      "question from the other tasks. Match safety and benefit studies to those claims and the actual " +
+      "preparation, and keep urgent safety work first.";
+    const rubric = RESEARCH_PLANNER_RUBRIC.replace(/\s+/gu, " ");
+    expect(rubric).toContain(`put a task near the top for what people who used it report. ${approved} When the question takes`);
+    expect(rubric.split(approved)).toHaveLength(2);
+    const start = RESEARCH_PLANNER_RUBRIC.indexOf("When the question is about a traditional, regional or folk");
+    const end = RESEARCH_PLANNER_RUBRIC.indexOf("\nWhen the question takes", start);
+    for (const line of RESEARCH_PLANNER_RUBRIC.slice(start, end).split("\n"))
+      expect(line.length, line).toBeLessThanOrEqual(110);
   });
 });

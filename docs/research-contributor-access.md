@@ -481,8 +481,13 @@ The target is copied only through
 300 characters; longer targets use the existing placeholder. `heldVariants` still selects a result within the
 client byte limit. A handed-over research or light plan, or an aside, gets no outline.
 
-The dev planner rubric is `2026-11-22.1`: consider both sold and self-prepared forms, give the likely form its own
-task when strength, content or use differs much, and name the nearest form or reading left out. Part B is not built:
+The dev planner rubric is `2026-11-22.2`: consider both sold and self-prepared forms, give the likely form its own
+task when strength, content or use differs much, and name the nearest form or reading left out. Owner answer 402a
+also includes the tradition's own sources and material differences for traditional, regional or folk concepts,
+claims, remedies, diagnoses or practices, including safety questions with no system named; safety and benefit
+evidence is matched to those claims and the actual preparation, with urgent work first. Every account's first
+screen loads HRP TraditionalSystemAccount and begins finding that account beside the studies, leaving full reading
+for research tasks. Part B is not built:
 ordinary accounts' steering judgment and form questions, guided approval and existing time checkpoints retain their
 decisions. No live steering acceptance is claimed; nothing here says steering has been proven to work.
 

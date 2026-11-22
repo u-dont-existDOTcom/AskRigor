@@ -23,7 +23,8 @@ describe("owner answer 244a: HRP 20.6.39", () => {
   });
 
   it("leaves every core section byte for byte unchanged", async () => {
-    const text = await loadProtocol("hrp");
+    // Compare this historical change at its own version, before later approved core edits.
+    const text = await undoStudyMapSingleLeadsHrp(await loadProtocol("hrp"));
     const prior = await undoResponseSpreadHrp(text);
     const core = new Set(coreSectionNames("hrp"));
     const sections = (value: string) => protocolSections("hrp", value).filter(({ name }) => core.has(name))
