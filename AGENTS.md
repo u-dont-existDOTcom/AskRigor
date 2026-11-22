@@ -195,13 +195,17 @@ package/registration receipt and an explicit rollback path. Never infer
 plugin-package currency from source files, a working connector, or live
 manifests alone.
 
-The tool list is fixed (owner answer 189a, 2026-10-27):
-tests/fixtures/frozen-tool-lists holds each surface's tools/list, and a test
-fails on any change. A new input goes in the tool's later shape, sent in
-`later_inputs` (an existing input's newer form too); a new action or category
-goes only in the runtime enum; new guidance goes in results or the protocol.
-Only adding or removing a tool may change the list, and that release's record
-says the apps need one refresh. The connector probe sends
+The tool list may change again (owner, 2026-11-22, lifting the freeze of owner
+answer 189a: "i didn't mean to freeze the tools list, sorry, undo that").
+ChatGPT keeps an app's list until someone presses Refresh, so each change costs
+the owner one refresh per app and open chats keep the old list until then:
+batch list changes into as few releases as possible, keep running versions and
+dates out of descriptions and schemas, and keep `later_inputs` accepted for apps
+that hold an older list. tests/fixtures/frozen-tool-lists records each
+surface's tools/list; a test fails until a change rewrites it with
+`scripts/freeze-tool-lists.mts --write`, and that release's record says the
+apps need one refresh. docs/tool-list-changes-waiting.md lists fixes ready for
+the next change. The connector probe sends
 get_protocol_manifest the `tool_list_version` its field description gives, and
 reads the running versions from the result. A result saying the app's copy is
 out of date means a stale list: report it as such, with the refresh as the
