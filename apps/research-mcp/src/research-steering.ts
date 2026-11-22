@@ -118,6 +118,11 @@ export function isLightLane(plan: { lane?: string | undefined; tasks: readonly {
   return plan.lane === "light" && plan.tasks.length >= 1 && plan.tasks.length <= 2 &&
     plan.tasks.every(({ kind }) => kind !== "method_audit");
 }
+/**
+ * The kinds of task a mark may add to a light look-up (planResearch): opening a paper (full_text), a registry record
+ * (trial_registry) or another page (other) and quoting the line, which is all its go-ahead (LIGHT_LOOKUP) allows.
+ */
+const LIGHT_ADDABLE_KINDS: ReadonlySet<string> = new Set(["full_text", "trial_registry", "other"]);
 export const COULD_CHANGE = ["conclusion", "confidence", "detail"] as const;
 export const RESEARCH_LOOPS = ["people_to_studies", "studies_to_people"] as const;
 export const PLAN_LIMITS = Object.freeze({ tasks: 12, task: 200, sources: 50, minutes: 240, provisional: 1_500,
@@ -138,6 +143,11 @@ export const planTaskSchema = z.object({
   loop: z.enum(RESEARCH_LOOPS).optional()
     .describe("people_to_studies: a study search for something people's reports raised; studies_to_people: a look " +
       "at people's reports for something a study found."),
+  person_asked: z.boolean().optional()
+    .describe("true only for a task doing a way of researching the person's own words still ask for, or one such a " +
+      "task needs first: a method, source, comparison or check they named or described, also loosely. Naming a " +
+      "subject or a study, or asking about it without saying how to research it, asks for none. AskRigor always " +
+      "recommends such a task. Leave it out otherwise."),
   minutes: z.tuple([minutesSchema, minutesSchema]).optional()
     .describe("Your own estimate, low and high, for a task of kind other, or when the task is much longer or shorter " +
       "than its kind's usual time."),
@@ -217,13 +227,15 @@ export type ResearchMenuInput = z.output<typeof researchMenuSchema>;
  * differ from it and the call carries no allocation that counts as the person's answer, the AI changed the menu on its
  * own, and research that may ask shows the person the changed menu. A call with the person's allocation goes on with
  * it, as they may have changed the menu themselves. A call without a digest is planned as before. Exact, never meaning: what the person chose among is compared, the number
- * of tasks and, in order, each one's kind, what it could change and its loop. A task's wording, sources and minutes are
+ * of tasks and, in order, each one's kind, what it could change, its loop and whether the person asked for it.
+ * A task's wording, sources and minutes are
  * not: a model that retypes the menu when it sends the person's answer, or estimates a task's time again, would
  * otherwise ask the person a second time about the menu they just answered, and the allocation the call carries already
  * says how long each task may take.
  */
 export function menuDigest(tasks: readonly PlanTask[], secret: string): string {
-  const canonical = JSON.stringify(tasks.map(({ kind, could_change, loop }) => [kind, could_change, loop ?? null]));
+  const canonical = JSON.stringify(tasks.map(({ kind, could_change, loop, person_asked }) =>
+    [kind, could_change, loop ?? null, ...(person_asked === true ? [true] : [])]));
   const key = createHmac("sha256", secret).update("askrigor research menu digest v1").digest();
   return `md1~${createHmac("sha256", key).update(canonical).digest().subarray(0, 16).toString("base64url")}`;
 }
@@ -232,7 +244,8 @@ export function menuDigest(tasks: readonly PlanTask[], secret: string): string {
  * Owner answer 304a (14 Nov 2026): the mark AskRigor's own plan puts in the menu it hands over when its planning call
  * read the person's newest message as telling the AI to go on (researchMenu.go_on_asked). It is keyed with the
  * server's signing secret, under a name of its own, over the menu's tasks as they were handed over (in order, each
- * one's words, kind, what it could change, loop, sources and minutes) and the plain-answer receipt the menu carries,
+ * one's words, kind, what it could change, loop, sources, minutes and whether the person asked for it) and the
+ * plain-answer receipt the menu carries,
  * which is signed for one account, one research target and one time. So plan_research can tell, with nothing kept on
  * the server, that this menu for this registration is the one the planning call judged: a mark copied to another
  * menu or another registration, or one the AI wrote, is not it, and such a menu asks as it always did. It covers
@@ -243,8 +256,9 @@ export function menuDigest(tasks: readonly PlanTask[], secret: string): string {
  * meaning: whether the person said to go on is the planning call's judgment, made before this mark exists.
  */
 export function goOnMark(tasks: readonly PlanTask[], receipt: string, secret: string): string {
-  const canonical = JSON.stringify([tasks.map(({ task, kind, could_change, loop, sources, minutes }) =>
-    [task, kind, could_change, loop ?? null, sources ?? null, minutes ?? null]), receipt]);
+  const canonical = JSON.stringify([tasks.map(({ task, kind, could_change, loop, sources, minutes, person_asked }) =>
+    [task, kind, could_change, loop ?? null, sources ?? null, minutes ?? null,
+      ...(person_asked === true ? [true] : [])]), receipt]);
   const key = createHmac("sha256", secret).update("askrigor research menu go-on v1").digest();
   return `go1~${createHmac("sha256", key).update(canonical).digest().subarray(0, 16).toString("base64url")}`;
 }
@@ -317,6 +331,11 @@ function readTask(task: unknown, path: string, ignored: string[]): unknown {
   if (!isRecord(task)) return task;
   const read = inOwnNames(task, TASK_FIELDS, TASK_ALIASES, path, ignored, OPTIONAL_TASK_FIELDS);
   if (typeof read.minutes === "number") read.minutes = [read.minutes, read.minutes];
+  // Written as a word, as person_answered sometimes is (readPersonAnswered): the exact words true and false only.
+  if (typeof read.person_asked === "string") {
+    const word = read.person_asked.trim().toLowerCase();
+    if (word === "true" || word === "false") read.person_asked = word === "true";
+  }
   return read;
 }
 
@@ -427,6 +446,7 @@ export const correctedMenuSchema = z.object({
       sources: z.number().int().optional(),
       could_change: z.string(),
       loop: z.enum(RESEARCH_LOOPS).optional(),
+      person_asked: z.boolean().optional(),
       minutes: z.tuple([z.number(), z.number()]).optional(),
     }).strict()).min(1),
     allocation: z.array(z.object({ task: z.number().int(), minutes: z.number() }).strict()).optional(),
@@ -476,6 +496,8 @@ export function correctedMenu(source: unknown, choice = false): CorrectedMenu {
           : MENU_PLACEHOLDERS.could_change,
         ...(valid(planTaskSchema.shape, "loop", given.loop)
           ? { loop: given.loop as (typeof RESEARCH_LOOPS)[number] } : {}),
+        ...(valid(planTaskSchema.shape, "person_asked", given.person_asked)
+          ? { person_asked: given.person_asked as boolean } : {}),
         ...(valid(planTaskSchema.shape, "minutes", given.minutes)
           ? { minutes: given.minutes as [number, number] } : {}),
       };
@@ -802,7 +824,11 @@ export const RESEARCH_MENU_SHAPE = "later_inputs.researchMenu in exactly this sh
   "order, each {task, what it does in the person's language; kind, one of study_search, abstract_screen, full_text, " +
   "method_audit, forum_thread, video_comments, video_claims, trial_registry or other; could_change, one of conclusion, " +
   "confidence or detail; sources, how many searches, abstracts, papers, threads, videos or records it covers; loop, " +
-  "people_to_studies or studies_to_people, only for a task between people's reports and studies; and minutes, [low, " +
+  "people_to_studies or studies_to_people, only for a task between people's reports and studies; person_asked, true " +
+  "only for a task doing a way of researching the person's own words still ask for, or one such a task needs first " +
+  "(a method, source, comparison or check they named or described, also loosely; naming a subject or a study, or " +
+  "asking about it without saying how to research it, asks for none), which AskRigor then always recommends; and " +
+  "minutes, [low, " +
   "high], only for a task of kind other or one much longer or shorter than its kind's usual time}. Leave out any other " +
   "field: allocation and done come only after the person answers or stops you, and menu_digest, as the last " +
   "plan_research result gave it, on every call after the first.";
@@ -1146,6 +1172,7 @@ export interface PlannedTask {
   kind: PlanTaskKind;
   could_change: (typeof COULD_CHANGE)[number];
   loop?: (typeof RESEARCH_LOOPS)[number];
+  person_asked?: true;
   minutes: [number, number] | null;
 }
 
@@ -1342,7 +1369,9 @@ export function steeringChoiceUnclearText(choice: string, example: CorrectedMenu
 /**
  * The menu: each task with its time range; a recommendation, when the person gave none (tasks that could change the
  * conclusion first, then how sure it is, each given its range's middle, while the total stays within the check-back
- * allowance, or the first such task alone when even it is longer); and whether to ask the person before working.
+ * allowance, or the first such task alone when even it is longer; and, whatever their time, every task the person's
+ * own words asked for, person_asked; listed in the menu's order, the order to do them in); and whether to ask the
+ * person before working.
  * An allocation is the person's answer only with person_answered true (PERSON_ANSWER_DECLARED), and a steering_choice
  * the menu gives decides in place of its steering_could_help (STEERING_CHOICE).
  */
@@ -1364,6 +1393,7 @@ export function planResearch(
     kind: task.kind,
     could_change: task.could_change,
     ...(task.loop === undefined ? {} : { loop: task.loop }),
+    ...(task.person_asked === true ? { person_asked: true as const } : {}),
     minutes: taskMinutes(task),
   }));
   const open = tasks.filter(({ n }) => !done.has(n));
@@ -1386,23 +1416,48 @@ export function planResearch(
   // the whole look-up, so they are recommended whatever they were said to change: a task marked as detail would
   // otherwise leave the menu with nothing to do.
   const light = isLightLane(plan);
+  const middle = (task: PlannedTask): number =>
+    task.minutes === null ? 2 : roundEstimate((task.minutes[0] + task.minutes[1]) / 2);
+  // The recommendation the menu's own judgments give: tasks that could change the conclusion first, then how sure it
+  // is, each at its range's middle, while the total stays within the check-back allowance, or the first such task alone
+  // when even it is longer; with the person's go-ahead for everything, every open task, whatever it could change and
+  // however long. The person's marks (person_asked) take no part in it.
+  const selected = (asLight: boolean): { task: number; minutes: number }[] => {
+    const chosen: { task: number; minutes: number }[] = [];
+    let total = 0;
+    const candidates = open.filter(({ could_change }) => asLight || goAhead === "all" || could_change !== "detail")
+      .sort((left, right) => CHANGE_ORDER[left.could_change] - CHANGE_ORDER[right.could_change] || left.n - right.n);
+    for (const task of candidates) {
+      const minutes = middle(task);
+      if (goAhead !== "all" && chosen.length > 0 && total + minutes > steering.checkBackMinutes) continue;
+      chosen.push({ task: task.n, minutes });
+      total += minutes;
+    }
+    return chosen;
+  };
   let recommended: { task: number; minutes: number }[];
   if (answered) {
     // The person's own minutes, as they gave them (the review of 12 Nov 2026: 1.5 minutes became 2).
     recommended = plan.allocation!.filter(({ task, minutes }) => task <= tasks.length && !done.has(task) && minutes > 0)
       .map(({ task, minutes }) => ({ task, minutes }));
   } else {
-    recommended = [];
-    let total = 0;
-    // With the person's go-ahead for everything, every open task, whatever it could change and however long.
-    const candidates = open.filter(({ could_change }) => light || goAhead === "all" || could_change !== "detail")
-      .sort((left, right) => CHANGE_ORDER[left.could_change] - CHANGE_ORDER[right.could_change] || left.n - right.n);
-    for (const task of candidates) {
-      const minutes = task.minutes === null ? 2 : roundEstimate((task.minutes[0] + task.minutes[1]) / 2);
-      if (goAhead !== "all" && recommended.length > 0 && total + minutes > steering.checkBackMinutes) continue;
-      recommended.push({ task: task.n, minutes });
-      total += minutes;
-    }
+    // 21 Nov 2026 (the owner's inositol deep dive): every open task the person's own words asked for (person_asked,
+    // the model's declaration) is recommended too, whatever its length or what it could change. A mark only adds: what
+    // the menu's own judgments recommend stays recommended, so a task the person asked for never takes the place of
+    // another, a task for a serious risk among them (Codex's review of 21 Nov 2026).
+    const base = selected(light);
+    // In a light look-up only what its go-ahead (LIGHT_LOOKUP) lets it do, opening one source and quoting its line:
+    // a mark never adds people's reports, a search or an audit to it (a request for those makes the plan research, as
+    // the rubric's lanes say).
+    const added = open.filter(({ n, kind, person_asked }) => person_asked === true &&
+        !base.some(({ task }) => task === n) && (!light || LIGHT_ADDABLE_KINDS.has(kind)))
+      .map((task) => ({ task: task.n, minutes: middle(task) }));
+    // Which tasks are chosen goes by what each could change (above); the order they are done in is the menu's own,
+    // the order to do them in (the planner's rubric and RESEARCH_MENU_SHAPE): the go-ahead says to do the recommended
+    // tasks in order, and a task that uses an earlier one's result, or that the person's request needs first, comes
+    // after it (Codex's rechecks of 21 Nov 2026; until then the list followed what each task could change, which could
+    // put an audit before the reading it needs).
+    recommended = [...base, ...added].sort((left, right) => left.task - right.task);
   }
   // A light menu with nothing to do is not a light look-up: the person gave its task no time, so the menu says what
   // any menu with nothing recommended says, and never to open and quote the source.
@@ -1830,8 +1885,9 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
   learnMode?: boolean): string {
   const stop = allocationNotUsedStop(result);
   const first = [...(stop === undefined ? [] : [stop]), ...(problems.length === 0 ? [] : [problems.join(" ")])];
-  const lines = result.tasks.map(({ n, task, could_change, loop, minutes }) =>
-    `${n}. ${task}: ${CHANGE_WORDS[could_change]}${loop === undefined ? "" : `, ${LOOP_WORDS[loop]}`}; ` +
+  const lines = result.tasks.map(({ n, task, could_change, loop, person_asked, minutes }) =>
+    `${n}. ${task}: ${CHANGE_WORDS[could_change]}${person_asked === true ? ", you asked for this" : ""}` +
+    `${loop === undefined ? "" : `, ${LOOP_WORDS[loop]}`}; ` +
     `${minutes === null ? "no estimate" : range(minutes)}${done.has(n) ? " (done)" : ""}.`);
   const chosen = result.recommended.map(({ task, minutes }) => `${task}. ${minutes} min`).join(", ");
   // Owner answer 302: a light look-up reads no people's reports, so it is never asked for a task that does.

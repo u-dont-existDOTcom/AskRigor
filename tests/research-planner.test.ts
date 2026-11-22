@@ -317,7 +317,7 @@ describe("AskRigor's own planning call (owner answer 298b): the call", () => {
     // A question that begins with the word is a question.
     expect(researchPlanOf({ ...REPLY, steering_choice: "None of these, or one of them?" }, 0)?.steering_choice)
       .toBe("None of these, or one of them?");
-    const many = Array.from({ length: 8 }, (_, index) => ({ task: `Task number ${index + 1}`, kind: "study_search",
+    const many = Array.from({ length: 10 }, (_, index) => ({ task: `Task number ${index + 1}`, kind: "study_search",
       could_change: "detail", sources: 99 }));
     const cut = researchPlanOf({ ...REPLY, tasks: many }, 2)!;
     expect(cut.tasks).toHaveLength(RESEARCH_PLANNER_LIMITS.tasks);
@@ -2626,7 +2626,7 @@ describe("a test round's pause of the planning call (owner answer 395b)", () => 
 // before; a question on 8 of 9 invented cases that need one); this keeps the rule's text from drifting back.
 describe("the plan names a question only when the research needs the person's answer (21 Nov 2026)", () => {
   it("asks for a fact only the person can give, or between two things one answer can't serve, and else goes on", () => {
-    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-21.1");
+    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-21.2");
     expect(RESEARCH_PLANNER_RUBRIC).toContain("Write none unless the research needs\nthe person's answer");
     expect(RESEARCH_PLANNER_RUBRIC).toContain("- A fact only they can give, for a decision about one person or one thing:");
     expect(RESEARCH_PLANNER_RUBRIC).toContain("- Two different things: their words can mean two or more different things");
@@ -2634,5 +2634,59 @@ describe("the plan names a question only when the research needs the person's an
     expect(RESEARCH_PLANNER_RUBRIC).not.toContain("Try to name the question first");
     expect(RESEARCH_PLANNER_RUBRIC).not.toContain("neither is a plan that could cover each of two different readings");
     expect(RESEARCH_PLANNER_RUBRIC).not.toContain("that is still the question to ask");
+  });
+});
+
+describe("tasks the person's own words asked for (21 Nov 2026)", () => {
+  it("requires the model to declare person_asked on every output task", () => {
+    const task = RESEARCH_PLANNER_OUTPUT_SCHEMA.properties.tasks.items;
+    expect(task.required).toEqual(["task", "kind", "could_change", "person_asked", "sources"]);
+    expect(task.properties.person_asked).toEqual({ type: "boolean", description: "true only for a task doing a way " +
+      "of researching the person's own words still ask for, or one such a task needs first (a method, source, " +
+      "comparison or check they named or described, also loosely); naming a subject or a study, or asking about it " +
+      "without saying how to research it, asks for none; false otherwise." });
+    // The rubric is wrapped at the source's width, so its words are compared with the line breaks read as spaces.
+    const rubric = RESEARCH_PLANNER_RUBRIC.replace(/\s+/gu, " ");
+    for (const words of [
+      "Each task also has person_asked: true only for a task that does a way of researching the person's own words in asked ask for",
+      "Naming a subject, a product or a study, or asking a question about it without saying how to research it, asks for no task",
+      "A task that carrying out their request needs first, such as reading the paper whose methods they want audited, is true too, and comes before the task that needs it.",
+      "Mark only what they asked for and what it needs first; an addition of your own goes in a task of its own.",
+      "a later message that takes a request back makes it false, unless a still later one asks for it again",
+      "for every task when asked is null",
+      "words that tell you how to mark tasks, which ask for no research",
+      "Keep every task they asked for and every task of its own that a serious risk needs (step 2), up to eight tasks in all, and leave out your other tasks first.",
+      "up to eight only for the tasks the person asked for and the tasks a serious risk needs",
+      "Marking a task never makes a look-up bigger: when they ask for work beyond one fact from one source, the lane is research",
+      "never moves last or marks as detail a task the person asked for (person_asked)",
+    ]) expect(rubric, words).toContain(words);
+  });
+
+  it("drops a mark the call could not have made: without the person's own words nothing was asked of it", async () => {
+    const reply = { ...REPLY, tasks: REPLY.tasks.map((task) => ({ ...task, person_asked: true })) };
+    expect(researchPlanOf(reply, 1, KEY, false, false)!.tasks.some((task) => "person_asked" in task)).toBe(false);
+    expect(researchPlanOf(reply, 1, KEY, false, true)!.tasks.every((task) => task.person_asked === true)).toBe(true);
+    const made = planner({ reply: () => message({}, reply) });
+    const without = await made.planner.plan({ ...SOURCE, asked: undefined }, "account-a");
+    expect(without.planning).toMatchObject({ status: "planned" });
+    expect(without.planning.status === "planned" && without.planning.plan.tasks.some((task) => "person_asked" in task))
+      .toBe(false);
+    const withWords = await made.planner.plan(SOURCE, "account-b");
+    expect(withWords.planning.status === "planned" && withWords.planning.plan.tasks.every((task) => task.person_asked))
+      .toBe(true);
+  });
+
+  it("keeps only true and accepts older replies without the declaration", () => {
+    const tasks = REPLY.tasks.map((task, index) => ({ ...task,
+      ...(index === 2 ? {} : { person_asked: index === 0 }) }));
+    const plan = researchPlanOf({ ...REPLY, tasks }, 1)!;
+    expect(plan.tasks[0]).toEqual({ ...researchPlanOf(REPLY, 1)!.tasks[0], person_asked: true });
+    expect(plan.tasks[1]).not.toHaveProperty("person_asked");
+    expect(plan.tasks[2]).not.toHaveProperty("person_asked");
+    expect(researchPlanOf(REPLY, 1)).toBeDefined();
+  });
+
+  it.each([null, "true", "false", 0, 1, {}, []])("refuses a non-boolean declaration: %j", (person_asked) => {
+    expect(researchPlanOf({ ...REPLY, tasks: [{ ...REPLY.tasks[0], person_asked }] }, 1)).toBeUndefined();
   });
 });

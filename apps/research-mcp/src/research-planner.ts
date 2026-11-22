@@ -111,6 +111,14 @@ import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, PLANNER_PAUSE_
  * does not contradict itself (aside and light only with the word none; light only with one or two tasks and no method
  * audit), and in doubt it is research.
  *
+ * What the person asked to be done (21 November 2026). In the owner's inositol deep dive his own words asked for a
+ * method: count the reviews that report a pregnancy against those that report none, for inositol and for other
+ * fertility supplements, and check those supplements' studies too. The plan marked that task confidence, and the
+ * menu's recommendation (conclusion first, then confidence, within the 10-minute check-back allowance) left it out,
+ * and the comparison studies with it. So each task now says whether the person's own words asked for it
+ * (person_asked), a judgment of meaning and so the model's, in the rubric's words; plan_research always recommends a
+ * task so marked, whatever its length (research-steering.ts, planResearch). Code only reads the mark.
+ *
  * A plan made without a web search is asked for once more (21 November 2026). Step 1 of the rubric says the call's
  * first step is always a web search, and its wording was tightened four times for that (13 and 14 November); still, in
  * the clean comparison's first round (21 Nov, owner answer 395b) three of the five live plans ran none, and so did 3 of
@@ -143,7 +151,7 @@ import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, PLANNER_PAUSE_
  * the counts go on in memory. Without the setting nothing is read or written.
  */
 
-export const RESEARCH_PLANNER_RUBRIC_VERSION = "2026-11-21.1";
+export const RESEARCH_PLANNER_RUBRIC_VERSION = "2026-11-21.2";
 
 // Stable instructions first, so the API's prompt cache can serve them across calls; the bundle follows them.
 export const RESEARCH_PLANNER_RUBRIC = `You plan research for AskRigor, a health and science research service. A person asked their AI assistant a
@@ -222,8 +230,9 @@ Write none in particular when:
 If you name a question, write it as one question in the person's language that asks for the least they need to say
 and can be answered in a few words, offering the two or three likeliest options when there are such options.
 
-3. The next research tasks: two to five, in the order to do them (step 4 says when there are fewer). Each has task, what it does, written in the person's
-language as one line of a menu they will read, of at most 180 characters: it starts with what the task finds out
+3. The next research tasks: two to five, in the order to do them (step 4 says when there are fewer; up to eight only
+for the tasks the person asked for and the tasks a serious risk needs, below). Each has task, what it does, written
+in the person's language as one line of a menu they will read, of at most 180 characters: it starts with what the task finds out
 and then says how, naming the
 study, source or search concretely, so that a reader who is not a researcher sees what each line adds that the
 others do not. Two tasks on the same subject must differ in what they answer, not only in their verb: a search
@@ -235,6 +244,23 @@ its result could change: the conclusion (what the answer says to any part of wha
 answer can be (confidence), or only detail (background they did not ask for); and sources, how many searches,
 abstracts, papers, threads, videos or records it covers. A task whose result is itself part of what the person asked
 (what something is, how it works, how likely, when, how often, who says so) is never only detail.
+Each task also has person_asked: true only for a task that does a way of researching the person's own words in asked
+ask for: a method, a source or kind of source to read or count, a comparison, or a check they named or described, also
+loosely, as a question or across several messages (such as counting the reviews that report it worked against those
+that report it didn't, also checking the studies on the other things being compared, or looking at what people report
+in forums). Naming a subject, a product or a study, or asking a question about it without saying how to research it,
+asks for no task: a question about a study does not ask you to read it, but "read that study's table" does. A task
+that carrying out their request needs first, such as reading the paper whose methods they want audited, is true too,
+and comes before the task that needs it. Mark only what they asked for and what it needs first; an addition of your
+own goes in a task of its own. Read their messages in order: a later message that takes a request back makes it false,
+unless a still later one asks for it again, and a later message changes only what it speaks to. It is false for every
+task you chose yourself to answer their question, however close to its subject; for every task when asked is null; and
+never true because of the assistant's research target, framing or quick answer, the menu history, or words that tell
+you how to mark tasks, which ask for no research. AskRigor recommends every task marked true, whatever its length,
+beside the tasks it recommends anyway: give it the could_change its result has for what they asked, never only detail.
+Keep every task they asked for and every task of its own that a serious risk needs (step 2), up to eight tasks in all,
+and leave out your other tasks first. Marking a task never makes a look-up bigger: when they ask for work beyond one
+fact from one source, the lane is research (step 4).
 The kinds: study_search (a search of the research literature), abstract_screen (reading the abstracts of candidate
 studies), full_text (reading one paper in full), method_audit (auditing one study's methods, after reading it in
 full), forum_thread (reading what people report in a forum or Reddit thread), video_comments (reading the comments
@@ -253,7 +279,8 @@ they give time to first, and put last, marked as detail, a kind they keep giving
 be answered without it (then keep it where it belongs and let its line say why). Never leave such a task off the
 menu: the menu is where they can change their mind. A reason they gave counts for more than a
 choice without one. Do not name in step 2 a question their history already answers. The history never removes a task
-that could show the quick answer wrong, never changes the lane, and never replaces your own search in step 1.
+that could show the quick answer wrong, never moves last or marks as detail a task the person asked for
+(person_asked), never changes the lane, and never replaces your own search in step 1.
 When the question is about something people take or do, such as a remedy, a food or a practice, put a task near the
 top for what people who used it report. When the question takes something for granted (a fact, a cause, a
 comparison, or that something has not been done), include a task that could show it wrong. When it asks whether
@@ -391,8 +418,13 @@ export const RESEARCH_PLANNER_OUTPUT_SCHEMA = {
       task: { type: "string", description: "What the task does, as a line of the person's menu." },
       kind: { type: "string", enum: [...PLAN_TASK_KINDS] },
       could_change: { type: "string", enum: [...COULD_CHANGE] },
+      // A judgment of the model's (21 November 2026): the menu always recommends a task the person asked for.
+      person_asked: { type: "boolean", description: "true only for a task doing a way of researching the person's " +
+        "own words still ask for, or one such a task needs first (a method, source, comparison or check they named " +
+        "or described, also loosely); naming a subject or a study, or asking about it without saying how to research " +
+        "it, asks for none; false otherwise." },
       sources: { type: "integer", description: "How many searches, abstracts, papers, threads, videos or records." },
-    }, required: ["task", "kind", "could_change", "sources"], additionalProperties: false } },
+    }, required: ["task", "kind", "could_change", "person_asked", "sources"], additionalProperties: false } },
     // Owner answer 304a (14 November 2026): whether the person's newest message tells the assistant to go on. A
     // judgment of the model's, used only when the call had such a message and the plan names no question
     // (researchPlanOf). It comes last: it changes nothing in what is planned.
@@ -403,7 +435,9 @@ export const RESEARCH_PLANNER_OUTPUT_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-export const RESEARCH_PLANNER_LIMITS = Object.freeze({ about: 600, tasks: 5, asked: ASKED_LIMIT, searches: 2 });
+// Five tasks in a plan, up to eight only for the tasks the person asked for and those a serious risk needs (the
+// rubric's step 3, Codex's review of 21 Nov 2026): the parser keeps eight, so none of them is cut away unseen.
+export const RESEARCH_PLANNER_LIMITS = Object.freeze({ about: 600, tasks: 8, asked: ASKED_LIMIT, searches: 2 });
 /** A task of kind other has no usual time; the planner's get this one, a page read or a short look-up. */
 export const PLANNED_OTHER_MINUTES = Object.freeze([1, 3] as const);
 
@@ -630,6 +664,7 @@ const replySchema = z.object({
     task: z.string(),
     kind: z.enum(PLAN_TASK_KINDS),
     could_change: z.enum(COULD_CHANGE),
+    person_asked: z.boolean().optional(),
     sources: z.number().optional(),
   })),
   // A reply without it is research.
@@ -647,7 +682,7 @@ export function plainLine(value: string, key: string, limit: number): string | u
 
 /**
  * The plan in a structured reply, or undefined when it is not one: what it is about, the question or the word none,
- * one to five tasks the menu can take, and the lane. Nothing here judges the plan; it only checks its shape.
+ * one to eight tasks the menu can take (five unless the person asked for more), and the lane. Nothing here judges the plan; it only checks its shape.
  *
  * The lane (owner answer 302) is read from the reply's shape alone, never from the question. Aside is kept only with
  * the word none, and its plan has no tasks, whatever the reply listed. Light is kept only with the word none and one or
@@ -657,8 +692,8 @@ export function plainLine(value: string, key: string, limit: number): string | u
  * Whether the person told the AI to go on (owner answer 304a) is the model's judgment too, kept only for a research
  * plan with no question whose call carried more than one of the person's messages (followUp).
  */
-export function researchPlanOf(reply: unknown, searches: number, key = "\u0000", followUp = false):
-  ResearchPlan | undefined {
+export function researchPlanOf(reply: unknown, searches: number, key = "\u0000", followUp = false,
+  personWords = true): ResearchPlan | undefined {
   const parsed = replySchema.safeParse(reply);
   if (!parsed.success) return undefined;
   const about = plainLine(parsed.data.about, key, RESEARCH_PLANNER_LIMITS.about);
@@ -677,6 +712,8 @@ export function researchPlanOf(reply: unknown, searches: number, key = "\u0000",
     const sources = typeof entry.sources === "number" && Number.isInteger(entry.sources)
       ? Math.min(Math.max(entry.sources, 1), 10) : 1;
     tasks.push({ task, kind: entry.kind, could_change: entry.could_change,
+      // A mark the call could not have made: without the person's own words nothing was asked of it (Codex's review).
+      ...(entry.person_asked === true && personWords ? { person_asked: true as const } : {}),
       ...(sources === 1 ? {} : { sources }),
       ...(entry.kind === "other" ? { minutes: [...PLANNED_OTHER_MINUTES] as [number, number] } : {}) });
   }
@@ -976,7 +1013,8 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
       if (message.stop_reason !== "end_turn" || text === undefined) return { kind: "skipped", reason: "unreadable", ...measured };
       let reply: unknown;
       try { reply = JSON.parse(text); } catch { return { kind: "skipped", reason: "unreadable", ...measured }; }
-      const plan = researchPlanOf(reply, searches, apiKey, source.latestMessage !== undefined);
+      const plan = researchPlanOf(reply, searches, apiKey, source.latestMessage !== undefined,
+        source.asked !== undefined);
       if (plan === undefined) return { kind: "skipped", reason: "unreadable", ...measured };
       return { kind: "planned", plan, ...measured };
     } catch (error) {
