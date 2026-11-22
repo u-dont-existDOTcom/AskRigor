@@ -195,10 +195,16 @@ export function createGeminiAuthorizationServer(
   });
 }
 
-/** Headers of every page this server renders: never cached, never framed, never a referrer. */
+/**
+ * Headers of every page this server renders: never cached, never framed, never a referrer to another site.
+ * "same-origin", not "no-referrer": under "no-referrer" a browser sends `Origin: null` with the consent form's POST
+ * (Fetch standard; seen in Chromium), and the same-site check then refused Allow as invalid_request, which ended the
+ * owner's Gemini links of 21 and 22 Nov 2026 right after the login. "same-origin" sends the origin to this server
+ * only; Google's redirect address and every other site still get no referrer.
+ */
 export function setPageHeaders(set: (field: string, value: string) => void): void {
   set("cache-control", "no-store");
-  set("referrer-policy", "no-referrer");
+  set("referrer-policy", "same-origin");
   set("x-frame-options", "DENY");
   set("x-content-type-options", "nosniff");
   set(
