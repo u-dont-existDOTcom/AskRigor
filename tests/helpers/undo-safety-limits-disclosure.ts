@@ -1,10 +1,13 @@
 import { createHash } from "node:crypto";
 
+import { undoTraditionalSystemAccount } from "./undo-traditional-system-account.js";
+
 /**
  * Rewind HRP 20.6.44 (owner answer 400a: LimitsNote's sentence on a model's or app's safety rules limiting a research
  * step, promise P69) to 20.6.43, before older exact protocol fixtures are compared.
  */
 export function undoSafetyLimitsDisclosure(text: string): string {
+  text = undoTraditionalSystemAccount(text);
   if (!text.includes('version="20.6.44" revisionDate="2026-11-22"')) return text;
   if (text.split(SAFETY_SENTENCES).length !== 2) throw new Error("SAFETY_LIMITS_RULE_TEXT_MISSING");
   text = text.replace(SAFETY_SENTENCES, PREVIOUS_LINE);

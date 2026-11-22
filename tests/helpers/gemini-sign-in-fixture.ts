@@ -225,8 +225,33 @@ export async function startGeminiFixture(options: { now?: () => Date; rows?: Gem
 }
 
 /** A browser: cookies by path, manual redirects, and AskRigor's absolute addresses mapped to the local server. */
+const REFERRER_POLICIES = new Set([
+  "no-referrer", "no-referrer-when-downgrade", "same-origin", "origin", "strict-origin", "origin-when-cross-origin",
+  "strict-origin-when-cross-origin", "unsafe-url",
+]);
+
+/**
+ * The Origin header a browser sends with a form's POST from a page (Fetch standard, "append a request `Origin`
+ * header", for a navigation request): the page's origin, or "null" when the page's referrer policy says so.
+ * "no-referrer" always sends "null": Chromium did so on 22 Nov 2026 for a same-origin form, and AskRigor's consent
+ * page, then served with that policy, had its Allow refused as invalid_request (the owner's Gemini links of 21 and
+ * 22 Nov). The last policy token the browser knows wins; none means its default, strict-origin-when-cross-origin.
+ */
+export function browserFormOrigin(page: URL, target: URL, referrerPolicy: string | null): string {
+  const policy = (referrerPolicy ?? "").split(",").map((token) => token.trim().toLowerCase())
+    .filter((token) => REFERRER_POLICIES.has(token)).pop() ?? "strict-origin-when-cross-origin";
+  if (policy === "no-referrer") return "null";
+  if (policy === "same-origin") return target.origin === page.origin ? page.origin : "null";
+  if (policy === "no-referrer-when-downgrade" || policy === "strict-origin" || policy === "strict-origin-when-cross-origin") {
+    return page.protocol === "https:" && target.protocol !== "https:" ? "null" : page.origin;
+  }
+  return page.origin;
+}
+
 export class Browser {
   private readonly cookies = new Map<string, { value: string; path: string }>();
+  /** The page shown last: its address and referrer policy decide what its forms send. */
+  private page: { url: URL; referrerPolicy: string | null } | undefined;
 
   constructor(private readonly baseUrl: string) {}
 
@@ -272,7 +297,24 @@ export class Browser {
       if (gone) this.cookies.delete(name);
       else this.cookies.set(name, { value, path });
     }
+    if (response.status === 200 && (response.headers.get("content-type") ?? "").startsWith("text/html")) {
+      this.page = { url: new URL(target, "https://mcp.askrigor.com"), referrerPolicy: response.headers.get("referrer-policy") };
+    }
     return response;
+  }
+
+  /** Submits a form of the page shown last as a browser does: the Origin its referrer policy allows, Sec-Fetch-Site. */
+  async submit(action: string, form: Record<string, string>): Promise<Response> {
+    if (this.page === undefined) throw new Error("no page shown");
+    const target = new URL(action, this.page.url);
+    return await this.request(target.href, {
+      method: "POST",
+      headers: {
+        origin: browserFormOrigin(this.page.url, target, this.page.referrerPolicy),
+        "sec-fetch-site": target.origin === this.page.url.origin ? "same-origin" : "cross-site",
+      },
+      form,
+    });
   }
 }
 
@@ -322,11 +364,7 @@ export async function linkToCode(fixture: GeminiFixture, browser: Browser,
       const token = /name="form_token" value="([^"]+)"/u.exec(html)?.[1];
       const action = /<form method="post" action="([^"]+)"/u.exec(html)?.[1];
       if (token === undefined || action === undefined) throw new Error(`unexpected page: ${html.slice(0, 200)}`);
-      response = await browser.request(`https://mcp.askrigor.com${action}`, {
-        method: "POST",
-        headers: { origin: "https://mcp.askrigor.com" },
-        form: { form_token: token, decision: "allow" },
-      });
+      response = await browser.submit(action, { form_token: token, decision: "allow" });
       continue;
     }
     const location = response.headers.get("location");

@@ -57,8 +57,8 @@ describe("owner answer 193a: HRP 20.6.32", () => {
 
   it("binds the exact owner-edited bytes and reverses them to HRP 20.6.31", async () => {
     expect(await getProtocolManifest("hrp")).toMatchObject({
-      version: "20.6.44", revisionDate: "2026-11-22",
-      sha256: "a486702b879aba2ce729482eabd5474f4ef0afa7e7b7c3efe57751e8103485ee",
+      version: "20.6.45", revisionDate: "2026-11-22",
+      sha256: "475ee5aad42fdc0bba03f786eefa4e19bc17cd9b95f4ddd7e4aef3a600c54039",
     });
     // HRP 20.6.33 (lesson #51 and UDA #444) and 20.6.34 (owner answer 205a) are the layers above this one.
     const text = await undoLesson51AndUda444Hrp(await loadProtocol("hrp"));

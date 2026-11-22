@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import type { IncomingMessage } from "node:http";
+
+import { sameSitePost } from "../apps/research-mcp/src/atlas/participation.js";
 import { GOOGLE_JWKS_URL } from "../apps/research-mcp/src/gemini-sign-in/google-client.js";
 import {
   countGeminiLinks,
@@ -16,6 +19,7 @@ import {
   RESOURCE,
   TOKEN_URL,
   authorizeUrl,
+  browserFormOrigin,
   clientAssertion,
   googleDocument,
   linkToCode,
@@ -268,9 +272,7 @@ describe("Gemini's sign-in rules (design v2)", () => {
       const html = await response.text();
       const action = /<form method="post" action="([^"]+)"/u.exec(html)![1]!;
       const token = /name="form_token" value="([^"]+)"/u.exec(html)![1]!;
-      const noToken = await browser.request(`https://mcp.askrigor.com${action}`, {
-        method: "POST", headers: { origin: "https://mcp.askrigor.com" }, form: { decision: "allow" },
-      });
+      const noToken = await browser.submit(action, { decision: "allow" });
       expect(noToken.status).toBe(403);
       const foreign = await browser.request(`https://mcp.askrigor.com${action}`, {
         method: "POST", headers: { origin: "https://evil.example" }, form: { decision: "allow", form_token: token },
@@ -292,9 +294,7 @@ describe("Gemini's sign-in rules (design v2)", () => {
       const html = await response.text();
       const action = /<form method="post" action="([^"]+)"/u.exec(html)![1]!;
       const token = /name="form_token" value="([^"]+)"/u.exec(html)![1]!;
-      response = await browser.request(`https://mcp.askrigor.com${action}`, {
-        method: "POST", headers: { origin: "https://mcp.askrigor.com" }, form: { decision: "cancel", form_token: token },
-      });
+      response = await browser.submit(action, { decision: "cancel", form_token: token });
       while (response.status === 302 || response.status === 303) {
         const location = new URL(response.headers.get("location")!, "https://mcp.askrigor.com");
         if (location.origin === "https://oauth-redirect.googleusercontent.com") {
@@ -461,6 +461,46 @@ describe("Gemini's sign-in: one login session per link", () => {
       });
       expect(await countGeminiLinks(fixture.server, PERSON)).toBe(1);
       expect(await countGeminiLinks(fixture.server, "auth0|someone-else")).toBe(1);
+    } finally {
+      await fixture.close();
+    }
+  });
+});
+
+describe("the consent form's Origin (the owner's Gemini links of 21 and 22 Nov 2026)", () => {
+  const page = new URL("https://mcp.askrigor.com/oauth/gemini/interaction/abc");
+  const action = new URL("https://mcp.askrigor.com/oauth/gemini/interaction/abc");
+  const post = (origin: string) => ({
+    headers: { host: "mcp.askrigor.com", origin, "sec-fetch-site": "same-origin" },
+  }) as unknown as IncomingMessage;
+
+  it("a no-referrer page's form sends Origin null, which the same-site check refuses", () => {
+    expect(browserFormOrigin(page, action, "no-referrer")).toBe("null");
+    expect(sameSitePost(post("null"), "https://mcp.askrigor.com")).toBe(false);
+  });
+
+  it("a same-origin page's form sends its own origin, and only to its own origin", () => {
+    expect(browserFormOrigin(page, action, "same-origin")).toBe("https://mcp.askrigor.com");
+    expect(browserFormOrigin(page, new URL("https://evil.example/x"), "same-origin")).toBe("null");
+    expect(sameSitePost(post("https://mcp.askrigor.com"), "https://mcp.askrigor.com")).toBe(true);
+  });
+
+  it("serves the consent page with a referrer policy that lets Allow through, and never a referrer to Google", async () => {
+    const fixture = await startGeminiFixture();
+    try {
+      const browser = new Browser(fixture.baseUrl);
+      const { challenge } = pkce();
+      let response = await browser.request(authorizeUrl({
+        response_type: "code", client_id: CLIENT_ID, redirect_uri: GOOGLE_REDIRECT, scope: "research:use", state: "s",
+        code_challenge: challenge, code_challenge_method: "S256", resource: RESOURCE,
+      }));
+      while (response.status === 302 || response.status === 303) {
+        response = await browser.request(new URL(response.headers.get("location")!, "https://mcp.askrigor.com").href);
+      }
+      expect(response.status).toBe(200);
+      const policy = response.headers.get("referrer-policy");
+      expect(browserFormOrigin(page, action, policy)).toBe("https://mcp.askrigor.com");
+      expect(browserFormOrigin(page, new URL(GOOGLE_REDIRECT), policy)).toBe("null");
     } finally {
       await fixture.close();
     }
