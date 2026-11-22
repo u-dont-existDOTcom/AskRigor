@@ -454,6 +454,13 @@ then serve the image, and only then set `ASKRIGOR_RESEARCH_DOSSIERS=enabled` in 
 `research-mcp`. Without the setting nothing is asked for or saved. Turning it off again stops new saves and keeps what
 was saved.
 
+Owner answer 400a (22 November 2026; promise P69): `ASKRIGOR_SAFETY_LIMITS=on` in `runtime.env`, then recreate
+`research-mcp`, has `finalize_research` read `later_inputs.safety_limits` (the research steps a model's or app's own
+safety rules limited, as the AI declares them under HRP 20.6.44's LimitsNote) and list each as a limit saying who
+reports it, with one line above the final check panel's fold (`docs/final-check.md`). Off in the code's default; any
+other value, or none, turns it off, which is its rollback: nothing is stored, so nothing needs undoing. AskRigor's own
+planning call and review log `fallback_answered` or `fallback_refused` whatever the setting.
+
 Optional, off by default, the owner's decision (Codex's final check): `ASKRIGOR_DOSSIER_PRIVACY_READING=on` in
 `runtime.env` has every dossier read for personal details before it is stored
 (`apps/research-mcp/src/findings/dossier-privacy-reading.ts`), on the research planner's own Claude API path: its key

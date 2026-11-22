@@ -598,8 +598,9 @@ checking them (`apps/research-mcp/src/absence-searches.ts`):
   kept privately, with its note, as before. Other tools still refuse a call whose `later_inputs` has a problem.
 
 Promise P69 (the owner, chat, 21 November 2026: "explain to people in the answer when a guardrail is preventing you
-from considering something at your max intelligence"; built, off by default, not yet released) adds one later input,
-notes, limits and no blocking rule. With `ASKRIGOR_SAFETY_LIMITS=on`:
+from considering something at your max intelligence"; owner answer 400a, 22 November 2026: HRP 20.6.44's LimitsNote
+asks every AI for it, and the release turns the check on; built, not yet released) adds one later input, notes, limits
+and no blocking rule. With `ASKRIGOR_SAFETY_LIMITS=on` (off in the code's default; the release sets it):
 
 - **The declaration.** `later_inputs.safety_limits` holds up to 20 entries, one for each research step a model's or
   app's own safety rules refused, stopped with a model switch, narrowed or softened, as the AI observed it or as the
