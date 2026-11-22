@@ -70,7 +70,7 @@ import { askedText, callsPageSchema, findingsSaveOff, laterInputShape, latestMes
 import { SAFETY_LIMITS_INSPECT_SENTENCE } from "./safety-limits.js";
 import { ownerPointerById } from "./owner-pointers.js";
 import { MCP_RESULT_MAX_BYTES } from "./config.js";
-import { clientResultBytes } from "./tool-result.js";
+import { clientResultBytes, isChatGptCall } from "./tool-result.js";
 import {
   ANSWER_REVIEW_ASKED,
   ASKED_LIMIT,
@@ -92,6 +92,7 @@ import {
   STEERING_CHOICE,
   asideGuidance,
   asideNextStep,
+  ORDINARY_STEERING_WORDING,
   correctedMenu,
   correctedMenuSchema,
   framingGuidance,
@@ -344,6 +345,7 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
       task: z.string(),
       kind: z.enum(PLAN_TASK_KINDS),
       could_change: z.enum(COULD_CHANGE),
+      person_asked: z.literal(true).optional(),
       loop: z.enum(RESEARCH_LOOPS).optional(),
       minutes: z.tuple([z.number(), z.number()]).nullable(),
     }).strict()),
@@ -373,14 +375,16 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     // Owner answer 304a (14 Nov 2026; runtime only): a balanced menu that could take more than about 10 minutes goes
     // on, since AskRigor's own plan read the person's newest message as telling the AI to go on.
     went_on_as_asked: z.literal(true).optional(),
-    // Owner answer 399b (21 Nov 2026; runtime only): a balanced first menu that could take more than about 10 minutes
-    // goes on, saying first how the question was read and how long the research may take.
-    went_on_long: z.literal(true).optional(),
     // AskRigor#467 (15 Nov 2026; runtime only): the menu went on on the person's own go-ahead, given before it was
     // shown, and the question it named, which the answer says what it assumed for.
     went_ahead: z.enum(PERSON_GO_AHEADS).optional(),
     assumed_answer_to: z.string().optional(),
     go_ahead_may_answer: z.literal(true).optional(),
+    research_started: z.literal(true).optional(),
+    first_menu: z.literal(true).optional(),
+    person_steered: z.literal(true).optional(),
+    person_steered_problem: z.string().optional(),
+    person_steered_invalid: z.literal(true).optional(),
   }).strict().optional(),
   // 12 Nov 2026 (runtime only): an ask's "you decide" call, ready to copy, and a refused menu's example, built from the
   // call's own. The call carries person_answered's placeholder, to be replaced (every account since 13 Nov 2026).
@@ -388,6 +392,7 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     .describe("With plan_research's ask: the later_inputs for the person's \"you decide\", with the recommended " +
       "allocation inside researchMenu, to be sent after replacing <true|false> in person_answered with whether the " +
       "person has answered this menu in a message of their own."),
+  menu_outline: correctedMenuSchema.optional(),
   corrected_later_inputs: correctedMenuSchema.optional()
     .describe("With a plan_research call whose menu could not be read: its later_inputs as they should be, built from " +
       "its own; replace each <...> with one of the values it lists."),
@@ -715,6 +720,24 @@ export const PLANNER_OFF_NOTHING_PAUSED = "AskRigor's own planning call is off o
 function withoutLane<T extends { lane?: unknown }>(menu: T): T {
   const { lane: _lane, ...rest } = menu;
   return rest as T;
+}
+
+export function planBuildingLine(planned: boolean): string {
+  return "If this inspect starts research on a question of theirs, then before your next call, tell the person in one line, in their language: you are " +
+    (planned ? "building the research plan, about a minute; " :
+      "taking a first look to build the research plan, a few minutes; ") +
+    "then you will show it and say whether you are waiting for their choice or starting, and how they can change it.";
+}
+
+function registrationMenuOutline(target: string, receipt: string, devAccount: boolean) {
+  // Supply only the registered target and opaque receipt, never the quick answer, claims or person's words.
+  const outline = correctedMenu({ research_target: target.length <= 300 ? target : undefined,
+    plain_answer_receipt: receipt });
+  if (!devAccount) {
+    // Reuse the ordinary menu's exact instruction, not a new steering rule or a default judgment.
+    outline.researchMenu.steering_could_help = `<${ORDINARY_STEERING_WORDING}>`;
+  }
+  return outline;
 }
 
 /**
@@ -1212,7 +1235,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         return await registerPlainAnswer(options.service, auth.subject, parsed.plainAnswer!, options.plainAnswer,
           parsed.framing, planner?.enabled === true
             ? { planner, asked, reviewed, latest, markSecret: options.menuDigestSecret?.() } : undefined,
-          options.askrigorHolds, asked);
+          options.askrigorHolds, asked, isChatGptCall(extra), devAccount);
       }
       if (parsed.action === "set_research_steering") {
         // Owner answer 303a: learn mode only for a dev account, while AskRigor's own planning call is on. A test round's
@@ -1239,7 +1262,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           paused ? withoutLane(parsed.researchMenu!) : parsed.researchMenu!, options.plainAnswer,
           options.menuDigestSecret?.(), devAccount, learning, options.researchDossiers === true, findingsSaveOff(parsed),
           options.publicDossiers === true,
-          options.findingsLedger?.(devAccount) === true);
+          options.findingsLedger?.(devAccount) === true, isChatGptCall(extra));
       }
       if (parsed.action === "set_plain_answer_note") {
         return await setPlainAnswerNote(options.service, auth.subject, parsed.plainAnswerNote!, options.plainAnswer);
@@ -1334,6 +1357,9 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       // after the account's reads, so a test round's pause begun meanwhile counts (owner answer 395b): while it runs,
       // inspect is as with the call off, and says nothing of the pause, so the person's AI is not told of a test.
       const planned = plain !== undefined && activePlanner(options, accountKey, devAccount) !== undefined;
+      const firstLine = parsed.action === "inspect" && access.status === "ACTIVE" && !isChatGptCall(extra)
+        ? planBuildingLine(planned) : undefined;
+      const inspectStep = [nextStep ?? (planned ? ASKED_REQUEST : undefined), firstLine].filter(Boolean).join(" ");
       return {
         content: [{
           type: "text",
@@ -1346,6 +1372,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
             (nextStep === undefined ? "" : ` ${nextStep} The notice, ${access.noticeVersion}: ${access.notice}`) +
             (plain === undefined ? "" : ` ${plainAnswerRequest(plain.note)}`) +
             (planned ? ` ${ASKED_REQUEST}` : "") +
+            (firstLine === undefined ? "" : ` ${firstLine}`) +
             (settings === undefined
               ? ""
               : ` ${settings.detailedLessonReports ? DETAILED_REPORTS_ON : DETAILED_REPORTS_OFF}`) +
@@ -1368,7 +1395,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           ...(settings === undefined ? {} : { steering: shownSteering(settings.steering, devAccount) }),
           accountReference,
           ...(geminiLinks === undefined || geminiLinks === 0 ? {} : { geminiLinks }),
-          ...(nextStep !== undefined ? { next_step: nextStep } : planned ? { next_step: ASKED_REQUEST } : {}),
+          ...(inspectStep ? { next_step: inspectStep } : {}),
         }),
       };
     } catch (error) {
@@ -1541,6 +1568,8 @@ async function registerPlainAnswer(
   // receipt signs that words were passed on and the IDs of the YouTube videos they link, so the final check can tie a
   // finding's named video to the person. The words themselves are neither signed nor kept.
   personWords?: string,
+  chatGpt = false,
+  devAccount = false,
 ): Promise<CallToolResult> {
   const account = await plainAnswerAccount(service, subject, plain);
   if (account === undefined) return accessError("plain_answer_not_requested", plain === undefined ? PLAIN_ANSWER_SURFACE_UNAVAILABLE : PLAIN_ANSWER_NOT_REQUESTED);
@@ -1603,6 +1632,10 @@ async function registerPlainAnswer(
   const heldAll = await holding;
   const plan = planned !== undefined && "later_inputs" in planned ? planned : undefined;
   const notPlanned = planned !== undefined && "reason" in planned ? planned : undefined;
+  const fallbackLine = notPlanned !== undefined && !chatGpt
+    ? "Tell the person in one line that the plan will take a few minutes more: you are taking a first look yourself."
+    : undefined;
+  const outline = plan === undefined ? registrationMenuOutline(plainAnswer.researchTarget, receipt, devAccount) : undefined;
   const notUsed = notPlanned === undefined ? undefined
     : plannerNotUsedSentence(notPlanned.reason, planning!.planner.accountDailyCalls);
   // A day's limit is the person's to know, so it goes to an app that hands its model only next_step too.
@@ -1643,6 +1676,8 @@ async function registerPlainAnswer(
       { type: "text", text: plan === undefined ? framingGuidance(account.steering, framing)
         : plannedGuidance(framing, plan) },
       ...(notUsed === undefined ? [] : [{ type: "text" as const, text: notUsed }]),
+      ...(fallbackLine === undefined ? [] : [{ type: "text" as const, text: fallbackLine }]),
+      ...(outline === undefined ? [] : [{ type: "text" as const, text: "Fill in menu_outline for your plan_research call." }]),
       { type: "text", text: summary },
       { type: "text", text: `research_receipt: ${receipt}` },
       // What AskRigor already holds, for the answer: after the receipt, so the first texts stay what to do next.
@@ -1661,7 +1696,10 @@ async function registerPlainAnswer(
       plainAnswer: { requested: true, note: account.note, claims: count },
       research_receipt: receipt,
       next_step: `${plan !== undefined ? plannedNextStep(framing, plan)
-        : `${framingNextStep(account.steering, framing)}${limitReached ? ` ${notUsed}` : ""}`}${heldStep}`,
+        : `${framingNextStep(account.steering, framing)}${limitReached ? ` ${notUsed}` : ""}`}${heldStep}` +
+        (fallbackLine === undefined ? "" : ` ${fallbackLine}`) +
+        (outline === undefined ? "" : " Fill in menu_outline for your plan_research call."),
+      ...(outline === undefined ? {} : { menu_outline: outline }),
       ...(plan === undefined ? {} : {
         research_plan: { source: "askrigor_planning_call", about: plan.about,
           steering_choice: plan.later_inputs.researchMenu.steering_choice ?? "none", searches: plan.searches,
@@ -1959,6 +1997,7 @@ async function planResearchAction(
   publicDossiers = false,
   // Enforcing HRP, stage 1: say up front what can stop the answer.
   upFront = false,
+  chatGpt = false,
 ): Promise<CallToolResult> {
   const account = await service.activeAccount(subject);
   // Owner answer 395b: a pause begun while the account was read counts, as when the call is off.
@@ -1996,20 +2035,26 @@ async function planResearchAction(
   // declared the person's, or for a re-plan or a menu changed after it was shown (the review of #473, finding 1).
   const goAheadProblem = personGoAheadProblem(plan, menu?.changed === true);
   if (goAheadProblem !== undefined) problems.push(goAheadProblem);
-  // Owner answers 294c (12 Nov 2026) and 296b (13 Nov 2026): on a dev account, a menu whose decision rests on the
-  // judgment plans nothing until it names the question the AI would ask this person, or none; the yes or no alone
-  // no longer answers there. So the AI decides a short menu, not the default, and decides it by trying to name a
-  // choice of the person's first.
-  if (devAccount && steeringChoiceLeftOut(plan, account.steering, menu)) return steeringChoiceRefusal(plan);
-  // 13 Nov 2026, on every account: a steering_choice that is neither the word none nor a question ("none_needed")
-  // is handed back when the decision rests on it, for the exact word or the question.
-  if (steeringChoiceUnclearDecides(plan, account.steering, menu)) return steeringChoiceUnclearRefusal(plan);
-  // Round 3 of 12 Nov 2026 (every account since 13 Nov 2026): an allocation is the person's answer only with
-  // person_answered true; any other is not used, and the menu is planned as if none had come.
   const result = planResearch(plan, account.steering, read === undefined ? undefined : {
     matches: read.target === researchTargetDigest(plan.research_target),
     minutesSince: Math.max(0, Math.round((Date.now() - Date.parse(read.issuedAt)) / 60_000)),
   }, menu);
+  // Owner answers 294c (12 Nov 2026) and 296b (13 Nov 2026): on a dev account, a menu whose decision rests on the
+  // judgment plans nothing until it names the question the AI would ask this person, or none; the yes or no alone
+  // no longer answers there. So the AI decides a short menu, not the default, and decides it by trying to name a
+  // choice of the person's first.
+  if (devAccount && steeringChoiceLeftOut(plan, account.steering, menu)) {
+    const refused = steeringChoiceRefusal(plan);
+    return result.person_steered_problem === undefined ? refused
+      : withMenuReadingSentence(refused, result.person_steered_problem);
+  }
+  // 13 Nov 2026, on every account: a steering_choice that is neither the word none nor a question ("none_needed")
+  // is handed back when the decision rests on it, for the exact word or the question.
+  if (steeringChoiceUnclearDecides(plan, account.steering, menu)) {
+    const refused = steeringChoiceUnclearRefusal(plan);
+    return result.person_steered_problem === undefined ? refused
+      : withMenuReadingSentence(refused, result.person_steered_problem);
+  }
   // 11 Nov 2026: the problems come first, so an ask's text ends with the rule for the person's answer; only the stop
   // for an allocation not used comes before them (planResearchText). Whether the menu's numbers must stay as they are
   // goes by whether an allocation or a done list was given at all, even one that names no open task or is not used;
@@ -2026,9 +2071,10 @@ async function planResearchAction(
       learningNow.log);
   }
   const text = planResearchText(result, new Set(plan.done ?? []), numbered, plan.research_target, youDecide,
-    problems, learnMode);
+    problems, learnMode, chatGpt);
   // An allocation not used is the first thing the text and next_step say, as a stop; the structured content also
   // names it first among its problems. The result is the ask again (or the menu that goes on), not an error.
+  if (result.person_steered_problem !== undefined) problems.unshift(result.person_steered_problem);
   const structuredProblems = result.allocation_not_used === true
     ? [`later_inputs.researchMenu.allocation: not used; ${PERSON_ANSWER_DECLARED}, which the call did not give`,
       ...problems]
@@ -2050,7 +2096,7 @@ async function planResearchAction(
       ok: true,
       researchMenu: result,
       ...(structuredProblems.length === 0 ? {} : { problems: structuredProblems }),
-      next_step: planNextStep(result, learnMode),
+      next_step: planNextStep(result, learnMode, chatGpt),
       ...(youDecide === undefined ? {} : { you_decide_later_inputs: youDecide }),
       ...(dossierRequest ? { research_dossier_request: { instruction: RESEARCH_DOSSIER_REQUEST,
         shape: researchDossierShape(publicDossiers), guards: RESEARCH_DOSSIER_GUARDS } } : {}),

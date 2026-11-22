@@ -90,7 +90,7 @@ const REVISION_DATE = "2026-10-21";
 // The current files: owner answer 149a (HRP 20.6.30, 2026-10-22) has since added a core rule to HRP, and owner answer
 // 161a (HRP 20.6.31, 2026-10-22) a rule outside the core; 193a (HRP 20.6.32, 2026-10-29) adds later wording.
 const CURRENT = {
-  hrp: { version: "20.6.44", revisionDate: "2026-11-22", sha256: "a486702b879aba2ce729482eabd5474f4ef0afa7e7b7c3efe57751e8103485ee" },
+  hrp: { version: "20.6.45", revisionDate: "2026-11-22", sha256: "475ee5aad42fdc0bba03f786eefa4e19bc17cd9b95f4ddd7e4aef3a600c54039" },
   universal: { version: "20.5.46", revisionDate: REVISION_DATE, sha256: PINS.universal.to.sha256 },
 } as const;
 const NAMES = { hrp: "HRP", universal: "AskRigor.com universal saved instructions" } as const;

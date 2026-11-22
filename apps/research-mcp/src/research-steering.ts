@@ -201,6 +201,9 @@ export const researchMenuSchema = z.object({
     .describe("With person_answered true, when the person said why they chose as they did: their reason in their " +
       "own words, at most 300 characters; leave it out when they gave none. With person_go_ahead, the words that " +
       "told you to go ahead, word for word. Never a reason of yours."),
+  // Part A (22 Nov 2026): runtime only. A steer counts only with the person's non-empty words; invalid values
+  // are ignored rather than refusing the menu. The published tool descriptors remain unchanged.
+  person_steered: z.unknown().optional(),
   // AskRigor#467 (the owner, 15 Nov 2026: "People should be able to bypass the menu"): the person's own words already
   // told the AI to go ahead without waiting for a menu. Whether they did is the AI's judgment, in any language;
   // AskRigor checks only that the value is one of the two words and comes with the person's words in person_reason
@@ -438,7 +441,7 @@ export const correctedMenuSchema = z.object({
     research_target: z.string(),
     plain_answer_receipt: z.string().optional(),
     provisional_answer: z.string().optional(),
-    steering_could_help: z.boolean().optional(),
+    steering_could_help: z.union([z.boolean(), z.string()]).optional(),
     steering_choice: z.string().optional(),
     tasks: z.array(z.object({
       task: z.string(),
@@ -457,6 +460,7 @@ export const correctedMenuSchema = z.object({
     person_reason: z.string().optional(),
     go_on_asked: z.string().optional(),
     person_go_ahead: z.enum(["all", "recommended"]).optional(),
+    person_steered: z.literal(true).optional(),
   }).strict(),
 }).strict();
 export type CorrectedMenu = z.output<typeof correctedMenuSchema>;
@@ -520,6 +524,7 @@ export function correctedMenu(source: unknown, choice = false): CorrectedMenu {
     ...(typeof menu.go_on_asked === "string" && menu.go_on_asked.length <= 200 ? { go_on_asked: menu.go_on_asked } : {}),
     // AskRigor#467: the person's go-ahead goes back with the menu when it is one of its two words.
     ...(goAheadWord(menu.person_go_ahead) === undefined ? {} : { person_go_ahead: goAheadWord(menu.person_go_ahead)! }),
+    ...(personSteered(menu) ? { person_steered: true as const } : {}),
   };
   return correctedMenuSchema.parse({ researchMenu: example });
 }
@@ -614,9 +619,8 @@ export function steeringChoiceRefusalText(example: CorrectedMenu): string {
  * in next_step (planResearch's say_reading_first). How the question was read is the model's to say, in any language;
  * AskRigor does not read the answer's first line.
  */
-export const READING_FIRST = "You named no question for this person, so before the answer itself say in one line, in " +
-  "their language, how you read their question: which meaning, comparison or situation you took it to be about. A " +
-  "reading they did not mean then shows at once.";
+export const READING_FIRST = "Say in one line, in the person's language, how you read their question: which " +
+  "meaning, form, comparison or situation you took it to be about, and the nearest reading you left out.";
 
 /** The style's wording, as the person would read it. */
 const STYLE_WORDS: Readonly<Record<ResearchStyle, string>> = Object.freeze({
@@ -696,6 +700,16 @@ export const PEOPLE_TASK_MISSING = `No task on this menu reads people's own repo
 export const ALL_JOURNALS_AT_THE_SCREEN = "For a plant, food, farming or traditional remedy, or a question PubMed's " +
   "journals cover thinly, also search all journals once (search_europe_pmc with later_inputs.index \"all_journals\", " +
   "OpenAlex): many of their journals are outside PubMed and Europe PMC.";
+
+/**
+ * Owner answer 402a (22 Nov 2026): the baseline plans framed traditional questions as modern evidence only, and
+ * one chat loaded no HRP. Whether a question is traditional is the model's judgment.
+ */
+export const TRADITIONAL_SYSTEM_AT_THE_SCREEN = "For questions about a traditional, regional or folk medical system's concepts or claims, or a remedy, " +
+  "diagnosis or practice known or sold as traditional, regional or folk, even when no system is named, load " +
+  "HRP TraditionalSystemAccount and start finding that tradition's own sources (which tradition says what, " +
+  "its uses, who it is not for, its preparation and cautions) beside the studies; leave full reading for the " +
+  "research tasks, and never delay urgent action.";
 /**
  * The timing runs of 9 Nov 2026: in the made-up antivenom emergency, the run framed, screened, showed a menu and
  * researched for 17 minutes, first saying plainly not to delay the antivenom at minute 9.6. HRP already forbids it
@@ -813,14 +827,17 @@ export const GO_AHEAD_BEFORE_ASK = "Before you ask: if the person's own words, i
  * ones included (a person's own three symptoms, an oil whose form changes its strength), against the owner's "usually
  * can unless the prompt is quite precise"; so the field now carries HRP's own test for when approval is required.
  */
-export const RESEARCH_MENU_SHAPE = "later_inputs.researchMenu in exactly this shape: research_target, the research target " +
-  "word for word as register_plain_answer's result quoted it; plain_answer_receipt, that call's research_receipt; " +
-  "provisional_answer, what the screen suggests, in a few sentences; steering_could_help, true when a choice the " +
+export const ORDINARY_STEERING_WORDING = "true when a choice the " +
   "person could make, or something only they know, could materially change what the research checks (HRP " +
   "StructuredUserSteeringAndApproval): such as their own situation or what they have tried, the form, dose or route " +
   "they use, what to compare it with, which outcome matters most to them, people's reports or studies, or how deep; " +
   "as it usually can, even when the question is clearly worded; false only when the question already fixes all of " +
-  "that, such as one result of one named study; and tasks, the next tasks the screen found, in " +
+  "that, such as one result of one named study";
+
+export const RESEARCH_MENU_SHAPE = "later_inputs.researchMenu in exactly this shape: research_target, the research target " +
+  "word for word as register_plain_answer's result quoted it; plain_answer_receipt, that call's research_receipt; " +
+  "provisional_answer, what the screen suggests, in a few sentences; steering_could_help, " +
+  ORDINARY_STEERING_WORDING + "; and tasks, the next tasks the screen found, in " +
   "order, each {task, what it does in the person's language; kind, one of study_search, abstract_screen, full_text, " +
   "method_audit, forum_thread, video_comments, video_claims, trial_registry or other; could_change, one of conclusion, " +
   "confidence or detail; sources, how many searches, abstracts, papers, threads, videos or records it covers; loop, " +
@@ -840,7 +857,8 @@ export const RESEARCH_MENU_SHAPE = "later_inputs.researchMenu in exactly this sh
 const SCREEN_FIRST = "Screen first: a few calls (about eight) of searches, abstracts, thread titles and the Atlas, " +
   "with no full-text reading, long threads or video audits yet, ending with a provisional short answer. For each " +
   "claim on a premise of the person's question, include one search for what would show it wrong. " +
-  PEOPLE_FIRST_WHEN_USED + " " + ALL_JOURNALS_AT_THE_SCREEN + " " + WORDS_ARE_NOT_SIZES + " Then call " +
+  PEOPLE_FIRST_WHEN_USED + " " + ALL_JOURNALS_AT_THE_SCREEN + " " +
+  TRADITIONAL_SYSTEM_AT_THE_SCREEN + " " + WORDS_ARE_NOT_SIZES + " Then call " +
   "manage_research_access with action plan_research and " + RESEARCH_MENU_SHAPE + " AskRigor gives each task a time " +
   "range and says whether to ask the person first; when it says to ask, your reply is the message it gives, and the " +
   "turn ends there.";
@@ -917,7 +935,8 @@ export function framingGuidance(steering: ResearchSteering, framing: Framing | u
 /**
  * register_plain_answer's next step as a runtime field (owner answer 189a keeps the published shape): Claude Code hands
  * its model a result's structured content and leaves out its text (docs/claude-connector.md, "What the model sees"), so
- * the stop goes there too. It follows framingGuidance's branches.
+ * the stop goes there too. It follows framingGuidance's branches and carries the approved traditional-system screen
+ * guidance in structured content too (owner answer 402a).
  */
 export function framingNextStep(steering: ResearchSteering, framing: Framing | undefined): string {
   const asks = (framing?.redirecting_questions ?? []).length > 0;
@@ -926,18 +945,19 @@ export function framingNextStep(steering: ResearchSteering, framing: Framing | u
     return "Ask the person your framing's redirecting_questions now and end your turn: no research call until they " +
       "answer. Then register the plain answer again if their answers change the question" +
       (doubts ? " or a doubt that could be false is not yet a claim" : "") + ", leaving later_inputs.framing out (its " +
-      "result's request for a framing is for the next question); then screen and call action plan_research.";
+      "result's request for a framing is for the next question); then screen and call action plan_research. " +
+      TRADITIONAL_SYSTEM_AT_THE_SCREEN;
   }
   if (framing !== undefined && !asks && steering.style === "guided") {
     return "Confirm the question you will research in one line, ask for the person's yes and end your turn; after " +
       "their yes, " + (doubts ? "register the plain answer again, leaving later_inputs.framing out (its result's " +
         "request for a framing is for the next question), if a doubt that could be false is not yet a claim; then "
-        : "") + "screen and call action plan_research.";
+        : "") + "screen and call action plan_research. " + TRADITIONAL_SYSTEM_AT_THE_SCREEN;
   }
   return (doubts ? "If a doubt that could be false is not yet a claim of the plain answer, register the plain answer " +
     "again first, with the same later_inputs.framing. " : "") + "Screen in a few calls (searches, abstracts, thread " +
     "titles, the Atlas), then call action plan_research with later_inputs.researchMenu; its result says whether to ask " +
-    "the person first.";
+    "the person first. " + TRADITIONAL_SYSTEM_AT_THE_SCREEN;
 }
 
 /**
@@ -1149,23 +1169,6 @@ export const ASK_ABOVE_MINUTES = 10;
 export const WENT_ON_AS_ASKED = "AskRigor did not ask first, though these tasks could take more than about " +
   `${ASK_ABOVE_MINUTES} minutes: its own plan read the person's latest message as telling you to go on.`;
 
-/**
- * Owner answer 399b: why a balanced first menu this long did not ask, and what the person is told instead: how the AI
- * read their question and how long the research may take, the recommended tasks with the final check and the answer
- * (ANSWER_MINUTES), said before the first research call where the app shows what the AI writes then, otherwise at the
- * top of the answer.
- */
-export function wentOnLongSentence(result: Pick<ResearchPlanResult, "recommended_minutes">): string {
-  const low = roundEstimate(result.recommended_minutes[0] + ANSWER_MINUTES[0]);
-  const high = roundEstimate(result.recommended_minutes[1] + ANSWER_MINUTES[1]);
-  return `AskRigor did not ask first, though these tasks could take more than about ${ASK_ABOVE_MINUTES} minutes: on ` +
-    "the balanced style a research's first menu goes on whatever its length. So before your first research call, " +
-    "write one line to the person, in their language: how you read their question (which meaning, comparison or " +
-    `situation you took it to be about) and that the research may take about ${low} to ${high} minutes with the ` +
-    "final check and the answer. A reading they did not mean then shows at once. If your app shows nothing you " +
-    "write until the answer, that is its limit, not a reason to leave the line out: it then opens the answer.";
-}
-
 export interface PlannedTask {
   n: number;
   task: string;
@@ -1178,6 +1181,11 @@ export interface PlannedTask {
 
 export interface ResearchPlanResult {
   tasks: PlannedTask[];
+  research_started?: true;
+  first_menu?: true;
+  person_steered?: true;
+  person_steered_problem?: string;
+  person_steered_invalid?: true;
   recommended: { task: number; minutes: number }[];
   recommended_minutes: [number, number];
   next: "ask" | "go_on";
@@ -1215,15 +1223,10 @@ export interface ResearchPlanResult {
   /**
    * Owner answer 304a: the recommended tasks could take more than about 10 minutes and the menu went on all the same,
    * since AskRigor's own plan read the person's newest message as telling the AI to go on (WENT_ON_AS_ASKED). No longer
-   * given: since owner answer 399b a balanced first menu goes on whatever its length (went_on_long), and the mark, which
+   * given: since owner answer 399b a balanced first menu goes on whatever its length, and the mark, which
    * comes only with a first menu, changes no decision.
    */
   went_on_as_asked?: true;
-  /**
-   * Owner answer 399b: a balanced first menu whose recommended tasks could take more than about 10 minutes went on,
-   * where it used to ask for its length alone (wentOnLongSentence).
-   */
-  went_on_long?: true;
   /**
    * AskRigor#467: the menu went on on the person's own go-ahead, given before it was shown (personGoAheadOf): all, every
    * open task, or recommended, AskRigor's recommendation.
@@ -1384,6 +1387,7 @@ export function planResearch(
   menu?: { digest: string; changed: boolean; goOnAsked?: boolean },
 ): ResearchPlanResult {
   const done = new Set(plan.done ?? []);
+  const steered = personSteered(plan);
   // A menu that changed after the person saw it is theirs to see first: an allocation given for the one they saw is
   // not an answer to this one.
   const changed = menu?.changed === true;
@@ -1493,8 +1497,23 @@ export function planResearch(
   // yet the person's, say) waits for its length whatever mark it carries (Codex's review of 21 Nov).
   const firstBalanced = steering.style === "balanced" && firstMenu;
   const lengthAsks = long && !firstBalanced;
+  const steerContext = changed || tasks.some(({ n }) => done.has(n));
+  const steerApplies = steered && steerContext && (question === undefined || steering.style === "autonomous");
+  const steerAttempted = plan.person_steered !== undefined && plan.person_steered !== null &&
+    plan.person_steered !== false;
+  const steerProblem = !steerAttempted ? undefined
+    : plan.person_steered !== true
+      ? "later_inputs.researchMenu.person_steered: not used; it must be boolean true."
+    : !steered
+      ? "later_inputs.researchMenu.person_steered: not used; it goes with the person's words, word for word, in person_reason."
+    : !steerContext && steering.style !== "autonomous"
+      ? "later_inputs.researchMenu.person_steered: not used; it applies only to a changed menu or a re-plan with tasks done."
+    : question !== undefined && steering.style !== "autonomous"
+      ? "later_inputs.researchMenu.person_steered: not used; it does not replace the answer to a named question."
+      : undefined;
   const next = steering.style === "autonomous" ? "go_on"
     : answered ? "go_on"
+    : steerApplies ? (steering.style === "guided" ? "ask" : "go_on")
     // AskRigor#467: the person said to go ahead without waiting for a menu, so nothing here asks them.
     : goAhead !== undefined ? "go_on"
     : changed ? "ask"
@@ -1503,6 +1522,11 @@ export function planResearch(
       : "go_on";
   return {
     tasks,
+    ...(tasks.some(({ n }) => done.has(n)) ? { research_started: true as const } : {}),
+    ...(steerApplies ? { person_steered: true as const } : {}),
+    ...(steerProblem === undefined ? {} : { person_steered_problem: steerProblem }),
+    ...(steerAttempted && !steered ? { person_steered_invalid: true as const } : {}),
+    ...(firstMenu ? { first_menu: true as const } : {}),
     recommended,
     recommended_minutes: recommendedMinutes,
     next,
@@ -1529,11 +1553,6 @@ export function planResearch(
     ...(menu === undefined ? {} : { menu_digest: menu.digest }),
     ...(changed ? { menu_changed: true as const } : {}),
     ...(carried && !answered ? { allocation_not_used: true as const } : {}),
-    // Owner answer 399b: a balanced first menu that went on though its tasks could take more than about 10 minutes, the
-    // person's go-ahead aside (which says its own why), and not a light look-up (whose go-ahead is LIGHT_LOOKUP alone).
-    ...(next === "go_on" && long && firstBalanced && !answered && goAhead === undefined && !lightWork &&
-        plainAnswer?.matches !== false
-      ? { went_on_long: true as const } : {}),
     // AskRigor#467: and a question the menu named, which the answer then says what it assumed for. A light look-up
     // says nothing more than its own line, and a menu held back for its research target gets no go-ahead.
     ...(goAhead === undefined || plainAnswer?.matches === false ? {} : {
@@ -1598,6 +1617,85 @@ function askReason(result: ResearchPlanResult, done: ReadonlySet<number>): strin
   return `This person's research style asks first when ${reasons.join(", and when ")}`;
 }
 
+/** The first line the person sees when the menu waits. */
+export function askOpening(result: ResearchPlanResult): string {
+  if (result.person_steered_invalid === true &&
+      (result.menu_changed === true || result.research_started === true)) {
+    return "Before I go on, I need your choice on the plan; your last message didn't reach me as a change.";
+  }
+  if (result.person_steered === true && result.style === "guided" && result.steering_choice === undefined) {
+    return "You chose to approve the plan first; here is the plan with your change.";
+  }
+  const question = result.steering_choice !== undefined;
+  const opening = question
+    ? result.research_started === true
+      ? "Before I go on, I need one answer from you; the rest of the plan depends on it."
+      : "Before I start, I need one answer from you; the plan below depends on it."
+    : result.style === "guided" ? ""
+    : result.menu_changed === true || result.research_started === true
+      ? "The plan changed with what I found; before I go on, choose how to spend the time."
+    : result.allocation_not_used === true && result.recommended_minutes[1] > ASK_ABOVE_MINUTES
+      ? "The next part could take more than about 10 minutes; before I go on, choose how to spend the time."
+      : "Before I start, choose how to spend the time; your choice can change what I check.";
+  return [opening, ...(result.style === "guided" ? ["You chose to approve the plan first; here it is."] : [])]
+    .filter(Boolean).join(" ");
+}
+
+/** Runtime declaration only; never infer a steer from the person's words. */
+export function personSteered(plan: { person_steered?: unknown; person_reason?: unknown }): boolean {
+  return plan.person_steered === true && cleanedReason(plan.person_reason) !== undefined;
+}
+
+export const STEER_REPLAN = "If the person stops you or tells you to change something, their message is the plan's " +
+  "new instruction. Unless it asks about a different thing, call plan_research again with the same research_target " +
+  "and plain_answer_receipt, the last result's menu_digest, done (the numbers of the tasks you finished), the tasks " +
+  "changed as their words ask (person_asked true on each task their words ask for), person_steered true, and their " +
+  "words, word for word, as person_reason. Then follow that result.";
+export const STEER_PROGRESS = "Show the person now, in their language: what is done, one line per finished task " +
+  "with what it found; what changes because of their message; and the tasks still to do, numbered, with their " +
+  "minutes and the new total. Then go on. Do not repeat a finished task, and keep its receipts for the final check.";
+export const STEER_REGISTER = "Register the plain answer again only when their message asks about a different " +
+  "thing (another substance, product, claim, study or person), not when it narrows, widens or redirects the same " +
+  "question; then tell them in one line which finished work still applies, and pass those receipts to the final " +
+  "check too.";
+export const CHATGPT_PLAN_ENDING = "What I did: [each task done, one line]. Not done: [the open tasks, numbered, " +
+  "with their minutes]. To change direction, tell me which, and I'll go on from here without redoing the rest.";
+
+/** One presentation instruction shared by text and structured content. */
+export function planPresentation(result: ResearchPlanResult, chatGpt = false): string {
+  const assumed = result.assumed_answer_to === undefined ? undefined
+    : `${ASSUMED_ANSWER_FIRST} The question: ${JSON.stringify(result.assumed_answer_to)}`;
+  const all = result.went_ahead === "all" ? `${WENT_AHEAD_ALL} ` : "";
+  if (chatGpt) {
+    const steeredEnding = result.person_steered === true
+      ? " In What I did, give what each finished task found; then say what changed because of their message; " +
+        "in Not done, give the remaining tasks with their minutes and the new total. Do not repeat a finished " +
+        "task, and keep its receipts for the final check." : "";
+    return `Open the answer with the ${assumed === undefined ? "reading" : "assumed-answer"} line only, then answer first. ` +
+      `${assumed ?? READING_FIRST} ${all}End the answer with, in the person's language: ${CHATGPT_PLAN_ENDING}` +
+      `${steeredEnding} ${STEER_REPLAN} ${STEER_REGISTER}`;
+  }
+  if (result.person_steered === true) return `${STEER_PROGRESS} ${STEER_REPLAN} ${STEER_REGISTER}`;
+  // A later menu or an allocation already answered must not claim to start before the person's answer.
+  if (result.first_menu !== true || result.style === "guided") {
+    return (assumed === undefined ? (result.say_reading_first === true ? `${READING_FIRST} ` : "") : `${assumed} `) +
+      `${all}${STEER_REPLAN} ${STEER_REGISTER}`;
+  }
+  const change = "To change the plan, tell me what to change (stop me first if I'm still working).";
+  const steer = result.assumed_answer_to !== undefined
+    ? `${ASSUMED_ANSWER_FIRST} The question: ${JSON.stringify(result.assumed_answer_to)} ${change}`
+    : result.went_ahead !== undefined ? `As you asked, I started without waiting. ${change}`
+    : result.style === "autonomous" ? `You chose research that doesn't stop to ask. ${change}`
+    : `I didn't wait for your answer before starting. ${change}`;
+  const total: [number, number] = [roundEstimate(result.recommended_minutes[0] + ANSWER_MINUTES[0]),
+    roundEstimate(result.recommended_minutes[1] + ANSWER_MINUTES[1])];
+  return "Before your first research call, show the person in their language, in this order: " +
+    `${READING_FIRST} Then the plan: the recommended tasks, numbered, each with its rough minutes and whether it ` +
+    `means a quick look, reading in full or a method audit; then the total with the check and the answer: ${range(total)}. ` +
+    `Then the steer line: ${steer} ` + (result.went_ahead === "all" ? `${WENT_AHEAD_ALL} ` : "") +
+    `${STEER_REPLAN} ${STEER_REGISTER}`;
+}
+
 /** Whether a task reads people's own reports: a thread, a video's comments, or a look prompted by a study finding. */
 const readsPeoplesReports = ({ kind, loop }: PlannedTask): boolean =>
   kind === "forum_thread" || kind === "video_comments" || loop === "studies_to_people";
@@ -1612,7 +1710,7 @@ const NOTHING_RECOMMENDED = "Nothing more is recommended: the open tasks add det
  * and StructuredUserSteeringAndApproval's "begin no substantive source collection in the same response"), so the ask
  * gets no final check.
  */
-const ASK_NOW = ". Ask now, before any of these tasks: your whole reply this turn is the message below, in the " +
+const ASK_NOW = ". Ask now, before any of these tasks: your whole reply from here on this turn is the message below, in the " +
   "person's language, after the urgent action if the question is urgent; then end your turn. Make no research call " +
   "and don't call finalize_research for this reply: it is a question, not an answer (HRP " +
   "StructuredUserSteeringAndApproval: when approval is required, begin no substantive source collection in the same " +
@@ -1703,7 +1801,7 @@ export function cleanedReason(value: unknown): string | undefined {
  */
 export function menuChoiceOf(plan: ResearchMenuInput, steering: ResearchSteering, reason: string | null):
   ResearchMenuChoiceInput | undefined {
-  if (!allocationAnswered(plan) || plan.person_answered !== true) return undefined;
+  if (personSteered(plan) || !allocationAnswered(plan) || plan.person_answered !== true) return undefined;
   const byTask = (entries: readonly { task: number; minutes: number }[]) => {
     const minutes = new Map<number, number>();
     for (const { task, minutes: given } of entries) minutes.set(task, minutesSum([minutes.get(task) ?? 0, given]));
@@ -1737,8 +1835,11 @@ export function menuChoiceOf(plan: ResearchMenuInput, steering: ResearchSteering
  * How the tasks are done once the research goes on (the 279a plan: a task that runs out of time stops and says what it
  * reached; a new fork that could change the conclusion comes back to the person, now through the menu).
  */
-const TASK_PROGRESS = "Before each task, say in one line what you will read, how deep, and why. A task that runs out " +
-  "of its time stops and says in one line what it reached; the next one begins.";
+const TASK_PROGRESS = "Before each task, say in one line what you will read, how deep, and why. ";
+const TASK_TIME_LIMIT = "A task that runs out of its time stops and says in one line what it reached; the next one begins.";
+const CHATGPT_TASK_TIME_LIMIT = "A task that runs out of its time stops; the next one begins. In the answer's " +
+  "What I did lines, say what the timed-out task reached.";
+
 /**
  * A new fork, for the styles that can ask. It leaves the allocation out: a menu that still carries the person's
  * allocation with an open task goes on, and the new task would be neither recommended nor asked about. Autonomous research
@@ -1882,9 +1983,11 @@ export const NAMED_ANSWER_STEERS = "What they answer to the question you named d
  */
 export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<number>, numbered = false,
   researchTarget?: string, youDecide?: YouDecideLaterInputs, problems: readonly string[] = [],
-  learnMode?: boolean): string {
+  learnMode?: boolean, chatGpt = false): string {
   const stop = allocationNotUsedStop(result);
-  const first = [...(stop === undefined ? [] : [stop]), ...(problems.length === 0 ? [] : [problems.join(" ")])];
+  const first = [...(stop === undefined ? [] : [stop]),
+    ...(result.person_steered_problem === undefined ? [] : [result.person_steered_problem]),
+    ...(problems.length === 0 ? [] : [problems.join(" ")])];
   const lines = result.tasks.map(({ n, task, could_change, loop, person_asked, minutes }) =>
     `${n}. ${task}: ${CHANGE_WORDS[could_change]}${person_asked === true ? ", you asked for this" : ""}` +
     `${loop === undefined ? "" : `, ${LOOP_WORDS[loop]}`}; ` +
@@ -1911,7 +2014,8 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
     const reply = [
       // The question the menu named goes to the person as it is, whatever the reason for the ask; with none named,
       // an ask for the person's choices gets the general sentence, as before.
-      "Your reply: at most two sentences on what the first look suggests, saying it is not yet checked" +
+      `Your reply opens with, in the person's language: ${askOpening(result)} ` +
+        "Then at most two sentences on what the first look suggests, saying it is not yet checked" +
         (result.steering_choice !== undefined
           ? `; then the question you named for them, in their language: ${JSON.stringify(result.steering_choice)}`
           : result.style !== "guided" && result.steering_could_help !== false
@@ -1945,9 +2049,10 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
           : "the call on the next line") + "." +
       // What the person answers to the named question is what the research then checks (NAMED_ANSWER_STEERS).
       (result.steering_choice === undefined ? "" : ` ${NAMED_ANSWER_STEERS}`) + " If the reply " +
-      "changes the question, register the plain answer again for the new research target first, with " +
+      "asks about a different thing, register the plain answer again for the new research target first, with " +
       `later_inputs.framing for it. Never send an allocation the person did not give or leave to you. ${STYLE_REPLY}` +
-      (learnMode === undefined ? "" : ` ${LEARN_MODE_REPLY}`);
+      (learnMode === undefined ? "" : ` ${LEARN_MODE_REPLY}`) +
+      (result.menu_changed === true || result.research_started === true ? ` ${STEER_REGISTER}` : "");
     return [
       ...first,
       ...(before.length === 0 ? [] : [before.join(" ")]),
@@ -1962,7 +2067,8 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
   const recommendation = result.recommended.length === 0 ? NOTHING_RECOMMENDED
     : `Recommended: ${chosen}, ${range(result.recommended_minutes)} in all.`;
   return [...first, [
-    "The menu to show the person, in their language, numbered as here (times are rough planning estimates, and say " +
+    (chatGpt && !light && !heldBack ? "The task record for the answer, numbered as here (times are rough planning estimates, and say " :
+      "The menu to show the person, in their language, numbered as here (times are rough planning estimates, and say ") +
       "whether a task means a quick look, reading in full or a method audit): " + lines.join(" ") + " " + recommendation +
       ` Then the final check and writing the answer: about ${ANSWER_MINUTES[0]} to ${ANSWER_MINUTES[1]} min.`,
     // The tasks held back: the correction last, with no go-ahead after it and none of what follows one, which the
@@ -1978,25 +2084,18 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
       ...since,
       // AskRigor#467: with the person's go-ahead for everything, every task, not the check-back time.
       result.style === "autonomous" && result.went_ahead !== "all"
-        ? "The person chose autonomous research: show the menu as what you are doing and go on with the recommended " +
+        ? (chatGpt ? "The person chose autonomous research: go on with the recommended " :
+          "The person chose autonomous research: show the menu as what you are doing and go on with the recommended ") +
           `tasks now. After about ${result.check_back_minutes} minutes of research, or sooner if a new finding could ` +
-          "change the conclusion, check what you have with finalize_research and give that answer, ending it with " +
-          "the open tasks as a numbered menu and the question whether to spend more time on them."
-        : "Go on now: do these tasks in this order, each within its minutes, showing the menu as what you are " +
-          "doing; then check the answer with finalize_research and give it in this turn.",
-      // Owner answer 399b: why a balanced first menu this long did not ask, and what the person is told instead.
-      ...(result.went_on_long === true ? [wentOnLongSentence(result)] : []),
-      // AskRigor#467: why it did not ask, and what the answer says first for a question the menu named.
-      ...(result.went_ahead === undefined ? [] : [goAheadSentence(result)]),
-      // Owner answer 297c: with no question named, the answer says its reading first; a menu that went on for its
-      // length alone says it in wentOnLongSentence, with the time, before the research (Codex's review of 21 Nov).
-      ...(result.say_reading_first === true && result.went_on_long !== true ? [READING_FIRST] : []),
-      result.style === "autonomous" ? TASK_PROGRESS : `${TASK_PROGRESS} ${NEW_FORK}`,
+          "change the conclusion, check what you have with finalize_research and give that answer" +
+          (chatGpt ? "." : ", ending it with the open tasks as a numbered menu and the question whether to spend more time on them.")
+        : (chatGpt ? "Go on now: do these tasks in this order, each within its minutes; then check the answer with " :
+          "Go on now: do these tasks in this order, each within its minutes, showing the menu as what you are " +
+          "doing; then check the answer with ") + "finalize_research and give it in this turn.",
+      planPresentation(result, chatGpt),
+      ...(chatGpt ? [CHATGPT_TASK_TIME_LIMIT, ...(result.style === "autonomous" ? [] : [NEW_FORK])]
+        : [TASK_PROGRESS + TASK_TIME_LIMIT, ...(result.style === "autonomous" ? [] : [NEW_FORK])]),
       WORDS_ARE_NOT_SIZES,
-      // An allocation sent after a stop is declared the person's too, or it is not used.
-      "If the person stops you or changes direction, call plan_research again with done, their new allocation, " +
-        "person_answered true (an allocation without it is not used) and the last result's menu_digest; the " +
-        "research target stays word for word the same.",
       "Leads between people's reports and studies are part of the research when the question has both: when the " +
         "screen found something in people's reports that studies could check, or a study finding that people's " +
         "reports could check, and no task covers it, add that task (loop people_to_studies or studies_to_people), " +
@@ -2017,15 +2116,18 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
  * which a menu that would go on gets in place of its go-ahead. learnMode, as for planResearchText: a dev account's ask
  * also ends with learnModeLine and gets LEARN_MODE_REPLY beside STYLE_REPLY (owner answer 303a).
  */
-export function planNextStep(result: ResearchPlanResult, learnMode?: boolean): string {
+export function planNextStep(result: ResearchPlanResult, learnMode?: boolean, chatGpt = false): string {
   const stop = allocationNotUsedStop(result);
   const notRegistered = result.target_matches_plain_answer === false;
-  const first = (stop === undefined ? "" : `${stop} `) + (notRegistered ? `${TARGET_NOT_REGISTERED} ` : "");
+  const first = (stop === undefined ? "" : `${stop} `) +
+    (result.person_steered_problem === undefined ? "" : `${result.person_steered_problem} `) +
+    (notRegistered ? `${TARGET_NOT_REGISTERED} ` : "");
   if (result.next === "ask") {
     // A menu with nothing recommended (detail only) gives "you decide" the text's own exit: an empty recommended
     // allocation counts as no answer, so the same menu would ask again (the review of 12 Nov 2026).
     return first + (result.go_ahead_may_answer === true ? `${GO_AHEAD_BEFORE_ASK} Otherwise, ask` : "Ask") +
-      " the person now and end your turn: " + (result.steering_choice === undefined ? ""
+      " the person now and end your turn. Open your reply with, in their language: " +
+      `${JSON.stringify(askOpening(result))} Then ` + (result.steering_choice === undefined ? ""
         : "put the question you named to them, in their language (researchMenu.steering_choice), and ") +
       "show researchMenu.tasks as a numbered list with their times, the recommendation and how to answer (task " +
       "numbers and minutes, or \"you decide\"), and end with one line saying they can change how often AskRigor " +
@@ -2042,27 +2144,17 @@ export function planNextStep(result: ResearchPlanResult, learnMode?: boolean): s
       " Send person_answered true only once they have answered this menu in a message of their own: " +
       `${PERSON_ANSWER_DECLARED}, and one sent without it is not used.` +
       (result.steering_choice === undefined ? "" : ` ${NAMED_ANSWER_STEERS}`) + ` ${STYLE_REPLY}` +
-      (learnMode === undefined ? "" : ` ${LEARN_MODE_REPLY}`);
+      (learnMode === undefined ? "" : ` ${LEARN_MODE_REPLY}`) +
+      (result.menu_changed === true || result.research_started === true ? ` ${STEER_REGISTER}` : "");
   }
   if (notRegistered) return first + NO_GO_AHEAD_YET;
   // Owner answer 302: a light look-up goes on with LIGHT_LOOKUP alone, in any style.
   if (result.lane === "light") return first + LIGHT_LOOKUP;
   return first + (result.style === "autonomous" && result.went_ahead !== "all"
     ? `Do the recommended tasks now; after about ${result.check_back_minutes} minutes of research, check what you ` +
-      "have with finalize_research and give that answer, ending it with the open tasks as a numbered menu and the " +
-      "question whether to spend more time on them."
+      "have with finalize_research and give that answer" + (chatGpt ? "." :
+        ", ending it with the open tasks as a numbered menu and the question whether to spend more time on them.")
     : "Do the recommended tasks now, in order, each within its minutes; then check the answer with finalize_research " +
       "and give it in this turn.") +
-    // Owner answer 399b: and why a balanced first menu this long did not.
-    (result.went_on_long === true ? ` ${wentOnLongSentence(result)}` : "") +
-    // AskRigor#467: the same, when the person's own words said to go ahead.
-    (result.went_ahead === undefined ? "" : ` ${goAheadSentence(result)}`) +
-    (result.say_reading_first === true && result.went_on_long !== true ? ` ${READING_FIRST}` : "");
-}
-
-/** What a go-ahead's result says (AskRigor#467): why it did not ask, all of it, and a named question's assumed answer. */
-function goAheadSentence(result: ResearchPlanResult): string {
-  return [WENT_AHEAD_AS_TOLD, ...(result.went_ahead === "all" ? [WENT_AHEAD_ALL] : []),
-    ...(result.assumed_answer_to === undefined ? []
-      : [`${ASSUMED_ANSWER_FIRST} The question: ${JSON.stringify(result.assumed_answer_to)}`])].join(" ");
+    ` ${planPresentation(result, chatGpt)} ${chatGpt ? CHATGPT_TASK_TIME_LIMIT : TASK_PROGRESS + TASK_TIME_LIMIT}`;
 }

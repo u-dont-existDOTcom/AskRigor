@@ -31,7 +31,8 @@ describe("the owner's review of 4 November 2026: HRP 20.6.38", () => {
   });
 
   it("leaves every core section byte for byte unchanged", async () => {
-    const text = await loadProtocol("hrp");
+    // Compare this historical change at its own version, before later approved core edits.
+    const text = await undoResponseSpreadHrp(await loadProtocol("hrp"));
     const prior = await undoCardRuleWordingHrp(text);
     const core = new Set(coreSectionNames("hrp"));
     const sections = (value: string) => protocolSections("hrp", value).filter(({ name }) => core.has(name))
