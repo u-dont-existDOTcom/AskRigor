@@ -128,6 +128,7 @@ import {
   type ResearchReceiptRejection
 } from "./research-receipts.js";
 import { claimCoverageNotes, extractedClaimIds } from "./claim-coverage.js";
+import { SAFETY_LIMIT_FOR_JUDGE, isSafetyLimit, reviewSafetyLimits, withoutSafetyLimits } from "./safety-limits.js";
 import { untraceableCitationNote } from "./citation-markers.js";
 import type { NewsCard } from "./news/card.js";
 import { signedNewsClaims } from "./news/claims.js";
@@ -1929,6 +1930,12 @@ export interface FinalizeResearchOptions {
   /** This surface's tool list version (toolListVersionOf), which a call's tool_list_version is compared with. */
   toolListVersion?: string;
   /**
+   * Promise P69 (the owner, chat, 21 Nov 2026; ASKRIGOR_SAFETY_LIMITS=on): read later_inputs.safety_limits, list each
+   * research step a model's or app's own safety rules limited as a limit in AskRigor's words saying who reports it, and
+   * look its sentence up in the draft. Notes and limits only.
+   */
+  safetyLimits?: boolean;
+  /**
    * Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026; ASKRIGOR_FINDINGS_LEDGER=on): every problem this check reports
    * becomes a record with an id and a disposition in check_findings, and a signed findings_ledger carries them to the
    * next call. `account` is the research account's key the ledger is bound to (none for a caller without one);
@@ -1973,7 +1980,10 @@ export function finalizeResearch(
   rawInput: unknown,
   options: FinalizeResearchOptions
 ): FinalizeResearchOutput {
-  const parsed = parseFinalizeResearchInput(rawInput, { findingsLedger: options.findingsLedger !== undefined });
+  // Promise P69: with the switch off, safety_limits is taken out before anything reads the call, so no note of any kind
+  // (a duplicate, a bad value) can come from it (Codex's recheck of 21 Nov 2026).
+  const parsed = parseFinalizeResearchInput(options.safetyLimits === true ? rawInput : withoutSafetyLimits(rawInput),
+    { findingsLedger: options.findingsLedger !== undefined });
   if (!parsed.success) return invalidFinalizeResearchInput(parsed.error, options, parsed.notes);
   const input = parsed.data;
   // A test run's call, marked findings_save "off", read from the raw call on its own: it offers no save and files no
@@ -2893,6 +2903,15 @@ export function finalizeResearch(
   // draft holds none of the app's own citation markers. Both are exact checks, and notes only: the six blocking checks
   // stay six (owner answers 193a, 195a and 217b).
   for (const note of claimCoverageNotes(extractedClaimIds(verified), input.claim_coverage)) addStep("declaration", note);
+  // Promise P69 (the owner, 21 Nov 2026: "explain to people in the answer when a guardrail is preventing you from
+  // considering something at your max intelligence"), with the switch on: each research step the AI declares a model's
+  // or app's own safety rules limited becomes a limit in AskRigor's fixed words saying who reports it, and its sentence
+  // in the answer is looked up with the other declared quotes (below). Whether a safety rule did it stays the
+  // reporter's judgment, which AskRigor doesn't confirm; nothing asks for a declaration of none. Notes and limits only:
+  // the six blocking checks stay six.
+  const safetyLimits = options.safetyLimits === true ? reviewSafetyLimits(input.safety_limits) : undefined;
+  for (const note of safetyLimits?.notes ?? []) addStep("declaration", rule`${note}`);
+  for (const limit of safetyLimits?.limits ?? []) caveatOnce(rule`${limit}`, limit);
   const markerNote = untraceableCitationNote(input.answer_draft);
   if (markerNote !== undefined) addStep("declaration", markerNote);
   const communityLeads = input.community_leads ?? [];
@@ -4638,6 +4657,8 @@ export function finalizeResearch(
           ...(harms === undefined ? [] : [{ at: `binary_results[${index}].harms_quote`, quote: harms }])
         ]),
         ...(input.safety_claims ?? []).map(({ quote }, index) => ({ at: `safety_claims[${index}]`, quote })),
+        // Each declared safety limit is said in the answer, by the sentence its entry copies (promise P69).
+        ...(safetyLimits?.quotes ?? []),
         // A harm the screen found is shown in the answer by the sentence the entry copies.
         ...harmScreen.flatMap(({ state, answer_quote: quote }, index) =>
           (state === "label_warning" || state === "reported_signal") && quote !== undefined
@@ -4866,7 +4887,8 @@ export function finalizeResearch(
       }
       for (const { limit, why } of judgment.limits) {
         const text = limits[limit - 1];
-        if (text === undefined) continue;
+        // A safety limit is the AI's report, which the judge never reads (promise P69): no verdict on it counts.
+        if (text === undefined || isSafetyLimit(text)) continue;
         judgeNotes.push(`The meaning judge reads limits[${limit - 1}] (${JSON.stringify(limitOpening(text))}) as not ` +
           `applying to this answer${because(why)}. Leave it out of the answer's own words; the panel still lists it.`);
       }
@@ -5234,7 +5256,10 @@ export function finalizeResearch(
             return [{ ...entry, number: place + 1, ...(result === undefined ? {} : { researchResult: result }) }];
           }) } : {}),
       keySources: input.key_sources,
-      limits: [...parsedOutput.limits]
+      // A safety limit holds the AI's own words about its research, which stay in this result (promise P69; Codex's
+      // review of 21 Nov 2026): the judge reads the answer, which says it, and a fixed line in the limit's place, so the
+      // list keeps the numbering the check reads its verdicts by (Codex's recheck).
+      limits: parsedOutput.limits.map((limit) => isSafetyLimit(limit) ? SAFETY_LIMIT_FOR_JUDGE : limit)
     });
   }
   return parsedOutput;

@@ -67,6 +67,7 @@ import {
   ownerPointerText, shownOwnerPointer, shownOwnerPointerSchema, type AskRigorHolds, type AskRigorHoldsOptions,
 } from "./askrigor-holds.js";
 import { askedText, callsPageSchema, findingsSaveOff, laterInputShape, latestMessage } from "./later-inputs.js";
+import { SAFETY_LIMITS_INSPECT_SENTENCE } from "./safety-limits.js";
 import { ownerPointerById } from "./owner-pointers.js";
 import { MCP_RESULT_MAX_BYTES } from "./config.js";
 import { clientResultBytes } from "./tool-result.js";
@@ -580,6 +581,11 @@ export interface ResearchContributorToolOptions {
   noticeElsewhere?: boolean;
   /** Gemini's sign-in (owner answer 386b): one account's links, to count in inspect and to end with disconnect_gemini. */
   geminiLinks?: GeminiLinks;
+  /**
+   * Promise P69 (owner answer 400a): with ASKRIGOR_SAFETY_LIMITS on, inspect gives the shape of finalize_research's
+   * later input safety_limits, which HRP's LimitsNote asks every AI to declare and nothing published describes.
+   */
+  safetyLimits?: boolean;
   /** The canonical store's read-only identity view, which a submitted frontier is reconciled with. */
   canonical?: CanonicalIdentityReader;
   /** The plain answer before research, on the MCP connector only (owner answer 140b); undefined elsewhere. */
@@ -1347,6 +1353,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
             (settings === undefined ? "" : ` ${steeringInspectText(settings.steering)}`) +
             (learnMode === undefined ? "" : ` ${learnModeInspectSentence(learnMode.on, learnMode.kept)}`) +
             (options.callRecord === undefined ? "" : ` ${CALL_RECORD_SENTENCE}`) +
+            (options.safetyLimits === true && access.status === "ACTIVE" ? ` ${SAFETY_LIMITS_INSPECT_SENTENCE}` : "") +
             (geminiLinks === undefined || geminiLinks === 0 ? "" : ` This account is connected to Google Gemini ` +
               `(${geminiLinks === 1 ? "one link" : `${geminiLinks} links`}); if the person asks to disconnect Gemini, ` +
               "call manage_research_access with action disconnect_gemini.") +

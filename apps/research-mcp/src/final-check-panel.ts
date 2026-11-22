@@ -6,6 +6,9 @@ import {
 } from "./final-check-messages.js";
 import { ANSWER_READING_LABELS, LINKED_READING_LABELS, SHOWN_READING_LABELS } from "./source-reading.js";
 import { FINAL_CHECK_PANEL_FINDINGS_LEAD } from "./findings-ledger.js";
+// Promise P69: the panel shows one line above its fold for AskRigor's own safety limits, found by their fixed starts;
+// each limit says which step and who reports it, and AskRigor doesn't vouch for the report.
+import { SAFETY_LIMIT_PREFIXES } from "./safety-limits.js";
 
 export const FINAL_CHECK_PANEL_URI = "ui://askrigor/final-check.html";
 /**
@@ -73,6 +76,7 @@ export const FINAL_CHECK_PANEL_RENDER_SOURCE = String.raw`
 const COMPLETE_CHECKS_TIP = ${JSON.stringify(COMPLETE_CHECKS_TIP)};
 const CHECK_SCOPE = ${JSON.stringify(FINAL_CHECK_PANEL_SCOPE)};
 const DIFFERENCE_LEAD = ${JSON.stringify(FINAL_CHECK_PANEL_DIFFERENCE_LEAD)};
+const SAFETY_LIMIT_PREFIXES = ${JSON.stringify(SAFETY_LIMIT_PREFIXES)};
 const NO_COMPARISON = ${JSON.stringify(FINAL_CHECK_PANEL_NO_COMPARISON)};
 const SOURCE_LINES_LEAD = ${JSON.stringify(FINAL_CHECK_PANEL_SOURCE_LINES_LEAD)};
 const ANSWER_READING_LABELS = ${JSON.stringify(ANSWER_READING_LABELS)};
@@ -145,6 +149,12 @@ function renderFinalCheck(doc, structuredContent) {
     return details;
   };
   const strings = (list) => Array.isArray(list) ? list.filter((entry) => typeof entry === "string") : [];
+  const safety = strings(result.limits).filter((limit) => SAFETY_LIMIT_PREFIXES.some((prefix) => limit.startsWith(prefix))).length;
+  if (safety > 0) {
+    const listed = result.status === "ready" || result.status === "ready_with_limits";
+    appendText("p", "As reported, a model's safety rules limited " + (safety === 1 ? "one research step" : safety + " research steps") +
+      (listed ? "; the limits below say which, and who reports it." : "."));
+  }
   if (result.status === "ready" || result.status === "ready_with_limits") {
     const noted = typeof result.plain_answer_note === "string" && result.plain_answer_note.trim() !== "";
     if (noted) {

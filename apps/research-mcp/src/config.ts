@@ -408,6 +408,17 @@ export function dossierPrivacyReadingFromEnv(
 }
 
 /**
+ * Promise P69 (the owner, chat, 21 Nov 2026), off by default: ASKRIGOR_SAFETY_LIMITS set to "on" has finalize_research
+ * read later_inputs.safety_limits, the research steps a model's or app's own safety rules limited, and list each as a
+ * limit saying who reports it (safety-limits.ts). Any other value leaves it off.
+ */
+export function safetyLimitsFromEnv(
+  value = process.env.ASKRIGOR_SAFETY_LIMITS
+): boolean {
+  return value?.trim() === "on";
+}
+
+/**
  * Whether the owner's findings actions for the Atlas are open on review_research_contribution (Atlas phase 2 design,
  * section 3): ASKRIGOR_ATLAS_REVIEW set to "enabled". It stays closed until the release has applied migration 0017,
  * granted the review role its functions, bound the promotion timer to the deployed image and checked the catalog;
