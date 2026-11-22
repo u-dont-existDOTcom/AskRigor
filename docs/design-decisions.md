@@ -10,6 +10,10 @@ How to use this:
 
 ## Research and sources
 
+**Show the research plan and how to steer it, with a first line while it is built; a steer revises the same research without repeating finished tasks.**\
+Why: the owner's 21 November request was to see the map, times and whether research waits, and to change it while retaining finished work. Part A shows the reading and nearest excluded reading, tasks and total, with a reason-specific steer line; ChatGPT answers first and ends with done/open tasks. Asks name why they wait. Runtime `person_steered` requires the person's words, applies only to a changed menu or re-plan without a named question, goes on for balanced and autonomous even past 10 minutes, keeps guided approval until the person gives an allocation, and is excluded from learn-mode choices. Registrations without a handed-over plan give a bounded `menu_outline` that omits `steering_choice` on dev accounts; the dev rubric considers sold and self-prepared forms. Text and `next_step` both carry the instructions.\
+Not done: Part B's changes to ordinary accounts' waiting or form-question rules, or a new ChatGPT time stop; tool-list changes, new storage of steering messages, live replay or a claim that steering works. · Built: 22 Nov 2026; not released. Design: `docs/superpowers/plans/2026-11-22-steering-plan-shown.md`, Part A only.
+
 **The word "significant" is linted for misuse in research answers, not banned from English prose.**\
 Why: the owner clarified on 13 November 2026 that statistical significance must not replace effect size, and that ordinary meanings (important or substantial) remain legitimate. The deterministic scanner offers advisory detection of high-confidence unsafe inferences; the optional existing semantic judge evaluates context in its current call without a new paid API request.\
 Not done: a word ban, automatically classifying substantial real-world improvements as statistical, adding a seventh final-check blocking rule, or using regex to decide human meaning. This supersedes only the earlier ban on word lists, not the semantic-judgment boundary. Proposed 13 November 2026; not yet released.

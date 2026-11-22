@@ -225,7 +225,7 @@ describe("the owner's login through the connector", () => {
     expect(inspected.structuredContent).toMatchObject({
       ok: true, access: { status: "ACTIVE", acceptance: { noticeVersion: V6, acceptedBy: STANDING, current: "accepted" } },
     });
-    expect(inspected.structuredContent).not.toHaveProperty("next_step");
+    expect(inspected.structuredContent).toHaveProperty("next_step", "If this inspect starts research on a question of theirs, then before your next call, tell the person in one line, in their language: you are taking a first look to build the research plan, a few minutes; then you will show it and say whether you are waiting for their choice or starting, and how they can change it.");
     expect((inspected.content as Array<{ text: string }>)[0]!.text).toContain(
       `The owner's standing instruction of 6 November 2026 accepted notice ${V6} for this login at ${LATER}.`);
 
@@ -235,6 +235,7 @@ describe("the owner's login through the connector", () => {
     expect(JSON.stringify(refused.content)).toContain("It now collects or publishes more than the notice this account accepted");
     const asked = await person.callTool({ name: "manage_research_access", arguments: { action: "inspect" } });
     expect(asked.structuredContent).toMatchObject({ access: { status: "UNENROLLED" }, next_step: expect.any(String) });
+    expect(JSON.stringify(asked)).not.toContain("If this inspect starts research on a question of theirs");
     expect(store.allAccounts().find(({ accountKey }) => accountKey === service.accountKeyForSubject(PERSON)))
       .toMatchObject({ noticeVersion: V5, noticeAcceptedBy: "PERSON" });
   }, 30_000);

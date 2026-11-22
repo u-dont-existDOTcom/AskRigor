@@ -656,10 +656,19 @@ describe("manage_research_access and finalize_research through the connector (ow
     expect(registered.structuredContent).toEqual({
       ok: true, plainAnswer: { requested: true, note: true, claims: 2 }, research_receipt: receipt,
       next_step: expect.any(String),
+      menu_outline: expect.objectContaining({ researchMenu: expect.objectContaining({
+        research_target: TARGET, plain_answer_receipt: receipt,
+      }) }),
       // The owner, 14 Nov 2026: what AskRigor holds for the question. This one matches no pointer and the test server
       // has no Atlas, so it is the list of the questions the owner keeps pointers for; nothing of the plain answer.
       askrigor_holds: await heldFor({ pointers: () => OWNER_POINTERS }, TARGET),
     });
+    expect(registered.structuredContent!.menu_outline).not.toHaveProperty("researchMenu.text");
+    expect(registered.structuredContent!.menu_outline).not.toHaveProperty("researchMenu.claims");
+    const outline = JSON.stringify(registered.structuredContent!.menu_outline);
+    expect(outline).not.toContain(PLAIN_TEXT);
+    for (const claim of CLAIMS) expect(outline).not.toContain(claim);
+    expect(JSON.stringify(store.allAccounts())).not.toContain(PLAIN_TEXT);
     const verified = verifyResearchReceipt(receipt, { secret: SECRET });
     expect(verified).toMatchObject({
       ok: true, kind: "plain_answer",

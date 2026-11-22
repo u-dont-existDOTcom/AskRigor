@@ -1,3 +1,10 @@
+import { createManageResearchAccessHandler, manageResearchAccessInputSchema, planBuildingLine, waitForPendingMenuChoices }
+  from "../apps/research-mcp/src/research-contributor-access-tool.js";
+import { ASKED_REQUEST, MENU_PLACEHOLDERS, RESEARCH_MENU_SHAPE, STEER_PROGRESS, STEER_REPLAN, STEER_REGISTER, CHATGPT_PLAN_ENDING } from "../apps/research-mcp/src/research-steering.js";
+import { withLaterInputs } from "../apps/research-mcp/src/later-inputs.js";
+import { clientResultBytes } from "../apps/research-mcp/src/tool-result.js";
+import { MCP_RESULT_MAX_BYTES } from "../apps/research-mcp/src/config.js";
+import type { ResearchPlanner } from "../apps/research-mcp/src/research-planner.js";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -12,6 +19,7 @@ import {
   PAID_PRIVATE_MAP_ONLY,
   RESEARCH_MAP_CONSENT,
   sha256,
+  researchAccountReference,
   type ContributionPrivacyBoundary,
   type LivingEvidenceContribution,
   type ResearchFrontierContribution,
@@ -680,3 +688,215 @@ function completeSourceAnalysis(): LivingEvidenceContribution {
     receipts: [],
   };
 }
+
+// Part A: use the real runtime handler with local fakes; no provider or network calls.
+describe("the first line and menu outline (22 Nov 2026)", () => {
+  const plain = { researchTarget: "Whether the proposed method works", text: "It may work.", claims: ["It may work."] };
+  async function accessTool(mode: "ordinary" | "planned" | "failed" | "paused" | "aside" = "ordinary", accepted = true) {
+    const { service } = fixture();
+    if (accepted) await service.acceptFreeContributor(SUBJECT, agreement());
+    const task = { task: "Read the original study", kind: "full_text" as const, could_change: "conclusion" as const };
+    const planner: ResearchPlanner = {
+      enabled: true, dailyCapUsd: 1, accountDailyCalls: 10,
+      ...(mode === "paused" ? { pausedUntil: () => Date.now() + 60_000 } : {}),
+      plan: async () => ({ planning: mode === "failed" ? { status: "skipped", reason: "error" } :
+        { status: "planned", plan: { about: "The method and its nearest alternative.", steering_choice: "none",
+          tasks: [task], searches: 1, lane: mode === "aside" ? "aside" : "research", goOn: false } },
+      cached: false, costUsd: 0, milliseconds: 1 }),
+    };
+    const handler = createManageResearchAccessHandler({ service,
+      plainAnswer: { sign: () => "rr1~synthetic-plain-answer-receipt" },
+      researchPlanner: () => mode === "ordinary" ? undefined : planner,
+      devAccountKeys: () => new Set(mode === "ordinary" ? [] : [researchAccountReference(service.accountKeyForSubject(SUBJECT))]),
+    });
+    const { execute } = withLaterInputs("manage_research_access", manageResearchAccessInputSchema, handler);
+    const call = (input: Record<string, unknown>, chatGpt = false) => execute(input, {
+      ...(chatGpt ? { _meta: { "openai/test": true } } : {}),
+      authInfo: { token: "synthetic-token", clientId: "synthetic-client", scopes: ["research:use"],
+        expiresAt: Math.floor(Date.now() / 1_000) + 60, extra: { subject: SUBJECT } },
+    });
+    return { call, service };
+  }
+  const words = (result: Awaited<ReturnType<Awaited<ReturnType<typeof accessTool>>["call"]>>) =>
+    result.content.map(block => block.type === "text" ? block.text : "").join("\n");
+  it("keeps both first-line instructions verbatim", () => {
+    expect(planBuildingLine(true)).toBe("If this inspect starts research on a question of theirs, then before your next call, tell the person in one line, in their language: you are building the research plan, about a minute; then you will show it and say whether you are waiting for their choice or starting, and how they can change it.");
+    expect(planBuildingLine(false)).toBe("If this inspect starts research on a question of theirs, then before your next call, tell the person in one line, in their language: you are taking a first look to build the research plan, a few minutes; then you will show it and say whether you are waiting for their choice or starting, and how they can change it.");
+  });
+  it.each(["ordinary", "planned", "paused"] as const)("appends the correct first line on %s", async mode => {
+    const { call } = await accessTool(mode);
+    const result = await call({ action: "inspect" });
+    const line = planBuildingLine(mode === "planned");
+    expect(words(result)).toContain(line);
+    expect(result.structuredContent?.next_step).toContain(line);
+    if (mode === "planned") expect(result.structuredContent?.next_step).toBe(`${ASKED_REQUEST} ${line}`);
+  });
+  it.each(["ordinary", "planned"] as const)("omits the first line for ChatGPT and before consent on %s", async mode => {
+    const active = await accessTool(mode);
+    const chat = await active.call({ action: "inspect" }, true);
+    expect(words(chat)).not.toContain("If this inspect starts research on a question of theirs, then before your next call, tell the person in one line");
+    expect(chat.structuredContent?.next_step ?? "").not.toContain(planBuildingLine(mode === "planned"));
+    const inactive = await accessTool(mode, false);
+    const held = await inactive.call({ action: "inspect" });
+    expect(words(held)).not.toContain("If this inspect starts research on a question of theirs, then before your next call, tell the person in one line");
+    expect(held.structuredContent?.next_step).toContain("notice");
+  });
+  it.each(["ordinary", "failed", "paused"] as const)("hands over an outline without a plan on %s", async mode => {
+    const { call } = await accessTool(mode);
+    const result = await call({ action: "register_plain_answer", plainAnswer: plain });
+    expect(result.isError, words(result)).not.toBe(true);
+    expect(result.structuredContent).toMatchObject({ menu_outline: { researchMenu: {
+      research_target: plain.researchTarget, plain_answer_receipt: "rr1~synthetic-plain-answer-receipt",
+      tasks: [{ task: MENU_PLACEHOLDERS.task, kind: MENU_PLACEHOLDERS.kind, could_change: MENU_PLACEHOLDERS.could_change }],
+    } } });
+    const outline = result.structuredContent?.menu_outline as { researchMenu: Record<string, unknown> };
+    if (mode === "ordinary") {
+      expect(outline.researchMenu.steering_could_help).toBe("<true when a choice the person could make, or " +
+        "something only they know, could materially change what the research checks (HRP " +
+        "StructuredUserSteeringAndApproval): such as their own situation or what they have tried, the form, dose or route " +
+        "they use, what to compare it with, which outcome matters most to them, people's reports or studies, or how deep; " +
+        "as it usually can, even when the question is clearly worded; false only when the question already fixes all of " +
+        "that, such as one result of one named study>");
+      const wording = String(outline.researchMenu.steering_could_help).slice(1, -1);
+      expect(RESEARCH_MENU_SHAPE).toContain(`steering_could_help, ${wording}; and tasks,`);
+      expect(outline.researchMenu).not.toHaveProperty("steering_choice");
+    } else expect(outline.researchMenu).not.toHaveProperty("steering_choice");
+    expect(result.structuredContent?.next_step).toContain("Fill in menu_outline for your plan_research call.");
+    expect(words(result)).toContain("Fill in menu_outline for your plan_research call.");
+    expect(clientResultBytes(result)).toBeLessThanOrEqual(MCP_RESULT_MAX_BYTES);
+  });
+  it.each(["planned", "aside"] as const)("has no outline when AskRigor hands over %s", async mode => {
+    const { call } = await accessTool(mode);
+    const result = await call({ action: "register_plain_answer", plainAnswer: plain,
+      later_inputs: { asked: "Is this method useful?" } });
+    expect(result.isError, words(result)).not.toBe(true);
+    expect(result.structuredContent).toHaveProperty("research_plan");
+    expect(result.structuredContent).not.toHaveProperty("menu_outline");
+    expect(words(result)).not.toContain("Fill in menu_outline");
+  });
+  it("says when a failed plan needs more time, except on ChatGPT", async () => {
+    const { call } = await accessTool("failed");
+    const line = "Tell the person in one line that the plan will take a few minutes more: you are taking a first look yourself.";
+    for (const chat of [false, true]) {
+      const result = await call({ action: "register_plain_answer", plainAnswer: plain }, chat);
+      expect(words(result).includes(line)).toBe(!chat);
+      expect(String(result.structuredContent?.next_step).includes(line)).toBe(!chat);
+    }
+  });
+  it("routes the plan text and structured instructions using this call's ChatGPT signal", async () => {
+    const { call } = await accessTool();
+    const menu = { research_target: plain.researchTarget, steering_choice: "none",
+      tasks: [{ task: "Read the original study", kind: "full_text", could_change: "conclusion" }] };
+    for (const chat of [false, true]) {
+      const result = await call({ action: "plan_research", later_inputs: { researchMenu: menu } }, chat);
+      expect(result.isError, words(result)).not.toBe(true);
+      for (const text of [words(result), String(result.structuredContent?.next_step)]) {
+        expect(text.includes(CHATGPT_PLAN_ENDING)).toBe(chat);
+        expect(text.includes("Before your first research call, show the person")).toBe(!chat);
+        expect(text).toContain(STEER_REPLAN);
+        expect(text).toContain(STEER_REGISTER);
+      }
+      if (chat) expect(words(result)).not.toContain("show the menu as what you are doing");
+    }
+  });
+  it.each(["balanced", "autonomous", "guided"] as const)("takes a steer through runtime parsing on %s without learning a menu choice", async style => {
+    const { call, service } = await accessTool("planned");
+    await service.setResearchSteering(SUBJECT, { style, learnMenuChoices: true });
+    const result = await call({ action: "plan_research", later_inputs: { researchMenu: {
+      research_target: plain.researchTarget, steering_choice: "none", done: [1],
+      person_steered: true, person_reason: "Now read the original study only.",
+      allocation: [{ task: 2, minutes: 3 }], person_answered: true,
+      tasks: [{ task: "Find the study", kind: "study_search", could_change: "conclusion" },
+        { task: "Read the original study", kind: "full_text", could_change: "detail", person_asked: true }],
+    } } });
+    expect(result.isError, words(result)).not.toBe(true);
+    expect(result.structuredContent).toMatchObject({ researchMenu: { person_steered: true,
+      next: "go_on", tasks: [{}, { person_asked: true }] } });
+    for (const text of [words(result), String(result.structuredContent?.next_step)]) {
+      expect(text).toContain(STEER_PROGRESS);
+      expect(text).toContain(STEER_REPLAN);
+      expect(text).toContain(STEER_REGISTER);
+    }
+    await waitForPendingMenuChoices(service);
+    expect(await service.menuChoices(service.accountKeyForSubject(SUBJECT))).toEqual([]);
+  });
+  it.each(["true", true])("explains unusable steer input %j through the runtime handler", async person_steered => {
+    const { call } = await accessTool();
+    const result = await call({ action: "plan_research", later_inputs: { researchMenu: {
+      research_target: plain.researchTarget, steering_choice: "none", done: [1], person_steered,
+      person_reason: person_steered === true ? " " : "Only the original study.",
+      tasks: [{ task: "Find the study", kind: "study_search", could_change: "conclusion" },
+        { task: "Read the original study", kind: "full_text", could_change: "conclusion" }],
+    } } });
+    expect(result.isError, words(result)).not.toBe(true);
+    const reason = person_steered === true ? "it goes with the person's words, word for word, in person_reason." : "it must be boolean true.";
+    expect(result.structuredContent).toMatchObject({ researchMenu: { next: "ask", person_steered_invalid: true },
+      problems: [`later_inputs.researchMenu.person_steered: not used; ${reason}`] });
+    for (const text of [words(result), String(result.structuredContent?.next_step)]) {
+      expect(text).toContain(`later_inputs.researchMenu.person_steered: not used; ${reason}`);
+      expect(text).toContain("Before I go on, I need your choice on the plan; your last message didn't reach me as a change.");
+      expect(text).not.toContain("The plan changed with what I found");
+    }
+  });
+  it.each([
+    [false, false], [null, false], [undefined, false],
+    [false, true], [null, true], [undefined, true],
+  ])("keeps no-steer input %j silent through runtime parsing, re-plan=%j", async (person_steered, replanned) => {
+    const { call } = await accessTool();
+    const result = await call({ action: "plan_research", later_inputs: { researchMenu: {
+      research_target: plain.researchTarget, steering_could_help: true,
+      ...(replanned ? { done: [1] } : {}),
+      ...(person_steered === undefined ? {} : { person_steered }),
+      tasks: [{ task: "Find the study", kind: "study_search", could_change: "conclusion" },
+        { task: "Read the original study", kind: "full_text", could_change: "conclusion" }],
+    } } });
+    expect(result.isError, words(result)).not.toBe(true);
+    expect(result.structuredContent).toMatchObject({ researchMenu: { next: "ask" } });
+    expect(result.structuredContent).not.toHaveProperty("problems");
+    expect(result.structuredContent).not.toHaveProperty("researchMenu.person_steered_problem");
+    expect(result.structuredContent).not.toHaveProperty("researchMenu.person_steered_invalid");
+    for (const text of [words(result), String(result.structuredContent?.next_step)]) {
+      expect(text).not.toContain("person_steered: not used");
+      expect(text).not.toContain("your last message didn't reach me as a change");
+    }
+  });
+  it("keeps an unusable-steer diagnostic when a dev menu needs its steering judgment corrected", async () => {
+    const { call } = await accessTool("planned");
+    for (const steering_choice of [undefined, "none_needed"]) {
+      const result = await call({ action: "plan_research", later_inputs: { researchMenu: {
+        research_target: plain.researchTarget, person_steered: "true", person_reason: "Only the original study.",
+        ...(steering_choice === undefined ? {} : { steering_choice }),
+        tasks: [{ task: "Read the original study", kind: "full_text", could_change: "conclusion" }],
+      } } });
+      expect(result.isError).toBe(true);
+      expect(result.structuredContent).not.toHaveProperty("researchMenu");
+      expect(result.structuredContent).not.toHaveProperty("next_step");
+      expect(result.structuredContent?.problems).toContain("later_inputs.researchMenu.person_steered: not used; it must be boolean true.");
+      expect(words(result)).toContain("later_inputs.researchMenu.person_steered: not used; it must be boolean true.");
+    }
+  });
+  it("keeps a ChatGPT steer display in the answer ending through the runtime handler", async () => {
+    const { call } = await accessTool();
+    const result = await call({ action: "plan_research", later_inputs: { researchMenu: {
+      research_target: plain.researchTarget, steering_choice: "none", done: [1], person_steered: true,
+      person_reason: "Read the original study only.",
+      tasks: [{ task: "Find the study", kind: "study_search", could_change: "conclusion" },
+        { task: "Read the original study", kind: "full_text", could_change: "conclusion", person_asked: true }],
+    } } }, true);
+    expect(result.isError, words(result)).not.toBe(true);
+    for (const text of [words(result), String(result.structuredContent?.next_step)]) {
+      expect(text).not.toContain("Show the person now");
+      expect(text).toContain("What I did: [each task done, one line]. Not done: [the open tasks, numbered, with their minutes].");
+      expect(text).toContain("In What I did, give what each finished task found; then say what changed because of their message;");
+    }
+  });
+  it.each([300, 301, 5000])("bounds the outline target at %i characters and keeps the result within the client limit", async length => {
+    const { call } = await accessTool();
+    const target = "問".repeat(length);
+    const result = await call({ action: "register_plain_answer", plainAnswer: { ...plain, researchTarget: target } });
+    expect(result.isError, words(result)).not.toBe(true);
+    const outline = result.structuredContent?.menu_outline as { researchMenu: { research_target: string } };
+    expect(outline.researchMenu.research_target).toBe(length <= 300 ? target : MENU_PLACEHOLDERS.research_target);
+    expect(clientResultBytes(result)).toBeLessThanOrEqual(MCP_RESULT_MAX_BYTES);
+  });
+});

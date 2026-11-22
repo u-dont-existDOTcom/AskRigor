@@ -43,7 +43,7 @@ import { FINALIZE_REMINDER } from "../apps/research-mcp/src/research-finalizatio
 import { heldFor, heldText } from "../apps/research-mcp/src/askrigor-holds.js";
 import { OWNER_POINTERS } from "../apps/research-mcp/src/owner-pointers.js";
 import { PLANNER_OFF_NOTHING_PAUSED, PLANNER_PAUSE_ENDED, createManageResearchAccessHandler,
-  manageResearchAccessInputSchema, menuHistoryOf, personReasonOf, plannerPausedText, waitForPendingMenuChoices }
+  manageResearchAccessInputSchema, planBuildingLine, menuHistoryOf, personReasonOf, plannerPausedText, waitForPendingMenuChoices }
   from "../apps/research-mcp/src/research-contributor-access-tool.js";
 import { issueResearchReceipt, plainAnswerAccountBinding, verifyResearchReceipt }
   from "../apps/research-mcp/src/research-receipts.js";
@@ -1356,7 +1356,7 @@ function memoryPlanner(answer: (source: ResearchPlannerSource, accountKey: strin
 }
 
 // Owner answer 399b (21 Nov 2026): a balanced first menu goes on whatever its length, so the mark no longer makes
-// the difference there: with it, without it or with a mark that is not AskRigor's, the menu goes on (went_on_long);
+// the difference there: with it, without it or with a mark that is not AskRigor's, the menu goes on;
 // guided research still asks. The mark itself is still made and checked as before; its signing and checking are tested
 // in tests/research-steering.test.ts (goOnMark). Here only the outcome is, which no longer depends on it.
 describe("the planning call's signed go-on menu (owner answer 304a)", () => {
@@ -1422,12 +1422,12 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
     const { call, data } = await session();
     const result = await call({ action: "plan_research", later_inputs: data.planned_later_inputs });
     expect(result.isError, words(result)).not.toBe(true);
-    expect(result.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on", went_on_long: true,
+    expect(result.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
       target_matches_plain_answer: true } });
     const menu = result.structuredContent!.researchMenu as { recommended_minutes: number[] };
     expect(menu.recommended_minutes[1]).toBeGreaterThan(10);
     expect(words(result)).not.toContain(WENT_ON_AS_ASKED);
-    expect(words(result)).toContain("on the balanced style a research's first menu goes on whatever its length");
+    expect(words(result)).toContain("I didn't wait for your answer before starting.");
   });
 
   it("goes on, as any balanced first menu, when a signed menu's task text, minutes, sources or same-kind task is changed", async () => {
@@ -1446,7 +1446,7 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
       const result = await call({ action: "plan_research", later_inputs: { researchMenu: changed } });
       expect(result.isError, `${what}: ${words(result)}`).not.toBe(true);
       expect(result.structuredContent, what).toMatchObject({ ok: true, researchMenu: { next: "go_on",
-        went_on_long: true, target_matches_plain_answer: true } });
+        target_matches_plain_answer: true } });
       expect(result.structuredContent!.researchMenu, what).not.toHaveProperty("went_on_as_asked");
     }
   });
@@ -1458,7 +1458,7 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
       const original = await call(input);
       expect(original.isError, words(original)).not.toBe(true);
       expect(original.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
-        went_on_long: true, target_matches_plain_answer: true } });
+        target_matches_plain_answer: true } });
       const handler = createManageResearchAccessHandler({ service, menuDigestSecret: () => SECRET,
         devAccountKeys: () => new Set(what === "account removed" ? []
           : [researchAccountReference(service.accountKeyForSubject("auth0|dev"))]),
@@ -1481,7 +1481,7 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
         scopes: ["research:use"], expiresAt: Math.floor(Date.now() / 1_000) + 60, extra: { subject: "auth0|dev" } } });
       expect(result.isError, words(result)).not.toBe(true);
       expect(result.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
-        went_on_long: true, target_matches_plain_answer: true } });
+        target_matches_plain_answer: true } });
       expect(result.structuredContent!.researchMenu).not.toHaveProperty("went_on_as_asked");
     });
 
@@ -1498,7 +1498,7 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
     const again = await call({ action: "plan_research", later_inputs: corrected });
     expect(again.isError, words(again)).not.toBe(true);
     expect(again.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
-      went_on_long: true, target_matches_plain_answer: true } });
+      target_matches_plain_answer: true } });
   });
 
   it("leaves a numeric or overlong mark out of a refused menu's correction", async () => {
@@ -1531,7 +1531,7 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
       const result = await call({ action: "plan_research", later_inputs: { researchMenu: changed } });
       expect(result.isError, what).not.toBe(true);
       expect(result.structuredContent, what).toMatchObject({ ok: true, researchMenu: { next: "go_on",
-        went_on_long: true, target_matches_plain_answer: true } });
+        target_matches_plain_answer: true } });
       expect(result.structuredContent!.researchMenu, what).not.toHaveProperty("went_on_as_asked");
       expect(words(result), what).not.toContain(WENT_ON_AS_ASKED);
     }
@@ -1551,7 +1551,7 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
       const asking = await call({ action: "plan_research", later_inputs: { researchMenu: { ...menu,
         go_on_asked: value } } });
       expect(asking.isError, `${JSON.stringify(value).slice(0, 40)}: ${words(asking)}`).not.toBe(true);
-      expect(asking.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on", went_on_long: true } });
+      expect(asking.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on" } });
       expect(asking.structuredContent!.researchMenu).not.toHaveProperty("went_on_as_asked");
       expect(words(asking)).not.toContain(WENT_ON_AS_ASKED);
     }
@@ -1563,7 +1563,7 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
     const on = await tool(memoryPlanner().planner);
     const inspected = await on.call({ action: "inspect" });
     expect(words(inspected)).toContain(` ${ASKED_REQUEST} `);
-    expect(inspected.structuredContent).toMatchObject({ ok: true, next_step: ASKED_REQUEST });
+    expect(inspected.structuredContent).toMatchObject({ ok: true, next_step: `${ASKED_REQUEST} ${planBuildingLine(true)}` });
     expect(ASKED_REQUEST).toContain("later_inputs.asked: the person's own words about this question, word for word");
     expect(ASKED_REQUEST).toContain("keeps none of them");
     // Round 8 (13 Nov 2026): one chat added a reply it remembered from an earlier conversation, labelled as an
@@ -1573,12 +1573,12 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
     // Any other account, and a dev account while the planner is off or absent, is asked for nothing more.
     const person = await on.call({ action: "inspect" }, "auth0|person");
     expect(words(person)).not.toContain("later_inputs.asked");
-    expect(person.structuredContent).not.toHaveProperty("next_step");
+    expect(person.structuredContent).toHaveProperty("next_step", planBuildingLine(false));
     for (const planner of [undefined, { enabled: false, plan: async () => { throw new Error("never"); } } as ResearchPlanner]) {
       const off = await tool(planner);
       const plain = await off.call({ action: "inspect" });
       expect(words(plain)).not.toContain("later_inputs.asked");
-      expect(plain.structuredContent).not.toHaveProperty("next_step");
+      expect(plain.structuredContent).toHaveProperty("next_step", planBuildingLine(false));
     }
     expect(laterInputNames("manage_research_access")).toContain("asked");
   });
@@ -1665,7 +1665,7 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
     expect(registered.isError).not.toBe(true);
     expect(memory.seen).toHaveLength(0);
     expect(registered.content[0]).toEqual({ type: "text", text: framingGuidance(DEFAULT_RESEARCH_STEERING, undefined) });
-    expect(registered.structuredContent).toMatchObject({ next_step: framingNextStep(DEFAULT_RESEARCH_STEERING, undefined) });
+    expect(registered.structuredContent).toMatchObject({ next_step: `${framingNextStep(DEFAULT_RESEARCH_STEERING, undefined)} Fill in menu_outline for your plan_research call.` });
     for (const field of ["research_plan", "planned_later_inputs", "research_plan_not_used"]) {
       expect(registered.structuredContent).not.toHaveProperty(field);
     }
@@ -1685,7 +1685,9 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
         text: framingGuidance(DEFAULT_RESEARCH_STEERING, undefined) });
       expect(registered.content[1], reason).toEqual({ type: "text", text: sentence });
       expect(registered.structuredContent, reason).toMatchObject({ ok: true, research_plan_not_used: reason,
-        next_step: `${framingNextStep(DEFAULT_RESEARCH_STEERING, undefined)}${forPerson ? ` ${sentence}` : ""}` });
+        next_step: `${framingNextStep(DEFAULT_RESEARCH_STEERING, undefined)}${forPerson ? ` ${sentence}` : ""} ` +
+          "Tell the person in one line that the plan will take a few minutes more: you are taking a first look yourself. " +
+          "Fill in menu_outline for your plan_research call." });
       expect(registered.structuredContent, reason).not.toHaveProperty("research_plan");
       expect(sentence.includes("Tell the person so in one line"), reason).toBe(forPerson);
     }
@@ -1694,7 +1696,8 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
     // A planner that reports off, or throws, changes nothing or counts as a failure: the registration still stands.
     const off = await tool(memoryPlanner(() => ({ status: "skipped", reason: "off" })).planner);
     const plain = await off.call({ action: "register_plain_answer", plainAnswer: PLAIN });
-    expect(plain.content[1]!.type === "text" && plain.content[1].text.startsWith("Plain answer registered")).toBe(true);
+    expect(plain.content[1]).toEqual({ type: "text", text: "Fill in menu_outline for your plan_research call." });
+    expect(plain.content[2]).toEqual({ type: "text", text: expect.stringMatching(/^Plain answer registered/) });
     expect(plain.structuredContent).not.toHaveProperty("research_plan_not_used");
     const thrown = await tool({ enabled: true, plan: async () => { throw new Error("broken"); } });
     const stands = await thrown.call({ action: "register_plain_answer", plainAnswer: PLAIN });
@@ -2626,7 +2629,7 @@ describe("a test round's pause of the planning call (owner answer 395b)", () => 
 // before; a question on 8 of 9 invented cases that need one); this keeps the rule's text from drifting back.
 describe("the plan names a question only when the research needs the person's answer (21 Nov 2026)", () => {
   it("asks for a fact only the person can give, or between two things one answer can't serve, and else goes on", () => {
-    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-21.2");
+    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-22.1");
     expect(RESEARCH_PLANNER_RUBRIC).toContain("Write none unless the research needs\nthe person's answer");
     expect(RESEARCH_PLANNER_RUBRIC).toContain("- A fact only they can give, for a decision about one person or one thing:");
     expect(RESEARCH_PLANNER_RUBRIC).toContain("- Two different things: their words can mean two or more different things");
@@ -2688,5 +2691,32 @@ describe("tasks the person's own words asked for (21 Nov 2026)", () => {
 
   it.each([null, "true", "false", 0, 1, {}, []])("refuses a non-boolean declaration: %j", (person_asked) => {
     expect(researchPlanOf({ ...REPLY, tasks: [{ ...REPLY.tasks[0], person_asked }] }, 1)).toBeUndefined();
+  });
+});
+
+
+describe("the planner's reading of forms (22 Nov 2026)", () => {
+  it("plans for forms people buy or prepare and names the nearest excluded reading", () => {
+    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-22.1");
+    expect(RESEARCH_PLANNER_RUBRIC.replace(/\s+/gu, " ")).toContain("a substance or thing that comes in several forms: plan for the whole class, with its main members grouped. Before you plan, list for yourself the forms a person asking this could have in hand: what is sold, and what people make or prepare themselves. When they differ much in strength, content or how they are used, the form a person is most likely to have gets a task of its own. Say in about what you took it to cover: which members or forms, and the nearest one left out;");
+    expect(RESEARCH_PLANNER_RUBRIC.replace(/\s+/gu, " ")).toContain("Say in about what you took it to cover: which members or forms, and the nearest one left out;");
+    expect(RESEARCH_PLANNER_RUBRIC).toContain("In about, say which meaning the research takes and the nearest one it leaves out.");
+    expect(RESEARCH_PLANNER_RUBRIC).toContain("not different sides, uses, situations, forms, doses or routes of one thing");
+  });
+});
+
+
+describe("Round 3: one whole-class reading instruction", () => {
+  it("says the coverage instruction once and keeps the changed rubric lines within 110 columns", () => {
+    const start = RESEARCH_PLANNER_RUBRIC.indexOf("- they ask about a whole class without naming a member");
+    const end = RESEARCH_PLANNER_RUBRIC.indexOf("\n- they ask what something could become", start);
+    const bullet = RESEARCH_PLANNER_RUBRIC.slice(start, end);
+    expect(bullet.match(/Say in about/gu)).toHaveLength(1);
+    expect(bullet.replace(/\s+/gu, " ")).toContain("Say in about what you took it to cover: which members or forms, and the nearest one left out;");
+    expect(bullet).not.toContain("Say in about which forms");
+    for (const line of bullet.split("\n")) expect(line.length, line).toBeLessThanOrEqual(110);
+    const safety = RESEARCH_PLANNER_RUBRIC.slice(RESEARCH_PLANNER_RUBRIC.indexOf("Carry what a safe answer needs"),
+      RESEARCH_PLANNER_RUBRIC.indexOf("\nNever rely on the person correcting"));
+    for (const line of safety.split("\n")) expect(line.length, line).toBeLessThanOrEqual(110);
   });
 });

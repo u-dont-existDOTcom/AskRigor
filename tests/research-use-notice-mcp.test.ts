@@ -238,12 +238,13 @@ describe("inspect's next step for an account whose research waits on the notice"
     const client = await connect(surface, subject);
     const before = await inspect(client);
     expect(before.structuredContent).toMatchObject({ access: { status: "UNENROLLED" }, next_step: NEXT_STEP });
+    expect(textOf(before)).not.toContain("If this inspect starts research on a question of theirs");
     expect(store.allAccounts()).toEqual([expect.objectContaining({ noticeVersion: V5 })]);
     await client.callTool({ name: "manage_research_access",
       arguments: { action: "accept_free_contributor", agreement: agreement(V6) } });
     const after = await inspect(client);
     expect(after.structuredContent).toMatchObject({ access: { status: "ACTIVE", mode: "FREE_CONTRIBUTOR" } });
-    expect(after.structuredContent).not.toHaveProperty("next_step");
+    expect(after.structuredContent).toHaveProperty("next_step", "If this inspect starts research on a question of theirs, then before your next call, tell the person in one line, in their language: you are taking a first look to build the research plan, a few minutes; then you will show it and say whether you are waiting for their choice or starting, and how they can change it.");
     expect(textOf(after)).not.toContain("Show the user this notice");
   });
 
