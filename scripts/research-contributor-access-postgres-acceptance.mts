@@ -56,6 +56,9 @@ import {
   type AtlasNewsDayCommit,
   type AtlasPublicationDraft,
   type AtlasPublishedFinding,
+  type AtlasTraditionChange,
+  type AtlasTraditionLabel,
+  type AtlasTraditions,
   type ContributionPrivacyBoundary,
   type HeldYouTubeFindingContent,
   type LivingEvidenceContribution,
@@ -5772,6 +5775,88 @@ export async function verifyAtlasStorage(context: {
       `SELECT set_atlas_placements('[{"item":"P-9001","category":"Health","subcategory":"sleep"}]'::jsonb, now())`,
     )), "ATLAS_PLACEMENT_INPUT_INVALID");
     checks.push("atlas_placements_set_by_the_review_role_and_read_by_the_reader");
+
+    // Owner answer 403 (migration 0044): the review role replaces tradition labels and TCM/CCM disagreements;
+    // both its inspection function and the pages' real read-only source see the committed changes.
+    const traditionPages = new PostgresAtlasPageSource({ connectionString: readerUrl, schema });
+    const tcmLabel: AtlasTraditionLabel = {
+      section: "tcm", tradition: "Synthetic textbook tradition", region: "Invented region", preparation: "leaf tea",
+      modern_check: "supports", match: "tested as the tradition uses it", list: "useful", quick_answer_misses: false,
+    };
+    const ccmLabel: AtlasTraditionLabel = {
+      section: "ccm", tradition: "Synthetic classical tradition", modern_check: "mixed",
+      match: "only part of the preparation was tested", list: "untested", quick_answer_misses: true,
+    };
+    const disagreement = { tcm_item: "P-9001", ccm_item: "F-9002", line: "The invented accounts use different doses." };
+    const setTraditions = async (changes: AtlasTraditionChange[], disagreements: AtlasTraditions["disagreements"]) => {
+      const result = await reviewPool.query<{ changed: number }>(
+        `SELECT ${schema}.set_atlas_traditions($1::jsonb, $2::jsonb, $3::timestamptz) AS changed`,
+        [JSON.stringify(changes), JSON.stringify(disagreements), now]);
+      assert(result.rows[0]?.changed === changes.length, "ATLAS_TRADITIONS_NOT_SET");
+    };
+    const readTraditions = async (expected: AtlasTraditions, code: string) => {
+      const inspected = (await reviewPool.query<{ traditions: AtlasTraditions }>(
+        `SELECT ${schema}.inspect_atlas_traditions() AS traditions`)).rows[0]!.traditions;
+      const pageRead = await traditionPages.read((reads) => reads.listTraditions!());
+      for (const actual of [inspected, pageRead]) {
+        assert(isDeepStrictEqual({ ...actual, labels: actual.labels.map((row) => ({
+          ...row, labeledAt: new Date(row.labeledAt).toISOString(),
+        })) }, expected), code);
+      }
+    };
+    const clearTraditions = [{ item: "P-9001", labels: [] }, { item: "F-9002", labels: [] }];
+    try {
+      await setTraditions([
+        { item: "P-9001", labels: [tcmLabel, ccmLabel] }, { item: "F-9002", labels: [ccmLabel] },
+      ], [disagreement]);
+      await readTraditions({ labels: [
+        { ...ccmLabel, item: "F-9002", labeledAt: now },
+        { ...ccmLabel, item: "P-9001", labeledAt: now },
+        { ...tcmLabel, item: "P-9001", labeledAt: now },
+      ], disagreements: [disagreement] }, "ATLAS_TRADITIONS_NOT_READABLE");
+
+      const replacement: AtlasTraditionLabel = { ...tcmLabel, modern_check: "corrects", list: "correction",
+        match: "the invented trial corrected the dose", quick_answer_misses: true };
+      const replacedDisagreement = { ...disagreement, line: "The invented accounts also use different preparations." };
+      await setTraditions([{ item: "P-9001", labels: [replacement] }], [replacedDisagreement]);
+      await readTraditions({ labels: [
+        { ...ccmLabel, item: "F-9002", labeledAt: now }, { ...replacement, item: "P-9001", labeledAt: now },
+      ], disagreements: [replacedDisagreement] }, "ATLAS_TRADITIONS_NOT_REPLACED");
+
+      await setTraditions([{ item: "F-9002", labels: [] }], []);
+      await readTraditions({ labels: [{ ...replacement, item: "P-9001", labeledAt: now }], disagreements: [] },
+        "ATLAS_TRADITIONS_NOT_REMOVED");
+      await setTraditions([{ item: "P-9001", labels: [] }], []);
+      await readTraditions({ labels: [], disagreements: [] }, "ATLAS_TRADITIONS_NOT_CLEARED");
+
+      for (const role of ["askrigor_reader", "askrigor_research_access"]) {
+        for (const statement of [
+          "SELECT set_atlas_traditions('[]'::jsonb, '[]'::jsonb, now())",
+          "SELECT inspect_atlas_traditions()",
+        ]) {
+          await expectPermissionDenied(() => asRole(role, (client) => client.query(statement)));
+        }
+      }
+      for (const statement of [
+        `INSERT INTO atlas_tradition_labels (item_number, section_key, label, labeled_at)
+           VALUES ('P-9001', 'tcm', '{}'::jsonb, now())`,
+        "UPDATE atlas_tradition_labels SET label = label",
+        "DELETE FROM atlas_tradition_labels",
+        `INSERT INTO atlas_tradition_disagreements (tcm_item, ccm_item, line)
+           VALUES ('P-9001', 'F-9002', 'An invented disagreement.')`,
+        "UPDATE atlas_tradition_disagreements SET line = line",
+        "DELETE FROM atlas_tradition_disagreements",
+      ]) {
+        await expectPermissionDenied(() => asRole("askrigor_reader", (client) => client.query(statement)));
+      }
+    } finally {
+      try {
+        await setTraditions(clearTraditions, []);
+      } finally {
+        await traditionPages.close();
+      }
+    }
+    checks.push("atlas_traditions_set_by_the_review_role_and_read_by_the_reader");
 
     // Owner answer 229a (migration 0026): a report through the access role, the check's verdict through the review
     // role, an answer from someone else and never from its author, its take-down; a refused report keeps no text.
