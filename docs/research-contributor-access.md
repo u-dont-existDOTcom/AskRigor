@@ -481,13 +481,20 @@ The target is copied only through
 300 characters; longer targets use the existing placeholder. `heldVariants` still selects a result within the
 client byte limit. A handed-over research or light plan, or an aside, gets no outline.
 
-The dev planner rubric is `2026-11-22.2`: consider both sold and self-prepared forms, give the likely form its own
+The dev planner rubric is `2026-11-22.3`: consider both sold and self-prepared forms, give the likely form its own
 task when strength, content or use differs much, and name the nearest form or reading left out. Owner answer 402a
 also includes the tradition's own sources and material differences for traditional, regional or folk concepts,
 claims, remedies, diagnoses or practices, including safety questions with no system named; safety and benefit
 evidence is matched to those claims and the actual preparation, with urgent work first. Every account's first
 screen loads HRP TraditionalSystemAccount and begins finding that account beside the studies, leaving full reading
-for research tasks. Part B is not built:
+for research tasks. Owner answer 410b adds open options for health problems or goals: the screen and every
+structured framing next step load TraditionalSystemAccount/OptionsFromLivingTraditions and begin its bounded
+source search beside benefit and harm checks, immediately after the 402a guidance. Planner step 3 likewise plans
+living traditions' own accounts and benefit/harm checks matched to the actual preparations and populations.
+Explicit topic/source limits are honoured, excluded source work is omitted, confined treatment, diagnostic,
+administrative and lookup requests are not widened, and the search is not added during an emergency. Overlapping
+work is combined, only distinct questions split, and serious-risk tasks and existing task limits are preserved.
+Ask-first stops remain before the screen guidance. Part B is not built:
 ordinary accounts' steering judgment and form questions, guided approval and existing time checkpoints retain their
 decisions. No live steering acceptance is claimed; nothing here says steering has been proven to work.
 

@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 
+import { undoOptionsFromLivingTraditions } from "./undo-options-from-living-traditions.js";
+
 /** Rewind owner answer 402a's HRP 20.6.45 changes before historical exact-byte fixtures are compared. */
 export function undoTraditionalSystemAccount(text: string): string {
+  text = undoOptionsFromLivingTraditions(text);
   if (!text.includes('version="20.6.45" revisionDate="2026-11-22"')) return text;
   for (const expression of [
     /  <Revision version="20\.6\.45" priority="Critical">[\s\S]*?<\/Revision>\n/u,

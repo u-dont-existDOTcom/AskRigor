@@ -46,6 +46,7 @@ import {
   PEOPLE_FIRST_WHEN_USED,
   ALL_JOURNALS_AT_THE_SCREEN,
   TRADITIONAL_SYSTEM_AT_THE_SCREEN,
+  OPEN_HEALTH_OPTIONS_AT_THE_SCREEN,
   PEOPLE_TASK_MISSING,
   PERSON_ANSWER_DECLARED,
   PLAN_TASK_KINDS,
@@ -2558,8 +2559,8 @@ describe("a dev account's refused menu marks the question's place, and an answer
         expect(guidance).not.toContain("steering_choice");
         expect(framingNextStep(steering, framing)).not.toContain("steering_choice");
         expect(framingNextStep(steering, framing).endsWith("screen and call action plan_research. " +
-          TRADITIONAL_SYSTEM_AT_THE_SCREEN) || framingNextStep(steering, framing)
-          .endsWith("its result says whether to ask the person first. " + TRADITIONAL_SYSTEM_AT_THE_SCREEN)).toBe(true);
+          TRADITIONAL_SYSTEM_AT_THE_SCREEN + " " + OPEN_HEALTH_OPTIONS_AT_THE_SCREEN) || framingNextStep(steering, framing)
+          .endsWith("its result says whether to ask the person first. " + TRADITIONAL_SYSTEM_AT_THE_SCREEN + " " + OPEN_HEALTH_OPTIONS_AT_THE_SCREEN)).toBe(true);
       }
     }
     expect(RESEARCH_MENU_SHAPE).toContain("in a few sentences; steering_could_help, true when a choice the person " +
@@ -4010,8 +4011,51 @@ describe("traditional accounts at the first screen (owner answer 402a)", () => {
       const steering: ResearchSteering = { ...DEFAULT_RESEARCH_STEERING, style };
       for (const framing of [undefined, { likely_question: TARGET }]) {
         expect(framingGuidance(steering, framing))
-          .toContain(`${ALL_JOURNALS_AT_THE_SCREEN} ${TRADITIONAL_SYSTEM_AT_THE_SCREEN} ${WORDS_ARE_NOT_SIZES}`);
+          .toContain(`${ALL_JOURNALS_AT_THE_SCREEN} ${TRADITIONAL_SYSTEM_AT_THE_SCREEN} ${OPEN_HEALTH_OPTIONS_AT_THE_SCREEN} ${WORDS_ARE_NOT_SIZES}`);
       }
+    }
+  });
+});
+
+describe("open health options at the screen and next step (owner answer 410b)", () => {
+  const approved = "For open health-problem or health-goal options, load HRP TraditionalSystemAccount/OptionsFromLivingTraditions and " +
+    "begin its bounded source search beside benefit and harm checks. Honour explicit limits; do not widen confined " +
+    "treatment, diagnostic, administrative or lookup requests. Urgent action comes first; do not add this search during an " +
+    "emergency. Leave full reading to research tasks.";
+  const cases = (["guided", "balanced", "autonomous"] as const).flatMap((style) => [
+    { style, label: "without framing", framing: undefined },
+    { style, label: "without redirecting questions", framing: { likely_question: TARGET } },
+    { style, label: "with redirecting questions", framing: {
+      likely_question: TARGET, redirecting_questions: ["Which preparation do you mean?"],
+    } },
+    { style, label: "with doubts and redirecting questions", framing: {
+      likely_question: TARGET, premise_doubts: ["The premise could be false"],
+      redirecting_questions: ["Which preparation do you mean?"],
+    } },
+  ]);
+
+  it("preserves the entire approved instruction exactly", () => {
+    expect(OPEN_HEALTH_OPTIONS_AT_THE_SCREEN).toBe(approved);
+  });
+
+  it.each(cases)("carries the text immediately after 402a for $style $label, with the stop first", ({ style, framing }) => {
+    const steering: ResearchSteering = { ...DEFAULT_RESEARCH_STEERING, style };
+    const guidance = framingGuidance(steering, framing);
+    const step = framingNextStep(steering, framing);
+    for (const text of [guidance, step]) {
+      expect(text).toContain(`${TRADITIONAL_SYSTEM_AT_THE_SCREEN} ${approved}`);
+      expect(text.split(approved)).toHaveLength(2);
+    }
+    expect(guidance).toContain(`${approved} ${WORDS_ARE_NOT_SIZES}`);
+    expect(guidance.startsWith(URGENT_FIRST)).toBe(true);
+    if (framing !== undefined && style !== "autonomous" &&
+        ((framing.redirecting_questions ?? []).length > 0 || style === "guided")) {
+      const stop = (framing.redirecting_questions ?? []).length > 0
+        ? "Ask the person your framing's redirecting_questions now and end your turn: no research call until they answer."
+        : "Confirm the question you will research in one line, ask for the person's yes and end your turn;";
+      expect(step.startsWith(stop)).toBe(true);
+      expect(step.indexOf(approved)).toBeGreaterThan(stop.length);
+      expect(guidance.indexOf("then end your turn")).toBeLessThan(guidance.indexOf(approved));
     }
   });
 });
