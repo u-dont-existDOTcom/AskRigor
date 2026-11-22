@@ -1,0 +1,524 @@
+{
+  "purpose": "Source-bound manifest QA, not automatic semantic/visual acceptance or proof a model self-routes AskRigor.",
+  "version": 1,
+  "cases": [
+    {
+      "id": "colonoscopy",
+      "prompt": "do people who get colonoscopies regularly have lower or higher rates of colon cancer or other disease or mortality?",
+      "requiredOutcomes": [
+        "crc_incidence",
+        "crc_death",
+        "total_death",
+        "pain_during",
+        "pain_next",
+        "bleeding",
+        "perforation",
+        "sedation_risks",
+        "long_term",
+        "fit_alternative"
+      ],
+      "requiredVisibleFacts": [
+        "crc_incidence",
+        "crc_death",
+        "total_death",
+        "pain_during",
+        "pain_next",
+        "bleeding",
+        "perforation",
+        "long_term"
+      ],
+      "sourceFacts": [
+        {
+          "id": "crc_incidence",
+          "label": "Colorectal cancer diagnoses",
+          "value": 0.81,
+          "ci": [
+            0.71,
+            0.9
+          ],
+          "unit": "risk ratio",
+          "horizon": "13 years",
+          "denominator": "randomized invitees",
+          "population": "average-risk adults aged 55–64",
+          "evidenceClass": "randomized invitation",
+          "source": "PMID 42102826"
+        },
+        {
+          "id": "crc_death",
+          "label": "Deaths from colorectal cancer",
+          "value": 0.88,
+          "ci": [
+            0.68,
+            1.08
+          ],
+          "unit": "risk ratio",
+          "horizon": "13 years",
+          "denominator": "randomized invitees",
+          "population": "average-risk adults aged 55–64",
+          "evidenceClass": "randomized invitation",
+          "source": "PMID 42102826"
+        },
+        {
+          "id": "total_death",
+          "label": "Deaths from any cause",
+          "value": 1,
+          "ci": [
+            0.97,
+            1.03
+          ],
+          "unit": "risk ratio",
+          "horizon": "13 years",
+          "denominator": "randomized invitees",
+          "population": "average-risk adults aged 55–64",
+          "evidenceClass": "randomized invitation",
+          "source": "PMID 42102826"
+        },
+        {
+          "id": "pain_during",
+          "label": "Moderate/severe pain during colonoscopy",
+          "value": 20.3,
+          "ci": null,
+          "unit": "percent",
+          "horizon": "during procedure",
+          "denominator": "pain-questionnaire respondents",
+          "population": "colonoscopy completers",
+          "evidenceClass": "symptom survey",
+          "source": "PMID 27214731"
+        },
+        {
+          "id": "pain_next",
+          "label": "Moderate/severe pain in the following 24 hours",
+          "value": 9.4,
+          "ci": null,
+          "unit": "percent",
+          "horizon": "24 hours",
+          "denominator": "pain-questionnaire respondents",
+          "population": "colonoscopy completers",
+          "evidenceClass": "symptom survey",
+          "source": "PMID 27214731"
+        },
+        {
+          "id": "bleeding",
+          "label": "Post-polypectomy bleeding events",
+          "value": 18,
+          "ci": null,
+          "unit": "events",
+          "horizon": "30 days",
+          "denominator": "12,574 completed colonoscopies",
+          "population": "four-country screening completers",
+          "evidenceClass": "direct procedural event",
+          "source": "PMID 27214731"
+        },
+        {
+          "id": "perforation",
+          "label": "Bowel perforations",
+          "value": 1,
+          "ci": null,
+          "unit": "events",
+          "horizon": "30 days",
+          "denominator": "12,574 completed colonoscopies",
+          "population": "four-country screening completers",
+          "evidenceClass": "direct procedural event",
+          "source": "PMID 27214731"
+        },
+        {
+          "id": "long_term",
+          "label": "Long-term nonfatal health outcomes",
+          "value": null,
+          "ci": null,
+          "unit": "not measured",
+          "horizon": "beyond 30 days",
+          "denominator": "not tracked systematically",
+          "population": "long-term screening recipients",
+          "evidenceClass": "unmeasured",
+          "source": "PMID 27214731"
+        }
+      ],
+      "graphic": {
+        "takeaways": [
+          "One colonoscopy invitation reduced colorectal cancer diagnoses over 13 years; death benefit remains uncertain.",
+          "Common procedural pain and uncommon serious injury must be shown, with different denominators.",
+          "Lifetime nonfatal effects are incompletely measured; biennial FIT is an alternative screening program."
+        ],
+        "coveredOutcomes": [
+          "crc_incidence",
+          "crc_death",
+          "total_death",
+          "pain_during",
+          "pain_next",
+          "bleeding",
+          "perforation",
+          "sedation_risks",
+          "long_term",
+          "fit_alternative"
+        ],
+        "accessibleSummary": "Cancer and mortality effects are shown as 13-year randomized invitation relative risks, while pain and injuries are per screening completer or pain respondent.",
+        "panels": [
+          {
+            "title": "Thirteen-year randomized invitation outcomes",
+            "type": "interval",
+            "nullReference": 1,
+            "interactiveExplainer": "keyboard-and-touch",
+            "directComparison": true,
+            "accessibleDescription": "Source-bound outcomes with visible denominators, time horizons, and evidence classes.",
+            "visibleEvidenceLegend": [
+              "randomized invitation"
+            ],
+            "marks": [
+              {
+                "factId": "crc_incidence",
+                "label": "Colorectal cancer diagnoses",
+                "value": 0.81,
+                "ci": [
+                  0.71,
+                  0.9
+                ],
+                "ciVisible": true,
+                "visibleWithoutHover": true,
+                "unit": "risk ratio",
+                "horizon": "13 years",
+                "denominator": "randomized invitees",
+                "population": "average-risk adults aged 55–64",
+                "evidenceClass": "randomized invitation",
+                "source": "PMID 42102826"
+              },
+              {
+                "factId": "crc_death",
+                "label": "Deaths from colorectal cancer",
+                "value": 0.88,
+                "ci": [
+                  0.68,
+                  1.08
+                ],
+                "ciVisible": true,
+                "visibleWithoutHover": true,
+                "unit": "risk ratio",
+                "horizon": "13 years",
+                "denominator": "randomized invitees",
+                "population": "average-risk adults aged 55–64",
+                "evidenceClass": "randomized invitation",
+                "source": "PMID 42102826"
+              },
+              {
+                "factId": "total_death",
+                "label": "Deaths from any cause",
+                "value": 1,
+                "ci": [
+                  0.97,
+                  1.03
+                ],
+                "ciVisible": true,
+                "visibleWithoutHover": true,
+                "unit": "risk ratio",
+                "horizon": "13 years",
+                "denominator": "randomized invitees",
+                "population": "average-risk adults aged 55–64",
+                "evidenceClass": "randomized invitation",
+                "source": "PMID 42102826"
+              }
+            ]
+          },
+          {
+            "title": "Common short-term pain after completed procedures",
+            "type": "bar",
+            "axisMinimum": 0,
+            "directComparison": false,
+            "accessibleDescription": "Source-bound outcomes with visible denominators, time horizons, and evidence classes.",
+            "visibleEvidenceLegend": [
+              "symptom survey"
+            ],
+            "marks": [
+              {
+                "factId": "pain_during",
+                "label": "Moderate/severe pain during colonoscopy",
+                "value": 20.3,
+                "ci": null,
+                "ciVisible": false,
+                "visibleWithoutHover": true,
+                "unit": "percent",
+                "horizon": "during procedure",
+                "denominator": "pain-questionnaire respondents",
+                "population": "colonoscopy completers",
+                "evidenceClass": "symptom survey",
+                "source": "PMID 27214731"
+              },
+              {
+                "factId": "pain_next",
+                "label": "Moderate/severe pain in the following 24 hours",
+                "value": 9.4,
+                "ci": null,
+                "ciVisible": false,
+                "visibleWithoutHover": true,
+                "unit": "percent",
+                "horizon": "24 hours",
+                "denominator": "pain-questionnaire respondents",
+                "population": "colonoscopy completers",
+                "evidenceClass": "symptom survey",
+                "source": "PMID 27214731"
+              }
+            ]
+          },
+          {
+            "title": "Serious harms after completed procedures",
+            "type": "bar",
+            "axisMinimum": 0,
+            "directComparison": true,
+            "accessibleDescription": "Source-bound outcomes with visible denominators, time horizons, and evidence classes.",
+            "visibleEvidenceLegend": [
+              "direct procedural event"
+            ],
+            "marks": [
+              {
+                "factId": "bleeding",
+                "label": "Post-polypectomy bleeding events",
+                "value": 18,
+                "ci": null,
+                "ciVisible": false,
+                "visibleWithoutHover": true,
+                "unit": "events",
+                "horizon": "30 days",
+                "denominator": "12,574 completed colonoscopies",
+                "population": "four-country screening completers",
+                "evidenceClass": "direct procedural event",
+                "source": "PMID 27214731"
+              },
+              {
+                "factId": "perforation",
+                "label": "Bowel perforations",
+                "value": 1,
+                "ci": null,
+                "ciVisible": false,
+                "visibleWithoutHover": true,
+                "unit": "events",
+                "horizon": "30 days",
+                "denominator": "12,574 completed colonoscopies",
+                "population": "four-country screening completers",
+                "evidenceClass": "direct procedural event",
+                "source": "PMID 27214731"
+              }
+            ]
+          },
+          {
+            "title": "Long-term nonfatal outcomes not comprehensively measured",
+            "type": "table",
+            "directComparison": false,
+            "accessibleDescription": "Source-bound outcomes with visible denominators, time horizons, and evidence classes.",
+            "visibleEvidenceLegend": [
+              "unmeasured"
+            ],
+            "marks": [
+              {
+                "factId": "long_term",
+                "label": "Long-term nonfatal health outcomes",
+                "value": null,
+                "ci": null,
+                "ciVisible": false,
+                "visibleWithoutHover": true,
+                "unit": "not measured",
+                "horizon": "beyond 30 days",
+                "denominator": "not tracked systematically",
+                "population": "long-term screening recipients",
+                "evidenceClass": "unmeasured",
+                "source": "PMID 27214731",
+                "unknownExplanation": "Long-term nonfatal harms were not measured comprehensively."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "ab_synthetic",
+      "prompt": "Which newsletter layout improves sign-ups without hurting engagement?",
+      "requiredOutcomes": [
+        "signup_rate",
+        "bounce_rate"
+      ],
+      "requiredVisibleFacts": [
+        "signup_rate",
+        "bounce_rate"
+      ],
+      "sourceFacts": [
+        {
+          "id": "signup_rate",
+          "label": "Newsletter sign-up rate ratio",
+          "value": 1.16,
+          "ci": [
+            0.98,
+            1.38
+          ],
+          "unit": "risk ratio",
+          "horizon": "14 days",
+          "denominator": "randomized visitors",
+          "population": "fictional website visitors",
+          "evidenceClass": "randomized experiment",
+          "source": "Synthetic randomized A/B test (illustrative only)"
+        },
+        {
+          "id": "bounce_rate",
+          "label": "Immediate page-exit rate ratio",
+          "value": 0.97,
+          "ci": [
+            0.9,
+            1.06
+          ],
+          "unit": "risk ratio",
+          "horizon": "14 days",
+          "denominator": "randomized visitors",
+          "population": "fictional website visitors",
+          "evidenceClass": "randomized experiment",
+          "source": "Synthetic randomized A/B test (illustrative only)"
+        }
+      ],
+      "graphic": {
+        "takeaways": [
+          "This synthetic example has a signup estimate favoring B, but confidence intervals cross no difference."
+        ],
+        "coveredOutcomes": [
+          "signup_rate",
+          "bounce_rate"
+        ],
+        "accessibleSummary": "This is synthetic A/B data, showing two uncertain effects with visible 95% confidence intervals.",
+        "panels": [
+          {
+            "title": "Newsletter conversion and page exits",
+            "type": "interval",
+            "nullReference": 1,
+            "interactiveExplainer": "keyboard-and-touch",
+            "directComparison": true,
+            "accessibleDescription": "Source-bound outcomes with visible denominators, time horizons, and evidence classes.",
+            "visibleEvidenceLegend": [
+              "randomized experiment"
+            ],
+            "marks": [
+              {
+                "factId": "signup_rate",
+                "label": "Newsletter sign-up rate ratio",
+                "value": 1.16,
+                "ci": [
+                  0.98,
+                  1.38
+                ],
+                "ciVisible": true,
+                "visibleWithoutHover": true,
+                "unit": "risk ratio",
+                "horizon": "14 days",
+                "denominator": "randomized visitors",
+                "population": "fictional website visitors",
+                "evidenceClass": "randomized experiment",
+                "source": "Synthetic randomized A/B test (illustrative only)"
+              },
+              {
+                "factId": "bounce_rate",
+                "label": "Immediate page-exit rate ratio",
+                "value": 0.97,
+                "ci": [
+                  0.9,
+                  1.06
+                ],
+                "ciVisible": true,
+                "visibleWithoutHover": true,
+                "unit": "risk ratio",
+                "horizon": "14 days",
+                "denominator": "randomized visitors",
+                "population": "fictional website visitors",
+                "evidenceClass": "randomized experiment",
+                "source": "Synthetic randomized A/B test (illustrative only)"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "cost_synthetic",
+      "prompt": "Which electricity plan costs less for 300 kWh per month over one year?",
+      "requiredOutcomes": [
+        "cost_a",
+        "cost_b"
+      ],
+      "requiredVisibleFacts": [
+        "cost_a",
+        "cost_b"
+      ],
+      "sourceFacts": [
+        {
+          "id": "cost_a",
+          "label": "Plan A total yearly cost",
+          "value": 840,
+          "ci": null,
+          "unit": "USD per year",
+          "horizon": "12 months",
+          "denominator": "one household using 300 kWh monthly",
+          "population": "fictional household",
+          "evidenceClass": "calculated quote",
+          "source": "Synthetic annual electricity prices (illustrative only)"
+        },
+        {
+          "id": "cost_b",
+          "label": "Plan B total yearly cost",
+          "value": 920,
+          "ci": null,
+          "unit": "USD per year",
+          "horizon": "12 months",
+          "denominator": "one household using 300 kWh monthly",
+          "population": "fictional household",
+          "evidenceClass": "calculated quote",
+          "source": "Synthetic annual electricity prices (illustrative only)"
+        }
+      ],
+      "graphic": {
+        "takeaways": [
+          "Synthetic Plan A costs $80 less per year for the same hypothetical usage."
+        ],
+        "coveredOutcomes": [
+          "cost_a",
+          "cost_b"
+        ],
+        "accessibleSummary": "Both annual-cost bars use a zero baseline and the same hypothetical 300 kWh/month household.",
+        "panels": [
+          {
+            "title": "Annual electricity costs for equal usage",
+            "type": "bar",
+            "axisMinimum": 0,
+            "directComparison": true,
+            "accessibleDescription": "Source-bound outcomes with visible denominators, time horizons, and evidence classes.",
+            "visibleEvidenceLegend": [
+              "calculated quote"
+            ],
+            "marks": [
+              {
+                "factId": "cost_a",
+                "label": "Plan A total yearly cost",
+                "value": 840,
+                "ci": null,
+                "ciVisible": false,
+                "visibleWithoutHover": true,
+                "unit": "USD per year",
+                "horizon": "12 months",
+                "denominator": "one household using 300 kWh monthly",
+                "population": "fictional household",
+                "evidenceClass": "calculated quote",
+                "source": "Synthetic annual electricity prices (illustrative only)"
+              },
+              {
+                "factId": "cost_b",
+                "label": "Plan B total yearly cost",
+                "value": 920,
+                "ci": null,
+                "ciVisible": false,
+                "visibleWithoutHover": true,
+                "unit": "USD per year",
+                "horizon": "12 months",
+                "denominator": "one household using 300 kWh monthly",
+                "population": "fictional household",
+                "evidenceClass": "calculated quote",
+                "source": "Synthetic annual electricity prices (illustrative only)"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
