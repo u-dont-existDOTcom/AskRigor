@@ -2160,6 +2160,7 @@ function defineResearchOperations(
       service: options.researchContributorAccessService,
       callRecord: options.researchCallRecord,
       ...(options.geminiLinks === undefined ? {} : { geminiLinks: options.geminiLinks }),
+      ...((options.safetyLimits ?? safetyLimitsFromEnv()) ? { safetyLimits: true } : {}),
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
       signIn: options.signIn,
       toolListVersion: options.toolListVersion,

@@ -607,7 +607,11 @@ and no blocking rule. With `ASKRIGOR_SAFETY_LIMITS=on` (off in the code's defaul
   person reported it (such as an app's prompt to switch models): the step; the kind; what was left out, in neutral
   words; whether it was not examined or examined but not reported; whether it was done again (no, by the same model,
   by another) and whether that recovered it; what it could change (a detail, the confidence, the conclusion, no loss
-  identified, unknown) and, optionally, which conclusion; who reports it; and the answer's own sentence saying it. An
+  identified, unknown) and, optionally, which conclusion; who reports it; and the answer's own sentence saying it.
+  Only the step, what was left out and the answer's sentence are needed: every other field says "not known" when left
+  out (the AI is the reporter unless it says the person is), and a field the entry doesn't take is dropped unread.
+  Since nothing published describes the input, `inspect` gives its shape to an active account with the switch on, and
+  a note on an entry that isn't usable repeats it (Codex's review of HRP 20.6.44). An
   entry's own words may hold no link or address (an exact, structural test of the forms whose shape is unambiguous:
   a scheme such as "https://", "file:/" or "mailto:", a "//host", "www.", a DOI): it names a kind of content, never
   where to find what a model declined to give. A bare host name ("example.org") or a numeric address is not tested,

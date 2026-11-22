@@ -23,7 +23,7 @@ import { z } from "zod";
  */
 export const SAFETY_LIMIT_KINDS = ["refused", "stopped_and_switched", "narrowed", "softened", "other"] as const;
 export const SAFETY_LIMIT_LEFT_OUT_HOW = ["not_examined", "examined_not_reported", "unknown"] as const;
-export const SAFETY_LIMIT_REDONE = ["no", "same_model", "another_model"] as const;
+export const SAFETY_LIMIT_REDONE = ["no", "same_model", "another_model", "unknown"] as const;
 export const SAFETY_LIMIT_RECOVERED = ["yes", "partly", "no", "unknown"] as const;
 export const SAFETY_LIMIT_IMPACTS = ["detail", "confidence", "conclusion", "no_loss_identified", "unknown"] as const;
 export const SAFETY_LIMIT_REPORTERS = ["ai", "person"] as const;
@@ -50,27 +50,30 @@ const LINK = /[a-z][a-z0-9+.-]*:\/\/|\bfile:\/|\bmailto:\S|(?:^|[^\w:/])\/\/[^\s
 const words = (max: number) => z.string().trim().min(1).max(max)
   .refine((text) => !LINK.test(text), "No links, web addresses or DOIs: name the kind of content only.");
 
+// Only the step, what was left out and the answer's sentence are needed, so an AI that knows little more than HRP's
+// sentence still gets its report listed; every other field says "not known" when left out, and a field the entry
+// doesn't take is dropped unread (Codex's review of HRP 20.6.44: a plausible first declaration was refused whole).
 export const safetyLimitEntrySchema = z.object({
   step: words(200).describe("Which research step, in a few words, such as the search for people's reports or reading a study's tables."),
-  kind: z.enum(SAFETY_LIMIT_KINDS).describe(
+  kind: z.enum(SAFETY_LIMIT_KINDS).default("other").describe(
     "refused: a model declined the step or part of it. stopped_and_switched: a safety stop, and another model went on. " +
     "narrowed: the model said it would leave something out. softened: a finding came out weaker than its source " +
     "says, because of a safety rule. other: another change a safety rule made."),
   left_out: words(300).describe(
     "What was left out, in neutral words: the kind of content (such as dose amounts from the trial tables, or named " +
     "people's alleged misconduct), never the withheld content itself, an accusation, a link or how to find it."),
-  left_out_how: z.enum(SAFETY_LIMIT_LEFT_OUT_HOW).describe(
+  left_out_how: z.enum(SAFETY_LIMIT_LEFT_OUT_HOW).default("unknown").describe(
     "not_examined: it was not read or weighed. examined_not_reported: it was read and weighed, but not reported. unknown."),
-  redone: z.enum(SAFETY_LIMIT_REDONE).describe("Whether the step was done again: no, by the same model, or by another model."),
-  recovered: z.enum(SAFETY_LIMIT_RECOVERED).describe("Whether doing it again recovered what was left out: yes, partly, no, or unknown (no when it was not done again)."),
-  could_change: z.enum(SAFETY_LIMIT_IMPACTS).describe(
+  redone: z.enum(SAFETY_LIMIT_REDONE).default("unknown").describe("Whether the step was done again: no, by the same model, by another model, or unknown."),
+  recovered: z.enum(SAFETY_LIMIT_RECOVERED).default("unknown").describe("Whether doing it again recovered what was left out: yes, partly, no, or unknown (no when it was not done again)."),
+  could_change: z.enum(SAFETY_LIMIT_IMPACTS).default("unknown").describe(
     "What the gap could change: a detail, the confidence, the conclusion, no_loss_identified (such as a model switch " +
     "with no known loss), or unknown."),
   affects: words(200).optional().describe("Which conclusion of the answer it could change, in a few words."),
-  reported_by: z.enum(SAFETY_LIMIT_REPORTERS).describe(
+  reported_by: z.enum(SAFETY_LIMIT_REPORTERS).default("ai").describe(
     "ai: you observed it (a refusal you gave, a step you narrowed, a switch you saw). person: the person reported it, such as an app's prompt to switch models."),
   answer_quote: words(600).describe("The answer's own sentence saying it, in its limits note, copied exactly from answer_draft."),
-}).strict();
+});
 
 export const safetyLimitsSchema = z.array(safetyLimitEntrySchema).min(1).max(SAFETY_LIMITS_MAX)
   .describe("At most 20: steps limited the same way go in one entry.");
@@ -92,6 +95,7 @@ const LEFT_OUT_WORDS: Readonly<Record<SafetyLimitEntry["left_out_how"], string>>
 };
 const REDONE_WORDS: Readonly<Record<SafetyLimitEntry["redone"], string>> = {
   no: "Not done again.",
+  unknown: "Whether it was done again is not known.",
   same_model: "Done again by the same model",
   another_model: "Done again by another model",
 };
@@ -114,12 +118,28 @@ const inline = (text: string): string => text.replace(/\s+/gu, " ").trim().repla
 
 /** One declared limit in AskRigor's fixed words, saying who reports it, with the reporter's step and topic inside. */
 export function safetyLimitSentence(entry: SafetyLimitEntry): string {
-  const redone = entry.redone === "no" ? REDONE_WORDS.no : REDONE_WORDS[entry.redone] + RECOVERED_WORDS[entry.recovered];
+  const redone = entry.redone === "no" || entry.redone === "unknown" ? REDONE_WORDS[entry.redone]
+    : REDONE_WORDS[entry.redone] + RECOVERED_WORDS[entry.recovered];
   const impact = IMPACT_WORDS[entry.could_change] +
     (entry.affects === undefined || entry.could_change === "no_loss_identified" ? "." : ` in: ${inline(entry.affects)}.`);
   return `${REPORTED_BY[entry.reported_by]}${SAFETY_LIMIT_MARK} (${KIND_WORDS[entry.kind]}): ${inline(entry.step)}. ` +
     `${LEFT_OUT_WORDS[entry.left_out_how]} ${inline(entry.left_out)}. ${redone} ${impact}`;
 }
+
+/**
+ * The declaration's shape in a few lines, for every place an AI learns it before or after its first final check:
+ * inspect's result with the switch on, and the note on an entry that isn't usable (Codex's review of HRP 20.6.44).
+ */
+export const SAFETY_LIMITS_SHAPE = "later_inputs.safety_limits: a list of up to 20 entries, each with step, left_out " +
+  "(the kind of content left out, in neutral words, with no link) and answer_quote (the answer's own sentence saying it, " +
+  "copied exactly), and when known: kind (refused, stopped_and_switched, narrowed, softened or other), left_out_how " +
+  "(not_examined, examined_not_reported or unknown), redone (no, same_model, another_model or unknown), recovered (yes, " +
+  "partly, no or unknown), could_change (detail, confidence, conclusion, no_loss_identified or unknown), affects (which " +
+  "conclusion) and reported_by (ai or person).";
+
+/** inspect's sentence with the switch on: when to declare, and the shape. Nothing asks for a declaration of none. */
+export const SAFETY_LIMITS_INSPECT_SENTENCE = "If a model's or app's safety rules limit a research step, as HRP's " +
+  `LimitsNote says, also give finalize_research ${SAFETY_LIMITS_SHAPE}`;
 
 export interface SafetyLimitReview {
   /** AskRigor's fixed-word limit for each usable entry, in the order given, each once. */
@@ -146,7 +166,7 @@ function unusedReason(issues: readonly z.core.$ZodIssue[]): string {
     ...(link ? ["take out the link, web address or DOI"] : []),
     ...(unknown ? ["leave out fields it doesn't take"] : []),
   ];
-  return parts.length === 0 ? "give an object with its fields" : parts.join("; ");
+  return `${parts.length === 0 ? "give an object with its fields" : parts.join("; ")}. Its shape: ${SAFETY_LIMITS_SHAPE}`;
 }
 
 /**
@@ -157,14 +177,14 @@ function unusedReason(issues: readonly z.core.$ZodIssue[]): string {
 export function reviewSafetyLimits(declared: unknown): SafetyLimitReview {
   if (declared === undefined) return { limits: [], quotes: [], notes: [] };
   if (!Array.isArray(declared) || declared.length === 0) {
-    return { limits: [], quotes: [], notes: [`later_inputs.safety_limits: not used: give a list of 1 to ${SAFETY_LIMITS_MAX} entries.`] };
+    return { limits: [], quotes: [], notes: [`later_inputs.safety_limits: not used: give a list of 1 to ${SAFETY_LIMITS_MAX} entries. Its shape: ${SAFETY_LIMITS_SHAPE}`] };
   }
   const notes: string[] = [];
   const usable: Array<{ entry: SafetyLimitEntry; index: number }> = [];
   for (const [index, given] of declared.slice(0, SAFETY_LIMITS_MAX).entries()) {
     const parsed = safetyLimitEntrySchema.safeParse(given);
     if (parsed.success) usable.push({ entry: parsed.data, index });
-    else notes.push(`later_inputs.safety_limits[${index}]: not used: ${unusedReason(parsed.error.issues)}.`);
+    else notes.push(`later_inputs.safety_limits[${index}]: not used: ${unusedReason(parsed.error.issues)}`);
   }
   if (declared.length > SAFETY_LIMITS_MAX) {
     notes.push(`later_inputs.safety_limits: only the first ${SAFETY_LIMITS_MAX} entries are used; put steps limited the same way in one entry.`);

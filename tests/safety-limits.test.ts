@@ -12,7 +12,7 @@ import {
 import { fallbackModelOf } from "../apps/research-mcp/src/research-planner.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import {
-  SAFETY_LIMIT_FOR_JUDGE, SAFETY_LIMIT_MARK, reviewSafetyLimits, safetyLimitCount, safetyLimitSentence, safetyLimitsSchema, type SafetyLimitEntry,
+  SAFETY_LIMIT_FOR_JUDGE, SAFETY_LIMIT_MARK, SAFETY_LIMITS_SHAPE, reviewSafetyLimits, safetyLimitCount, safetyLimitSentence, safetyLimitsSchema, type SafetyLimitEntry,
 } from "../apps/research-mcp/src/safety-limits.js";
 import { withSourceReading } from "./helpers/source-reading.js";
 
@@ -80,7 +80,10 @@ describe("the safety_limits declaration", () => {
     expect(safetyLimitsSchema.safeParse("none_noticed").success).toBe(false);
     expect(safetyLimitsSchema.safeParse([{ ...entry(), kind: "censored" }]).success).toBe(false);
     expect(safetyLimitsSchema.safeParse([{ ...entry(), step: "  " }]).success).toBe(false);
-    expect(safetyLimitsSchema.safeParse([{ ...entry(), reason: "extra" }]).success).toBe(false);
+    // A field the entry doesn't take is dropped unread; only step, left_out and answer_quote are needed.
+    const extra = safetyLimitsSchema.safeParse([{ ...entry(), reason: "extra sentinel" }]);
+    expect(extra.success && JSON.stringify(extra.data)).not.toContain("sentinel");
+    expect(safetyLimitsSchema.safeParse([{ step: "s", left_out: "l" }]).success).toBe(false);
     // No link, web address or DOI in an entry's own words: it would point to what a model declined to give.
     for (const left_out of ["the tables at https://example.org/t", "see www.example.org", "the paper 10.1000/xyz.1",
       "the copy at //example.org/path", "the copy at \"//example.org/path\"", "ftp://example.org/t", "file:/tmp/example",
@@ -107,6 +110,12 @@ describe("the safety_limits declaration", () => {
         "reported: dose amounts from the trial tables. Not done again. What it could change is not known.");
     expect(safetyLimitSentence(entry({ could_change: "no_loss_identified", redone: "same_model", recovered: "unknown" })))
       .toContain("Done again by the same model; whether that recovered it is not known. No loss was identified.");
+    // An entry with only what HRP's sentence names gets "not known" for the rest, and the AI as its reporter.
+    const minimal = safetyLimitsSchema.parse([{ step: "Reading the trial's tables", left_out: "dose amounts",
+      answer_quote: LIMIT_SENTENCE }])[0]!;
+    expect(safetyLimitSentence(minimal)).toBe(`As the AI reports, ${SAFETY_LIMIT_MARK} (a safety rule changed it): ` +
+      "Reading the trial's tables. Left out: dose amounts. Whether it was done again is not known. What it could change " +
+      "is not known.");
   });
 
   it("gives nothing without a declaration, and each limit once", () => {
@@ -117,20 +126,21 @@ describe("the safety_limits declaration", () => {
       "safety_limits[2].answer_quote"]);
   });
 
-  it("uses each usable entry and notes the others by place and the schema's own field names, never a key or value given", () => {
+  it("uses each usable entry and notes the others by place, the schema's own field names and the shape, never a value given", () => {
     const review = reviewSafetyLimits([entry(), { ...entry(), "private topic sentinel": 1 },
       { ...entry(), left_out: "see https://example.org/hidden-sentinel" }, { ...entry(), kind: "sentinel-kind" }, "sentinel text"]);
+    // An unknown field is dropped unread, so that entry counts (and repeats the first one's limit).
     expect(review.limits).toEqual([safetyLimitSentence(entry())]);
-    expect(review.quotes.map(({ at }) => at)).toEqual(["safety_limits[0].answer_quote"]);
-    expect(review.notes).toEqual([
-      "later_inputs.safety_limits[1]: not used: leave out fields it doesn't take.",
-      "later_inputs.safety_limits[2]: not used: check left_out; take out the link, web address or DOI.",
-      "later_inputs.safety_limits[3]: not used: check kind.",
-      "later_inputs.safety_limits[4]: not used: give an object with its fields.",
+    expect(review.quotes.map(({ at }) => at)).toEqual(["safety_limits[0].answer_quote", "safety_limits[1].answer_quote"]);
+    expect(review.notes.map((note) => note.split(". Its shape: ")[0])).toEqual([
+      "later_inputs.safety_limits[2]: not used: check left_out; take out the link, web address or DOI",
+      "later_inputs.safety_limits[3]: not used: check kind",
+      "later_inputs.safety_limits[4]: not used: give an object with its fields",
     ]);
+    for (const note of review.notes) expect(note).toContain(`Its shape: ${SAFETY_LIMITS_SHAPE}`);
     expect(review.notes.join("\n")).not.toMatch(/sentinel/u);
-    expect(reviewSafetyLimits([]).notes).toEqual(["later_inputs.safety_limits: not used: give a list of 1 to 20 entries."]);
-    expect(reviewSafetyLimits("sentinel").notes).toEqual(["later_inputs.safety_limits: not used: give a list of 1 to 20 entries."]);
+    expect(reviewSafetyLimits([]).notes).toEqual([`later_inputs.safety_limits: not used: give a list of 1 to 20 entries. Its shape: ${SAFETY_LIMITS_SHAPE}`]);
+    expect(reviewSafetyLimits("sentinel").notes).toEqual([`later_inputs.safety_limits: not used: give a list of 1 to 20 entries. Its shape: ${SAFETY_LIMITS_SHAPE}`]);
     const many = reviewSafetyLimits(Array.from({ length: 22 }, (_, index) => entry({ step: `Step ${index}` })));
     expect(many.limits).toHaveLength(20);
     expect(many.notes).toEqual(["later_inputs.safety_limits: only the first 20 entries are used; put steps limited the same way in one entry."]);
