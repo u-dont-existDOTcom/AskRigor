@@ -62,6 +62,12 @@ describe("Gemini's sign-in: AskRigor's own authorization server (owner answer 38
     expect(auth.resource?.href).toBe(RESOURCE);
   });
 
+  it("links through production's proxy, which sends no-referrer on every page (release E, 22 Nov 2026)", async () => {
+    const behindProxy = new Browser(fixture.baseUrl, { proxyReferrerPolicy: "no-referrer" });
+    const { code, verifier } = await linkToCode(fixture, behindProxy);
+    expect((await exchange(code, verifier)).status).toBe(200);
+  });
+
   it("refuses a forged client assertion (signed by a key Google never published)", async () => {
     const { code, verifier } = await linkToCode(fixture, browser);
     const forged = await clientAssertion(fixture, {}, { key: fixture.strangerKey });
