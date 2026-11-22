@@ -441,6 +441,12 @@ export interface ResearchPlannerCall {
   model?: string;
   /** A refusal's category as the API names it (bio, cyber, ...), when it gave one: a class, never content. */
   refusalCategory?: string;
+  /**
+   * Promise P69: the model Anthropic's fallback served the reply with, when the reply's own record shows one
+   * (fallbackModelOf). Logged as fallback_answered, or fallback_refused when the chain ended in a refusal; never with
+   * content.
+   */
+  fallbackModel?: string;
   usage?: { input: number; output: number; cacheWrite: number; cacheRead: number; searches: number };
 }
 
@@ -552,6 +558,20 @@ export function replyCost(message: Anthropic.Beta.BetaMessage): { costUsd: numbe
   return { costUsd: tokenUsd + searches * SEARCH_USD, tokens, searches };
 }
 
+/**
+ * Promise P69: the model that served a reply through Anthropic's fallback, the last fallback_message entry in
+ * usage.iterations: the API's own signal that a fallback model served the response (the SDK's account of the fallback
+ * block). Only that counts: comparing model names would misfire, since a reply can name a dated version of the model
+ * asked for. It shows that a fallback ran, not how many models declined (an earlier declined hop can be an ordinary
+ * message entry) nor the final outcome, which stop_reason gives (Codex's red team of 21 Nov 2026).
+ */
+export function fallbackModelOf(message: Anthropic.Beta.BetaMessage): string | undefined {
+  const entry = (message.usage?.iterations ?? []).findLast((item) => item.type === "fallback_message");
+  if (entry === undefined) return undefined;
+  const model: unknown = entry.model;
+  return typeof model === "string" && /^[A-Za-z0-9._:-]{1,80}$/u.test(model) ? model : "unnamed";
+}
+
 /** A refusal's category as the API names it (bio, cyber, ...), when it is a class; never its explanation. */
 export function refusalCategoryOf(message: Anthropic.Beta.BetaMessage): string | undefined {
   return typeof message.stop_details?.category === "string" && /^[a-z_]{1,40}$/u.test(message.stop_details.category)
@@ -583,9 +603,10 @@ const addUsage = (a: PlannerUsage, b: PlannerUsage): PlannerUsage => ({ input: a
   output: a.output + b.output, cacheWrite: a.cacheWrite + b.cacheWrite, cacheRead: a.cacheRead + b.cacheRead,
   searches: a.searches + b.searches });
 /** One request's outcome, before request() decides what the call gives. */
-type PlannedAttempt = { kind: "planned"; plan: ResearchPlan; costUsd: number; model: string; usage: PlannerUsage };
+type PlannedAttempt = { kind: "planned"; plan: ResearchPlan; costUsd: number; model: string; usage: PlannerUsage;
+  fallbackModel?: string };
 type Attempt = PlannedAttempt | { kind: "skipped"; reason: "timeout" | "error" | "refusal" | "unreadable";
-  costUsd: number; model?: string; usage?: PlannerUsage; refusalCategory?: string }
+  costUsd: number; model?: string; usage?: PlannerUsage; refusalCategory?: string; fallbackModel?: string }
   // A request left without the time for it once its hold was saved (a second one, with less than SEARCH_RETRY_MIN_MS):
   // never sent, its hold given back.
   | { kind: "not_sent" };
@@ -888,7 +909,8 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
    * RESEARCH_PLANNER_SEARCH_RETRY. What is held for it against the day's cap is held from before it is sent and settled
    * with what it cost. The time it may wait is what is left of the deadline once the hold is saved, so a slow write of
    * the state file never lengthens the call (Codex's review of 21 Nov 2026); a second request left with less than
-   * SEARCH_RETRY_MIN_MS is not sent, and what was held for it is given back. It logs nothing: request() does.
+   * SEARCH_RETRY_MIN_MS is not sent, and what was held for it is given back. It logs only a fallback's event (promise
+   * P69), as each reply comes; request() logs the rest.
    */
   async function attempt(source: ResearchPlannerSource, retry: boolean, deadline: number): Promise<Attempt> {
     const controller = new AbortController();
@@ -936,7 +958,12 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
       // model's); otherwise the whole reply at the answering model's.
       const { costUsd, tokens, searches } = replyCost(message);
       settle(costUsd);
-      const measured = { costUsd, model: message.model, usage: { ...tokens, searches } };
+      // Promise P69: a reply Anthropic's fallback model served is logged by its event alone; a chain whose last model
+      // refused too is the refusal read below, logged as a fallback that refused.
+      const fallbackModel = fallbackModelOf(message);
+      if (fallbackModel !== undefined) log(message.stop_reason === "refusal" ? "fallback_refused" : "fallback_answered");
+      const measured = { costUsd, model: message.model, usage: { ...tokens, searches },
+        ...(fallbackModel === undefined ? {} : { fallbackModel }) };
       // A refusal is read before the content, which it may leave incomplete. Its category comes with it, a class of
       // the API's own naming, so the trial can count which questions the model's classifiers decline.
       if (message.stop_reason === "refusal") {
@@ -981,11 +1008,12 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
       return { planning: { status: "skipped", reason: first.reason }, cached: false, costUsd: first.costUsd,
         milliseconds: now() - started, ...(first.model === undefined ? {} : { model: first.model }),
         ...(first.usage === undefined ? {} : { usage: first.usage }),
-        ...(first.refusalCategory === undefined ? {} : { refusalCategory: first.refusalCategory }) };
+        ...(first.refusalCategory === undefined ? {} : { refusalCategory: first.refusalCategory }),
+        ...(first.fallbackModel === undefined ? {} : { fallbackModel: first.fallbackModel }) };
     }
     const planned = (used: PlannedAttempt, costUsd: number, usage: PlannerUsage): ResearchPlannerCall =>
       ({ planning: { status: "planned", plan: used.plan }, cached: false, costUsd, milliseconds: now() - started,
-        model: used.model, usage });
+        model: used.model, usage, ...(used.fallbackModel === undefined ? {} : { fallbackModel: used.fallbackModel }) });
     if (first.plan.searches > 0) return planned(first, first.costUsd, first.usage);
     // The plan ran no web search (21 Nov 2026): asked once more, with the instruction to search first, while the
     // call's time and the day's cap have room for a second request. The first plan stands unless the second searched.

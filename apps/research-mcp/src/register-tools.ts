@@ -126,6 +126,7 @@ import {
   crossrefConfigFromEnv,
   devAccountKeysFromEnv,
   dossierPrivacyReadingFromEnv,
+  safetyLimitsFromEnv,
   findingsLibraryEnabledFromEnv,
   ncbiConfigFromEnv,
   optionalLivingEvidenceReuseConfigFromEnv,
@@ -1017,6 +1018,8 @@ export interface RegisterToolsOptions {
    * dossier is saved.
    */
   dossierPrivacyReading?: boolean;
+  /** Promise P69: finalize_research reads later_inputs.safety_limits (ASKRIGOR_SAFETY_LIMITS=on when not given). */
+  safetyLimits?: boolean;
   /** Whether the findings library is open; defaults to ASKRIGOR_FINDINGS_LIBRARY. */
   findingsLibrary?: boolean;
   /**
@@ -2157,6 +2160,7 @@ function defineResearchOperations(
       service: options.researchContributorAccessService,
       callRecord: options.researchCallRecord,
       ...(options.geminiLinks === undefined ? {} : { geminiLinks: options.geminiLinks }),
+      ...((options.safetyLimits ?? safetyLimitsFromEnv()) ? { safetyLimits: true } : {}),
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
       signIn: options.signIn,
       toolListVersion: options.toolListVersion,
@@ -2749,6 +2753,7 @@ function defineResearchOperations(
           : account === undefined ? "private" as const : account.mode === "FREE_CONTRIBUTOR" ? "save" as const : "offer" as const,
         ...(callerReads ? { aiReadings: "caller" as const } : {}),
         ...(readsOnMobile(extra._meta) ? { mobileClient: true } : {}),
+        ...((options.safetyLimits ?? safetyLimitsFromEnv()) ? { safetyLimits: true } : {}),
         ...(options.toolListVersion === undefined ? {} : { toolListVersion: options.toolListVersion }),
         ...(ledgerKey === undefined ? {} : { findingsLedger: { account: researcher?.accountKey, deferred: true } }),
         ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) }),
