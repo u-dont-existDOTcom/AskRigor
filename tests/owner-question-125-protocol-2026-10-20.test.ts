@@ -96,7 +96,7 @@ const loadCurrent = () => readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf
 const load = async () => undoOwnerQuestions152And153Hrp(await loadCurrent());
 // The state before this layer, from the current file.
 const undo125 = async () => undoOwnerQuestion125Hrp(await loadCurrent());
-const CURRENT = { version: "20.6.44", revisionDate: "2026-11-22", sha256: "a486702b879aba2ce729482eabd5474f4ef0afa7e7b7c3efe57751e8103485ee" } as const;
+const CURRENT = { version: "20.6.45", revisionDate: "2026-11-22", sha256: "475ee5aad42fdc0bba03f786eefa4e19bc17cd9b95f4ddd7e4aef3a600c54039" } as const;
 interface Edits {
   from: { version: string; sha256: string }; to: { version: string; sha256: string };
   edits: Array<[string, string]>;

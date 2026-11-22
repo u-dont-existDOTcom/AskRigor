@@ -119,6 +119,10 @@ import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, PLANNER_PAUSE_
  * (person_asked), a judgment of meaning and so the model's, in the rubric's words; plan_research always recommends a
  * task so marked, whatever its length (research-steering.ts, planResearch). Code only reads the mark.
  *
+ * The tradition's own account (rubric 2026-11-22.2, owner answer 402a). Two baseline chats framed traditional
+ * questions as modern evidence only, and one loaded no HRP; step 3 now includes the relevant tradition's own sourced
+ * account and material differences, matched to safety and benefit evidence, with urgent safety work first.
+ *
  * A plan made without a web search is asked for once more (21 November 2026). Step 1 of the rubric says the call's
  * first step is always a web search, and its wording was tightened four times for that (13 and 14 November); still, in
  * the clean comparison's first round (21 Nov, owner answer 395b) three of the five live plans ran none, and so did 3 of
@@ -151,7 +155,7 @@ import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, PLANNER_PAUSE_
  * the counts go on in memory. Without the setting nothing is read or written.
  */
 
-export const RESEARCH_PLANNER_RUBRIC_VERSION = "2026-11-22.1";
+export const RESEARCH_PLANNER_RUBRIC_VERSION = "2026-11-22.2";
 
 // Stable instructions first, so the API's prompt cache can serve them across calls; the bundle follows them.
 export const RESEARCH_PLANNER_RUBRIC = `You plan research for AskRigor, a health and science research service. A person asked their AI assistant a
@@ -287,7 +291,15 @@ choice without one. Do not name in step 2 a question their history already answe
 that could show the quick answer wrong, never moves last or marks as detail a task the person asked for
 (person_asked), never changes the lane, and never replaces your own search in step 1.
 When the question is about something people take or do, such as a remedy, a food or a practice, put a task near the
-top for what people who used it report. When the question takes something for granted (a fact, a cause, a
+top for what people who used it report.
+When the question is about a traditional, regional or folk medical system's concepts or claims, or about a
+remedy, diagnostic method or practice known or sold as traditional even when no system is named, the tasks
+include what that tradition's own sources say that could change the answer (who it is for and not for, its
+preparation, its cautions) and where its traditions differ (such as classical and standardized Chinese
+medicine), naming which tradition; give it a task of its own only when it answers a different question from
+the other tasks. Match safety and benefit studies to those claims and the actual preparation, and keep urgent
+safety work first.
+When the question takes something for granted (a fact, a cause, a
 comparison, or that something has not been done), include a task that could show it wrong. When it asks whether
 something could happen or be made, one task looks at the routes already being tried that differ in kind from the
 best-known one, such as another material or method, and names them. When it asks for one
