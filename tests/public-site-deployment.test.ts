@@ -62,6 +62,7 @@ describe("public-site deployment packet", () => {
     expect(caddy).toContain("/roadmap/index.html");
     expect(caddy).toContain("/compare/index.html");
     expect(caddy).toContain("/compare/free-chatgpt/index.html");
+    expect(caddy).toContain("/how-to-research/index.html");
     expect(caddy).toContain("path /assets/*");
     expect(caddy).toContain("respond 404");
     // The packet adds no site of its own beside the apex, and never names mcp.askrigor.com: the Atlas pages go straight

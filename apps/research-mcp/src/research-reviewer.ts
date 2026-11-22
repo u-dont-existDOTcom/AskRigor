@@ -14,6 +14,7 @@ import {
   accountDigest,
   plainLine,
   plannerStateOf,
+  fallbackModelOf,
   refusalCategoryOf,
   replaceFile,
   replyCost,
@@ -189,6 +190,12 @@ export interface ResearchReviewerCall {
   model?: string;
   /** A refusal's category as the API names it (bio, cyber, ...), when it gave one: a class, never content. */
   refusalCategory?: string;
+  /**
+   * Promise P69: the model Anthropic's fallback served the reply with, when the reply's own record shows one
+   * (fallbackModelOf). Logged as fallback_answered, or fallback_refused when the chain ended in a refusal; never with
+   * content.
+   */
+  fallbackModel?: string;
   usage?: { input: number; output: number; cacheWrite: number; cacheRead: number; searches: number };
 }
 
@@ -461,7 +468,12 @@ export function createResearchReviewer(dependencies: ResearchReviewerDependencie
       // Each sampling iteration at its own model's price, and each search at USD 0.01 (replyCost).
       const { costUsd, tokens, searches } = replyCost(message);
       settle(costUsd);
-      const measured = { costUsd, milliseconds: now() - started, model: message.model, usage: { ...tokens, searches } };
+      // Promise P69: a reply Anthropic's fallback model served is logged by its event alone; a chain whose last model
+      // refused too is the refusal read below, logged as a fallback that refused.
+      const fallbackModel = fallbackModelOf(message);
+      if (fallbackModel !== undefined) log(message.stop_reason === "refusal" ? "fallback_refused" : "fallback_answered");
+      const measured = { costUsd, milliseconds: now() - started, model: message.model, usage: { ...tokens, searches },
+        ...(fallbackModel === undefined ? {} : { fallbackModel }) };
       // A refusal is read before the content, which it may leave incomplete; its category is logged with it, a class.
       if (message.stop_reason === "refusal") {
         const category = refusalCategoryOf(message);

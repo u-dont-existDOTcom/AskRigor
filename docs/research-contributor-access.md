@@ -451,7 +451,10 @@ was released on 12 November:
 On a dev account, with the call switched on, AskRigor plans the research itself when the plain answer is registered:
 one Claude API call that first searches the web (at most two searches) for what the question refers to, then says
 what it is about, names the one question to put to the person before researching, or the word none, and lists two
-to five research tasks (`apps/research-mcp/src/research-planner.ts`). The owner, 13 November: "perhaps the research
+to five research tasks (`apps/research-mcp/src/research-planner.ts`). When a reply's plan ran no web search, the same
+request is sent once more with one fixed instruction to search first, while the call's time (at least 20 seconds
+left) and the day's cap allow; the plan that searched is used, otherwise the first one (21 November 2026, after round
+1 of the clean comparison, where three of five live plans ran none). The owner, 13 November: "perhaps the research
 plan should be tried directly as an api call rather than hope the AI can figure it out". Rounds 4 to 6 of the
 owner's ChatGPT runs had left that judgment to the person's AI, and it went wrong in a different place each round.
 

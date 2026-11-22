@@ -219,6 +219,26 @@ reprovision the access role before serving the image that reads the setting. The
 off before a run and on afterwards, recording both. An earlier image ignores the setting, so rollback to it
 requires pausing regressions to avoid saving their cards again; the column and choice can remain in place.
 
+Atlas Release B (19 Nov 2026): migration `0042_atlas_person_readings` adds the readings that mark unverified claims
+about named people, the disputed sentences, the private disputes and the reading's daily spend, and its functions;
+reprovision the review role (this folder's `provision-research-review-role.sh` grants them). The mark stays off until
+`ASKRIGOR_ATLAS_PERSON_MARK` names the instant it was switched on (an ISO time, such as `2026-11-20T09:00:00Z`): findings
+published before it show under a banner until the worker has read them, later ones only once read. The reading uses
+`ASKRIGOR_ATLAS_PERSON_READING_KEY_FILE` and `_WORKSPACE_ID` (by default the meaning judge's) and
+`ASKRIGOR_ATLAS_PERSON_READING_DAILY_CAP_USD` (default 1; for the first 24 hours after the switch the cap is USD 5,
+counted under the switch's date, unless the setting is 0). The owner's notices (legal letters, data requests,
+refusals, parked findings and changes on findings the owner checked) stay in the private table until he acknowledges
+them; nothing is sent. Before the mark, give the daily scheduled check that writes his Inbox a step that calls the
+review tool's `list_person_notices` under the owner's login, writes one Inbox item per open notice (kind, finding,
+dispute number; a legal one flagged), and calls `ack_person_notice` with `later_inputs.personNotice` when he has
+answered it (the shell route is `person-claims-admin.js notices` and `ack <notice> owner`); the log counts what is
+open, hourly. The old `ASKRIGOR_ATLAS_PERSON_NOTICE_URL` and `_SECRET` settings are gone. Publish the privacy and terms text with the setting, not before. Roll back only to a build that has Release B: an older image shows these claims without their mark, on lists,
+kept pages and lookups alike. If an older image is unavoidable: pause the writers (no saves and no `show_on_pages`), and
+with the mark still on, withdraw every publication `node apps/research-mcp/dist/atlas/person-claims-admin.js
+rollback-list` prints (unread findings, findings with a marked claim, and findings with a sentence taken off or left
+out) with the owner's `unpublish_finding`, and every curated scorecard row (G-number) it prints with the glance review's
+withdrawal; only then unset `ASKRIGOR_ATLAS_PERSON_MARK` and let the older image serve. The same tool lists the open disputes (`queue`) and takes a sentence off or puts it back (`take-off`, `restore`).
+
 Earlier notice v3 (owner answers 159, 1b and 7, and 160b, 2026-10-22): the free
 contributor notice's third version, `free-contributor-v3-2026-10-22`, says that findings
 the owner accepts may be published in the public Atlas and what deleting a
@@ -434,6 +454,13 @@ then serve the image, and only then set `ASKRIGOR_RESEARCH_DOSSIERS=enabled` in 
 `research-mcp`. Without the setting nothing is asked for or saved. Turning it off again stops new saves and keeps what
 was saved.
 
+Owner answer 400a (22 November 2026; promise P69): `ASKRIGOR_SAFETY_LIMITS=on` in `runtime.env`, then recreate
+`research-mcp`, has `finalize_research` read `later_inputs.safety_limits` (the research steps a model's or app's own
+safety rules limited, as the AI declares them under HRP 20.6.44's LimitsNote) and list each as a limit saying who
+reports it, with one line above the final check panel's fold (`docs/final-check.md`). Off in the code's default; any
+other value, or none, turns it off, which is its rollback: nothing is stored, so nothing needs undoing. AskRigor's own
+planning call and review log `fallback_answered` or `fallback_refused` whatever the setting.
+
 Optional, off by default, the owner's decision (Codex's final check): `ASKRIGOR_DOSSIER_PRIVACY_READING=on` in
 `runtime.env` has every dossier read for personal details before it is stored
 (`apps/research-mcp/src/findings/dossier-privacy-reading.ts`), on the research planner's own Claude API path: its key
@@ -581,6 +608,61 @@ SELECT news_day, day_version, jsonb_array_length(stored_order), committed_at FRO
 To stop news, set `ASKRIGOR_ATLAS_NEWS=off` and restart: staging and the news actions stop, and nothing is shown in any
 case. The owner's `withdraw_news_item` with `news_number` "all" withdraws every item and keeps each withdrawal on its row.
 An earlier image needs no step: it never reads these tables. Undo no migration.
+
+Migration `0040_research_dossier_publications` (AskRigor#477 stage 2, owner answers 331a, 332a and 333a; built, not
+yet released; 0039 is another branch's) adds the research dossiers' public copies: `research_dossier_public_notices`
+(the notices whose yes covers a dossier on the public Atlas, empty), `research_dossier_publications` (a dossier's public
+number, D-1001 onward), `research_dossier_public_versions` (one copy per saved version: shown, held for AskRigor's check
+with its reasons, superseded, taken down or erased; its public content, topic, related topics, the dossiers it conflicts
+with, where its research ran, whether the privacy reading passed its saved content, without which it never shows, and
+whether a claim names a living person, or that its AI did not say, with the owner's recorded statement and decision)
+and
+`research_dossier_public_events` (append-only), thirteen role functions, three pure helpers that derive a copy from its
+private record, two internal functions for the conflict candidates, three for the comparison a show of a held copy is
+checked against, one for whether a copy held for the privacy reading alone may show by itself, two that take the per-topic locks (automatic
+publication and every review transition that changes what is shown take the same locks, in the same order), and two
+views. The research-access role publishes and reads a topic's shown copies
+(`publish_research_dossier_version`, which derives the public copy and why it is held from the saved private record and
+refuses anything else, and any copy the pages' last check would leave out, and admits copies one topic at a time against the conflict check's candidates, and
+`research_dossier_conflict_candidates`, every shown copy on the topic, a linked topic or under another name, a page at a
+time); the review role
+lists, inspects and decides (`list_research_dossier_publications`, `inspect_research_dossier_publication`,
+`decide_research_dossier_publication`, `decide_research_dossier_living_person`, the owner's own decision with his
+reason, the only way a copy whose claim names a living person shows, each comparing a held or taken-down copy with the
+shown dossiers before it shows it (`research_dossier_show_candidates` lists them; the function lists them again under the
+topic locks and refuses a show compared with any other set, and an important conflict, or a comparison that could not be
+made, shows nothing without the owner's override, kept with who and when and the pairs of findings for the pages), `state_research_dossier_living_person`, the
+owner's own statement, recorded once with who and when, on a copy whose AI did not say whether a claim names one,
+without which the ordinary show refuses it, `list_research_dossier_privacy_pending` and
+`record_research_dossier_privacy_reading`, a privacy reading made later of a copy held waiting for one, bound to the
+digest of the content it read (a refusal is final for that content; a reader that could not read is kept apart as
+temporary), `admit_research_dossier_after_privacy` and `list_research_dossier_admission_pending`, which show by itself
+a copy held only for the privacy reading once a later reading passed it, if it otherwise qualifies, after fresh
+conflict and eligibility checks under the account's, the dossier's and the topic locks (never one the owner held or
+took down, nor one refused, withdrawn or ineligible; an important conflict found then holds it for that instead), and
+`revise_research_dossier_importance`, a
+reviewed revision of an importance mark as a new version, never an edit in place);
+the canonical reader reads only the views `research_dossier_public_pages`, `research_dossier_public_history`,
+`research_dossier_public_topics` (each shown topic once, for the topics list) and `research_dossier_public_changes` (a
+number a trigger raises with every change to the copies, which every server's pages cache under, so a withdrawal or an
+erasure is never served from a cache). A
+trigger on `research_dossier_events` takes a copy off the pages when its version is withdrawn or rejected, and erases it
+when its version is erased, unless the owner accepted it, so an earlier image's revocation and `forget_card` keep them in
+step; a trigger on `research_use_accounts` treats losing access like erasure for an accepted copy, detaching its
+dossier's copies from the private versions and the account and clearing their origin. Its release: the one-shot admin `migrate`, then re-run `/usr/local/bin/provision-research-access-role` and
+`/usr/local/bin/provision-research-review-role`, before the image serves. While public dossiers, the owner's review and
+`ASKRIGOR_DOSSIER_PRIVACY_READING=on` are all set, each server reads up to five copies waiting for the privacy reading
+every half hour, on the planner's paid path (about USD 0.007 each at most), stopping at the first reading that could not
+be made; the owner's `read_dossier_privacy` reads one at once. A copy held for the reading alone that it passes is then
+compared with the shown dossiers it could contradict (one more conflict reading on the same path when any shows) and
+shown if it otherwise qualifies; one whose comparison could not be made is compared again on a later sweep. Nothing is published until both
+`ASKRIGOR_PUBLIC_DOSSIERS=enabled` (off by default; it also needs `ASKRIGOR_RESEARCH_DOSSIERS=enabled`) and the release of
+notice v7, on the owner's yes, which adds its version to `research_dossier_public_notices` and to
+`PUBLIC_DOSSIER_NOTICE_VERSIONS`. Read-only, as the migrator:
+`SELECT state, count(*) FROM living_evidence.research_dossier_public_versions GROUP BY state;`. An earlier image never
+reads these tables. Undo no migration; to take everything off the pages at once, set `ASKRIGOR_PUBLIC_DOSSIERS` off
+(the pages stop reading the views) or take copies down with `take_down_dossier`. Its own PostgreSQL acceptance:
+`npm run dossier-publications:postgres-acceptance`.
 
 Owner answers 254a and 255a (2026-11-05; built, not yet released; plan
 `../../docs/superpowers/plans/2026-11-05-atlas-research-behind.md`): migration
@@ -925,6 +1007,57 @@ the owner refreshes each connector's tool list. Before anything is published,
 the owner sets the 217 test cards aside (`set_aside_cards` with `cards` naming
 ARF-0001, ARF-0016 to ARF-0038, ARF-0042, ARF-0043 and ARF-0049 to ARF-0239, as
 section 4G of the 171 plan lists them, sent again until no card waits).
+
+Since owner answer 240a the save path keeps each finding it publishes for
+AskRigor's research until the quick-answer test shows it
+(`../../docs/atlas-quick-answer-test.md`). The owner, 17 Nov 2026, asked for
+what passed the checks to show at once: `ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS=enabled`
+in `runtime.env` makes the save path keep nothing, so a saved finding shows on
+the pages at once, unreviewed and labelled "Not checked by supervisors yet".
+Leave it unset, which is off, for now: it goes on only once the later release
+that marks an unconfirmed claim about a named person "Unverifiable" (the owner,
+19 Nov 2026, 353b and 356a) has shipped and has read the findings already shown.
+With it off, a save publishes exactly as before: kept for the quick-answer test,
+off every list, with its own page and in the research lookup. Findings that
+name a living person are published like any other (352b); nothing holds them.
+
+Migration `0041_atlas_show_saved_findings` stores how each publication reached
+the pages, as the action that showed it said, at that moment (`shown_by`):
+`owner_action` for the owner's `publish_cards`, a decision's publication and his
+own `show_on_pages`; `quick_answer_test`, with the test's verdict
+(`shown_test_verdict`: `pass`, `headline` or `fail`), for the quick-answer
+test's own `show_on_pages`; `automatic_showing` for a save under the setting;
+empty, not recorded, for every publication from before 0041 and for one an
+earlier image publishes or shows again. The owner's own publishing or showing
+is also stored as his decision (`owner_decision`, `owner_decided_at`), which no
+save, keeping or showing of the test's changes, so a finding he checked stays
+known as his even after it is unpublished and kept again. A page says the
+quick-answer test found that a quick AI answer misses a finding only when its
+record says the test showed it with a pass, or from a challenge mark's stored
+verdict, whether the setting is on or not.
+
+Run the one-shot admin `migrate` before the new image serves, then
+`provision-research-review-role.sh`: `migrate` adds four nullable columns, each
+held by a check added by name, replaces `publish_atlas_findings` (0021's shape)
+and `keep_atlas_publications` (0024's shape), whose grants stand, and adds
+`show_atlas_publications`, which the grant script grants to the review role. It
+adds no table, trigger or lock and edits no earlier migration. From this
+release, whatever calls `show_on_pages` or `publish_cards` says who acts in
+`later_inputs.shown_by`: the owner's review connector `owner`; the scheduled
+quick-answer test `quick_answer_test`, with `later_inputs.quick_answer_verdict`,
+and only for `show_on_pages`. A call that doesn't say is refused and changes
+nothing. Held, YouTube-comment and paid private findings are unaffected.
+
+To roll back to the image before this release, leave the setting off. Its
+`migrate` passes this database (0021 is unchanged, and it ignores 0041), puts
+back 0021's `publish_atlas_findings` and 0024's `keep_atlas_publications`,
+which write no route, and never reads the new columns: what it publishes is
+not recorded, what it publishes again or shows again keeps the route it had,
+and its pages say what they said before this release. This image's next `migrate` replaces the two functions again. Undo no
+migration. Before the earlier image serves, the owner's review connector and
+the scheduled quick-answer test stop sending `later_inputs.shown_by`, and the
+test its `later_inputs.quick_answer_verdict` with `show_on_pages`: the earlier
+image refuses both as inputs it doesn't know.
 
 An image rollback below 0021 needs no drain: the earlier image never reads the
 table, publishes nothing at a save, and has no publication action. Undo no

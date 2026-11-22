@@ -27,6 +27,8 @@ import {
   RESEARCH_PLANNER_OUTPUT_SCHEMA,
   RESEARCH_PLANNER_RUBRIC,
   RESEARCH_PLANNER_RUBRIC_VERSION,
+  RESEARCH_PLANNER_SEARCH_RETRY,
+  SEARCH_RETRY_MIN_MS,
   createResearchPlanner,
   researchPlanOf,
   researchPlannerBundle,
@@ -122,6 +124,16 @@ function message(overrides: Record<string, unknown> = {}, reply: unknown = REPLY
     ...overrides,
   } as unknown as Anthropic.Beta.BetaMessage;
 }
+
+/** A reply whose plan ran no web search: no search blocks, and the usage counts none. */
+function unsearched(reply: unknown = REPLY): Anthropic.Beta.BetaMessage {
+  const base = message({}, reply);
+  return { ...base, content: base.content.slice(2),
+    usage: { ...base.usage, server_tool_use: { web_search_requests: 0, web_fetch_requests: 0 } } } as Anthropic.Beta.BetaMessage;
+}
+
+/** Whether a request is a plan's second one: the bundle and then the instruction to search first. */
+const isSearchRetry = (body: Body) => body.messages.length === 2;
 
 function planner(options: {
   env?: Record<string, string | undefined>;
@@ -484,6 +496,164 @@ describe("AskRigor's own planning call (owner answer 298b): the call", () => {
     expect((await made.planner.plan(SOURCE, "account-a")).cached).toBe(true);
     at = Date.parse("2026-11-14T00:00:05Z");
     expect((await made.planner.plan({ ...SOURCE, asked: "another question" }, "account-b")).planning.status).toBe("planned");
+  });
+});
+
+// A plan made without a web search (21 November 2026) ------------------------------------------------------------------
+
+describe("AskRigor's own planning call: a plan made without a web search is asked for once more", () => {
+  const SEARCHED = { ...REPLY, about: "The question is about seeds soaked in oil at home, as the searches show." };
+  // The default reply's usage: 300 input, 600 output, 8,000 written to the cache and 15,000 read, at Opus 5.5's prices.
+  const TOKENS_USD = (300 * 4 + 600 * 20 + 8_000 * 5 + 15_000 * 0.2) / 1e6;
+
+  it("sends the same request with the instruction to search first, and uses the plan that searched", async () => {
+    const made = planner({ env: { ASKRIGOR_RESEARCH_PLANNER_ACCOUNT_DAILY_CALLS: "1" },
+      reply: (body) => isSearchRetry(body) ? message({}, SEARCHED) : unsearched() });
+    const call = await made.planner.plan(SOURCE, "account-a");
+    expect(made.bodies).toHaveLength(2);
+    const [first, second] = made.bodies as [Body, Body];
+    // The same request, with one system message after the bundle: AskRigor's instruction, nothing of the question.
+    expect(second.messages).toEqual([first.messages[0], { role: "system", content: RESEARCH_PLANNER_SEARCH_RETRY }]);
+    expect({ ...second, messages: undefined }).toEqual({ ...first, messages: undefined });
+    expect(RESEARCH_PLANNER_SEARCH_RETRY).not.toContain(SOURCE.asked!);
+    expect(call.planning).toMatchObject({ status: "planned", plan: { about: SEARCHED.about, searches: 1 } });
+    // Both requests are paid for, and both are in the usage; the second's search is the plan's.
+    expect(call.costUsd).toBeCloseTo(2 * TOKENS_USD + 0.01, 10);
+    expect(call.usage).toEqual({ input: 600, output: 1_200, cacheWrite: 16_000, cacheRead: 30_000, searches: 1 });
+    expect(made.logs).toEqual(["no_search", "search_retry_searched"]);
+    // The hour keeps the plan that searched, and the account's day counted the registration once.
+    expect(await made.planner.plan(SOURCE, "account-a")).toMatchObject({ cached: true,
+      planning: { plan: { about: SEARCHED.about } } });
+    expect((await made.planner.plan({ ...SOURCE, asked: "and by mouth?" }, "account-a")).planning)
+      .toEqual({ status: "skipped", reason: "account_limit" });
+    expect(made.bodies).toHaveLength(2);
+  });
+
+  it("sends one request for a plan that searched, as before", async () => {
+    const made = planner();
+    expect((await made.planner.plan(SOURCE, "account-a")).planning).toMatchObject({ status: "planned",
+      plan: { searches: 1 } });
+    expect(made.bodies).toHaveLength(1);
+    expect(made.logs).toEqual([]);
+  });
+
+  it("asks again for a light or an aside plan made without a search too", async () => {
+    for (const reply of [{ ...REPLY, steering_choice: "none", lane: "light", tasks: [REPLY.tasks[0]] },
+      { ...REPLY, steering_choice: "none", lane: "aside", tasks: [] }]) {
+      const made = planner({ reply: (body) => isSearchRetry(body) ? message({}, reply) : unsearched(reply) });
+      expect((await made.planner.plan(SOURCE, "account-a")).planning).toMatchObject({ status: "planned",
+        plan: { lane: reply.lane, searches: 1 } });
+      expect(made.bodies).toHaveLength(2);
+    }
+  });
+
+  it("keeps the first plan when the second request searched nothing either or failed, with what both cost", async () => {
+    for (const [second, log, extraUsd] of [
+      [() => unsearched(SEARCHED), "search_retry_no_search", TOKENS_USD],
+      [() => { throw new Anthropic.APIError(529, undefined, "overloaded", new Headers()); }, "search_retry_error", 0],
+      // A failure with no answer from the API may have run, so it keeps what was held for it.
+      [() => { throw new Error("connection lost"); }, "search_retry_error", 0.12],
+      [() => message({ stop_reason: "refusal", content: [] }), "search_retry_refusal", TOKENS_USD + 0.01],
+      [() => message({}, "not json"), "search_retry_unreadable", TOKENS_USD + 0.01],
+    ] as const) {
+      const made = planner({ reply: (body) => isSearchRetry(body) ? second() : unsearched() });
+      const call = await made.planner.plan(SOURCE, "account-a");
+      expect(call.planning, log).toMatchObject({ status: "planned", plan: { about: REPLY.about, searches: 0 } });
+      expect(call.costUsd, log).toBeCloseTo(TOKENS_USD + extraUsd, 10);
+      expect(made.logs, log).toEqual(["no_search", log]);
+      expect(made.bodies, log).toHaveLength(2);
+    }
+  });
+
+  it("logs the category of the second request's refusal as the first request's is logged", async () => {
+    const made = planner({ reply: (body) => isSearchRetry(body) ? message({ stop_reason: "refusal", content: [],
+      stop_details: { type: "refusal", category: "bio", explanation: "An explanation that is not logged." } })
+      : unsearched() });
+    expect((await made.planner.plan(SOURCE, "account-a")).planning).toMatchObject({ status: "planned",
+      plan: { about: REPLY.about } });
+    expect(made.logs).toEqual(["no_search", "search_retry_refusal_category_bio", "search_retry_refusal"]);
+  });
+
+  it("gives the second request only the call's time that is left, and keeps the first plan when it runs out", async () => {
+    vi.useFakeTimers();
+    try {
+      // The client the planner builds, keeping each request's options and signal: the first request takes 10 seconds
+      // and plans with no search; the second never answers until the test lets it, after the call's time ran out.
+      const sent: Array<{ body: Body; timeout: number | undefined; signal: AbortSignal | undefined }> = [];
+      let lateAnswer: ((message: Anthropic.Beta.BetaMessage) => void) | undefined;
+      const logs: string[] = [];
+      const made = createResearchPlanner({
+        env: ENV as NodeJS.ProcessEnv, readFile: () => `${KEY}\n`, log: (line) => logs.push(line),
+        client: () => ({ beta: { messages: { create: async (body, options) => {
+          sent.push({ body, timeout: options?.timeout, signal: options?.signal });
+          if (!isSearchRetry(body)) {
+            await new Promise((resolve) => { setTimeout(resolve, 10_000); });
+            return unsearched();
+          }
+          return await new Promise<Anthropic.Beta.BetaMessage>((resolve) => { lateAnswer = resolve; });
+        } } } }),
+      });
+      const pending = made.plan(SOURCE, "account-a");
+      await vi.advanceTimersByTimeAsync(10_000);
+      // The first reply's settling and the second request are promise steps, with no timer between them.
+      for (let step = 0; step < 50 && sent.length < 2; step += 1) await Promise.resolve();
+      // The second request has what is left of the call's 45 seconds, not 45 more.
+      expect(sent.map(({ timeout }) => timeout)).toEqual([45_000, 35_000]);
+      await vi.advanceTimersByTimeAsync(34_999);
+      expect(sent[1]!.signal?.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      const call = await pending;
+      // It ended with the call's time: aborted, and the first plan stands.
+      expect(sent[1]!.signal?.aborted).toBe(true);
+      expect(call.milliseconds).toBe(45_000);
+      expect(call.planning).toMatchObject({ status: "planned", plan: { about: REPLY.about, searches: 0 } });
+      // It may have run, so it keeps what was held for it.
+      expect(call.costUsd).toBeCloseTo(TOKENS_USD + 0.12, 10);
+      expect(logs).toEqual(["no_search", "search_retry_timeout"]);
+      // A reply that comes after the call's time changes nothing: the hour keeps the first plan.
+      lateAnswer!(message({}, SEARCHED));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(await made.plan(SOURCE, "account-a")).toMatchObject({ cached: true,
+        planning: { plan: { about: REPLY.about, searches: 0 } } });
+      expect(sent).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not send a second request when saving its hold leaves it less than its least time, and gives the hold back",
+    async () => {
+      // Every write of the state file takes 9 seconds: the second request's hold is saved 27 seconds into the call's 45,
+      // which leaves it 18, less than SEARCH_RETRY_MIN_MS.
+      let at = Date.parse("2026-11-21T10:00:00Z");
+      const writes: string[] = [];
+      const made = planner({ now: () => at, env: { ASKRIGOR_RESEARCH_PLANNER_STATE_FILE: "/run/planner/state.json" },
+        readFile: (path) => { if (path.endsWith("state.json")) throw new Error("none yet"); return `${KEY}\n`; },
+        writeFile: (_path, text) => { writes.push(text); at += 9_000; }, reply: () => unsearched() });
+      const call = await made.planner.plan(SOURCE, "account-a");
+      expect(call.planning).toMatchObject({ status: "planned", plan: { searches: 0 } });
+      expect(made.bodies).toHaveLength(1);
+      expect(made.logs).toEqual(["no_search", "search_retry_skipped"]);
+      // What was held for the request that was not sent is given back: the day keeps the first request's cost only.
+      expect(JSON.parse(writes.at(-1)!).spent_usd).toBeCloseTo(TOKENS_USD, 10);
+      expect(call.costUsd).toBeCloseTo(TOKENS_USD, 10);
+    });
+
+  it("does not ask again without the time or the day's cap for a second request", async () => {
+    // The first request took all but 15 seconds of the call's 45.
+    let at = Date.parse("2026-11-21T10:00:00Z");
+    const slow = planner({ now: () => at, reply: () => { at += 30_000; return unsearched(); } });
+    expect((await slow.planner.plan(SOURCE, "account-a")).planning).toMatchObject({ status: "planned",
+      plan: { searches: 0 } });
+    expect(45_000 - 30_000).toBeLessThan(SEARCH_RETRY_MIN_MS);
+    expect(slow.bodies).toHaveLength(1);
+    expect(slow.logs).toEqual(["no_search", "search_retry_skipped"]);
+    // The day's cap has room for the first request's hold but not, after it, for a second one.
+    const capped = planner({ env: { ASKRIGOR_RESEARCH_PLANNER_DAILY_CAP_USD: "0.13" }, reply: () => unsearched() });
+    expect((await capped.planner.plan(SOURCE, "account-a")).planning).toMatchObject({ status: "planned",
+      plan: { searches: 0 } });
+    expect(capped.bodies).toHaveLength(1);
+    expect(capped.logs).toEqual(["no_search", "search_retry_skipped"]);
   });
 });
 
