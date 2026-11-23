@@ -271,22 +271,27 @@ const TRAILING = new RegExp(String.raw`^(?:[\s"'\p{Pi}\p{Pf}\p{Pe}\p{STerm}]|${C
 // stop inside it ("vs.", "incl.", "approx.", "St.", "Dr.", "et al.") isn't told from a sentence's last word ("twice a
 // day.", "in all.", "10 mg."), so before a capital letter it still ends a sentence: a known limit.
 const ABBREVIATION_END = /(?:^|[^\p{L}\p{M}.])(?:(?:\p{L}\p{M}*)+\.){2,}$/u;
-// The news matching's: the same, except that a sentence whose last run of characters without white space is a web
-// address with its scheme ("://", as in "…at https://www.icmje.org/coi_disclosure.pdf.") ends there, so the declaration
-// after it starts one (the 23 Nov 2026 news audit): such a word is an address, not an abbreviation. Nothing else is read
-// as an address. Codex's reviews of #517 found each looser form let a part of a sentence be found as a whole one,
-// dropping a negation before it: a colon, dash or slash beside an abbreviation ("…the earlier report:i.e. Vitamin D…",
-// round 1), then an underscore of Markdown emphasis ("…report, _i.e. Vitamin D…_", round 2). So an address without its
-// scheme ("www.icmje.org/coi_disclosure.pdf.") runs on, as in the standard matching: a quote after it is refused, never
-// found in part. The one case left that could end a sentence early: an abbreviation written onto the end of an address
-// with its scheme.
-const ADDRESS_FORM = /:\/\//u;
+// The news matching's: the same, except that a sentence that ends in a web address by one of an address's own exact
+// forms ends there, so the declaration after it starts one (the 23 Nov 2026 news audit): such a word is an address, not
+// an abbreviation. The forms: a last word holding "://" ("…at https://www.icmje.org/coi_disclosure.pdf."), or "www." and a
+// host name of two or more characters, with nothing or one space between them, as a line break leaves an address a PDF
+// set over two lines ("…at www.\nicmje.org/coi_disclosure.pdf.", N-1005 of 23 Nov). Nothing else is read as an address.
+// Codex's reviews of #517 found each looser form let a part of a sentence be found as a whole one, dropping a negation
+// before it: a colon, dash or slash beside an abbreviation ("…the earlier report:i.e. Vitamin D…", round 1), then an
+// underscore of Markdown emphasis ("…report, _i.e. Vitamin D…_", round 2). "www.i.e." has no host name, so it runs on.
+// The one case left that could end a sentence early: an abbreviation written onto the end of an address.
+const ADDRESS_END = /(?:\S*:\/\/\S*|(?:^|\s)www\.\s?[\p{L}\p{N}-]{2,}\.\S+)$/iu;
 
 /** Whether a sentence (its end trimmed) ends in an abbreviation, so the next one runs on from it. */
 function endsInAbbreviation(sentence: string, matching: QuoteMatching): boolean {
   if (!ABBREVIATION_END.test(sentence)) return false;
-  return matching !== "news" || !ADDRESS_FORM.test(/\S*$/u.exec(sentence)![0]);
+  return matching !== "news" || !ADDRESS_END.test(sentence);
 }
+// A heading alone on its line (news matching) is one only when the next line starts with a capital letter, as a
+// sentence after a heading does: "Intervention\npatients had no strokes…" is a sentence a line break cut after its first
+// word (Codex's review of #517, round 3), and stays whole. A script without capital letters gets no such heading: its
+// sentence runs on, as in the standard matching.
+const CAPITAL_START = /^[\s"'\p{Pi}\p{Ps}]*[\p{Lu}\p{Lt}]/u;
 // A section's label and its colon at a line's start ("Conclusions: Vitamin D…", as a PDF or a plain text sets a
 // structured abstract's): the label's text, for sectionKind, the list full-text admission reads headings by.
 const LABEL_LINE = /^\s*([^\s:：][^:：\n]{0,60}?)\s*[:：]\s*/u;
@@ -317,7 +322,7 @@ function sentenceStarts(text: string, lines: readonly number[], matching: QuoteM
     const label = LABEL_LINE.exec(text.slice(line, line + 100));
     const colon = label !== null && knownLabel(label[1]!, matching);
     const alone = !colon && matching === "news" && own.trim() !== "" && own.trim().length <= 60 &&
-      knownLabel(own, matching);
+      knownLabel(own, matching) && CAPITAL_START.test(text.slice(next, next + 40));
     if (!colon && !alone) return;
     const at = line + (colon ? label![0] : own).search(/\S/u);
     while (sentence + 1 < starts.length && starts[sentence + 1]! <= at) sentence += 1;
