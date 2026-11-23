@@ -1,0 +1,85 @@
+{
+  "schema": "jev-research-quality-gold-v1",
+  "notes": "Hold back from all model requests. Development examples are not held-out validation cases.",
+  "gold": [
+    {
+      "id": "dmso-human-comparators",
+      "required_flags": [
+        "human_comparator_omission"
+      ]
+    },
+    {
+      "id": "dmso-dose-response",
+      "required_flags": [
+        "dose_response_omission",
+        "surrogate_overclaim"
+      ]
+    },
+    {
+      "id": "dmso-clinical-denominators",
+      "required_flags": [
+        "denominator_causality"
+      ]
+    },
+    {
+      "id": "dmso-context-control",
+      "required_flags": [
+        "context_source_role"
+      ]
+    },
+    {
+      "id": "dmso-surrogate-valence",
+      "required_flags": [
+        "surrogate_overclaim"
+      ]
+    },
+    {
+      "id": "dmso-freeze-vs-warm",
+      "required_flags": [
+        "regime_confusion"
+      ]
+    },
+    {
+      "id": "forum-broad-best",
+      "required_flags": [
+        "unnecessary_steering"
+      ]
+    },
+    {
+      "id": "preliminary-without-plan",
+      "required_flags": [
+        "missing_continuation"
+      ]
+    },
+    {
+      "id": "species-conflation",
+      "required_flags": [
+        "species_conflation"
+      ]
+    },
+    {
+      "id": "ai-consciousness-future",
+      "required_flags": [
+        "unnecessary_steering",
+        "expert_forecasts_omitted",
+        "bio_compute_omitted"
+      ]
+    },
+    {
+      "id": "mechanism-only-control",
+      "required_flags": []
+    },
+    {
+      "id": "complete-narrow-control",
+      "required_flags": []
+    },
+    {
+      "id": "cautious-incidence-control",
+      "required_flags": []
+    },
+    {
+      "id": "legitimate-steering-control",
+      "required_flags": []
+    }
+  ]
+}

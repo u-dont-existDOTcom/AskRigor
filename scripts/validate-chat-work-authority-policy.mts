@@ -96,6 +96,9 @@ export const PAID_MODEL_INFERENCE_SCOPES = [
   "RESEARCH_PLANNER_ON_OWNER_DEV_ACCOUNTS",
   // Owner answer 301a (13 November 2026): AskRigor's own review of a dev account's draft answer at the final check.
   "ANSWER_REVIEW_ON_OWNER_DEV_ACCOUNTS",
+  // Owner, 15 November 2026 ("$1 is fine"): Jev on OpenRouter for the independent-value evaluation on AskRigor's and
+  // Mission Control's test cases, USD 1.00 in all through UDA's budgeted evaluator and its one shared ledger.
+  "JEV_INDEPENDENT_VALUE_EVALUATION_ON_ASKRIGOR_AND_MISSION_CONTROL_TEST_CASES",
 ] as const;
 
 export interface GateRequest {
