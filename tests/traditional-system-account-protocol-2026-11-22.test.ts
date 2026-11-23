@@ -2,8 +2,10 @@ import { createHash } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
-import { loadProtocol, loadProtocolSectionSnapshot, PROTOCOL_PAGE_MAX_BYTES } from "../packages/protocol/src/index.js";
+import { loadProtocol, loadProtocolSectionSnapshot, protocolSections, PROTOCOL_PAGE_MAX_BYTES } from "../packages/protocol/src/index.js";
 import { TRADITIONAL_SYSTEM_CASE_IDS, undoTraditionalSystemAccount } from "./helpers/undo-traditional-system-account.js";
+
+import { undoOptionsFromLivingTraditions } from "./helpers/undo-options-from-living-traditions.js";
 
 const PURPOSE = "Load for traditional, regional or folk medical concepts, claims, remedies, diagnoses, practices and " +
   "safety, named or not. Find the traditions' own accounts and relevant differences; check empirical health claims " +
@@ -13,19 +15,19 @@ const hash = (text: string) => createHash("sha256").update(text).digest("hex");
 describe("HRP 20.6.45: the tradition's own account (owner answer 402a)", () => {
   it("preserves the approved module bytes, placement and single core pointer", async () => {
     const { text, sections, manifest } = await loadProtocolSectionSnapshot("hrp");
-    expect(manifest).toMatchObject({ version: "20.6.45", revisionDate: "2026-11-22" });
-    const module = /^ <TraditionalSystemAccount priority="Critical">[\s\S]*?^ <\/TraditionalSystemAccount>/mu.exec(text)?.[0];
+    expect(manifest).toMatchObject({ version: "20.6.46", revisionDate: "2026-11-22" });
+    const module = /^ <TraditionalSystemAccount priority="Critical">[\s\S]*?^ <\/TraditionalSystemAccount>/mu.exec(undoOptionsFromLivingTraditions(text))?.[0];
     expect(module).toBeDefined();
     // SHA-256 of the owner's approved XML block, including its indentation and internal newlines.
     expect(hash(module!)).toBe("b942d5eb87758a9eba34b14b71c3d5921d67b3a8d4d50af5ed928f848daa9a34");
-    expect(text).toContain(` </EthnobotanicalSpecificity>\n\n${module}\n\n <NeglectedInterventionModules`);
+    expect(undoOptionsFromLivingTraditions(text)).toContain(` </EthnobotanicalSpecificity>\n\n${module}\n\n <NeglectedInterventionModules`);
     expect(text.split("historical safety use; load TraditionalSystemAccount.")).toHaveLength(2);
     expect(sections.find(({ name }) => name === "EvidenceLayers")?.core).toBe(true);
     expect(text.indexOf('<Revision version="20.6.45"')).toBeLessThan(text.indexOf('<Revision version="20.6.44"'));
   });
 
   it("keeps the entire Purpose visible in the index and the always-loaded core under its cap", async () => {
-    const { sections } = await loadProtocolSectionSnapshot("hrp");
+    const sections = protocolSections("hrp", undoOptionsFromLivingTraditions(await loadProtocol("hrp")));
     const section = sections.find(({ name }) => name === "TraditionalSystemAccount");
     expect(section).toMatchObject({ core: false, runtime: true, summary: PURPOSE });
     expect(section!.summary).toHaveLength(237);
