@@ -1,9 +1,10 @@
-# Changes that wait for the next tool-list change
+# Changes ready for the next tool-list change
 
-The tool list is fixed (owner answer 189a, 27 October 2026): only adding or removing a tool changes it, and that
-release's record says the apps need one refresh. A fix that needs the published list itself waits here until then,
-with what it would change and what holds meanwhile. Fixes that fit the later shapes, the runtime enums, results or the
-protocol are made at once instead.
+The tool list may change again (the owner, 22 November 2026, lifting the freeze of owner answer 189a). Each change
+costs every app one Refresh, so fixes that need the published list are collected here and go out together in the next
+release that changes the list, with what each would change and what holds meanwhile. That release's record says the
+apps need one refresh. Fixes that fit the later shapes, the runtime enums, results or the protocol are still made at
+once.
 
 The forum-reader build included the unified `description_only` spelling, PMID/PMCID-only full-text acquisition, and
 `caveats` wording and behavior under every check status.

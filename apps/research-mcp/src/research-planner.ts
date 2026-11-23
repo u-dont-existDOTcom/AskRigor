@@ -123,6 +123,10 @@ import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, PLANNER_PAUSE_
  * questions as modern evidence only, and one loaded no HRP; step 3 now includes the relevant tradition's own sourced
  * account and material differences, matched to safety and benefit evidence, with urgent safety work first.
  *
+ * Open health options (rubric 2026-11-22.3, owner answer 410b). Step 3 adds a bounded search of living
+ * traditions' own accounts beside matched benefit and harm checks, preserving explicit limits, confined
+ * requests, emergency priority, serious-risk tasks and existing task limits; overlapping work is combined.
+ *
  * A plan made without a web search is asked for once more (21 November 2026). Step 1 of the rubric says the call's
  * first step is always a web search, and its wording was tightened four times for that (13 and 14 November); still, in
  * the clean comparison's first round (21 Nov, owner answer 395b) three of the five live plans ran none, and so did 3 of
@@ -155,7 +159,7 @@ import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, PLANNER_PAUSE_
  * the counts go on in memory. Without the setting nothing is read or written.
  */
 
-export const RESEARCH_PLANNER_RUBRIC_VERSION = "2026-11-22.2";
+export const RESEARCH_PLANNER_RUBRIC_VERSION = "2026-11-22.3";
 
 // Stable instructions first, so the API's prompt cache can serve them across calls; the bundle follows them.
 export const RESEARCH_PLANNER_RUBRIC = `You plan research for AskRigor, a health and science research service. A person asked their AI assistant a
@@ -299,6 +303,11 @@ preparation, its cautions) and where its traditions differ (such as classical an
 medicine), naming which tradition; give it a task of its own only when it answers a different question from
 the other tasks. Match safety and benefit studies to those claims and the actual preparation, and keep urgent
 safety work first.
+For open options for a health problem or goal, plan a bounded search of relevant living traditions' own
+accounts and benefit/harm checks for the actual preparations and populations. Honour explicit topic/source
+limits and omit source work they exclude; do not widen confined treatment, diagnostic, administrative or
+lookup requests, or add this search during an emergency. Combine overlapping work; split only distinct
+questions. Preserve serious-risk tasks and existing task limits.
 When the question takes something for granted (a fact, a cause, a
 comparison, or that something has not been done), include a task that could show it wrong. When it asks whether
 something could happen or be made, one task looks at the routes already being tried that differ in kind from the
