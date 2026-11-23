@@ -271,11 +271,14 @@ export function createGeminiSignInRoutes(
           return true;
         }
         const path = pathname.slice(GEMINI_ISSUER_PATH.length) || "/";
-        // Google's calls are logged on arrival too, so one that stalls or never finishes still leaves a line.
-        if (method === "POST" && (path === "/token" || path === "/token/revocation")) {
-          note(path === "/token" ? "token" : "revocation", "received");
+        // Google's calls are logged on arrival too, so one that stalls or never finishes still leaves a line. The
+        // library's router also takes a trailing slash and any letter case, so the check does too (Codex's re-review).
+        const endpoint = libraryEndpoint(path);
+        if (method === "POST" && (endpoint === "/token" || endpoint === "/token/revocation")) {
+          note(endpoint === "/token" ? "token" : "revocation", "received");
         }
-        if (path === "/auth" && (method === "GET" || method === "POST")) {
+        // The library's router also takes "/AUTH" and "/auth/": they get the same checks (Codex's re-review, 23 Nov).
+        if (endpoint === "/auth" && (method === "GET" || method === "POST")) {
           // What Gemini asked for, by shape only (the step log, when on): which parameters came, never their values.
           if (writeNote !== undefined) {
             note("authorization", "requested", method === "GET"
@@ -334,11 +337,16 @@ function pathKind(pathname: string): string {
   if (pathname === GEMINI_RESOURCE_METADATA_PATH || DISCOVERY_ALIASES.has(pathname)) return "metadata";
   if (pathname === GEMINI_CALLBACK_PATH) return "callback";
   if (INTERACTION.test(pathname)) return "interaction";
-  const path = pathname.slice(GEMINI_ISSUER_PATH.length);
+  const path = libraryEndpoint(pathname.slice(GEMINI_ISSUER_PATH.length));
   if (path === "/token") return "token";
   if (path === "/token/revocation") return "revocation";
   if (path === "/auth" || path.startsWith("/auth/")) return "authorization";
   return "other";
+}
+
+/** A library path as its router matches it: letter case and trailing slashes ignored. */
+function libraryEndpoint(path: string): string {
+  return path.toLowerCase().replace(/\/+$/u, "");
 }
 
 function methodNotAllowed(response: ServerResponse): true {

@@ -268,6 +268,19 @@ describe("Gemini's sign-in step log covers every step after Allow, by name only"
     }
     // Arrival is logged before the library runs, so a call that stalls still leaves a line.
     expect(lines()).toContain("token received");
+    // Also for the path variants the library's router accepts (Codex's re-review).
+    records.length = 0;
+    const variants = await startGeminiFixture({ diagnostic: (record) => records.push(record) });
+    try {
+      for (const path of ["/oauth/gemini/token/", "/oauth/gemini/TOKEN", "/oauth/gemini/token/revocation/"]) {
+        await fetch(`${variants.baseUrl}${path}`, { method: "POST" });
+      }
+    } finally {
+      await variants.close();
+    }
+    expect(lines().filter((line) => line.endsWith(" received"))).toEqual([
+      "token received", "token received", "revocation received",
+    ]);
     records.length = 0;
     const limited = await startGeminiFixture({ diagnostic: (record) => records.push(record), rateLimitCapacity: 1 });
     try {
@@ -281,6 +294,19 @@ describe("Gemini's sign-in step log covers every step after Allow, by name only"
     expect(records.filter((record) => record.outcome === "rate_limited")).toEqual([
       { event: "askrigor_gemini_sign_in", stage: "library", outcome: "rate_limited", detail: { path: "token" } },
     ]);
+  });
+
+  it("gives the router's variants of the authorization address the same checks (Codex's re-review)", async () => {
+    const fixture = await start();
+    for (const path of ["/oauth/gemini/AUTH", "/oauth/gemini/auth/", "/oauth/gemini/Auth//"]) {
+      const response = await new Browser(fixture.baseUrl).request(`https://mcp.askrigor.com${path}?${new URLSearchParams({
+        response_type: "code", client_id: CLIENT_ID, redirect_uri: GOOGLE_REDIRECT, scope: "research:use",
+        state: "google-state-1", code_challenge: "a".repeat(43), code_challenge_method: "S256",
+      }).toString()}`);
+      expect(response.status, path).toBe(400);
+      expect(response.headers.get("location"), path).toBeNull();
+    }
+    expect(lines().filter((line) => line === "library resource_missing")).toHaveLength(3);
   });
 
   it("names an inherited property's name as other, never as code (Codex's review)", async () => {
