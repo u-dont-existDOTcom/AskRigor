@@ -5,10 +5,10 @@
  * "Raise the limit for a specific tool", read 17 Nov 2026). The MCP SDK this server uses (1.32.2) publishes a tool's
  * `_meta` in tools/list as given, so a declaration needs nothing new from it.
  *
- * A declaration changes tools/list, which owner answer 189a keeps fixed (tests/fixtures/frozen-tool-lists), and every
- * app's copy of the tools then needs one refresh. So nothing is declared unless ASKRIGOR_DECLARE_RESULT_SIZES=enabled:
- * the release that turns it on needs the owner's yes, rewrites the frozen lists with it on and says in its record that
- * apps need one refresh.
+ * A declaration changes tools/list (tests/fixtures/frozen-tool-lists), and every app's copy of the tools then needs one
+ * refresh. So nothing is declared unless ASKRIGOR_DECLARE_RESULT_SIZES=enabled: it goes out with the next release that
+ * changes the list anyway (the freeze of owner answer 189a was lifted on 22 Nov 2026), which rewrites the recorded
+ * lists with it on and says in its record that apps need one refresh.
  *
  * What each tool that can return a large result returns at most, from its own code (server fix 3, 17 Nov 2026):
  * - load_protocol pages, acquire_open_full_text and continue_open_full_text pages (34,000 serialized characters of text

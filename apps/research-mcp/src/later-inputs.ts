@@ -85,7 +85,8 @@ export function finalCheckAsked(raw: unknown): string | undefined {
 }
 
 /**
- * Owner answer 189a: published tool definitions stay fixed. A new input gets a later shape entry; a newer form
+ * Built under owner answer 189a's freeze (lifted 22 Nov 2026; AGENTS.md): later_inputs stays accepted for apps that
+ * hold an older tool list. A new input gets a later shape entry; a newer form
  * of an existing input (enum, nested field or relaxed limit) redeclares that input in the later shape. Either
  * form reaches runtime validation at the top level or through later_inputs, never both. A new action or category
  * goes in the runtime enum only, named in results or the protocol. New guidance belongs in results or the protocol.
