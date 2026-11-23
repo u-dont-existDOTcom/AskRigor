@@ -132,15 +132,14 @@ const BROKEN_WORD = /(?<=\p{L})[-­‐‑]\s+(?=\p{Ll})/gu;
 /**
  * How quotes are matched. "standard": the source lines' and the findings card's rules, below. "news": the Atlas news
  * card's backing lines (the 23 Nov 2026 news audit: who paid, How much's figures and an agency's action failed on
- * formatting alone), with four exact, structural additions, the same in the quote and in the text, and no fuzzy or
- * meaning-based matching: a quote may start with a section's label and its colon ("FUNDING:", "Interpretation:"), which
- * a PubMed abstract keeps apart from its text, so it is looked up as given and, when what is left is long enough to mean
- * much on its own, without the label; the white space beside
- * a dash or a hyphen between two characters is set aside ("1 – 14" is "1–14", "− 4" is "−4"; figureText already reads
- * every dash and minus sign as one); a label of NEWS_QUOTE_LABELS at a sentence's start in the text, with its colon or
- * alone on its line ("Funding/Support:", "Competing interests" as a PDF sets a heading), ends there, so the sentence
- * after it starts a sentence; and a word with full stops inside it joined by a web address's or a file name's character
- * to what is before it ("…/coi_disclosure.pdf.") is no abbreviation, so a sentence ends after it.
+ * formatting alone), with three exact, structural additions and no fuzzy or meaning-based matching: a quote may start
+ * with a section's label and its colon ("FUNDING:", "Interpretation:"), which a PubMed abstract keeps apart from its
+ * text, so it is looked up as given and, when what is left is long enough to mean much on its own, without the label,
+ * then only in the section of that name; the white space beside a dash or a hyphen between two characters is set aside,
+ * in the quote and in the text ("1 – 14" is "1–14", "− 4" is "−4"; figureText already reads every dash and minus sign as
+ * one); and a sentence that ends in a web address by its own form ("://", or "www." and a host name) ends there, though
+ * its last word looks like an abbreviation. Labels and headings in the text are read as the standard matching reads
+ * them (Codex's reviews of #517: every wider guess let a part of a sentence be found as a whole one).
  */
 export type QuoteMatching = "standard" | "news";
 
@@ -184,9 +183,9 @@ function labelKey(label: string): string {
   return label.normalize("NFKC").toLowerCase().replace(/\s+/gu, " ").trim().replace(/[\s:：.]+$/u, "");
 }
 
-/** Whether a line's label is a section's: one full-text admission knows, or, for the news matching, NEWS_QUOTE_LABELS. */
-function knownLabel(label: string, matching: QuoteMatching): boolean {
-  return sectionKind(label) !== undefined || (matching === "news" && NEWS_QUOTE_LABELS.has(labelKey(label)));
+/** Whether a news quote's own label is a section's: one full-text admission knows, or one of NEWS_QUOTE_LABELS. */
+function knownLabel(label: string): boolean {
+  return sectionKind(label) !== undefined || NEWS_QUOTE_LABELS.has(labelKey(label));
 }
 
 /**
@@ -195,7 +194,7 @@ function knownLabel(label: string, matching: QuoteMatching): boolean {
  */
 export function newsQuoteForms(quote: string): string[] {
   const label = LABEL_LINE.exec(quote);
-  if (label === null || !knownLabel(label[1]!, "news")) return [quote];
+  if (label === null || !knownLabel(label[1]!)) return [quote];
   const rest = quote.slice(label[0].length);
   return rest.trim() === "" ? [quote] : [quote, rest];
 }
@@ -287,11 +286,6 @@ function endsInAbbreviation(sentence: string, matching: QuoteMatching): boolean 
   if (!ABBREVIATION_END.test(sentence)) return false;
   return matching !== "news" || !ADDRESS_END.test(sentence);
 }
-// A heading alone on its line (news matching) is one only when the next line starts with a capital letter, as a
-// sentence after a heading does: "Intervention\npatients had no strokes…" is a sentence a line break cut after its first
-// word (Codex's review of #517, round 3), and stays whole. A script without capital letters gets no such heading: its
-// sentence runs on, as in the standard matching.
-const CAPITAL_START = /^[\s"'\p{Pi}\p{Ps}]*[\p{Lu}\p{Lt}]/u;
 // A section's label and its colon at a line's start ("Conclusions: Vitamin D…", as a PDF or a plain text sets a
 // structured abstract's): the label's text, for sectionKind, the list full-text admission reads headings by.
 const LABEL_LINE = /^\s*([^\s:：][^:：\n]{0,60}?)\s*[:：]\s*/u;
@@ -301,7 +295,10 @@ const LABEL_LINE = /^\s*([^\s:：][^:：\n]{0,60}?)\s*[:：]\s*/u;
  * sentence's end ("group.[12] Next") opening the next one, a sentence ending in an abbreviation run on into the next
  * (ABBREVIATION_END), and a sentence that starts with a section's label at a line's start (`lines`) starting again after
  * the label (LABEL_LINE): "We could not confirm the earlier report: vitamin D…" has no label, so it stays whole. The news
- * matching also knows NEWS_QUOTE_LABELS, and a label alone on its line, with no colon, as a PDF sets a heading.
+ * matching's only other boundary is an address's end (endsInAbbreviation). It reads labels in the text as the standard
+ * matching does: Codex's reviews of #517 found every wider guess, a label of NEWS_QUOTE_LABELS with its colon
+ * ("Background:foreground ratios…") or alone on its line ("Intervention\npatients…", "Background\nDNA damage…"), let a
+ * part of a sentence be found as a whole one, four rounds running, so they were taken out (a class, not a case).
  */
 function sentenceStarts(text: string, lines: readonly number[], matching: QuoteMatching = "standard"): number[] {
   const segments: number[] = [];
@@ -315,22 +312,16 @@ function sentenceStarts(text: string, lines: readonly number[], matching: QuoteM
   const labelled = new Set(starts);
   // The lines are in order, so the last sentence start at or before each is found going on, not again from the first.
   let sentence = 0;
-  lines.forEach((line, place) => {
-    // The label's own line, to the next line's start: a heading alone on its line ends there (news matching only).
-    const next = lines[place + 1] ?? text.length;
-    const own = text.slice(line, next);
+  for (const line of lines) {
     const label = LABEL_LINE.exec(text.slice(line, line + 100));
-    const colon = label !== null && knownLabel(label[1]!, matching);
-    const alone = !colon && matching === "news" && own.trim() !== "" && own.trim().length <= 60 &&
-      knownLabel(own, matching) && CAPITAL_START.test(text.slice(next, next + 40));
-    if (!colon && !alone) return;
-    const at = line + (colon ? label![0] : own).search(/\S/u);
+    if (label === null || sectionKind(label[1]!) === undefined) continue;
+    const at = line + label[0].search(/\S/u);
     while (sentence + 1 < starts.length && starts[sentence + 1]! <= at) sentence += 1;
     // Only a label that starts a sentence: one in a sentence a line break cut ("…the earlier\nresults: …") is none.
-    if (text.slice(starts[sentence]!, at).trim() !== "") return;
-    const after = colon ? line + label![0].length : next;
+    if (text.slice(starts[sentence]!, at).trim() !== "") continue;
+    const after = line + label[0].length;
     if (after < text.length) labelled.add(after);
-  });
+  }
   return [...labelled].sort((left, right) => left - right);
 }
 
@@ -451,6 +442,11 @@ function finder(document: SourceLineDocument, matching: QuoteMatching = "standar
     // reported.", which another section may say).
     for (const given of matching === "news" ? newsQuoteForms(quote) : [quote]) {
       if (given !== quote && !longEnough(given)) continue;
+      // Without its label, a quote is found only in the section of that same name, as a PubMed abstract keeps its
+      // sections apart from their text ("FUNDING: …" in the FUNDING section): an exact check of the label the quote
+      // gives against the document's own section names, so a sentence is never credited to another section (Codex's
+      // review of #517, round 4: "Conflict of Interest Disclosures: No information was provided." under FUNDING).
+      const label = given === quote ? undefined : labelKey(LABEL_LINE.exec(quote)![1]!);
       const wanted = quoteForm(bracketedSuperscripts(given), matching);
       if (wanted === "") continue;
       for (const { text, sentences, blocks } of forms) {
@@ -461,6 +457,7 @@ function finder(document: SourceLineDocument, matching: QuoteMatching = "standar
           if (first < 0 || end > sentences[last]!.end || !LEADING.test(text.slice(sentences[first]!.start, at)) ||
               !endsSentence(text, sentences, last, end)) continue;
           const block = blocks.findLast(({ start }) => start <= at);
+          if (label !== undefined && labelKey(block?.section ?? "") !== label) continue;
           return { found: true, section: block?.section };
         }
       }

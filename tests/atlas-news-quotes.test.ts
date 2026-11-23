@@ -63,10 +63,14 @@ describe("the news card's quotes: a structured abstract's label at the quote's s
     expect(newsQuoteForms("Our sponsor: an invented fund paid for the trial.")).toEqual(["Our sponsor: an invented fund paid for the trial."]);
     expect(newsQuoteForms("The ratio was 3:1 in the invented trial.")).toEqual(["The ratio was 3:1 in the invented trial."]);
     expect(newsQuoteForms("The trial ended. Results: none.")).toEqual(["The trial ended. Results: none."]);
+    // A label naming another section is not this sentence's (Codex's review of #517, round 4): the sentence is the
+    // INTERPRETATION section's, so "FINDINGS:" before it is refused.
     expect(await outcomes(ABSTRACT, ["Our sponsor: An invented university's neurology fund.",
       "FINDINGS: The invented drug did not reduce the risk of a second stroke when compared with aspirin, and major " +
-        "bleeding did not differ between the two treatments."]))
-      .toEqual(["not_found", "found"]);
+        "bleeding did not differ between the two treatments.",
+      "INTERPRETATION: The invented drug did not reduce the risk of a second stroke when compared with aspirin, and " +
+        "major bleeding did not differ between the two treatments."]))
+      .toEqual(["not_found", "not_found", "found"]);
   });
 
   it("looks a quote up without its label only when what is left means much on its own", async () => {
@@ -150,21 +154,26 @@ describe("the news card's quotes: a label or a heading before the quoted sentenc
     "tension guideline committee. All other authors declare no relevant conflicts of interest.",
   ].join("\n") }] };
 
-  it("finds the sentence after a known label with its colon, or after a heading alone on its line", async () => {
+  it("reads labels and headings in the text as the standard matching does, and ends a sentence after an address", async () => {
+    // Codex's reviews of #517: every wider guess at a label or a heading in the text let a part of a sentence be found as
+    // a whole one, four rounds running, so the text's labels are read as the standard matching reads them. The quote
+    // gives the label as the text prints it instead.
     const quotes = [
       "Dr Invented reported receiving royalties from an invented press during the conduct of the study.",
       "This study was funded by an invented grant awarded to an invented university.",
     ];
-    expect(await outcomes(BACK_MATTER, quotes)).toEqual(["found", "found"]);
-    expect(await outcomes(BACK_MATTER, quotes, "standard")).toEqual(["not_found", "not_found"]);
+    expect(await outcomes(BACK_MATTER, quotes)).toEqual(await outcomes(BACK_MATTER, quotes, "standard"));
+    expect(await outcomes(BACK_MATTER, ["Conflict of Interest Disclosures: Dr Invented reported receiving royalties " +
+      "from an invented press during the conduct of the study."])).toEqual(["found"]);
     const pageQuotes = [
       "This research was funded by an invented trust via a fellowship held by AB (ref: 000000/Z/00/Z) and an\n" +
         "invented school (project 000).",
       "CD is a current member of an invented hyper-\ntension guideline committee.",
       "All other authors declare no relevant conflicts of interest.",
     ];
-    // The declaration after "www." and a host name a line break split (N-1005 of 23 Nov) starts a sentence of its own.
-    expect(await outcomes(PAGE, pageQuotes)).toEqual(["found", "found", "found"]);
+    // The declaration after "www." and a host name a line break split (N-1005 of 23 Nov) starts a sentence of its own; the
+    // sentence after the heading "Funding" alone on its line does not.
+    expect(await outcomes(PAGE, pageQuotes)).toEqual(["not_found", "found", "found"]);
     expect(await outcomes(PAGE, pageQuotes, "standard")).toEqual(["not_found", "not_found", "found"]);
   });
 
@@ -194,6 +203,8 @@ describe("the news card's quotes: no part of a sentence is found as a whole one"
     { section: "Discussion", text: "We did not confirm the later report, _i.e. Zinc shortens colds in children._" },
     { section: "Discussion", text: "We saw no effect in the report www.i.e. Zinc lozenges helped nobody." },
     { section: "Methods", text: "Intervention\npatients had no strokes during twelve months of follow-up." },
+    { section: "Results", text: "Background\nDNA damage did not predict mortality in the invented cohort." },
+    { section: "Results", text: "Background:foreground ratios did not differ between the treatment groups." },
     { section: "Funding", text: "Disclosure forms are at https://www.example.org/coi_disclosure.pdf. The invented " +
       "council paid for the trial." },
   ] };
@@ -201,7 +212,9 @@ describe("the news card's quotes: no part of a sentence is found as a whole one"
   it("finds no part of a sentence after an abbreviation that only a mark joins to the word before it", async () => {
     const parts = ["Vitamin D reduces fractures in older adults.", "Aspirin reduce pain in invented trials.",
       "Women in the invented cohort.", "Zinc shortens colds in children.", "Zinc lozenges helped nobody.",
-      "Patients had no strokes during twelve months of follow-up."];
+      "Patients had no strokes during twelve months of follow-up.",
+      "DNA damage did not predict mortality in the invented cohort.",
+      "foreground ratios did not differ between the treatment groups."];
     const none = parts.map(() => "not_found");
     expect(await outcomes(PROSE, parts)).toEqual(none);
     expect(await outcomes(PROSE, parts, "standard")).toEqual(none);
@@ -213,5 +226,15 @@ describe("the news card's quotes: no part of a sentence is found as a whole one"
   it("still ends a sentence after a web address or a file name, by the news matching only", async () => {
     expect(await outcomes(PROSE, ["The invented council paid for the trial."])).toEqual(["found"]);
     expect(await outcomes(PROSE, ["The invented council paid for the trial."], "standard")).toEqual(["not_found"]);
+  });
+});
+
+describe("the news card's quotes: a quote's own label is looked for only in the section of that name", () => {
+  // Codex's review of #517, round 4: a quote whose label names another section is not credited to this one.
+  const ONLY_FUNDING = abstractDocument("", [{ label: "FUNDING", text: "No information was provided." }]);
+
+  it("finds a labelled quote in its own section, and refuses it under another section's label", async () => {
+    expect(await outcomes(ONLY_FUNDING, ["FUNDING: No information was provided.",
+      "Conflict of Interest Disclosures: No information was provided."])).toEqual(["found", "not_found"]);
   });
 });
