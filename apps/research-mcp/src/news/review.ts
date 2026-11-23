@@ -5,7 +5,14 @@ import {
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
-import { NEWS_DAY_HANDLER_MS, publishNewsDay, type NewsDayResult, type PaperStatusLookup } from "./day.js";
+import { newsCardSchema, newsPer100Words } from "./card.js";
+import {
+  NEWS_DAY_HANDLER_MS,
+  publishNewsDay,
+  type NewsDayResult,
+  type NewsExpiredItem,
+  type PaperStatusLookup,
+} from "./day.js";
 
 /**
  * Atlas news, stage 1: the owner's three news actions on review_research_contribution (design v4, section 3.8; no tool
@@ -53,6 +60,13 @@ export interface AtlasNewsActionResult {
   news: AtlasNewsResult;
 }
 
+/** Why an item left the seven-day order, in words (the 23 Nov 2026 news audit). */
+const EXPIRED_WORDS: Record<NewsExpiredItem["reason"], string> = {
+  seven_days: "its seven days passed",
+  seven_days_staged_before_v7: "its seven days passed; staged before the news check's version 7, it was never judged " +
+    "by that version's bar, nor judged again",
+};
+
 const DAY_STATUS_WORDS: Record<NewsDayResult["status"], string> = {
   committed: "The day is stored, in shadow: nothing of it shows on any page.",
   replayed: "This payload was already stored for the day; nothing was stored again.",
@@ -97,7 +111,10 @@ async function newsAction(request: AtlasNewsRequest, deps: AtlasNewsReviewDepend
           `${result.keptBack.length === 0 ? "" : `; kept back: ${result.keptBack.map(({ number, reasons }) =>
             `${number} (${reasons.join(", ")})`).join("; ")}`}` +
           `${result.linesKeptBack.length === 0 ? "" : `; lines kept back: ${result.linesKeptBack.map(({ line, reasons }) =>
-            `line ${line} (${reasons.join(", ")})`).join("; ")}`}.`
+            `line ${line} (${reasons.join(", ")})`).join("; ")}`}` +
+          `${(result.expired ?? []).length === 0 ? "" : `; expired from the seven-day order: ${result.expired!.map(
+            ({ number, committed, reason }) => `${number} (${EXPIRED_WORDS[reason]}, first stored ${committed})`)
+            .join("; ")}`}.`
         : result.status === "refused" ? ` ${result.problems.join(" ")}` : "";
       return { ok, text: `${DAY_STATUS_WORDS[result.status]}${detail}`,
         news: { action: request.action, status: result.status, result: { ...result } } };
@@ -127,8 +144,11 @@ async function newsAction(request: AtlasNewsRequest, deps: AtlasNewsReviewDepend
       }
       if (request.news_number !== undefined) {
         const [item] = await deps.store.inspectNumbers([request.news_number], at);
+        // Its people per 100 as a reader is shown them: a missing comparison as "no comparison figure", with its reason.
+        const per100 = item === undefined ? undefined : newsCardSchema.safeParse(item.card).data?.per_100;
         return { ok: true, text: item === undefined ? `No news item has the number ${request.news_number}.`
           : `${item.number}: ${item.state}${item.keptReasons === null ? "" : ` (${item.keptReasons.join(", ")})`}; ` +
+            `${per100 === undefined ? "" : `people per 100: ${newsPer100Words(per100)}; `}` +
             "its card, draft, receipt claims and reading are in the result.",
           news: { action: request.action, status: item === undefined ? "not_found" : "listed",
             result: item === undefined ? {} : { item } } };

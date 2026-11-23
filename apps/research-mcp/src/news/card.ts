@@ -41,9 +41,14 @@ export const NEWS_READ_DEPTHS = ["full_text", "partial_text", "abstract", "confe
 export const NEWS_BACKED_FIELDS = [
   "finding", "for", "how_much", "what_you_can_do", "other_outcomes", "harms", "limits", "who_paid", "official_action",
 ] as const;
+/**
+ * The card's limits. The finding: at most 24 words, about 20 the aim (the 23 Nov 2026 news audit: two cards cut to fit
+ * 12 words were then read as stronger or other than the source, having lost their group, comparator or time frame);
+ * its characters are bounded at the same proportion, so the word cap is the one that acts.
+ */
 export const NEWS_CARD_LIMITS = {
-  findingWords: 12, finding: 200, text: 600, short: 300, backing: 16, quote: 300, sources: 5, regions: 12,
-  funders: 10, declarations: 30,
+  findingWords: 24, findingWordsAim: 20, finding: 400, text: 600, short: 300, backing: 16, quote: 300, sources: 5,
+  regions: 12, funders: 10, declarations: 30, noComparisonReason: 200,
 } as const;
 
 const KEY = /^[a-z][a-z0-9-]{0,59}$/u;
@@ -61,7 +66,10 @@ export const newsCardSchema = z.object({
   outcome_kind: z.enum(["people_event", "scale", "none"]),
   per_100: z.object({
     treated: z.number().min(0).max(100),
-    comparison: z.number().min(0).max(100),
+    // A study of one group (a records review of one treatment, say) has no comparison figure: "none", with the reason.
+    comparison: z.union([z.number().min(0).max(100), z.literal("none")]),
+    no_comparison_reason: text(NEWS_CARD_LIMITS.noComparisonReason).optional()
+      .describe("Only with comparison \"none\": why there is no comparison figure, in a few words."),
     outcome: text(200),
     time_frame: text(100),
   }).strict().optional(),
@@ -117,9 +125,9 @@ export const NEWS_PUBLIC_FIELDS = [
 export type NewsPublicField = typeof NEWS_PUBLIC_FIELDS[number];
 
 export const NEWS_CARD_PROBLEM_CODES = [
-  "card_unreadable", "finding_too_long", "per_100_missing", "per_100_not_in_how_much", "safety_notice_not_official",
-  "bar_design", "reason_code_missing", "backing_line_missing", "backing_source_unknown", "who_paid_inconsistent",
-  "doi_not_a_source",
+  "card_unreadable", "finding_too_long", "per_100_missing", "per_100_not_in_how_much", "per_100_no_comparison_reason",
+  "safety_notice_not_official", "bar_design", "reason_code_missing", "backing_line_missing", "backing_source_unknown",
+  "who_paid_inconsistent", "doi_not_a_source",
 ] as const;
 export type NewsCardProblemCode = typeof NEWS_CARD_PROBLEM_CODES[number];
 export interface NewsCardProblem { code: NewsCardProblemCode; message: string }
@@ -158,12 +166,25 @@ export function numbersMissingFrom(field: string, draft: string): string[] {
     .map((readings) => String(readings[0]));
 }
 
+/**
+ * A card's people per 100 in words, as a reader is shown them: both groups, or the treated group's figure with "no
+ * comparison figure" and its reason, never a comparison of 0.
+ */
+export function newsPer100Words(per100: NonNullable<NewsCard["per_100"]>): string {
+  const treated = `${per100.treated} in 100`;
+  return per100.comparison === "none"
+    ? `${treated}; no comparison figure: ${per100.no_comparison_reason ?? "none given"}`
+    : `${treated} against ${per100.comparison} in 100`;
+}
+
 /** Each public field's text as a reader would see it, for the numbers floor and the reading's coverage. */
 export function newsPublicTexts(card: NewsCard): Record<NewsPublicField, string> {
   return {
     finding: card.finding,
     for: card.for,
-    how_much: card.how_much,
+    // A missing comparison's reason is shown beside How much's figures, so it is held to the same floor.
+    how_much: card.per_100?.comparison === "none" && card.per_100.no_comparison_reason !== undefined
+      ? `${card.how_much}\n${card.per_100.no_comparison_reason}` : card.how_much,
     how_sure: card.how_sure.reason,
     what_you_can_do: card.what_you_can_do,
     other_outcomes: card.other_outcomes,
@@ -185,20 +206,30 @@ export function newsCardProblems(card: NewsCard): NewsCardProblem[] {
   const add = (code: NewsCardProblemCode, message: string) => problems.push({ code, message });
   const words = wordCount(card.finding);
   if (words > NEWS_CARD_LIMITS.findingWords) {
-    add("finding_too_long", `news_card.finding has ${words} words; at most ${NEWS_CARD_LIMITS.findingWords}, naming ` +
-      "who it applies to (the label is shown in front as a tag and isn't counted).");
+    add("finding_too_long", `news_card.finding has ${words} words; at most ${NEWS_CARD_LIMITS.findingWords}, about ` +
+      `${NEWS_CARD_LIMITS.findingWordsAim} the aim, naming who it applies to, the comparison and the time frame (the ` +
+      "label is shown in front as a tag and isn't counted).");
+  }
+  if (card.per_100 !== undefined &&
+    (card.per_100.comparison === "none") !== (card.per_100.no_comparison_reason !== undefined)) {
+    add("per_100_no_comparison_reason", "news_card.per_100.comparison is \"none\" only for a study with no comparison " +
+      "figure (one group, a records review of one treatment, say), and then no_comparison_reason says why in a few " +
+      "words; a comparison given as a number takes no no_comparison_reason.");
   }
   if (card.outcome_kind === "people_event") {
     if (card.per_100 === undefined) {
       add("per_100_missing", "news_card.outcome_kind is people_event, so news_card.per_100 gives both groups in people " +
-        "per 100, with the outcome and the time frame.");
+        "per 100, with the outcome and the time frame (comparison \"none\", with its reason, when there is no " +
+        "comparison group).");
     } else {
       const inHowMuch = numberReadings(card.how_much.normalize("NFKC"));
+      // A comparison of "none" is no figure, so How much shows the treated group's alone.
       const missing = [card.per_100.treated, card.per_100.comparison]
+        .filter((value): value is number => typeof value === "number")
         .filter((value) => !includesAbsoluteNumber(inHowMuch, value));
       if (missing.length > 0) {
         add("per_100_not_in_how_much", `news_card.how_much doesn't show ${missing.join(" and ")} of news_card.per_100; ` +
-          "it gives both groups in people per 100.");
+          "it gives each group's figure in people per 100.");
       }
     }
   }

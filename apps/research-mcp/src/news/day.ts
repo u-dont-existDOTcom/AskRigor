@@ -113,9 +113,28 @@ export interface NewsDayDependencies {
   databaseMilliseconds?: number;
 }
 
+/**
+ * The first day of the news check's version 7 (its run of 23 Nov 2026), whose bar every card staged since was judged by.
+ * A card staged before it was judged by an older bar, and is never judged again (no model call is made for it).
+ */
+export const NEWS_CHECK_V7_DAY = "2026-11-23";
+
+/**
+ * Why an item left the seven-day order (the 23 Nov 2026 news audit): its seven days passed, and, for a card staged before
+ * the news check's version 7, it expired so without being judged by that version's bar.
+ */
+export const NEWS_EXPIRED_REASONS = ["seven_days", "seven_days_staged_before_v7"] as const;
+export interface NewsExpiredItem {
+  number: string;
+  committed: string;
+  reason: typeof NEWS_EXPIRED_REASONS[number];
+}
+
 export type NewsDayResult =
   | { status: "committed" | "replayed"; day: string; version: number; order: string[]; keptBack: AtlasNewsKeptBack[];
-      linesKeptBack: Array<{ line: number; reasons: string[] }> }
+      linesKeptBack: Array<{ line: number; reasons: string[] }>;
+      /** The base's items on show that this day no longer carries, each with its reason (a committed day only). */
+      expired?: NewsExpiredItem[] }
   | { status: "stale_base"; latest: NewsLatestDay | null }
   | { status: "late" | "unknown"; day: string }
   | { status: "refused"; reason: "other_day" | "order_invalid" | "invalid_payload"; problems: string[] };
@@ -147,6 +166,23 @@ export function newsLatestDay(base: AtlasNewsBase | null, day: string): NewsLate
       dayNumber(item.committedDay) >= dayNumber(day) - (ATLAS_NEWS_CARRIED_DAYS - 1);
   });
   return { day: base.day, version: base.version, order: base.order, carried, committed };
+}
+
+/**
+ * The base's items on show that `day` no longer carries: committed seven or more days before it, each with its reason. A
+ * carried item is never kept forever: it leaves the order after its seven days, the fixed time every item is carried
+ * (ATLAS_NEWS_CARRIED_DAYS), and the day's result says so; one staged before the news check's version 7 says that too.
+ */
+export function newsExpiredItems(base: AtlasNewsBase | null, day: string): NewsExpiredItem[] {
+  if (base === null) return [];
+  const states = new Map(base.items.map((item) => [item.number, item]));
+  return base.order.flatMap((number) => {
+    const item = states.get(number);
+    if (item === undefined || item.state !== "shadow" || item.committedDay === null ||
+      dayNumber(item.committedDay) >= dayNumber(day) - (ATLAS_NEWS_CARRIED_DAYS - 1)) return [];
+    return [{ number, committed: item.committedDay,
+      reason: item.committedDay < NEWS_CHECK_V7_DAY ? "seven_days_staged_before_v7" as const : "seven_days" as const }];
+  });
 }
 
 /** The digest the day call is idempotent on: sha256 of the payload's canonical JSON. */
@@ -406,7 +442,9 @@ export async function publishNewsDay(raw: unknown, deps: NewsDayDependencies): P
     }
     // The lines as the database stored them: each "checked" line with its card's final decision.
     const { lines: storedLines, ...stored } = outcome;
-    return { ...stored, linesKeptBack: linesKeptBackOf(storedLines) };
+    // The base's items that left the order today, each with why (the 23 Nov 2026 news audit).
+    const expired = stored.status === "committed" ? newsExpiredItems(base, payload.day) : [];
+    return { ...stored, linesKeptBack: linesKeptBackOf(storedLines), ...(expired.length === 0 ? {} : { expired }) };
   })();
   return await settles(work.catch((): NewsDayResult => ({ status: "unknown", day: payload.day })),
     Math.max(0, started.getTime() + (deps.handlerMilliseconds ?? NEWS_DAY_HANDLER_MS) - deps.now().getTime()),
