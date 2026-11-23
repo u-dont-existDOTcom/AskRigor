@@ -4,6 +4,7 @@ import type { GeminiSignInRowStore } from "@askrigor/evidence-repository";
 import Provider, { errors, type Client, type KoaContextWithOIDC } from "oidc-provider";
 
 import { GEMINI_ISSUER_PATH, GEMINI_SCOPE, type GeminiSignInSettings } from "./config.js";
+import { geminiSignInNote, watchGeminiSignInLibrary, type GeminiSignInDiagnostic } from "./diagnostics.js";
 import { allowGeminiClient, allowGeminiClientFetch, geminiSignInFetch } from "./google-client.js";
 import { errorPage } from "./pages.js";
 import { geminiSignInAdapterFactory, GeminiSignInSealer } from "./sealed-store.js";
@@ -37,7 +38,7 @@ const STATIC_SCOPES = ["openid", "offline_access", GEMINI_SCOPE, "cases:review"]
 export function createGeminiAuthorizationServer(
   settings: GeminiSignInSettings,
   rows: GeminiSignInRowStore,
-  options: { fetch?: typeof fetch; now?: () => Date } = {},
+  options: { fetch?: typeof fetch; now?: () => Date; diagnostic?: (record: GeminiSignInDiagnostic) => void } = {},
 ): GeminiAuthorizationServer {
   const now = options.now ?? (() => new Date());
   const issuer = settings.issuer.href.replace(/\/$/u, "");
@@ -184,6 +185,9 @@ export function createGeminiAuthorizationServer(
       }
     }
   });
+  // The step log, when it is on, goes in before the request handler below is made (Koa composes its middleware then).
+  const note = geminiSignInNote(options.diagnostic);
+  if (note !== undefined) watchGeminiSignInLibrary(provider, note, { issuer, resource, now });
 
   return Object.freeze({
     provider,

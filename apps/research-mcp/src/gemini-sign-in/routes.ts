@@ -5,6 +5,13 @@ import { cookieHeader, readCookie, readForm, sameSitePost } from "../atlas/parti
 import type { TokenBucketLimiter } from "../rate-limit.js";
 import { GEMINI_ISSUER_PATH, GEMINI_RESOURCE_PATH, GEMINI_SCOPE } from "./config.js";
 import {
+  authorizationRequestShape,
+  geminiSignInNote,
+  type GeminiSignInDetail,
+  type GeminiSignInDiagnostic,
+  type GeminiSignInStage,
+} from "./diagnostics.js";
+import {
   GEMINI_CALLBACK_PATH,
   GeminiLogin,
   GeminiLoginError,
@@ -60,11 +67,9 @@ export function createGeminiSignInRoutes(
     bearer_methods_supported: ["header"],
     resource_name: "AskRigor for Google Gemini",
   });
-  const note = (stage: GeminiSignInDiagnostic["stage"], outcome: string) => options.diagnostic?.({
-    event: "askrigor_gemini_sign_in",
-    stage,
-    outcome,
-  });
+  const writeNote = geminiSignInNote(options.diagnostic);
+  const note = (stage: GeminiSignInStage, outcome: string, detail?: GeminiSignInDetail) =>
+    writeNote?.(stage, outcome, detail);
 
   const pinHeaders = (request: IncomingMessage) => {
     request.headers.host = issuer.host;
@@ -265,6 +270,10 @@ export function createGeminiSignInRoutes(
         }
         const path = pathname.slice(GEMINI_ISSUER_PATH.length) || "/";
         if (path === "/auth" && (method === "GET" || method === "POST")) {
+          // What Gemini asked for, by shape only (the step log, when on): which parameters came, never their values.
+          note("authorization", "requested", method === "GET"
+            ? authorizationRequestShape(query, server.settings.resource.href)
+            : { method: "post" });
           // Finding 3 of Fable's recheck: a link must say which resource it is for. Gemini sends it (its requests to Auth0
           // on 20 Nov 2026 carried resource=), so a request without it is refused before any login, and no token is ever
           // issued for /mcp/gemini to a connector that belongs to some other MCP server.
@@ -310,11 +319,7 @@ export function consentPostFromThisSite(request: IncomingMessage, origin: string
   return request.headers.origin === "null" && request.headers["sec-fetch-site"] === "same-origin";
 }
 
-export interface GeminiSignInDiagnostic {
-  readonly event: "askrigor_gemini_sign_in";
-  readonly stage: "login" | "consent" | "callback" | "library" | "token" | "resource";
-  readonly outcome: string;
-}
+export type { GeminiSignInDiagnostic } from "./diagnostics.js";
 
 function methodNotAllowed(response: ServerResponse): true {
   response.writeHead(405, { "content-type": "application/json", allow: "GET, POST", "cache-control": "no-store" });
