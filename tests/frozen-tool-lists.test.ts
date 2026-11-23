@@ -5,7 +5,7 @@ import { z } from "zod";
 import Ajv from "ajv";
 
 import {
-  FROZEN_TOOL_LIST_SURFACES, TOOL_LIST_FROZEN_MESSAGE, frozenSurfaceServer, frozenToolListPath, servedToolList,
+  FROZEN_TOOL_LIST_SURFACES, TOOL_LIST_CHANGED_MESSAGE, frozenSurfaceServer, frozenToolListPath, servedToolList,
 } from "../scripts/freeze-tool-lists.mts";
 import { toolListVersionOf } from "../apps/research-mcp/src/tool-list-currency.js";
 import { digestCanonicalJson } from "../apps/research-mcp/src/lessons/incident-contracts.js";
@@ -29,11 +29,11 @@ function closedValuePaths(value: unknown, path = ""): string[] {
 
 const RUNNING = { hrp: "synthetic-hrp", universal: "synthetic-universal", build: "synthetic-build" };
 
-describe("fixed tool definitions (owner answer 189a)", () => {
-  it.each(FROZEN_TOOL_LIST_SURFACES)("freezes the served %s list and its exact digest", async (surface) => {
+describe("recorded tool definitions: a change rewrites the fixtures and costs each app one refresh", () => {
+  it.each(FROZEN_TOOL_LIST_SURFACES)("records the served %s list and its exact digest", async (surface) => {
     const fixture = JSON.parse(await readFile(frozenToolListPath(surface), "utf8"));
-    expect(await servedToolList(frozenSurfaceServer(surface)), TOOL_LIST_FROZEN_MESSAGE).toStrictEqual(fixture);
-    expect(await toolListVersionOf(frozenSurfaceServer(surface)), TOOL_LIST_FROZEN_MESSAGE)
+    expect(await servedToolList(frozenSurfaceServer(surface)), TOOL_LIST_CHANGED_MESSAGE).toStrictEqual(fixture);
+    expect(await toolListVersionOf(frozenSurfaceServer(surface)), TOOL_LIST_CHANGED_MESSAGE)
       .toBe(digestCanonicalJson(fixture).slice(0, 16));
   });
 

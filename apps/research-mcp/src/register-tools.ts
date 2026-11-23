@@ -1041,7 +1041,7 @@ export interface RegisterToolsOptions {
   mcpSurface?: McpSurface;
   /**
    * Whether tools/list declares Claude Code's larger result sizes (result-size-limits.ts); defaults to
-   * ASKRIGOR_DECLARE_RESULT_SIZES, off, as the tool list is frozen (owner answer 189a).
+   * ASKRIGOR_DECLARE_RESULT_SIZES, off until a release changes the tool list anyway (each change costs apps a refresh).
    */
   declareResultSizes?: boolean;
   /** The versions this server runs, returned by get_protocol_manifest. */

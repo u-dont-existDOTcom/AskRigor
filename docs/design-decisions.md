@@ -371,9 +371,9 @@ Not done: silently dropping paid features; a line about anything nobody can buy 
 
 ## Releases, the tool list and apps
 
-**The tool list is frozen: new inputs go in a tool's later_inputs field, new actions only in runtime choices, and only adding or removing a tool changes the list, with one app refresh.**\
-Why: ChatGPT keeps an app's tool list until someone presses Refresh, and AskRigor used to change its list nearly every release, stranding open chats.\
-Not done: changing a published field or description in between (such fixes wait in tool-list-changes-waiting.md). · Decided: 27 Oct 2026 (owner answer 189a); apps told when to refresh since 22 Oct.
+**The tool list can change when a change is worth an app refresh: changes are batched into few releases, each one's record says the apps need one refresh, and later_inputs stays accepted for apps holding an older list.**\
+Why: the owner, 22 Nov 2026: "i didn't mean to freeze the tools list, sorry, undo that", after the freeze ruled out a ChatGPT window that would show the research plan while the AI works. ChatGPT keeps an app's tool list until someone presses Refresh, so each change still costs one refresh and leaves open chats on the old list; before the freeze AskRigor changed its list nearly every release.\
+Not done: changing the list every release; running versions or dates in descriptions, which would change it every release. · Decided: frozen 27 Oct 2026 (owner answer 189a); lifted 22 Nov 2026 (the owner's Inbox reply, 12:24 UTC); apps told when to refresh since 22 Oct.
 
 **Every tool result also carries its payload as text, except in ChatGPT, which shows the model both; a protocol page's bytes go in raw, so an app that reads only text can check them.**\
 Why: some apps hand the model only a result's text, so the protocol, its index, PubMed records and full-text pages never reached it there (lesson #59), while ChatGPT's context and time limits make a copy costly. A call is ChatGPT's only by exact signals: a `_meta` key starting `openai/`, or a User-Agent starting `openai-mcp/`; any other call gets the copy, since a copy costs tokens where a missing payload breaks research. Each part stays under 50,000 characters, which Claude Code counts in the part it shows, and the whole under the about 150,000 claude.ai takes (measured 8 Nov).\
