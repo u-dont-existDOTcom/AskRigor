@@ -1,10 +1,14 @@
 import { createHash } from "node:crypto";
 
+import { undoSafetyLimitsDisclosure } from "./undo-safety-limits-disclosure.js";
+
 /**
  * Rewind HRP 20.6.43 (AskRigor#477 stage 1: the private research dossier in DeepResearchTimeSavingAtlasPreservation,
  * in the wording Codex's red team corrected) to 20.6.42, before older exact protocol fixtures are compared.
  */
 export function undoResearchDossierRequestPolicy(text: string): string {
+  // HRP 20.6.44 (owner answer 400a) came after it, so it is rewound first.
+  text = undoSafetyLimitsDisclosure(text);
   if (!text.includes('version="20.6.43" revisionDate="2026-11-16"')) return text;
   for (const [after, before] of [[DOSSIER_SENTENCES, ""], [DOSSIER_REST, PREVIOUS_REST]] as const) {
     if (text.split(after).length !== 2) throw new Error("RESEARCH_DOSSIER_RULE_TEXT_MISSING");

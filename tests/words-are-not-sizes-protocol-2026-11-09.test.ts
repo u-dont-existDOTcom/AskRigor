@@ -67,7 +67,8 @@ describe("owner answer 282a: HRP 20.6.41", () => {
   });
 
   it("leaves every core section byte for byte unchanged", async () => {
-    const text = await loadProtocol("hrp");
+    // Compare this historical change at its own version, before later approved core edits.
+    const text = undoDeepResearchSavingPolicy(await loadProtocol("hrp"));
     const prior = await undoWordsAreNotSizesHrp(text);
     const core = new Set(coreSectionNames("hrp"));
     expect(core.has("StatisticalAndClinicalInterpretation")).toBe(false);
@@ -87,7 +88,7 @@ describe("owner answer 282a: HRP 20.6.41", () => {
     expect(XMLValidator.validate(text)).toBe(true);
     expect(hrp.to.version).toBe("20.6.41");
     expect(await getProtocolManifest("hrp")).toEqual({
-      name: "HRP", version: "20.6.43", revisionDate: "2026-11-16", sha256: "99f40aa2715dd60d16f49f435d5c14c027d02f985cf38aa4c1b6e41dae401f66",
+      name: "HRP", version: "20.6.45", revisionDate: "2026-11-22", sha256: "475ee5aad42fdc0bba03f786eefa4e19bc17cd9b95f4ddd7e4aef3a600c54039",
     });
     expect([...text.matchAll(/<Revision version="([^"]+)"/gu)].slice(0, 2).map((match) => match[1]))
       .toEqual(["20.6.41", "20.6.40"]);

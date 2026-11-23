@@ -384,12 +384,36 @@ export function researchDossiersEnabledFromEnv(
 }
 
 /**
+ * AskRigor#477 stage 2 (owner answers 331a, 332a and 333a, 16 November 2026), off by default: research dossiers on the
+ * public Atlas only while ASKRIGOR_PUBLIC_DOSSIERS=enabled, after migration 0040 and the role scripts' grants. With it
+ * on, a saved dossier gets a public copy, shown or held for AskRigor's check, only for an account whose accepted notice
+ * covers public dossiers (none until notice v7 is released on the owner's yes); the Atlas pages show the shown copies;
+ * the owner's review lists and decides them.
+ */
+export function publicDossiersEnabledFromEnv(
+  value = process.env.ASKRIGOR_PUBLIC_DOSSIERS
+): boolean {
+  return value?.trim() === "enabled";
+}
+
+/**
  * AskRigor#477 stage 1, off by default (the owner's decision): ASKRIGOR_DOSSIER_PRIVACY_READING set to "on" has every
  * research dossier read for personal details by the research planner's Claude API path before it is stored
  * (findings/dossier-privacy-reading.ts); with it on, a dossier that is not read, or not passed, is not saved.
  */
 export function dossierPrivacyReadingFromEnv(
   value = process.env.ASKRIGOR_DOSSIER_PRIVACY_READING
+): boolean {
+  return value?.trim() === "on";
+}
+
+/**
+ * Promise P69 (the owner, chat, 21 Nov 2026), off by default: ASKRIGOR_SAFETY_LIMITS set to "on" has finalize_research
+ * read later_inputs.safety_limits, the research steps a model's or app's own safety rules limited, and list each as a
+ * limit saying who reports it (safety-limits.ts). Any other value leaves it off.
+ */
+export function safetyLimitsFromEnv(
+  value = process.env.ASKRIGOR_SAFETY_LIMITS
 ): boolean {
   return value?.trim() === "on";
 }
@@ -430,6 +454,23 @@ export const ATLAS_NEWS_MODES = ["off", "shadow"] as const;
 export type AtlasNewsMode = typeof ATLAS_NEWS_MODES[number];
 export function atlasNewsModeFromEnv(value = process.env.ASKRIGOR_ATLAS_NEWS): AtlasNewsMode {
   return value?.trim() === "shadow" ? "shadow" : "off";
+}
+
+/**
+ * Whether a saved card's findings show on the Atlas's pages as soon as they are published (the owner, 17 Nov 2026:
+ * "show all the findings automatically when they pass quality checks like this one, i shouldn't be reviewing everything
+ * i already told u that before"): ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS set to "enabled". Off, the save path keeps each
+ * finding it publishes for AskRigor's research until the quick-answer test shows it (owner answer 240a), as before.
+ * Either way a finding stays unreviewed, labelled "Not checked by supervisors yet"; held findings stay held, findings
+ * drawn from YouTube comments and paid private cards are never published at the save, and the owner's
+ * keep_for_research and unpublish work as before. On, a finding the save shows at once is stored as such (migration
+ * 0041), so without a challenge mark its page never says a separate AI found that a quick AI answer misses it, even
+ * after the setting is turned off.
+ */
+export function atlasShowSavedFindingsFromEnv(
+  value = process.env.ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS
+): boolean {
+  return value?.trim() === "enabled";
 }
 
 /**

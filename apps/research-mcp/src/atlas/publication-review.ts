@@ -121,6 +121,11 @@ export interface AtlasPublicationRequest {
   cardsTo?: string;
   topicKey?: string;
   topicLabel?: string;
+  /**
+   * publish_cards: who publishes them, from later_inputs.shown_by, which it needs: only owner, AskRigor's owner, may
+   * (Codex's fifth review of 17 Nov 2026). Nothing is assumed of who acts.
+   */
+  shown_by?: "owner" | "quick_answer_test";
 }
 
 export interface AtlasPublicationResult {
@@ -285,6 +290,16 @@ export class AtlasPublicationReview {
   // publish_cards -----------------------------------------------------------------------------------------------------
 
   private async publishCards(request: AtlasPublicationRequest): Promise<AtlasPublicationResult> {
+    // Codex's fifth review of 17 Nov 2026 (P1): the owner and the scheduled quick-answer test share one login, so
+    // publish_cards says who acts, as show_on_pages does, and only the owner's says that his decision publishes them.
+    if (request.shown_by === undefined) {
+      return invalid("publish_cards needs later_inputs.shown_by: owner, when AskRigor's owner publishes them, which " +
+        "records his decision. Nothing was changed.");
+    }
+    if (request.shown_by !== "owner") {
+      return invalid("publish_cards is AskRigor's owner's decision: only later_inputs.shown_by owner publishes cards. " +
+        "Nothing was changed.");
+    }
     let ownerTopic: { key: string; label: string } | undefined;
     if (request.topicKey !== undefined) {
       const state = await this.deps.reader.readAtlasState({ topicKeys: [request.topicKey] });
@@ -353,7 +368,9 @@ export class AtlasPublicationReview {
       const rows = await this.deps.publications.publish({
         cardNumber: number,
         cardSha256: card.record.card_sha256,
-        findings: drafts,
+        // Codex's re-review of 17 Nov 2026, finding 4: what the owner publishes is stored as the owner's action, so its
+        // page never says the quick-answer test happened. A held one has no page, so no route.
+        findings: drafts.map((draft) => draft.state === "held" ? draft : { ...draft, shownBy: "owner_action" as const }),
         publishedAt: this.deps.now().toISOString(),
         revive: true,
       });

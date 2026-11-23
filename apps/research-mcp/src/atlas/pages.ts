@@ -46,6 +46,7 @@ import {
   type ShownSearch,
   type ShownSource,
 } from "./page-data.js";
+import { PERSON_DISPUTE_LINK, personKeptOutOfSearch, type PersonSegment } from "./person-claims.js";
 import { ATLAS_SEARCH_MAX_LENGTH, type AtlasSearchField } from "./search.js";
 import { atlasSearchFamily, atlasTopicFamily } from "./topic-families.js";
 import { INOSITOL_DOSSIER, type DossierForm, type DossierEvidence } from "./inositol-dossier.js";
@@ -235,6 +236,15 @@ export const CHALLENGES_TITLE = "Findings that challenge the usual view";
  * challenges the usual view, whose stored verdict (headline or fail) means a quick AI answer may already give it.
  */
 export const QUICK_ANSWER_MISSES_IT = "A separate AI found that a quick AI answer misses it.";
+/**
+ * How findings reach the pages, as the home page says it (Codex's re-review of 17 Nov 2026, finding 4, and its third
+ * review, finding 2): true whichever way a finding came, and when that isn't recorded, as for findings shown before
+ * AskRigor recorded it, or shown again by an earlier image.
+ */
+export const ATLAS_HOME_ROUTES = "Findings reach these pages in three ways: AskRigor’s owner publishes or shows them, a " +
+  "separate AI’s quick-answer test shows them, or they show automatically once they have passed AskRigor’s checks. Not " +
+  "every finding records which of these it was, older ones in particular, and a finding’s page says what that test " +
+  "found only when the test is recorded for it.";
 export const SHOWN_AS_A_CHALLENGE = "A quick AI answer may already give it; it’s shown because it challenges the usual view.";
 /** How AskRigor's comment maps work (comment-maps-page.ts); the maps themselves are not shown (owner answer 208b). */
 export const COMMENT_MAPS_PATH = "/atlas/comment-maps";
@@ -249,7 +259,12 @@ const needsChecking = (finding: ShownFinding) =>
   finding.status.kind === "unreviewed" && strengthOf(finding).total >= STRONG_CLAIM;
 
 /** Whether every finding a page lists is unreviewed, so the page is kept out of search engines (owner answer 224a). */
-export const unreviewedOnly = (findings: readonly ShownFinding[]) => findings.every(({ status }) => status.kind === "unreviewed");
+/**
+ * Kept out of search engines (owner answer 224a): every finding unreviewed; or, while Atlas Release B's mark is on, any
+ * finding shows an unverified claim about a named person or isn't yet read (design 4.4).
+ */
+export const unreviewedOnly = (findings: readonly ShownFinding[]) =>
+  findings.every(({ status }) => status.kind === "unreviewed") || personKeptOutOfSearch(findings);
 
 function relatedLink(related: ShownRelated): SafeHtml {
   return related.publicationNumber === null ? html`${related.atlasNumber}`
@@ -397,12 +412,22 @@ ${model.before === null ? "" : html`<p><a rel="next" href="${CHALLENGES_PATH}?be
 <p><a href="/atlas/findings">See all findings</a></p>` });
 }
 
-export function renderAtlasTopics(model: AtlasTopicsModel, reader?: AtlasPageReader): string {
+/**
+ * The topics list. pages (AskRigor#477 stage 2, while dossiers show): this page's topics follow the place given, and a
+ * link leads to the topics after its last, by its label and key; without it the list is as it always was.
+ */
+export function renderAtlasTopics(model: AtlasTopicsModel, reader?: AtlasPageReader,
+  pages?: { after?: { label: string; key: string }; next?: { label: string; key: string } }): string {
   return page({ path: "/atlas/topics", title: "Topics | AskRigor Atlas", current: "topics", reader,
     description: "Topics with published findings in the AskRigor Atlas.",
     body: html`<h1>Topics</h1>
 ${model.topics.length === 0 ? html`<p>No topics have findings yet.</p>` : html`<ul>${model.topics.map((topic) =>
-      html`<li><a href="${topicPath(topic.key)}">${topic.label}</a> — ${topic.count} ${topic.count === 1 ? "finding" : "findings"}</li>`)}</ul>`}
+      html`<li><a href="${topicPath(topic.key)}">${topic.label}</a> — ${topic.count} ${topic.count === 1 ? "finding" : "findings"}</li>`)}</ul>`}${
+  pages === undefined || (pages.after === undefined && pages.next === undefined) ? "" : html`
+<p class="dossier-pages">${pages.after === undefined ? "" : html`<a href="/atlas/topics">First topics</a>`}${
+    pages.after !== undefined && pages.next !== undefined ? " · " : ""}${pages.next === undefined ? ""
+    : html`<a rel="next" href="/atlas/topics?after=${encodeURIComponent(pages.next.key)}&amp;after_label=${
+      encodeURIComponent(pages.next.label)}">More topics</a>`}</p>`}
 <p>${model.withoutTopic} ${model.withoutTopic === 1 ? "finding has" : "findings have"} no topic (older cards). <a href="/atlas/findings">Browse all findings</a>.</p>
 <p><a href="${MAP_PATH}">See the topics on the findings map</a></p>` });
 }
@@ -489,7 +514,8 @@ function findingItem(finding: ShownFinding, extra: SafeHtml | "" = ""): SafeHtml
 ${badge(finding)}
 ${questionLine(finding)}
 <p class="finding-claim"><a href="${findingPath(finding.publicationNumber)}">${finding.claim}</a></p>
-<p class="meta">${joined(facts, " · ")}</p>
+${finding.personClaims?.banner ? html`<p class="aside person-banner">${finding.personClaims.banner}</p>
+` : ""}<p class="meta">${joined(facts, " · ")}</p>
 ${extra === "" ? "" : html`${extra}
 `}</li>
 `;
@@ -545,7 +571,7 @@ export function renderAtlasHome(model: AtlasHomeModel, reader?: AtlasPageReader)
 <h1>AskRigor Atlas</h1>
 <p class="lede">Findings from research done with AskRigor, written without the people who asked.</p>
 <div class="notice">
-<p>A finding reaches these pages once a separate AI finds that a quick AI answer misses it, or that it challenges the usual view, marked “${NOT_CHECKED_LABEL}” until AskRigor’s owner has reviewed it. A reviewed finding shows the wording the owner accepted, its Atlas number and the day it was checked; a rejected one leaves these pages.</p>
+<p>${ATLAS_HOME_ROUTES} A finding is marked “${NOT_CHECKED_LABEL}” until AskRigor’s owner has reviewed it. A reviewed finding shows the wording the owner accepted, its Atlas number and the day it was checked; a rejected one leaves these pages.</p>
 <p>How sure each finding is shows AskRigor’s rating, not a formal GRADE assessment. Rates and the numbers needed to treat or harm are worked out from each group’s counts. Nothing here is medical advice.</p>
 </div>
 ${ownerPicks(model.picks)}<section aria-labelledby="strongest-checked">
@@ -786,7 +812,12 @@ ${INOSITOL_DOSSIER.comparisons.map((row) => html`<tr><th scope="row">${row.form}
 </section>`;
 }
 
-export function renderAtlasTopic(model: AtlasTopicModel, reader?: AtlasPageReader): string {
+/**
+ * A topic page. dossiers (AskRigor#477 stage 2, dossier-pages.ts) is its research dossiers' part, which leads the page
+ * when the topic has shown dossiers; the page is kept out of search engines only when nothing on it is checked.
+ */
+export function renderAtlasTopic(model: AtlasTopicModel, reader?: AtlasPageReader,
+  dossiers?: { section: SafeHtml; anyChecked: boolean }): string {
   // Substance-family dossiers collect source-bound claims previously filed under separate condition/topic names.
   // Unreviewed and research-only claims retain their original labels and never become accepted by being grouped.
   if (model.family !== undefined) {
@@ -794,7 +825,8 @@ export function renderAtlasTopic(model: AtlasTopicModel, reader?: AtlasPageReade
     const body = html`<p class="breadcrumbs"><a href="/atlas">Atlas</a> › <a href="/atlas/topics">Topics</a></p>
 <h1>${model.topic.label}</h1>
 <p class="lede">${model.family.intro}</p>
-<p class="notice-line">A cross-topic, AI-prepared research synthesis, not a medical treatment guideline or supervisor-accepted systematic review. Each underlying finding retains its source, certainty and review status.</p>
+<p class="notice-line">A cross-topic, AI-prepared research synthesis, not a medical treatment guideline or supervisor-accepted systematic review. Each underlying finding retains its source, certainty and review status.</p>${dossiers === undefined ? "" : html`
+${dossiers.section}`}
 ${model.topic.key === "inositol" ? inositolDossierOverview() : ""}
 <nav aria-label="Inositol forms"><p>${joined(model.family.groups.map((group) =>
   html`<a href="#family-${group.key}">${group.heading}</a>`), " · ")}</p></nav>
@@ -810,14 +842,15 @@ ${group.findings.length === 0 ? html`<p class="meta">No separate Atlas finding i
 <ul>${model.topic.key === "inositol" ? INOSITOL_DOSSIER.generalNotes.map((note) => html`<li>${note}</li>`) : []}</ul>
 <h3>Research still to consolidate</h3>
 <p>${model.family.unfinishedResearch}</p></section>`;
-    return page({ path: topicPath(model.topic.key), noindex: unreviewedOnly(findings), reader,
+    return page({ path: topicPath(model.topic.key), noindex: unreviewedOnly(findings) && dossiers?.anyChecked !== true, reader,
       title: `${model.topic.label} | AskRigor Atlas`,
       description: "A joined index of inositol forms, benefits, harms, and unfinished research.",
       body });
   }
   const body = html`<p class="breadcrumbs"><a href="/atlas">Atlas</a></p>
 <h1>${model.topic.label}</h1>
-<p class="lede">Findings about ${model.topic.label}. Within each part, findings checked by supervisors come first.</p>
+<p class="lede">Findings about ${model.topic.label}. Within each part, findings checked by supervisors come first.</p>${dossiers === undefined ? "" : html`
+${dossiers.section}`}
 ${topicMap(model)}
 ${model.sections.map((section) => html`<section aria-labelledby="part-${section.id}">
 <h2 id="part-${section.id}">${section.heading}</h2>
@@ -827,7 +860,7 @@ ${findingList(section.findings)}
 `)}`;
   return page({
     path: topicPath(model.topic.key),
-    noindex: unreviewedOnly(model.sections.flatMap(({ findings }) => findings)),
+    noindex: unreviewedOnly(model.sections.flatMap(({ findings }) => findings)) && dossiers?.anyChecked !== true,
     reader,
     title: `${model.topic.label} | AskRigor Atlas`,
     description: `Findings about ${model.topic.label} in the AskRigor Atlas.`,
@@ -998,12 +1031,18 @@ ${topic.findings.map((entry) => {
  * What an unreviewed shown finding's status says of the quick-answer test (owner answer 240a): a finding shown because it
  * passed says a quick AI answer misses it; one shown because it challenges the usual view says so from its stored verdict
  * (the owner, 6 Nov 2026), and a headline or a fail means a quick AI answer may already give it. A finding kept for
- * research hasn't passed the test, so it says neither.
+ * research hasn't passed the test, so it says neither. Without a mark, it says the test found a quick AI answer misses
+ * it only when its publication records that the test's own showing showed it with the verdict pass (shown_by
+ * quick_answer_test and shown_test_verdict pass, migration 0041): one the owner published or showed, one the save showed
+ * at once, one the test showed with another verdict, and one whose route isn't recorded say nothing of the test,
+ * whatever the settings are now (Codex's review of 17 Nov 2026, finding 4, its re-review and its third review).
  */
 function quickAnswerWords(finding: ShownFinding): string {
   if (finding.kept) return "";
-  if (finding.challenge !== null && finding.challenge.verdict !== "pass") return `${SHOWN_AS_A_CHALLENGE} `;
-  return `${QUICK_ANSWER_MISSES_IT} `;
+  if (finding.challenge !== null) {
+    return finding.challenge.verdict === "pass" ? `${QUICK_ANSWER_MISSES_IT} ` : `${SHOWN_AS_A_CHALLENGE} `;
+  }
+  return finding.shownBy === "quick_answer_test" && finding.shownTestVerdict === "pass" ? `${QUICK_ANSWER_MISSES_IT} ` : "";
 }
 
 /** The usual view a finding challenges, with its source's link, as a sentence. */
@@ -1339,6 +1378,34 @@ ${view.notice === null ? "" : html`<p class="notice-line" role="status">${view.n
 `;
 }
 
+/**
+ * Atlas Release B: a finding's own text with each mark styled apart, before its sentence (design 4.4; the owner's
+ * wording): "Unverified claim of [kind]" in bold, then where it came from and "It might be false.", then the claim.
+ * The plain form (the finding's field) carries the same words in brackets, for every other format.
+ */
+function personText(finding: ShownFinding, path: "claim" | "question" | "usualAnswer" | "appliesTo" | "subject" |
+  "whyNotUsual" | "whatWouldChangeIt"): SafeHtml | string {
+  const segments: PersonSegment[] | undefined = finding.personClaims?.segments[path];
+  if (segments === undefined) return finding[path] ?? "";
+  return joined(segments.map((segment) => segment.type === "text" ? html`${segment.text}`
+    : segment.type === "note" ? html`<span class="person-note">${segment.text}</span>`
+      : html`<span class="person-mark"><strong>${segment.head}</strong> · ${segment.line}${segment.href === null ? ""
+        : html` <a href="${segment.href}" rel="nofollow ugc">(${segment.hrefText ?? "the thread"})</a>`}</span> ${segment.text}`),
+  " ");
+}
+
+function personBanner(finding: ShownFinding): SafeHtml | "" {
+  const banner = finding.personClaims?.banner;
+  return banner === null || banner === undefined ? "" : html`<p class="notice-line person-banner" role="note">${banner}</p>
+`;
+}
+
+/** Every finding carries the correction link while the mark is on (design 4.6). */
+function personDisputeLine(finding: ShownFinding): SafeHtml | "" {
+  return finding.personClaims === undefined ? "" : html`<p class="person-dispute"><a href="${findingPath(finding.publicationNumber)}/person" rel="nofollow">${PERSON_DISPUTE_LINK}</a></p>
+`;
+}
+
 export function renderAtlasFinding(model: AtlasFindingModel, participationView?: AtlasFindingParticipationView,
   reader?: AtlasPageReader): string {
   const finding = model.finding;
@@ -1347,10 +1414,10 @@ export function renderAtlasFinding(model: AtlasFindingModel, participationView?:
   if (finding.certainty !== null) {
     facts.push(html`<dt>How sure</dt><dd>${CERTAINTY_WORDS[finding.certainty]} <span class="aside">(AskRigor’s rating, not formal GRADE)</span></dd>`);
   }
-  if (finding.appliesTo !== null) facts.push(html`<dt>Whom it applies to</dt><dd>${finding.appliesTo}</dd>`);
+  if (finding.appliesTo !== null) facts.push(html`<dt>Whom it applies to</dt><dd>${personText(finding, "appliesTo")}</dd>`);
   if (finding.kind !== null) facts.push(html`<dt>Kind</dt><dd>${KIND_WORDS[finding.kind]}</dd>`);
   if (finding.subject !== null) {
-    facts.push(html`<dt>Subject</dt><dd>${finding.subject}${finding.subjectType === null ? "" : html` (${finding.subjectType})`}</dd>`);
+    facts.push(html`<dt>Subject</dt><dd>${personText(finding, "subject")}${finding.subjectType === null ? "" : html` (${finding.subjectType})`}</dd>`);
   }
   if (finding.direction !== null) facts.push(html`<dt>Direction</dt><dd>${DIRECTION_WORDS[finding.direction]}</dd>`);
   if (finding.verifiedBases.length > 0) {
@@ -1368,18 +1435,18 @@ export function renderAtlasFinding(model: AtlasFindingModel, participationView?:
   if (finding.askrigorVersion !== null) dates.push(html`AskRigor ${finding.askrigorVersion}`);
   const sources = finding.sources.map(source).filter((item): item is SafeHtml => item !== "");
   // The question its research answered opens the page, or a plain note when it was published without one.
-  const question = finding.question !== null ? html`<p class="question"><span class="eyebrow">The question</span> ${finding.question}</p>`
+  const question = finding.question !== null ? html`<p class="question"><span class="eyebrow">The question</span> ${personText(finding, "question")}</p>`
     : html`<p class="question question-missing">This finding was published without the question its research answered${finding.topic === null
       ? ", and without a topic." : html`. Its topic: <a href="${topicPath(finding.topic.key)}">${finding.topic.label}</a>.`}</p>`;
   // The usual answer, then why this finding isn't it; without the usual answer, the why alone, as before.
   const usual = finding.usualAnswer !== null ? html`<section aria-labelledby="usual">
 <h2 id="usual">The usual answer</h2>
-<p>What a quick, ordinary answer would say: ${finding.usualAnswer}</p>
-${finding.whyNotUsual === null ? "" : html`<p><strong>Why this finding isn’t it:</strong> ${finding.whyNotUsual}</p>
+<p>What a quick, ordinary answer would say: ${personText(finding, "usualAnswer")}</p>
+${finding.whyNotUsual === null ? "" : html`<p><strong>Why this finding isn’t it:</strong> ${personText(finding, "whyNotUsual")}</p>
 `}</section>
 ` : finding.whyNotUsual === null ? "" : html`<section aria-labelledby="usual">
 <h2 id="usual">Why this isn’t the usual answer</h2>
-<p>${finding.whyNotUsual}</p>
+<p>${personText(finding, "whyNotUsual")}</p>
 </section>
 `;
 
@@ -1390,9 +1457,9 @@ ${finding.whyNotUsual === null ? "" : html`<p><strong>Why this finding isn’t i
     ? html`<p><a href="${topicPath("inositol")}">Inositol: all forms, benefits, and risks</a></p>`
     : ""}
 ${finding.kept ? html`<p class="notice-line" role="note">${KEPT_FOR_RESEARCH_LINE}</p>
-` : ""}${statusBlock(finding)}
+` : ""}${personBanner(finding)}${statusBlock(finding)}
 ${challengeBox(finding)}${question}
-<h1 class="claim">${finding.claim}</h1>
+<h1 class="claim">${personText(finding, "claim")}</h1>
 <p class="meta">${joined(dates, " · ")}</p>
 ${facts.length === 0 ? "" : html`<dl class="facts">
 ${joined(facts, "\n")}
@@ -1408,21 +1475,23 @@ ${finding.searches.map(search)}</ul>
 </section>
 `}${finding.whatWouldChangeIt === null ? "" : html`<section aria-labelledby="change">
 <h2 id="change">What would change it</h2>
-<p>${finding.whatWouldChangeIt}</p>
+<p>${personText(finding, "whatWouldChangeIt")}</p>
 </section>
 `}${sources.length === 0 ? "" : html`<section aria-labelledby="sources">
 <h2 id="sources">Sources</h2>
 <ul class="source-list">
 ${sources}</ul>
 </section>
-`}${participation(finding.publicationNumber, participationView)}`;
+`}${personDisputeLine(finding)}${participation(finding.publicationNumber, participationView)}`;
   return page({
     path: findingPath(finding.publicationNumber),
     // Kept for research only: out of search engines, like every page no list links to (owner answers 229a and 231a).
-    noindex: finding.status.kind === "unreviewed" || finding.kept,
+    noindex: finding.status.kind === "unreviewed" || finding.kept || finding.personClaims?.noindex === true ||
+      model.siblings.some(({ personClaims }) => personClaims?.noindex === true),
     reader,
-    title: `${finding.publicationNumber}: ${shortened(finding.claim, 70)} | AskRigor Atlas`,
-    description: shortened(finding.claim, 160),
+    // Atlas Release B: an unverified claim about a person is never a title or a description (design 4.4).
+    title: `${finding.publicationNumber}: ${finding.personClaims?.neutralTitle ?? shortened(finding.claim, 70)} | AskRigor Atlas`,
+    description: finding.personClaims?.neutralDescription ?? shortened(finding.claim, 160),
     body,
   });
 }
@@ -1446,6 +1515,13 @@ function changeWords(entry: AtlasChangeEntry): SafeHtml {
         : html`Label changed from ${LABEL_WORDS[entry.labelBefore]} to ${LABEL_WORDS[entry.labelAfter]}`;
     case "withdrawn":
       return html`Withdrawn`;
+    // Atlas Release B (design 4.6): fixed words only; the finding's own page says what is there now.
+    case "person_taken_off":
+      return html`A claim about a named person was taken off after it was disputed`;
+    case "person_disputed":
+      return html`A claim about a named person was disputed; AskRigor is rechecking it`;
+    case "person_restored":
+      return html`A claim about a named person was put back`;
   }
 }
 
@@ -1470,6 +1546,8 @@ ${model.entries.length === 0 ? html`<p>Nothing has changed yet.</p>` : html`<ol 
 ${model.entries.map(changeItem)}</ol>`}`;
   return page({
     path: "/atlas/changes",
+    // Atlas Release B: out of search engines while it lists an unverified claim about a person (design 4.4).
+    noindex: personKeptOutOfSearch(model.entries.flatMap(({ finding }) => finding === null ? [] : [finding])),
     title: "What changed | AskRigor Atlas",
     description: "What changed in the AskRigor Atlas: findings published, checked, corrected and withdrawn.",
     current: "changes",
@@ -1910,6 +1988,24 @@ table { width: 100%; border-collapse: collapse; }
 .dossier-studies li { margin-bottom: 1.4rem; }
 .dossier-studies h4 { margin: 0 0 0.3rem; }
 .dossier-studies p { margin: 0.35rem 0; }
+/* AskRigor#477 stage 2: research dossiers, main points at a glance, each a line that opens (dossier-pages.ts). */
+.dossier-section { margin: 1.5rem 0; padding: 1rem; border: 1px solid var(--line); border-radius: 0.5rem; background: var(--surface); }
+.dossier-glance { margin: 0.75rem 0; padding-left: 1.4rem; }
+.dossier-finding { margin: 0 0 0.6rem; }
+.dossier-finding summary { cursor: pointer; }
+.dossier-importance, .dossier-hard { display: inline-block; padding: 0 0.4rem; border-radius: 0.3rem; font-size: 0.85rem; font-weight: 700; background: var(--quiet-surface); color: var(--quiet); }
+.dossier-decision_changing .dossier-importance { background: var(--contested-surface); color: var(--contested); }
+.dossier-important .dossier-importance { background: var(--unreviewed-surface); color: var(--unreviewed); }
+.dossier-hard { background: var(--checked-surface); color: var(--checked); }
+.dossier-claim { font-weight: 600; }
+.dossier-evidence { display: block; font-size: 0.95rem; color: var(--muted); }
+.dossier-detail { margin: 0.5rem 0 0.75rem; padding: 0.5rem 0.75rem; border-left: 0.2rem solid var(--line); }
+.dossier-detail h4 { margin: 0.6rem 0 0.2rem; font-size: 1rem; }
+.dossier-detail ul, .dossier-studies-list { padding-left: 1.2rem; }
+.dossier-figure { margin: 0.2rem 0; font-variant-numeric: tabular-nums; }
+.dossier-more { margin: 0.75rem 0; }
+.dossier-more > summary { cursor: pointer; font-weight: 700; }
+.dossier-checked, .dossier-value { margin: 1.25rem 0; }
 th, td { padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 thead th { font-size: 0.9rem; color: var(--muted); }
 td:last-child, th:last-child { text-align: right; }
@@ -2020,4 +2116,9 @@ button:hover, button:focus-visible { background: var(--accent-hover); border-col
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto; transition: none; }
 }
+.person-mark { display: inline; border-left: 3px solid #b45309; padding-left: 0.35em; font-weight: normal; }
+.person-mark strong { color: #92400e; }
+.person-note { font-style: italic; }
+.person-banner { border-left: 3px solid #b45309; padding-left: 0.5em; }
+.person-dispute { margin-top: 1.5em; font-size: 0.95em; }
 `;

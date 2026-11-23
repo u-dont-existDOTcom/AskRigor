@@ -11,16 +11,17 @@ const pages = [
   ["site/index.html", "AskRigor | Evidence-first research retrieval", "https://askrigor.com/"],
   ["site/privacy/index.html", "Privacy | AskRigor", "https://askrigor.com/privacy"],
   ["site/terms/index.html", "Terms | AskRigor", "https://askrigor.com/terms"],
-  ["site/support/index.html", "Support | AskRigor", "https://askrigor.com/support"]
+  ["site/support/index.html", "Support | AskRigor", "https://askrigor.com/support"],
+  ["site/how-to-research/index.html", "How to research | AskRigor", "https://askrigor.com/how-to-research"]
 ] as const;
 
 const pageHtml = async (file: string) => readFile(rootFile(file), "utf8");
 
 describe("AskRigor public site", () => {
-  it("ships exactly eight complete public pages", async () => {
+  it("ships exactly nine complete public pages", async () => {
     const result = await validatePublicSite(rootFile("site/"));
     expect(result.errors).toEqual([]);
-    expect(result.pages).toBe(8);
+    expect(result.pages).toBe(9);
     expect(result.internalLinks).toBeGreaterThanOrEqual(16);
   });
 
@@ -47,8 +48,28 @@ describe("AskRigor public site", () => {
     const result = await validatePublicSite(rootFile("site/"));
     // 105 since 16 Nov 2026: the new inositol Atlas overview link in the roadmap adds one to the previous 104.
     // 106 since 21 Nov 2026: the home page footer's "User count" link to the public user count's text page.
-    // 108 since the 21 Nov 2026 release record: the roadmap's "What's new" links the user count page and the privacy notice.
-    expect(result.internalLinks).toBe(108);
+    // 126 since the How to research page (owner answer 365 1a): its own 12 links (brand, menu, footer) and its menu
+    // item on the eight other pages add 20.
+    // 128 since the 21 Nov 2026 release record: the roadmap's "What's new" links the user count page and the privacy notice.
+    expect(result.internalLinks).toBe(128);
+  });
+
+  it("puts the approved cautions on the How to research page, linked from every page's menu (owner answer 365 1a)", async () => {
+    const page = await pageHtml("site/how-to-research/index.html");
+    // The draft's page text only: its review notes and sources table stay with the draft.
+    for (const note of ["Draft for", "owner library", "Not used, because", "this session"]) expect(page).not.toContain(note);
+    // Every in-page link lands on a part of the page.
+    const ids = [...page.matchAll(/\sid="([^"]+)"/gu)].map((match) => match[1]);
+    const targets = [...page.matchAll(/href="#([^"]+)"/gu)].map((match) => match[1]);
+    expect(targets).toHaveLength(6);
+    for (const target of targets) expect(ids).toContain(target);
+    // Each number's source is linked, over HTTPS: the draft's 35 links (the canonical <link> is not one).
+    const external = [...page.matchAll(/<a href="(https?:[^"]+)"/gu)].map((match) => match[1]);
+    expect(external).toHaveLength(35);
+    for (const url of external) expect(url).toMatch(/^https:\/\//u);
+    for (const file of ["site/index.html", "site/roadmap/index.html", "site/compare/free-chatgpt/index.html"]) {
+      expect(await pageHtml(file)).toContain('<li><a href="/how-to-research">How to research</a></li>');
+    }
   });
 
   it("discloses connected research and the bounded legacy checkpoint", async () => {
@@ -209,7 +230,15 @@ describe("AskRigor public site", () => {
     expect(section).toContain("erases it. Before a research dossier is stored, its text (never your chat or anything " +
       "about you) is checked for personal details by an AI model from Anthropic, on AskRigor’s own account. Each " +
       "submission first enters");
-    expect(privacy.match(/Anthropic/gu)).toHaveLength(1);
+    // Two AI readings by Anthropic, each disclosed once: this one, and Atlas Release B's reading for claims about named
+    // people (design of 19 Nov 2026, section 6; Codex's red team: "Anthropic also receives that memory"); and, once,
+    // the Claude session that reads disputes for the owner (Fable's recheck of B, change 5).
+    expect(privacy.match(/Anthropic/gu)).toHaveLength(3);
+    expect(privacy).toContain("AskRigor’s operator handles disputes with Claude, an AI model from Anthropic, which reads " +
+      "disputes, with any link and email address given with them, for AskRigor’s owner.");
+    expect(privacy).toContain("To find claims about people, AskRigor sends each finding’s text, the sentences it quotes " +
+      "from its sources and any taken-off claims about the names in it to an AI model from Anthropic, on AskRigor’s own " +
+      "account.");
     expect(privacy).toContain("Effective November 21, 2026");
     // After the exclusions it relies on, and before the paid private sentence, which it does not change.
     expect(section.indexOf("private research dossier")).toBeGreaterThan(section.indexOf("It excludes raw chat"));
@@ -263,7 +292,8 @@ describe("AskRigor public site", () => {
     ]) expect(privacy).toContain(fragment);
     const terms = await pageHtml("site/terms/index.html");
     for (const fragment of [
-      "Effective November 16, 2026",
+      // November 21, 2026: Atlas Release B's "Claims about people in the Atlas" (owner answer 366b).
+      "Effective November 21, 2026",
       "for each finished research answer a findings card",
       "or a findings card saved under it",
       "saves an answer’s findings card or lesson feedback only when you accept saving it for that answer",
@@ -275,7 +305,7 @@ describe("AskRigor public site", () => {
   it("says free cards publish on save, paid findings wait for acceptance, and how votes and comments work", async () => {
     const privacy = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "<p>Findings cards saved in free contributor mode are published in AskRigor’s public Atlas as soon as they are saved, written without the person and marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed them. Findings from a paid private card are published only after AskRigor’s owner accepts them. An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify anyone.</p></section>",
+      "<p>Findings cards saved in free contributor mode are published in AskRigor’s public Atlas as soon as they are saved, written without the person and marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed them. Findings from a paid private card are published only after AskRigor’s owner accepts them. An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify the person who asked. Findings may name other people, such as study authors, sellers and people who make public health claims; see “People named in the Atlas” below.</p></section>",
       "Paid private mode sends no research contribution to that path. Findings cards saved in free contributor mode are published in AskRigor’s public Atlas as soon as they are saved, written without the person and marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed them. Findings from a paid private card are published only after AskRigor’s owner accepts them.",
       "<section><h2>Votes and comments in the Atlas</h2><p>To vote on a finding or comment on it, you sign in with an AskRigor account. AskRigor stores each vote and comment with a key derived from the account, never its email address. Votes are shown only as totals. A comment is public and is shown with the display name you choose, so don’t post contact details or anything that identifies you or someone else. AskRigor checks comments for contact details and links before showing them, and its owner may hide or remove any comment. You can delete your own votes and comments at any time.</p></section>",
       "To request deletion of a findings card, send its <code>ARF-####</code> id to the same address. No reason is " +
@@ -286,10 +316,10 @@ describe("AskRigor public site", () => {
     ]) expect(privacy).toContain(fragment);
     const terms = await pageHtml("site/terms/index.html");
     for (const fragment of [
-      "rather than silently rewritten. Findings cards saved in free contributor mode are published in AskRigor’s public Atlas as soon as they are saved, written without you and marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed them. Findings from a paid private card are published only after AskRigor’s owner accepts them. If you ask to delete a findings card, everything that ties it to you is removed, and the card leaves the Atlas unless AskRigor’s owner has already accepted its findings; no reason is needed. An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify anyone.</p></section>",
+      "rather than silently rewritten. Findings cards saved in free contributor mode are published in AskRigor’s public Atlas as soon as they are saved, written without you and marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed them. Findings from a paid private card are published only after AskRigor’s owner accepts them. If you ask to delete a findings card, everything that ties it to you is removed, and the card leaves the Atlas unless AskRigor’s owner has already accepted its findings; no reason is needed. An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify the person who asked. Findings may name other people, such as study authors, sellers and people who make public health claims; see “Claims about people in the Atlas” below and the privacy notice.</p></section>",
       "<section><h2>Comments in the Atlas</h2><p>Comments in the Atlas must be about the finding. Your own experiences are welcome, and comments are not medical advice. Don’t post contact details, personal information about anyone else, advertising or harassment. AskRigor may hide or remove any comment and stop an account from commenting. By posting a comment you let AskRigor show it in the Atlas, and you can delete it at any time.</p></section>",
       "does not promise attribution, publication, compensation, or a particular outcome",
-      "Effective November 16, 2026",
+      "Effective November 21, 2026",
     ]) expect(terms).toContain(fragment);
   });
 

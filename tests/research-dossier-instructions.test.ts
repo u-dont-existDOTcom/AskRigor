@@ -80,7 +80,7 @@ describe("HRP 20.6.43: the private research dossier in DeepResearchTimeSavingAtl
     expect(flat).toContain("preserve eligible work during this turn through a source-verified findings_card plus, " +
       "when supported, the structured research map.");
     expect(hrp).toContain('<Revision version="20.6.43" priority="Critical">');
-    await expect(getProtocolManifest("hrp")).resolves.toMatchObject({ version: "20.6.43", revisionDate: "2026-11-16" });
+    await expect(getProtocolManifest("hrp")).resolves.toMatchObject({ version: "20.6.45", revisionDate: "2026-11-22" });
   });
 
   it("leaves the server instructions within their cap, unchanged", () => {

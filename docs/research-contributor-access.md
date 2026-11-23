@@ -263,13 +263,22 @@ was released on 12 November:
   declaration, without which an allocation is not used: below), the tasks done, and optionally the
   plain answer's receipt. Each task gets a time range from its kind's
   planning estimate per source (`PLAN_TASK_MINUTES` in `apps/research-mcp/src/research-steering.ts`, measured on the
-  timing runs of 9 November 2026); tasks that could change the conclusion are recommended first, then those that could
-  change how sure it is, within the check-back allowance; detail alone is never recommended. Guided always asks;
-  balanced asks when the recommended tasks could take more than about 10 minutes (the high end of their range) or the
-  person's choices could steer the research, as they usually can unless the question is precise (owner answer 284, 10
-  November 2026), except that length alone is no reason to ask when the menu carries AskRigor's own mark that the
-  person's newest message told the AI to go on (owner answer 304a, 14 November 2026; "A follow-up that says to go
-  on", below); autonomous goes on, and after the allowance checks what it has and gives that answer, ending with the
+  timing runs of 9 November 2026). A task the person's own words asked for is marked `person_asked` by the planning
+  call, or by the AI writing the menu, and is always recommended, whatever its length. The remaining tasks that could
+  change the conclusion are recommended first, then those that could change how sure it is, within the check-back
+  allowance left; detail alone is otherwise never recommended. Guided always asks;
+  balanced asks when the person's choices could steer the research, as they usually can unless the question is precise
+  (owner answer 284, 10 November 2026). Since owner answer 399b (21 November 2026; built, not yet released) a research's
+  first menu (nothing carried, nothing done, not changed) no longer waits for its length: "drop the 10-minute stop for a
+  first question on the balanced style, for every account (it's everyone's default): the research goes on, opening
+  with how it read your question and how long it may take; the guided style still asks." Its go-ahead says why
+  (the shown-plan block) and has the AI write one line to the person before its first research call: how it read the
+  question, and that the research may take the recommended tasks' time with the final check and the answer. An app
+  that shows nothing the AI writes until the answer is its limit, and the line then opens the answer. Before, a menu
+  asked whenever the recommended tasks could take more than about 10 minutes (the high end of their range), unless it
+  carried AskRigor's own mark that the person's newest message told the AI to go on (owner answer 304a, 14 November
+  2026; "A follow-up that says to go on", below). A later menu (one carrying an allocation not yet the person's, say)
+  still asks past 10 minutes, whatever mark it carries; autonomous goes on, and after the allowance checks what it has and gives that answer, ending with the
   open tasks as a numbered menu and the question whether to spend more time on them; a person's allocation is followed,
   in their own minutes as given (only AskRigor's own estimates are rounded for the menu; 12 November 2026).
   An allocation that names no task on the menu still open counts as none, so the menu recommends and decides as if
@@ -349,8 +358,9 @@ was released on 12 November:
   the question itself fixes exactly what to look up, as with one result of one named study; and that every task on
   the menu is needed to answer is not by itself a reason for none, since the person may mean a different reading or
   comparison than the one the model picked. The placeholder left in is read as not given, exactly, so the call sent
-  back unchanged is handed back again and not planned. Guided and autonomous research, tasks past 10 minutes, the
-  person's declared allocation, a changed menu and a re-plan need no `steering_choice`, as they needed no judgment.
+  back unchanged is handed back again and not planned. Guided and autonomous research, the person's declared
+  allocation, a changed menu and a re-plan need no `steering_choice`, as they need no judgment; since owner answer 399b
+  a balanced first menu past 10 minutes does, since its length no longer asks on its own.
   When the menu asks and a question was named, whatever the reason for the ask, the result carries it as
   `researchMenu.steering_choice`; the reply the text hands over puts it to the person, in their language, in place
   of the general sentence on what their choices could change; `next_step` says to put it to them, right after "Ask
@@ -436,12 +446,60 @@ was released on 12 November:
   read the whole style and wrote it back, so the later write undid the other's change); the account's other switches
   each write only their own column.
 
+### Showing the plan and taking a steer (22 November 2026; built, not released)
+
+Part A of `docs/superpowers/plans/2026-11-22-steering-plan-shown.md` adds a first line on `inspect`, after the notice
+is accepted, in apps that show words between calls. It applies only if this inspect starts research on a question of theirs, as the AI judges. It says the AI is building the plan (about a minute with
+AskRigor's planning call, a few minutes for the AI's own first look), then will show whether it waits and how to
+change it. A planned account whose registration gets no usable plan says that its own first look needs a few
+minutes more. ChatGPT, detected by `isChatGptCall(extra)`, gets neither line; missing signals count as another app.
+
+A full research menu that goes on asks the AI to show its reading and the nearest reading left out, then numbered
+recommended tasks with rough minutes and reading depth, the total including the final check and answer, and a steer
+line saying why it started without waiting. The person's own go-ahead, autonomous style and an assumed answer each
+have their own line. ChatGPT instead opens with the reading and answer, and ends with the tasks done, open tasks
+and minutes, and how to redirect the next turn. Light look-ups and asides keep their short lines. An ask opens with
+its own reason: a needed answer, a changed plan, a later long step, the chosen guided style, or a choice about time.
+
+A steer goes in `later_inputs.researchMenu` as runtime-only `person_steered: true`, with the person's own words in
+`person_reason`; without non-empty words it is ignored. On a changed menu or re-plan without a named question, balanced and autonomous follow the revised recommendation,
+even past about 10 minutes. Guided asks until the person gives an allocation; an answered allocation goes on.
+A first menu keeps every existing reason to ask. False, null and absent steer declarations are silent.
+An unusable attempted steer is reported with its reason; only a changed menu or re-plan uses the opening
+saying the last message did not reach AskRigor as a change. The AI keeps the same target and plain-answer receipt for narrowing, widening or redirecting the
+same question, passes the last menu digest and finished task numbers, and marks requested tasks `person_asked`.
+It shows what finished tasks found, what changed and what remains, avoids repeating finished tasks, and keeps their
+receipts. A different thing requires a new plain-answer registration and an explanation of which finished work
+still applies. The steer instructions are in both text and `next_step`. Learn mode records no steered menu choice;
+it adds no storage of steering messages.
+
+A registration without an AskRigor plan gives `menu_outline`: the corrected-menu example, its signed receipt, one
+task with placeholders. Ordinary accounts keep their existing steering field and wording; dev outlines omit
+`steering_choice`, so no account is asked for it before its first menu. A dev account without an AskRigor plan
+can still have that first menu call returned for its steering judgment when the waiting decision needs it.
+The target is copied only through
+300 characters; longer targets use the existing placeholder. `heldVariants` still selects a result within the
+client byte limit. A handed-over research or light plan, or an aside, gets no outline.
+
+The dev planner rubric is `2026-11-22.2`: consider both sold and self-prepared forms, give the likely form its own
+task when strength, content or use differs much, and name the nearest form or reading left out. Owner answer 402a
+also includes the tradition's own sources and material differences for traditional, regional or folk concepts,
+claims, remedies, diagnoses or practices, including safety questions with no system named; safety and benefit
+evidence is matched to those claims and the actual preparation, with urgent work first. Every account's first
+screen loads HRP TraditionalSystemAccount and begins finding that account beside the studies, leaving full reading
+for research tasks. Part B is not built:
+ordinary accounts' steering judgment and form questions, guided approval and existing time checkpoints retain their
+decisions. No live steering acceptance is claimed; nothing here says steering has been proven to work.
+
 ### AskRigor's own planning call, on dev accounts (owner answer 298b, 13 November 2026)
 
 On a dev account, with the call switched on, AskRigor plans the research itself when the plain answer is registered:
 one Claude API call that first searches the web (at most two searches) for what the question refers to, then says
 what it is about, names the one question to put to the person before researching, or the word none, and lists two
-to five research tasks (`apps/research-mcp/src/research-planner.ts`). The owner, 13 November: "perhaps the research
+to five research tasks (`apps/research-mcp/src/research-planner.ts`). When a reply's plan ran no web search, the same
+request is sent once more with one fixed instruction to search first, while the call's time (at least 20 seconds
+left) and the day's cap allow; the plan that searched is used, otherwise the first one (21 November 2026, after round
+1 of the clean comparison, where three of five live plans ran none). The owner, 13 November: "perhaps the research
 plan should be tried directly as an api call rather than hope the AI can figure it out". Rounds 4 to 6 of the
 owner's ChatGPT runs had left that judgment to the person's AI, and it went wrong in a different place each round.
 
@@ -499,6 +557,39 @@ owner's ChatGPT runs had left that judgment to the person's AI, and it went wron
   (`fallbacks: "default"`); when the whole chain declines, the AI plans as before. The SDK's own logging and
   tracing are off for this client and the meaning judge's, whatever the environment says: at debug level the SDK
   logs requests and replies whole.
+- **When it asks (the owner's Inbox reply of 21 November 2026; rubric 2026-11-21.1; built, not yet released).** "i
+  turned off the menu because it was often asking for clarifdication where none was needed". The call names a
+  question only when the research needs the person's answer:
+  - a fact only they can give for a decision about one person or one thing (an unnamed medicine, a dose's units or
+    strength, who it is for, what they tried when they ask to leave it out), unless the safe answer is the same
+    either way;
+  - or two different things their words can mean, which its search couldn't settle, with no meaning clearly
+    likeliest and no one answer that can serve them.
+  Otherwise it writes none, says in `about` which reading it took, and gives any risky reading or situation (a
+  stronger form, another route, pregnancy, a child, a common medicine) a task of its own. A general question about
+  evidence gets no questions about the person: the plan covers the common situations. The balanced style's
+  10-minute stop, which on its own asked before 14 of the 15 replayed plans, went for a first menu by owner answer
+  399b (the research style, above).
+- **A test round's pause (owner answer 395b, 21 November 2026; built, not yet released).** To compare a dev
+  account's research with and without the call on the same day and build, a session pauses that account's own call
+  with the runtime-only action `pause_research_planner` and `later_inputs.pauseMinutes` (so the published tool list
+  is unchanged): whole minutes from now, 1 to 120, or 0 to end it. While it runs the account goes as with the call
+  off: `register_plain_answer` makes no call and hands on no plan, `inspect` asks for none of the person's words,
+  `plan_research` names no learn mode and keeps no menu answer, and the final check finds no plan's lane, so a light
+  look-up's draft is reviewed like any other. AskRigor's review of a draft still runs, from the research target alone
+  unless the AI passes the person's words. Starting a pause forgets what the hour kept of the account's plans and
+  lanes, and registrations are numbered in the order they begin, so no research registered during or after the pause
+  takes a plan made before it, even a final check waiting on a plan still being made; research registered before it
+  keeps its own plan, but not its light lane: a menu handed over before the pause goes as research while it runs. A paused registration costs nothing and counts nothing toward the account's calls for the day.
+  Learn mode's setting can still be changed. Set again while it runs, a pause keeps its start and ends at most two
+  hours after it. `inspect` says nothing of a pause: every AI calls it before research, so a "without" chat told of a
+  test would be a third condition (Fable's recheck, 21 Nov). The pause's own result gives its end
+  (`plannerPausedUntil`), the owner's account page says the call is paused and until when, and the call record
+  (`list_calls`) shows a plan's lane on each registration that was planned, so a round can prove each run's arm.
+  Only a dev account can pause, only its own call, and only while the call is on (`planner_off` otherwise). The pause
+  is kept in process memory only, under the account's 16-hex-character digest, until an hour after its end; a
+  restart ends every pause. A session turns it on only for a test round, and the person's own research in that window
+  goes without plans too.
 - **What it costs and keeps.** Paid from the owner's monthly Claude API credit
   (`governance/chat-work-authority-policy.json`, `OWNER_ANSWER_298B`). Measured on 13 November on the five test
   questions: 6 to 9 cents and 10 to 22 seconds a call with one or two searches. AskRigor stores nothing it sends or
@@ -618,7 +709,9 @@ answered `ask`, since balanced research asks first whenever the recommended task
 minutes. The option the owner chose in the Inbox on 14 November at 10:05 UTC: "when your latest message tells the AI
 to go on, continue or dig deeper, and the plan has no question for you, the research goes on with the recommended
 tasks without asking. The planning call judges whether your message says that. A first question still follows the
-10-minute rule. The cost: a follow-up can then run longer than 10 minutes before you hear back."
+10-minute rule. The cost: a follow-up can then run longer than 10 minutes before you hear back." Since owner answer
+399b (21 November 2026) no first menu on the balanced style waits for its length, so the mark no longer makes the
+difference there; it is still made and checked.
 
 - **The judgment is the planning call's.** When the AI passes on the person's words as a list of more than one
   message (`later_inputs.asked`), the planning call's bundle also carries the newest one as `latest_message`
@@ -637,10 +730,14 @@ tasks without asking. The planning call judges whether your message says that. A
   the registered research target is not asked about for its length alone: it goes on with the recommended tasks, the
   result says `went_on_as_asked`, and the go-ahead adds "AskRigor did not ask first, though these tasks could take
   more than about 10 minutes: its own plan read the person's latest message as telling you to go on." The
-  recommended tasks are those of any menu, within the account's check-back allowance.
+  recommended tasks are those of any menu, within the account's check-back allowance. Superseded by owner answer 399b
+  (21 November 2026): every balanced first menu goes on whatever its length (the shown-plan block), so the mark, which
+  comes only with a first menu, changes no decision, and `went_on_as_asked` is no longer given; the mark is still
+  made and checked.
 - **What still asks.** Guided research, as it asks before every long task; a plan that names a question; a menu
-  changed after the person saw it; a re-plan; and any menu without the mark, which is every menu the AI writes
-  itself and every menu of an account whose research AskRigor does not plan. A mark written by the AI, altered, or
+  changed after the person saw it; a re-plan; and, before owner answer 399b, any long menu without the mark, which is
+  every menu the AI writes itself and every menu of an account whose research AskRigor does not plan; since 399b a
+  balanced first menu goes on whatever its length, mark or no mark, and a later one past 10 minutes asks. A mark written by the AI, altered, or
   copied to another menu or another registration is not one, and is never an error: the menu is planned as if it
   carried none. A menu refused for another field goes back for correction with its mark.
 - **The plan cache.** Words that came as a list of more than one message are kept under a key that holds the newest
