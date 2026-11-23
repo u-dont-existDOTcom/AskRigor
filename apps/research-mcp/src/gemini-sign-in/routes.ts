@@ -271,14 +271,21 @@ export function createGeminiSignInRoutes(
           return true;
         }
         const path = pathname.slice(GEMINI_ISSUER_PATH.length) || "/";
-        // Google's calls are logged on arrival too, so one that stalls or never finishes still leaves a line. The
-        // library's router also takes a trailing slash and any letter case, so the check does too (Codex's re-review).
-        const endpoint = libraryEndpoint(path);
-        if (method === "POST" && (endpoint === "/token" || endpoint === "/token/revocation")) {
-          note(endpoint === "/token" ? "token" : "revocation", "received");
+        // Only the library's exact addresses and methods reach it. Its router is more lenient (letter case, one trailing
+        // slash, HEAD beside GET), and three review rounds found variants that skipped this dispatcher's own checks for
+        // a new link and the step log (Codex, 23 Nov 2026); refusing every variant here keeps one definition of each.
+        const served = libraryMethods(path);
+        if (served === undefined) {
+          response.writeHead(404, { "content-type": "application/json", "cache-control": "no-store" });
+          response.end(JSON.stringify({ error: "not_found" }));
+          return true;
         }
-        // The library's router also takes "/AUTH" and "/auth/": they get the same checks (Codex's re-review, 23 Nov).
-        if (endpoint === "/auth" && (method === "GET" || method === "POST")) {
+        if (!served.has(method)) return methodNotAllowed(response);
+        // Google's calls are logged on arrival too, so one that stalls or never finishes still leaves a line.
+        if (path === "/token" || path === "/token/revocation") {
+          note(path === "/token" ? "token" : "revocation", "received");
+        }
+        if (path === "/auth") {
           // What Gemini asked for, by shape only (the step log, when on): which parameters came, never their values.
           if (writeNote !== undefined) {
             note("authorization", "requested", method === "GET"
@@ -337,17 +344,26 @@ function pathKind(pathname: string): string {
   if (pathname === GEMINI_RESOURCE_METADATA_PATH || DISCOVERY_ALIASES.has(pathname)) return "metadata";
   if (pathname === GEMINI_CALLBACK_PATH) return "callback";
   if (INTERACTION.test(pathname)) return "interaction";
-  const path = libraryEndpoint(pathname.slice(GEMINI_ISSUER_PATH.length));
+  const path = pathname.slice(GEMINI_ISSUER_PATH.length);
   if (path === "/token") return "token";
   if (path === "/token/revocation") return "revocation";
   if (path === "/auth" || path.startsWith("/auth/")) return "authorization";
   return "other";
 }
 
-/** A library path as its router matches it: letter case and trailing slashes ignored. */
-function libraryEndpoint(path: string): string {
-  return path.toLowerCase().replace(/\/+$/u, "");
+/**
+ * The methods each address of the library may be called with, exactly as it is spelled: the authorization endpoint,
+ * its resume address after a step, the token and revocation endpoints and the key set. Undefined for anything else.
+ */
+function libraryMethods(path: string): ReadonlySet<string> | undefined {
+  if (path === "/auth" || /^\/auth\/[A-Za-z0-9_-]{1,64}$/u.test(path)) return AUTH_METHODS;
+  if (path === "/token" || path === "/token/revocation") return POST_ONLY;
+  if (path === "/jwks") return READ_METHODS;
+  return undefined;
 }
+const AUTH_METHODS: ReadonlySet<string> = new Set(["GET", "POST"]);
+const POST_ONLY: ReadonlySet<string> = new Set(["POST"]);
+const READ_METHODS: ReadonlySet<string> = new Set(["GET", "HEAD"]);
 
 function methodNotAllowed(response: ServerResponse): true {
   response.writeHead(405, { "content-type": "application/json", allow: "GET, POST", "cache-control": "no-store" });

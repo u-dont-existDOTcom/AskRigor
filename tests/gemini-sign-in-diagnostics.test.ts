@@ -268,19 +268,7 @@ describe("Gemini's sign-in step log covers every step after Allow, by name only"
     }
     // Arrival is logged before the library runs, so a call that stalls still leaves a line.
     expect(lines()).toContain("token received");
-    // Also for the path variants the library's router accepts (Codex's re-review).
-    records.length = 0;
-    const variants = await startGeminiFixture({ diagnostic: (record) => records.push(record) });
-    try {
-      for (const path of ["/oauth/gemini/token/", "/oauth/gemini/TOKEN", "/oauth/gemini/token/revocation/"]) {
-        await fetch(`${variants.baseUrl}${path}`, { method: "POST" });
-      }
-    } finally {
-      await variants.close();
-    }
-    expect(lines().filter((line) => line.endsWith(" received"))).toEqual([
-      "token received", "token received", "revocation received",
-    ]);
+
     records.length = 0;
     const limited = await startGeminiFixture({ diagnostic: (record) => records.push(record), rateLimitCapacity: 1 });
     try {
@@ -296,17 +284,25 @@ describe("Gemini's sign-in step log covers every step after Allow, by name only"
     ]);
   });
 
-  it("gives the router's variants of the authorization address the same checks (Codex's re-review)", async () => {
+  it("refuses every variant of the library's addresses before the library sees it (Codex's reviews)", async () => {
     const fixture = await start();
-    for (const path of ["/oauth/gemini/AUTH", "/oauth/gemini/auth/", "/oauth/gemini/Auth//"]) {
-      const response = await new Browser(fixture.baseUrl).request(`https://mcp.askrigor.com${path}?${new URLSearchParams({
-        response_type: "code", client_id: CLIENT_ID, redirect_uri: GOOGLE_REDIRECT, scope: "research:use",
-        state: "google-state-1", code_challenge: "a".repeat(43), code_challenge_method: "S256",
-      }).toString()}`);
-      expect(response.status, path).toBe(400);
-      expect(response.headers.get("location"), path).toBeNull();
+    const browser = new Browser(fixture.baseUrl);
+    const query = new URLSearchParams({
+      response_type: "code", client_id: CLIENT_ID, redirect_uri: GOOGLE_REDIRECT, scope: "research:use",
+      state: "google-state-1", code_challenge: "a".repeat(43), code_challenge_method: "S256",
+    }).toString();
+    for (const path of ["/oauth/gemini/AUTH", "/oauth/gemini/auth/", "/oauth/gemini/Auth/", "/oauth/gemini/auth//"]) {
+      const response = await browser.request(`https://mcp.askrigor.com${path}?${query}`);
+      expect(response.status, path).toBe(404);
     }
-    expect(lines().filter((line) => line === "library resource_missing")).toHaveLength(3);
+    for (const path of ["/oauth/gemini/token/", "/oauth/gemini/TOKEN", "/oauth/gemini/token/revocation/", "/oauth/gemini/token//"]) {
+      expect((await fetch(`${fixture.baseUrl}${path}`, { method: "POST" })).status, path).toBe(404);
+    }
+    // HEAD reached the library beside GET without this dispatcher's checks for a new link.
+    expect((await fetch(`${fixture.baseUrl}/oauth/gemini/auth?${query}`, { method: "HEAD" })).status).toBe(405);
+    expect((await fetch(`${fixture.baseUrl}/oauth/gemini/token`, { method: "GET" })).status).toBe(405);
+    // None of them reached the library, so none left a step line.
+    expect(lines()).toEqual([]);
   });
 
   it("names an inherited property's name as other, never as code (Codex's review)", async () => {
