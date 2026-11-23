@@ -69,6 +69,17 @@ describe("the news card's quotes: a structured abstract's label at the quote's s
       .toEqual(["not_found", "found"]);
   });
 
+  it("looks a quote up without its label only when what is left means much on its own", async () => {
+    // Another section says the same few words: the label is what told them apart.
+    const back: SourceLineDocument = { kind: "full_text", blocks: [
+      { text: "Role of the Funder/Sponsor: None reported.", section: "Article Information" },
+      { text: "The invented trial's nurses collected every sample by hand.", section: "Acknowledgments" },
+    ] };
+    expect(await outcomes(back, ["Conflict of Interest Disclosures: None reported.",
+      "Acknowledgments: The invented trial's nurses collected every sample by hand."]))
+      .toEqual(["not_found", "found"]);
+  });
+
   it("still refuses a real wording difference, and a part of a sentence, with or without the label", async () => {
     expect(await outcomes(ABSTRACT, [
       "INTERPRETATION: The invented drug reduced the risk of a second stroke when compared with aspirin, and major " +

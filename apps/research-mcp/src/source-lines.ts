@@ -134,7 +134,8 @@ const BROKEN_WORD = /(?<=\p{L})[-­‐‑]\s+(?=\p{Ll})/gu;
  * card's backing lines (the 23 Nov 2026 news audit: who paid, How much's figures and an agency's action failed on
  * formatting alone), with four exact, structural additions, the same in the quote and in the text, and no fuzzy or
  * meaning-based matching: a quote may start with a section's label and its colon ("FUNDING:", "Interpretation:"), which
- * a PubMed abstract keeps apart from its text, so it is looked up as given and without the label; the white space beside
+ * a PubMed abstract keeps apart from its text, so it is looked up as given and, when what is left is long enough to mean
+ * much on its own, without the label; the white space beside
  * a dash or a hyphen between two characters is set aside ("1 – 14" is "1–14", "− 4" is "−4"; figureText already reads
  * every dash and minus sign as one); a label of NEWS_QUOTE_LABELS at a sentence's start in the text, with its colon or
  * alone on its line ("Funding/Support:", "Competing interests" as a PDF sets a heading), ends there, so the sentence
@@ -429,8 +430,11 @@ function finder(document: SourceLineDocument, matching: QuoteMatching = "standar
   const forms = [(text: string) => text, (text: string) => text.replace(BROKEN_WORD, ""),
     (text: string) => text.replace(BROKEN_WORD, "-")].map((reading) => searchable(document, reading, matching));
   return (quote) => {
-    // The news matching looks a quote up as given and, when it starts with a section's label, without it.
+    // The news matching looks a quote up as given and, when it starts with a section's label, without it: then only when
+    // what is left is long enough to mean much on its own ("Disclosures: None reported." is never looked for as "None
+    // reported.", which another section may say).
     for (const given of matching === "news" ? newsQuoteForms(quote) : [quote]) {
+      if (given !== quote && !longEnough(given)) continue;
       const wanted = quoteForm(bracketedSuperscripts(given), matching);
       if (wanted === "") continue;
       for (const { text, sentences, blocks } of forms) {

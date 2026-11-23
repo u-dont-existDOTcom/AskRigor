@@ -212,7 +212,7 @@ The news lane's audits of 22 and 23 Nov (owner-pages `askrigor/news-check-runs/2
    cap is the one that acts.
 2. **The word-for-word lookups of the news card's lines match by the news rules** (`QuoteMatching` "news" in
    `source-lines.ts`; every other line as before): a quote's leading section label ("FUNDING:") is looked up with and
-   without it; the white space beside a dash is set aside, in the quote and the text (figureText already read every dash
+   without it (without it only when what is left is long enough to mean much alone); the white space beside a dash is set aside, in the quote and the text (figureText already read every dash
    and minus sign as one); a known label in the text, with its colon or alone on its line, ends there; and a word joined
    to a web address or a file name ("…/coi_disclosure.pdf.") is no abbreviation. Exact and structural, with no fuzzy or
    meaning-based matching. Replayed on the 23 Nov texts in the run's logs (locally, not committed): the who-paid lines of
