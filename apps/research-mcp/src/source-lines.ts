@@ -272,13 +272,15 @@ const TRAILING = new RegExp(String.raw`^(?:[\s"'\p{Pi}\p{Pf}\p{Pe}\p{STerm}]|${C
 // day.", "in all.", "10 mg."), so before a capital letter it still ends a sentence: a known limit.
 const ABBREVIATION_END = /(?:^|[^\p{L}\p{M}.])(?:(?:\p{L}\p{M}*)+\.){2,}$/u;
 // The news matching's: the same, except that a sentence whose last run of characters without white space is a web
-// address or a file name by its form ends there, so a sentence ends after "…icmje.org/coi_disclosure.pdf." and the
-// declaration after it starts one (the 23 Nov 2026 news audit). The forms: "://", a dotted name before a "/", "\" or
-// "@" ("icmje.org/…", "name.surname@…"), or a "_" ("coi_disclosure.pdf"). A mark beside the word alone is no address
-// (Codex's review of #517): "…the earlier report:i.e. Vitamin D…", "…drugs-e.g. Aspirin…" and "…and/e.g. Aspirin…" run
-// on, as in the standard matching, so no part of a sentence is found as a whole one. An address with none of these
-// forms ("example.org." at a sentence's end) runs on too: a quote after it is refused, never found in part.
-const ADDRESS_FORM = /:\/\/|\.[^\s./\\@]+[/\\@]|_/u;
+// address with its scheme ("://", as in "…at https://www.icmje.org/coi_disclosure.pdf.") ends there, so the declaration
+// after it starts one (the 23 Nov 2026 news audit): such a word is an address, not an abbreviation. Nothing else is read
+// as an address. Codex's reviews of #517 found each looser form let a part of a sentence be found as a whole one,
+// dropping a negation before it: a colon, dash or slash beside an abbreviation ("…the earlier report:i.e. Vitamin D…",
+// round 1), then an underscore of Markdown emphasis ("…report, _i.e. Vitamin D…_", round 2). So an address without its
+// scheme ("www.icmje.org/coi_disclosure.pdf.") runs on, as in the standard matching: a quote after it is refused, never
+// found in part. The one case left that could end a sentence early: an abbreviation written onto the end of an address
+// with its scheme.
+const ADDRESS_FORM = /:\/\//u;
 
 /** Whether a sentence (its end trimmed) ends in an abbreviation, so the next one runs on from it. */
 function endsInAbbreviation(sentence: string, matching: QuoteMatching): boolean {

@@ -163,7 +163,9 @@ describe("the news card's quotes: a label or a heading before the quoted sentenc
       "CD is a current member of an invented hyper-\ntension guideline committee.",
       "All other authors declare no relevant conflicts of interest.",
     ];
-    expect(await outcomes(PAGE, pageQuotes)).toEqual(["found", "found", "found"]);
+    // The declaration after a web address without its scheme ("www." … ".pdf.") runs on, as in the standard matching
+    // (Codex's review of #517, round 2): it is refused, never found in part.
+    expect(await outcomes(PAGE, pageQuotes)).toEqual(["found", "not_found", "found"]);
     expect(await outcomes(PAGE, pageQuotes, "standard")).toEqual(["not_found", "not_found", "found"]);
   });
 
@@ -181,22 +183,26 @@ describe("the news card's quotes: a label or a heading before the quoted sentenc
   });
 });
 
-describe("the news card's quotes: a sentence that ends in an abbreviation runs on, unless its last word is an address", () => {
-  // Codex's review of #517: a mark beside an abbreviation ("report:i.e.") is no web address, so the sentence after it
-  // is not a sentence of its own, and a quote of it alone would drop the words before it (here, a negation).
+describe("the news card's quotes: a sentence that ends in an abbreviation runs on, unless its last word is a web address with its scheme", () => {
+  // Codex's reviews of #517: a mark beside an abbreviation ("report:i.e.", "_i.e.", round 1 and 2) or an address
+  // without its scheme is no sign that the sentence ends, so the sentence after it is not one of its own, and a quote of
+  // it alone would drop the words before it (here, a negation).
   const PROSE: SourceLineDocument = { kind: "full_text", blocks: [
     { section: "Discussion", text: "We did not confirm the earlier report:i.e. Vitamin D reduces fractures in older adults." },
     { section: "Discussion", text: "Some invented drugs-e.g. Aspirin reduce pain in invented trials." },
     { section: "Discussion", text: "Results held for men and/e.g. Women in the invented cohort." },
+    { section: "Discussion", text: "We did not confirm the later report, _i.e. Zinc shortens colds in children._" },
+    { section: "Discussion", text: "We saw no effect in www.example.org/i.e. Zinc lozenges helped nobody." },
     { section: "Funding", text: "Disclosure forms are at https://www.example.org/coi_disclosure.pdf. The invented " +
       "council paid for the trial." },
   ] };
 
   it("finds no part of a sentence after an abbreviation that only a mark joins to the word before it", async () => {
     const parts = ["Vitamin D reduces fractures in older adults.", "Aspirin reduce pain in invented trials.",
-      "Women in the invented cohort."];
-    expect(await outcomes(PROSE, parts)).toEqual(["not_found", "not_found", "not_found"]);
-    expect(await outcomes(PROSE, parts, "standard")).toEqual(["not_found", "not_found", "not_found"]);
+      "Women in the invented cohort.", "Zinc shortens colds in children.", "Zinc lozenges helped nobody."];
+    expect(await outcomes(PROSE, parts)).toEqual(["not_found", "not_found", "not_found", "not_found", "not_found"]);
+    expect(await outcomes(PROSE, parts, "standard")).toEqual(["not_found", "not_found", "not_found", "not_found",
+      "not_found"]);
     const wholes = ["We did not confirm the earlier report:i.e. Vitamin D reduces fractures in older adults.",
       "Some invented drugs-e.g. Aspirin reduce pain in invented trials."];
     expect(await outcomes(PROSE, wholes)).toEqual(["found", "found"]);
