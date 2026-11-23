@@ -166,6 +166,10 @@ export function createGeminiAuthorizationServer(
   });
   // Caddy terminates TLS; the dispatcher pins Host and the forwarded protocol before any request reaches the library.
   provider.proxy = true;
+  // The step log, when it is on, goes in first: outermost, so it sees each request's final outcome after the clean-up
+  // below, and before the request handler is made at the end (Koa composes its middleware then).
+  const note = geminiSignInNote(options.diagnostic);
+  if (note !== undefined) watchGeminiSignInLibrary(provider, note, { issuer, resource, now });
   provider.use(async (ctx, next) => {
     await next();
     // The metadata names only the scope that can be granted (the library lists every static scope otherwise).
@@ -185,9 +189,6 @@ export function createGeminiAuthorizationServer(
       }
     }
   });
-  // The step log, when it is on, goes in before the request handler below is made (Koa composes its middleware then).
-  const note = geminiSignInNote(options.diagnostic);
-  if (note !== undefined) watchGeminiSignInLibrary(provider, note, { issuer, resource, now });
 
   return Object.freeze({
     provider,

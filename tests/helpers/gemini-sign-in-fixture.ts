@@ -87,6 +87,8 @@ export async function startGeminiFixture(options: {
   rows?: GeminiSignInRowStore;
   /** The step log's sink (ASKRIGOR_GEMINI_OAUTH_DIAGNOSTICS=enabled); off when not given. */
   diagnostic?: (record: GeminiSignInDiagnostic) => void;
+  /** The sign-in paths' per-address budget (default: high enough never to refuse). */
+  rateLimitCapacity?: number;
 } = {}): Promise<GeminiFixture> {
   const googleKeys = await generateKeyPair("RS256", { extractable: true });
   const stranger = await generateKeyPair("RS256", { extractable: true });
@@ -183,7 +185,12 @@ export async function startGeminiFixture(options: {
     ...(options.now === undefined ? {} : { now: options.now }),
   });
   const routes = createGeminiSignInRoutes(server, login, {
-    rateLimiter: createTokenBucketLimiter({ capacity: 10_000, refillTokensPerMinute: 10_000, maxKeys: 100, idleTtlMs: 60_000 }),
+    rateLimiter: createTokenBucketLimiter({
+      capacity: options.rateLimitCapacity ?? 10_000,
+      refillTokensPerMinute: options.rateLimitCapacity === undefined ? 10_000 : 1,
+      maxKeys: 100,
+      idleTtlMs: 60_000,
+    }),
     ...(options.diagnostic === undefined ? {} : { diagnostic: options.diagnostic }),
   });
 

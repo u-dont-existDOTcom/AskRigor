@@ -98,6 +98,7 @@ describe("Gemini's sign-in step log covers every step after Allow, by name only"
       "consent shown",
       "consent allowed",
       "authorization code_issued",
+      "token received",
       "token issued",
     ]);
     expect(records[0]!.detail).toEqual({
@@ -244,6 +245,51 @@ describe("Gemini's sign-in step log covers every step after Allow, by name only"
     expect(mcpMethodOf(undefined)).toBe("absent");
   });
 
+  it("never lets a failing log sink change a sign-in, and logs refused and stalled calls (Codex's review)", async () => {
+    let throwing = true;
+    const quiet = await startGeminiFixture({
+      diagnostic: (record) => {
+        records.push(record);
+        if (throwing) throw new Error("sink down");
+      },
+    });
+    try {
+      const { code, verifier } = await linkToCode(quiet, new Browser(quiet.baseUrl));
+      const response = await tokenRequest(quiet, {
+        grant_type: "authorization_code", code, redirect_uri: GOOGLE_REDIRECT, code_verifier: verifier,
+        client_assertion_type: ASSERTION_TYPE, client_assertion: await clientAssertion(quiet),
+      });
+      const body = await response.json() as Record<string, unknown>;
+      expect(response.status, JSON.stringify(body)).toBe(200);
+      secrets.push(code, verifier, String(body.access_token), String(body.refresh_token));
+    } finally {
+      throwing = false;
+      await quiet.close();
+    }
+    // Arrival is logged before the library runs, so a call that stalls still leaves a line.
+    expect(lines()).toContain("token received");
+    records.length = 0;
+    const limited = await startGeminiFixture({ diagnostic: (record) => records.push(record), rateLimitCapacity: 1 });
+    try {
+      const first = await fetch(`${limited.baseUrl}/oauth/gemini/token`, { method: "POST" });
+      const second = await fetch(`${limited.baseUrl}/oauth/gemini/token`, { method: "POST" });
+      expect(first.status).not.toBe(429);
+      expect(second.status).toBe(429);
+    } finally {
+      await limited.close();
+    }
+    expect(records.filter((record) => record.outcome === "rate_limited")).toEqual([
+      { event: "askrigor_gemini_sign_in", stage: "library", outcome: "rate_limited", detail: { path: "token" } },
+    ]);
+  });
+
+  it("names an inherited property's name as other, never as code (Codex's review)", async () => {
+    const fixture = await start();
+    const { code, verifier } = await linkToCode(fixture, new Browser(fixture.baseUrl));
+    await exchange(code, verifier, await clientAssertion(fixture, { aud: ["toString", "__proto__", "constructor"] }));
+    expect(last("token")!.detail!.aud).toBe("other");
+  });
+
   it("writes nothing when the step log is off", async () => {
     const quiet = await startGeminiFixture();
     try {
@@ -272,6 +318,20 @@ describe("the step log's reasons", () => {
     expect(geminiSignInReasonOf({ error_detail: `jwt audience missing ${TOKEN_URL}` })).toBe("unlisted");
     expect(geminiSignInReasonOf(new Error(`connect ECONNREFUSED ${PERSON}`))).toBe("unlisted");
     expect(geminiSignInReasonOf("text")).toBe("unlisted");
+    // Templated messages: logged only when every variable part is a known parameter name, path or status.
+    expect(geminiSignInReasonOf({ error_description: "missing required parameter 'code'" }))
+      .toBe("missing required parameter 'code'");
+    expect(geminiSignInReasonOf({ error_description: "missing required parameters 'code', 'redirect_uri', and 'code_verifier'" }))
+      .toBe("missing required parameters 'code', 'redirect_uri', and 'code_verifier'");
+    expect(geminiSignInReasonOf({ error_description: "'code' and 'scope' parameters must not be provided twice" }))
+      .toBe("'code' and 'scope' parameters must not be provided twice");
+    expect(geminiSignInReasonOf({ error_description: "missing required parameter 'my_secret_field'" })).toBe("unlisted");
+    expect(geminiSignInReasonOf({ error_description: "only application/x-www-form-urlencoded content-type bodies are supported on POST /token" }))
+      .toBe("only application/x-www-form-urlencoded content-type bodies are supported on POST /token");
+    expect(geminiSignInReasonOf({ error_description: "only application/x-www-form-urlencoded content-type bodies are supported on POST /token/abc123secret" }))
+      .toBe("unlisted");
+    expect(geminiSignInReasonOf({ error_detail: "unexpected response status 404" })).toBe("unexpected response status 404");
+    expect(geminiSignInReasonOf({ error_description: "authorization request has expired" })).toBe("authorization request has expired");
   });
 
   it("still occur in this server's check, oidc-provider and jose (a library upgrade that rewords one fails here)", () => {

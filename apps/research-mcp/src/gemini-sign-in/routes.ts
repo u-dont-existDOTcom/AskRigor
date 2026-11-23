@@ -226,6 +226,8 @@ export function createGeminiSignInRoutes(
         pathname === GEMINI_ISSUER_PATH || pathname.startsWith(`${GEMINI_ISSUER_PATH}/`);
       if (!inScope) return false;
       if (!options.rateLimiter.consume(clientIp)) {
+        // Logged, so a refused call is never mistaken for one that didn't come (Codex's review, 23 Nov 2026).
+        note("library", "rate_limited", { path: pathKind(pathname) });
         response.writeHead(429, { "content-type": "application/json", "retry-after": "60", "cache-control": "no-store" });
         response.end(JSON.stringify({ error: "rate_limit_exceeded" }));
         return true;
@@ -269,11 +271,17 @@ export function createGeminiSignInRoutes(
           return true;
         }
         const path = pathname.slice(GEMINI_ISSUER_PATH.length) || "/";
+        // Google's calls are logged on arrival too, so one that stalls or never finishes still leaves a line.
+        if (method === "POST" && (path === "/token" || path === "/token/revocation")) {
+          note(path === "/token" ? "token" : "revocation", "received");
+        }
         if (path === "/auth" && (method === "GET" || method === "POST")) {
           // What Gemini asked for, by shape only (the step log, when on): which parameters came, never their values.
-          note("authorization", "requested", method === "GET"
-            ? authorizationRequestShape(query, server.settings.resource.href)
-            : { method: "post" });
+          if (writeNote !== undefined) {
+            note("authorization", "requested", method === "GET"
+              ? authorizationRequestShape(query, server.settings.resource.href)
+              : { method: "post" });
+          }
           // Finding 3 of Fable's recheck: a link must say which resource it is for. Gemini sends it (its requests to Auth0
           // on 20 Nov 2026 carried resource=), so a request without it is refused before any login, and no token is ever
           // issued for /mcp/gemini to a connector that belongs to some other MCP server.
@@ -320,6 +328,18 @@ export function consentPostFromThisSite(request: IncomingMessage, origin: string
 }
 
 export type { GeminiSignInDiagnostic } from "./diagnostics.js";
+
+/** Which kind of sign-in address a path is, by name only. */
+function pathKind(pathname: string): string {
+  if (pathname === GEMINI_RESOURCE_METADATA_PATH || DISCOVERY_ALIASES.has(pathname)) return "metadata";
+  if (pathname === GEMINI_CALLBACK_PATH) return "callback";
+  if (INTERACTION.test(pathname)) return "interaction";
+  const path = pathname.slice(GEMINI_ISSUER_PATH.length);
+  if (path === "/token") return "token";
+  if (path === "/token/revocation") return "revocation";
+  if (path === "/auth" || path.startsWith("/auth/")) return "authorization";
+  return "other";
+}
 
 function methodNotAllowed(response: ServerResponse): true {
   response.writeHead(405, { "content-type": "application/json", allow: "GET, POST", "cache-control": "no-store" });

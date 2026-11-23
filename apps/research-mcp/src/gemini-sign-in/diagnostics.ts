@@ -41,12 +41,19 @@ export function geminiSignInNote(
   diagnostic: ((record: GeminiSignInDiagnostic) => void) | undefined,
 ): GeminiSignInNote | undefined {
   if (diagnostic === undefined) return undefined;
-  return (stage, outcome, detail) => diagnostic({
-    event: "askrigor_gemini_sign_in",
-    stage,
-    outcome,
-    ...(detail === undefined || Object.keys(detail).length === 0 ? {} : { detail }),
-  });
+  return (stage, outcome, detail) => {
+    // A failing log sink must never change a sign-in's outcome (Codex's review, 23 Nov 2026).
+    try {
+      diagnostic({
+        event: "askrigor_gemini_sign_in",
+        stage,
+        outcome,
+        ...(detail === undefined || Object.keys(detail).length === 0 ? {} : { detail }),
+      });
+    } catch {
+      // The line is lost; the request goes on.
+    }
+  };
 }
 
 const ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer";
@@ -145,7 +152,52 @@ export const GEMINI_SIGN_IN_KNOWN_REASONS: ReadonlySet<string> = new Set([
   "requested scope is not allowed",
   "unsupported prompt value requested",
   "prompt none must only be used alone",
+  // oidc-provider resume (lib/actions/authorization/resume.js): the browser came back without, or with another, link
+  "authorization request has expired",
+  "authorization session and cookie identifier mismatch",
+  "interaction session and authentication session mismatch",
+  // oidc-provider client id metadata documents (lib/helpers/client_id_metadata_document.js)
+  "client_id metadata document fetch failed",
+  "client_id metadata document fetch not allowed",
+  "client_id must not equal the authorization server issuer",
+  "client is not allowed",
+  "client_id metadata document client_id does not match the expected value",
+  "client_id metadata document is not a JSON object",
+  "client_id metadata document must not contain client_secret or client_secret_expires_at",
+  "client_id metadata document must not use shared-secret token endpoint authentication methods",
+  // oidc-provider request bodies (lib/shared/selective_body.js)
+  "failed to parse the request body",
 ]);
+
+/** OAuth parameter names the library may name in a message; a message naming any other is not logged. */
+const KNOWN_PARAMETERS = new Set([
+  "grant_type", "code", "redirect_uri", "code_verifier", "client_id", "client_secret", "client_assertion",
+  "client_assertion_type", "refresh_token", "scope", "resource", "response_type", "response_mode", "state", "nonce",
+  "code_challenge", "code_challenge_method", "prompt", "login_hint", "max_age", "token", "token_type_hint", "request",
+  "request_uri", "claims", "acr_values", "id_token_hint", "ui_locales", "authorization_details", "dpop_jkt",
+]);
+const LIBRARY_PATHS = new Set(["/token", "/token/revocation", "/auth"]);
+const QUOTED_LIST = String.raw`((?:'[a-z_]{1,40}'(?:, and |, | and )?){1,12})`;
+const TEMPLATED_REASONS: readonly RegExp[] = [
+  new RegExp(String.raw`^missing required parameters? ${QUOTED_LIST}$`, "u"),
+  new RegExp(String.raw`^${QUOTED_LIST} parameters? must not be provided twice$`, "u"),
+];
+
+/**
+ * A message the library builds from a template whose only variable parts are OAuth parameter names, a library path, a
+ * metadata property name or an HTTP status: logged when every variable part is one of those, never otherwise.
+ */
+function templatedReason(message: string): boolean {
+  for (const pattern of TEMPLATED_REASONS) {
+    const names = pattern.exec(message)?.[1];
+    if (names !== undefined) return [...names.matchAll(/'([a-z_]{1,40})'/gu)].every(([, name]) => KNOWN_PARAMETERS.has(name!));
+  }
+  const body = /^only (application\/x-www-form-urlencoded|application\/json) content-type bodies are supported on (GET|POST) (\/[a-z/]{1,30})$/u
+    .exec(message);
+  if (body !== null) return LIBRARY_PATHS.has(body[3]!);
+  return /^client_id metadata document [a-z_]{1,40} must be an https: URL$/u.test(message) ||
+    /^unexpected response status \d{3}$/u.test(message);
+}
 
 /** The logged reason of a library or server error: a listed message, this server's own error name, a jose code. */
 export function geminiSignInReasonOf(error: unknown): string {
@@ -159,7 +211,8 @@ export function geminiSignInReasonOf(error: unknown): string {
   // The library keeps a failure's own message in error_detail (invalid_client, invalid_grant) or error_description
   // (invalid_request); a wrapped failure's in its cause.
   for (const candidate of [fields.error_detail, fields.error_description, cause?.message, fields.message]) {
-    if (typeof candidate === "string" && (GEMINI_SIGN_IN_KNOWN_REASONS.has(candidate) || OWN_ERROR.test(candidate))) {
+    if (typeof candidate === "string" &&
+      (GEMINI_SIGN_IN_KNOWN_REASONS.has(candidate) || OWN_ERROR.test(candidate) || templatedReason(candidate))) {
       return candidate;
     }
   }
@@ -251,17 +304,18 @@ function secondsBucket(seconds: number): string {
 function audienceKinds(aud: unknown, issuer: string, resource: string): string {
   const values = Array.isArray(aud) ? aud : [aud];
   const origin = new URL(issuer).origin;
-  const named: Record<string, string> = {
-    [issuer]: "issuer",
-    [`${issuer}/`]: "issuer_slash",
-    [`${issuer}/token`]: "token_endpoint",
-    [`${issuer}/token/`]: "token_endpoint_slash",
-    [`${issuer}/token/revocation`]: "revocation_endpoint",
-    [resource]: "resource",
-    [origin]: "origin",
-    [`${origin}/`]: "origin",
-  };
-  const kinds = new Set(values.map((value) => typeof value === "string" ? named[value] ?? "other" : "not_a_string"));
+  // A Map, not an object: a value such as "toString" must not find an inherited property (Codex's review).
+  const named = new Map<string, string>([
+    [issuer, "issuer"],
+    [`${issuer}/`, "issuer_slash"],
+    [`${issuer}/token`, "token_endpoint"],
+    [`${issuer}/token/`, "token_endpoint_slash"],
+    [`${issuer}/token/revocation`, "revocation_endpoint"],
+    [resource, "resource"],
+    [origin, "origin"],
+    [`${origin}/`, "origin"],
+  ]);
+  const kinds = new Set(values.map((value) => typeof value === "string" ? named.get(value) ?? "other" : "not_a_string"));
   return kinds.size === 0 ? "absent" : [...kinds].sort().join("+");
 }
 
@@ -380,7 +434,8 @@ function authorizationOutcome(ctx: KoaContextWithOIDC, issuer: string): { outcom
 /**
  * Installs the step log in the library: its error events give each failed step's reason, and one middleware writes a
  * line per authorization, resume, token and revocation request. Call before the library's request handler is created
- * (Koa composes its middleware then).
+ * (Koa composes its middleware then) and before any other middleware of this server, so the line reports the final
+ * outcome after every other step (the session clean-up included) and an error thrown past the library is logged too.
  */
 export function watchGeminiSignInLibrary(
   provider: Provider,
@@ -395,7 +450,15 @@ export function watchGeminiSignInLibrary(
     provider.on(event, remember);
   }
   provider.use(async (ctx, next) => {
-    await next();
+    try {
+      await next();
+    } catch (error) {
+      const route = ctx.oidc?.route;
+      const stage = route === "token" ? "token" : route === "revocation" ? "revocation" : "authorization";
+      note(stage, "threw", { step: typeof route === "string" && /^[a-z_]{1,40}$/u.test(route) ? route : "unknown",
+        reason: geminiSignInReasonOf(error) });
+      throw error;
+    }
     const route = ctx.oidc?.route;
     const reason = reasons.get(ctx);
     const why: Record<string, string> = reason === undefined ? {} : { reason };
