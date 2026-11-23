@@ -180,3 +180,30 @@ describe("the news card's quotes: a label or a heading before the quoted sentenc
       .toEqual(["not_found", "not_found", "found"]);
   });
 });
+
+describe("the news card's quotes: a sentence that ends in an abbreviation runs on, unless its last word is an address", () => {
+  // Codex's review of #517: a mark beside an abbreviation ("report:i.e.") is no web address, so the sentence after it
+  // is not a sentence of its own, and a quote of it alone would drop the words before it (here, a negation).
+  const PROSE: SourceLineDocument = { kind: "full_text", blocks: [
+    { section: "Discussion", text: "We did not confirm the earlier report:i.e. Vitamin D reduces fractures in older adults." },
+    { section: "Discussion", text: "Some invented drugs-e.g. Aspirin reduce pain in invented trials." },
+    { section: "Discussion", text: "Results held for men and/e.g. Women in the invented cohort." },
+    { section: "Funding", text: "Disclosure forms are at https://www.example.org/coi_disclosure.pdf. The invented " +
+      "council paid for the trial." },
+  ] };
+
+  it("finds no part of a sentence after an abbreviation that only a mark joins to the word before it", async () => {
+    const parts = ["Vitamin D reduces fractures in older adults.", "Aspirin reduce pain in invented trials.",
+      "Women in the invented cohort."];
+    expect(await outcomes(PROSE, parts)).toEqual(["not_found", "not_found", "not_found"]);
+    expect(await outcomes(PROSE, parts, "standard")).toEqual(["not_found", "not_found", "not_found"]);
+    const wholes = ["We did not confirm the earlier report:i.e. Vitamin D reduces fractures in older adults.",
+      "Some invented drugs-e.g. Aspirin reduce pain in invented trials."];
+    expect(await outcomes(PROSE, wholes)).toEqual(["found", "found"]);
+  });
+
+  it("still ends a sentence after a web address or a file name, by the news matching only", async () => {
+    expect(await outcomes(PROSE, ["The invented council paid for the trial."])).toEqual(["found"]);
+    expect(await outcomes(PROSE, ["The invented council paid for the trial."], "standard")).toEqual(["not_found"]);
+  });
+});

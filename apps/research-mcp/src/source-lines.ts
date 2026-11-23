@@ -271,10 +271,20 @@ const TRAILING = new RegExp(String.raw`^(?:[\s"'\p{Pi}\p{Pf}\p{Pe}\p{STerm}]|${C
 // stop inside it ("vs.", "incl.", "approx.", "St.", "Dr.", "et al.") isn't told from a sentence's last word ("twice a
 // day.", "in all.", "10 mg."), so before a capital letter it still ends a sentence: a known limit.
 const ABBREVIATION_END = /(?:^|[^\p{L}\p{M}.])(?:(?:\p{L}\p{M}*)+\.){2,}$/u;
-// The news matching's: the same, but a word joined to what is before it by a web address's or a file name's character
-// (a digit, "_", "/", "\", "@", ":", "~", "%", "#", "=", "&", "?", "+" or "-") is no abbreviation, so a sentence ends
-// after "…icmje.org/coi_disclosure.pdf." and the declaration after it starts one (the 23 Nov 2026 news audit).
-const NEWS_ABBREVIATION_END = /(?:^|[^\p{L}\p{M}\p{N}._/\\@:~%#=&?+-])(?:(?:\p{L}\p{M}*)+\.){2,}$/u;
+// The news matching's: the same, except that a sentence whose last run of characters without white space is a web
+// address or a file name by its form ends there, so a sentence ends after "…icmje.org/coi_disclosure.pdf." and the
+// declaration after it starts one (the 23 Nov 2026 news audit). The forms: "://", a dotted name before a "/", "\" or
+// "@" ("icmje.org/…", "name.surname@…"), or a "_" ("coi_disclosure.pdf"). A mark beside the word alone is no address
+// (Codex's review of #517): "…the earlier report:i.e. Vitamin D…", "…drugs-e.g. Aspirin…" and "…and/e.g. Aspirin…" run
+// on, as in the standard matching, so no part of a sentence is found as a whole one. An address with none of these
+// forms ("example.org." at a sentence's end) runs on too: a quote after it is refused, never found in part.
+const ADDRESS_FORM = /:\/\/|\.[^\s./\\@]+[/\\@]|_/u;
+
+/** Whether a sentence (its end trimmed) ends in an abbreviation, so the next one runs on from it. */
+function endsInAbbreviation(sentence: string, matching: QuoteMatching): boolean {
+  if (!ABBREVIATION_END.test(sentence)) return false;
+  return matching !== "news" || !ADDRESS_FORM.test(/\S*$/u.exec(sentence)![0]);
+}
 // A section's label and its colon at a line's start ("Conclusions: Vitamin D…", as a PDF or a plain text sets a
 // structured abstract's): the label's text, for sectionKind, the list full-text admission reads headings by.
 const LABEL_LINE = /^\s*([^\s:：][^:：\n]{0,60}?)\s*[:：]\s*/u;
@@ -293,9 +303,8 @@ function sentenceStarts(text: string, lines: readonly number[], matching: QuoteM
     while (start > (segments.at(-1) ?? -1) + 1 && /\p{Ps}/u.test(text.charAt(start - 1))) start -= 1;
     segments.push(start);
   }
-  const abbreviation = matching === "news" ? NEWS_ABBREVIATION_END : ABBREVIATION_END;
   const starts = segments.filter((start, place) =>
-    place === 0 || !abbreviation.test(text.slice(segments[place - 1]!, start).trimEnd()));
+    place === 0 || !endsInAbbreviation(text.slice(segments[place - 1]!, start).trimEnd(), matching));
   const labelled = new Set(starts);
   // The lines are in order, so the last sentence start at or before each is found going on, not again from the first.
   let sentence = 0;

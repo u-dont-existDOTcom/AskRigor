@@ -1,3 +1,5 @@
+import { doiFromInput } from "@askrigor/sources";
+
 import { abstractDocument, type SourceLineDocument } from "../source-lines.js";
 
 /**
@@ -33,8 +35,10 @@ export const NEWS_PUBMED_FALLBACK_MILLISECONDS = 8_000;
 export const NEWS_PUBMED_FALLBACK_RECORDS = 3;
 
 const PMID = /^[1-9][0-9]{0,9}$/u;
-const comparableDoi = (doi: string) => doi.normalize("NFKC").trim().toLowerCase()
-  .replace(/^https?:\/\/(?:dx\.)?doi\.org\//u, "").replace(/^doi:\s*/u, "");
+// A DOI read as acquisition and the final check read it (doiFromInput): a doi.org link decoded in full, a bare DOI's
+// "%3C" and "%3E" read as "<" and ">", lower case (Codex's review of #517: an escaped SICI-form DOI never matched its
+// record's own spelling).
+const comparableDoi = (doi: string) => doiFromInput(doi.normalize("NFKC").trim().replace(/^doi:\s*/iu, ""));
 
 /** PubMed's search for a DOI in its own DOI field, quoted whole, so the DOI's brackets aren't read as the query's. */
 export const pubmedDoiQuery = (doi: string): string => `"${doi}"[doi]`;

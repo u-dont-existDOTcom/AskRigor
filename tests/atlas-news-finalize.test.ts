@@ -11,7 +11,7 @@ import {
 } from "@askrigor/evidence-repository";
 
 import { newsCardDigest, newsCardSchema } from "../apps/research-mcp/src/news/card.js";
-import type { NewsPubmedSource } from "../apps/research-mcp/src/news/pubmed-fallback.js";
+import { newsPubmedFallback, type NewsPubmedSource } from "../apps/research-mcp/src/news/pubmed-fallback.js";
 import { registerTools, type RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
 import { finalizeResearchInputSchema } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
@@ -300,5 +300,27 @@ describe("finalize_research stages the owner's news check's own card (Atlas news
       expect(await store.inspectDay(new Date().toISOString().slice(0, 10), new Date().toISOString()))
         .toEqual({ day: null, items: [] });
     }
+  });
+});
+
+describe("the news card's PubMed fallback reads a DOI as acquisition and the final check do", () => {
+  // Codex's review of #517: a SICI-form DOI given with "<" and ">" percent-escaped, as acquire_open_full_text's published
+  // pattern takes it, is the same DOI as its record's own spelling.
+  const record = { pmid: "99999905", doi: "10.1000/(SICI)invented<item>2.0.CO;2-X", title: "An invented news item.",
+    abstract: "An invented council paid for the invented trial." };
+  const source: NewsPubmedSource = {
+    pmidsForDoi: async () => [record.pmid],
+    record: async (pmid) => pmid === record.pmid ? record : undefined,
+  };
+
+  it("keeps the record for the escaped form, the link form and the plain form alike", async () => {
+    for (const doi of ["10.1000/(sici)invented%3Citem%3E2.0.co;2-x", "https://doi.org/10.1000/%28SICI%29invented%3Citem%3E2.0.CO%3B2-X",
+      "doi: 10.1000/(SICI)invented<item>2.0.CO;2-X"]) {
+      expect((await newsPubmedFallback(doi, source))?.pmid).toBe(record.pmid);
+    }
+  });
+
+  it("still refuses a record whose own DOI is another", async () => {
+    expect(await newsPubmedFallback("10.1000/(sici)invented%3Citem%3E2.0.co;2-y", source)).toBeUndefined();
   });
 });
