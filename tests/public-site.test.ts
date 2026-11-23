@@ -51,7 +51,8 @@ describe("AskRigor public site", () => {
     // 126 since the How to research page (owner answer 365 1a): its own 12 links (brand, menu, footer) and its menu
     // item on the eight other pages add 20.
     // 128 since the 21 Nov 2026 release record: the roadmap's "What's new" links the user count page and the privacy notice.
-    expect(result.internalLinks).toBe(128);
+    // 131 since release b's record: its roadmap lines link the privacy notice, the terms and the How to research page.
+    expect(result.internalLinks).toBe(131);
   });
 
   it("puts the approved cautions on the How to research page, linked from every page's menu (owner answer 365 1a)", async () => {
