@@ -35,6 +35,9 @@ export const newsStagingSchema = z.object({
   already_staged: z.boolean().optional(),
   reason: z.enum(NEWS_NOT_STAGED_REASONS).optional(),
   problems: z.array(z.string()).max(8).optional(),
+  pubmed_record: z.string().regex(/^[1-9][0-9]{0,9}$/u).optional()
+    .describe("The PMID of the PubMed record AskRigor read itself for the card's DOI, whose title and abstract its " +
+      "lines quoting that paper were looked up in, because the full-text tool admitted no copy of it."),
 }).strict()
   .describe("Only for AskRigor's own news check: whether its news card was staged for the day's call, with its news " +
     "number, or why not.");
@@ -99,7 +102,8 @@ export async function stageNewsCard(input: NewsStagingInput): Promise<NewsStagin
       }),
     ]);
     if (staged === late) return notStaged("not_confirmed_in_time");
-    return { status: "staged", number: staged.number, card_digest: staged.cardSha256, already_staged: staged.alreadyStaged };
+    return { status: "staged", number: staged.number, card_digest: staged.cardSha256, already_staged: staged.alreadyStaged,
+      ...(claims.np === undefined ? {} : { pubmed_record: claims.np }) };
   } catch (error) {
     if (error instanceof AtlasNewsError && error.code === "DAY_FULL") return notStaged("day_full");
     // Another draft of the same card signed in the same second as the stored one: a later check stages it.

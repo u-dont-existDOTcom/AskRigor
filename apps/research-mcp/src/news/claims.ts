@@ -7,7 +7,10 @@ import type { NewsCard } from "./card.js";
  * findings card's and under their own condition. `news`: the card's digest; `nl`: what each backing line's lookup found
  * and where, in its order (`<line>:<f|n|u>:<text kind>`, as `bl` gives a findings card's); `ns`: the section of each
  * quote found (`<line>:<section>`); `nr`: how each of the card's sources was read (`<place>:<reading>:<figures>`, as `rd`
- * gives a findings card's). The day call and the shadow readers read them; the server stages a card only with them.
+ * gives a findings card's); `np`, only when it was read so: the PMID of the PubMed record AskRigor read itself for the
+ * card's DOI, whose title and abstract its lines quoting that paper were looked up in, after the full-text tool admitted
+ * no copy (the 23 Nov 2026 news audit). The day call and the shadow readers read them; the server stages a card only
+ * with them.
  */
 
 const OUTCOME_CODES = { found: "f", not_found: "n", not_checked: "u" } as const;
@@ -19,12 +22,14 @@ export interface NewsClaims {
   nl: string[];
   ns: string[];
   nr: string[];
+  np?: string;
 }
 
 export function signedNewsClaims(
   checked: { card: NewsCard; digest: string },
   lookups: readonly SourceLineLookup[],
   readingOf: (source: string) => { read: string; figures?: string | undefined } | undefined,
+  pubmedRecord?: string,
 ): NewsClaims {
   const nl: string[] = [];
   const ns: string[] = [];
@@ -38,7 +43,7 @@ export function signedNewsClaims(
     const reading = readingOf(source);
     return reading === undefined ? [] : [`${place + 1}:${reading.read}:${reading.figures ?? "-"}`];
   });
-  return { news: checked.digest, nl, ns, nr };
+  return { news: checked.digest, nl, ns, nr, ...(pubmedRecord === undefined ? {} : { np: pubmedRecord }) };
 }
 
 /** The news claims a verified receipt signed, or undefined when it signed none (no news card, or no lookups). */
@@ -47,5 +52,6 @@ export function newsClaimsOf(claims: Record<string, string | string[]>): NewsCla
   const news = claims.news;
   const nl = list(claims.nl);
   if (typeof news !== "string" || nl === undefined) return undefined;
-  return { news, nl, ns: list(claims.ns) ?? [], nr: list(claims.nr) ?? [] };
+  return { news, nl, ns: list(claims.ns) ?? [], nr: list(claims.nr) ?? [],
+    ...(typeof claims.np === "string" && /^[1-9][0-9]{0,9}$/u.test(claims.np) ? { np: claims.np } : {}) };
 }

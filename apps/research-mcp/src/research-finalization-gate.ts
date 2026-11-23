@@ -1888,6 +1888,14 @@ export interface FinalizeResearchOptions {
   newsCard?: { card: NewsCard; digest: string };
   /** The news card's backing lines as looked up after this check's earlier pass, in their order. */
   newsLookups?: readonly SourceLineLookup[];
+  /**
+   * Atlas news (the 23 Nov 2026 news audit): the PubMed record AskRigor read itself for the news card's DOI, when the
+   * full-text tool admitted no copy of it (a short news item, say) and no record or text of it was read: a record whose
+   * own DOI is the card's, found by PubMed's search for that DOI (newsPubmedFallbackRequestOf asks for it). The card's
+   * DOI is then verified through it, its lines that quote that paper are looked up in its title and abstract, and the
+   * receipt signs its PMID (`np`).
+   */
+  newsPubmedFallback?: { doi: string; pmid: string };
   /** Told whether this research read YouTube comments, for a kept copy of a card that wasn't saved to leave them out. */
   onCommentsRead?: (read: boolean) => void;
   /**
@@ -5125,13 +5133,23 @@ export function finalizeResearch(
   const newsDoi = options.newsCard?.card.doi;
   const namesNewsDoi = (source: string) => newsDoi !== undefined &&
     sourceLinks(source).linkIds.map(normalizeIdentifier).includes(normalizeIdentifier(newsDoi));
-  const newsDoiVerified = newsDoi === undefined || (input.key_sources.some(({ id }) => namesNewsDoi(id)) &&
-    (options.newsCard!.card.backing.length === 0 || options.newsCard!.card.backing.some(({ source }) => namesNewsDoi(source))) &&
-    paperReceipts(sourceLinks(newsDoi)).some(({ kind }) =>
-      kind === "pubmed_record" || SOURCE_TEXT_KINDS.has(kind)));
+  const newsDoiQuoted = newsDoi !== undefined && input.key_sources.some(({ id }) => namesNewsDoi(id)) &&
+    (options.newsCard!.card.backing.length === 0 || options.newsCard!.card.backing.some(({ source }) => namesNewsDoi(source)));
+  const newsDoiReceipts = newsDoi === undefined ? [] : paperReceipts(sourceLinks(newsDoi));
+  const newsPaperRead = newsDoiReceipts.some(({ kind }) => kind === "pubmed_record" || SOURCE_TEXT_KINDS.has(kind));
+  // The 23 Nov 2026 news audit: a short news item the full-text tool tried and admitted no copy of (a lead or a route
+  // failure signed for its DOI), with no record or text of it read, is read in its PubMed record, which AskRigor
+  // fetches itself (register-tools.ts), for a record whose own DOI is the card's.
+  const newsFullTextRefused = newsDoiReceipts.some(({ kind }) =>
+    kind === "full_text_lead" || kind === "full_text_route_failure");
+  const newsFallback = newsDoi !== undefined && newsDoiQuoted && !newsPaperRead && newsFullTextRefused &&
+    options.newsPubmedFallback !== undefined &&
+    normalizeIdentifier(options.newsPubmedFallback.doi) === normalizeIdentifier(newsDoi)
+    ? options.newsPubmedFallback : undefined;
+  const newsDoiVerified = newsDoi === undefined || (newsDoiQuoted && (newsPaperRead || newsFallback !== undefined));
   const newsClaims = options.newsCard !== undefined && newsDoiVerified &&
     (options.newsLookups !== undefined || newsLines.length === 0)
-    ? signedNewsClaims(options.newsCard, options.newsLookups ?? [], sourceReadingOf) : undefined;
+    ? signedNewsClaims(options.newsCard, options.newsLookups ?? [], sourceReadingOf, newsFallback?.pmid) : undefined;
   // The recheck of #417: each forum thread whose id-only link, as the card gives it, is the link its reader read, as the
   // read's receipt signed it (`l`): the save publishes no other page's link.
   const threadLinks = findingsCard.status === "checked" && input.findings_card !== undefined
@@ -5176,7 +5194,9 @@ export function finalizeResearch(
       // this receipt and the user's yes to it (owner answer 143a).
       ...(mapOffered && mapAccount !== undefined ? { map: "offered", acct: mapAccount } : {}),
       // Atlas news, stage 1: the news card's digest, its lines' lookups and sections, and how its sources were read.
-      ...(newsClaims === undefined ? {} : { news: newsClaims.news, nl: newsClaims.nl, ns: newsClaims.ns, nr: newsClaims.nr }),
+      ...(newsClaims === undefined ? {} : { news: newsClaims.news, nl: newsClaims.nl, ns: newsClaims.ns, nr: newsClaims.nr,
+        // The PubMed record AskRigor read itself for the card's DOI, when the full-text tool admitted no copy.
+        ...(newsClaims.np === undefined ? {} : { np: newsClaims.np }) }),
       // A call marked findings_save "off": save_research_findings refuses this receipt's card.
       ...(savingOff ? { fs: "off" } : {}),
       // Owner answer 310a: the check's AI readings were made by the call's caller, not by the server.
@@ -5223,10 +5243,20 @@ export function finalizeResearch(
     BACKING_REQUESTS.set(parsedOutput, { lines: backingLines, requests: backingRequests });
   }
   if (options.newsCard !== undefined) NEWS_DOI_VERIFIED.set(parsedOutput, newsDoiVerified);
+  // The 23 Nov 2026 news audit: a passing check whose card's DOI only lacks a paper read, after the full-text tool
+  // admitted no copy, asks for that DOI's PubMed record; register-tools.ts fetches it and checks again with it.
+  if (passed && newsDoi !== undefined && newsDoiQuoted && !newsPaperRead && newsFullTextRefused &&
+    options.newsPubmedFallback === undefined) {
+    NEWS_PUBMED_FALLBACK_REQUESTS.set(parsedOutput, { doi: newsDoi });
+  }
   if (passed && newsLines.length > 0 && options.newsCard !== undefined && options.newsLookups === undefined &&
     newsDoiVerified) {
     NEWS_REQUESTS.set(parsedOutput, { lines: newsLines.map(({ source, quote }) => ({ source, sentence: quote })),
-      requests: newsRequests });
+      // The lines that quote the card's DOI are looked up in the PubMed record read for it, when that is how it was read.
+      requests: newsFallback === undefined ? newsRequests : newsRequests.map((request, line) =>
+        namesNewsDoi(newsLines[line]!.source)
+          ? { ...request, pmids: [newsFallback.pmid, ...request.pmids.filter((pmid) => pmid !== newsFallback.pmid)] }
+          : request) });
   }
   // Stage 1 of enforcing HRP: the ledger is built here unless the caller gives notes of its own after the check.
   if (ledgerSource !== undefined) {
@@ -5424,10 +5454,19 @@ export interface NewsRequests {
 
 const NEWS_REQUESTS = new WeakMap<FinalizeResearchOutput, NewsRequests>();
 const NEWS_DOI_VERIFIED = new WeakMap<FinalizeResearchOutput, boolean>();
+const NEWS_PUBMED_FALLBACK_REQUESTS = new WeakMap<FinalizeResearchOutput, { doi: string }>();
 
 /** Whether this result's news card's DOI is one the call's verified receipts name; undefined without a news card. */
 export function newsDoiVerifiedOf(result: FinalizeResearchOutput): boolean | undefined {
   return NEWS_DOI_VERIFIED.get(result);
+}
+
+/**
+ * The DOI whose PubMed record this passing check's news card needs read (FinalizeResearchOptions.newsPubmedFallback):
+ * a key source the card quotes, which the full-text tool admitted no copy of and no record or text of was read.
+ */
+export function newsPubmedFallbackRequestOf(result: FinalizeResearchOutput): { doi: string } | undefined {
+  return NEWS_PUBMED_FALLBACK_REQUESTS.get(result);
 }
 
 /** Where this result's news card's backing lines may be looked up: a passing check whose lines haven't been yet. */

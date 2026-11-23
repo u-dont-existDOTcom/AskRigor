@@ -201,3 +201,36 @@ written by the build session and stored under a name that says so.
 2. Store and migration 0043; the Postgres acceptance run for the functions, grants and the 5-second limit.
 3. Gate claims and staging in `finalize_research`; the owner actions.
 4. `npm run verify`; the frozen-list check unchanged; the private-map check; Codex's read-only review.
+
+## The 23 Nov 2026 audit's stage-1 fixes (second pull request)
+
+The news lane's audits of 22 and 23 Nov (owner-pages `askrigor/news-check-runs/2026-11-2{2,3}-audit.md`, "Next") found
+0 of 4 cards stored on 23 Nov and 1 of 3 on 22 Nov. Five server fixes, as the coordinator chose them:
+
+1. **The finding's cap is 24 words, about 20 the aim** (was 12): two cards cut to fit were read as stronger than the
+   source, having lost their group, comparator or time frame. Its character limit rose in proportion (400), so the word
+   cap is the one that acts.
+2. **The word-for-word lookups of the news card's lines match by the news rules** (`QuoteMatching` "news" in
+   `source-lines.ts`; every other line as before): a quote's leading section label ("FUNDING:") is looked up with and
+   without it (without it only when what is left is long enough to mean much alone); the white space beside a dash is set aside, in the quote and the text (figureText already read every dash
+   and minus sign as one); a known label in the text, with its colon or alone on its line, ends there; and a word joined
+   to a web address or a file name ("…/coi_disclosure.pdf.") is no abbreviation. Exact and structural, with no fuzzy or
+   meaning-based matching. Replayed on the 23 Nov texts in the run's logs (locally, not committed): the who-paid lines of
+   N-1004, N-1005 and N-1006 that failed are found; a quote that keeps a search copy's citation mark ("^{【94†36】}")
+   still isn't.
+3. **A short news item the full-text tool admitted no copy of is read in its PubMed record**
+   (`news/pubmed-fallback.ts`): when the card's DOI has a full-text lead or route failure and no record or text of it
+   was read, finalize_research reads PubMed's search for the DOI and the record whose own DOI is the card's, verifies the
+   DOI through it, looks the lines quoting that paper up in its title and abstract, and the receipt signs its PMID
+   (`np`); the staging result says `pubmed_record`. A news item PubMed holds without an abstract has only its title.
+4. **Carried items expire after their seven days, with the reason** (`expired` in the day call's committed result, and
+   its text): nothing kept a carried item for good, since every item leaves the order after seven days
+   (`ATLAS_NEWS_CARRIED_DAYS`); N-1002, stored on 22 Nov under version 5, leaves on 29 Nov, named
+   `seven_days_staged_before_v7`, without being judged again (no model call). Expiring such items sooner would need a
+   migration replacing `commit_atlas_news_day`, which 0043 released; none is made.
+5. **A study of one group gives `per_100.comparison` "none" with `no_comparison_reason`** (null was refused on 22 Nov);
+   How much then shows the treated group's figure only, the reason is held to the draft's numbers with How much, and
+   `list_news_items` reads it as "no comparison figure".
+
+The news check's own instructions (outside this repository) still say 12 words and a numeric comparison; the news lane
+changes them with this release.
