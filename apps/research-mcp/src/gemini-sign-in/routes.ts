@@ -280,7 +280,7 @@ export function createGeminiSignInRoutes(
           response.end(JSON.stringify({ error: "not_found" }));
           return true;
         }
-        if (!served.has(method)) return methodNotAllowed(response);
+        if (!served.has(method)) return methodNotAllowed(response, served);
         // Google's calls are logged on arrival too, so one that stalls or never finishes still leaves a line.
         if (path === "/token" || path === "/token/revocation") {
           note(path === "/token" ? "token" : "revocation", "received");
@@ -365,8 +365,8 @@ const AUTH_METHODS: ReadonlySet<string> = new Set(["GET", "POST"]);
 const POST_ONLY: ReadonlySet<string> = new Set(["POST"]);
 const READ_METHODS: ReadonlySet<string> = new Set(["GET", "HEAD"]);
 
-function methodNotAllowed(response: ServerResponse): true {
-  response.writeHead(405, { "content-type": "application/json", allow: "GET, POST", "cache-control": "no-store" });
+function methodNotAllowed(response: ServerResponse, allowed: ReadonlySet<string> = AUTH_METHODS): true {
+  response.writeHead(405, { "content-type": "application/json", allow: [...allowed].join(", "), "cache-control": "no-store" });
   response.end(JSON.stringify({ error: "method_not_allowed" }));
   return true;
 }

@@ -300,7 +300,10 @@ describe("Gemini's sign-in step log covers every step after Allow, by name only"
     }
     // HEAD reached the library beside GET without this dispatcher's checks for a new link.
     expect((await fetch(`${fixture.baseUrl}/oauth/gemini/auth?${query}`, { method: "HEAD" })).status).toBe(405);
-    expect((await fetch(`${fixture.baseUrl}/oauth/gemini/token`, { method: "GET" })).status).toBe(405);
+    const wrongMethod = await fetch(`${fixture.baseUrl}/oauth/gemini/token`, { method: "GET" });
+    expect(wrongMethod.status).toBe(405);
+    expect(wrongMethod.headers.get("allow")).toBe("POST");
+    expect((await fetch(`${fixture.baseUrl}/oauth/gemini/jwks`, { method: "POST" })).headers.get("allow")).toBe("GET, HEAD");
     // None of them reached the library, so none left a step line.
     expect(lines()).toEqual([]);
   });
