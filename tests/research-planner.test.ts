@@ -67,6 +67,7 @@ import {
   RESEARCH_LANES,
   STYLE_REPLY,
   TRADITIONAL_SYSTEM_AT_THE_SCREEN,
+  OPEN_HEALTH_OPTIONS_AT_THE_SCREEN,
   WENT_ON_AS_ASKED,
   asideGuidance,
   asideNextStep,
@@ -1362,6 +1363,7 @@ describe("traditional accounts in registration's structured next step (owner ans
       expect(result.structuredContent, mcpSurface).toMatchObject({ ok: true, research_receipt: expect.any(String) });
       const { next_step } = result.structuredContent as { next_step: string };
       expect(next_step, mcpSurface).toContain(TRADITIONAL_SYSTEM_AT_THE_SCREEN);
+      expect(next_step, mcpSurface).toContain(`${TRADITIONAL_SYSTEM_AT_THE_SCREEN} ${OPEN_HEALTH_OPTIONS_AT_THE_SCREEN}`);
       if (style !== "autonomous" && redirecting_questions.length > 0) {
         const stop = "Ask the person your framing's redirecting_questions now and end your turn: no research call " +
           "until they answer.";
@@ -1376,7 +1378,7 @@ describe("traditional accounts in registration's structured next step (owner ans
       expect(next_step, mcpSurface).toContain((style === "guided" ||
         (style === "balanced" && redirecting_questions.length > 0)
         ? "screen and call action plan_research. "
-        : "its result says whether to ask the person first. ") + TRADITIONAL_SYSTEM_AT_THE_SCREEN);
+        : "its result says whether to ask the person first. ") + TRADITIONAL_SYSTEM_AT_THE_SCREEN + " " + OPEN_HEALTH_OPTIONS_AT_THE_SCREEN);
     }
   });
 });
@@ -2668,7 +2670,7 @@ describe("a test round's pause of the planning call (owner answer 395b)", () => 
 // before; a question on 8 of 9 invented cases that need one); this keeps the rule's text from drifting back.
 describe("the plan names a question only when the research needs the person's answer (21 Nov 2026)", () => {
   it("asks for a fact only the person can give, or between two things one answer can't serve, and else goes on", () => {
-    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-22.2");
+    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-22.3");
     expect(RESEARCH_PLANNER_RUBRIC).toContain("Write none unless the research needs\nthe person's answer");
     expect(RESEARCH_PLANNER_RUBRIC).toContain("- A fact only they can give, for a decision about one person or one thing:");
     expect(RESEARCH_PLANNER_RUBRIC).toContain("- Two different things: their words can mean two or more different things");
@@ -2736,7 +2738,7 @@ describe("tasks the person's own words asked for (21 Nov 2026)", () => {
 
 describe("the planner's reading of forms (22 Nov 2026)", () => {
   it("plans for forms people buy or prepare and names the nearest excluded reading", () => {
-    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-22.2");
+    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-22.3");
     expect(RESEARCH_PLANNER_RUBRIC.replace(/\s+/gu, " ")).toContain("a substance or thing that comes in several forms: plan for the whole class, with its main members grouped. Before you plan, list for yourself the forms a person asking this could have in hand: what is sold, and what people make or prepare themselves. When they differ much in strength, content or how they are used, the form a person is most likely to have gets a task of its own. Say in about what you took it to cover: which members or forms, and the nearest one left out;");
     expect(RESEARCH_PLANNER_RUBRIC.replace(/\s+/gu, " ")).toContain("Say in about what you took it to cover: which members or forms, and the nearest one left out;");
     expect(RESEARCH_PLANNER_RUBRIC).toContain("In about, say which meaning the research takes and the nearest one it leaves out.");
@@ -2763,7 +2765,7 @@ describe("Round 3: one whole-class reading instruction", () => {
 
 describe("traditional accounts in the plan (owner answer 402a)", () => {
   it("keeps the approved instruction exactly in step 3 after people's reports", () => {
-    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-22.2");
+    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-22.3");
     const approved = "When the question is about a traditional, regional or folk medical system's concepts or claims, or about " +
       "a remedy, diagnostic method or practice known or sold as traditional even when no system is named, the " +
       "tasks include what that tradition's own sources say that could change the answer (who it is for and not " +
@@ -2772,11 +2774,26 @@ describe("traditional accounts in the plan (owner answer 402a)", () => {
       "question from the other tasks. Match safety and benefit studies to those claims and the actual " +
       "preparation, and keep urgent safety work first.";
     const rubric = RESEARCH_PLANNER_RUBRIC.replace(/\s+/gu, " ");
-    expect(rubric).toContain(`put a task near the top for what people who used it report. ${approved} When the question takes`);
+    expect(rubric).toContain(`put a task near the top for what people who used it report. ${approved} For open options for a health problem or goal`);
     expect(rubric.split(approved)).toHaveLength(2);
     const start = RESEARCH_PLANNER_RUBRIC.indexOf("When the question is about a traditional, regional or folk");
     const end = RESEARCH_PLANNER_RUBRIC.indexOf("\nWhen the question takes", start);
     for (const line of RESEARCH_PLANNER_RUBRIC.slice(start, end).split("\n"))
       expect(line.length, line).toBeLessThanOrEqual(110);
+  });
+});
+
+describe("open health options in the plan (owner answer 410b)", () => {
+  it("versions the approved text and places it exactly once immediately after 402a in step 3", () => {
+    const approved = "For open options for a health problem or goal, plan a bounded " +
+      "search of relevant living traditions' own accounts and benefit/harm checks for the actual preparations and populations. " +
+      "Honour explicit topic/source limits and omit source work they exclude; do not widen confined treatment, diagnostic, " +
+      "administrative or lookup requests, or add this search during an emergency. Combine overlapping work; split only " +
+      "distinct questions. Preserve serious-risk tasks and existing task limits.";
+    expect(RESEARCH_PLANNER_RUBRIC_VERSION).toBe("2026-11-22.3");
+    const step3 = RESEARCH_PLANNER_RUBRIC.slice(RESEARCH_PLANNER_RUBRIC.indexOf("\n3. "),
+      RESEARCH_PLANNER_RUBRIC.indexOf("\n4. ")).replace(/\s+/gu, " ");
+    expect(step3).toContain(`preparation, and keep urgent safety work first. ${approved} When the question takes`);
+    expect(RESEARCH_PLANNER_RUBRIC.replace(/\s+/gu, " ").split(approved)).toHaveLength(2);
   });
 });
