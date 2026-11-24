@@ -25,7 +25,9 @@ Owner answers 193a and 195a (29 October 2026) limited `finalize_research` to fiv
    is not still shown.
 6. A plain answer registered before the research and passed in `receipts` is compared with the answer in
    `plain_answer_comparison`, one entry for each of its claims (owner answer 217b, 2 November 2026), so the note on
-   how the answer differs from a quick answer is always there. The
+   how the answer differs from a quick answer is always there. A message that claims are left out numbers them as
+   `manage_research_access` listed them: from 0, or from 1 when the receipt signs so (`first`, an account whose menu
+   accounts for the claims; owner answer 413a, 24 November 2026, switched off, not released). The
    entries' own problems (an unshown quote, nothing behind a change) stay notes, and the note says the research
    claims to have checked such a claim but did not show what backs it. The note leads with the claims the research
    corrected, then qualified, then confirmed, and closes with the claims it did not check in one line (owner answer
@@ -599,6 +601,18 @@ checking them (`apps/research-mcp/src/absence-searches.ts`):
   or published, a findings card above all, never falls back (its third check: a corrected card's unusable later form
   gave way to the out-of-date top-level card, which was saved): its later form is read, and a card that doesn't parse is
   kept privately, with its note, as before. Other tools still refuse a call whose `later_inputs` has a problem.
+
+Owner answer 412a, option c (24 November 2026: "Fetching HRP gives a signed slip, and the final check adds a note when
+none is shown. It never blocks, so the six checks that can stop an answer stay six"; built, switched off, not released).
+Only while `ASKRIGOR_HRP_CORE` holds for the account, a call with a research receipt and no receipt of HRP's core gets one
+note: no receipt passed here shows that HRP's core rules were loaded in this research, so AskRigor can't tell whether they
+were, and loading them gives one. A receipt shows it when it is this account's plain answer whose registration handed the
+core over (it signs `hrp`, the first 16 characters of the core's SHA-256), also for another research target, or the
+`protocol_core` receipt `load_protocol` gives with HRP's section "core" while the switch holds. The note is about the call:
+it is no step, limit, caveat or line of the panel (it stands with the folded notes for the AI), it is given once in a turn,
+and the findings ledger lists it to no reader. A `protocol_core` receipt is no research: it begins none, so a plain answer
+registered after it is still compared, and it counts in no reading summary, research map or saved card's stamp. Whether
+the AI read what it was given is not checked.
 
 Promise P69 (the owner, chat, 21 November 2026: "explain to people in the answer when a guardrail is preventing you
 from considering something at your max intelligence"; owner answer 400a, 22 November 2026: HRP 20.6.44's LimitsNote

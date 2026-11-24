@@ -461,6 +461,16 @@ reports it, with one line above the final check panel's fold (`docs/final-check.
 other value, or none, turns it off, which is its rollback: nothing is stored, so nothing needs undoing. AskRigor's own
 planning call and review log `fallback_answered` or `fallback_refused` whatever the setting.
 
+Owner answers 413a and 412a (24 November 2026; built, not released): `ASKRIGOR_CLAIM_ACCOUNTING` and `ASKRIGOR_HRP_CORE`
+in `runtime.env`, each `off` (the default, and any other value), `trial`, `dev` or `on`, then recreate `research-mcp`. The
+first has the research menu account for the quick answer's claims; the second has `register_plain_answer` hand over HRP's
+core, with the final check's one note when no receipt shows it (`docs/research-contributor-access.md`,
+`docs/final-check.md`). In mode `trial` a switch holds for a dev account only while a session's test window has it on
+(`manage_research_access` action `set_research_trial`), so nothing changes for anyone by setting it; `dev` holds for every
+dev account, `on` for every account. Nothing is stored by either, a window is in the process's memory alone, and setting
+both to `off` (or removing both) and recreating the service is the rollback: no migration, grant or tool-list change goes
+with them.
+
 Optional, off by default, the owner's decision (Codex's final check): `ASKRIGOR_DOSSIER_PRIVACY_READING=on` in
 `runtime.env` has every dossier read for personal details before it is stored
 (`apps/research-mcp/src/findings/dossier-privacy-reading.ts`), on the research planner's own Claude API path: its key
