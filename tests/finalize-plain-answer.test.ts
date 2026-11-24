@@ -96,7 +96,7 @@ const NOTE = "Without AskRigor, a quick answer would have said: “Vitamin D sup
 // The first claim given as checked, with nothing the check could show behind it, and the second not checked: the note
 // tells the two apart (owner answer 413a), rather than saying "did not check" of both.
 const NOT_CHECKED_NOTE = "Without AskRigor, a quick answer would have said: “A daily dose of 1,000 IU is enough.” " +
-  "This research did not check that. It says it checked one more point too, but did not show what backs it: " +
+  "This research did not check that. It says it checked one more point, but did not show what backs it: " +
   "“Vitamin D supplements prevent colds in most adults.”";
 const UNTIL_CHECKED = " Until then, the note says the research claims to have checked this claim but did not show what backs it.";
 

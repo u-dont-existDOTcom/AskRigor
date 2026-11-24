@@ -6240,8 +6240,9 @@ function plainAnswerNote(compared: readonly ComparedClaim[], draft: string): str
     lines.push(lines.length === 0
       ? `${opening} ${quotations(unbacked)} This research says it checked ${unbacked.length === 1 ? "that" : "those points"}, ` +
         `but did not show what backs ${them}.`
-      : `It says it checked ${unbacked.length === 1 ? "one more point" : `${unbacked.length} more points`} too, but did ` +
-        `not show what backs ${them}: ${quotations(unbacked)}`);
+      // "too" only after claims it checked: after unchecked claims alone, it would say something was checked.
+      : `It says it checked ${unbacked.length === 1 ? "one more point" : `${unbacked.length} more points`}` +
+        `${checked.length > 0 ? " too" : ""}, but did not show what backs ${them}: ${quotations(unbacked)}`);
   }
   return lines.join(" ");
 }
