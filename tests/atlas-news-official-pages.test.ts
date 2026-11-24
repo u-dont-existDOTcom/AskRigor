@@ -11,7 +11,7 @@ import {
   ResearchContributorAccessService,
   researchAccountReference,
 } from "@askrigor/evidence-repository";
-import type { ForumPage } from "@askrigor/sources";
+import { sectionKind, textBlocks, type ForumPage } from "@askrigor/sources";
 
 import { forumTextDigest, forumThreadDigest } from "../apps/research-mcp/src/forum-thread-links.js";
 import { checkNewsCard, newsCardDigest, newsCardSchema, type NewsCard } from "../apps/research-mcp/src/news/card.js";
@@ -183,6 +183,19 @@ describe("a news card's quote is looked up in the page its check read, read agai
     const whole = [filler(30), `${before} ${last}.`].join("\n");
     expect((await lookUpNewsPages([line(`${last}.`)], [request(0, NOTICE, [forumTextDigest(whole)])],
       async () => page(whole)))[0]!.sentence).toBe("found");
+  });
+
+  it("reads a page's headings in time that grows with the page's size and no faster", () => {
+    // As before: the colons, full stops and white space at a heading's end are no part of it, whatever run they make.
+    for (const heading of ["Results", "Results:", "Results .", "2.1 Results...", "RESULTS\u00a0: . ", "Results" + ".".repeat(500)]) {
+      expect(sectionKind(heading), heading.slice(0, 20)).toBe("results");
+    }
+    for (const line of ["Results. Of", ".Results", "Results.:x", "..", ":", ""]) expect(sectionKind(line), line).toBeUndefined();
+    // A contents page's leader dots, 60,000 of them, took 3 seconds a line.
+    const started = performance.now();
+    expect(sectionKind(`Contents ${".".repeat(60_000)} 7`)).toBeUndefined();
+    expect(textBlocks(`Contents ${".:".repeat(30_000)} 7`)).toHaveLength(1);
+    expect(performance.now() - started).toBeLessThan(1_000);
   });
 
   it("digests the text as returned: one text one digest, another text another", () => {
