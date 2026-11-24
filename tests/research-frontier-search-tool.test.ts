@@ -171,6 +171,19 @@ describe("read-only research-frontier catalog search", () => {
     expect(JSON.stringify(failed)).not.toContain("must-never-cross-the-boundary");
   });
 
+  it("logs a catalog failure's class only, never the query or the error's words", async () => {
+    const lines: string[] = [];
+    const log = (line: string) => { lines.push(line); };
+    const failing = (error: unknown): ResearchFrontierCatalogReader => ({
+      searchResearchFrontiers: async () => { throw error; } }) as unknown as ResearchFrontierCatalogReader;
+    const search = { query: "private words of a question" };
+    await searchResearchFrontiers(search, { log,
+      reader: failing(Object.assign(new Error("canceling statement due to statement timeout: private words"), { code: "57014" })) });
+    await searchResearchFrontiers(search, { log, reader: failing(new Error("private words")) });
+    await searchResearchFrontiers(search, { log, reader: { searchResearchFrontiers: async () => ({ rows: "private words" }) } as unknown as ResearchFrontierCatalogReader });
+    expect(lines).toEqual(["research frontier catalog: 57014", "research frontier catalog: error", "research frontier catalog: malformed"]);
+  });
+
   it("remains operation 23 while access operations append after both frontier reads", () => {
     expect(RESEARCH_OPERATIONS).toHaveLength(35);
     expect(RESEARCH_OPERATIONS.at(21)?.name).toBe("get_research_frontier");
