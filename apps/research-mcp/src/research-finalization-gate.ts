@@ -4597,7 +4597,7 @@ export function finalizeResearch(
             ...(threads.length > 0 ? { threads } : {})
           });
         }
-        const left = registered.flatMap((_, number) => entryFor.has(number) ? [] : [number]);
+        const left = registered.flatMap((_, number) => entryFor.has(number) ? [] : [number + plainAnswer.first]);
         if (left.length > 0) {
           const leftOut = joinRules(joinRules(joinRules(rule`plain_answer_comparison leaves out ${left.length === 1 ? rule`claim` : rule`claims`} `, rule`${joinNames(left.map(String))} of the plain answer registered before this research, as `), "manage_research_access numbered them: give each, copied exactly, with whether the research confirmed, "), "corrected or qualified it, or did not check it.");
           if (noteOn) addBlockingStep("plain_answer_comparison", "declaration", leftOut);
@@ -6021,7 +6021,9 @@ interface ComparedClaim {
 }
 
 type RegisteredPlainAnswer =
-  | { status: "registered"; claims: string[] }
+  // first: the number manage_research_access gave the first claim, 1 on an account whose claims the menu accounts for
+  // (owner answer 413a), as its receipt signs, and 0 otherwise.
+  | { status: "registered"; claims: string[]; first: 0 | 1 }
   | { status: "no_receipt" | "other_account" | "other_target" | "after_research" };
 
 /**
@@ -6047,7 +6049,8 @@ function registeredPlainAnswer(
   const latest = forTarget.filter((receipt) => receiptOrder(receipt) < began)
     .sort((left, right) => receiptOrder(left) - receiptOrder(right) || left.index - right.index)
     .at(-1);
-  return latest === undefined ? { status: "after_research" } : { status: "registered", claims: list(latest.claims.claims) };
+  return latest === undefined ? { status: "after_research" } : { status: "registered",
+    claims: list(latest.claims.claims), first: text(latest.claims.first) === "1" ? 1 : 0 };
 }
 
 /**

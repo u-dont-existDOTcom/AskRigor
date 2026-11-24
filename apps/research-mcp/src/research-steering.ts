@@ -163,13 +163,18 @@ export const planTaskSchema = z.object({
   minutes: z.tuple([minutesSchema, minutesSchema]).optional()
     .describe("Your own estimate, low and high, for a task of kind other, or when the task is much longer or shorter " +
       "than its kind's usual time."),
-  // Owner answer 413a (24 Nov 2026): any value is accepted, as for person_reason: one that names no claim is not one,
-  // and never refuses a menu (claimNumbers reads it where it is used). It is not part of the menu's digest.
+}).strict();
+/**
+ * Owner answer 413a (24 Nov 2026): the same task for an account whose claims are accounted for. Any value is accepted,
+ * as for person_reason: one that names no claim is not one, and never refuses a menu (claimNumbers reads it where it is
+ * used). It is not part of the menu's digest.
+ */
+export const claimsPlanTaskSchema = planTaskSchema.extend({
   claims: z.unknown().optional()
     .describe("The numbers of the plain answer's claims this task could confirm or correct, as register_plain_answer's " +
       "result numbered them."),
 }).strict();
-export type PlanTask = z.output<typeof planTaskSchema>;
+export type PlanTask = z.output<typeof claimsPlanTaskSchema>;
 
 export const researchMenuSchema = z.object({
   research_target: z.string().trim().min(1).max(5_000)
@@ -205,11 +210,6 @@ export const researchMenuSchema = z.object({
   menu_digest: z.string().trim().min(1).max(100).optional()
     .describe("On every call after the first: researchMenu.menu_digest from the last plan_research result, as it is; " +
       "when the tasks differ from the menu it names, AskRigor shows the person the changed menu first."),
-  // Owner answer 413a (24 Nov 2026): each claim of the plain answer no task covers, in its own words, with why. Any
-  // value is accepted (leftOutClaims reads it where it is used); it is not part of the menu's digest.
-  left_out: z.unknown().optional()
-    .describe("For each claim of the plain answer no task covers: {claim, that claim word for word; why, in the person's " +
-      "language}."),
   // Owner answer 302 (14 Nov 2026): only AskRigor's own plan sets it, in the menu register_plain_answer hands over. It is
   // not in RESEARCH_MENU_SHAPE or any other text that teaches the AI to write a menu of its own.
   lane: z.enum(["light"]).optional()
@@ -243,7 +243,20 @@ export const researchMenuSchema = z.object({
   go_on_asked: z.unknown().optional()
     .describe("Set by AskRigor's own plan only, and passed back as given: leave it out of a menu you write yourself."),
 }).strict();
-export type ResearchMenuInput = z.output<typeof researchMenuSchema>;
+/**
+ * Owner answer 413a (24 Nov 2026): the same menu for an account whose claims are accounted for: its tasks name the
+ * claims they cover, and left_out gives each claim of the plain answer no task covers, in its own words, with why. Any
+ * value is accepted (leftOutClaims reads it where it is used); it is not part of the menu's digest. For any other
+ * account both fields are no part of a menu, as before (readResearchMenu).
+ */
+export const claimsResearchMenuSchema = researchMenuSchema.extend({
+  tasks: z.array(claimsPlanTaskSchema).min(1).max(PLAN_LIMITS.tasks)
+    .describe("The next tasks the screen found, in the order you would do them."),
+  left_out: z.unknown().optional()
+    .describe("For each claim of the plain answer no task covers: {claim, that claim word for word; why, in the person's " +
+      "language}."),
+}).strict();
+export type ResearchMenuInput = z.output<typeof claimsResearchMenuSchema>;
 
 /**
  * The menu the person saw (the review of 12 Nov 2026): a re-plan before any task was done, with a new task added, could
@@ -327,10 +340,12 @@ const snakeKey = (key: string): string =>
 const fieldsOf = (shape: z.ZodRawShape) => new Set(Object.keys(shape));
 const optionalFieldsOf = (shape: z.ZodRawShape) =>
   new Set(Object.keys(shape).filter((key) => z.safeParse(shape[key]!, undefined).success));
-const MENU_FIELDS = fieldsOf(researchMenuSchema.shape);
-const OPTIONAL_MENU_FIELDS = optionalFieldsOf(researchMenuSchema.shape);
-const TASK_FIELDS = fieldsOf(planTaskSchema.shape);
-const OPTIONAL_TASK_FIELDS = optionalFieldsOf(planTaskSchema.shape);
+const menuFields = (menu: z.ZodRawShape, task: z.ZodRawShape) => Object.freeze({ menu: fieldsOf(menu),
+  optionalMenu: optionalFieldsOf(menu), task: fieldsOf(task), optionalTask: optionalFieldsOf(task) });
+type MenuFields = ReturnType<typeof menuFields>;
+const MENU_FIELDS: MenuFields = menuFields(researchMenuSchema.shape, planTaskSchema.shape);
+// Owner answer 413a: with the fields that account for the plain answer's claims, for an account that has them.
+const CLAIMS_MENU_FIELDS: MenuFields = menuFields(claimsResearchMenuSchema.shape, claimsPlanTaskSchema.shape);
 const ALLOCATION_FIELDS: ReadonlySet<string> = new Set(["task", "minutes"]);
 const MENU_ALIASES: Readonly<Record<string, string>> = Object.freeze({ user_allocation: "allocation",
   allocations: "allocation" });
@@ -352,9 +367,36 @@ function inOwnNames(value: Record<string, unknown>, fields: ReadonlySet<string>,
   return read;
 }
 
-function readTask(task: unknown, path: string, ignored: string[]): unknown {
+/**
+ * A menu's placeholder for the claims (owner answer 413a), sent back as the outline gave it, is not given: the claims'
+ * one as a task's claims or one of its numbers, and left_out's two where each stands. Exactly, and nothing else.
+ */
+function readTaskClaims(claims: unknown): unknown {
+  const placeholder = (value: unknown) => typeof value === "string" && value.trim() === MENU_PLACEHOLDERS.claims;
+  if (!Array.isArray(claims)) return placeholder(claims) ? undefined : claims;
+  const given = claims.filter((entry) => !placeholder(entry));
+  return given.length === 0 && claims.length > 0 ? undefined : given;
+}
+
+function readLeftOut(leftOut: unknown): unknown {
+  const is = (value: unknown, placeholder: string) => typeof value === "string" && value.trim() === placeholder;
+  const read = (Array.isArray(leftOut) ? leftOut : [leftOut]).flatMap((entry: unknown) => {
+    if (is(isRecord(entry) ? entry.claim : entry, MENU_PLACEHOLDERS.left_out_claim)) return [];
+    if (!isRecord(entry) || !is(entry.why, MENU_PLACEHOLDERS.left_out_why)) return [entry];
+    const { why: _placeholder, ...rest } = entry;
+    return [rest];
+  });
+  return read.length === 0 ? undefined : Array.isArray(leftOut) ? read : read[0];
+}
+
+function readTask(task: unknown, path: string, ignored: string[], fields: MenuFields): unknown {
   if (!isRecord(task)) return task;
-  const read = inOwnNames(task, TASK_FIELDS, TASK_ALIASES, path, ignored, OPTIONAL_TASK_FIELDS);
+  const read = inOwnNames(task, fields.task, TASK_ALIASES, path, ignored, fields.optionalTask);
+  if (read.claims !== undefined) {
+    const claims = readTaskClaims(read.claims);
+    if (claims === undefined) delete read.claims;
+    else read.claims = claims;
+  }
   if (typeof read.minutes === "number") read.minutes = [read.minutes, read.minutes];
   // Written as a word, as person_answered sometimes is (readPersonAnswered): the exact words true and false only.
   if (typeof read.person_asked === "string") {
@@ -381,9 +423,17 @@ function readPersonAnswered(value: unknown): unknown {
   return lower === "true" || lower === "false" ? lower === "true" : value;
 }
 
-function readMenu(menu: Record<string, unknown>, path: string, ignored: string[]): Record<string, unknown> {
-  const read = inOwnNames(menu, MENU_FIELDS, MENU_ALIASES, path, ignored, OPTIONAL_MENU_FIELDS);
-  if (Array.isArray(read.tasks)) read.tasks = read.tasks.map((task, index) => readTask(task, `${path}.tasks[${index}]`, ignored));
+function readMenu(menu: Record<string, unknown>, path: string, ignored: string[], fields: MenuFields):
+  Record<string, unknown> {
+  const read = inOwnNames(menu, fields.menu, MENU_ALIASES, path, ignored, fields.optionalMenu);
+  if (Array.isArray(read.tasks)) {
+    read.tasks = read.tasks.map((task, index) => readTask(task, `${path}.tasks[${index}]`, ignored, fields));
+  }
+  if (read.left_out !== undefined) {
+    const leftOut = readLeftOut(read.left_out);
+    if (leftOut === undefined) delete read.left_out;
+    else read.left_out = leftOut;
+  }
   if (read.allocation !== undefined) read.allocation = readAllocation(read.allocation, `${path}.allocation`, ignored);
   if (typeof read.steering_could_help === "string") {
     const word = read.steering_could_help.trim().toLowerCase();
@@ -400,18 +450,23 @@ function readMenu(menu: Record<string, unknown>, path: string, ignored: string[]
   return read;
 }
 
-/** A plan_research call's later_inputs, read as the menu (above). */
-export function readResearchMenu(later: Record<string, unknown>): MenuReading {
+/**
+ * A plan_research call's later_inputs, read as the menu (above). accounting: whether the account's claims are accounted
+ * for (owner answer 413a), so claims and left_out are fields of its menu; for any other account they are no part of one,
+ * left out and named as before.
+ */
+export function readResearchMenu(later: Record<string, unknown>, accounting = false): MenuReading {
+  const fields = accounting ? CLAIMS_MENU_FIELDS : MENU_FIELDS;
   const ignored: string[] = [];
   const moved: Array<[string, string]> = [];
   const menuKey = Object.hasOwn(later, "researchMenu") ? "researchMenu"
     : Object.keys(later).find((key) => snakeKey(key) === "research_menu");
   if (menuKey === undefined) {
-    const flat = inOwnNames(later, MENU_FIELDS, MENU_ALIASES, "later_inputs", ignored, OPTIONAL_MENU_FIELDS);
-    return { later: {}, flat: readMenu(flat, "later_inputs", []), ignored, moved };
+    const flat = inOwnNames(later, fields.menu, MENU_ALIASES, "later_inputs", ignored, fields.optionalMenu);
+    return { later: {}, flat: readMenu(flat, "later_inputs", [], fields), ignored, moved };
   }
   const given = later[menuKey];
-  const menu = isRecord(given) ? readMenu(given, `later_inputs.${menuKey}`, ignored) : given;
+  const menu = isRecord(given) ? readMenu(given, `later_inputs.${menuKey}`, ignored, fields) : given;
   for (const [key, value] of Object.entries(later)) {
     if (key === menuKey) continue;
     const name = snakeKey(key);
@@ -1936,7 +1991,7 @@ export function offersYouDecide(result: ResearchPlanResult): boolean {
  * the call is sent (PERSON_ANSWER_DECLARED).
  */
 export const youDecideLaterInputsSchema = z.object({
-  researchMenu: researchMenuSchema.extend({
+  researchMenu: claimsResearchMenuSchema.extend({
     person_answered: z.literal(MENU_PLACEHOLDERS.person_answered),
   }).strict(),
 }).strict();

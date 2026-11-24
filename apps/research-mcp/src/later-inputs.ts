@@ -24,7 +24,7 @@ import { newsDateInputSchema, newsNumberInputSchema } from "./news/inputs.js";
 import { dossierFindingInputSchema, dossierImportanceInputSchema, dossierLivingPersonInputSchema, dossierNumberInputSchema,
   dossierOverrideConflictsInputSchema, dossierStateInputSchema, dossierVersionInputSchema } from "./atlas/dossier-review.js";
 import { claimCoverageSchema } from "./claim-coverage.js";
-import { ASKED_LIMIT, PLANNER_PAUSE_MAX_MINUTES, framingSchema, researchMenuSchema, researchSteeringInputSchema }
+import { ASKED_LIMIT, PLANNER_PAUSE_MAX_MINUTES, claimsResearchMenuSchema, framingSchema, researchSteeringInputSchema }
   from "./research-steering.js";
 
 /**
@@ -267,7 +267,9 @@ const LATER_INPUT_SHAPES = Object.freeze({
     framing: framingSchema.optional()
       .describe("With register_plain_answer: the question the person most likely means, premises that look inverted " +
         "or unclear, and questions that could redirect the research."),
-    researchMenu: researchMenuSchema.optional()
+    // Owner answer 413a: with the fields that account for the plain answer's claims, which reach this schema only on an
+    // account that has them (readResearchMenu).
+    researchMenu: claimsResearchMenuSchema.optional()
       .describe("With plan_research, after a quick screen: the research target, the next tasks with their kind and " +
         "what each could change, and the person's allocation once given."),
     // Owner answer 298b (13 Nov 2026): the person's own words, for AskRigor's own planning call on a dev account. Read

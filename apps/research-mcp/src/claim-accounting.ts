@@ -16,6 +16,8 @@
  * Off unless the account has it (CLAIM_ACCOUNTING in config.ts): with it off every text and result is as before.
  */
 
+import { withAsciiDigits } from "./unicode-numbers.js";
+
 /** The plain answer's own limits (PLAIN_ANSWER_LIMITS: a test keeps them the same), and a reason's length on the menu. */
 export const CLAIM_ACCOUNTING_LIMITS = Object.freeze({ claims: 5, claimCharacters: 250, why: 120 });
 
@@ -40,8 +42,8 @@ export interface ClaimAccounting {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
-/** One line of plain text, cut at whole characters. */
-function oneLine(value: unknown, limit: number): string | undefined {
+/** One line of plain text, cut at whole characters; undefined when it is no text or empty. */
+export function oneLine(value: unknown, limit: number): string | undefined {
   if (typeof value !== "string") return undefined;
   const text = value.replace(/[\p{Cc}\p{Cf}]+/gu, " ").replace(/\s+/gu, " ").trim();
   if (text === "") return undefined;
@@ -50,13 +52,13 @@ function oneLine(value: unknown, limit: number): string | undefined {
 }
 
 /**
- * A task's declared claims, as numbers from 1 to count, each once and in order. A number written as a word of digits is
- * read; a single number is a list of one; anything else is left out.
+ * A task's declared claims, as numbers from 1 to count, each once and in order. A number written as a text of digits, in
+ * any script, is read; a single number is a list of one; anything else is left out.
  */
 export function claimNumbers(value: unknown, count: number = CLAIM_ACCOUNTING_LIMITS.claims): number[] {
   const given: readonly unknown[] = Array.isArray(value) ? value : value === undefined || value === null ? [] : [value];
   const numbers = given.map((entry) => typeof entry === "number" ? entry
-    : typeof entry === "string" && /^\s*[0-9]{1,2}\s*$/u.test(entry) ? Number(entry) : Number.NaN);
+    : typeof entry === "string" && /^\s*\p{Nd}{1,2}\s*$/u.test(entry) ? Number(withAsciiDigits(entry)) : Number.NaN);
   return [...new Set(numbers.filter((number) => Number.isInteger(number) && number >= 1 && number <= count))]
     .sort((left, right) => left - right);
 }
@@ -67,15 +69,20 @@ export interface LeftOutClaim {
   why?: string;
 }
 
-/** The menu's left_out entries that have a claim's words (an entry given as text alone is the claim), at most the limit. */
-export function leftOutClaims(value: unknown): LeftOutClaim[] {
+/** The menu's left_out entries that have a claim's words (an entry given as text alone is the claim), each with its place. */
+function leftOutEntries(value: unknown): Array<LeftOutClaim & { place: number }> {
   const given: readonly unknown[] = Array.isArray(value) ? value : value === undefined || value === null ? [] : [value];
-  return given.slice(0, CLAIM_ACCOUNTING_LIMITS.claims).flatMap((entry) => {
+  return given.flatMap((entry, place) => {
     const claim = (typeof entry === "string" ? entry : isRecord(entry) && typeof entry.claim === "string" ? entry.claim : "").trim();
     if (claim === "" || Array.from(claim).length > CLAIM_ACCOUNTING_LIMITS.claimCharacters) return [];
     const why = isRecord(entry) ? oneLine(entry.why, CLAIM_ACCOUNTING_LIMITS.why) : undefined;
-    return [{ claim, ...(why === undefined ? {} : { why }) }];
-  });
+    return [{ claim, ...(why === undefined ? {} : { why }), place }];
+  }).slice(0, CLAIM_ACCOUNTING_LIMITS.claims);
+}
+
+/** The menu's left_out claims as a result gives them back: their words and why, at most the limit. */
+export function leftOutClaims(value: unknown): LeftOutClaim[] {
+  return leftOutEntries(value).map(({ claim, why }) => ({ claim, ...(why === undefined ? {} : { why }) }));
 }
 
 /**
@@ -100,18 +107,18 @@ export function accountForClaims(
         `${past.length === 1 ? "is" : "are"} past the ${registered.length} of the plain answer; left out.`);
     }
   });
-  leftOutClaims(leftOut).forEach(({ claim, why }, place) => {
+  for (const { claim, why, place } of leftOutEntries(leftOut)) {
     const number = registered.indexOf(digestOf(claim));
     if (number < 0) {
       problems.push(`later_inputs.researchMenu.left_out[${place}].claim is not one of the plain answer's claims: copy ` +
         "it word for word as register_plain_answer's result listed it.");
-      return;
+      continue;
     }
     const account = accounts[number]!;
-    if (account.tasks.length > 0 || account.text !== undefined) return;
-    account.text = claim;
+    if (account.tasks.length > 0 || account.text !== undefined) continue;
+    account.text = claim.replace(/\s+/gu, " ");
     if (why !== undefined) account.why = why;
-  });
+  }
   return { accounts, problems };
 }
 

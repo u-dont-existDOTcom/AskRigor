@@ -1047,6 +1047,8 @@ export interface RegisterToolsOptions {
    */
   findingsLedgerAccounts?: FindingsLedgerAccounts;
   findingsLedgerMemory?: FindingsLedgerMemory;
+  /** Owner answer 413a: whether the menu accounts for the plain answer's claims on an account. */
+  claimAccounting?: (accountKey: string, devAccount: boolean) => boolean;
   /** Shared questions and answers (owner answer 200a); null turns them off; defaults to the server's settings. */
   sharedAnswers?: SharedAnswers | null;
   /** How long finalize_research waits for a findings save; replaced for tests. */
@@ -2193,6 +2195,8 @@ function defineResearchOperations(
       ...(options.researchDossierPublisher === undefined ? {} : { publicDossiers: true }),
       // Enforcing HRP, stage 1: plan_research says what can stop an answer while the findings ledger is on for the account.
       findingsLedger: (devAccount) => findingsLedgerFor(options, () => devAccount),
+      // Owner answer 413a: the menu accounts for the plain answer's claims, on an account that has it.
+      claimAccounting: (accountKey, devAccount) => claimAccountingFor(options, accountKey, devAccount),
       ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
       ...(sharing === undefined ? {} : { sharedAnswers: { ...sharing, versions: async () =>
@@ -2213,9 +2217,10 @@ function defineResearchOperations(
             if (secret === undefined) return undefined;
             const verified = verifyResearchReceipt(receipt, { secret });
             if (!verified.ok || verified.kind !== "plain_answer") return undefined;
-            const { acct, target } = verified.claims;
+            const { acct, target, claims } = verified.claims;
             return acct === plainAnswerAccountBinding(secret, accountKey) && typeof target === "string"
-              ? { target, issuedAt: verified.issued_at }
+              // Owner answer 413a: the claims' digests too, in the order registered.
+              ? { target, issuedAt: verified.issued_at, claims: claims === undefined ? [] : [claims].flat() }
               : undefined;
           },
         },
@@ -3404,6 +3409,18 @@ export function dossierConflictReaderOf(options: Pick<RegisterToolsOptions, "res
 function findingsLedgerFor(options: RegisterToolsOptions, devAccount: () => boolean): boolean {
   return (options.findingsLedger ?? findingsLedgerEnabledFromEnv()) &&
     ((options.findingsLedgerAccounts ?? findingsLedgerAccountsFromEnv()) === "all" || devAccount());
+}
+
+/** Owner answer 413a: whether the menu accounts for the plain answer's claims on an account (claim-accounting.ts). */
+function claimAccountingFor(options: RegisterToolsOptions, accountKey: string, devAccount: boolean): boolean {
+  return options.claimAccounting?.(accountKey, devAccount) === true;
+}
+
+/** The pseudonymous key of the account a call is signed in as, read from the call alone; undefined for any other call. */
+function callAccountKey(extra: ResearchOperationExtra | undefined, service: ResearchContributorAccessService | undefined):
+  string | undefined {
+  const auth = authorizedSubject(extra, undefined);
+  return "error" in auth || service === undefined ? undefined : service.accountKeyForSubject(auth.subject);
 }
 
 /**
@@ -4893,6 +4910,12 @@ function collectResearchOperations(
           devAccount: async (extra) => {
             const researcher = await researchUseAccount(extra, options.researchContributorAccessService);
             return researcher !== undefined && isDevAccount(researcher.accountKey, devAccountKeysFromEnv());
+          },
+          // Owner answer 413a: the claims' fields are part of a menu only on an account whose claims it accounts for.
+          claimAccounting: (extra) => {
+            const accountKey = callAccountKey(extra, options.researchContributorAccessService);
+            return accountKey !== undefined &&
+              claimAccountingFor(options, accountKey, isDevAccount(accountKey, devAccountKeysFromEnv()));
           } })
         // 13 Nov 2026: a study audit refused for its input says so in its structured content too, when it can.
         : name === STUDY_AUDIT_TOOL ? withStudyAuditInputRefusal(evolving.execute)

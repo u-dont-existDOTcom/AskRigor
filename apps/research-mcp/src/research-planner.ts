@@ -24,7 +24,7 @@ import {
   DOSSIER_CONFLICT_READING_RUBRIC,
   type DossierConflictCall,
 } from "./findings/dossier-conflict-reading.js";
-import { CLAIMS_RUBRIC, CLAIM_ACCOUNTING_LIMITS, claimNumbers } from "./claim-accounting.js";
+import { CLAIMS_RUBRIC, CLAIM_ACCOUNTING_LIMITS, claimNumbers, oneLine } from "./claim-accounting.js";
 import { keyFromSecretFile } from "./meaning-judge.js";
 import { researchTargetDigest } from "./research-receipts.js";
 import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, PLANNER_PAUSE_MAX_MINUTES, RESEARCH_LANES, isLightLane,
@@ -820,7 +820,8 @@ function plannedLeftOut(value: unknown, tasks: readonly PlanTask[], count: numbe
     if (entry === null || typeof entry !== "object") continue;
     const { claim, why } = entry as { claim?: unknown; why?: unknown };
     const number = claimNumbers(claim, count)[0];
-    const reason = typeof why === "string" ? plainLine(why, key, CLAIM_ACCOUNTING_LIMITS.why) : undefined;
+    // Plain and never the key, as every line of a plan (plainLine, which cuts nothing here), then cut at whole characters.
+    const reason = typeof why === "string" ? oneLine(plainLine(why, key, why.length), CLAIM_ACCOUNTING_LIMITS.why) : undefined;
     if (number !== undefined && reason !== undefined && !reasons.has(number)) reasons.set(number, reason);
   }
   return Array.from({ length: count }, (_, index) => index + 1).filter((claim) => !covered.has(claim))
@@ -996,10 +997,12 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
   // Its three shapes cannot meet (the review of 14 Nov 2026: a list's [words, newest message] and the pair [research
   // target, framing's question] were both two texts): words alone are a text, the target and the framing's question a
   // pair, and words with their newest message an object.
+  // Owner answer 413a: a plan made with the claims' rule is keyed with its own rubric version, so a plan of the one
+  // rubric is never served as a plan of the other.
   const planKey = (accountKey: string,
-    words: string | readonly [string, string | null] | { asked: string; latest: string }): string =>
-    createHash("sha256").update(JSON.stringify([model, effort, RESEARCH_PLANNER_RUBRIC_VERSION, accountKey, words]))
-      .digest("hex");
+    words: string | readonly [string, string | null] | { asked: string; latest: string }, accounting: boolean): string =>
+    createHash("sha256").update(JSON.stringify([model, effort, accounting ? RESEARCH_PLANNER_CLAIMS_RUBRIC_VERSION
+      : RESEARCH_PLANNER_RUBRIC_VERSION, accountKey, words])).digest("hex");
   let day = "";
   let spent = 0;
   // By each account's digest, as the state file names it, so a count is looked up the same way after a restart.
@@ -1325,7 +1328,8 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
       // then as a list are two plans: the first was never asked about its newest message.
       const hash = planKey(accountKey, source.asked === undefined
         ? [source.researchTarget, source.framing?.likely_question ?? null]
-        : source.latestMessage === undefined ? source.asked : { asked: source.asked, latest: source.latestMessage });
+        : source.latestMessage === undefined ? source.asked : { asked: source.asked, latest: source.latestMessage },
+      source.accounting === true);
       for (const [entry, cached] of cache) if (cached.until <= current) cache.delete(entry);
       for (const [entry, kept] of lanes) if (kept.until <= current) lanes.delete(entry);
       const cached = cache.get(hash);
@@ -1366,16 +1370,19 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
         if (pausedUntil(accountKey) !== undefined) return undefined;
         const account = accountDigest(accountKey);
         const current = now();
-        const found = asked === undefined ? undefined : cache.get(planKey(accountKey, asked));
-        const cached = found !== undefined && afterLatestPause(account, found.seq) ? found : undefined;
+        // Owner answer 413a: the final check does not know which rubric the plan was made with, so the plan kept for
+        // these words is the newest under either key.
+        const cached = asked === undefined ? undefined : [false, true]
+          .map((accounting) => cache.get(planKey(accountKey, asked, accounting)))
+          .filter((found) => found !== undefined && found.until > current && afterLatestPause(account, found.seq))
+          .reduce((newest, found) => newest === undefined || found!.seq > newest.seq ? found : newest, undefined);
         const kept = researchTarget === undefined ? undefined : lanes.get(targetKey(accountKey, researchTarget));
         const byTarget = kept !== undefined && kept.until > current && afterLatestPause(account, kept.seq) ? kept
           : undefined;
         // The words find a plan only when no later registration planned this research target: the same words sent
         // again as a list are another plan, with a lane of its own, and the target's entry is then the newer one
         // (the review of 14 Nov 2026: the older plan's lane was read, and a light look-up's draft was reviewed).
-        if (cached !== undefined && cached.until > current &&
-            (byTarget === undefined || byTarget.started <= cached.until - HOUR)) {
+        if (cached !== undefined && (byTarget === undefined || byTarget.started <= cached.until - HOUR)) {
           const call = await cached.call;
           if (pausedUntil(accountKey) !== undefined || !afterLatestPause(account, cached.seq)) return undefined;
           if (call.planning.status === "planned") return call.planning.plan.lane;
