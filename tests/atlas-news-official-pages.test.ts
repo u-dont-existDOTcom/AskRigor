@@ -335,7 +335,8 @@ describe("finalize_research looks an official notice's quotes up in the page its
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     try {
       const pending = finalize(given, { news_card: NOTICE_CARD, findings_save: "off" });
-      for (let step = 0; step < 400 && reader.mock.calls.length < 1; step += 1) await vi.advanceTimersByTimeAsync(1);
+      // The event loop turns, no fake time passing, until the page is asked for.
+      for (let turn = 0; turn < 5_000 && reader.mock.calls.length < 1; turn += 1) await vi.advanceTimersByTimeAsync(0);
       expect(reader).toHaveBeenCalledTimes(1);
       let settled = false;
       void pending.then(() => { settled = true; });

@@ -87,6 +87,11 @@ async function search(args: Record<string, unknown>, meta?: Record<string, unkno
   return { result, structured: result.structuredContent as Record<string, any> };
 }
 
+/** Turns the event loop, no fake time passing, until something has happened. */
+async function until(happened: () => boolean): Promise<void> {
+  for (let turn = 0; turn < 5_000 && !happened(); turn += 1) await vi.advanceTimersByTimeAsync(0);
+}
+
 /** A failed Europe PMC search's result exactly as it was before: the failed envelope alone, flagged as an error. */
 function expectAsBefore(result: Awaited<ReturnType<typeof search>>["result"], code = "europe_pmc_unreachable"): void {
   expect(result.isError).toBe(true);
@@ -249,7 +254,7 @@ describe("a search Europe PMC doesn't answer is answered from PubMed (the owner'
     const asked = providers(unreachable, { count: 3, search: () => new Promise<Response>(() => undefined) });
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const pending = search({ query: QUERY });
-    for (let step = 0; step < 400 && asked.pubmed.length < 1; step += 1) await vi.advanceTimersByTimeAsync(1);
+    await until(() => asked.pubmed.length > 0);
     expect(asked.pubmed).toHaveLength(1);
     let settled = false;
     void pending.then(() => { settled = true; });
@@ -265,7 +270,7 @@ describe("a search Europe PMC doesn't answer is answered from PubMed (the owner'
       search: (retmax) => retmax === 50 ? new Promise<Response>(() => undefined) : undefined });
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const pending = search({ query: QUERY, page_size: 20 });
-    for (let step = 0; step < 400 && asked.pubmed.length < 2; step += 1) await vi.advanceTimersByTimeAsync(1);
+    await until(() => asked.pubmed.length > 1);
     expect(asked.pubmed).toHaveLength(2);
     await vi.advanceTimersByTimeAsync(10_000);
     const { structured } = await pending;
