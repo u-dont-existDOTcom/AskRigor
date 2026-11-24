@@ -26,6 +26,8 @@ import {
 import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./meaning-judge.js";
 import { researchPlannerFromEnv, type ResearchPlanner } from "./research-planner.js";
 import type { ResearchLane } from "./research-steering.js";
+import { researchTrialWindows, switchHolds, type ResearchSwitchModes, type ResearchTrialSwitch, type ResearchTrialWindows }
+  from "./research-trial.js";
 import {
   answerReviewNote, researchReviewerFromEnv, type ResearchReviewer, type ResearchReviewerCall,
 } from "./research-reviewer.js";
@@ -123,11 +125,13 @@ import {
   MCP_RESULT_MAX_BYTES,
   PUBLIC_TOOL_LIMITS,
   atlasReviewEnabledFromEnv,
+  claimAccountingModeFromEnv,
   crossrefConfigFromEnv,
   devAccountKeysFromEnv,
   dossierPrivacyReadingFromEnv,
   safetyLimitsFromEnv,
   findingsLibraryEnabledFromEnv,
+  hrpCoreModeFromEnv,
   ncbiConfigFromEnv,
   optionalLivingEvidenceReuseConfigFromEnv,
   askrigorBuildCommitFromEnv,
@@ -1047,8 +1051,8 @@ export interface RegisterToolsOptions {
    */
   findingsLedgerAccounts?: FindingsLedgerAccounts;
   findingsLedgerMemory?: FindingsLedgerMemory;
-  /** Owner answer 413a: whether the menu accounts for the plain answer's claims on an account. */
-  claimAccounting?: (accountKey: string, devAccount: boolean) => boolean;
+  /** Owner answers 413a and 412a: the process's test windows (research-trial.ts), unless replaced for tests. */
+  researchTrialWindows?: ResearchTrialWindows;
   /** Shared questions and answers (owner answer 200a); null turns them off; defaults to the server's settings. */
   sharedAnswers?: SharedAnswers | null;
   /** How long finalize_research waits for a findings save; replaced for tests. */
@@ -2196,7 +2200,9 @@ function defineResearchOperations(
       // Enforcing HRP, stage 1: plan_research says what can stop an answer while the findings ledger is on for the account.
       findingsLedger: (devAccount) => findingsLedgerFor(options, () => devAccount),
       // Owner answer 413a: the menu accounts for the plain answer's claims, on an account that has it.
-      claimAccounting: (accountKey, devAccount) => claimAccountingFor(options, accountKey, devAccount),
+      claimAccounting: (accountKey, devAccount) => switchHoldsFor(options, "claimAccounting", accountKey, devAccount),
+      // Owner answers 413a and 412a: a dev account's test window for the two switches.
+      researchTrial: () => ({ modes: researchSwitchModes(), windows: options.researchTrialWindows ?? researchTrialWindows }),
       ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
       ...(sharing === undefined ? {} : { sharedAnswers: { ...sharing, versions: async () =>
@@ -3411,9 +3417,16 @@ function findingsLedgerFor(options: RegisterToolsOptions, devAccount: () => bool
     ((options.findingsLedgerAccounts ?? findingsLedgerAccountsFromEnv()) === "all" || devAccount());
 }
 
-/** Owner answer 413a: whether the menu accounts for the plain answer's claims on an account (claim-accounting.ts). */
-function claimAccountingFor(options: RegisterToolsOptions, accountKey: string, devAccount: boolean): boolean {
-  return options.claimAccounting?.(accountKey, devAccount) === true;
+/** The modes of the two switches of 24 November 2026, as the server is set (owner answers 413a and 412a). */
+function researchSwitchModes(): ResearchSwitchModes {
+  return { claimAccounting: claimAccountingModeFromEnv(), hrpCore: hrpCoreModeFromEnv() };
+}
+
+/** Whether one of them holds for an account: its mode, and for a dev account its test window (research-trial.ts). */
+function switchHoldsFor(options: RegisterToolsOptions, name: ResearchTrialSwitch, accountKey: string, devAccount: boolean):
+  boolean {
+  return switchHolds(researchSwitchModes()[name], devAccount,
+    (options.researchTrialWindows ?? researchTrialWindows).window(accountKey)?.[name] === true);
 }
 
 /** The pseudonymous key of the account a call is signed in as, read from the call alone; undefined for any other call. */
@@ -4915,7 +4928,7 @@ function collectResearchOperations(
           claimAccounting: (extra) => {
             const accountKey = callAccountKey(extra, options.researchContributorAccessService);
             return accountKey !== undefined &&
-              claimAccountingFor(options, accountKey, isDevAccount(accountKey, devAccountKeysFromEnv()));
+              switchHoldsFor(options, "claimAccounting", accountKey, isDevAccount(accountKey, devAccountKeysFromEnv()));
           } })
         // 13 Nov 2026: a study audit refused for its input says so in its structured content too, when it can.
         : name === STUDY_AUDIT_TOOL ? withStudyAuditInputRefusal(evolving.execute)

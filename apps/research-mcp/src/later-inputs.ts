@@ -26,6 +26,7 @@ import { dossierFindingInputSchema, dossierImportanceInputSchema, dossierLivingP
 import { claimCoverageSchema } from "./claim-coverage.js";
 import { ASKED_LIMIT, PLANNER_PAUSE_MAX_MINUTES, claimsResearchMenuSchema, framingSchema, researchSteeringInputSchema }
   from "./research-steering.js";
+import { RESEARCH_TRIAL_MAX_MINUTES, researchTrialInputSchema } from "./research-trial.js";
 
 /**
  * list_calls' page: the calls received before a time, as a previous listing's next_before gave it (the review of 12 Nov
@@ -299,6 +300,10 @@ const LATER_INPUT_SHAPES = Object.freeze({
     pauseMinutes: z.number().int().min(0).max(PLANNER_PAUSE_MAX_MINUTES).optional()
       .describe(`With pause_research_planner, on a dev account for a test round only: whole minutes from now, at most ` +
         `${PLANNER_PAUSE_MAX_MINUTES}, to pause AskRigor's own planning call; 0 ends the pause.`),
+    // Owner answers 413a and 412a (24 Nov 2026): a dev account's test window for the two changes behind switches.
+    researchTrial: researchTrialInputSchema.optional()
+      .describe("With set_research_trial, on a dev account for a test round only: claimAccounting and hrpCore, each " +
+        `true or false, for minutes whole minutes from now, at most ${RESEARCH_TRIAL_MAX_MINUTES}; 0 ends the window.`),
   },
   review_research_contribution: {
     sharedAnswerId: sharedAnswerIdSchema.optional()

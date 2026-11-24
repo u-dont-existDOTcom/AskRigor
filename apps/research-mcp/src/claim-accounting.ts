@@ -13,7 +13,8 @@
  * Whether a task really covers a claim, and whether a reason is a good one, are the model's declarations: nothing here
  * reads a word's meaning, and nothing here ever refuses a menu.
  *
- * Off unless the account has it (CLAIM_ACCOUNTING in config.ts): with it off every text and result is as before.
+ * Off unless the account has it (ASKRIGOR_CLAIM_ACCOUNTING, config.ts and research-trial.ts): with it off every text and
+ * result is as before.
  */
 
 import { withAsciiDigits } from "./unicode-numbers.js";
@@ -199,19 +200,3 @@ the tasks the person asked for and the tasks a serious risk needs; say which, co
 something the question takes for granted, or one whose being wrong could harm the person, and menu_history is never a
 reason. In lane light the one task lists the claims it settles and the rest go in left_out; in lane aside both stay
 empty.`;
-
-/**
- * Whether the menu's claims are accounted for on an account: off; trial, for a dev account in a test round's window
- * (research-trial.ts); dev, for every dev account; on, for every account. Anything else is off.
- */
-export const RESEARCH_SWITCH_MODES = ["off", "trial", "dev", "on"] as const;
-export type ResearchSwitchMode = (typeof RESEARCH_SWITCH_MODES)[number];
-export function researchSwitchMode(value: string | undefined): ResearchSwitchMode {
-  const mode = value?.trim() ?? "";
-  return (RESEARCH_SWITCH_MODES as readonly string[]).includes(mode) ? mode as ResearchSwitchMode : "off";
-}
-
-/** Whether a switch holds for an account: its mode, whether it is a dev account, and whether its window has it on. */
-export function switchHolds(mode: ResearchSwitchMode, devAccount: boolean, inTrial: boolean): boolean {
-  return mode === "on" || (devAccount && (mode === "dev" || (mode === "trial" && inTrial)));
-}

@@ -134,6 +134,8 @@ import {
 } from "./research-steering.js";
 import { plannedClaimKey, type MenuHistoryEntry, type ResearchPlan, type ResearchPlanner } from "./research-planner.js";
 import type { ResearchReviewer } from "./research-reviewer.js";
+import { TRIAL_OFF_NOTHING_CHANGED, researchTrialState, researchTrialText, trialOffered, type ResearchSwitchModes,
+  type ResearchTrialWindows } from "./research-trial.js";
 import type { ResearchOperationExtra, ResearchOperationHandler } from "./research-operation.js";
 import {
   SHARED_ANSWER_KEPT,
@@ -202,6 +204,8 @@ export const manageResearchAccessInputSchema = z.object({
     "disconnect_gemini",
     // Owner answer 395b (21 Nov 2026, runtime only): a test round's pause of a dev account's planning call.
     "pause_research_planner",
+    // Owner answers 413a and 412a (24 Nov 2026, runtime only): a dev account's test window for two switches.
+    "set_research_trial",
   ]),
   agreement: freeContributorAgreementSchema.extend({ noticeVersion: noticeVersionSchema }).strict().optional(),
   plainAnswer: plainAnswerInputSchema.optional()
@@ -300,7 +304,8 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
   error: researchAccessErrorSchema.extend({
     // Owner answer 303a: learn mode asked of an account that is not a dev account, or while the planning call is off.
     code: z.union([researchAccessErrorSchema.shape.code, z.literal("call_record_unavailable"),
-      z.literal("learn_mode_unavailable"), z.literal("gemini_links_unavailable"), z.literal("planner_off")]),
+      z.literal("learn_mode_unavailable"), z.literal("gemini_links_unavailable"), z.literal("planner_off"),
+      z.literal("trial_off")]),
   }).optional(),
   // Owner answer 386b (runtime only): how many Gemini links the account has, and how many a disconnect ended.
   geminiLinks: z.number().int().nonnegative().optional(),
@@ -459,6 +464,15 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
   plannerPausedUntil: z.iso.datetime().nullable().optional()
     .describe("With pause_research_planner: when AskRigor's own planning call starts again for this account, in " +
       "UTC; null when no pause runs."),
+  // Owner answers 413a and 412a (runtime only): what the two switches come to on a dev account after its test window was
+  // set, and until when the window runs; null once none runs. Only that call's own result carries it, as for the pause.
+  researchTrial: z.object({
+    claimAccounting: z.boolean(),
+    hrpCore: z.boolean(),
+    until: z.iso.datetime().nullable(),
+  }).strict().optional()
+    .describe("With set_research_trial: whether each switch holds for this account now, and when its test window ends, " +
+      "in UTC; null when none runs."),
 }).strict();
 
 /**
@@ -651,6 +665,8 @@ export interface ResearchContributorToolOptions {
    * on this account. Undefined or false: every text and result is as before it.
    */
   claimAccounting?: (accountKey: string, devAccount: boolean) => boolean;
+  /** The two switches' modes and the test windows (research-trial.ts), for set_research_trial; undefined: none offered. */
+  researchTrial?: () => { modes: ResearchSwitchModes; windows: ResearchTrialWindows };
 }
 
 export interface ResearchMapOptions {
@@ -1075,6 +1091,11 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       return accessError("invalid_request",
         "later_inputs.pauseMinutes goes only with action pause_research_planner, which needs it.");
     }
+    // Owner answers 413a and 412a: and later_inputs.researchTrial with set_research_trial.
+    if ((input.action === "set_research_trial") !== (input.researchTrial !== undefined)) {
+      return accessError("invalid_request",
+        "later_inputs.researchTrial goes only with action set_research_trial, which needs it.");
+    }
     if (input.action === "list_calls") {
       if (options.callRecord === undefined || options.service === undefined) {
         const message = "This AskRigor server keeps no call record, so there is nothing to show.";
@@ -1340,6 +1361,30 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           content: [{ type: "text", text: until === undefined ? PLANNER_PAUSE_ENDED : plannerPausedText(until) }],
           structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: true,
             plannerPausedUntil: until === undefined ? null : new Date(until).toISOString() }),
+        };
+      }
+      // Owner answers 413a and 412a (24 Nov 2026): a test round turns one of the two changes on or off for a dev account,
+      // for at most two hours, so the same question can be asked with it and without it; the window ends by itself.
+      if (parsed.action === "set_research_trial") {
+        const accountKey = options.service.accountKeyForSubject(auth.subject);
+        if (!isDevAccount(accountKey, options.devAccountKeys?.() ?? new Set())) {
+          return accessError("dev_account_required", "Only a dev account listed in AskRigor's settings may set a test " +
+            "window of its research; this account is not listed, so nothing was changed.");
+        }
+        const trial = options.researchTrial?.();
+        if (trial === undefined || !trialOffered(trial.modes)) {
+          return {
+            content: [{ type: "text", text: TRIAL_OFF_NOTHING_CHANGED }],
+            structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: false,
+              error: { code: "trial_off", message: TRIAL_OFF_NOTHING_CHANGED } }),
+            isError: true,
+          };
+        }
+        const window = trial.windows.set(accountKey, parsed.researchTrial!);
+        return {
+          content: [{ type: "text", text: researchTrialText(trial.modes, window) }],
+          structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: true,
+            researchTrial: researchTrialState(trial.modes, window) }),
         };
       }
       // Consent counts only for the notice the user was shown: an earlier

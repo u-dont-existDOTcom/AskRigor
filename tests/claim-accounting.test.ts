@@ -528,32 +528,27 @@ const AGREEMENT = {
 type Result = CallToolResult & { structuredContent?: Record<string, unknown> };
 const words = (result: Result): string => result.content.map((block) => block.type === "text" ? block.text : "").join("\n");
 
-async function tool(options: { accounting?: boolean; planner?: ResearchPlanner; chatGpt?: boolean } = {}) {
+async function tool(options: { accounting?: boolean; planner?: ResearchPlanner } = {}) {
   vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", SECRET);
   const service = new ResearchContributorAccessService({ store: new InMemoryResearchContributorAccessStore(),
     identitySecret: new TextEncoder().encode("synthetic-research-identity-secret-with-at-least-thirty-two-bytes") });
   for (const subject of ["auth0|dev", "auth0|person"]) await service.acceptFreeContributor(subject, AGREEMENT);
   vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", service.accountKeyForSubject("auth0|dev"));
+  vi.stubEnv("ASKRIGOR_CLAIM_ACCOUNTING", options.accounting === undefined ? "" : options.accounting ? "on" : "off");
   let handler: ((input: unknown, extra?: unknown) => Promise<CallToolResult>) | undefined;
-  const seen: Array<[string, boolean]> = [];
   registerTools({
     registerTool: (registered: string, _config: unknown, execute: typeof handler) => {
       if (registered === "manage_research_access") handler = execute;
     },
   } as unknown as McpServer, { researchAccessRequired: true, mcpSurface: "/mcp", researchContributorAccessService: service,
-    ...(options.planner === undefined ? {} : { researchPlanner: options.planner }),
-    ...(options.accounting === undefined ? {} : { claimAccounting: (accountKey: string, devAccount: boolean) => {
-      seen.push([accountKey, devAccount]);
-      return options.accounting!;
-    } }) } satisfies RegisterToolsOptions);
+    ...(options.planner === undefined ? {} : { researchPlanner: options.planner }) } satisfies RegisterToolsOptions);
   const call = async (input: Record<string, unknown>, subject = "auth0|person"): Promise<Result> =>
     await handler!(input, { authInfo: { token: "t", clientId: "c", scopes: ["research:use"],
-      expiresAt: Math.floor(Date.now() / 1_000) + 60, extra: { subject } },
-    ...(options.chatGpt === true ? { _meta: { "openai/locale": "en" } } : {}) }) as Result;
+      expiresAt: Math.floor(Date.now() / 1_000) + 60, extra: { subject } } }) as Result;
   const register = async (claims: readonly string[] = CLAIMS, subject = "auth0|person", later?: Record<string, unknown>) =>
     await call({ action: "register_plain_answer", plainAnswer: { researchTarget: TARGET, text: TEXT, claims },
       ...(later === undefined ? {} : { later_inputs: later }) }, subject);
-  return { call, register, service, seen };
+  return { call, register, service };
 }
 const receiptOf = (result: Result): string => (result.structuredContent as { research_receipt: string }).research_receipt;
 const receiptClaims = (receipt: string) => {
@@ -565,7 +560,6 @@ describe("the account tool with the claims accounted for (owner answer 413a)", (
   it("asks for the claims so at inspect only on an account that has it", async () => {
     const on = await tool({ accounting: true });
     expect(words(await on.call({ action: "inspect" }))).toContain(plainAnswerRequest(true, true));
-    expect(on.seen).toEqual([[on.service.accountKeyForSubject("auth0|person"), false]]);
     for (const accounting of [false, undefined]) {
       const off = await tool(accounting === undefined ? {} : { accounting });
       expect(words(await off.call({ action: "inspect" }))).toContain(plainAnswerRequest(true));
