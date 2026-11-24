@@ -1,4 +1,4 @@
-import { sectionKind, textBlocks, type AuditableDocumentIndex } from "@askrigor/sources";
+import { sectionKind, type AuditableDocumentIndex } from "@askrigor/sources";
 import { z } from "zod";
 
 import { figureText } from "./binary-results.js";
@@ -93,43 +93,53 @@ export interface SourceLineTexts {
 
 /** A fetched paper as the source line reads it. A copy the AI supplied, or one from the owner's library, is said to be one. */
 export function sourceLineDocument(index: AuditableDocumentIndex): SourceLineDocument {
+  // A PDF's page text breaks where its page did, and an HTML page's or a plain text's lines (a block each) where a tag,
+  // the page's own source or a wrap did, not where a sentence ends (an HTML page's lines are laid out for full-text
+  // admission and the paywall labels, "did <b>not</b> decrease" on three: the recheck of #417). So the next page runs on
+  // from the page before, and the next line from the line before within its section; a heading its index took into the
+  // section path starts the section afresh. A JATS paper's blocks are its own paragraphs.
+  const lined = index.source.format === "html_text" || index.source.format === "plain_text";
   return {
     kind: index.source.provider === "client_supplied" ? "search_copy"
       : index.source.provider === "owner_library" || index.source.retrieval_provider === "owner_library" ? "library_copy"
       : "full_text",
-    blocks: lookupBlocks(index.blocks, index.source.format === "html_text" || index.source.format === "plain_text")
+    blocks: index.blocks.map(({ text, section_path: path, kind }, place) => {
+      const before = index.blocks[place - 1];
+      const runsOn = before !== undefined && (kind === "page_text" && before.kind === "page_text" ||
+        lined && before.section_path.length === path.length && before.section_path.every((part, at) => part === path[at]));
+      return {
+        text,
+        ...(path.length === 0 ? {} : { section: receiptText(path[path.length - 1]!, SOURCE_LINE_LIMITS.section) }),
+        ...(runsOn ? { runsOn: true } : {}),
+        ...(kind === "abstract" ? { abstract: true } : {})
+      };
+    })
   };
 }
 
 /**
- * A text's blocks as quotes are looked up in them. A PDF's page text breaks where its page did, and an HTML page's or a
- * plain text's lines (`lined`: a block each) where a tag, the page's own source or a wrap did, not where a sentence ends
- * (an HTML page's lines are laid out for full-text admission and the paywall labels, "did <b>not</b> decrease" on three:
- * the recheck of #417). So the next page runs on from the page before, and the next line from the line before within its
- * section; a heading its index took into the section path starts the section afresh. A JATS paper's blocks are its own
- * paragraphs.
- */
-function lookupBlocks(blocks: AuditableDocumentIndex["blocks"], lined: boolean): SourceLineDocument["blocks"] {
-  return blocks.map(({ text, section_path: path, kind }, place) => {
-    const before = blocks[place - 1];
-    const runsOn = before !== undefined && (kind === "page_text" && before.kind === "page_text" ||
-      lined && before.section_path.length === path.length && before.section_path.every((part, at) => part === path[at]));
-    return {
-      text,
-      ...(path.length === 0 ? {} : { section: receiptText(path[path.length - 1]!, SOURCE_LINE_LIMITS.section) }),
-      ...(runsOn ? { runsOn: true } : {}),
-      ...(kind === "abstract" ? { abstract: true } : {})
-    };
-  });
-}
-
-/**
  * The text of a web page, as read_forum_thread's reader returns it, as a news card's quotes are looked up in it
- * (news/web-page.ts): read as an HTML full text is, its lines running on within a section, so a line a tag broke is
- * never a sentence of its own.
+ * (news/web-page.ts). As an HTML full text's, its lines run on within a section, so a line a tag broke is never a
+ * sentence of its own. A known section heading on a line of its own starts a section afresh only where the line before it
+ * ended a sentence (the review of #521, F5): a heading's word inside one ("There is no <b>Conclusion</b> …", which the
+ * layout puts on a line of its own) runs on, so neither part of that sentence is found as a whole one.
  */
 export function webPageBlocks(text: string): SourceLineDocument["blocks"] {
-  return lookupBlocks(textBlocks(text), true);
+  const blocks: Array<SourceLineDocument["blocks"][number]> = [];
+  let section: string | undefined;
+  let starts = true;
+  for (const given of text.split("\n")) {
+    const line = given.trim();
+    if (line === "") continue;
+    if (sectionKind(line) !== undefined && (starts || endsSentenceLine(blocks.at(-1)!.text))) {
+      section = receiptText(line, SOURCE_LINE_LIMITS.section);
+      starts = true;
+      continue;
+    }
+    blocks.push({ text: line, ...(section === undefined ? {} : { section }), ...(starts ? {} : { runsOn: true }) });
+    starts = false;
+  }
+  return blocks;
 }
 
 /** A PubMed abstract as the source line reads it: a structured one's sections each a block, under its label, as a label
@@ -301,6 +311,16 @@ const ADDRESS_END = /(?:\S*:\/\/\S*|(?:^|\s)www\.\s?[\p{L}\p{N}-]{2,}\.\S+)$/iu;
 function endsInAbbreviation(sentence: string, matching: QuoteMatching): boolean {
   if (!ABBREVIATION_END.test(sentence)) return false;
   return matching !== "news" || !ADDRESS_END.test(sentence);
+}
+
+// A line's last sentence mark, and what follows it.
+const LAST_SENTENCE_END = /^([\s\S]*\p{STerm})([^\p{STerm}]*)$/u;
+
+/** Whether a line ends a sentence: its last sentence mark is no abbreviation's, and only what may lie between a quote and
+ * its sentence's end (TRAILING) follows it. */
+function endsSentenceLine(line: string): boolean {
+  const end = LAST_SENTENCE_END.exec(figureText(bracketedSuperscripts(line.slice(-TRAILING_REACH))));
+  return end !== null && TRAILING.test(end[2]!) && !endsInAbbreviation(end[1]!, "news");
 }
 // A section's label and its colon at a line's start ("Conclusions: Vitamin D…", as a PDF or a plain text sets a
 // structured abstract's): the label's text, for sectionKind, the list full-text admission reads headings by.

@@ -17,7 +17,6 @@ import {
 import { z } from "zod";
 
 import { canonicalJson } from "../findings/card.js";
-import { registrableHost } from "../forum-thread-links.js";
 import {
   NEWS_PUBLIC_FIELDS,
   NEWS_SKIP_REASONS,
@@ -239,7 +238,11 @@ export function newsOrderProblems(payload: NewsDayPayload, carried: readonly str
   return problems;
 }
 
-/** The site of a source that is a web address, by its registrable host; none for a DOI (its link too), PMID or PMCID. */
+/**
+ * The site of a source that is a web address: its whole host, less a www (the review of #521, F1 and F7: one registrable
+ * host holds a health agency's pages and its paper archive, or many authors'); none for a DOI (its link too), PMID or
+ * PMCID.
+ */
 function webSite(source: string): string | undefined {
   let address: URL;
   try {
@@ -248,8 +251,8 @@ function webSite(source: string): string | undefined {
     return undefined;
   }
   if (address.protocol !== "https:" && address.protocol !== "http:") return undefined;
-  const host = address.hostname.toLowerCase();
-  return /^(?:dx\.)?doi\.org$/u.test(host) ? undefined : registrableHost(host) ?? host;
+  const host = address.hostname.toLowerCase().replace(/^www\./u, "");
+  return /^(?:dx\.)?doi\.org$/u.test(host) ? undefined : host;
 }
 
 /** 3.4's steps 1, 2, 3 and 6 on one staged card (step 5, the paper, is read apart). The reasons it is kept back. */

@@ -20,8 +20,8 @@ import type { NewsCard } from "./card.js";
  * that page's text, so once the check passes AskRigor's server reads the page again, with the reader the tool uses (its
  * limits, its own name, robots.txt, never Reddit, no way around a bot check), and looks the quotes up in it by the news
  * matching, only when the text is the one a verified forum_thread_read receipt signed (`tx`). The text is held for this
- * check alone and kept nowhere; only the news card's lines that rest on a web address, and on no paper's text or record,
- * are looked up so.
+ * check alone and kept nowhere; only the news card's lines that rest on a web address, which names no paper and which no
+ * paper's receipt names, are looked up so.
  */
 
 /** A news card's line is looked up in any line's texts, or in a web page its check read: never a paper's text. */
@@ -59,7 +59,10 @@ export interface NewsLine {
 
 /** At most this many pages are read again for one check. */
 export const NEWS_PAGE_LIMIT = 3;
-/** What each page has to be read again in, within the final check's eight seconds for the news card's lines. */
+/**
+ * How long each page is waited for, within the final check's eight seconds for the news card's lines. The read is raced,
+ * not aborted: a request already sent may finish, and is then not used.
+ */
 export const NEWS_PAGE_MILLISECONDS = 7_000;
 
 /** The fields whose quotes the day call asks found, whose pages come first. */
@@ -115,7 +118,8 @@ function openEnded(text: string): string {
   return `${text.slice(0, end)}\u{FFFD}`;
 }
 
-/** A page read again, when its text is one the check's reads signed. Never throws, and waits no longer than it may. */
+/** A page read again, when its text is one the check's reads signed. Never throws, and waits no longer than it may; the
+ * read itself may go on after it. */
 async function readAgain(
   { url, texts }: NewsWebPage,
   read: (url: string) => Promise<ForumPage>,

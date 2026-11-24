@@ -4762,16 +4762,17 @@ export function finalizeResearch(
   const sourceLines = input.source_lines ?? [];
   // The page a web address was read as here, by its verified forum_thread_read receipts (the address compared as a
   // thread's link is), with the digest of its text each read signed (`tx`). The page reader reads https alone, so an
-  // address given as http was read so. Reddit's own reader signs no page.
+  // address given as http was read so. Reddit's own reader signs no page, and an address that names a paper is the
+  // paper's (the review of #521, F1): its words are never a web page's.
   const webPageRead = (address: string): NewsWebPage | undefined => {
-    if (!/^https?:\/\//iu.test(address.trim())) return undefined;
+    if (!/^https?:\/\//iu.test(address.trim()) || addressNamesPaper(address)) return undefined;
     const read = readsOf(address);
     return read?.reader !== "page" || read.texts.size === 0 ? undefined
       : { url: address.trim().replace(/^http:/iu, "https:"), texts: [...read.texts] };
   };
   // Where a quote said to come from a source may be looked up: the texts its key source's verified receipts name. For the
-  // news card's lines alone (`webPages`), also the page a key source that is a web address was read as, when no paper's
-  // text or record is tied to it.
+  // news card's lines alone (`webPages`), also the page a key source that is a web address was read as, when no receipt
+  // of a paper names it.
   const quoteRequest = (source: string, line: number, webPages = false): NewsLineRequest => {
     const key = input.key_sources.find(({ id }) => normalizeIdentifier(id) === normalizeIdentifier(source));
     const receipts = key === undefined ? [] : paperReceipts(sourceLinks(key.id));
@@ -4779,7 +4780,7 @@ export function finalizeResearch(
       SOURCE_TEXT_KINDS.has(kind) && text(claims.handle) !== "" ? [text(claims.handle)] : []))];
     const pmids = [...new Set([...(key !== undefined && isPmid(normalizeIdentifier(key.id)) ? [normalizeIdentifier(key.id)] : []),
       ...receipts.flatMap(({ claims }) => text(claims.pmid) === "" ? [] : [text(claims.pmid)])])];
-    const page = !webPages || key === undefined || handles.length > 0 || pmids.length > 0 ? undefined : webPageRead(key.id);
+    const page = !webPages || key === undefined || receipts.length > 0 ? undefined : webPageRead(key.id);
     return { line, keySource: key !== undefined, handles, pmids, ...(page === undefined ? {} : { page }) };
   };
   const sourceLineRequests: SourceLineRequest[] = sourceLines.map(({ source }, line) => quoteRequest(source, line));
@@ -6449,6 +6450,34 @@ function linkNamesDoi(link: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Whether an address names a paper, so that a news card's quote from it is never a web page's (the review of #521, F1): a
+ * DOI in its path or query, a PMCID as a part of either, or a PMID in PubMed's, NCBI's or Europe PMC's own addresses,
+ * whatever follows it. Read as given and decoded. Any other address names none: a journal's own page that holds no
+ * identifier, say, which code can't tell from another site's.
+ */
+export function addressNamesPaper(address: string): boolean {
+  let url: URL;
+  try {
+    url = new globalThis.URL(address.trim());
+  } catch {
+    return false;
+  }
+  const given = `${url.pathname}${url.search}`;
+  const forms = [given];
+  try {
+    forms.push(decodeURIComponent(given));
+  } catch {
+    // An escape that decodes to no text leaves the address as given.
+  }
+  if (forms.some((form) => /10\.\d{4,9}\//u.test(form) || /(?:^|[/=])PMC[1-9]\d{0,8}(?![a-z0-9])/iu.test(form))) return true;
+  const host = url.hostname.toLowerCase().replace(/^www\./u, "");
+  const parts = url.pathname.toLowerCase().split("/").slice(1);
+  return parts.some((part) => /^[1-9]\d{0,8}$/u.test(part)) && (host === "pubmed.ncbi.nlm.nih.gov" ||
+    (host === "ncbi.nlm.nih.gov" && (parts[0] === "pubmed" || parts[0] === "pmc")) ||
+    (host === "europepmc.org" && parts.includes("med")));
 }
 
 /**

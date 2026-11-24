@@ -11,7 +11,7 @@ import {
   ResearchContributorAccessService,
   researchAccountReference,
 } from "@askrigor/evidence-repository";
-import { sectionKind, textBlocks, type ForumPage } from "@askrigor/sources";
+import { sectionKind, type ForumPage } from "@askrigor/sources";
 
 import { forumTextDigest, forumThreadDigest } from "../apps/research-mcp/src/forum-thread-links.js";
 import { checkNewsCard, newsCardDigest, newsCardSchema, type NewsCard } from "../apps/research-mcp/src/news/card.js";
@@ -20,8 +20,9 @@ import {
   lookUpNewsPages, NEWS_PAGE_LIMIT, NEWS_PAGE_MILLISECONDS, type NewsLine, type NewsPageRequest,
 } from "../apps/research-mcp/src/news/web-page.js";
 import { registerTools, type RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
-import { finalizeResearchInputSchema } from "../apps/research-mcp/src/research-finalization-gate.js";
+import { addressNamesPaper, finalizeResearchInputSchema } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+import { webPageBlocks } from "../apps/research-mcp/src/source-lines.js";
 import { communitySkipCaveat } from "./helpers/community-skip.js";
 import { withSourceReading } from "./helpers/source-reading.js";
 
@@ -185,6 +186,34 @@ describe("a news card's quote is looked up in the page its check read, read agai
       async () => page(whole)))[0]!.sentence).toBe("found");
   });
 
+  it("starts a section at a known heading's line only where the line before it ended a sentence (the review of #521, F5)", async () => {
+    const found = async (text: string, quotes: readonly string[]) => {
+      const full = [filler(30), text].join("\n");
+      const lines = quotes.map((quote) => line(quote));
+      return (await lookUpNewsPages(lines, lines.map((_, place) => request(place, NOTICE, [forumTextDigest(full)])),
+        async () => page(full))).map(({ sentence, sentence_section: section }) => [sentence, section]);
+    };
+    // "There is no <b>Conclusion</b> The medicine causes…": the layout sets the bold word on a line of its own.
+    const split = "There is no\nConclusion\nThe medicine causes serious liver injury in adults.";
+    expect(await found(split, ["The medicine causes serious liver injury in adults.", "There is no Conclusion The medicine " +
+      "causes serious liver injury in adults."])).toEqual([["not_found", undefined], ["found", undefined]]);
+    expect(await found("The agency did not find\nResults\nwere reported in 2020.", ["The agency did not find",
+      "The agency did not find Results were reported in 2020."])).toEqual([["not_found", undefined], ["found", undefined]]);
+    // An abbreviation's full stop ends no sentence, nor does a colon's line.
+    expect(await found("The agency names harms, e.g.\nResults\nThe medicine harmed nobody at all.",
+      ["The medicine harmed nobody at all."])).toEqual([["not_found", undefined]]);
+    expect(await found("The agency did not find:\nConclusions\nThe medicine harmed nobody at all.",
+      ["The medicine harmed nobody at all."])).toEqual([["not_found", undefined]]);
+    // A heading after a sentence's end is the heading it was: the next sentence is found, in its section.
+    for (const before of ["It was studied for a year.", "It was studied for a year.[12]", "Was it studied for a year?”",
+      "It was studied for a year (Smith, 2020).", "一年にわたって調べられた。"]) {
+      expect(await found(`${before}\nResults\nThe medicine harmed nobody at all.`, ["The medicine harmed nobody at all."]),
+        before).toEqual([["found", "Results"]]);
+    }
+    expect(await found("It was studied.\nDiscussion\nResults\nThe medicine harmed nobody at all.",
+      ["The medicine harmed nobody at all."])).toEqual([["found", "Results"]]);
+  });
+
   it("reads a page's headings in time that grows with the page's size and no faster", () => {
     // As before: the colons, full stops and white space at a heading's end are no part of it, whatever run they make.
     for (const heading of ["Results", "Results:", "Results .", "2.1 Results...", "RESULTS\u00a0: . ", "Results" + ".".repeat(500)]) {
@@ -194,7 +223,7 @@ describe("a news card's quote is looked up in the page its check read, read agai
     // A contents page's leader dots, 60,000 of them, took 3 seconds a line.
     const started = performance.now();
     expect(sectionKind(`Contents ${".".repeat(60_000)} 7`)).toBeUndefined();
-    expect(textBlocks(`Contents ${".:".repeat(30_000)} 7`)).toHaveLength(1);
+    expect(webPageBlocks(`Contents ${".:".repeat(30_000)} 7`)).toHaveLength(1);
     expect(performance.now() - started).toBeLessThan(1_000);
   });
 
@@ -394,6 +423,44 @@ describe("finalize_research looks an official notice's quotes up in the page its
     expect(reader).not.toHaveBeenCalled();
   });
 
+  it("names no page for an address that names a paper, or that a paper's receipt names (the review of #521, F1)", async () => {
+    for (const paper of ["https://pmc.ncbi.nlm.nih.gov/articles/PMC99999903/",
+      "https://www.invented-journal.example/doi/full/10.1000/invented.trial"]) {
+      const { reader, receipts, finalize } = await setUp(async (url) => page(NOTICE_TEXT, { url }));
+      const given = await receipts(paper);
+      const card = { ...NOTICE_CARD, sources: [paper, "PMC10518852"],
+        backing: NOTICE_CARD.backing.map((backing) => backing.source === NOTICE ? { ...backing, source: paper } : backing) };
+      expect(claims(await finalize(given, { news_card: card, findings_save: "off" }, paper)).nl, paper)
+        .toEqual(["1:u:none", "2:u:none", "3:u:none", "4:f:full_text"]);
+      expect(reader, paper).not.toHaveBeenCalled();
+    }
+    // A paper's landing page, as its DOI's receipt signs it, holds no identifier in its address.
+    const { reader, receipts, finalize } = await setUp(async (url) => page(NOTICE_TEXT, { url }));
+    const landing = issueResearchReceipt("doi_resolution", { doi: "10.1000/invented.notice", url: NOTICE }, { secret: SECRET });
+    expect(claims(await finalize([...await receipts(), landing], { news_card: NOTICE_CARD, findings_save: "off" })).nl)
+      .toEqual(["1:u:none", "2:u:none", "3:u:none", "4:f:full_text"]);
+    expect(reader).not.toHaveBeenCalled();
+  });
+
+  it("tells an address that names a paper by its identifier alone, wherever it stands (the review of #521, F1)", () => {
+    for (const address of ["https://doi.org/10.1000/invented", "https://www.invented-journal.example/doi/full/10.1000/x.y",
+      "https://www.invented-journal.example/article?id=10.1000%2Finvented", "https://invented.example/a?doi=10.1000/x",
+      "https://pmc.ncbi.nlm.nih.gov/articles/PMC99999903/", "https://pmc.ncbi.nlm.nih.gov/articles/pmc99999903/table/T1/",
+      "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC99999903/pdf/x.pdf", "https://europepmc.org/article/PMC/PMC99999903",
+      "https://mirror.example/copy?id=PMC99999903&x=1", "https://europepmc.org/article/MED/99999903",
+      "https://pubmed.ncbi.nlm.nih.gov/99999903/?format=abstract", "https://www.ncbi.nlm.nih.gov/pubmed/99999903",
+      "https://www.ncbi.nlm.nih.gov/pmc/articles/pmid/99999903/", "http://PUBMED.ncbi.nlm.nih.gov/99999903",
+      "https://invented.example/%E0%A4%A/10.1000/x"]) {
+      expect(addressNamesPaper(address), address).toBe(true);
+    }
+    for (const address of [NOTICE, "https://www.gov.uk/drug-safety-update/invented-medicine", "https://www.fda.gov/media/99999903/x",
+      "https://www.medicines.example/emc/product/15484/smpc", "https://www.who.int/news/item/27-06-2026-99999903",
+      "https://www.cdc.gov/mmwr/volumes/75/wr/mm7544a1.htm", "https://pubmed.ncbi.nlm.nih.gov/?term=invented",
+      "https://www.ncbi.nlm.nih.gov/books/NBK999999/", "https://www.agency.example/pmcontrol/10.1/notes", "not an address"]) {
+      expect(addressNamesPaper(address), address).toBe(false);
+    }
+  });
+
   it("reads a page again only for the owner's own news check: a dev account, marked off", async () => {
     const dev = await setUp(async (url) => page(NOTICE_TEXT, { url }));
     const given = await dev.receipts();
@@ -546,14 +613,28 @@ describe("the day call and an official notice's quotes found in its page", () =>
     });
     expect(await dayCall(elsewhere, ["1:f:web_page", "2:f:web_page", "3:f:web_page", "4:f:full_text"]))
       .toEqual(["how_much_quote_not_found"]);
-    // Another page of the same site is.
+    // Another page of the same site is: the same host, with or without www.
     const sameSite = change(NOTICE_CARD, (copy) => {
-      copy.sources.push("https://reviews.invented-agency.example/review");
-      copy.backing[1].source = "https://reviews.invented-agency.example/review";
+      copy.sources.push("https://invented-agency.example/review");
+      copy.backing[1].source = "https://invented-agency.example/review";
       copy.who_paid = { status: "quoted", industry_funded: "no", funders: [{ name: "The invented agency", backing: 4 }], declarations: [] };
       copy.backing.push({ field: "who_paid", source: NOTICE, quote: "The invented agency paid for this review." });
     });
     expect(await dayCall(sameSite, ["1:f:web_page", "2:f:web_page", "3:f:web_page", "4:f:full_text", "5:f:web_page"])).toEqual([]);
+    // A whole host is one site, so an agency's paper archive, or another author's pages on the same service, is not the
+    // notice's (the review of #521, F1 and F7).
+    for (const [action, figures] of [["https://www.nih.gov/news-events/invented-notice", "https://pmc.ncbi.nlm.nih.gov/articles/PMC99999903/"],
+      [NOTICE, "https://reviews.invented-agency.example/review"], ["https://one.invented-host.example/notice",
+        "https://two.invented-host.example/figures"]] as const) {
+      const other = change(NOTICE_CARD, (copy) => {
+        copy.sources = [action, figures, "PMC10518852"];
+        copy.backing[0].source = action;
+        copy.backing[1].source = figures;
+        copy.backing[2].source = action;
+      });
+      expect(await dayCall(other, ["1:f:web_page", "2:f:web_page", "3:f:web_page", "4:f:full_text"]), figures)
+        .toEqual(["how_much_quote_not_found"]);
+    }
     // Without its action found on a page, no page is known as the notice's.
     expect(await dayCall(sameSite, ["1:n:web_page", "2:f:web_page", "3:f:web_page", "4:f:full_text", "5:f:web_page"]))
       .toEqual(["who_paid_quote_not_found", "official_action_quote_not_found", "how_much_quote_not_found"]);
