@@ -2,6 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { createResearchActionRoutes } from "../apps/research-mcp/src/actions/research-routes.js";
 import { europePmcOnlySyntax } from "../apps/research-mcp/src/europe-pmc-sections.js";
 import { EUROPE_PMC_OUTAGE_NOTE, PUBMED_INSTEAD_NOTE, RESEARCH_OPERATIONS } from "../apps/research-mcp/src/register-tools.js";
 import { FINALIZE_REMINDER } from "../apps/research-mcp/src/research-finalization-gate.js";
@@ -196,6 +197,17 @@ describe("a search Europe PMC doesn't answer is answered from PubMed (the owner'
     } finally {
       if (continuation !== undefined) process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET = continuation;
     }
+  });
+
+  it("gives the Custom GPT's Action PubMed's records with no receipt, as Actions return none", async () => {
+    configured();
+    providers(unreachable, { count: 2 });
+    const route = createResearchActionRoutes().find(({ operationId }) => operationId === "search_europe_pmc")!;
+    const { status, body } = await route.handle({ body: { query: QUERY } } as never);
+    expect(status).toBe(200);
+    expect(body).toMatchObject({ provider: "europe_pmc", error: { code: "europe_pmc_unreachable" },
+      pubmed_search_instead: { provider: "pubmed", data: [{ pmid: pmid(0) }, { pmid: pmid(1) }] } });
+    expect(JSON.stringify(body)).not.toContain("rr1~");
   });
 
   it("leaves a query in Europe PMC's own syntax, or a later page, with the note it had", async () => {

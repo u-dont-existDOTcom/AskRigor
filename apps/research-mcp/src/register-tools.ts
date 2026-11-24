@@ -1539,7 +1539,7 @@ function defineResearchOperations(
       outputSchema: europePmcSearchEnvelopeSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async (args) => {
+    async (args, extra) => {
       const { query, date_range, page_size, cursor } = args;
       // Owner answer 283a (9 Nov 2026): later_inputs.index all_journals searches OpenAlex instead (later-inputs.ts).
       if ((args as { index?: unknown }).index === "all_journals") {
@@ -1562,7 +1562,7 @@ function defineResearchOperations(
         // A search Europe PMC did not answer, in words PubMed reads too, is answered from PubMed by AskRigor itself.
         const instead = literatureOutage("europe_pmc", result.error) && cursor === undefined && !europePmcOnlySyntax(query)
           ? await searchPubmedInstead(query, date_range, page_size) : undefined;
-        if (instead !== undefined) return europePmcFromPubmed(result, query, date_range, instead);
+        if (instead !== undefined) return europePmcFromPubmed(result, query, date_range, instead, isActionCall(extra));
         const total = europePmcTotal(result);
         return withResearchReceipt(europePmcToolResult(
           `Europe PMC search returned ${result.pagination.returned} record(s); access status ${result.access_status}.` +
@@ -3812,15 +3812,17 @@ function europePmcFromPubmed(
   failed: { pagination: { returned: number }; access_status: string },
   query: string,
   dateRange: { start: string; end: string } | undefined,
-  { result, total }: PubmedInstead
+  { result, total }: PubmedInstead,
+  actionCall: boolean
 ): CallToolResult {
   const receipt = literatureSearchReceipt("pubmed", query, result, total, dateRange);
   const note = PUBMED_INSTEAD_NOTE + (result.pagination.next_cursor === undefined ? "" : PUBMED_INSTEAD_NEXT_PAGE);
   return withResearchReceipt(successfulToolResult(
     `Europe PMC search returned ${failed.pagination.returned} record(s); access status ${failed.access_status}.` +
       `${note} ${pubmedSearchText(result, total)}`,
+    // The Custom GPT's Actions return no receipt (actions/research-routes.ts leaves out the result's own).
     { ...failed, pubmed_search_instead: { note: note.trim(), ...result,
-      ...(receipt === undefined ? {} : { research_receipt: receipt }) } }
+      ...(receipt === undefined || actionCall ? {} : { research_receipt: receipt }) } }
   ), receipt);
 }
 
