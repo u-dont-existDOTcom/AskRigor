@@ -28,6 +28,7 @@ import { researchPlannerFromEnv, type ResearchPlanner } from "./research-planner
 import type { ResearchLane } from "./research-steering.js";
 import { researchTrialWindows, switchHolds, type ResearchSwitchModes, type ResearchTrialSwitch, type ResearchTrialWindows }
   from "./research-trial.js";
+import type { HrpCore } from "./hrp-core.js";
 import {
   answerReviewNote, researchReviewerFromEnv, type ResearchReviewer, type ResearchReviewerCall,
 } from "./research-reviewer.js";
@@ -491,6 +492,37 @@ function protocolParts(
     parts: parts.filter((part, index) => !parts.some((other, otherIndex) => otherIndex !== index && inside(part, other) &&
       (!inside(other, part) || otherIndex < index)))
   };
+}
+
+/** Each part's exact canonical bytes, in the order asked, a blank line between two parts. */
+function joinedProtocolParts(text: string, parts: readonly ProtocolPart[]): Buffer {
+  const bytes = Buffer.from(text, "utf8");
+  return Buffer.concat(parts.flatMap(({ byte_start, byte_end_exclusive }, index) => [
+    ...(index === 0 ? [] : [PROTOCOL_PART_SEPARATOR]),
+    bytes.subarray(byte_start, byte_end_exclusive)
+  ]));
+}
+
+/**
+ * HRP's core, the bytes load_protocol serves for section "core", for the registration of the plain answer (owner answer
+ * 412a, hrp-core.ts). Undefined when the protocol cannot be read, which load_protocol then says.
+ */
+export async function currentHrpCore(): Promise<HrpCore | undefined> {
+  try {
+    const { manifest, sections, text } = await loadProtocolSectionSnapshot("hrp");
+    const core = protocolParts(manifest.name, text, sections, PROTOCOL_CORE_SECTION);
+    if (core === undefined || !("parts" in core)) return undefined;
+    const joined = joinedProtocolParts(text, core.parts);
+    return {
+      version: manifest.version,
+      sha256: protocolTextPage(joined, 1).scope_sha256,
+      sections: core.parts.map(({ label }) => label),
+      furtherSections: sections.filter((section) => section.runtime && !section.core).map(({ name }) => name),
+      text: joined.toString("utf8"),
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 /** "Rule in section A, Case in section B", for load_protocol's name matches. */
@@ -1315,11 +1347,7 @@ function defineResearchOperations(
         const several = section === undefined ? undefined : protocolParts(manifest.name, snapshot.text, sections, section);
         if (several !== undefined) {
           if (!("parts" in several)) return protocolRequestError(protocol, several.code, several.message);
-          // Each part's exact canonical bytes, in the order asked, a blank line between two parts.
-          const joined = Buffer.concat(several.parts.flatMap(({ byte_start, byte_end_exclusive }, index) => [
-            ...(index === 0 ? [] : [PROTOCOL_PART_SEPARATOR]),
-            bytes.subarray(byte_start, byte_end_exclusive)
-          ]));
+          const joined = joinedProtocolParts(snapshot.text, several.parts);
           const pageCount = protocolTextPage(joined, 1).page_count;
           if ((page ?? 1) > pageCount) {
             return protocolRequestError(
@@ -2201,6 +2229,9 @@ function defineResearchOperations(
       findingsLedger: (devAccount) => findingsLedgerFor(options, () => devAccount),
       // Owner answer 413a: the menu accounts for the plain answer's claims, on an account that has it.
       claimAccounting: (accountKey, devAccount) => switchHoldsFor(options, "claimAccounting", accountKey, devAccount),
+      // Owner answer 412a: registering the plain answer hands over HRP's core, on an account that has it.
+      hrpCore: currentHrpCore,
+      hrpCoreFor: (accountKey, devAccount) => switchHoldsFor(options, "hrpCore", accountKey, devAccount),
       // Owner answers 413a and 412a: a dev account's test window for the two switches.
       researchTrial: () => ({ modes: researchSwitchModes(), windows: options.researchTrialWindows ?? researchTrialWindows }),
       ...(atlasReports === undefined ? {} : { atlasReports }),

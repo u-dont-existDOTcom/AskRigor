@@ -224,8 +224,9 @@ describe("later_inputs (owner answer 189a)", () => {
             : operation.name === "manage_research_access" ? ["sharedAnswer", "shareCode", "atlasReport", "reportNumber",
               "framing", "researchMenu", "asked", "researchSteering", "findings_save", "callsPage", "ownerPointer",
               "pauseMinutes",
-              // Owner answers 413a and 412a: a dev account's test window for the two switches.
-              "researchTrial"]
+              // Owner answers 413a and 412a: a dev account's test window for the two switches, and the AI's word that it
+              // holds HRP's core.
+              "researchTrial", "hrpCoreHeld"]
               : operation.name === "review_research_contribution" ? ["sharedAnswerId", "items", "placements", "reportState", "report", "verdict", "glanceRow", "glanceRowId", "glanceState",
                 // The owner, 6 Nov 2026: a challenge mark's usual view, its source and the quick-answer verdict.
                 "usual_view", "usual_view_source_url", "usual_view_source_label", "quick_answer_verdict",

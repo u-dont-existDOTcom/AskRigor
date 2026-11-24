@@ -304,6 +304,11 @@ const LATER_INPUT_SHAPES = Object.freeze({
     researchTrial: researchTrialInputSchema.optional()
       .describe("With set_research_trial, on a dev account for a test round only: claimAccounting and hrpCore, each " +
         `true or false, for minutes whole minutes from now, at most ${RESEARCH_TRIAL_MAX_MINUTES}; 0 ends the window.`),
+    // Owner answer 412a (24 Nov 2026): the AI says it holds HRP's core in this conversation, so it is not sent again. Any
+    // value is accepted: one that is not the core's digest says nothing, and never refuses a registration (holdsHrpCore).
+    hrpCoreHeld: z.unknown().optional()
+      .describe("With register_plain_answer, when an earlier result of this conversation gave HRP's core: the first 16 " +
+        "characters of its scope_sha256, as that result gave them, so the core is not sent again."),
   },
   review_research_contribution: {
     sharedAnswerId: sharedAnswerIdSchema.optional()

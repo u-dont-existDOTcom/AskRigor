@@ -109,6 +109,9 @@ const CHATGPT_USER_AGENT_PREFIX = "openai-mcp/";
 /** The tool whose page result carries the protocol's exact bytes, which go in the text raw rather than as JSON. */
 const PROTOCOL_PAGE_TOOL = "load_protocol";
 
+/** The tool whose register_plain_answer result may carry HRP's core (owner answer 412a, hrp-core.ts). */
+const HRP_CORE_TOOL = "manage_research_access";
+
 /** load_protocol's page summary, where the client reads text: says where the bytes are. */
 export const PROTOCOL_PAGE_IN_TEXT = " This page's exact canonical bytes are the last text block of this result, " +
   "unchanged; the block before it gives the result's other fields as JSON.";
@@ -139,8 +142,9 @@ export function isChatGptCall(extra: unknown): boolean {
  * The result as this client receives it. For ChatGPT, the result as the tool built it, with one sentence added to a
  * protocol page's summary saying the bytes are in structuredContent. For every other client, the same content blocks
  * first, then the payload as text: for a protocol page, the result's other fields as JSON and then the page's exact
- * canonical bytes, raw, so a client that reads only text can hash them against scope_sha256; for every other result
- * with structured content, error results included, its JSON. structuredContent itself is never changed.
+ * canonical bytes, raw, so a client that reads only text can hash them against scope_sha256; for a registration that
+ * hands over HRP's core (owner answer 412a), the same with the core's bytes; for every other result with structured
+ * content, error results included, its JSON. structuredContent itself is never changed.
  */
 export function resultForClient(tool: string, result: CallToolResult, chatGpt: boolean): CallToolResult {
   const structured = result.structuredContent;
@@ -150,6 +154,13 @@ export function resultForClient(tool: string, result: CallToolResult, chatGpt: b
   if (chatGpt) {
     return protocolPage ? { ...result, content: withSummarySentence(result.content, PROTOCOL_PAGE_IN_STRUCTURED_CONTENT) }
       : result;
+  }
+  const core = tool === HRP_CORE_TOOL && result.isError !== true ? structured.hrp_core : undefined;
+  if (core !== null && typeof core === "object" && typeof (core as Record<string, unknown>).text === "string") {
+    // Owner answer 412a: the core's exact canonical bytes last, raw, as the result's own text says.
+    const { text, ...fields } = core as { text: string } & Record<string, unknown>;
+    return { ...result, content: [...result.content, { type: "text", text: JSON.stringify({ ...structured, hrp_core: fields }) },
+      { type: "text", text }] };
   }
   if (!protocolPage) {
     return { ...result, content: [...result.content, { type: "text", text: JSON.stringify(structured) }] };

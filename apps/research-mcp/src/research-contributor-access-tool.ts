@@ -68,11 +68,13 @@ import {
 } from "./askrigor-holds.js";
 import { CLAIMS_ON_THE_MENU, CLAIMS_ON_THE_MENU_REGISTERED, PREMISE_CLAIMS_COUNT, accountForClaims, claimNumbers,
   claimsWanted } from "./claim-accounting.js";
+import { HRP_CORE_ALREADY_HELD, HRP_CORE_LOAD_FIRST, HRP_CORE_NEXT_STEP, HRP_CORE_RESULT_LIMITS, holdsHrpCore,
+  hrpCoreStructured, hrpCoreText, type HrpCore } from "./hrp-core.js";
 import { askedText, callsPageSchema, findingsSaveOff, laterInputShape, latestMessage } from "./later-inputs.js";
 import { SAFETY_LIMITS_INSPECT_SENTENCE } from "./safety-limits.js";
 import { ownerPointerById } from "./owner-pointers.js";
 import { MCP_RESULT_MAX_BYTES } from "./config.js";
-import { clientResultBytes, isChatGptCall } from "./tool-result.js";
+import { clientResultBytes, isChatGptCall, resultForClient } from "./tool-result.js";
 import {
   ANSWER_REVIEW_ASKED,
   ASKED_LIMIT,
@@ -464,6 +466,18 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
   plannerPausedUntil: z.iso.datetime().nullable().optional()
     .describe("With pause_research_planner: when AskRigor's own planning call starts again for this account, in " +
       "UTC; null when no pause runs."),
+  // Owner answer 412a (24 Nov 2026; runtime only): HRP's core, the bytes load_protocol serves for section "core".
+  hrp_core: z.object({
+    protocol: z.literal("hrp"),
+    version: z.string(),
+    scope_sha256: z.string(),
+    sections: z.array(z.string()),
+    further_sections: z.array(z.string()),
+    how_to_use: z.string(),
+    text: z.string(),
+  }).strict().optional()
+    .describe("With register_plain_answer: HRP's core rules, exact canonical text, to read before the first search; " +
+      "how_to_use says the rest."),
   // Owner answers 413a and 412a (runtime only): what the two switches come to on a dev account after its test window was
   // set, and until when the window runs; null once none runs. Only that call's own result carries it, as for the pause.
   researchTrial: z.object({
@@ -665,6 +679,12 @@ export interface ResearchContributorToolOptions {
    * on this account. Undefined or false: every text and result is as before it.
    */
   claimAccounting?: (accountKey: string, devAccount: boolean) => boolean;
+  /**
+   * Owner answer 412a (hrp-core.ts): HRP's core as load_protocol serves it, undefined when it cannot be read; and whether
+   * registering the plain answer hands it over on this account. Either undefined or false: a registration is as before.
+   */
+  hrpCore?: () => Promise<HrpCore | undefined>;
+  hrpCoreFor?: (accountKey: string, devAccount: boolean) => boolean;
   /** The two switches' modes and the test windows (research-trial.ts), for set_research_trial; undefined: none offered. */
   researchTrial?: () => { modes: ResearchSwitchModes; windows: ResearchTrialWindows };
 }
@@ -1291,7 +1311,12 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           parsed.framing, planner?.enabled === true
             ? { planner, asked, reviewed, latest, markSecret: options.menuDigestSecret?.() } : undefined,
           options.askrigorHolds, asked, isChatGptCall(extra), devAccount,
-          options.claimAccounting?.(accountKey, devAccount) === true);
+          options.claimAccounting?.(accountKey, devAccount) === true,
+          // Owner answer 412a: HRP's core, read while the plan is made, and whether the AI says it holds it.
+          options.hrpCoreFor?.(accountKey, devAccount) !== true ? undefined : {
+            read: options.hrpCore ?? (async () => undefined), held: parsed.hrpCoreHeld,
+            shown: (result) => withToolListNotice(result, input, options.toolListVersion),
+          });
       }
       if (parsed.action === "set_research_steering") {
         // Owner answer 303a: learn mode only for a dev account, while AskRigor's own planning call is on. A test round's
@@ -1654,6 +1679,9 @@ async function registerPlainAnswer(
   devAccount = false,
   // Owner answer 413a: the menu accounts for the claims on this account, so they are listed from 1, as the receipt says.
   accounting = false,
+  // Owner answer 412a, on an account that has it: HRP's core, what the call said of holding it, and the result as the app
+  // gets it (with a notice about its copy of the tools), whose size the core's room is measured by.
+  hrp?: { read: () => Promise<HrpCore | undefined>; held: unknown; shown: (result: CallToolResult) => CallToolResult },
 ): Promise<CallToolResult> {
   const account = await plainAnswerAccount(service, subject, plain);
   if (account === undefined) return accessError("plain_answer_not_requested", plain === undefined ? PLAIN_ANSWER_SURFACE_UNAVAILABLE : PLAIN_ANSWER_NOT_REQUESTED);
@@ -1712,11 +1740,14 @@ async function registerPlainAnswer(
   // read is none.
   const menuHistory = planning === undefined || !account.steering.learnMenuChoices ? []
     : menuHistoryOf(await service.menuChoices(account.accountKey).catch(() => []), Date.now());
-  // What AskRigor already holds is read while the plan is made, so it adds no wait; it never fails a registration.
+  // What AskRigor already holds is read while the plan is made, so it adds no wait; it never fails a registration. So is
+  // HRP's core (owner answer 412a).
   const holding = heldFor(holds, plainAnswer.researchTarget).catch(() => undefined);
+  const coreReading = hrp === undefined ? undefined : Promise.resolve().then(hrp.read).catch(() => undefined);
   const planned = planning === undefined ? undefined
     : await plannedResearch(planning, plainAnswer, framing, receipt, account.accountKey, menuHistory, accounting);
   const heldAll = await holding;
+  const core = await coreReading;
   const plan = planned !== undefined && "later_inputs" in planned ? planned : undefined;
   const notPlanned = planned !== undefined && "reason" in planned ? planned : undefined;
   const fallbackLine = notPlanned !== undefined && !chatGpt
@@ -1728,8 +1759,18 @@ async function registerPlainAnswer(
     : plannerNotUsedSentence(notPlanned.reason, planning!.planner.accountDailyCalls);
   // A day's limit is the person's to know, so it goes to an app that hands its model only next_step too.
   const limitReached = notPlanned?.reason === "account_limit" || notPlanned?.reason === "daily_budget";
-  // The result with what AskRigor holds for the question, or with less of it, or with none (heldVariants).
-  const resultWith = (held: AskRigorHolds | undefined): CallToolResult => {
+  // Owner answer 412a: what becomes of HRP's core here. Nothing for a plain look-up (lane aside or light), as without it;
+  // a word when the AI says this conversation holds it; otherwise the core itself where the result has room for it
+  // (handed), and the sentence to load it first where it has none.
+  const coreWanted = hrp !== undefined && !(planned !== undefined && "aside" in planned) && plan?.lane !== "light";
+  const coreHeld = coreWanted && core !== undefined && holdsHrpCore(hrp.held, core);
+  const coreHanded = coreWanted && !coreHeld ? core : undefined;
+  // The result with what AskRigor holds for the question, or with less of it, or with none (heldVariants); with HRP's
+  // core, or without it.
+  const resultWith = (held: AskRigorHolds | undefined, handed: HrpCore | undefined): CallToolResult => {
+  const coreSaid = !coreWanted ? undefined : handed !== undefined ? hrpCoreText(handed, chatGpt)
+    : coreHeld ? HRP_CORE_ALREADY_HELD : HRP_CORE_LOAD_FIRST;
+  const coreStep = coreSaid === undefined || handed === undefined ? coreSaid : HRP_CORE_NEXT_STEP;
   const heldTexts = held === undefined ? [] : [{ type: "text" as const, text: heldText(held) }];
   const heldStep = holdsSomethingNow(held) ? ` ${HELD_NEXT_STEP}` : "";
   // Owner answer 302: AskRigor steps aside for a plain look-up. The plain answer is still signed and its receipt given,
@@ -1766,6 +1807,7 @@ async function registerPlainAnswer(
       ...(notUsed === undefined ? [] : [{ type: "text" as const, text: notUsed }]),
       ...(fallbackLine === undefined ? [] : [{ type: "text" as const, text: fallbackLine }]),
       ...(outline === undefined ? [] : [{ type: "text" as const, text: "Fill in menu_outline for your plan_research call." }]),
+      ...(coreSaid === undefined ? [] : [{ type: "text" as const, text: coreSaid }]),
       { type: "text", text: summary },
       { type: "text", text: `research_receipt: ${receipt}` },
       // What AskRigor already holds, for the answer: after the receipt, so the first texts stay what to do next.
@@ -1786,7 +1828,8 @@ async function registerPlainAnswer(
       next_step: `${plan !== undefined ? plannedNextStep(framing, plan)
         : `${framingNextStep(account.steering, framing, accounting)}${limitReached ? ` ${notUsed}` : ""}`}${heldStep}` +
         (fallbackLine === undefined ? "" : ` ${fallbackLine}`) +
-        (outline === undefined ? "" : " Fill in menu_outline for your plan_research call."),
+        (outline === undefined ? "" : " Fill in menu_outline for your plan_research call.") +
+        (coreStep === undefined ? "" : ` ${coreStep}`),
       ...(outline === undefined ? {} : { menu_outline: outline }),
       ...(plan === undefined ? {} : {
         research_plan: { source: "askrigor_planning_call", about: plan.about,
@@ -1797,14 +1840,35 @@ async function registerPlainAnswer(
       }),
       ...(notPlanned === undefined ? {} : { research_plan_not_used: notPlanned.reason }),
       ...(held === undefined ? {} : { askrigor_holds: held }),
+      ...(handed === undefined ? {} : { hrp_core: hrpCoreStructured(handed) }),
     }),
   };
   };
   // Codex's review of 14 Nov 2026: a research target of 5,000 characters, three long findings and two pointers came
   // to more than a client accepts. So the first of these that fits is the result; the last has nothing held, which
-  // is the result of before.
-  const results = heldVariants(heldAll).map(resultWith);
+  // is the result of before. Owner answer 412a: before them, the same with HRP's core, while one has room for it.
+  const variants = heldVariants(heldAll);
+  if (coreHanded !== undefined) {
+    for (const held of variants) {
+      const result = resultWith(held, coreHanded);
+      if (hrpCoreFits(hrp!.shown(result), chatGpt)) return result;
+    }
+  }
+  const results = variants.map((held) => resultWith(held, undefined));
   return results.find((result) => clientResultBytes(result) <= MCP_RESULT_MAX_BYTES) ?? results[results.length - 1]!;
+}
+
+/**
+ * Whether a result that carries HRP's core is one the app takes in (owner answer 412a, HRP_CORE_RESULT_LIMITS): ChatGPT's
+ * text and structured content together; for every other app its structured content, which Claude Code reads alone, and
+ * the whole result, whose text carries the same once more (resultForClient). Measured as sent, escaped characters too.
+ */
+function hrpCoreFits(result: CallToolResult, chatGpt: boolean): boolean {
+  const { content, structuredContent } = resultForClient("manage_research_access", result, chatGpt);
+  const bytes = Buffer.byteLength(JSON.stringify({ content, structuredContent }), "utf8");
+  return chatGpt ? bytes <= HRP_CORE_RESULT_LIMITS.chatGptBytes
+    : JSON.stringify(structuredContent).length <= HRP_CORE_RESULT_LIMITS.structuredCharacters &&
+      bytes <= HRP_CORE_RESULT_LIMITS.wholeBytes;
 }
 
 /** One of the owner's pointers by its id (the owner, 14 Nov 2026), or the ids there are. */
