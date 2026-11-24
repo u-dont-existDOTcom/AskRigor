@@ -115,7 +115,9 @@ import {
   type GeminiYoutubeScoutNeverStarted
 } from "@askrigor/sources";
 import { z } from "zod";
-import { EUROPE_PMC_SECTIONS, EUROPE_PMC_FULL_TEXT_COVERAGE, europePmcSections } from "./europe-pmc-sections.js";
+import {
+  EUROPE_PMC_SECTIONS, EUROPE_PMC_FULL_TEXT_COVERAGE, europePmcOnlySyntax, europePmcSections
+} from "./europe-pmc-sections.js";
 
 import { infoAccessClientFromEnv, LIBRARY_CALL_DEADLINE_MS, type InfoAccessClient } from "./infoaccess-client.js";
 import { authorizedSubject } from "./research-contributor-access-tool.js";
@@ -653,6 +655,16 @@ const ALL_JOURNALS_OUTPUT_SHAPE = {
   })),
   // The review of 12 Nov 2026: when the records OpenAlex returned don't all fit one result, how many it shows of them.
   records_shown: z.object({ shown: z.number().int().nonnegative(), of: z.number().int().positive() }).strict().optional()
+};
+// The owner's test run of 24 Nov 2026, runtime only: beside the failed envelope of a search Europe PMC did not answer,
+// PubMed's own envelope for the same query, with its own receipt. Such a result is no error (europePmcFromPubmed), so
+// the failed envelope is checked too, and its error may say what kind of failure it was.
+const PUBMED_INSTEAD_OUTPUT_SHAPE = {
+  error: errorSchema.extend({ failure_kind: z.enum(["timeout", "network"]).optional() }).optional(),
+  pubmed_search_instead: pubmedSearchEnvelopeSchema.extend({
+    note: z.string(),
+    research_receipt: z.string().optional()
+  }).optional()
 };
 const searchClinicalTrialsInputSchema = z.object({
   query: z.string().trim().min(1).max(5_000).describe("ClinicalTrials.gov search query."),
@@ -1461,24 +1473,11 @@ function defineResearchOperations(
     },
     async ({ query, date_range, page_size, cursor }) => {
       try {
-        const search = (pageSize: number | undefined) => searchPubmed(
-          {
-            query,
-            ...(date_range === undefined ? {} : { dateRange: date_range }),
-            ...(pageSize === undefined ? {} : { pageSize }),
-            ...(cursor === undefined ? {} : { cursor })
-          },
-          ncbiConfig()
-        );
-        const pubmedTotal = (page: { raw_metadata?: unknown }) =>
-          (page.raw_metadata as { total_count?: number } | undefined)?.total_count;
+        const search = pubmedSearch(query, date_range, cursor);
         const result = await readSmallSearchWhole(await search(page_size), cursor === undefined, pubmedTotal, search);
         const total = pubmedTotal(result);
-        return withResearchReceipt(pubmedToolResult(
-          `PubMed search returned ${result.pagination.returned} PMID record(s); access status ${result.access_status}.` +
-            smallLiteratureSearchNote(total) + literatureOutageNote("pubmed", result.error) + angleBracketDoiNote(result.data),
-          result
-        ), literatureSearchReceipt("pubmed", query, result, total, date_range));
+        return withResearchReceipt(pubmedToolResult(pubmedSearchText(result, total), result),
+          literatureSearchReceipt("pubmed", query, result, total, date_range));
       } catch (error) {
         return pubmedToolResult(
           "PubMed search retrieval failed; access status error.",
@@ -1559,6 +1558,10 @@ function defineResearchOperations(
         const europePmcTotal = (page: { raw_metadata?: unknown }) =>
           (page.raw_metadata as { hit_count?: number } | undefined)?.hit_count;
         const result = await readSmallSearchWhole(await search(page_size), cursor === undefined, europePmcTotal, search);
+        // A search Europe PMC did not answer, in words PubMed reads too, is answered from PubMed by AskRigor itself.
+        const instead = literatureOutage("europe_pmc", result.error) && cursor === undefined && !europePmcOnlySyntax(query)
+          ? await searchPubmedInstead(query, date_range, page_size) : undefined;
+        if (instead !== undefined) return europePmcFromPubmed(result, query, date_range, instead);
         const total = europePmcTotal(result);
         return withResearchReceipt(europePmcToolResult(
           `Europe PMC search returned ${result.pagination.returned} record(s); access status ${result.access_status}.` +
@@ -3647,11 +3650,12 @@ async function readSmallSearchWhole<Page extends { error?: unknown; pagination: 
   first: Page,
   firstPage: boolean,
   totalOf: (page: Page) => number | undefined,
-  searchAgain: (pageSize: number) => Promise<Page>
+  searchAgain: (pageSize: number) => Promise<Page>,
+  waitMs = WHOLE_SEARCH_WAIT_MS
 ): Promise<Page> {
   const total = totalOf(first);
   if (
-    !firstPage || first.error !== undefined || total === undefined ||
+    !firstPage || first.error !== undefined || total === undefined || waitMs <= 0 ||
     total > WHOLE_SEARCH_RECORDS || first.pagination.returned >= total
   ) {
     return first;
@@ -3660,7 +3664,7 @@ async function readSmallSearchWhole<Page extends { error?: unknown; pagination: 
   const whole = await Promise.race([
     searchAgain(WHOLE_SEARCH_RECORDS).catch(() => undefined),
     new Promise<undefined>((resolve) => {
-      timer = setTimeout(resolve, WHOLE_SEARCH_WAIT_MS, undefined);
+      timer = setTimeout(resolve, waitMs, undefined);
     })
   ]).finally(() => clearTimeout(timer));
   return whole !== undefined && whole.error === undefined && whole.pagination.returned > first.pagination.returned
@@ -3696,17 +3700,112 @@ export const EUROPE_PMC_OUTAGE_NOTE = " Europe PMC's search did not work (its si
   "sections needs Europe PMC, so try that later. If Europe PMC stays unavailable, say in the answer that it could not " +
   "be searched.";
 
+/** Whether a search failed on the provider's own side: not a refusal of the query itself (a 4xx) or of access. */
+function literatureOutage(
+  provider: "pubmed" | "europe_pmc",
+  error: { code: string; http_status?: number } | undefined
+): boolean {
+  return error !== undefined && (["upstream_unavailable", "response_invalid", "rate_limited", "unreachable"]
+    .some((kind) => error.code === `${provider}_${kind}`) ||
+    (error.code === `${provider}_request_failed` && error.http_status === undefined));
+}
+
 export function literatureOutageNote(
   provider: "pubmed" | "europe_pmc",
   error: { code: string; http_status?: number } | undefined
 ): string {
-  if (error === undefined) {
-    return "";
+  return !literatureOutage(provider, error) ? "" : provider === "pubmed" ? PUBMED_OUTAGE_NOTE : EUROPE_PMC_OUTAGE_NOTE;
+}
+
+/*
+ * The owner's test run of 24 Nov 2026 (09:52 UTC): Europe PMC answered none of three searches (europe_pmc_unreachable,
+ * 20 seconds each), one of them the only one that named seizures. Each result said to search PubMed with the same
+ * words; the AI didn't, and the answer didn't say so. So AskRigor now makes that PubMed search itself, when the query is
+ * written as both indexes read it (europePmcOnlySyntax) and is no later page of a Europe PMC search, and gives PubMed's
+ * records and receipt beside the failed envelope.
+ */
+/** What such a result says: that Europe PMC failed, what AskRigor did, and what was still not searched. */
+export const PUBMED_INSTEAD_NOTE = " Europe PMC's search did not work (its side, not this query), so AskRigor searched " +
+  "PubMed instead with the same query (and the same dates and page size, when given): pubmed_search_instead holds " +
+  "PubMed's own records, and this result's research_receipt is that PubMed search's, never a Europe PMC search's. " +
+  "PubMed reads the words its own way and holds citations, so what only Europe PMC has (preprints, its other sources " +
+  "and searches within full-text sections) was not searched: try Europe PMC again later. If it stays unavailable, say " +
+  "in the answer that Europe PMC could not be searched and PubMed was searched in its place.";
+/** Added when PubMed has more: its cursor is search_pubmed's, never a Europe PMC search's. */
+const PUBMED_INSTEAD_NEXT_PAGE = " PubMed has more records: for its next page, call search_pubmed with the same query, " +
+  "dates and page size and the next_cursor in pubmed_search_instead.";
+/** The second search's whole time, after Europe PMC's own 20 seconds at most, within the client's 60. */
+const PUBMED_INSTEAD_MS = 10_000;
+
+type PubmedSearchPage = Awaited<ReturnType<typeof searchPubmed>>;
+/** PubMed's own answer to a query Europe PMC didn't answer. */
+interface PubmedInstead {
+  result: PubmedSearchPage;
+  total: number | undefined;
+}
+
+/** PubMed's search of one query, by page size: search_pubmed's, and the second search's. */
+function pubmedSearch(query: string, dateRange: { start: string; end: string } | undefined, cursor?: string) {
+  return (pageSize: number | undefined): Promise<PubmedSearchPage> => searchPubmed({
+    query,
+    ...(dateRange === undefined ? {} : { dateRange }),
+    ...(pageSize === undefined ? {} : { pageSize: Math.min(pageSize, MAX_PUBMED_PAGE_SIZE) }),
+    ...(cursor === undefined ? {} : { cursor })
+  }, ncbiConfig());
+}
+
+const pubmedTotal = (page: { raw_metadata?: unknown }): number | undefined =>
+  (page.raw_metadata as { total_count?: number } | undefined)?.total_count;
+
+/** What a PubMed search's result says first. */
+function pubmedSearchText(result: PubmedSearchPage, total: number | undefined): string {
+  return `PubMed search returned ${result.pagination.returned} PMID record(s); access status ${result.access_status}.` +
+    smallLiteratureSearchNote(total) + literatureOutageNote("pubmed", result.error) + angleBracketDoiNote(result.data);
+}
+
+/**
+ * PubMed's search of a query Europe PMC didn't answer, made as search_pubmed makes it (a small search read whole) within
+ * PUBMED_INSTEAD_MS in all. Undefined when PubMed doesn't answer it in that time, for whatever reason: the result is then
+ * as it was.
+ */
+async function searchPubmedInstead(
+  query: string,
+  dateRange: { start: string; end: string } | undefined,
+  pageSize: number | undefined
+): Promise<PubmedInstead | undefined> {
+  const deadline = Date.now() + PUBMED_INSTEAD_MS;
+  try {
+    const search = pubmedSearch(query, dateRange);
+    const first = await withinDeadline(search(pageSize), PUBMED_INSTEAD_MS, undefined);
+    if (first === undefined || first.error !== undefined) return undefined;
+    const result = await readSmallSearchWhole(first, true, pubmedTotal, search, deadline - Date.now());
+    return { result, total: pubmedTotal(result) };
+  } catch {
+    return undefined;
   }
-  const providerSide = ["upstream_unavailable", "response_invalid", "rate_limited", "unreachable"]
-    .some((kind) => error.code === `${provider}_${kind}`) ||
-    (error.code === `${provider}_request_failed` && error.http_status === undefined);
-  return !providerSide ? "" : provider === "pubmed" ? PUBMED_OUTAGE_NOTE : EUROPE_PMC_OUTAGE_NOTE;
+}
+
+/**
+ * A failed Europe PMC search answered from PubMed: the failed envelope as it is, PubMed's beside it with its own
+ * receipt, and the note in the text and, for an app that hands its model only the structured content, there too. It
+ * isn't flagged as an error: an app may hand its model only part of an error's text (Claude Code, read in its build
+ * 2.1.328 on 24 Nov 2026, keeps about 10,000 characters of an error and none of its structured content), and what
+ * PubMed found would be cut with it.
+ */
+function europePmcFromPubmed(
+  failed: { pagination: { returned: number }; access_status: string },
+  query: string,
+  dateRange: { start: string; end: string } | undefined,
+  { result, total }: PubmedInstead
+): CallToolResult {
+  const receipt = literatureSearchReceipt("pubmed", query, result, total, dateRange);
+  const note = PUBMED_INSTEAD_NOTE + (result.pagination.next_cursor === undefined ? "" : PUBMED_INSTEAD_NEXT_PAGE);
+  return withResearchReceipt(successfulToolResult(
+    `Europe PMC search returned ${failed.pagination.returned} record(s); access status ${failed.access_status}.` +
+      `${note} ${pubmedSearchText(result, total)}`,
+    { ...failed, pubmed_search_instead: { note: note.trim(), ...result,
+      ...(receipt === undefined ? {} : { research_receipt: receipt }) } }
+  ), receipt);
 }
 
 // Owner answer 283a (9 Nov 2026): the free all-journal index. A search past OpenAlex's free daily allowance comes back
@@ -4879,7 +4978,8 @@ function collectResearchOperations(
         : name === "get_youtube_video" || name === "get_youtube_comments" || name === "search_youtube_comments"
           ? publishedOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
         : name === "fetch_clinical_trial" ? publishedOutputSchema.extend(CLINICAL_TRIAL_REGISTRATION_OUTPUT_SHAPE)
-        : name === "search_europe_pmc" ? publishedOutputSchema.extend(ALL_JOURNALS_OUTPUT_SHAPE)
+        : name === "search_europe_pmc"
+          ? publishedOutputSchema.extend({ ...ALL_JOURNALS_OUTPUT_SHAPE, ...PUBMED_INSTEAD_OUTPUT_SHAPE })
           : name === STUDY_AUDIT_TOOL ? studyMethodAuditRuntimeOutputSchema
             : publishedOutputSchema;
       const outputSchema = openToolOutputSchema(runtimeOutputSchema, publishedOutputSchema);
