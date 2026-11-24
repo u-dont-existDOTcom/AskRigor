@@ -72,6 +72,8 @@ declare module "oidc-provider" {
     readonly session?: { readonly accountId: string; readonly uid: string };
     readonly grantId?: string;
     readonly exp: number;
+    /** The library's own next step once the interaction is finished. */
+    readonly returnTo: string;
   }
 
   export interface InteractionResults {

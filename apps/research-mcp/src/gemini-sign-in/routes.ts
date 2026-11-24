@@ -129,19 +129,22 @@ export function createGeminiSignInRoutes(
    * (oauth-redirect.googleusercontent.com) answers with another redirect, to an address the policy didn't name: the
    * browser cancelled the chain and stayed on the Allow page, Google never got the code, and a second press of Allow was
    * answered "session expired" (the owner's tries of 22, 23 and 24 Nov 2026; the same failure, and this fix, on Google's
-   * developer forum, 15 Oct 2026). A page's own navigation is no form submission.
+   * developer forum, 15 Oct 2026). Reproduced in Chromium with three local addresses, not with Google's relay; Firefox and
+   * Safari were not tried. A page's own navigation is no form submission.
    */
-  const moveOn = async (request: IncomingMessage, response: ServerResponse, result: InteractionResults,
-    options: { mergeWithLastSubmission: boolean }): Promise<boolean> => {
-    const next = new URL(await server.provider.interactionResult(request, response, result, options), origin);
-    if (next.origin !== origin || next.search !== "" || next.hash !== "" || !RESUME_PATH.test(next.pathname)) {
-      fail(response, 500, "server_error");
-      return false;
-    }
+  const moveOn = async (request: IncomingMessage, response: ServerResponse, path: string, result: InteractionResults,
+    options: { mergeWithLastSubmission: boolean }) => {
+    await server.provider.interactionResult(request, response, result, options);
     setPageHeaders((field, value) => response.setHeader(field, value));
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    response.end(moveOnPage(next.pathname));
-    return true;
+    response.end(moveOnPage(path));
+  };
+
+  /** The library's own next step, as a path on this server; undefined for anything else. */
+  const resumePath = (returnTo: string): string | undefined => {
+    const next = new URL(returnTo, origin);
+    return next.origin === origin && next.search === "" && next.hash === "" && RESUME_PATH.test(next.pathname)
+      ? next.pathname : undefined;
   };
 
   const consentDecision = async (request: IncomingMessage, response: ServerResponse, uid: string) => {
@@ -160,6 +163,9 @@ export function createGeminiSignInRoutes(
     if (!sameToken(formToken(uid, details.session.uid), form.get("form_token"))) {
       return fail(response, 403, "invalid_request");
     }
+    // Checked before anything is kept, so an address the library might one day give in another form ends here.
+    const next = resumePath(details.returnTo);
+    if (next === undefined) return fail(response, 500, "server_error");
     const decision = form.get("decision");
     if (decision === "allow") {
       const clientId = details.params.client_id;
@@ -173,15 +179,16 @@ export function createGeminiSignInRoutes(
       if (requested.includes(GEMINI_SCOPE)) grant.rejectOIDCScope(GEMINI_SCOPE);
       grant.addResourceScope(server.settings.resource.href, GEMINI_SCOPE);
       const grantId = await grant.save();
-      if (await moveOn(request, response, { consent: { grantId } }, { mergeWithLastSubmission: true })) note("consent", "allowed");
+      await moveOn(request, response, next, { consent: { grantId } }, { mergeWithLastSubmission: true });
+      note("consent", "allowed");
       return;
     }
     if (decision === "cancel") {
-      const moved = await moveOn(request, response, {
+      await moveOn(request, response, next, {
         error: "access_denied",
         error_description: "The person cancelled the connection.",
       }, { mergeWithLastSubmission: false });
-      if (moved) note("consent", "cancelled");
+      note("consent", "cancelled");
       return;
     }
     fail(response, 400, "invalid_request");

@@ -21,7 +21,8 @@ every plan. So Gemini signs in through AskRigor's own authorization server, buil
   form page's `form-action`, and Google's relay redirects once more, to another Google address: with a redirect the browser
   stayed on the Allow page and Google never got the code (the owner's links of 22, 23 and 24 Nov 2026; the same failure and
   the same fix on Google's developer forum, "Gemini Spark custom MCP OAuth stops after 302 callback and never calls /token",
-  15 Oct 2026). Reproduced in Chromium on 24 Nov 2026 with three local addresses.
+  15 Oct 2026). Reproduced in Chromium on 24 Nov 2026 with three local addresses, not with Google's relay; Firefox and Safari
+  were not tried.
 - **Tokens:** opaque; access 1 hour, links (grant and refresh token, not rotated) 180 days. Stored encrypted in
   `living_evidence.gemini_oauth_store`, tokens only as HMACs (privacy data map, "Gemini's sign-in").
 - **Ending a link:** Gemini's revocation call; `manage_research_access` action `disconnect_gemini` from any connected

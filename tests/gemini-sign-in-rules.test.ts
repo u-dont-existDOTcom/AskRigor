@@ -316,7 +316,7 @@ describe("Gemini's sign-in rules (design v2)", () => {
     });
 
     // 24 Nov 2026: Chromium checks every hop of a form's redirect chain against the form page's form-action, and Google's
-    // relay redirects once more, to an address no policy can name; the browser cancelled the chain, stayed on the Allow
+    // relay redirects once more, to an address the policy didn't name; the browser cancelled the chain, stayed on the Allow
     // page, and Google never got the code. So the form is never answered with a redirect, and its page allows no other
     // address; the page that answers goes on by itself.
     it("answers Allow with a page of its own that goes on to Google, never with a redirect of the form", async () => {
@@ -334,6 +334,10 @@ describe("Gemini's sign-in rules (design v2)", () => {
       const action = /<form method="post" action="([^"]+)"/u.exec(html)![1]!;
       const token = /name="form_token" value="([^"]+)"/u.exec(html)![1]!;
       const answer = await browser.submit(action, { decision: "allow", form_token: token });
+      // A double click lands before the page goes on: the same page again, and one code in the end.
+      const double = await browser.submit(action, { decision: "allow", form_token: token });
+      expect(double.status).toBe(200);
+      expect(movesOnTo(await double.text())).toBe(movesOnTo(await answer.clone().text()));
       expect(answer.status).toBe(200);
       expect(answer.headers.get("location")).toBeNull();
       expect(answer.headers.get("cache-control")).toBe("no-store");
