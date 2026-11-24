@@ -114,7 +114,7 @@ both switches add 130 to 290 bytes):
 So what is held is never shortened for the core. For ChatGPT, the app of the test rounds, the registration of a planned
 research carries both with three findings this long; `plan_research` has room in a round without the dossier's request that
 goes on. Every other app's plan on a dev account ends with the sentence to load it, since what can stop the answer is in the
-same result. The tool-list notice (398 bytes) is counted when an app's call brings it.
+same result. The tool-list notice (642 bytes since #516) is counted when an app's call brings it.
 
 **Option c.** A registration that hands the core over signs the start of its SHA-256 (`hrp`) into the plain answer's
 receipt; each receipt it may need is signed before the plan is made, and the result, the menu and AskRigor's mark use the
