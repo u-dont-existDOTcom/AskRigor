@@ -10,8 +10,8 @@ import { isDeidentifiedResearchTarget, researchTargetScreenRefusal } from "./act
 import { COMMUNITY_LEADS_GUIDANCE } from "./community-leads.js";
 import { CONTINUATION_NOT_VALID, CONTINUATION_OTHER_THREAD, redditReaderFromEnv } from "./reddit-reader-client.js";
 import {
-  comparableUrl, forumLinkDigest, forumPageDigest, forumReadLink, forumSiteDigest, forumThreadDigest, nextPageLink,
-  pagePickedAfterFirst, sameSiteRedirect, sameThreadAtSite, signedSubreddit
+  comparableUrl, forumLinkDigest, forumPageDigest, forumReadLink, forumSiteDigest, forumTextDigest, forumThreadDigest,
+  nextPageLink, pagePickedAfterFirst, sameSiteRedirect, sameThreadAtSite, signedSubreddit
 } from "./forum-thread-links.js";
 import { researchUseAccount } from "./research-contributor-access-tool.js";
 import { discoveryQueryDigest, type ResearchReceiptClaims, type ResearchReceiptKind } from "./research-receipts.js";
@@ -270,6 +270,9 @@ export function registerForumTools(
         ...(subreddit === undefined ? {} : { c: subreddit }),
         ...(reddit && more !== undefined ? { m: digest(more) } : {}),
         ...(reddit ? {} : { w: forumPageDigest(data.url) }),
+        // The digest of a forum page's text as returned, so a news card's quote from it is looked up only in that text
+        // when AskRigor's server reads the page again (the 24 Nov 2026 news audit).
+        ...(reddit || data.page_text === undefined ? {} : { tx: forumTextDigest(data.page_text) }),
         ...(readLink === undefined ? {} : { l: forumLinkDigest(readLink) }),
         ...(requestedThread !== readThread && (sameThreadAtSite(url, data.url) || (!reddit && sameSiteRedirect(url, data.url)))
           ? { ur: requestedThread } : {}),

@@ -1,4 +1,4 @@
-import { sectionKind, type AuditableDocumentIndex } from "@askrigor/sources";
+import { sectionKind, textBlocks, type AuditableDocumentIndex } from "@askrigor/sources";
 import { z } from "zod";
 
 import { figureText } from "./binary-results.js";
@@ -16,7 +16,8 @@ import { receiptText } from "./research-receipts.js";
  * claim sit beside them. Whether they back the claim is meaning: the meaning judge reads that where it is on.
  *
  * Finding a quote or not never stops an answer, as the six blocking checks (owner answers 193a, 195a and 217b) don't
- * name it: a quote not found is a note, and the panel says so. Nothing here is stored.
+ * name it: a quote not found is a note, and the panel says so. Nothing here is stored. No line is looked up in a web
+ * page but the Atlas news card's, in news/web-page.ts.
  */
 
 export const SOURCE_LINE_LIMITS = { lines: 12, quote: 600, claim: 300, against: 500, section: 120 } as const;
@@ -92,28 +93,43 @@ export interface SourceLineTexts {
 
 /** A fetched paper as the source line reads it. A copy the AI supplied, or one from the owner's library, is said to be one. */
 export function sourceLineDocument(index: AuditableDocumentIndex): SourceLineDocument {
-  // A PDF's page text breaks where its page did, and an HTML page's or a plain text's lines (a block each) where a tag,
-  // the page's own source or a wrap did, not where a sentence ends (an HTML page's lines are laid out for full-text
-  // admission and the paywall labels, "did <b>not</b> decrease" on three: the recheck of #417). So the next page runs on
-  // from the page before, and the next line from the line before within its section; a heading its index took into the
-  // section path starts the section afresh. A JATS paper's blocks are its own paragraphs.
-  const lined = index.source.format === "html_text" || index.source.format === "plain_text";
   return {
     kind: index.source.provider === "client_supplied" ? "search_copy"
       : index.source.provider === "owner_library" || index.source.retrieval_provider === "owner_library" ? "library_copy"
       : "full_text",
-    blocks: index.blocks.map(({ text, section_path: path, kind }, place) => {
-      const before = index.blocks[place - 1];
-      const runsOn = before !== undefined && (kind === "page_text" && before.kind === "page_text" ||
-        lined && before.section_path.length === path.length && before.section_path.every((part, at) => part === path[at]));
-      return {
-        text,
-        ...(path.length === 0 ? {} : { section: receiptText(path[path.length - 1]!, SOURCE_LINE_LIMITS.section) }),
-        ...(runsOn ? { runsOn: true } : {}),
-        ...(kind === "abstract" ? { abstract: true } : {})
-      };
-    })
+    blocks: lookupBlocks(index.blocks, index.source.format === "html_text" || index.source.format === "plain_text")
   };
+}
+
+/**
+ * A text's blocks as quotes are looked up in them. A PDF's page text breaks where its page did, and an HTML page's or a
+ * plain text's lines (`lined`: a block each) where a tag, the page's own source or a wrap did, not where a sentence ends
+ * (an HTML page's lines are laid out for full-text admission and the paywall labels, "did <b>not</b> decrease" on three:
+ * the recheck of #417). So the next page runs on from the page before, and the next line from the line before within its
+ * section; a heading its index took into the section path starts the section afresh. A JATS paper's blocks are its own
+ * paragraphs.
+ */
+function lookupBlocks(blocks: AuditableDocumentIndex["blocks"], lined: boolean): SourceLineDocument["blocks"] {
+  return blocks.map(({ text, section_path: path, kind }, place) => {
+    const before = blocks[place - 1];
+    const runsOn = before !== undefined && (kind === "page_text" && before.kind === "page_text" ||
+      lined && before.section_path.length === path.length && before.section_path.every((part, at) => part === path[at]));
+    return {
+      text,
+      ...(path.length === 0 ? {} : { section: receiptText(path[path.length - 1]!, SOURCE_LINE_LIMITS.section) }),
+      ...(runsOn ? { runsOn: true } : {}),
+      ...(kind === "abstract" ? { abstract: true } : {})
+    };
+  });
+}
+
+/**
+ * The text of a web page, as read_forum_thread's reader returns it, as a news card's quotes are looked up in it
+ * (news/web-page.ts): read as an HTML full text is, its lines running on within a section, so a line a tag broke is
+ * never a sentence of its own.
+ */
+export function webPageBlocks(text: string): SourceLineDocument["blocks"] {
+  return lookupBlocks(textBlocks(text), true);
 }
 
 /** A PubMed abstract as the source line reads it: a structured one's sections each a block, under its label, as a label
@@ -215,7 +231,7 @@ function quoteForm(quote: string, matching: QuoteMatching = "standard"): string 
   return matching === "news" ? form.replace(DASH_SPACING, "-") : form;
 }
 
-type Finder = (quote: string) => { found: boolean; section?: string | undefined };
+export type Finder = (quote: string) => { found: boolean; section?: string | undefined };
 
 /*
  * Whole sentences only (the recheck of #417, 5 November 2026): a quote is the paper's own words only when it is one or
@@ -336,7 +352,7 @@ interface Searchable {
   blocks: Array<{ start: number; section: string | undefined }>;
 }
 
-function searchable(document: SourceLineDocument, reading: (text: string) => string,
+function searchable(document: Pick<SourceLineDocument, "blocks">, reading: (text: string) => string,
   matching: QuoteMatching = "standard"): Searchable {
   const textForm = matchingForm(matching);
   const paragraphs: Array<Array<SourceLineDocument["blocks"][number]>> = [];
@@ -433,7 +449,7 @@ function endsSentence(text: string, sentences: Searchable["sentences"], last: nu
  * found only as one or more whole sentences of a paragraph (above): a part of a sentence, which may have lost its
  * negation, is not.
  */
-function finder(document: SourceLineDocument, matching: QuoteMatching = "standard"): Finder {
+function finder(document: Pick<SourceLineDocument, "blocks">, matching: QuoteMatching = "standard"): Finder {
   const forms = [(text: string) => text, (text: string) => text.replace(BROKEN_WORD, ""),
     (text: string) => text.replace(BROKEN_WORD, "-")].map((reading) => searchable(document, reading, matching));
   return (quote) => {
@@ -464,6 +480,11 @@ function finder(document: SourceLineDocument, matching: QuoteMatching = "standar
     }
     return { found: false };
   };
+}
+
+/** Looks quotes up in a text's blocks alone, as a line's quotes are by the matching given (news/web-page.ts). */
+export function quoteFinder(blocks: SourceLineDocument["blocks"], matching: QuoteMatching): Finder {
+  return finder({ blocks }, matching);
 }
 
 const longEnough = (quote: string): boolean => quoteForm(quote).replace(/[^\p{L}\p{N}]/gu, "").length >= SHORTEST_QUOTE;

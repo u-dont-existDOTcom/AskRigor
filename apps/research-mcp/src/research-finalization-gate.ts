@@ -132,6 +132,7 @@ import { SAFETY_LIMIT_FOR_JUDGE, isSafetyLimit, reviewSafetyLimits, withoutSafet
 import { untraceableCitationNote } from "./citation-markers.js";
 import type { NewsCard } from "./news/card.js";
 import { signedNewsClaims } from "./news/claims.js";
+import type { NewsLine, NewsLineLookup, NewsLineRequest, NewsWebPage } from "./news/web-page.js";
 import { newsStagingSchema } from "./news/staging.js";
 
 /**
@@ -1887,7 +1888,7 @@ export interface FinalizeResearchOptions {
    */
   newsCard?: { card: NewsCard; digest: string };
   /** The news card's backing lines as looked up after this check's earlier pass, in their order. */
-  newsLookups?: readonly SourceLineLookup[];
+  newsLookups?: readonly NewsLineLookup[];
   /**
    * Atlas news (the 23 Nov 2026 news audit): the PubMed record AskRigor read itself for the news card's DOI, when the
    * full-text tool admitted no copy of it (a short news item, say) and no record or text of it was read: a record whose
@@ -2301,10 +2302,12 @@ export function finalizeResearch(
     const subreddit = reader === "reddit" && isSignedSubreddit(text(claims.c)) ? text(claims.c) : undefined;
     const read = /^[0-9]{1,9}$/u.test(text(claims.n)) ? Number(text(claims.n)) : 0;
     const known = forumReads.get(claims.u) ??
-      { reader, subreddit: undefined, first: 0, parts: new Map<string, number>(), links: new Set<string>() };
+      { reader, subreddit: undefined, first: 0, parts: new Map<string, number>(), links: new Set<string>(),
+        texts: new Set<string>() };
     if (known.reader !== reader) known.reader = undefined;
     known.subreddit ??= subreddit;
     if (reader === "page" && text(claims.l) !== "") known.links.add(text(claims.l));
+    if (reader === "page" && /^[0-9a-f]{32}$/u.test(text(claims.tx))) known.texts.add(text(claims.tx));
     // A Reddit continuation, or a forum's page, by what it continues or which page it is; a Reddit first read alone.
     const part = reader === "reddit" ? text(claims.m) : reader === "page" ? `page:${text(claims.w)}` : "";
     if (part === "") known.first = Math.max(known.first, read);
@@ -4757,18 +4760,27 @@ export function finalizeResearch(
   // Owner answer 237a: each line's quotes are looked up once the check passes, in the text its key source's verified
   // receipts name, and what came of it goes to the AI as notes, and to the panel. None of it holds the answer back.
   const sourceLines = input.source_lines ?? [];
-  // Where a quote said to come from a source may be looked up: the texts its key source's verified receipts name.
-  const quoteRequest = (source: string, line: number): SourceLineRequest => {
+  // The page a web address was read as here, by its verified forum_thread_read receipts (the address compared as a
+  // thread's link is), with the digest of its text each read signed (`tx`). The page reader reads https alone, so an
+  // address given as http was read so. Reddit's own reader signs no page.
+  const webPageRead = (address: string): NewsWebPage | undefined => {
+    if (!/^https?:\/\//iu.test(address.trim())) return undefined;
+    const read = readsOf(address);
+    return read?.reader !== "page" || read.texts.size === 0 ? undefined
+      : { url: address.trim().replace(/^http:/iu, "https:"), texts: [...read.texts] };
+  };
+  // Where a quote said to come from a source may be looked up: the texts its key source's verified receipts name. For the
+  // news card's lines alone (`webPages`), also the page a key source that is a web address was read as, when no paper's
+  // text or record is tied to it.
+  const quoteRequest = (source: string, line: number, webPages = false): NewsLineRequest => {
     const key = input.key_sources.find(({ id }) => normalizeIdentifier(id) === normalizeIdentifier(source));
     const receipts = key === undefined ? [] : paperReceipts(sourceLinks(key.id));
-    return {
-      line,
-      keySource: key !== undefined,
-      handles: [...new Set(receipts.flatMap(({ kind, claims }) =>
-        SOURCE_TEXT_KINDS.has(kind) && text(claims.handle) !== "" ? [text(claims.handle)] : []))],
-      pmids: [...new Set([...(key !== undefined && isPmid(normalizeIdentifier(key.id)) ? [normalizeIdentifier(key.id)] : []),
-        ...receipts.flatMap(({ claims }) => text(claims.pmid) === "" ? [] : [text(claims.pmid)])])]
-    };
+    const handles = [...new Set(receipts.flatMap(({ kind, claims }) =>
+      SOURCE_TEXT_KINDS.has(kind) && text(claims.handle) !== "" ? [text(claims.handle)] : []))];
+    const pmids = [...new Set([...(key !== undefined && isPmid(normalizeIdentifier(key.id)) ? [normalizeIdentifier(key.id)] : []),
+      ...receipts.flatMap(({ claims }) => text(claims.pmid) === "" ? [] : [text(claims.pmid)])])];
+    const page = !webPages || key === undefined || handles.length > 0 || pmids.length > 0 ? undefined : webPageRead(key.id);
+    return { line, keySource: key !== undefined, handles, pmids, ...(page === undefined ? {} : { page }) };
   };
   const sourceLineRequests: SourceLineRequest[] = sourceLines.map(({ source }, line) => quoteRequest(source, line));
   // Owner answer 252a: a checked card's backing lines are looked up the same way, once the check passes; what came of
@@ -4780,7 +4792,7 @@ export function finalizeResearch(
   const backingRequests: SourceLineRequest[] = backingLines.map(({ source }, line) => quoteRequest(source, line));
   // Atlas news, stage 1: the news card's backing lines are looked up the same way, once the check passes.
   const newsLines = options.newsCard?.card.backing ?? [];
-  const newsRequests: SourceLineRequest[] = newsLines.map(({ source }, line) => quoteRequest(source, line));
+  const newsRequests: NewsLineRequest[] = newsLines.map(({ source }, line) => quoteRequest(source, line, true));
   const backingLookups = options.backingLookups ?? [];
   const backingItems: Array<{ item: string; full: boolean; notes: string[]; passages: string[];
     objected?: Map<string, string[]> }> = [];
@@ -5251,7 +5263,7 @@ export function finalizeResearch(
   }
   if (passed && newsLines.length > 0 && options.newsCard !== undefined && options.newsLookups === undefined &&
     newsDoiVerified) {
-    NEWS_REQUESTS.set(parsedOutput, { lines: newsLines.map(({ source, quote }) => ({ source, sentence: quote })),
+    NEWS_REQUESTS.set(parsedOutput, { lines: newsLines.map(({ source, quote, field }) => ({ source, sentence: quote, field })),
       // The lines that quote the card's DOI are looked up in the PubMed record read for it, when that is how it was read.
       requests: newsFallback === undefined ? newsRequests : newsRequests.map((request, line) =>
         namesNewsDoi(newsLines[line]!.source)
@@ -5448,8 +5460,8 @@ export function backingRequestsOf(result: FinalizeResearchOutput): BackingReques
 
 /** A checked news card's backing lines, as quotes to look up, and where each may be (Atlas news, stage 1). */
 export interface NewsRequests {
-  lines: ReadonlyArray<{ source: string; sentence: string }>;
-  requests: readonly SourceLineRequest[];
+  lines: readonly NewsLine[];
+  requests: readonly NewsLineRequest[];
 }
 
 const NEWS_REQUESTS = new WeakMap<FinalizeResearchOutput, NewsRequests>();
@@ -6724,6 +6736,8 @@ interface ForumThreadReads {
   parts: Map<string, number>;
   /** A forum page's id-only links as its reader read them, by their digests (forumLinkDigest). */
   links: Set<string>;
+  /** The digests of a forum page's text as each read of it returned it (forumTextDigest). */
+  texts: Set<string>;
 }
 
 /**

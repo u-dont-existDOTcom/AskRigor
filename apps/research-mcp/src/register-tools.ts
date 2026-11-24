@@ -275,6 +275,7 @@ import {
 } from "./news/pubmed-fallback.js";
 import type { AtlasNewsOptions } from "./news/runtime.js";
 import { stageNewsCard } from "./news/staging.js";
+import { lookUpNewsPages, onNewsPage, type NewsLineLookup } from "./news/web-page.js";
 import { atlasReportDoorFromEnv } from "./atlas/report-door.js";
 import {
   AnalysisStaging,
@@ -2848,14 +2849,24 @@ function defineResearchOperations(
         // are matched by the news card's rules (QuoteMatching "news", the 23 Nov 2026 news audit), whose finders the
         // cache keeps apart; the PubMed record read for the card's DOI, when that is how it was read, has a cache of its
         // own, so no other line is ever looked up in it.
-        const newsLate = (news?.requests ?? []).map(({ line }) => ({ source: news!.lines[line]!.source,
-          sentence: "not_checked" as const, conclusion: "not_checked" as const, reason: "text_unavailable" as const }));
         const newsCache: QuoteCache = newsFallback === undefined ? lineCache : { finders: new Map(),
           abstracts: new Map([[newsFallback.pmid, Promise.resolve<SourceLineDocument | undefined | null>(newsFallback.document)]]) };
-        const newsLooking = news === undefined || news.requests.length === 0 ? undefined : withinDeadline(
-          lookUpSourceLines(news.lines, news.requests, lineTexts, newsCache, "news").catch(() => newsLate),
-          SOURCE_LINE_DEADLINE_MILLISECONDS, newsLate);
-        const [looked, studyMapLookup, newsLooked] = await Promise.all([
+        const newsLate = ({ line }: { line: number }): NewsLineLookup => ({ source: news!.lines[line]!.source,
+          sentence: "not_checked", conclusion: "not_checked", reason: "text_unavailable" });
+        // The 24 Nov 2026 news audit: a line that rests on a web address its check read, and on no paper, is looked up in
+        // that page, read again (news/web-page.ts), apart from the others, so a slow page never costs a paper's lines
+        // theirs. Only a call whose card could be staged reads a page: the owner's own news check, marked off.
+        const pagesRead = researcher !== undefined && isDevAccount(researcher.accountKey, devAccountKeysFromEnv()) &&
+          findingsSaveOff(input);
+        const newsPages = pagesRead ? (news?.requests ?? []).filter(onNewsPage) : [];
+        const newsPapers = (news?.requests ?? []).filter((request) => !newsPages.some(({ line }) => line === request.line));
+        const newsLooking = news === undefined || newsPapers.length === 0 ? undefined : withinDeadline<NewsLineLookup[]>(
+          lookUpSourceLines(news.lines, newsPapers, lineTexts, newsCache, "news").catch(() => newsPapers.map(newsLate)),
+          SOURCE_LINE_DEADLINE_MILLISECONDS, newsPapers.map(newsLate));
+        const newsPagesLooking = news === undefined || newsPages.length === 0 ? undefined : withinDeadline(
+          lookUpNewsPages(news.lines, newsPages, options.forumPageReader).catch(() => newsPages.map(newsLate)),
+          SOURCE_LINE_DEADLINE_MILLISECONDS, newsPages.map(newsLate));
+        const [looked, studyMapLookup, newsLooked, newsPagesLooked] = await Promise.all([
           looking,
           // The map keeps its own deadline; this one only guards against a lookup that never settles.
           mapRequests === undefined ? undefined : withinDeadline(
@@ -2864,6 +2875,7 @@ function defineResearchOperations(
               .catch(() => lateStudyMapLookup(mapRequests.map)),
             SOURCE_LINE_DEADLINE_MILLISECONDS + STUDY_MAP_GUARD_MILLISECONDS, lateStudyMapLookup(mapRequests.map)),
           newsLooking,
+          newsPagesLooking,
         ]);
         const fromLines = lookups?.length ?? 0;
         const withLines: FinalizeResearchOptions = {
@@ -2877,10 +2889,14 @@ function defineResearchOperations(
           backingLookups: backing.lines.map(({ finding, line }, place) =>
             ({ finding, line, lookup: looked?.[fromLines + place] ?? late[fromLines + place]! }))
         };
-        // Atlas news, stage 1: the news lines' lookups, which the receipt signs as `nl`.
+        // Atlas news, stage 1: the news lines' lookups, which the receipt signs as `nl`, in the lines' order.
+        const newsFound = new Map<number, NewsLineLookup | undefined>([
+          ...newsPapers.map(({ line }, place): [number, NewsLineLookup | undefined] => [line, newsLooked?.[place]]),
+          ...newsPages.map(({ line }, place): [number, NewsLineLookup | undefined] => [line, newsPagesLooked?.[place]])
+        ]);
         const withNews: FinalizeResearchOptions = news === undefined ? withBacking : {
           ...withBacking,
-          newsLookups: news.lines.map((_, place) => newsLooked?.[place] ?? newsLate[place]!)
+          newsLookups: news.lines.map((_, line) => newsFound.get(line) ?? newsLate({ line }))
         };
         // The review of 5 November (finding 6): a receipt that can't be issued with what the lookups found (one too
         // long, say) never stops the call: the check is made again without the news lines' lookups, then without the

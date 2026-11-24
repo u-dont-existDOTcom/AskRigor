@@ -17,6 +17,7 @@ import {
 import { z } from "zod";
 
 import { canonicalJson } from "../findings/card.js";
+import { registrableHost } from "../forum-thread-links.js";
 import {
   NEWS_PUBLIC_FIELDS,
   NEWS_SKIP_REASONS,
@@ -238,6 +239,19 @@ export function newsOrderProblems(payload: NewsDayPayload, carried: readonly str
   return problems;
 }
 
+/** The site of a source that is a web address, by its registrable host; none for a DOI (its link too), PMID or PMCID. */
+function webSite(source: string): string | undefined {
+  let address: URL;
+  try {
+    address = new URL(source.trim());
+  } catch {
+    return undefined;
+  }
+  if (address.protocol !== "https:" && address.protocol !== "http:") return undefined;
+  const host = address.hostname.toLowerCase();
+  return /^(?:dx\.)?doi\.org$/u.test(host) ? undefined : registrableHost(host) ?? host;
+}
+
 /** 3.4's steps 1, 2, 3 and 6 on one staged card (step 5, the paper, is read apart). The reasons it is kept back. */
 export function newsItemReasons(item: AtlasNewsItem | undefined, kind: "main" | "line", day: string, at: Date,
   reading: NewsReading | undefined): { reasons: string[]; card?: NewsCard } {
@@ -256,20 +270,34 @@ export function newsItemReasons(item: AtlasNewsItem | undefined, kind: "main" | 
   }
   const card = parsed.data;
   const reasons: string[] = newsCardProblems(card).map(({ code }) => `card_rules:${code}`);
-  // What the receipt signed each backing line's lookup found (`nl`: line, outcome, text): a funder or an author is named,
-  // an agency's action relied on and How much's figures quoted only through a line found word for word in the text
-  // AskRigor fetched (design 3.3 and 3.6). A card that couldn't name them says "not checked" in a new check.
-  const found = new Set(item.receiptClaims.nl.flatMap((entry) => {
-    const [line, outcome] = entry.split(":");
-    return outcome === "f" && line !== undefined && /^\d+$/u.test(line) ? [Number(line) - 1] : [];
+  // What the receipt signed each backing line's lookup found and where (`nl`: line, outcome, text): a funder or an author
+  // is named, an agency's action relied on and How much's figures quoted only through a line found word for word in the
+  // text AskRigor fetched (design 3.3 and 3.6). A card that couldn't name them says "not checked" in a new check.
+  const foundIn = new Map(item.receiptClaims.nl.flatMap((entry): Array<[number, string]> => {
+    const [line, outcome, text] = entry.split(":");
+    return outcome === "f" && line !== undefined && /^\d+$/u.test(line) ? [[Number(line) - 1, text ?? ""]] : [];
   }));
-  const named = [...card.who_paid.funders, ...card.who_paid.declarations];
-  if (named.some(({ backing }) => !found.has(backing))) reasons.push("who_paid_quote_not_found");
   const linesOf = (field: string) => card.backing.flatMap((line, place) => line.field === field ? [place] : []);
-  if (card.official_action !== undefined && !linesOf("official_action").some((place) => found.has(place))) {
+  // A web page's quote (text `web_page`: a page the check read, read again unchanged) is never a paper's. It backs an
+  // official action and, on an official notice's own card, what the notice itself says: a line from the site its action
+  // was found on. On any other card, or from any other site, it backs no figure and names no funder or author.
+  const onPage = (place: number) => foundIn.get(place) === "web_page";
+  const inPaper = (place: number) => foundIn.has(place) && !onPage(place);
+  const siteOf = (place: number) => webSite(card.backing[place]?.source ?? "");
+  const noticeSites = new Set(card.design === "official_notice"
+    ? linesOf("official_action").filter(onPage).flatMap((place) => siteOf(place) ?? []) : []);
+  const ofNotice = (place: number) => noticeSites.has(siteOf(place) ?? "");
+  const noticeSays = (place: number) => onPage(place) && ofNotice(place);
+  const named = [...card.who_paid.funders, ...card.who_paid.declarations];
+  if (named.some(({ backing }) => !inPaper(backing) && !noticeSays(backing))) reasons.push("who_paid_quote_not_found");
+  if (card.official_action !== undefined && !linesOf("official_action").some((place) => foundIn.has(place))) {
     reasons.push("official_action_quote_not_found");
   }
-  if (numbersIn(card.how_much).length > 0 && !linesOf("how_much").some((place) => found.has(place))) {
+  // The notice's figures never stand in for a paper's: when How much quotes anything but the notice, one line must be
+  // found in a paper.
+  const howMuch = linesOf("how_much");
+  if (numbersIn(card.how_much).length > 0 && !howMuch.some(inPaper) &&
+    !(howMuch.every(ofNotice) && howMuch.some(noticeSays))) {
     reasons.push("how_much_quote_not_found");
   }
   if (kind === "main" && !card.meets_our_bar.meets) reasons.push("not_a_main_item");

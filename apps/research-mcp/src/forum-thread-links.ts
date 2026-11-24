@@ -31,6 +31,15 @@ const THREAD_PAGE_SUFFIX = /\/(?:page[-/]?\d+|post-\d+)\/?$/iu;
 // A post number after a Discourse topic: /t/<slug>/<topic id>/<post number>.
 const DISCOURSE_POST = /^(\/t\/[^/]+\/\d+)\/\d+\/?$/iu;
 
+/** Whether a link is Reddit's, which only its own reader reads. */
+export function isRedditLink(url: string): boolean {
+  try {
+    return REDDIT_SITE.test(new globalThis.URL(url.trim()).hostname.toLowerCase().replace(/\.$/u, ""));
+  } catch {
+    return false;
+  }
+}
+
 // The prefixes Reddit serves the same posts under, and only Reddit (the review of 5 November, finding 5): on any other
 // site an m or new host may be another site. A www host and the bare one are one site everywhere (the recheck of #417):
 // a forum's link compares the same either way, and only the published link keeps the host exactly as read.
@@ -134,6 +143,16 @@ const digestOf = (value: string): string => createHash("sha256").update(value, "
 /** A thread's digest, as a forum_thread_read receipt signs it: of its comparable link. */
 export function forumThreadDigest(url: string): string {
   return digestOf(comparableUrl(url));
+}
+
+/**
+ * The digest of a forum page's text as its reader returned it, as a forum_thread_read receipt signs it (`tx`), so the
+ * final check can tell that a page read again reads the same (news/web-page.ts). Of the text the reader extracts, not of
+ * the page's bytes, which a token or a script's name changes at every request: five official pages read on 22 and 24 Nov
+ * 2026 from AskRigor's server and again on 24 Nov from elsewhere gave the same text, character for character.
+ */
+export function forumTextDigest(text: string): string {
+  return createHash("sha256").update(text, "utf8").digest("hex").slice(0, 32);
 }
 
 // The parameters, and the path's end, that pick a page of a thread: phpBB's start, vBulletin's and Discourse's page, a

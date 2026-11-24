@@ -323,7 +323,11 @@ function htmlAccessState(html: string, text: string): "PAYWALL_OR_LOGIN_REQUIRED
       (/<script\b/iu.test(html) && text.length < 100)) return "CANDIDATE_FOUND_FETCH_BLOCKED";
   return undefined;
 }
-function textBlocks(text: string): AuditableDocumentBlock[] {
+/**
+ * An HTML page's or a plain text's lines as blocks, a known section heading on a line of its own taken into the section
+ * path: a full text's index, and the text of a page read_forum_thread read (source-lines.ts's webPageBlocks).
+ */
+export function textBlocks(text: string): AuditableDocumentBlock[] {
   const blocks: AuditableDocumentBlock[] = [];
   let path: string[] = [];
   for (const raw of textLines(text)) {

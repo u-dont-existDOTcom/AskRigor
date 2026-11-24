@@ -7,7 +7,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "../apps/research-mcp/src/community-leads.js";
 import { forumThreadDigest } from "../apps/research-mcp/src/research-finalization-gate.js";
-import { comparableUrl, forumPageDigest, forumSiteDigest, sameSiteRedirect } from "../apps/research-mcp/src/forum-thread-links.js";
+import {
+  comparableUrl, forumPageDigest, forumSiteDigest, forumTextDigest, isRedditLink, sameSiteRedirect
+} from "../apps/research-mcp/src/forum-thread-links.js";
 import { verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import type { RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
 import { builtContent } from "./helpers/text-payload.js";
@@ -220,6 +222,35 @@ describe("forum tools", () => {
     thread.mockResolvedValue({ url: URL, access_state: "not_found" });
     await caller.callTool({ name: "read_forum_thread", arguments: { url: URL, more: "opaque" } });
     expect(thread).toHaveBeenCalledWith(URL, "opaque");
+  });
+  // The 24 Nov 2026 news audit: a news card's quote from a page is looked up only in the text this read returned.
+  it("signs the digest of a forum page's text as returned, and none for a Reddit thread or a page it couldn't read", async () => {
+    const caller = await client();
+    const read = async (url: string) => {
+      const result = await caller.callTool({ name: "read_forum_thread", arguments: { url } });
+      const verified = verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET });
+      if (!verified.ok) throw new Error("unverified");
+      return { claims: verified.claims, data: result.structuredContent!.data as { page_text?: string } };
+    };
+    const text = `Invented page.\n${"An invented line, with an accent: é.\n".repeat(60)}`;
+    page.mockResolvedValue({ url: "https://agency.example/notice", access_state: "read", page_text: text });
+    const notice = await read("https://agency.example/notice");
+    expect(notice.claims.tx).toBe(forumTextDigest(notice.data.page_text!));
+    expect(notice.claims.tx).toMatch(/^[0-9a-f]{32}$/u);
+    // Its own text: another text, or the same page's next read with one character changed, signs another digest.
+    page.mockResolvedValue({ url: "https://agency.example/notice", access_state: "read", page_text: text.replace("line", "Line") });
+    expect((await read("https://agency.example/notice")).claims).toMatchObject({ u: notice.claims.u, w: notice.claims.w });
+    expect((await read("https://agency.example/notice")).claims.tx).not.toBe(notice.claims.tx);
+    page.mockResolvedValue({ url: "https://agency.example/notice", access_state: "blocked" });
+    expect((await read("https://agency.example/notice")).claims).not.toHaveProperty("tx");
+    thread.mockResolvedValue({ access_state: "read", url: URL, community: "example", comments: [], comments_read: 7 });
+    expect((await read(URL)).claims).not.toHaveProperty("tx");
+    for (const link of [URL, "https://redd.it/abc123", "http://old.reddit.com/r/example", "https://REDDIT.com./x"]) {
+      expect(isRedditLink(link), link).toBe(true);
+    }
+    for (const link of ["https://notreddit.com/r/x", "https://agency.example/reddit.com", "reddit", ""]) {
+      expect(isRedditLink(link), link).toBe(false);
+    }
   });
   // The review of #417 (finding 3): each part of a thread is counted once, so a Reddit continuation signs which part it
   // continues and a forum page which page it read; a link the reader was sent on from is signed too.

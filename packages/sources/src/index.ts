@@ -8,6 +8,7 @@ export {
   type UpstreamFetchOptions,
 } from "./http.js";
 export { decodeCursor, encodeCursor } from "./cursor.js";
+export { textBlocks } from "./candidate-full-text.js";
 export { FORUM_READER_USER_AGENT, pagePickedAfterFirst, readForumPage, type ForumPage, type ForumPageRuntime } from "./forum-page.js";
 export { parseRobotsTxt, robotsTxtAllows, robotsResponseAllows, type RobotsGroup, type RobotsRule } from "./robots-txt.js";
 export {
