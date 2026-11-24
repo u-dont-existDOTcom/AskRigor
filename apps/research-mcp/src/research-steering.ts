@@ -15,12 +15,17 @@ import {
 } from "@askrigor/evidence-repository";
 
 import {
+  CLAIM_WORDS_FOR_NUMBER,
   CLAIMS_AT_THE_SCREEN,
+  CLAIMS_ON_A_LATER_CALL,
   CLAIMS_TASK_SHAPE,
   LEFT_OUT_SHAPE,
+  NOT_ON_PLAN_IN_ANSWER,
   NOT_ON_PLAN_LEAD,
   NOT_ON_PLAN_STRUCTURED,
-  claimNumbers,
+  NOT_ON_PLAN_STRUCTURED_IN_ANSWER,
+  SAME_MENU_WITH_CLAIMS,
+  claimNumbersAsGiven,
   claimsNotOnPlan,
   leftOutClaims,
   notOnPlanLines,
@@ -166,8 +171,8 @@ export const planTaskSchema = z.object({
 }).strict();
 /**
  * Owner answer 413a (24 Nov 2026): the same task for an account whose claims are accounted for. Any value is accepted,
- * as for person_reason: one that names no claim is not one, and never refuses a menu (claimNumbers reads it where it is
- * used). It is not part of the menu's digest.
+ * as for person_reason: one that names no claim is not one, and never refuses a menu (claim-accounting.ts reads it where
+ * it is used). It is not part of the menu's digest.
  */
 export const claimsPlanTaskSchema = planTaskSchema.extend({
   claims: z.unknown().optional()
@@ -588,7 +593,7 @@ export function correctedMenu(source: unknown, choice = false): CorrectedMenu {
         ...(valid(planTaskSchema.shape, "minutes", given.minutes)
           ? { minutes: given.minutes as [number, number] } : {}),
         // Owner answer 413a: the claims a task declares, and those left out (below), go back with the menu.
-        ...(claimNumbers(given.claims).length > 0 ? { claims: claimNumbers(given.claims) } : {}),
+        ...(claimNumbersAsGiven(given.claims).length > 0 ? { claims: claimNumbersAsGiven(given.claims) } : {}),
       };
     }),
     ...(leftOutClaims(menu.left_out).length > 0 ? { left_out: leftOutClaims(menu.left_out) } : {}),
@@ -2140,7 +2145,7 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
             ? ", and one on what their choices could change, such as their own situation, the form or dose they " +
               "use, or the outcome that matters most to them" : "") +
         "; then this menu, numbered as here, saying for each task whether it means a quick look, reading in full or a " +
-        "method audit (the times are rough planning estimates):",
+        `method audit (the times are rough planning estimates${notOnPlan.length === 0 ? "" : `; ${CLAIM_WORDS_FOR_NUMBER}`}):`,
       ...lines,
       result.recommended.length === 0 ? NOTHING_RECOMMENDED
         : `Recommended: ${chosen}, ${range(result.recommended_minutes)} in all; then about ${ANSWER_MINUTES[0]} to ` +
@@ -2158,8 +2163,11 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
     // says so for itself.
     const declared = ", with person_answered true in researchMenu too (send it only once they have answered this " +
       "menu in a message of their own; an allocation without it is not used)";
+    // Owner answer 413a (the review of 24 Nov 2026, F2): with the claims accounted for, a menu retyped without them says
+    // of every claim that it is on no task, so the rule names them.
     const rule = "When the person replies: call manage_research_access action plan_research again with the same " +
-      `plain_answer_receipt, tasks and menu_digest (researchMenu.menu_digest in this result), research_target word for ` +
+      `${result.claims === undefined ? "plain_answer_receipt, tasks and menu_digest" : SAME_MENU_WITH_CLAIMS} ` +
+      `(researchMenu.menu_digest in this result), research_target word for ` +
       `word${target}, and their allocation inside ` +
       `researchMenu, as a list of {task, minutes}${declared}; for "you decide", or a reply that leaves the choice to ` +
       "you such as \"continue\", " + (result.recommended.length === 0
@@ -2185,12 +2193,13 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
   }
   const recommendation = result.recommended.length === 0 ? NOTHING_RECOMMENDED
     : `Recommended: ${chosen}, ${range(result.recommended_minutes)} in all.`;
+  const recorded = chatGpt && !light && !heldBack;
   return [...first, [
-    (chatGpt && !light && !heldBack ? "The task record for the answer, numbered as here (times are rough planning estimates, and say " :
+    (recorded ? "The task record for the answer, numbered as here (times are rough planning estimates, and say " :
       "The menu to show the person, in their language, numbered as here (times are rough planning estimates, and say ") +
       "whether a task means a quick look, reading in full or a method audit): " + lines.join(" ") + " " + recommendation +
       ` Then the final check and writing the answer: about ${ANSWER_MINUTES[0]} to ${ANSWER_MINUTES[1]} min.` +
-      (notOnPlan.length === 0 ? "" : ` ${NOT_ON_PLAN_LEAD} ${notOnPlan.join(" ")}`),
+      (notOnPlan.length === 0 ? "" : ` ${recorded ? NOT_ON_PLAN_IN_ANSWER : NOT_ON_PLAN_LEAD} ${notOnPlan.join(" ")}`),
     // The tasks held back: the correction last, with no go-ahead after it and none of what follows one, which the
     // corrected call's result gives.
     ...(heldBack ? [...since, ...before, NO_GO_AHEAD_YET]
@@ -2215,6 +2224,7 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
       planPresentation(result, chatGpt),
       ...(chatGpt ? [CHATGPT_TASK_TIME_LIMIT, ...(result.style === "autonomous" ? [] : [NEW_FORK])]
         : [TASK_PROGRESS + TASK_TIME_LIMIT, ...(result.style === "autonomous" ? [] : [NEW_FORK])]),
+      ...(result.claims === undefined ? [] : [CLAIMS_ON_A_LATER_CALL]),
       WORDS_ARE_NOT_SIZES,
       "Leads between people's reports and studies are part of the research when the question has both: when the " +
         "screen found something in people's reports that studies could check, or a study finding that people's " +
@@ -2242,8 +2252,10 @@ export function planNextStep(result: ResearchPlanResult, learnMode?: boolean, ch
   const first = (stop === undefined ? "" : `${stop} `) +
     (result.person_steered_problem === undefined ? "" : `${result.person_steered_problem} `) +
     (notRegistered ? `${TARGET_NOT_REGISTERED} ` : "");
-  // Owner answer 413a: the claims no task covers, for an app that hands its model only the structured content.
-  const notOnPlan = claimsNotOnPlan(result.claims).length === 0 ? "" : ` ${NOT_ON_PLAN_STRUCTURED}`;
+  // Owner answer 413a: the claims no task covers, for an app that hands its model only the structured content; with
+  // ChatGPT's task record, which is the answer's, they go in the answer too.
+  const notOnPlan = claimsNotOnPlan(result.claims).length === 0 ? "" : ` ${chatGpt && result.next === "go_on" &&
+    result.lane !== "light" ? NOT_ON_PLAN_STRUCTURED_IN_ANSWER : NOT_ON_PLAN_STRUCTURED}`;
   if (result.next === "ask") {
     // A menu with nothing recommended (detail only) gives "you decide" the text's own exit: an empty recommended
     // allocation counts as no answer, so the same menu would ask again (the review of 12 Nov 2026).
@@ -2258,7 +2270,8 @@ export function planNextStep(result: ResearchPlanResult, learnMode?: boolean, ch
       notOnPlan +
       " Make no research call and " +
       "don't call finalize_research until they " +
-      "answer; then call action plan_research again with their allocation and person_answered true inside " +
+      "answer; then call action plan_research again with " + (result.claims === undefined ? ""
+        : `the same ${SAME_MENU_WITH_CLAIMS}, and with `) + "their allocation and person_answered true inside " +
       "later_inputs.researchMenu " + (result.recommended.length === 0
         ? "or, for \"you decide\", do no more research: check the answer with finalize_research and give it."
         : !offersYouDecide(result) ? "(for \"you decide\", the recommended one)."
@@ -2280,5 +2293,5 @@ export function planNextStep(result: ResearchPlanResult, learnMode?: boolean, ch
     : "Do the recommended tasks now, in order, each within its minutes; then check the answer with finalize_research " +
       "and give it in this turn.") +
     ` ${planPresentation(result, chatGpt)} ${chatGpt ? CHATGPT_TASK_TIME_LIMIT : TASK_PROGRESS + TASK_TIME_LIMIT}` +
-    notOnPlan;
+    notOnPlan + (result.claims === undefined ? "" : ` ${CLAIMS_ON_A_LATER_CALL}`);
 }

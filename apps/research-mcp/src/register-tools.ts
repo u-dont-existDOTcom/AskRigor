@@ -28,7 +28,8 @@ import { researchPlannerFromEnv, type ResearchPlanner } from "./research-planner
 import type { ResearchLane } from "./research-steering.js";
 import { researchTrialWindows, switchHolds, type ResearchSwitchModes, type ResearchTrialSwitch, type ResearchTrialWindows }
   from "./research-trial.js";
-import { hrpCoreDigest, hrpCoreReceiptUse, type HrpCore } from "./hrp-core.js";
+import { HRP_CORE_CLAIM, HRP_CORE_COMES_WITH_PLAN, HRP_CORE_HELD_ALREADY, hrpCoreDigest, hrpCoreReceiptUse, type HrpCore }
+  from "./hrp-core.js";
 import {
   answerReviewNote, researchReviewerFromEnv, type ResearchReviewer, type ResearchReviewerCall,
 } from "./research-reviewer.js";
@@ -2244,6 +2245,7 @@ function defineResearchOperations(
       // Owner answer 412a: registering the plain answer hands over HRP's core, on an account that has it.
       hrpCore: currentHrpCore,
       hrpCoreFor: (accountKey, devAccount) => switchHoldsFor(options, "hrpCore", accountKey, devAccount),
+      hrpCoreReceipt: protocolCoreReceipt,
       // Owner answers 413a and 412a: a dev account's test window for the two switches.
       researchTrial: () => ({ modes: researchSwitchModes(), windows: options.researchTrialWindows ?? researchTrialWindows }),
       ...(atlasReports === undefined ? {} : { atlasReports }),
@@ -2266,12 +2268,15 @@ function defineResearchOperations(
             if (secret === undefined) return undefined;
             const verified = verifyResearchReceipt(receipt, { secret });
             if (!verified.ok || verified.kind !== "plain_answer") return undefined;
-            const { acct, target, claims, first } = verified.claims;
+            const { acct, target, claims, first, hrp, core } = verified.claims;
             return acct === plainAnswerAccountBinding(secret, accountKey) && typeof target === "string"
               // Owner answer 413a: the claims' digests too, in the order registered, when they were registered to be
-              // accounted for on the menu (first: counted from 1, as the registration's result listed them).
+              // accounted for on the menu (first: counted from 1, as the registration's result listed them). Owner answer
+              // 412a: and what the registration said of HRP's core.
               ? { target, issuedAt: verified.issued_at,
-                ...(first === "1" && Array.isArray(claims) ? { claims } : {}) }
+                ...(first === "1" && Array.isArray(claims) ? { claims } : {}),
+                ...(typeof hrp === "string" && HRP_CORE_CLAIM.test(hrp) ? { hrpCore: "handed" as const }
+                  : core === HRP_CORE_COMES_WITH_PLAN || core === HRP_CORE_HELD_ALREADY ? { hrpCore: core } : {}) }
               : undefined;
           },
         },
@@ -2799,19 +2804,27 @@ function defineResearchOperations(
       const reviewer = !callerReads && researcher !== undefined && checkedInput !== undefined && draft !== undefined &&
         draft.trim() !== "" && isDevAccount(researcher.accountKey, devAccountKeysFromEnv())
         ? configuredReviewer(options) : undefined;
+      // Owner answer 412a, option c: one note when no receipt shows HRP's core, while its switch holds for the account;
+      // never for a light look-up (the review of 24 Nov 2026, F1), which gets no core at its registration. Only a dev
+      // account's research, the only kind AskRigor plans, can be one.
+      const devResearcher = researcher !== undefined && isDevAccount(researcher.accountKey, devAccountKeysFromEnv());
+      const coreChecked = researcher !== undefined && secret !== undefined &&
+        switchHoldsFor(options, "hrpCore", researcher.accountKey, devResearcher);
+      const laneAsked = reviewer?.enabled === true || (coreChecked && devResearcher && checkedInput !== undefined);
       // The person's words, read from the raw call as register_plain_answer reads its own; absent or unusable, the
       // review reads the research target alone.
-      const asked = reviewer?.enabled === true ? finalCheckAsked(input) : undefined;
+      const asked = laneAsked ? finalCheckAsked(input) : undefined;
       // Owner answer 302: a light look-up's draft is not reviewed, and the review counts nothing for it. The lane is
       // the one AskRigor's own plan gave this account's same words or research target (plannedLane), which can
       // neither fail the check nor hold it up: no lane, a throw or a rejection, and the draft is reviewed as before.
       const reviewed = (lane: ResearchLane | undefined) => lane === "light" ? LIGHT_LANE_NOT_REVIEWED
         : reviewer!.review({ asked, researchTarget: checkedInput!.research_target, answer: draft! },
           researcher!.accountKey);
+      const lane = !laneAsked ? undefined
+        : plannedLane(options, asked, researcher!.accountKey, checkedInput!.research_target);
       const reviewing = reviewer?.enabled !== true ? undefined
-        : plannedLane(options, asked, researcher!.accountKey, checkedInput!.research_target)
-          .then(reviewed, () => reviewed(undefined))
-          .catch(() => REVIEW_FAILED);
+        : lane!.then(reviewed, () => reviewed(undefined)).catch(() => REVIEW_FAILED);
+      const lightLookUp = coreChecked && lane !== undefined ? lane.then((found) => found === "light", () => false) : undefined;
       const finalizeOptions = {
         secret,
         protocolNames: await protocolNames(),
@@ -2832,10 +2845,8 @@ function defineResearchOperations(
             plainAnswerRequested(researcher.mode)
           ? { plainAnswer: { note: researcher.plainAnswerNote, account: plainAnswerAccountBinding(secret, researcher.accountKey) } }
           : {}),
-        // Owner answer 412a, option c: one note when no receipt shows HRP's core, while its switch holds for the account.
-        ...(researcher !== undefined && secret !== undefined && switchHoldsFor(options, "hrpCore", researcher.accountKey,
-            isDevAccount(researcher.accountKey, devAccountKeysFromEnv()))
-          ? { hrpCore: { account: plainAnswerAccountBinding(secret, researcher.accountKey) } }
+        ...(coreChecked && await lightLookUp !== true
+          ? { hrpCore: { account: plainAnswerAccountBinding(secret!, researcher!.accountKey) } }
           : {}),
         // Owner answer 143a: this research's map, on the MCP connector. A paid private answer's save offer also asks,
         // in the same sentence, to file it; a free contributor's final check reminds the model to file it.
@@ -3496,9 +3507,14 @@ function hrpCoreReceiptsFor(options: RegisterToolsOptions, extra: ResearchOperat
  */
 function withHrpCoreReceipt(result: CallToolResult, sha256: string | undefined): CallToolResult {
   if (sha256 === undefined) return result;
-  const receipt = researchReceipt("protocol_core", { hrp: hrpCoreDigest({ sha256 }) });
+  const receipt = protocolCoreReceipt({ sha256 });
   return receipt === undefined ? result : { ...result, content: [...result.content,
     { type: "text", text: `research_receipt: ${receipt} ${hrpCoreReceiptUse({ sha256 })}` }] };
+}
+
+/** The receipt that HRP's core was given, as load_protocol and a plan_research result that carries it give it. */
+function protocolCoreReceipt(core: Pick<HrpCore, "sha256">): string | undefined {
+  return researchReceipt("protocol_core", { hrp: hrpCoreDigest(core) });
 }
 
 /** The pseudonymous key of the account a call is signed in as, read from the call alone; undefined for any other call. */

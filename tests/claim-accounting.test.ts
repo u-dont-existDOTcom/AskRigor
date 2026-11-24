@@ -18,25 +18,35 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   CLAIM_ACCOUNTING_LIMITS,
+  CLAIM_WORDS_FOR_NUMBER,
   CLAIMS_AT_THE_SCREEN,
+  CLAIMS_NOT_SENT,
+  CLAIMS_ON_A_LATER_CALL,
   CLAIMS_ON_THE_MENU,
   CLAIMS_ON_THE_MENU_REGISTERED,
+  CLAIMS_PLANNED,
+  CLAIMS_PLANNED_AT_INSPECT,
+  CLAIMS_PLANNED_LIGHT,
   CLAIMS_RUBRIC,
   CLAIMS_TASK_SHAPE,
   LEFT_OUT_SHAPE,
+  NOT_ON_PLAN_IN_ANSWER,
   NOT_ON_PLAN_LEAD,
   NOT_ON_PLAN_STRUCTURED,
+  NOT_ON_PLAN_STRUCTURED_IN_ANSWER,
   PREMISE_CLAIMS_COUNT,
   accountForClaims,
   claimNumbers,
+  claimReading,
   claimsNotOnPlan,
   claimsWanted,
+  declaresNoClaim,
   leftOutClaims,
   notOnPlanLines,
   type ClaimAccount,
 } from "../apps/research-mcp/src/claim-accounting.js";
 import { registerTools, type RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
-import { plainAnswerRequest } from "../apps/research-mcp/src/research-contributor-access-tool.js";
+import { plainAnswerRequest, waitForPendingMenuChoices } from "../apps/research-mcp/src/research-contributor-access-tool.js";
 import { PLAIN_ANSWER_LIMITS, finalizeResearch, plainAnswerClaimDigest, type FinalizeResearchInput }
   from "../apps/research-mcp/src/research-finalization-gate.js";
 import {
@@ -148,6 +158,53 @@ describe("claims accounted for exactly (owner answer 413a)", () => {
     ]);
   });
 
+  it("reads a menu that gives a 0 as counted from 0, in every task, unless it gives the last claim's number too", () => {
+    // Each number one higher, and said; what a left_out entry names by its words is as it was.
+    const shifted = accountForClaims([{ claims: [0] }, { claims: ["1", 0] }, {}], [{ claim: CLAIMS[2]!, why: "No room." }],
+      digests, plainAnswerClaimDigest);
+    expect(shifted.accounts).toEqual(account([{ claim: 1, tasks: [1, 2] }, { claim: 2, tasks: [2] },
+      { claim: 3, tasks: [], text: CLAIMS[2]!, why: "No room." }]));
+    expect(shifted.problems).toEqual(["later_inputs.researchMenu.tasks: this menu's claims are counted from 0, so each of " +
+      "their numbers was read as one higher. They are numbered from 1, as register_plain_answer's result listed them: " +
+      "send them so from now on."]);
+    // The 0 in one task alone says how the whole menu counts; a number past the claims is still named as it was given.
+    const past = accountForClaims([{ claims: [1, 4] }, { claims: 0 }], undefined, digests, plainAnswerClaimDigest);
+    expect(past.accounts).toEqual(account([{ claim: 1, tasks: [2] }, { claim: 2, tasks: [1] }, { claim: 3, tasks: [] }]));
+    expect(past.problems).toEqual([expect.stringContaining("counted from 0"),
+      "later_inputs.researchMenu.tasks[0].claims: 4 is past the 3 of the plain answer; left out."]);
+    // A 0 in another script; and all of them, counted from 0.
+    expect(accountForClaims([{ claims: ["٠", "١", "٢"] }], undefined, digests, plainAnswerClaimDigest).accounts)
+      .toEqual(account([1, 2, 3].map((claim) => ({ claim, tasks: [1] }))));
+    // Both a 0 and the last claim's number: which claims are meant can't be told, so none of the numbers is used, and only
+    // a claim the menu leaves out, by its words, has a place.
+    const unclear = accountForClaims([{ claims: [0, 1] }, { claims: [3] }], [{ claim: CLAIMS[1]!, why: "No room." }], digests,
+      plainAnswerClaimDigest);
+    expect(unclear.accounts).toEqual(account([{ claim: 2, tasks: [], text: CLAIMS[1]!, why: "No room." }]));
+    expect(unclear.problems).toEqual(["later_inputs.researchMenu.tasks: this menu's claims give both 0 and 3, so none of " +
+      "their numbers was used. The numbers start at 1, as register_plain_answer's result listed them: send them so with " +
+      "the next call."]);
+    expect(notOnPlanLines(unclear.accounts)).toEqual([`Not on this plan, so not checked: “${CLAIMS[1]}” (No room.)`,
+      "You can ask for a task on it."]);
+    // The last claim of a plain answer with one claim is claim 1, so 0 alone is it and 0 with 1 is unclear.
+    expect(accountForClaims([{ claims: [0] }], undefined, [digests[0]!], plainAnswerClaimDigest).accounts)
+      .toEqual(account([{ claim: 1, tasks: [1] }]));
+    expect(accountForClaims([{ claims: [0, 1] }], undefined, [digests[0]!], plainAnswerClaimDigest).accounts).toEqual([]);
+    // Without a 0 nothing is read higher, and a value that is no number never says how a menu counts.
+    expect(claimReading([[1, 2], "x", null, -1, 1.5, "00x"], 3).counted).toBe("from_1");
+    expect(claimReading(["0"], 3).counted).toBe("from_0");
+    expect(claimReading([[0], [3]], 3).read([1, 2, 3])).toEqual([]);
+  });
+
+  it("knows a menu that declares no claim at all, by its numbers and its left_out alone", () => {
+    for (const [tasks, leftOut] of [[[{}, {}], undefined], [[{ claims: [] }, { claims: "x" }], []], [[{ claims: [100, -1] }], [{}, 4]]] as const) {
+      expect(declaresNoClaim(tasks, leftOut), JSON.stringify([tasks, leftOut])).toBe(true);
+    }
+    for (const [tasks, leftOut] of [[[{}, { claims: [2] }], undefined], [[{ claims: "0" }], undefined], [[{ claims: 9 }], []],
+      [[{}], [{ claim: CLAIMS[0]! }]], [[{}], CLAIMS[0]!]] as const) {
+      expect(declaresNoClaim(tasks, leftOut), JSON.stringify([tasks, leftOut])).toBe(false);
+    }
+  });
+
   it("finds a claim by its digest in any script, whatever its quotation marks, case or spacing", () => {
     const written = ["足の汗は二週間で減る。", "لا توجد دراسة على هذا الغسول.", "It is “safe” every day."];
     const registered = written.map(plainAnswerClaimDigest);
@@ -188,9 +245,12 @@ describe("claims accounted for exactly (owner answer 413a)", () => {
     expect(notOnPlanLines(undefined)).toEqual([]);
     expect(notOnPlanLines([{ claim: 1, tasks: [2] }])).toEqual([]);
     expect(claimsNotOnPlan([{ claim: 1, tasks: [2] }, { claim: 2, tasks: [] }])).toEqual([{ claim: 2, tasks: [] }]);
+    // AskRigor holds no text of the plain answer: a claim whose words the menu did not give stands by its number, and what
+    // the number stands for is said to the AI beside the lines, never in a line the person reads.
     expect(notOnPlanLines([{ claim: 1, tasks: [] }])).toEqual([
-      "Not on this plan, so not checked: claim 1 of your plain answer (show the claim's own words, as registered).",
-      "You can ask for a task on it."]);
+      "Not on this plan, so not checked: “<claim 1, in its own words>”", "You can ask for a task on it."]);
+    for (const lead of [NOT_ON_PLAN_LEAD, NOT_ON_PLAN_IN_ANSWER]) expect(lead).toContain(CLAIM_WORDS_FOR_NUMBER);
+    expect(NOT_ON_PLAN_IN_ANSWER.startsWith("Give these lines in the answer, beside the task record")).toBe(true);
     expect(notOnPlanLines([{ claim: 1, tasks: [], text: CLAIMS[0]!, why: "No room." }, { claim: 2, tasks: [1] },
       { claim: 3, tasks: [], text: CLAIMS[2]! }])).toEqual([
       `Not on this plan, so not checked: “${CLAIMS[0]}” (No room.)`,
@@ -325,7 +385,7 @@ describe("the menu an account with accounting gets (owner answer 413a)", () => {
     const claims = accountsOf(menu);
     const lines = [
       `Not on this plan, so not checked: “${CLAIMS[1]}” (It changes nothing you would do.)`,
-      "Not on this plan, so not checked: claim 3 of your plain answer (show the claim's own words, as registered).",
+      "Not on this plan, so not checked: “<claim 3, in its own words>”",
       "You can ask for a task on any of these."];
     const ask = planResearch({ ...menu, steering_choice: "Which leaves do you have?" }, BALANCED, undefined, undefined, claims);
     expect(ask.next).toBe("ask");
@@ -334,14 +394,27 @@ describe("the menu an account with accounting gets (owner answer 413a)", () => {
       const at = text.indexOf(lines.join("\n"));
       expect(at).toBeGreaterThan(text.indexOf("Recommended: "));
       expect(at).toBeLessThan(text.indexOf("How should I spend the time?"));
+      // What a number stands for is said to the AI where the reply is described, before the menu's lines.
+      expect(text.indexOf(`(the times are rough planning estimates; ${CLAIM_WORDS_FOR_NUMBER}):`)).toBeLessThan(at);
+      expect(text).toContain(`(the times are rough planning estimates; ${CLAIM_WORDS_FOR_NUMBER}):`);
       expect(planNextStep(ask, undefined, chatGpt)).toContain(` ${NOT_ON_PLAN_STRUCTURED} Make no research call`);
       const goOn = planResearch(menu, BALANCED, undefined, undefined, claims);
       expect(goOn.next).toBe("go_on");
       const going = planResearchText(goOn, new Set(), false, TARGET, undefined, [], undefined, chatGpt);
-      const told = going.indexOf(`${NOT_ON_PLAN_LEAD} ${lines.join(" ")}`);
+      // ChatGPT's tasks are a record for the answer, so the lines go in the answer; every other app shows them.
+      const told = going.indexOf(`${chatGpt ? NOT_ON_PLAN_IN_ANSWER : NOT_ON_PLAN_LEAD} ${lines.join(" ")}`);
       expect(told).toBeGreaterThan(going.indexOf("Recommended: "));
       expect(told).toBeLessThan(going.indexOf("Go on now"));
-      expect(planNextStep(goOn, undefined, chatGpt).endsWith(` ${NOT_ON_PLAN_STRUCTURED}`)).toBe(true);
+      expect(going).not.toContain(chatGpt ? NOT_ON_PLAN_LEAD : NOT_ON_PLAN_IN_ANSWER);
+      expect(going).toContain(` ${CLAIMS_ON_A_LATER_CALL} `);
+      expect(planNextStep(goOn, undefined, chatGpt).endsWith(
+        ` ${chatGpt ? NOT_ON_PLAN_STRUCTURED_IN_ANSWER : NOT_ON_PLAN_STRUCTURED} ${CLAIMS_ON_A_LATER_CALL}`)).toBe(true);
+      // A light look-up's menu is shown to the person in every app, and so are its lines; it asks for no later call.
+      const light = { ...menu, lane: "light" as const, tasks: [task({ kind: "full_text", claims: [1] })] };
+      const lit = planResearch(light, BALANCED, undefined, undefined, accountsOf(light));
+      expect(lit.lane).toBe("light");
+      expect(planResearchText(lit, new Set(), false, TARGET, undefined, [], undefined, chatGpt)).toContain(NOT_ON_PLAN_LEAD);
+      expect(planNextStep(lit, undefined, chatGpt).endsWith(` ${NOT_ON_PLAN_STRUCTURED}`)).toBe(true);
     }
     // Every claim on the plan: neither app is told of one that is not.
     const covered = planResearch(MENU, BALANCED, undefined, undefined, accountsOf(MENU));
@@ -359,6 +432,9 @@ describe("the menu an account with accounting gets (owner answer 413a)", () => {
     expect(example.researchMenu.tasks[1]).not.toHaveProperty("claims");
     expect(example.researchMenu.left_out).toEqual([{ claim: CLAIMS[2], why: "No room." }]);
     expect(correctedMenu({ research_target: TARGET, tasks: [task()] }).researchMenu).not.toHaveProperty("left_out");
+    // A 0 goes back with the rest, so the corrected call is read as counted from 0 too, not as one claim fewer.
+    expect(correctedMenu({ research_target: TARGET, tasks: [{ ...task(), claims: [1, 0] }] }).researchMenu.tasks[0]!.claims)
+      .toEqual([0, 1]);
   });
 });
 
@@ -421,7 +497,11 @@ describe("AskRigor's own planning call with the claims' rule (owner answer 413a)
     expect(RESEARCH_PLANNER_CLAIMS_RUBRIC).toContain(
       `result of one named study, reading that study in full comes first.\n${CLAIMS_RUBRIC}\n\n4. `);
     expect(RESEARCH_PLANNER_CLAIMS_RUBRIC).toContain("When the question takes something for granted");
-    expect(RESEARCH_PLANNER_CLAIMS_RUBRIC_VERSION).toBe(`${RESEARCH_PLANNER_RUBRIC_VERSION}+claims.1`);
+    expect(RESEARCH_PLANNER_CLAIMS_RUBRIC_VERSION).toBe(`${RESEARCH_PLANNER_RUBRIC_VERSION}+claims.2`);
+    // What covering several claims takes is the same in the screen's words and in the rubric's (line breaks apart).
+    const several = "one task may cover several, but only where its own result could show each of them wrong: the task that " +
+      "reads the study or source that settles a claim covers it, the search that finds that source does not";
+    for (const said of [CLAIMS_RUBRIC, CLAIMS_AT_THE_SCREEN]) expect(said.replaceAll("\n", " ")).toContain(several);
     expect(Math.max(...CLAIMS_RUBRIC.split("\n").map((line) => line.length))).toBeLessThanOrEqual(118);
   });
 
@@ -471,6 +551,13 @@ describe("AskRigor's own planning call with the claims' rule (owner answer 413a)
     const cut = read({ ...REPLY, left_out: [{ claim: 3, why: `${"\u{1F9E6}".repeat(300)}` }] }).claims!.leftOut[0]!.why!;
     expect(Array.from(cut)).toHaveLength(CLAIM_ACCOUNTING_LIMITS.why);
     expect(cut.isWellFormed()).toBe(true);
+    // A reply that counts the claims from 0 is read as a menu is (claimReading): each number one higher, left_out's too.
+    const zero = { ...REPLY, tasks: [{ ...REPLY.tasks[0]!, claims: [0, 1] }, REPLY.tasks[1]!], left_out: [{ claim: 2, why: "No room." }] };
+    expect(read(zero).tasks.map(({ claims }) => claims)).toEqual([[1, 2], undefined]);
+    expect(read(zero).claims!.leftOut).toEqual([{ claim: 3, why: "No room." }]);
+    const unclear = { ...zero, left_out: [{ claim: 3, why: "No room." }] };
+    expect(read(unclear).tasks.every((entry) => !("claims" in entry))).toBe(true);
+    expect(read(unclear).claims!.leftOut).toEqual([{ claim: 1 }, { claim: 2 }, { claim: 3 }]);
     // Aside has no tasks and no claims; light accounts for them as research does.
     expect(read({ ...REPLY, lane: "aside" })).not.toHaveProperty("claims");
     expect(read({ ...REPLY, lane: "light", tasks: [REPLY.tasks[0]!] })).toMatchObject({ lane: "light",
@@ -625,18 +712,136 @@ describe("the account tool with the claims accounted for (owner answer 413a)", (
     expect(words(planned)).toContain(`${NOT_ON_PLAN_LEAD} Not on this plan, so not checked: “${CLAIMS[2]}” ` +
       "(It changes nothing you would do.) You can ask for a task on it.");
     expect(planned.structuredContent!.next_step).toContain(NOT_ON_PLAN_STRUCTURED);
-    // The digest names the tasks as given: the same menu without its claims and left_out is the same menu.
-    const bare = menuWith(receipt, { menu_digest: menu.menu_digest });
-    const { left_out: _left, ...rest } = bare;
+    // The digest names the tasks as given: the same menu with other claims and no left_out is the same menu.
+    const { left_out: _left, ...rest } = menuWith(receipt, { menu_digest: menu.menu_digest });
     const again = await call({ action: "plan_research", later_inputs: { researchMenu: { ...rest,
-      tasks: rest.tasks.map(({ claims: _claims, ...entry }) => entry) } } });
+      tasks: rest.tasks.map((entry, index) => ({ ...entry, claims: index === 0 ? [2] : [] })) } } });
     const other = again.structuredContent!.researchMenu as { menu_changed?: true; claims: ClaimAccount[]; menu_digest: string };
     expect(other).not.toHaveProperty("menu_changed");
     expect(other.menu_digest).toBe(menu.menu_digest);
-    // In neither place: said for all three, by number, as AskRigor holds no text of the plain answer.
-    expect(other.claims).toEqual([1, 2, 3].map((claim) => ({ claim, tasks: [] })));
-    expect(words(again)).toContain("Not on this plan, so not checked: claim 2 of your plain answer (show the claim's own " +
-      "words, as registered).");
+    // In neither place: said for both, by number, as AskRigor holds no text of the plain answer.
+    expect(other.claims).toEqual([{ claim: 1, tasks: [] }, { claim: 2, tasks: [1] }, { claim: 3, tasks: [] }]);
+    expect(words(again)).toContain(`${NOT_ON_PLAN_LEAD} Not on this plan, so not checked: “<claim 1, in its own words>” ` +
+      "Not on this plan, so not checked: “<claim 3, in its own words>” You can ask for a task on any of these.");
+  });
+
+  it("reads a first menu that declares no claim as one whose claims are in neither place", async () => {
+    const { call, register } = await tool({ accounting: true });
+    const { left_out: _left, ...rest } = menuWith(receiptOf(await register()));
+    const planned = await call({ action: "plan_research", later_inputs: { researchMenu: { ...rest,
+      tasks: rest.tasks.map(({ claims: _claims, ...entry }) => entry) } } });
+    expect(planned.structuredContent).not.toHaveProperty("problems");
+    expect((planned.structuredContent!.researchMenu as { claims: ClaimAccount[] }).claims)
+      .toEqual([1, 2, 3].map((claim) => ({ claim, tasks: [] })));
+    expect(words(planned)).toContain("Not on this plan, so not checked: “<claim 2, in its own words>”");
+  });
+
+  /** An ask, and the tasks of its menu retyped without what they and the menu said of the claims. */
+  async function askedMenu(later: Record<string, unknown> = {}) {
+    const made = await tool({ accounting: true });
+    const receipt = receiptOf(await made.register());
+    const given = menuWith(receipt, { steering_choice: "Which leaves do you have?", ...later });
+    const asked = await made.call({ action: "plan_research", later_inputs: { researchMenu: given } });
+    const { left_out: _left, ...rest } = given;
+    const retyped = { ...rest, tasks: given.tasks.map(({ claims: _claims, ...entry }: { claims?: unknown }) => entry),
+      menu_digest: (asked.structuredContent!.researchMenu as { menu_digest: string }).menu_digest };
+    const plan = (researchMenu: unknown) => made.call({ action: "plan_research", later_inputs: { researchMenu } });
+    return { ...made, asked, given, retyped, plan };
+  }
+  type Menu = { next: string; claims: ClaimAccount[]; menu_changed?: true; recommended: Array<{ task: number }> };
+  const menuResult = (result: Result) => result.structuredContent!.researchMenu as Menu;
+
+  it("names the tasks' claims and left_out in the ask's rule for the person's reply, in its text and next_step", async () => {
+    const { asked } = await askedMenu();
+    expect(menuResult(asked).next).toBe("ask");
+    expect(words(asked)).toContain("When the person replies: call manage_research_access action plan_research again with " +
+      "the same plain_answer_receipt, tasks (each with its claims), left_out and menu_digest (researchMenu.menu_digest in " +
+      "this result), research_target word for word");
+    expect(asked.structuredContent!.next_step).toContain("then call action plan_research again with the same " +
+      "plain_answer_receipt, tasks (each with its claims), left_out and menu_digest, and with their allocation and " +
+      "person_answered true inside later_inputs.researchMenu");
+    // On an account without it, as before: the rule names neither.
+    const off = await tool({ accounting: false });
+    const plain = await off.call({ action: "plan_research", later_inputs: { researchMenu: { research_target: TARGET,
+      steering_choice: "Which leaves do you have?", tasks: [task()] } } });
+    expect(words(plain)).toContain("again with the same plain_answer_receipt, tasks and menu_digest (researchMenu.menu_digest");
+    expect(plain.structuredContent!.next_step).toContain("then call action plan_research again with their allocation and");
+    for (const said of [words(plain), String(plain.structuredContent!.next_step)]) expect(said).not.toContain("left_out");
+  });
+
+  it("says nothing of a claim when the person's answer comes with the menu retyped without them, and asks for both back", async () => {
+    const { asked, retyped, plan } = await askedMenu();
+    const handed = (asked.structuredContent!.you_decide_later_inputs as { researchMenu: ResearchMenuInput }).researchMenu;
+    const { left_out: _left, ...handedRest } = handed;
+    const dropped = {
+      // "you decide", the call handed over but for the two fields.
+      youDecide: { ...handedRest, tasks: handed.tasks.map(({ claims: _claims, ...entry }) => entry), person_answered: true },
+      // The person's own minutes, by the numbers they saw.
+      allocation: { ...retyped, allocation: [{ task: 2, minutes: 4 }], person_answered: true },
+      // A re-plan with a task done, which asks again.
+      replan: { ...retyped, done: [1] },
+    };
+    for (const [name, menu] of Object.entries(dropped)) {
+      const result = await plan(menu);
+      expect(result.isError, words(result)).not.toBe(true);
+      const read = menuResult(result);
+      expect(read.next, name).toBe(name === "replan" ? "ask" : "go_on");
+      expect(read, name).not.toHaveProperty("menu_changed");
+      expect(read.claims, name).toEqual([]);
+      expect(result.structuredContent!.problems, name).toEqual([CLAIMS_NOT_SENT]);
+      expect(words(result), name).toContain(CLAIMS_NOT_SENT);
+      for (const said of [words(result), JSON.stringify(result.structuredContent)]) expect(said, name).not.toContain("Not on this plan");
+      // The next call is told to carry them.
+      expect(words(result), name).toContain(name === "replan" ? "tasks (each with its claims), left_out and menu_digest"
+        : CLAIMS_ON_A_LATER_CALL);
+    }
+    // The person's own minutes stand; a menu that is not the one shown, or one that declares any claim, is read as it is.
+    expect(menuResult(await plan(dropped.allocation)).recommended).toEqual([{ task: 2, minutes: 4 }]);
+    const changed = await plan({ ...retyped, tasks: [...retyped.tasks, { task: "Read a label", kind: "other", could_change: "conclusion" }] });
+    expect(menuResult(changed)).toMatchObject({ menu_changed: true, claims: [1, 2, 3].map((claim) => ({ claim, tasks: [] })) });
+    const one = await plan({ ...retyped, left_out: [{ claim: CLAIMS[2], why: "No room." }] });
+    expect(menuResult(one).claims).toEqual([{ claim: 1, tasks: [] }, { claim: 2, tasks: [] },
+      { claim: 3, tasks: [], text: CLAIMS[2], why: "No room." }]);
+    for (const read of [changed, one]) expect(read.structuredContent).not.toHaveProperty("problems");
+  });
+
+  it("is told of the claims as before by the call the ask hands over, and by an answer that keeps them", async () => {
+    const { asked, given, plan } = await askedMenu();
+    const digest = (asked.structuredContent!.researchMenu as { menu_digest: string }).menu_digest;
+    const handed = (asked.structuredContent!.you_decide_later_inputs as { researchMenu: ResearchMenuInput }).researchMenu;
+    for (const menu of [{ ...handed, person_answered: true }, { ...given, menu_digest: digest, person_answered: true,
+      allocation: [{ task: 2, minutes: 4 }] }, { ...given, menu_digest: digest, done: [1] }]) {
+      const result = await plan(menu);
+      expect(result.structuredContent).not.toHaveProperty("problems");
+      expect(menuResult(result).claims).toEqual([{ claim: 1, tasks: [1] }, { claim: 2, tasks: [2] },
+        { claim: 3, tasks: [], text: CLAIMS[2], why: "It changes nothing you would do." }]);
+      expect(words(result)).toContain(`Not on this plan, so not checked: “${CLAIMS[2]}”`);
+    }
+  });
+
+  it("keeps no menu choice for learn mode when what was recommended can't be told: a detail task, the claims dropped", async () => {
+    const memory = memoryPlanner((source) => researchPlanOf(REPLY, 1, KEY, false, true,
+      source.accounting === true ? source.claims : undefined)!);
+    const { call, register, service } = await tool({ accounting: true, planner: memory.planner });
+    const key = service.accountKeyForSubject("auth0|dev");
+    await call({ action: "set_research_steering", later_inputs: { researchSteering: { learnMenuChoices: true } } }, "auth0|dev");
+    const receipt = receiptOf(await register(CLAIMS, "auth0|dev", { asked: SOURCE.asked! }));
+    const answer = async (tasks: Array<Record<string, unknown>>, claims: boolean) => {
+      const menu = { research_target: TARGET, plain_answer_receipt: receipt, steering_choice: "Which leaves do you have?",
+        tasks: tasks.map((entry, index) => ({ ...entry, claims: [index + 1] })) };
+      const shown = await call({ action: "plan_research", later_inputs: { researchMenu: menu } }, "auth0|dev");
+      const { menu_digest } = shown.structuredContent!.researchMenu as { menu_digest: string };
+      await call({ action: "plan_research", later_inputs: { researchMenu: { ...menu, ...(claims ? {} : { tasks }), menu_digest,
+        allocation: [{ task: 1, minutes: 5 }], person_answered: true } } }, "auth0|dev");
+      await waitForPendingMenuChoices(service);
+      return (await service.menuChoices(key)).length;
+    };
+    const search = { task: "Find trials of the rinse", kind: "study_search", could_change: "conclusion" };
+    const detail = { task: "Look up how the leaves are dried", kind: "abstract_screen", could_change: "detail" };
+    expect(await answer([search, detail], true)).toBe(1);
+    expect(await answer([search, detail], false)).toBe(1);
+    // Without a detail task the recommendation is the same with the claims and without them, so the choice is kept.
+    expect(await answer([search, { ...detail, could_change: "confidence" }], false)).toBe(2);
   });
 
   it("asks with the same lines, and hands the you-decide call over with both fields", async () => {
@@ -773,6 +978,45 @@ describe("the account tool with the claims accounted for (owner answer 413a)", (
     expect(memory.sources[1]).not.toHaveProperty("accounting");
     expect(menuOf(plain)).not.toHaveProperty("left_out");
     expect(menuOf(plain).tasks.every((entry) => !("claims" in entry))).toBe(true);
+  });
+
+  it("asks the AI for no task and no left_out entry where AskRigor planned the research: its plan says both already", async () => {
+    const memory = memoryPlanner((source) => researchPlanOf(REPLY, 1, KEY, false, true,
+      source.accounting === true ? source.claims : undefined)!);
+    const { call, register } = await tool({ accounting: true, planner: memory.planner });
+    const inspected = words(await call({ action: "inspect" }, "auth0|dev"));
+    expect(inspected).toContain(plainAnswerRequest(true, true, true));
+    expect(inspected).toContain(`AskRigor signs it with the time. ${CLAIMS_PLANNED_AT_INSPECT}`);
+    const registered = await register(CLAIMS, "auth0|dev", { asked: SOURCE.asked! });
+    expect(words(registered)).toContain(`pass that receipt too. ${CLAIMS_PLANNED}Pass this research_receipt`);
+    for (const said of [inspected, words(registered), JSON.stringify(registered.structuredContent)]) {
+      for (const asking of [CLAIMS_ON_THE_MENU, CLAIMS_ON_THE_MENU_REGISTERED, CLAIMS_AT_THE_SCREEN, CLAIMS_TASK_SHAPE,
+        LEFT_OUT_SHAPE, "each claim gets a task"]) expect(said).not.toContain(asking.trim());
+    }
+    for (const planned of [CLAIMS_PLANNED, CLAIMS_PLANNED_AT_INSPECT]) {
+      expect(planned).toContain("says which task covers each claim and which are left out: send both as given. Look beyond the " +
+        "claims too. ");
+    }
+    // Another account, and a dev account whose plan was not made, plan themselves, and are asked as before.
+    expect(words(await call({ action: "inspect" }))).toContain(plainAnswerRequest(true, true, false));
+    const failing: ResearchPlanner = { ...memory.planner, plan: async () => ({ planning: { status: "skipped", reason: "timeout" },
+      cached: false, costUsd: 0, milliseconds: 1 }) };
+    const own = await (await tool({ accounting: true, planner: failing })).register(CLAIMS, "auth0|dev", { asked: SOURCE.asked! });
+    expect(words(own)).toContain(CLAIMS_ON_THE_MENU_REGISTERED);
+    expect(words(own)).not.toContain("send both as given");
+    // A light plan's go-ahead says to do only what its menu lists, so nothing there says to look beyond the claims.
+    const light = memoryPlanner(() => researchPlanOf({ ...REPLY, lane: "light", tasks: [{ ...REPLY.tasks[0]!,
+      kind: "full_text", claims: [1] }], left_out: [] }, 1, KEY, false, true, CLAIMS)!);
+    const looked = words(await (await tool({ accounting: true, planner: light.planner })).register(CLAIMS, "auth0|dev",
+      { asked: SOURCE.asked! }));
+    expect(looked).toContain(`pass that receipt too. ${CLAIMS_PLANNED_LIGHT}Pass this research_receipt`);
+    expect(looked).not.toContain("ook beyond the claims");
+    // Off: as before, planned or not.
+    const off = await tool({ accounting: false, planner: memory.planner });
+    expect(words(await off.call({ action: "inspect" }, "auth0|dev"))).toContain(plainAnswerRequest(true));
+    expect(words(await off.register(CLAIMS, "auth0|dev", { asked: SOURCE.asked! })))
+      .toContain("Treat each claim as something to check, confirm or correct, and look beyond the claims too. Pass ");
+    expect(plainAnswerRequest(true, false, true)).toBe(plainAnswerRequest(true));
   });
 
   it("finds a kept plan's claims again when the registration's changed: by their words, never by number", async () => {

@@ -90,7 +90,10 @@ describe("the final check's note on HRP's core (owner answer 412a, option c)", (
   it("is given once for research with no receipt of it, and only while the switch holds for the account", () => {
     const result = run([plain(), audit()]);
     expect(noted(result)).toBe(1);
-    expect(HRP_CORE_NOT_SHOWN).toContain("can't tell whether they were; loading them");
+    // It asks for no late load: at the last step that would cost a call and a second check for a receipt alone.
+    expect(HRP_CORE_NOT_SHOWN).toBe("No receipt passed here shows that HRP's core rules were loaded in this research, so AskRigor " +
+      "can't tell whether they were. Don't load them now for the receipt's sake; in the next research, loading them first " +
+      "(load_protocol, protocol \"hrp\", section \"core\") gives one. Nothing here holds back the answer.");
     expect(noted(run([plain(), audit()], false))).toBe(0);
     // Also for an answer with no plain answer, and one whose draft is missing steps.
     expect(noted(run([audit()]))).toBe(1);
@@ -229,6 +232,16 @@ type Registered = { research_receipt: string; hrp_core?: { scope_sha256: string 
   planned_later_inputs?: { researchMenu: ResearchMenuInput } };
 const registered = (result: Result) => result.structuredContent as unknown as Registered;
 
+const tasks = [{ task: "Read the rinse trial in full", kind: "full_text", could_change: "conclusion", sources: 1 },
+  { task: "Search trials of the rinse", kind: "study_search", could_change: "conclusion", sources: 2 }];
+const planner = (lane: string, before?: () => Promise<unknown>): ResearchPlanner => ({ enabled: true, dailyCapUsd: 3,
+  accountDailyCalls: 10, lane: async () => undefined, plan: async () => {
+    await before?.();
+    return { planning: { status: "planned", plan: researchPlanOf({ about: "A rinse made from walnut leaves.", steering_choice: "none",
+      lane, tasks: lane === "light" ? tasks.slice(0, 1) : lane === "aside" ? [] : tasks, person_said_go_on: true }, 1, "sk-none", true)! },
+    cached: false, costUsd: 0, milliseconds: 1 };
+  } });
+
 describe("the plain answer's receipt signs HRP's core when its registration hands it over", () => {
   it("in the text, the fields and the menu's outline alike, and never when it is not handed over", async () => {
     const core = (await currentHrpCore())!;
@@ -251,16 +264,6 @@ describe("the plain answer's receipt signs HRP's core when its registration hand
     expect(claimsOf(registered(loaded).research_receipt)).not.toHaveProperty("hrp");
     expect(claimsOf(registered(await (await server("off")).register()).research_receipt)).not.toHaveProperty("hrp");
   });
-
-  const tasks = [{ task: "Read the rinse trial in full", kind: "full_text", could_change: "conclusion", sources: 1 },
-    { task: "Search trials of the rinse", kind: "study_search", could_change: "conclusion", sources: 2 }];
-  const planner = (lane: string, before?: () => Promise<unknown>): ResearchPlanner => ({ enabled: true, dailyCapUsd: 3,
-    accountDailyCalls: 10, lane: async () => undefined, plan: async () => {
-      await before?.();
-      return { planning: { status: "planned", plan: researchPlanOf({ about: "A rinse made from walnut leaves.", steering_choice: "none",
-        lane, tasks: lane === "light" ? tasks.slice(0, 1) : lane === "aside" ? [] : tasks, person_said_go_on: true }, 1, "sk-none", true)! },
-      cached: false, costUsd: 0, milliseconds: 1 };
-    } });
 
   it("in AskRigor's own menu and its mark, with an order from before the plan was made", async () => {
     const core = (await currentHrpCore())!;
@@ -388,5 +391,71 @@ describe("finalize_research with HRP's core handed over", () => {
       expect(await check([receipt()]), mode).toBe(false);
     }
     expect(await check([receipt()], "auth0|dev")).toBe(true);
+  });
+
+  it("notes nothing of a light look-up, whose registration hands nothing over, as AskRigor's own plan gave the lane", async () => {
+    const audited = issueResearchReceipt("study_audit", { id: DOI, status: "complete_no_unresolved_fields", t: Date.now() + 60_000 },
+      { secret: SECRET });
+    const run2 = async (lane: ResearchPlanner["lane"], subject = "auth0|dev", later: Record<string, unknown> = {}) => {
+      const asked: unknown[][] = [];
+      const { call, access } = await server("on", { researchPlanner: { ...planner("research"), lane: async (...given) => {
+        asked.push(given);
+        return await lane(...given);
+      } } });
+      const result = await call("finalize_research", { ...input([audited]), ...(Object.keys(later).length === 0 ? {} : { later_inputs: later }) } as
+        unknown as Record<string, unknown>, subject);
+      return { noted: ((result.structuredContent as { notes?: string[] }).notes ?? []).includes(HRP_CORE_NOT_SHOWN), asked,
+        key: access.accountKeyForSubject(subject) };
+    };
+    // The lane is the plan's, found by the person's words when the call gives them and by the research target.
+    const light = await run2(async () => "light", "auth0|dev", { asked: "does the rinse work?" });
+    expect(light.noted).toBe(false);
+    expect(light.asked).toEqual([["does the rinse work?", light.key, TARGET]]);
+    expect((await run2(async () => "light")).asked).toEqual([[undefined, light.key, TARGET]]);
+    expect((await run2(async () => "light")).noted).toBe(false);
+    // Any other lane, and a lane that is not known or cannot be read, is noted as before.
+    for (const lane of [async () => "research" as const, async () => "aside" as const, async () => undefined,
+      async () => { throw new Error("synthetic"); }, () => { throw new Error("synthetic"); }]) {
+      expect((await run2(lane)).noted).toBe(true);
+    }
+    // An account AskRigor does not plan for has no such lane, and the planner is not asked.
+    const person = await run2(async () => "light", "auth0|person");
+    expect([person.noted, person.asked]).toEqual([true, []]);
+    // The whole of it: a look-up AskRigor's plan put in the light lane, registered, planned and checked.
+    const looked = await server("on", { researchPlanner: { ...planner("light"), lane: async (words) =>
+      words === "does the rinse work?" ? "light" : undefined } });
+    const registeredLook = registered(await looked.register({ asked: "does the rinse work?" }, "auth0|dev"));
+    expect(registeredLook.hrp_core).toBeUndefined();
+    const checked = await looked.call("finalize_research", { ...input([registeredLook.research_receipt, audited]),
+      later_inputs: { asked: "does the rinse work?" } } as unknown as Record<string, unknown>, "auth0|dev");
+    expect((checked.structuredContent as { notes?: string[] }).notes ?? []).not.toContain(HRP_CORE_NOT_SHOWN);
+  });
+
+  it("asks the planner nothing for its lane while the switch is off and the draft is not reviewed", async () => {
+    let asked = 0;
+    const { call } = await server("off", { researchPlanner: { ...planner("research"), lane: async () => { asked += 1; return "light"; } } });
+    const audited = issueResearchReceipt("study_audit", { id: DOI, status: "complete_no_unresolved_fields", t: Date.now() + 60_000 },
+      { secret: SECRET });
+    await call("finalize_research", input([audited]) as unknown as Record<string, unknown>, "auth0|dev");
+    expect(asked).toBe(0);
+  });
+
+  it("is quiet with the receipt plan_research gives when it hands the core over, and not without it", async () => {
+    const audited = issueResearchReceipt("study_audit", { id: DOI, status: "complete_no_unresolved_fields", t: Date.now() + 60_000 },
+      { secret: SECRET });
+    const { call, register } = await server("on", { researchPlanner: planner("research") });
+    const target = `Whether ${"a walnut-leaf rinse lowers foot sweating in adults and ".repeat(90)}`.slice(0, 4_800).trim();
+    const made = registered(await register({ asked: "does the rinse work?" }, "auth0|dev",
+      { researchTarget: target, text: `${CLAIMS[0]} Cotton socks help.`, claims: CLAIMS }));
+    expect(claimsOf(made.research_receipt)).toMatchObject({ core: "plan" });
+    const planned = await call("manage_research_access", { action: "plan_research", later_inputs: made.planned_later_inputs! }, "auth0|dev");
+    const given = (planned.structuredContent as { research_receipt?: string; hrp_core_status?: string });
+    expect(given.hrp_core_status).toBe("here");
+    const check = async (receipts: string[]) => ((await call("finalize_research", input(receipts, { research_target: target }) as unknown as
+      Record<string, unknown>, "auth0|dev")).structuredContent as { notes?: string[] }).notes ?? [];
+    expect(await check([made.research_receipt, audited])).toContain(HRP_CORE_NOT_SHOWN);
+    expect(await check([made.research_receipt, given.research_receipt!, audited])).not.toContain(HRP_CORE_NOT_SHOWN);
+    // The registration is still compared: the core's receipt begins no research.
+    expect((await check([made.research_receipt, given.research_receipt!, audited])).join("\n")).not.toContain("after the research");
   });
 });

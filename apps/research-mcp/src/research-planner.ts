@@ -24,7 +24,7 @@ import {
   DOSSIER_CONFLICT_READING_RUBRIC,
   type DossierConflictCall,
 } from "./findings/dossier-conflict-reading.js";
-import { CLAIMS_RUBRIC, CLAIM_ACCOUNTING_LIMITS, claimNumbers, oneLine } from "./claim-accounting.js";
+import { CLAIMS_RUBRIC, CLAIM_ACCOUNTING_LIMITS, claimNumbers, claimReading, oneLine } from "./claim-accounting.js";
 import { keyFromSecretFile } from "./meaning-judge.js";
 import { researchTargetDigest } from "./research-receipts.js";
 import { ASKED_LIMIT, COULD_CHANGE, PLAN_LIMITS, PLAN_TASK_KINDS, PLANNER_PAUSE_MAX_MINUTES, RESEARCH_LANES, isLightLane,
@@ -357,7 +357,7 @@ const CLAIMS_RUBRIC_AFTER = "result of one named study, reading that study in fu
  */
 export const RESEARCH_PLANNER_CLAIMS_RUBRIC = RESEARCH_PLANNER_RUBRIC
   .replace(CLAIMS_RUBRIC_AFTER, () => `${CLAIMS_RUBRIC_AFTER}\n${CLAIMS_RUBRIC}`);
-export const RESEARCH_PLANNER_CLAIMS_RUBRIC_VERSION = `${RESEARCH_PLANNER_RUBRIC_VERSION}+claims.1`;
+export const RESEARCH_PLANNER_CLAIMS_RUBRIC_VERSION = `${RESEARCH_PLANNER_RUBRIC_VERSION}+claims.2`;
 
 /**
  * The system message the second request carries when the first reply's plan ran no web search (21 November 2026). It
@@ -782,6 +782,10 @@ export function researchPlanOf(reply: unknown, searches: number, key = "\u0000",
     return { about, steering_choice: "none", tasks: [], lane: "aside", searches: searched, goOn: false };
   }
   const tasks: PlanTask[] = [];
+  // Owner answer 413a: the claims' numbers as a menu's are read (claimReading), those of left_out among them.
+  const claims = accounted === undefined ? undefined
+    : claimReading([...parsed.data.tasks.map(({ claims: given }) => given), ...plannedLeftOutNumbers(parsed.data.left_out)],
+      accounted.length).read;
   for (const entry of parsed.data.tasks.slice(0, RESEARCH_PLANNER_LIMITS.tasks)) {
     const task = plainLine(entry.task, key, PLAN_LIMITS.task);
     if (task === undefined || task.length < 3) return undefined;
@@ -792,8 +796,7 @@ export function researchPlanOf(reply: unknown, searches: number, key = "\u0000",
       ...(entry.person_asked === true && personWords ? { person_asked: true as const } : {}),
       ...(sources === 1 ? {} : { sources }),
       ...(entry.kind === "other" ? { minutes: [...PLANNED_OTHER_MINUTES] as [number, number] } : {}),
-      ...(accounted === undefined || claimNumbers(entry.claims, accounted.length).length === 0 ? {}
-        : { claims: claimNumbers(entry.claims, accounted.length) }) });
+      ...(claims === undefined || claims(entry.claims).length === 0 ? {} : { claims: claims(entry.claims) }) });
   }
   if (tasks.length === 0) return undefined;
   // Any value that is neither the word none nor a sentence ("none needed", "n/a") is not a plan: plan_research would
@@ -804,22 +807,28 @@ export function researchPlanOf(reply: unknown, searches: number, key = "\u0000",
   // call carried more than one of the person's messages (followUp), the plan names no question, and it is research.
   const goOn = followUp && none && lane === "research" && parsed.data.person_said_go_on === true;
   return { about, steering_choice: none ? "none" : choice, tasks, lane, searches: searched, goOn,
-    ...(accounted === undefined ? {} : { claims: { of: accounted.map(plannedClaimKey),
-      leftOut: plannedLeftOut(parsed.data.left_out, tasks, accounted.length, key) } }) };
+    ...(accounted === undefined || claims === undefined ? {} : { claims: { of: accounted.map(plannedClaimKey),
+      leftOut: plannedLeftOut(parsed.data.left_out, tasks, accounted.length, key, claims) } }) };
+}
+
+/** The claim numbers a reply's left_out gives, as it wrote them. */
+function plannedLeftOutNumbers(value: unknown): unknown[] {
+  return (Array.isArray(value) ? value : []).map((entry: unknown) =>
+    entry !== null && typeof entry === "object" ? (entry as { claim?: unknown }).claim : undefined);
 }
 
 /**
  * Owner answer 413a: every claim no kept task covers, each once and in order, with the reply's why when it gave one. So
  * a claim the reply named nowhere, or only in a task that was cut, is left out all the same, and said to be.
  */
-function plannedLeftOut(value: unknown, tasks: readonly PlanTask[], count: number, key: string):
-  Array<{ claim: number; why?: string }> {
+function plannedLeftOut(value: unknown, tasks: readonly PlanTask[], count: number, key: string,
+  read: (claim: unknown) => number[]): Array<{ claim: number; why?: string }> {
   const covered = new Set(tasks.flatMap(({ claims }) => claimNumbers(claims, count)));
   const reasons = new Map<number, string>();
   for (const entry of Array.isArray(value) ? value : []) {
     if (entry === null || typeof entry !== "object") continue;
     const { claim, why } = entry as { claim?: unknown; why?: unknown };
-    const number = claimNumbers(claim, count)[0];
+    const number = read(claim)[0];
     // Plain and never the key, as every line of a plan (plainLine, which cuts nothing here), then cut at whole characters.
     const reason = typeof why === "string" ? oneLine(plainLine(why, key, why.length), CLAIM_ACCOUNTING_LIMITS.why) : undefined;
     if (number !== undefined && reason !== undefined && !reasons.has(number)) reasons.set(number, reason);

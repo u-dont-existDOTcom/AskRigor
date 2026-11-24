@@ -66,10 +66,12 @@ import {
   askrigorHoldsSchema, heldFor, heldText, heldVariants, HELD_NEXT_STEP, holdsSomethingNow, OWNER_POINTER_HOW,
   ownerPointerText, shownOwnerPointer, shownOwnerPointerSchema, type AskRigorHolds, type AskRigorHoldsOptions,
 } from "./askrigor-holds.js";
-import { CLAIMS_ON_THE_MENU, CLAIMS_ON_THE_MENU_REGISTERED, PREMISE_CLAIMS_COUNT, accountForClaims, claimNumbers,
-  claimsWanted } from "./claim-accounting.js";
-import { HRP_CORE_ALREADY_HELD, HRP_CORE_LOAD_FIRST, HRP_CORE_NEXT_STEP, HRP_CORE_RESULT_LIMITS, holdsHrpCore,
-  hrpCoreDigest, hrpCoreStructured, hrpCoreText, type HrpCore } from "./hrp-core.js";
+import { CLAIMS_NOT_SENT, CLAIMS_ON_THE_MENU, CLAIMS_ON_THE_MENU_REGISTERED, CLAIMS_PLANNED, CLAIMS_PLANNED_AT_INSPECT,
+  CLAIMS_PLANNED_LIGHT, PREMISE_CLAIMS_COUNT, accountForClaims, claimNumbers, claimsWanted, declaresNoClaim }
+  from "./claim-accounting.js";
+import { HRP_CORE_ALREADY_HELD, HRP_CORE_COMES_WITH_PLAN, HRP_CORE_HELD_ALREADY, HRP_CORE_LOAD_FIRST, HRP_CORE_NEXT_STEP,
+  HRP_CORE_RECEIPT_NEXT_STEP, HRP_CORE_RECEIPT_USE, HRP_CORE_RESULT_LIMITS, HRP_CORE_STATUSES, HRP_CORE_WITH_PLAN,
+  holdsHrpCore, hrpCoreDigest, hrpCoreStructured, hrpCoreText, type HrpCore, type HrpCoreStatus } from "./hrp-core.js";
 import { askedText, callsPageSchema, findingsSaveOff, laterInputShape, latestMessage } from "./later-inputs.js";
 import { SAFETY_LIMITS_INSPECT_SENTENCE } from "./safety-limits.js";
 import { ownerPointerById } from "./owner-pointers.js";
@@ -106,6 +108,7 @@ import {
   menuChoiceOf,
   menuProblems,
   goOnMark,
+  isLightLane,
   menuDigest,
   menuReadingSentence,
   choicePlaceholderWords,
@@ -466,18 +469,11 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
   plannerPausedUntil: z.iso.datetime().nullable().optional()
     .describe("With pause_research_planner: when AskRigor's own planning call starts again for this account, in " +
       "UTC; null when no pause runs."),
-  // Owner answer 412a (24 Nov 2026; runtime only): HRP's core, the bytes load_protocol serves for section "core".
-  hrp_core: z.object({
-    protocol: z.literal("hrp"),
-    version: z.string(),
-    scope_sha256: z.string(),
-    sections: z.array(z.string()),
-    further_sections: z.array(z.string()),
-    how_to_use: z.string(),
-    text: z.string(),
-  }).strict().optional()
-    .describe("With register_plain_answer: HRP's core rules, exact canonical text, to read before the first search; " +
-      "how_to_use says the rest."),
+  // What these two results served of HRP's core, for a test round (the review of 24 Nov 2026, F4; runtime only).
+  hrp_core_status: z.enum(HRP_CORE_STATUSES).optional()
+    .describe("With register_plain_answer and a research's first plan_research, where HRP's core is handed over: whether " +
+      "it is in this result (here), comes with plan_research's, is to be loaded with load_protocol (load_it), is held " +
+      "already or is not for this research."),
   // Owner answers 413a and 412a (runtime only): what the two switches come to on a dev account after its test window was
   // set, and until when the window runs; null once none runs. Only that call's own result carries it, as for the pause.
   researchTrial: z.object({
@@ -487,6 +483,21 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
   }).strict().optional()
     .describe("With set_research_trial: whether each switch holds for this account now, and when its test window ends, " +
       "in UTC; null when none runs."),
+  // Owner answer 412a (24 Nov 2026; runtime only): HRP's core, the bytes load_protocol serves for section "core". The last
+  // field, its text the last of it, so that what an app cuts short is the text's end, which ends_with shows.
+  hrp_core: z.object({
+    protocol: z.literal("hrp"),
+    version: z.string(),
+    scope_sha256: z.string(),
+    sections: z.array(z.string()),
+    further_sections: z.array(z.string()),
+    how_to_use: z.string(),
+    characters: z.number().int(),
+    ends_with: z.string(),
+    text: z.string(),
+  }).strict().optional()
+    .describe("With register_plain_answer, or plan_research when that result had no room for it: HRP's core rules, exact " +
+      "canonical text, to read before the first search; next_step says the rest."),
 }).strict();
 
 /**
@@ -685,6 +696,8 @@ export interface ResearchContributorToolOptions {
    */
   hrpCore?: () => Promise<HrpCore | undefined>;
   hrpCoreFor?: (accountKey: string, devAccount: boolean) => boolean;
+  /** The receipt load_protocol gives for the core, for a plan_research result that hands it over; undefined: unsigned. */
+  hrpCoreReceipt?: (core: HrpCore) => string | undefined;
   /** The two switches' modes and the test windows (research-trial.ts), for set_research_trial; undefined: none offered. */
   researchTrial?: () => { modes: ResearchSwitchModes; windows: ResearchTrialWindows };
 }
@@ -708,13 +721,14 @@ export interface PlainAnswerOptions {
    */
   sign: (claims: ResearchReceiptClaims, accountKey: string) => string | undefined;
   /**
-   * Reads a plain-answer research receipt this account signed: its research target's digest, its issue time and, for a
-   * plain answer registered for the menu to account for its claims (owner answer 413a), their digests
-   * (plainAnswerClaimDigest) in the order registered; undefined when it is not a valid plain-answer receipt of this
-   * account, or this server cannot verify receipts.
+   * Reads a plain-answer research receipt this account signed: its research target's digest, its issue time, for a
+   * plain answer registered for the menu to account for its claims (owner answer 413a) their digests
+   * (plainAnswerClaimDigest) in the order registered, and what it signs of HRP's core (owner answer 412a): that its
+   * registration handed it over, that it comes with plan_research, or that the AI held it; undefined when it is not a
+   * valid plain-answer receipt of this account, or this server cannot verify receipts.
    */
-  read?: (receipt: string, accountKey: string) =>
-    { target: string; issuedAt: string; claims?: readonly string[] } | undefined;
+  read?: (receipt: string, accountKey: string) => { target: string; issuedAt: string; claims?: readonly string[];
+    hrpCore?: "handed" | typeof HRP_CORE_COMES_WITH_PLAN | typeof HRP_CORE_HELD_ALREADY } | undefined;
 }
 
 /** Whether this mode has active research access and registers a plain answer (owner answer 190a). */
@@ -851,9 +865,10 @@ export function noticeAcceptanceSentence(acceptance: ResearchAccessView["accepta
 /**
  * What inspect asks of an account that registers a plain answer, before any research call. It opens with the run's
  * shape (11 Nov 2026): the stop at an ask is said before the first step, where it costs nothing. accounting: the menu
- * accounts for the claims on this account (owner answer 413a), so they are the points a person would act on.
+ * accounts for the claims on this account (owner answer 413a), so they are the points a person would act on; planned:
+ * AskRigor plans this account's research itself, so its plan accounts for them.
  */
-export function plainAnswerRequest(note: boolean, accounting = false): string {
+export function plainAnswerRequest(note: boolean, accounting = false, planned = false): string {
   const { textCharacters, claims, claimCharacters } = PLAIN_ANSWER_LIMITS;
   return "A research run goes: action register_plain_answer with later_inputs.framing, a short screen, action " +
     "plan_research, the tasks chosen, then finalize_research; when a result says to ask the person and wait, your " +
@@ -870,7 +885,7 @@ export function plainAnswerRequest(note: boolean, accounting = false): string {
     "be or hasn't been done), give your quick verdict on each such premise in a sentence of its own, and put those " +
     "sentences first among the claims (Universal premise_integrity_and_truth_priority_gate, rule 2). " +
     (accounting ? PREMISE_CLAIMS_COUNT : "") + "AskRigor signs it with the time. " +
-    (accounting ? CLAIMS_ON_THE_MENU
+    (accounting ? (planned ? CLAIMS_PLANNED_AT_INSPECT : CLAIMS_ON_THE_MENU)
       : "Then treat each claim as something to check, confirm or correct, and look beyond the claims too. ") +
     (note ? NOTE_ON : NOTE_OFF) + " " + FRAMING_REQUEST;
 }
@@ -1345,7 +1360,12 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           options.menuDigestSecret?.(), devAccount, learning, options.researchDossiers === true, findingsSaveOff(parsed),
           options.publicDossiers === true,
           options.findingsLedger?.(devAccount) === true, isChatGptCall(extra),
-          options.claimAccounting?.(accountKey, devAccount) === true);
+          options.claimAccounting?.(accountKey, devAccount) === true,
+          // Owner answer 412a: HRP's core for the first menu of a research whose registration had no room for it.
+          options.hrpCoreFor?.(accountKey, devAccount) !== true ? undefined : {
+            read: options.hrpCore ?? (async () => undefined), receipt: (core) => options.hrpCoreReceipt?.(core),
+            shown: (result) => withToolListNotice(result, input, options.toolListVersion),
+          });
       }
       if (parsed.action === "set_plain_answer_note") {
         return await setPlainAnswerNote(options.service, auth.subject, parsed.plainAnswerNote!, options.plainAnswer);
@@ -1478,7 +1498,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
               : "Choose free contributor mode or activate an existing paid private entitlement before research use.") +
             (nextStep === undefined ? "" : ` ${nextStep} The notice, ${access.noticeVersion}: ${access.notice}`) +
             (plain === undefined ? "" : ` ${plainAnswerRequest(plain.note,
-              options.claimAccounting?.(accountKey, devAccount) === true)}`) +
+              options.claimAccounting?.(accountKey, devAccount) === true, planned)}`) +
             (planned ? ` ${ASKED_REQUEST}` : "") +
             (firstLine === undefined ? "" : ` ${firstLine}`) +
             (settings === undefined
@@ -1709,27 +1729,34 @@ async function registerPlainAnswer(
     ...(personWords === undefined ? {} : { asked: "1" }),
     ...(namedVideos.length === 0 ? {} : { vids: namedVideos }),
     ...(accounting ? { first: "1" } : {}),
+    ...(coreHeld ? { core: HRP_CORE_HELD_ALREADY } : {}),
   };
   const receipt = plain!.sign(claimsSigned, account.accountKey);
   if (receipt === undefined) {
     return accessError("receipts_unavailable", "This AskRigor server cannot sign research receipts, so the plain " +
       "answer was not registered; the research goes ahead without it.");
   }
-  // Owner answer 412a, option c: the receipt of a registration whose result hands HRP's core over signs that too. Whether
-  // it does is known only once the plan is (a plain look-up gets none) and the result is measured, and a receipt signed
-  // then would come after research begun meanwhile; so both are signed now, and the result, the menu it hands over and
-  // AskRigor's mark use the one that is true of it.
-  const handedReceipt = core === undefined || coreHeld ? undefined
-    : plain!.sign({ ...claimsSigned, hrp: hrpCoreDigest(core) }, account.accountKey);
+  // Owner answer 412a, option c: the receipt of a registration whose result hands HRP's core over signs that too, and one
+  // whose plan_research will carry it signs that. Which it is is known only once the plan is (a plain look-up gets none)
+  // and the result is measured, and a receipt signed then would come after research begun meanwhile; so each is signed
+  // now, and the result, the menu it hands over and AskRigor's mark use the one that is true of it.
+  const unheldCore = coreHeld ? undefined : core;
+  const handedReceipt = unheldCore === undefined ? undefined
+    : plain!.sign({ ...claimsSigned, hrp: hrpCoreDigest(unheldCore) }, account.accountKey);
+  const withPlanReceipt = unheldCore === undefined || planning === undefined ? undefined
+    : plain!.sign({ ...claimsSigned, core: HRP_CORE_COMES_WITH_PLAN }, account.accountKey);
   const count = plainAnswer.claims.length;
   // The server keeps no record of the research, so it cannot tell here whether research began; the final check can, by
   // the receipts' signed order (#394's run: q136-weak-lead-given registered again after research began, and both results
   // said "registered before research").
-  const summary = `Plain answer registered: ${count === 1 ? "1 claim" : `${count} claims`}, signed with the time. The ` +
+  const summaryOf = (lane: PlannedMenu["lane"] | undefined): string =>
+    `Plain answer registered: ${count === 1 ? "1 claim" : `${count} claims`}, signed with the time. The ` +
     "final check compares the answer with the latest plain answer this account registered for the research target " +
     "before the research's first receipt, so one registered after research began is not compared; if one for this " +
     "research target was registered before the research began, pass that receipt too. " +
-    (accounting ? CLAIMS_ON_THE_MENU_REGISTERED
+    // Owner answer 413a (the review of 24 Nov 2026, F3): AskRigor's own plan (lane) has accounted for the claims, and is to
+    // be sent as it is; where there is none, the AI's menu does.
+    (accounting ? (lane === undefined ? CLAIMS_ON_THE_MENU_REGISTERED : lane === "light" ? CLAIMS_PLANNED_LIGHT : CLAIMS_PLANNED)
       : "Treat each claim as something to check, confirm or correct, and look beyond the claims too. ") + "Pass " +
     "this research_receipt to finalize_research with the others; there, plain_answer_comparison gives each claim, " +
     "copied exactly as listed here, with whether the research confirmed, corrected or qualified it, or did not check " +
@@ -1766,20 +1793,22 @@ async function registerPlainAnswer(
     : plannerNotUsedSentence(notPlanned.reason, planning!.planner.accountDailyCalls);
   // A day's limit is the person's to know, so it goes to an app that hands its model only next_step too.
   const limitReached = notPlanned?.reason === "account_limit" || notPlanned?.reason === "daily_budget";
-  // Owner answer 412a: what becomes of HRP's core here. Nothing for a plain look-up (lane aside or light), as without it;
-  // a word when the AI says this conversation holds it; otherwise the core itself where the result has room for it
-  // (handed), and the sentence to load it first where it has none.
-  const coreWanted = hrp !== undefined && !(planned !== undefined && "aside" in planned) && plan?.lane !== "light";
-  const coreHanded = coreWanted && handedReceipt !== undefined ? core : undefined;
-  // The result with what AskRigor holds for the question, or with less of it, or with none (heldVariants); with HRP's
-  // core, or without it. Its receipt, its menu and its outline are the ones made for it.
-  const resultWith = (held: AskRigorHolds | undefined, handed: HrpCore | undefined): CallToolResult => {
-  const given = handed === undefined ? receipt : handedReceipt!;
+  // Owner answer 412a: what becomes of HRP's core here when the result does not carry it. Nothing for a plain look-up (lane
+  // aside or light), as without it; a word when the AI says this conversation holds it, or that it comes with the next
+  // call's result, plan_research's, when AskRigor planned the research; otherwise the sentence to load it first.
+  const lookUp = (planned !== undefined && "aside" in planned) || plan?.lane === "light";
+  const coreElsewhere: HrpCoreStatus | undefined = hrp === undefined ? undefined : lookUp ? "not_for_this"
+    : coreHeld ? "already_held" : plan !== undefined && withPlanReceipt !== undefined ? "with_plan_research" : "load_it";
+  // The result with what AskRigor holds for the question, or with less of it, or with none (heldVariants), and with what
+  // becomes of HRP's core. Its receipt, its menu and its outline are the ones made for it.
+  const resultWith = (held: AskRigorHolds | undefined, status: HrpCoreStatus | undefined): CallToolResult => {
+  const handed = status === "here" ? unheldCore : undefined;
+  const given = status === "here" ? handedReceipt! : status === "with_plan_research" ? withPlanReceipt! : receipt;
   const made = plan === undefined ? undefined : { ...plan, later_inputs: { researchMenu: plan.menuFor(given) } };
   const outline = outlined ? registrationMenuOutline(plainAnswer.researchTarget, given, devAccount, accounting) : undefined;
-  const coreSaid = !coreWanted ? undefined : handed !== undefined ? hrpCoreText(handed, chatGpt)
-    : coreHeld ? HRP_CORE_ALREADY_HELD : HRP_CORE_LOAD_FIRST;
-  const coreStep = coreSaid === undefined || handed === undefined ? coreSaid : HRP_CORE_NEXT_STEP;
+  const coreSaid = handed !== undefined ? hrpCoreText(handed, chatGpt) : coreElsewhereSaid(status);
+  const coreStep = handed === undefined ? coreSaid : HRP_CORE_NEXT_STEP;
+  const coreStatus = status === undefined ? {} : { hrp_core_status: status };
   const heldTexts = held === undefined ? [] : [{ type: "text" as const, text: heldText(held) }];
   const heldStep = holdsSomethingNow(held) ? ` ${HELD_NEXT_STEP}` : "";
   // Owner answer 302: AskRigor steps aside for a plain look-up. The plain answer is still signed and its receipt given,
@@ -1803,6 +1832,7 @@ async function registerPlainAnswer(
         research_plan: { source: "askrigor_planning_call", about: planned.about, steering_choice: "none",
           searches: planned.searches, from_asked: planned.asked, lane: "aside" },
         ...(held === undefined ? {} : { askrigor_holds: held }),
+        ...coreStatus,
       }),
     };
   }
@@ -1817,7 +1847,7 @@ async function registerPlainAnswer(
       ...(fallbackLine === undefined ? [] : [{ type: "text" as const, text: fallbackLine }]),
       ...(outline === undefined ? [] : [{ type: "text" as const, text: "Fill in menu_outline for your plan_research call." }]),
       ...(coreSaid === undefined ? [] : [{ type: "text" as const, text: coreSaid }]),
-      { type: "text", text: summary },
+      { type: "text", text: summaryOf(made?.lane) },
       { type: "text", text: `research_receipt: ${given}` },
       // What AskRigor already holds, for the answer: after the receipt, so the first texts stay what to do next.
       ...heldTexts,
@@ -1849,22 +1879,28 @@ async function registerPlainAnswer(
       }),
       ...(notPlanned === undefined ? {} : { research_plan_not_used: notPlanned.reason }),
       ...(held === undefined ? {} : { askrigor_holds: held }),
+      ...coreStatus,
       ...(handed === undefined ? {} : { hrp_core: hrpCoreStructured(handed) }),
     }),
   };
   };
+  // Owner answer 412a: with HRP's core, when there is room for it beside all that AskRigor holds for the question, which
+  // exists nowhere else in the conversation (the review of 24 Nov 2026, F4).
+  if (handedReceipt !== undefined && (coreElsewhere === "with_plan_research" || coreElsewhere === "load_it")) {
+    const result = resultWith(heldAll, "here");
+    if (hrpCoreFits(hrp!.shown(result), chatGpt)) return result;
+  }
   // Codex's review of 14 Nov 2026: a research target of 5,000 characters, three long findings and two pointers came
   // to more than a client accepts. So the first of these that fits is the result; the last has nothing held, which
-  // is the result of before. Owner answer 412a: before them, the same with HRP's core, while one has room for it.
-  const variants = heldVariants(heldAll);
-  if (coreHanded !== undefined) {
-    for (const held of variants) {
-      const result = resultWith(held, coreHanded);
-      if (hrpCoreFits(hrp!.shown(result), chatGpt)) return result;
-    }
-  }
-  const results = variants.map((held) => resultWith(held, undefined));
+  // is the result of before.
+  const results = heldVariants(heldAll).map((held) => resultWith(held, coreElsewhere));
   return results.find((result) => clientResultBytes(result) <= MCP_RESULT_MAX_BYTES) ?? results[results.length - 1]!;
+}
+
+/** What a result that does not carry HRP's core says of it, in its text and next_step; nothing for a plain look-up. */
+function coreElsewhereSaid(status: HrpCoreStatus | undefined): string | undefined {
+  return status === "with_plan_research" ? HRP_CORE_WITH_PLAN : status === "load_it" ? HRP_CORE_LOAD_FIRST
+    : status === "already_held" ? HRP_CORE_ALREADY_HELD : undefined;
 }
 
 /**
@@ -2198,6 +2234,10 @@ async function planResearchAction(
   chatGpt = false,
   // Owner answer 413a: the menu accounts for the plain answer's claims on this account.
   accounting = false,
+  // Owner answer 412a, on an account that has it: HRP's core, the receipt that shows it was given, and the result as the
+  // app gets it (with a notice about its copy of the tools), whose size the core's room is measured by.
+  hrp?: { read: () => Promise<HrpCore | undefined>; receipt: (core: HrpCore) => string | undefined;
+    shown: (result: CallToolResult) => CallToolResult },
 ): Promise<CallToolResult> {
   const account = await service.activeAccount(subject);
   // Owner answer 395b: a pause begun while the account was read counts, as when the call is off.
@@ -2239,7 +2279,12 @@ async function planResearchAction(
   // each sees the same tasks. Exact: the numbers the tasks declare and the digests of the claims left out; a menu is
   // never refused for either. A plain answer registered without it (a test window opened since) was never asked to
   // account for its claims, and listed them from 0, so its menu is planned as before.
+  // The review of 24 Nov 2026, F2: a later call for the same menu (its digest names these tasks) that declares no claim at
+  // all has most likely dropped them, as a menu retyped from the person's answer does. Nothing is said of any claim then,
+  // since the menu shown may cover them all; the result asks for both back.
+  const claimsDropped = menu !== undefined && plan.menu_digest === menu.digest && declaresNoClaim(plan.tasks, plan.left_out);
   const accounted = !accounting || read?.claims === undefined || read.claims.length === 0 ? undefined
+    : claimsDropped ? { accounts: [], problems: [CLAIMS_NOT_SENT] }
     : accountForClaims(plan.tasks, plan.left_out, read.claims, plainAnswerClaimDigest);
   const claims = accounted?.accounts;
   if (accounted !== undefined) problems.push(...accounted.problems);
@@ -2274,7 +2319,11 @@ async function planResearchAction(
   // Owner answer 303a: the ask names learn mode on a dev account while the planning call is on, and a call that carries
   // the person's answer is kept while learn mode is on (menuChoiceOf decides whether it does), after the result.
   const learnMode = learningNow === undefined ? undefined : account.steering.learnMenuChoices;
-  if (learningNow !== undefined && learnMode === true) {
+  // Not a choice on a menu whose claims the call dropped, when a task of it is detail: the menu shown may have recommended
+  // that task for a claim it covers, so what the person chose among can't be told.
+  const recommendationKnown = accounted === undefined || !claimsDropped ||
+    plan.tasks.every(({ could_change }) => could_change !== "detail");
+  if (learningNow !== undefined && learnMode === true && recommendationKnown) {
     keepMenuChoice(service, accountKey,
       () => menuChoiceOf(plan, account.steering, personReasonOf(plan.person_reason), claims), learningNow.log);
   }
@@ -2292,25 +2341,52 @@ async function planResearchAction(
   // after everything else the result says and never in next_step, which an ask of the person's keeps.
   const dossierRequest = researchDossierAllowed(dossiers, account, callSavingOff) && result.next === "go_on" &&
     result.lane !== "light";
-  return {
-    content: [{ type: "text", text },
-      ...(dossierRequest
-        ? [{ type: "text" as const, text: `${RESEARCH_DOSSIER_REQUEST} ${researchDossierShape(publicDossiers)} ` +
-          RESEARCH_DOSSIER_GUARDS }]
-        : []),
-      // Enforcing HRP, stage 1 (the owner's note on question 338): what can stop the answer, before research.
-      ...(upFront ? [{ type: "text" as const, text: WHAT_STOPS_TEXT }] : [])],
-    structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
-      ok: true,
-      researchMenu: result,
-      ...(structuredProblems.length === 0 ? {} : { problems: structuredProblems }),
-      next_step: planNextStep(result, learnMode, chatGpt),
-      ...(youDecide === undefined ? {} : { you_decide_later_inputs: youDecide }),
-      ...(dossierRequest ? { research_dossier_request: { instruction: RESEARCH_DOSSIER_REQUEST,
-        shape: researchDossierShape(publicDossiers), guards: RESEARCH_DOSSIER_GUARDS } } : {}),
-      ...(upFront ? { what_stops: whatStops() } : {}),
-    }),
+  // The result as it is, or with what becomes of HRP's core (owner answer 412a): the core itself with its receipt, or the
+  // sentence to load it.
+  const resultWith = (status?: HrpCoreStatus, core?: HrpCore, slip?: string): CallToolResult => {
+    const said = status === "load_it" ? HRP_CORE_LOAD_FIRST : undefined;
+    const step = core !== undefined ? `${HRP_CORE_NEXT_STEP}${slip === undefined ? "" : ` ${HRP_CORE_RECEIPT_NEXT_STEP}`}` : said;
+    return {
+      content: [{ type: "text", text },
+        ...(core === undefined ? [] : [{ type: "text" as const, text: hrpCoreText(core, chatGpt) }]),
+        ...(slip === undefined ? [] : [{ type: "text" as const, text: `research_receipt: ${slip} ${HRP_CORE_RECEIPT_USE}` }]),
+        ...(said === undefined ? [] : [{ type: "text" as const, text: said }]),
+        ...(dossierRequest
+          ? [{ type: "text" as const, text: `${RESEARCH_DOSSIER_REQUEST} ${researchDossierShape(publicDossiers)} ` +
+            RESEARCH_DOSSIER_GUARDS }]
+          : []),
+        // Enforcing HRP, stage 1 (the owner's note on question 338): what can stop the answer, before research.
+        ...(upFront ? [{ type: "text" as const, text: WHAT_STOPS_TEXT }] : [])],
+      structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
+        ok: true,
+        researchMenu: result,
+        ...(structuredProblems.length === 0 ? {} : { problems: structuredProblems }),
+        next_step: `${planNextStep(result, learnMode, chatGpt)}${step === undefined ? "" : ` ${step}`}`,
+        ...(youDecide === undefined ? {} : { you_decide_later_inputs: youDecide }),
+        ...(dossierRequest ? { research_dossier_request: { instruction: RESEARCH_DOSSIER_REQUEST,
+          shape: researchDossierShape(publicDossiers), guards: RESEARCH_DOSSIER_GUARDS } } : {}),
+        ...(upFront ? { what_stops: whatStops() } : {}),
+        ...(slip === undefined ? {} : { research_receipt: slip }),
+        ...(status === undefined ? {} : { hrp_core_status: status }),
+        ...(core === undefined ? {} : { hrp_core: hrpCoreStructured(core) }),
+      }),
+    };
   };
+  // Owner answer 412a (the review of 24 Nov 2026, F4): what becomes of HRP's core on a research's first menu: no digest of
+  // an earlier one, no answer of the person's to one and no task done. A light look-up gets none; the receipt says whether
+  // the registration handed it over, the AI said it holds it, or it comes here (AskRigor planned the research, and that
+  // result had no room for it); for any other plain answer nothing is served or said of it.
+  const firstMenu = plan.menu_digest === undefined && plan.person_answered !== true && (plan.done ?? []).length === 0;
+  if (hrp === undefined || read === undefined || !firstMenu) return resultWith();
+  if (isLightLane(plan)) return resultWith("not_for_this");
+  if (read.hrpCore === "handed" || read.hrpCore === HRP_CORE_HELD_ALREADY) return resultWith("already_held");
+  if (read.hrpCore !== HRP_CORE_COMES_WITH_PLAN) return resultWith();
+  const core = await Promise.resolve().then(hrp.read).catch(() => undefined);
+  if (core === undefined) return resultWith("load_it");
+  // Measured before the sentence on what a menu's reading left out or moved, which withResearchMenuReading adds when the AI
+  // gave fields that are not the menu's: some hundred bytes, on a limit an app's own is above.
+  const withCore = resultWith("here", core, hrp.receipt(core));
+  return hrpCoreFits(hrp.shown(withCore), chatGpt) ? withCore : resultWith("load_it");
 }
 
 /** Turns the plain-answer note off or on for an account asked for a plain answer; only the choice is stored. */
