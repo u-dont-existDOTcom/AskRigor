@@ -14,6 +14,18 @@ import {
   type ResearchStyle,
 } from "@askrigor/evidence-repository";
 
+import {
+  CLAIMS_AT_THE_SCREEN,
+  CLAIMS_TASK_SHAPE,
+  LEFT_OUT_SHAPE,
+  NOT_ON_PLAN_LEAD,
+  NOT_ON_PLAN_STRUCTURED,
+  claimNumbers,
+  claimsNotOnPlan,
+  leftOutClaims,
+  notOnPlanLines,
+  type ClaimAccount,
+} from "./claim-accounting.js";
 import { RESEARCH_RECEIPT_MAX_CHARACTERS } from "./research-receipts.js";
 
 /**
@@ -151,6 +163,11 @@ export const planTaskSchema = z.object({
   minutes: z.tuple([minutesSchema, minutesSchema]).optional()
     .describe("Your own estimate, low and high, for a task of kind other, or when the task is much longer or shorter " +
       "than its kind's usual time."),
+  // Owner answer 413a (24 Nov 2026): any value is accepted, as for person_reason: one that names no claim is not one,
+  // and never refuses a menu (claimNumbers reads it where it is used). It is not part of the menu's digest.
+  claims: z.unknown().optional()
+    .describe("The numbers of the plain answer's claims this task could confirm or correct, as register_plain_answer's " +
+      "result numbered them."),
 }).strict();
 export type PlanTask = z.output<typeof planTaskSchema>;
 
@@ -188,6 +205,11 @@ export const researchMenuSchema = z.object({
   menu_digest: z.string().trim().min(1).max(100).optional()
     .describe("On every call after the first: researchMenu.menu_digest from the last plan_research result, as it is; " +
       "when the tasks differ from the menu it names, AskRigor shows the person the changed menu first."),
+  // Owner answer 413a (24 Nov 2026): each claim of the plain answer no task covers, in its own words, with why. Any
+  // value is accepted (leftOutClaims reads it where it is used); it is not part of the menu's digest.
+  left_out: z.unknown().optional()
+    .describe("For each claim of the plain answer no task covers: {claim, that claim word for word; why, in the person's " +
+      "language}."),
   // Owner answer 302 (14 Nov 2026): only AskRigor's own plan sets it, in the menu register_plain_answer hands over. It is
   // not in RESEARCH_MENU_SHAPE or any other text that teaches the AI to write a menu of its own.
   lane: z.enum(["light"]).optional()
@@ -433,6 +455,10 @@ export const MENU_PLACEHOLDERS = Object.freeze({
   could_change: `<${COULD_CHANGE.join("|")}>`,
   steering_choice: "<the one question you would ask this person, or none>",
   person_answered: "<true|false>",
+  // Owner answer 413a: in the outline of an account whose claims are accounted for.
+  claims: "<the numbers of the plain answer's claims this task could confirm or correct>",
+  left_out_claim: "<a claim no task covers, word for word>",
+  left_out_why: "<why, in the person's language>",
 });
 
 /** The refusal's example, as structuredContent carries it: placeholders stand where a value is missing or not one. */
@@ -451,7 +477,9 @@ export const correctedMenuSchema = z.object({
       loop: z.enum(RESEARCH_LOOPS).optional(),
       person_asked: z.boolean().optional(),
       minutes: z.tuple([z.number(), z.number()]).optional(),
+      claims: z.array(z.union([z.number().int(), z.string()])).optional(),
     }).strict()).min(1),
+    left_out: z.array(z.object({ claim: z.string(), why: z.string().optional() }).strict()).optional(),
     allocation: z.array(z.object({ task: z.number().int(), minutes: z.number() }).strict()).optional(),
     person_answered: z.boolean().optional(),
     done: z.array(z.number().int()).optional(),
@@ -504,8 +532,11 @@ export function correctedMenu(source: unknown, choice = false): CorrectedMenu {
           ? { person_asked: given.person_asked as boolean } : {}),
         ...(valid(planTaskSchema.shape, "minutes", given.minutes)
           ? { minutes: given.minutes as [number, number] } : {}),
+        // Owner answer 413a: the claims a task declares, and those left out (below), go back with the menu.
+        ...(claimNumbers(given.claims).length > 0 ? { claims: claimNumbers(given.claims) } : {}),
       };
     }),
+    ...(leftOutClaims(menu.left_out).length > 0 ? { left_out: leftOutClaims(menu.left_out) } : {}),
     ...(valid(researchMenuSchema.shape, "allocation", menu.allocation)
       ? { allocation: menu.allocation as Array<{ task: number; minutes: number }> } : {}),
     ...(valid(researchMenuSchema.shape, "person_answered", menu.person_answered)
@@ -843,7 +874,9 @@ export const ORDINARY_STEERING_WORDING = "true when a choice the " +
   "as it usually can, even when the question is clearly worded; false only when the question already fixes all of " +
   "that, such as one result of one named study";
 
-export const RESEARCH_MENU_SHAPE = "later_inputs.researchMenu in exactly this shape: research_target, the research target " +
+/** The shape, with the plain answer's claims accounted for (owner answer 413a) or without. */
+export const researchMenuShape = (accounting: boolean): string =>
+  "later_inputs.researchMenu in exactly this shape: research_target, the research target " +
   "word for word as register_plain_answer's result quoted it; plain_answer_receipt, that call's research_receipt; " +
   "provisional_answer, what the screen suggests, in a few sentences; steering_could_help, " +
   ORDINARY_STEERING_WORDING + "; and tasks, the next tasks the screen found, in " +
@@ -853,22 +886,25 @@ export const RESEARCH_MENU_SHAPE = "later_inputs.researchMenu in exactly this sh
   "people_to_studies or studies_to_people, only for a task between people's reports and studies; person_asked, true " +
   "only for a task doing a way of researching the person's own words still ask for, or one such a task needs first " +
   "(a method, source, comparison or check they named or described, also loosely; naming a subject or a study, or " +
-  "asking about it without saying how to research it, asks for none), which AskRigor then always recommends; and " +
-  "minutes, [low, " +
-  "high], only for a task of kind other or one much longer or shorter than its kind's usual time}. Leave out any other " +
+  "asking about it without saying how to research it, asks for none), which AskRigor then always recommends; " +
+  (accounting ? CLAIMS_TASK_SHAPE : "") + "and minutes, [low, " +
+  "high], only for a task of kind other or one much longer or shorter than its kind's usual time}." +
+  (accounting ? LEFT_OUT_SHAPE : "") + " Leave out any other " +
   "field: allocation and done come only after the person answers or stops you, and menu_digest, as the last " +
   "plan_research result gave it, on every call after the first.";
+export const RESEARCH_MENU_SHAPE = researchMenuShape(false);
 /**
  * The screen, then the menu. The timing runs of 10 Nov 2026 (Codex, the 284 rule on the live build): the screens took 4
  * to 9 calls, and none of the 21 turns ended with the question AskRigor said to ask, so the screen says how short it is
  * and that an ask ends the turn, before the model starts it.
  */
-const SCREEN_FIRST = "Screen first: a few calls (about eight) of searches, abstracts, thread titles and the Atlas, " +
+const screenFirst = (accounting: boolean): string =>
+  "Screen first: a few calls (about eight) of searches, abstracts, thread titles and the Atlas, " +
   "with no full-text reading, long threads or video audits yet, ending with a provisional short answer. For each " +
   "claim on a premise of the person's question, include one search for what would show it wrong. " +
-  PEOPLE_FIRST_WHEN_USED + " " + ALL_JOURNALS_AT_THE_SCREEN + " " +
+  (accounting ? CLAIMS_AT_THE_SCREEN : "") + PEOPLE_FIRST_WHEN_USED + " " + ALL_JOURNALS_AT_THE_SCREEN + " " +
   TRADITIONAL_SYSTEM_AT_THE_SCREEN + " " + OPEN_HEALTH_OPTIONS_AT_THE_SCREEN + " " + WORDS_ARE_NOT_SIZES + " Then call " +
-  "manage_research_access with action plan_research and " + RESEARCH_MENU_SHAPE + " AskRigor gives each task a time " +
+  "manage_research_access with action plan_research and " + researchMenuShape(accounting) + " AskRigor gives each task a time " +
   "range and says whether to ask the person first; when it says to ask, your reply is the message it gives, and the " +
   "turn ends there.";
 
@@ -891,12 +927,12 @@ const FRAMING_ANSWERED = "leaving later_inputs.framing out now that the person h
  * instructions in the same string reads as leave to go on, so the ask says the whole reply is the questions and the turn
  * ends there, as HRP's preflight-only response allows when steering is required.
  */
-export function framingGuidance(steering: ResearchSteering, framing: Framing | undefined): string {
+export function framingGuidance(steering: ResearchSteering, framing: Framing | undefined, accounting = false): string {
   if (framing === undefined) {
     return URGENT_FIRST + " Give later_inputs.framing with the plain answer next time: likely_question, the question the person most " +
       "likely means; premise_doubts, anything in it that looks inverted, unclear or possibly false; and " +
       "redirecting_questions, up to three questions whose answers could change what to research. " + FORM_PEOPLE_USE +
-      " " + SCREEN_FIRST;
+      " " + screenFirst(accounting);
   }
   const doubts = framing.premise_doubts ?? [];
   const questions = framing.redirecting_questions ?? [];
@@ -937,7 +973,7 @@ export function framingGuidance(steering: ResearchSteering, framing: Framing | u
         `keep these questions for your first check-back: ${asked} Ask now only if one could reverse the answer.`
       : "No question could redirect the research, so go on without asking.");
   }
-  parts.push(SCREEN_FIRST);
+  parts.push(screenFirst(accounting));
   return parts.join(" ");
 }
 
@@ -947,7 +983,9 @@ export function framingGuidance(steering: ResearchSteering, framing: Framing | u
  * the stop goes there too. It follows framingGuidance's branches and carries the approved traditional-system screen
  * guidance in structured content too (owner answers 402a and 410b).
  */
-export function framingNextStep(steering: ResearchSteering, framing: Framing | undefined): string {
+export function framingNextStep(steering: ResearchSteering, framing: Framing | undefined, accounting = false): string {
+  // Owner answer 413a: an app that hands its model only the structured content gets the menu's rule here.
+  const claims = accounting ? ` ${CLAIMS_AT_THE_SCREEN.trimEnd()}` : "";
   const asks = (framing?.redirecting_questions ?? []).length > 0;
   const doubts = (framing?.premise_doubts ?? []).length > 0;
   if (framing !== undefined && asks && steering.style !== "autonomous") {
@@ -955,18 +993,19 @@ export function framingNextStep(steering: ResearchSteering, framing: Framing | u
       "answer. Then register the plain answer again if their answers change the question" +
       (doubts ? " or a doubt that could be false is not yet a claim" : "") + ", leaving later_inputs.framing out (its " +
       "result's request for a framing is for the next question); then screen and call action plan_research. " +
-      TRADITIONAL_SYSTEM_AT_THE_SCREEN + " " + OPEN_HEALTH_OPTIONS_AT_THE_SCREEN;
+      TRADITIONAL_SYSTEM_AT_THE_SCREEN + " " + OPEN_HEALTH_OPTIONS_AT_THE_SCREEN + claims;
   }
   if (framing !== undefined && !asks && steering.style === "guided") {
     return "Confirm the question you will research in one line, ask for the person's yes and end your turn; after " +
       "their yes, " + (doubts ? "register the plain answer again, leaving later_inputs.framing out (its result's " +
         "request for a framing is for the next question), if a doubt that could be false is not yet a claim; then "
-        : "") + "screen and call action plan_research. " + TRADITIONAL_SYSTEM_AT_THE_SCREEN + " " + OPEN_HEALTH_OPTIONS_AT_THE_SCREEN;
+        : "") + "screen and call action plan_research. " + TRADITIONAL_SYSTEM_AT_THE_SCREEN + " " + OPEN_HEALTH_OPTIONS_AT_THE_SCREEN +
+      claims;
   }
   return (doubts ? "If a doubt that could be false is not yet a claim of the plain answer, register the plain answer " +
     "again first, with the same later_inputs.framing. " : "") + "Screen in a few calls (searches, abstracts, thread " +
     "titles, the Atlas), then call action plan_research with later_inputs.researchMenu; its result says whether to ask " +
-    "the person first. " + TRADITIONAL_SYSTEM_AT_THE_SCREEN + " " + OPEN_HEALTH_OPTIONS_AT_THE_SCREEN;
+    "the person first. " + TRADITIONAL_SYSTEM_AT_THE_SCREEN + " " + OPEN_HEALTH_OPTIONS_AT_THE_SCREEN + claims;
 }
 
 /**
@@ -1249,6 +1288,11 @@ export interface ResearchPlanResult {
    * for a research target that is not the registered one (the review of #473, finding 1).
    */
   go_ahead_may_answer?: true;
+  /**
+   * Owner answer 413a, on an account whose claims are accounted for: each claim of the plain answer, by number, with
+   * the tasks that declare it, or why it is left out, or neither (claim-accounting.ts).
+   */
+  claims?: ClaimAccount[];
 }
 
 // AskRigor's own estimates are rounded for the menu; the person's minutes never are (below).
@@ -1358,10 +1402,10 @@ export function steeringChoiceUnclear(choice: string | undefined): boolean {
  * answered, or one that asks or goes on either way, is planned as it came.
  */
 export function steeringChoiceUnclearDecides(plan: ResearchMenuInput, steering: ResearchSteering,
-  menu?: { digest: string; changed: boolean }): boolean {
+  menu?: { digest: string; changed: boolean }, claims?: readonly ClaimAccount[]): boolean {
   if (!steeringChoiceUnclear(plan.steering_choice)) return false;
   const next = (steering_choice: string) =>
-    planResearch({ ...plan, steering_choice }, steering, undefined, menu).next;
+    planResearch({ ...plan, steering_choice }, steering, undefined, menu, claims).next;
   return next(NO_CHOICE) !== next(plan.steering_choice!);
 }
 
@@ -1394,9 +1438,14 @@ export function planResearch(
   // goOnAsked: the menu carries AskRigor's own mark that the person said to go on (owner answer 304a), which the
   // caller checked against this menu's tasks and receipt (goOnMark).
   menu?: { digest: string; changed: boolean; goOnAsked?: boolean },
+  // Owner answer 413a: where each claim of the plain answer stands on this menu, on an account that has it.
+  claims?: readonly ClaimAccount[],
 ): ResearchPlanResult {
   const done = new Set(plan.done ?? []);
   const steered = personSteered(plan);
+  // A task that covers a claim a person would act on is never only detail, so the recommendation may take it. The
+  // menu's digest and its "you decide" call keep the task as it was given.
+  const covering = new Set((claims ?? []).flatMap(({ tasks: numbers }) => numbers));
   // A menu that changed after the person saw it is theirs to see first: an allocation given for the one they saw is
   // not an answer to this one.
   const changed = menu?.changed === true;
@@ -1404,7 +1453,7 @@ export function planResearch(
     n: index + 1,
     task: task.task,
     kind: task.kind,
-    could_change: task.could_change,
+    could_change: covering.has(index + 1) && task.could_change === "detail" ? "confidence" as const : task.could_change,
     ...(task.loop === undefined ? {} : { loop: task.loop }),
     ...(task.person_asked === true ? { person_asked: true as const } : {}),
     minutes: taskMinutes(task),
@@ -1570,6 +1619,7 @@ export function planResearch(
     }),
     // AskRigor#467: the research's first menu asks, so the person's go-ahead given before it may still answer it.
     ...(next === "ask" && firstMenu && plainAnswer?.matches !== false ? { go_ahead_may_answer: true as const } : {}),
+    ...(claims === undefined ? {} : { claims: claims.map((account) => ({ ...account, tasks: [...account.tasks] })) }),
   };
 }
 
@@ -1584,10 +1634,10 @@ export function planResearch(
  * (STEERING_CHOICE). An allocation that is not used answers nothing here either.
  */
 export function steeringChoiceLeftOut(plan: ResearchMenuInput, steering: ResearchSteering,
-  menu?: { digest: string; changed: boolean }): boolean {
+  menu?: { digest: string; changed: boolean }, claims?: readonly ClaimAccount[]): boolean {
   if (plan.steering_choice !== undefined) return false;
   const next = (steering_could_help: boolean) =>
-    planResearch({ ...plan, steering_could_help }, steering, undefined, menu).next;
+    planResearch({ ...plan, steering_could_help }, steering, undefined, menu, claims).next;
   return next(true) === "ask" && next(false) === "go_on";
 }
 
@@ -1808,17 +1858,17 @@ export function cleanedReason(value: unknown): string | undefined {
  * recommendation counts as "you decide" too. The reason is the caller's, already cleaned, or null. Exact: it counts
  * and compares what the menu declares, never its words.
  */
-export function menuChoiceOf(plan: ResearchMenuInput, steering: ResearchSteering, reason: string | null):
-  ResearchMenuChoiceInput | undefined {
+export function menuChoiceOf(plan: ResearchMenuInput, steering: ResearchSteering, reason: string | null,
+  claims?: readonly ClaimAccount[]): ResearchMenuChoiceInput | undefined {
   if (personSteered(plan) || !allocationAnswered(plan) || plan.person_answered !== true) return undefined;
   const byTask = (entries: readonly { task: number; minutes: number }[]) => {
     const minutes = new Map<number, number>();
     for (const { task, minutes: given } of entries) minutes.set(task, minutesSum([minutes.get(task) ?? 0, given]));
     return minutes;
   };
-  const given = byTask(planResearch(plan, steering).recommended);
+  const given = byTask(planResearch(plan, steering, undefined, undefined, claims).recommended);
   const offered = byTask(planResearch({ ...plan, allocation: undefined, person_answered: undefined,
-    person_go_ahead: undefined }, steering)
+    person_go_ahead: undefined }, steering, undefined, undefined, claims)
     .recommended);
   // Compared without the tasks either side gives no minutes: a recommended task whose estimate rounds to zero is
   // handed over with 0 minutes and then left out of the answered plan, and must not make "you decide" look like a
@@ -1920,6 +1970,8 @@ export function youDecideLaterInputs(plan: ResearchMenuInput, result: ResearchPl
     ...(result.menu_digest === undefined ? {} : { menu_digest: result.menu_digest }),
     // Owner answer 302: the copy of a light plan's menu stays light.
     ...(plan.lane === undefined ? {} : { lane: plan.lane }),
+    // Owner answer 413a: and the claims the menu leaves out stay left out.
+    ...(leftOutClaims(plan.left_out).length === 0 ? {} : { left_out: leftOutClaims(plan.left_out) }),
     // Owner answer 303a: and a reason the menu carried stays with it.
     ...(cleanedReason(plan.person_reason) === undefined ? {} : { person_reason: cleanedReason(plan.person_reason)! }),
   } };
@@ -2002,6 +2054,8 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
     `${loop === undefined ? "" : `, ${LOOP_WORDS[loop]}`}; ` +
     `${minutes === null ? "no estimate" : range(minutes)}${done.has(n) ? " (done)" : ""}.`);
   const chosen = result.recommended.map(({ task, minutes }) => `${task}. ${minutes} min`).join(", ");
+  // Owner answer 413a: the claims of the quick answer no task covers, after the tasks.
+  const notOnPlan = notOnPlanLines(result.claims);
   // Owner answer 302: a light look-up reads no people's reports, so it is never asked for a task that does.
   const light = result.lane === "light";
   const before: string[] = [];
@@ -2036,6 +2090,7 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
       result.recommended.length === 0 ? NOTHING_RECOMMENDED
         : `Recommended: ${chosen}, ${range(result.recommended_minutes)} in all; then about ${ANSWER_MINUTES[0]} to ` +
           `${ANSWER_MINUTES[1]} min to check and write the answer.`,
+      ...notOnPlan,
       HOW_TO_SPEND,
       menuPreferenceLine(result.style),
       ...(learnMode === undefined ? [] : [learnModeLine(learnMode)]),
@@ -2079,7 +2134,8 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
     (chatGpt && !light && !heldBack ? "The task record for the answer, numbered as here (times are rough planning estimates, and say " :
       "The menu to show the person, in their language, numbered as here (times are rough planning estimates, and say ") +
       "whether a task means a quick look, reading in full or a method audit): " + lines.join(" ") + " " + recommendation +
-      ` Then the final check and writing the answer: about ${ANSWER_MINUTES[0]} to ${ANSWER_MINUTES[1]} min.`,
+      ` Then the final check and writing the answer: about ${ANSWER_MINUTES[0]} to ${ANSWER_MINUTES[1]} min.` +
+      (notOnPlan.length === 0 ? "" : ` ${NOT_ON_PLAN_LEAD} ${notOnPlan.join(" ")}`),
     // The tasks held back: the correction last, with no go-ahead after it and none of what follows one, which the
     // corrected call's result gives.
     ...(heldBack ? [...since, ...before, NO_GO_AHEAD_YET]
@@ -2131,6 +2187,8 @@ export function planNextStep(result: ResearchPlanResult, learnMode?: boolean, ch
   const first = (stop === undefined ? "" : `${stop} `) +
     (result.person_steered_problem === undefined ? "" : `${result.person_steered_problem} `) +
     (notRegistered ? `${TARGET_NOT_REGISTERED} ` : "");
+  // Owner answer 413a: the claims no task covers, for an app that hands its model only the structured content.
+  const notOnPlan = claimsNotOnPlan(result.claims).length === 0 ? "" : ` ${NOT_ON_PLAN_STRUCTURED}`;
   if (result.next === "ask") {
     // A menu with nothing recommended (detail only) gives "you decide" the text's own exit: an empty recommended
     // allocation counts as no answer, so the same menu would ask again (the review of 12 Nov 2026).
@@ -2142,6 +2200,7 @@ export function planNextStep(result: ResearchPlanResult, learnMode?: boolean, ch
       "numbers and minutes, or \"you decide\"), and end with one line saying they can change how often AskRigor " +
       `asks by saying guided, balanced or autonomous (theirs is ${result.style} now)` +
       (learnMode === undefined ? "." : `, and after it this line, in their language: ${learnModeLine(learnMode)}`) +
+      notOnPlan +
       " Make no research call and " +
       "don't call finalize_research until they " +
       "answer; then call action plan_research again with their allocation and person_answered true inside " +
@@ -2158,12 +2217,13 @@ export function planNextStep(result: ResearchPlanResult, learnMode?: boolean, ch
   }
   if (notRegistered) return first + NO_GO_AHEAD_YET;
   // Owner answer 302: a light look-up goes on with LIGHT_LOOKUP alone, in any style.
-  if (result.lane === "light") return first + LIGHT_LOOKUP;
+  if (result.lane === "light") return first + LIGHT_LOOKUP + notOnPlan;
   return first + (result.style === "autonomous" && result.went_ahead !== "all"
     ? `Do the recommended tasks now; after about ${result.check_back_minutes} minutes of research, check what you ` +
       "have with finalize_research and give that answer" + (chatGpt ? "." :
         ", ending it with the open tasks as a numbered menu and the question whether to spend more time on them.")
     : "Do the recommended tasks now, in order, each within its minutes; then check the answer with finalize_research " +
       "and give it in this turn.") +
-    ` ${planPresentation(result, chatGpt)} ${chatGpt ? CHATGPT_TASK_TIME_LIMIT : TASK_PROGRESS + TASK_TIME_LIMIT}`;
+    ` ${planPresentation(result, chatGpt)} ${chatGpt ? CHATGPT_TASK_TIME_LIMIT : TASK_PROGRESS + TASK_TIME_LIMIT}` +
+    notOnPlan;
 }
