@@ -2200,6 +2200,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "proposal_not_found",
   "propose_glance_row",
   "proposed",
+  "protocol_core",
   "protocol_currency_recheck",
   "protocol_current",
   "protocol_drift",

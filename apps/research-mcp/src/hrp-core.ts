@@ -73,6 +73,22 @@ export const HRP_CORE_NEXT_STEP = "Before your first search, read HRP's core rul
 export const HRP_CORE_ALREADY_HELD = "You already hold HRP's core rules in this conversation, so they are not sent " +
   "again: follow them, and give finalize_research the research_receipt that came with them too.";
 
+/** load_protocol's words beside the receipt it gives for the core, while the switch holds (owner answer 412a, option c). */
+export const HRP_CORE_RECEIPT_USE = "Give finalize_research this research_receipt with the others: it shows that HRP's " +
+  "core rules were loaded.";
+
+/**
+ * The final check's one note, for an account the switch holds for, when its research shows no receipt of HRP's core
+ * (owner answer 412a, option c: "the final check adds a note when none is shown. It never blocks"). Whether the AI read
+ * what it was given is not checked, so the note says only what AskRigor can tell.
+ */
+export const HRP_CORE_NOT_SHOWN = "No receipt passed here shows that HRP's core rules were loaded in this research, so " +
+  "AskRigor can't tell whether they were; loading them (load_protocol, protocol \"hrp\", section \"core\") gives one. " +
+  "Nothing here holds back the answer.";
+
+/** A receipt's claim that the core was given, hrpCoreDigest's form. */
+export const HRP_CORE_CLAIM = /^[0-9a-f]{16}$/u;
+
 /** In place of the core, when the result has no room for it or the server could not read it, in text and next_step. */
 export const HRP_CORE_LOAD_FIRST = "Before the first search, call load_protocol with protocol \"hrp\" and section " +
   "\"core\", and follow what it gives.";

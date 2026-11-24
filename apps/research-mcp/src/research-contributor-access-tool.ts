@@ -69,7 +69,7 @@ import {
 import { CLAIMS_ON_THE_MENU, CLAIMS_ON_THE_MENU_REGISTERED, PREMISE_CLAIMS_COUNT, accountForClaims, claimNumbers,
   claimsWanted } from "./claim-accounting.js";
 import { HRP_CORE_ALREADY_HELD, HRP_CORE_LOAD_FIRST, HRP_CORE_NEXT_STEP, HRP_CORE_RESULT_LIMITS, holdsHrpCore,
-  hrpCoreStructured, hrpCoreText, type HrpCore } from "./hrp-core.js";
+  hrpCoreDigest, hrpCoreStructured, hrpCoreText, type HrpCore } from "./hrp-core.js";
 import { askedText, callsPageSchema, findingsSaveOff, laterInputShape, latestMessage } from "./later-inputs.js";
 import { SAFETY_LIMITS_INSPECT_SENTENCE } from "./safety-limits.js";
 import { ownerPointerById } from "./owner-pointers.js";
@@ -1698,18 +1698,28 @@ async function registerPlainAnswer(
   });
   if (problems.length > 0) return rejectedPlainAnswer(problems);
   const namedVideos = personWords === undefined ? [] : namedVideoIdsIn(personWords).slice(0, NAMED_VIDEOS_SIGNED);
-  const receipt = plain!.sign({
+  // Owner answer 412a: HRP's core, and whether the AI says this conversation holds it, before the receipts below.
+  const core = hrp === undefined ? undefined : await Promise.resolve().then(hrp.read).catch(() => undefined);
+  const coreHeld = core !== undefined && holdsHrpCore(hrp!.held, core);
+  const claimsSigned: ResearchReceiptClaims = {
     claims: plainAnswer.claims.map(plainAnswerClaimDigest),
     text: createHash("sha256").update(plainAnswer.text, "utf8").digest("hex"),
     target: researchTargetDigest(plainAnswer.researchTarget),
     ...(personWords === undefined ? {} : { asked: "1" }),
     ...(namedVideos.length === 0 ? {} : { vids: namedVideos }),
     ...(accounting ? { first: "1" } : {}),
-  }, account.accountKey);
+  };
+  const receipt = plain!.sign(claimsSigned, account.accountKey);
   if (receipt === undefined) {
     return accessError("receipts_unavailable", "This AskRigor server cannot sign research receipts, so the plain " +
       "answer was not registered; the research goes ahead without it.");
   }
+  // Owner answer 412a, option c: the receipt of a registration whose result hands HRP's core over signs that too. Whether
+  // it does is known only once the plan is (a plain look-up gets none) and the result is measured, and a receipt signed
+  // then would come after research begun meanwhile; so both are signed now, and the result, the menu it hands over and
+  // AskRigor's mark use the one that is true of it.
+  const handedReceipt = core === undefined || coreHeld ? undefined
+    : plain!.sign({ ...claimsSigned, hrp: hrpCoreDigest(core) }, account.accountKey);
   const count = plainAnswer.claims.length;
   // The server keeps no record of the research, so it cannot tell here whether research began; the final check can, by
   // the receipts' signed order (#394's run: q136-weak-lead-given registered again after research began, and both results
@@ -1740,21 +1750,17 @@ async function registerPlainAnswer(
   // read is none.
   const menuHistory = planning === undefined || !account.steering.learnMenuChoices ? []
     : menuHistoryOf(await service.menuChoices(account.accountKey).catch(() => []), Date.now());
-  // What AskRigor already holds is read while the plan is made, so it adds no wait; it never fails a registration. So is
-  // HRP's core (owner answer 412a).
+  // What AskRigor already holds is read while the plan is made, so it adds no wait; it never fails a registration.
   const holding = heldFor(holds, plainAnswer.researchTarget).catch(() => undefined);
-  const coreReading = hrp === undefined ? undefined : Promise.resolve().then(hrp.read).catch(() => undefined);
   const planned = planning === undefined ? undefined
     : await plannedResearch(planning, plainAnswer, framing, receipt, account.accountKey, menuHistory, accounting);
   const heldAll = await holding;
-  const core = await coreReading;
-  const plan = planned !== undefined && "later_inputs" in planned ? planned : undefined;
+  const plan = planned !== undefined && "menuFor" in planned ? planned : undefined;
   const notPlanned = planned !== undefined && "reason" in planned ? planned : undefined;
   const fallbackLine = notPlanned !== undefined && !chatGpt
     ? "Tell the person in one line that the plan will take a few minutes more: you are taking a first look yourself."
     : undefined;
-  const outline = plan === undefined
-    ? registrationMenuOutline(plainAnswer.researchTarget, receipt, devAccount, accounting) : undefined;
+  const outlined = plan === undefined;
   const notUsed = notPlanned === undefined ? undefined
     : plannerNotUsedSentence(notPlanned.reason, planning!.planner.accountDailyCalls);
   // A day's limit is the person's to know, so it goes to an app that hands its model only next_step too.
@@ -1763,11 +1769,13 @@ async function registerPlainAnswer(
   // a word when the AI says this conversation holds it; otherwise the core itself where the result has room for it
   // (handed), and the sentence to load it first where it has none.
   const coreWanted = hrp !== undefined && !(planned !== undefined && "aside" in planned) && plan?.lane !== "light";
-  const coreHeld = coreWanted && core !== undefined && holdsHrpCore(hrp.held, core);
-  const coreHanded = coreWanted && !coreHeld ? core : undefined;
+  const coreHanded = coreWanted && handedReceipt !== undefined ? core : undefined;
   // The result with what AskRigor holds for the question, or with less of it, or with none (heldVariants); with HRP's
-  // core, or without it.
+  // core, or without it. Its receipt, its menu and its outline are the ones made for it.
   const resultWith = (held: AskRigorHolds | undefined, handed: HrpCore | undefined): CallToolResult => {
+  const given = handed === undefined ? receipt : handedReceipt!;
+  const made = plan === undefined ? undefined : { ...plan, later_inputs: { researchMenu: plan.menuFor(given) } };
+  const outline = outlined ? registrationMenuOutline(plainAnswer.researchTarget, given, devAccount, accounting) : undefined;
   const coreSaid = !coreWanted ? undefined : handed !== undefined ? hrpCoreText(handed, chatGpt)
     : coreHeld ? HRP_CORE_ALREADY_HELD : HRP_CORE_LOAD_FIRST;
   const coreStep = coreSaid === undefined || handed === undefined ? coreSaid : HRP_CORE_NEXT_STEP;
@@ -1783,13 +1791,13 @@ async function registerPlainAnswer(
         { type: "text", text: asideGuidance(planned, holdsSomethingNow(held)) },
         // What AskRigor holds comes with a look-up it steps aside for too: there the AI would not have searched.
         ...heldTexts,
-        { type: "text", text: `research_receipt: ${receipt} Keep it only in case the person asks for the research ` +
+        { type: "text", text: `research_receipt: ${given} Keep it only in case the person asks for the research ` +
           "after all." },
       ],
       structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
         ok: true,
         plainAnswer: { requested: true, note: account.note, claims: count },
-        research_receipt: receipt,
+        research_receipt: given,
         next_step: asideNextStep(holdsSomethingNow(held)),
         research_plan: { source: "askrigor_planning_call", about: planned.about, steering_choice: "none",
           searches: planned.searches, from_asked: planned.asked, lane: "aside" },
@@ -1802,14 +1810,14 @@ async function registerPlainAnswer(
     // first, before the registration's details, so an ask is the first thing the model reads, and next_step carries it
     // to an app that hands its model only the structured content.
     content: [
-      { type: "text", text: plan === undefined ? framingGuidance(account.steering, framing, accounting)
-        : plannedGuidance(framing, plan) },
+      { type: "text", text: made === undefined ? framingGuidance(account.steering, framing, accounting)
+        : plannedGuidance(framing, made) },
       ...(notUsed === undefined ? [] : [{ type: "text" as const, text: notUsed }]),
       ...(fallbackLine === undefined ? [] : [{ type: "text" as const, text: fallbackLine }]),
       ...(outline === undefined ? [] : [{ type: "text" as const, text: "Fill in menu_outline for your plan_research call." }]),
       ...(coreSaid === undefined ? [] : [{ type: "text" as const, text: coreSaid }]),
       { type: "text", text: summary },
-      { type: "text", text: `research_receipt: ${receipt}` },
+      { type: "text", text: `research_receipt: ${given}` },
       // What AskRigor already holds, for the answer: after the receipt, so the first texts stay what to do next.
       ...heldTexts,
       { type: "text", text: FINALIZE_REMINDER },
@@ -1824,19 +1832,19 @@ async function registerPlainAnswer(
     structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
       ok: true,
       plainAnswer: { requested: true, note: account.note, claims: count },
-      research_receipt: receipt,
-      next_step: `${plan !== undefined ? plannedNextStep(framing, plan)
+      research_receipt: given,
+      next_step: `${made !== undefined ? plannedNextStep(framing, made)
         : `${framingNextStep(account.steering, framing, accounting)}${limitReached ? ` ${notUsed}` : ""}`}${heldStep}` +
         (fallbackLine === undefined ? "" : ` ${fallbackLine}`) +
         (outline === undefined ? "" : " Fill in menu_outline for your plan_research call.") +
         (coreStep === undefined ? "" : ` ${coreStep}`),
       ...(outline === undefined ? {} : { menu_outline: outline }),
-      ...(plan === undefined ? {} : {
-        research_plan: { source: "askrigor_planning_call", about: plan.about,
-          steering_choice: plan.later_inputs.researchMenu.steering_choice ?? "none", searches: plan.searches,
-          from_asked: plan.asked, lane: plan.lane,
-          ...(plan.later_inputs.researchMenu.go_on_asked === undefined ? {} : { person_said_go_on: true as const }) },
-        planned_later_inputs: plan.later_inputs,
+      ...(made === undefined ? {} : {
+        research_plan: { source: "askrigor_planning_call", about: made.about,
+          steering_choice: made.later_inputs.researchMenu.steering_choice ?? "none", searches: made.searches,
+          from_asked: made.asked, lane: made.lane,
+          ...(made.later_inputs.researchMenu.go_on_asked === undefined ? {} : { person_said_go_on: true as const }) },
+        planned_later_inputs: made.later_inputs,
       }),
       ...(notPlanned === undefined ? {} : { research_plan_not_used: notPlanned.reason }),
       ...(held === undefined ? {} : { askrigor_holds: held }),
@@ -1897,6 +1905,9 @@ interface PlannedAside {
   asked: boolean;
 }
 
+/** AskRigor's own plan, whose menu is made for the receipt the result carries (owner answer 412a). */
+type PlannedMenu = Omit<PlannedResearch, "later_inputs"> & { menuFor: (receipt: string) => ResearchMenuInput };
+
 /** How long a registration waits for the planner at most: a little past the planner's own longest timeout. */
 const PLANNER_WAIT_MS = 125_000;
 
@@ -1942,7 +1953,7 @@ async function plannedResearch(
   accountKey: string,
   menuHistory: readonly MenuHistoryEntry[] = [],
   accounting = false,
-): Promise<PlannedResearch | PlannedAside | { reason: PlannerNotUsedReason } | undefined> {
+): Promise<PlannedMenu | PlannedAside | { reason: PlannerNotUsedReason } | undefined> {
   // Whatever the planner does (a throw before its promise, a rejection, a promise that never settles), the
   // registration goes on: the planner's own timeout is at most 120 seconds, and this wait ends a little after it.
   let waited: ReturnType<typeof setTimeout> | undefined;
@@ -1979,12 +1990,14 @@ async function plannedResearch(
   if (!menu.success) return { reason: "unreadable" };
   // Owner answer 304a: the plan says the person's newest message told the AI to go on, and this call carried such a
   // message (a plan kept from the hour's cache may have been made for a call that did): the menu gets AskRigor's
-  // mark, signed for these tasks and this receipt. Without the signing secret there is no mark, and the menu asks
-  // as it always did.
-  const mark = goOn && planning.latest !== undefined && planning.markSecret !== undefined && planning.markSecret !== ""
-    ? goOnMark(menu.data.tasks, receipt, planning.markSecret) : undefined;
-  return { about, searches, asked, lane: light ? "light" : "research",
-    later_inputs: { researchMenu: mark === undefined ? menu.data : { ...menu.data, go_on_asked: mark } } };
+  // mark, signed for these tasks and the receipt the menu carries. Without the signing secret there is no mark, and the
+  // menu asks as it always did.
+  const menuFor = (carried: string): ResearchMenuInput => {
+    const mark = goOn && planning.latest !== undefined && planning.markSecret !== undefined && planning.markSecret !== ""
+      ? goOnMark(menu.data.tasks, carried, planning.markSecret) : undefined;
+    return { ...menu.data, plain_answer_receipt: carried, ...(mark === undefined ? {} : { go_on_asked: mark }) };
+  };
+  return { about, searches, asked, lane: light ? "light" : "research", menuFor };
 }
 
 /**

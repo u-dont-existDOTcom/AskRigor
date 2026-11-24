@@ -15,7 +15,9 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
  * digests of its claims, its text and its research target, a binding to the
  * account, and its issue order; owner answer 140b), and
  * submit_research_contribution for a research map it filed (a binding to the
- * account and its issue order; owner answer 143a). The
+ * account and its issue order; owner answer 143a). So may load_protocol, for
+ * HRP's core, whose SHA-256 it signs the start of (owner answer 412a), as a
+ * plain answer's receipt does when its registration handed the core over. The
  * finalize_research gate verifies the tokens, so completion is checked by the
  * server instead of taken from the model's own report. Tokens are stateless:
  * they survive restarts and need no session store.
@@ -62,7 +64,10 @@ export const RESEARCH_RECEIPT_KINDS = [
   "treatment_coverage",
   "finalization",
   "plain_answer",
-  "research_map"
+  "research_map",
+  // Owner answer 412a, option c (24 Nov 2026): load_protocol served HRP's core whole. No research, so nothing but the note
+  // that no receipt shows the core loaded reads it.
+  "protocol_core"
 ] as const;
 export type ResearchReceiptKind = typeof RESEARCH_RECEIPT_KINDS[number];
 

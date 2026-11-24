@@ -28,7 +28,7 @@ import { researchPlannerFromEnv, type ResearchPlanner } from "./research-planner
 import type { ResearchLane } from "./research-steering.js";
 import { researchTrialWindows, switchHolds, type ResearchSwitchModes, type ResearchTrialSwitch, type ResearchTrialWindows }
   from "./research-trial.js";
-import type { HrpCore } from "./hrp-core.js";
+import { HRP_CORE_RECEIPT_USE, hrpCoreDigest, type HrpCore } from "./hrp-core.js";
 import {
   answerReviewNote, researchReviewerFromEnv, type ResearchReviewer, type ResearchReviewerCall,
 } from "./research-reviewer.js";
@@ -494,6 +494,10 @@ function protocolParts(
   };
 }
 
+/** Whether a request for several parts names the core whole. */
+const namesProtocolCore = (request: string): boolean =>
+  request.split(",").some((name) => name.trim() === PROTOCOL_CORE_SECTION);
+
 /** Each part's exact canonical bytes, in the order asked, a blank line between two parts. */
 function joinedProtocolParts(text: string, parts: readonly ProtocolPart[]): Buffer {
   const bytes = Buffer.from(text, "utf8");
@@ -503,22 +507,29 @@ function joinedProtocolParts(text: string, parts: readonly ProtocolPart[]): Buff
   ]));
 }
 
+/** A protocol's core, the bytes load_protocol serves for section "core", with their SHA-256 and the core's section names. */
+function protocolCore({ manifest, sections, text }: Awaited<ReturnType<typeof loadProtocolSectionSnapshot>>):
+  { bytes: Buffer; sha256: string; names: string[] } | undefined {
+  const core = protocolParts(manifest.name, text, sections, PROTOCOL_CORE_SECTION);
+  if (core === undefined || !("parts" in core)) return undefined;
+  const bytes = joinedProtocolParts(text, core.parts);
+  return { bytes, sha256: protocolTextPage(bytes, 1).scope_sha256, names: core.parts.map(({ label }) => label) };
+}
+
 /**
- * HRP's core, the bytes load_protocol serves for section "core", for the registration of the plain answer (owner answer
- * 412a, hrp-core.ts). Undefined when the protocol cannot be read, which load_protocol then says.
+ * HRP's core for the registration of the plain answer (owner answer 412a, hrp-core.ts). Undefined when the protocol cannot
+ * be read, which load_protocol then says.
  */
 export async function currentHrpCore(): Promise<HrpCore | undefined> {
   try {
-    const { manifest, sections, text } = await loadProtocolSectionSnapshot("hrp");
-    const core = protocolParts(manifest.name, text, sections, PROTOCOL_CORE_SECTION);
-    if (core === undefined || !("parts" in core)) return undefined;
-    const joined = joinedProtocolParts(text, core.parts);
-    return {
-      version: manifest.version,
-      sha256: protocolTextPage(joined, 1).scope_sha256,
-      sections: core.parts.map(({ label }) => label),
-      furtherSections: sections.filter((section) => section.runtime && !section.core).map(({ name }) => name),
-      text: joined.toString("utf8"),
+    const snapshot = await loadProtocolSectionSnapshot("hrp");
+    const core = protocolCore(snapshot);
+    return core === undefined ? undefined : {
+      version: snapshot.manifest.version,
+      sha256: core.sha256,
+      sections: core.names,
+      furtherSections: snapshot.sections.filter((section) => section.runtime && !section.core).map(({ name }) => name),
+      text: core.bytes.toString("utf8"),
     };
   } catch {
     return undefined;
@@ -1305,7 +1316,7 @@ function defineResearchOperations(
       },
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async ({ protocol, section, page }) => {
+    async ({ protocol, section, page }, extra) => {
       try {
         const snapshot = await loadProtocolSectionSnapshot(protocol);
         const { manifest, sections } = snapshot;
@@ -1357,7 +1368,7 @@ function defineResearchOperations(
             );
           }
           const textPage = protocolTextPage(joined, page ?? 1);
-          return successfulToolResult(
+          return withHrpCoreReceipt(successfulToolResult(
             `Loaded ${manifest.name} ${several.parts.map(({ label }) => label).join(", ")}, page ${textPage.page} of ` +
               `${textPage.page_count} (exact canonical bytes of each, in this order, a blank line between two).` +
               (textPage.complete ? "" : ` Call load_protocol again with the same section and page ${textPage.page + 1} to continue.`),
@@ -1375,7 +1386,8 @@ function defineResearchOperations(
               scope_sha256: textPage.scope_sha256,
               text: textPage.text
             }
-          );
+          ), protocol === "hrp" && textPage.complete && namesProtocolCore(section!) && hrpCoreReceiptsFor(options, extra)
+            ? protocolCore(snapshot)?.sha256 : undefined);
         }
         const target = section === undefined
           ? undefined
@@ -2818,6 +2830,11 @@ function defineResearchOperations(
             plainAnswerRequested(researcher.mode)
           ? { plainAnswer: { note: researcher.plainAnswerNote, account: plainAnswerAccountBinding(secret, researcher.accountKey) } }
           : {}),
+        // Owner answer 412a, option c: one note when no receipt shows HRP's core, while its switch holds for the account.
+        ...(researcher !== undefined && secret !== undefined && switchHoldsFor(options, "hrpCore", researcher.accountKey,
+            isDevAccount(researcher.accountKey, devAccountKeysFromEnv()))
+          ? { hrpCore: { account: plainAnswerAccountBinding(secret, researcher.accountKey) } }
+          : {}),
         // Owner answer 143a: this research's map, on the MCP connector. A paid private answer's save offer also asks,
         // in the same sentence, to file it; a free contributor's final check reminds the model to file it.
         ...(researcher !== undefined && secret !== undefined && options.mcpSurface !== "/mcp/gemini"
@@ -3458,6 +3475,27 @@ function switchHoldsFor(options: RegisterToolsOptions, name: ResearchTrialSwitch
   boolean {
   return switchHolds(researchSwitchModes()[name], devAccount,
     (options.researchTrialWindows ?? researchTrialWindows).window(accountKey)?.[name] === true);
+}
+
+/**
+ * Owner answer 412a, option c: whether load_protocol gives a receipt for HRP's core to this call: while the switch holds
+ * for its account, and, for a call with no account to ask about, whenever the switch is not off.
+ */
+function hrpCoreReceiptsFor(options: RegisterToolsOptions, extra: ResearchOperationExtra | undefined): boolean {
+  if (hrpCoreModeFromEnv() === "off") return false;
+  const accountKey = callAccountKey(extra, options.researchContributorAccessService);
+  return accountKey === undefined ||
+    switchHoldsFor(options, "hrpCore", accountKey, isDevAccount(accountKey, devAccountKeysFromEnv()));
+}
+
+/**
+ * load_protocol's result for HRP's core with the receipt that shows it was loaded, in its text alone: the tool's published
+ * result stays as it is. Without a digest, or where this server cannot sign receipts, the result as it was.
+ */
+function withHrpCoreReceipt(result: CallToolResult, sha256: string | undefined): CallToolResult {
+  const receipt = sha256 === undefined ? undefined : researchReceipt("protocol_core", { hrp: hrpCoreDigest({ sha256 }) });
+  return receipt === undefined ? result : { ...result, content: [...result.content,
+    { type: "text", text: `research_receipt: ${receipt} ${HRP_CORE_RECEIPT_USE}` }] };
 }
 
 /** The pseudonymous key of the account a call is signed in as, read from the call alone; undefined for any other call. */
