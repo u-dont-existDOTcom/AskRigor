@@ -508,22 +508,32 @@ Where `ASKRIGOR_CLAIM_ACCOUNTING` holds for the account (the switches, below), a
   every other account) and its receipt signs that (`first`), so the final check's message about claims
   `plain_answer_comparison` leaves out numbers them the same way.
 - A menu's tasks may each give `claims`, the numbers of the claims they could confirm or correct (one task may cover
-  several), and the menu may give `left_out`, each claim no task covers, word for word, with why, in the person's language
-  and at most 120 characters. The screen's instructions, the menu's shape and `menu_outline` say so; the outline's
-  placeholders, sent back unchanged, read as not given. On any other account both fields are no part of a menu: left out
-  and named, as any unknown field.
+  several, but only where its own result could show each of them wrong: the task that reads the study or source that
+  settles a claim covers it, the search that finds that source does not), and the menu may give `left_out`, each claim no
+  task covers, word for word, with why, in the person's language and at most 120 characters. The screen's instructions, the
+  menu's shape and `menu_outline` say so; the outline's placeholders, sent back unchanged, read as not given. On any other
+  account both fields are no part of a menu: left out and named, as any unknown field.
 - `plan_research`, with the receipt of a plain answer registered so, says where each registered claim stands, exactly and
   only from what the menu declares: numbers, and each left-out claim's digest compared with the receipt's.
   `researchMenu.claims` gives each
   by number with its tasks, or its words and why, or neither. A number past the claims, or a left-out claim that was not
   registered, is named among the result's problems; nothing refuses a menu for either. After the tasks the text lists
-  each claim no task covers: "Not on this plan, so not checked: ...". `next_step` says the same to an app that reads only
-  the structured content. A task that covers a claim counts as one that could change how sure the answer is, in the
-  recommendation and in every decision made from the menu; the menu's digest, AskRigor's mark and the "you decide" call
-  keep the tasks as given.
+  each claim no task covers: "Not on this plan, so not checked: ..."; where the tasks are ChatGPT's record for the answer,
+  it says to give those lines in the answer. `next_step` says the same to an app that reads only the structured content. A
+  claim whose words the menu did not give stands by its number, for the AI to put its words in place. A task that covers a
+  claim counts as one that could change how sure the answer is, in the recommendation and in every decision made from the
+  menu; the menu's digest, AskRigor's mark and the "you decide" call keep the tasks as given.
+- The ask's rule for the person's reply names the tasks' `claims` and `left_out`, and a go-ahead says to keep both. A call for
+  the same menu (its `menu_digest` names the same tasks) that declares no claim at all says nothing of any claim, and one
+  problem asks for both back with the next call; learn mode keeps no choice from it when a task of it is detail.
+- A menu whose claims' numbers contain 0 is counted from 0: each number is read one higher, and a problem says so. With the
+  last claim's number beside a 0 none of its numbers is used, and a problem says that they start at 1. A planning call's own
+  reply is read the same way.
 - AskRigor's own plan, on a dev account: the same rubric with one paragraph more and the same reply's shape with both
   fields required, kept in the hour's cache under a version of its own. A kept plan's claims are found again by a SHA-256
   of each claim's text when the registration's claims changed; a claim the plan does not know is left out without a why.
+  Where AskRigor made the plan, the registration and `inspect` say that it has accounted for the claims and is to be sent as
+  given, and nothing asks the AI for a task or a `left_out` entry of its own.
 
 Whether a task covers a claim, and whether a reason is a good one, stay the model's declarations. The screen and the
 planner give only two grounds for leaving a claim out, and none for a verdict on a premise or a claim whose being wrong
@@ -533,37 +543,56 @@ could harm the person; AskRigor does not check that.
 
 Where `ASKRIGOR_HRP_CORE` holds for the account, `register_plain_answer`'s result carries HRP's core in
 `structuredContent.hrp_core` (runtime output only): `protocol`, `version`, `scope_sha256`, the core's `sections`,
-`further_sections` (the names of every other section for research), `how_to_use` and `text`, the bytes `load_protocol`
-serves for section "core" (one function joins both, so the SHA-256 is that call's `scope_sha256`). One paragraph of its
-text says where it is, to read it before the first search and follow it, not to load it again in this conversation, and
-to load a further section by name before the step that uses it; `next_step` says the same in one sentence. ChatGPT reads
-it in the structured content; every other app's text ends with the core's exact bytes, raw, as a protocol page's does
-(`tool-result.ts`).
+`further_sections` (the names of every other section for research), `how_to_use`, `characters` (the text's length),
+`ends_with` (its last 60 characters) and `text`, the bytes `load_protocol` serves for section "core" (one function joins
+both, so the SHA-256 is that call's `scope_sha256`). One paragraph of its text says where it is and that it is the rules the
+research and its answer are held to: to read all of them before the next call, to load the further sections the question
+needs in one `load_protocol` call before the first search (after the person's answer, when the result says to ask first), and
+not to load the core again in this conversation unless what the AI sees of it does not end with `ends_with`; `next_step` says
+the same in short. ChatGPT reads it in the structured content; every other app's text ends with the core's exact bytes, raw,
+as a protocol page's does (`tool-result.ts`).
 
 - Not for AskRigor's lane light or aside, and not when the call gives `later_inputs.hrpCoreHeld`, the first 16 characters
   of the core's `scope_sha256`: the handover asks for it when the AI registers again in the same conversation, and the
   result then says in one line that it already holds the core. Any other value says nothing.
 - The core does not fit the usual 40,000 bytes, so a result that carries it may be as large as the app takes: 60,000 bytes
   for ChatGPT (text and structured content together); for every other app 49,000 characters of structured content (Claude
-  Code takes 50,000 inline) and 150,000 bytes in all. The result shows less of what AskRigor holds for the question
-  before it leaves the core out; without it, a sentence says to call `load_protocol` with protocol hrp and section "core"
-  before the first search.
-- The plain answer's receipt of such a registration also signs the core's digest (`hrp`), and `load_protocol` with HRP's
-  section "core" gives a `protocol_core` receipt in its text while the switch holds for the account (or, for a call with
+  Code takes 50,000 inline) and 150,000 bytes in all.
+- What AskRigor holds for the question is kept: the registration carries the core only when it fits beside all of it. When it
+  doesn't and AskRigor planned the research, the registration says that the core comes with `plan_research`'s result, or that
+  that result says to load it, and `plan_research` carries it on the research's first menu (no `menu_digest` yet, no answer of
+  the person's and no task done), under the same limits, with a `protocol_core` receipt in its text and in `research_receipt`;
+  a light menu gets none. Otherwise a sentence says to call `load_protocol` with protocol hrp and section "core" before the
+  first search. `hrp_core_status` (runtime output only) says which in both results: `here`, `with_plan_research`, `load_it`,
+  `already_held` or `not_for_this`; `plan_research` gives it for the first menu of a research whose receipt says something of
+  the core.
+- The plain answer's receipt of a registration that hands it over signs the core's digest (`hrp`); one whose
+  `plan_research` will carry it, or whose AI says it holds it, signs that (`core`, `plan` or `held`). `load_protocol` with
+  HRP's section "core" gives a `protocol_core` receipt in its text while the switch holds for the account (or, for a call with
   no account to ask about, whenever the switch is not off). The final check's one note is in `docs/final-check.md`.
 
-### The two switches and a test window (24 November 2026; built, switched off, not released)
+### AskRigor's own plan reaches for evidence one step away (promise P90, 24 November 2026; built, switched off, not released)
 
-`ASKRIGOR_CLAIM_ACCOUNTING` and `ASKRIGOR_HRP_CORE` are each off (the default, and any other value), trial, dev or on
-(`apps/research-mcp/src/research-trial.ts`). dev holds for every dev account, on for every account. In mode trial a switch
-holds for a dev account only while its test window has it on: the runtime-only action `set_research_trial` (the published
-tool list is unchanged) with `later_inputs.researchTrial` {claimAccounting, hrpCore, minutes} opens one for 1 to 120 whole
-minutes from now, never more than 120 minutes after it began however often it is set again; 0 minutes ends it, and so does
-a restart. Only a dev account, only its own window (`dev_account_required`), and only while one of the switches is in mode
-trial (`trial_off`). Its result says in plain words what is on and until when; `inspect` says nothing of it, as of a pause
-of the planning call. Each call goes by the window as it is when the call is made, so a test round starts each of its parts
-with `inspect` and a new registration. With both switches off every text and result is as before; only an error that lists
-the known actions or later inputs names the new ones.
+Where `ASKRIGOR_PLAN_INDIRECT` holds for the account, the planning call's rubric has three changes
+(`research-planner.ts`, `INDIRECT_RUBRIC_CHANGES`): what `about` leaves out is a subject the answer will not speak to and never
+limits where evidence may come from; step 2 may say that nothing is left out; and in lane research, where the call's own
+searches showed little or no direct evidence on an outcome the person asks about, a task looks for the strongest evidence one
+step away on it and says that it is indirect. The bundle, the reply's shape and every other text are as without it. It
+combines with the claims' rule above: each combination has its own rubric version and its own key in the hour's cache, and
+the final check finds the lane of the newest kept plan under any of them.
+
+### The three switches and a test window (24 November 2026; built, switched off, not released)
+
+`ASKRIGOR_CLAIM_ACCOUNTING`, `ASKRIGOR_HRP_CORE` and `ASKRIGOR_PLAN_INDIRECT` are each off (the default, and any other value),
+trial, dev or on (`apps/research-mcp/src/research-trial.ts`). dev holds for every dev account, on for every account. In mode
+trial a switch holds for a dev account only while its test window has it on: the runtime-only action `set_research_trial` (the
+published tool list is unchanged) with `later_inputs.researchTrial` {claimAccounting, hrpCore, indirectEvidence, minutes} opens
+one for 1 to 120 whole minutes from now, never more than 120 minutes after it began however often it is set again; 0 minutes
+ends it, and so does a restart. Only a dev account, only its own window (`dev_account_required`), and only while one of the
+switches is in mode trial (`trial_off`). Its result says in plain words what is on and until when; `inspect` says nothing of
+it, as of a pause of the planning call. Each call goes by the window as it is when the call is made, so a test round starts
+each of its parts with `inspect` and a new registration. With every switch off every text and result is as before; only an
+error that lists the known actions or later inputs names the new ones.
 
 ### AskRigor's own planning call, on dev accounts (owner answer 298b, 13 November 2026)
 

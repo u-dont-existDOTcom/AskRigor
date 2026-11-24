@@ -606,9 +606,13 @@ Owner answer 412a, option c (24 November 2026: "Fetching HRP gives a signed slip
 none is shown. It never blocks, so the six checks that can stop an answer stay six"; built, switched off, not released).
 Only while `ASKRIGOR_HRP_CORE` holds for the account, a call with a research receipt and no receipt of HRP's core gets one
 note: no receipt passed here shows that HRP's core rules were loaded in this research, so AskRigor can't tell whether they
-were, and loading them gives one. A receipt shows it when it is this account's plain answer whose registration handed the
-core over (it signs `hrp`, the first 16 characters of the core's SHA-256), also for another research target, or the
-`protocol_core` receipt `load_protocol` gives with HRP's section "core" while the switch holds. The note is about the call:
+were; it says not to load them now for the receipt's sake, and that loading them first in the next research gives one. A
+receipt shows it when it is this account's plain answer whose registration handed the core over (it signs `hrp`, the first 16
+characters of the core's SHA-256), also for another research target, or the `protocol_core` receipt that `load_protocol`
+gives with HRP's section "core", or `plan_research` when it hands the core over, while the switch holds. A look-up AskRigor's
+own plan put in the light lane gets no note, whatever its receipts: its registration hands nothing over. The lane is the one
+the draft's review looks up (the plan for the account's same words or research target, an hour in memory), so a look-up
+checked later, or after a restart, gets the note. The note is about the call:
 it is no step, limit, caveat or line of the panel (it stands with the folded notes for the AI), it is given once in a turn,
 and the findings ledger lists it to no reader. A `protocol_core` receipt is no research: it begins none, so a plain answer
 registered after it is still compared, and it counts in no reading summary, research map or saved card's stamp. Whether
