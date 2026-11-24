@@ -2853,8 +2853,8 @@ function defineResearchOperations(
           abstracts: new Map([[newsFallback.pmid, Promise.resolve<SourceLineDocument | undefined | null>(newsFallback.document)]]) };
         const newsLate = ({ line }: { line: number }): NewsLineLookup => ({ source: news!.lines[line]!.source,
           sentence: "not_checked", conclusion: "not_checked", reason: "text_unavailable" });
-        // The 24 Nov 2026 news audit: a line that rests on a web address its check read, and on no paper, is looked up in
-        // that page, read again (news/web-page.ts), apart from the others, so a slow page never costs a paper's lines
+        // The 24 Nov 2026 news audit: a line that rests on a web address its check read, which names no paper, is looked up
+        // in that page, read again (news/web-page.ts), apart from the others, so a slow page never costs a paper's lines
         // theirs. Only a call whose card could be staged reads a page: the owner's own news check, marked off.
         const pagesRead = researcher !== undefined && isDevAccount(researcher.accountKey, devAccountKeysFromEnv()) &&
           findingsSaveOff(input);
@@ -3750,7 +3750,10 @@ export const PUBMED_INSTEAD_NOTE = " Europe PMC's search did not work (its side,
 /** Added when PubMed has more: its cursor is search_pubmed's, never a Europe PMC search's. */
 const PUBMED_INSTEAD_NEXT_PAGE = " PubMed has more records: for its next page, call search_pubmed with the same query, " +
   "dates and page size and the next_cursor in pubmed_search_instead.";
-/** The second search's whole time, after Europe PMC's own 20 seconds at most, within the client's 60. */
+/**
+ * How long the second search is waited for in all, after Europe PMC's own 20 seconds at most, within the client's 60. Its
+ * requests are raced, not aborted: one already sent may finish, and is then not used.
+ */
 const PUBMED_INSTEAD_MS = 10_000;
 
 type PubmedSearchPage = Awaited<ReturnType<typeof searchPubmed>>;

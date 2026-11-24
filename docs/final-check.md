@@ -229,11 +229,12 @@ where Unicode's rules end no sentence; an unknown subheading (a PDF's, or an HTM
 know) runs into the next sentence, and so does a table's or a list's item without a full stop, so those sentences are
 refused; and JATS superscript citations read as bare digits, so a quote that leaves one out is refused. No source line is
 looked up in a web page. The Atlas news card's lines alone are (`apps/research-mcp/src/news/web-page.ts`, 24 November
-2026): a line whose key source is a web address, with no paper's text or record tied to it, is looked up in the page
-`read_forum_thread` read there, which AskRigor's server reads again, only when its text is the one that read's receipt
-signed (`tx`, a digest of the text returned; the receipt's other digests are of links). Its lines run on within a
-section, as an HTML paper's do, so an agency page's sentence right after a heading or a list item with no full stop is
-refused. A quote found so is signed as `web_page` and is never a paper's.
+2026): a line whose key source is a web address that names no paper (a DOI, PMID or PMCID) and that no paper's receipt
+names is looked up in the page `read_forum_thread` read there, which AskRigor's server reads again, only when its text is
+the one that read's receipt signed (`tx`, a digest of the text returned; the receipt's other digests are of links). Its
+lines run on within a section, as an HTML paper's do, and a known section heading's line starts a section only after a
+sentence's end, so an agency page's sentence right after another heading or a list item with no full stop is refused. A
+quote found so is signed as `web_page` and is never a paper's.
 
 Owner answer 249a (5 November 2026) adds the study map, an optional later input, and no blocking rule
 (`apps/research-mcp/src/study-map.ts`; plan `docs/superpowers/plans/2026-11-05-study-map.md`). When a conclusion

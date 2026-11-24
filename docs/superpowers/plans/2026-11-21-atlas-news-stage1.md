@@ -245,24 +245,31 @@ lookup reads only full-text handles and PubMed abstracts (`news/web-page.ts` now
   it is a digest of the page's link, and nothing in the receipt was of its text. The receipt now signs `tx`, 32 hex
   characters of the SHA-256 of the text `read_forum_thread` returned. A page read before this release has none, and its
   lines stay unchecked, as before.
-- **The gate names the page** for the news card's lines alone: a key source that is a web address, with no full-text handle
-  and no PMID tied to it, read here by the page reader (its address compared as a thread's link is), with every digest its
-  reads signed.
+- **The gate names the page** for the news card's lines alone: a key source that is a web address, names no paper (a DOI,
+  PMID or PMCID) and is named by no paper's receipt, read here by the page reader (its address compared as a thread's
+  link is), with every digest its reads signed.
 - **The server reads it again** with the tool's own reader, at most three pages a check (the pages of the official action,
-  How much and who paid first), each within seven seconds, all at once and apart from the papers' lines; only for a dev
+  How much and who paid first), each waited for seven seconds, all at once and apart from the papers' lines (raced, not
+  aborted: a request already sent may finish); only for a dev
   account's call marked `findings_save` "off", the only call whose card can be staged. The same text: the quote is looked
   up in it by the news matching, as `web_page`. Another text: unchecked, `text_changed`. Unreadable or late: unchecked,
   `text_unavailable`. Not in a page the reader cut at its size limit: unchecked, not missing, and the sentence the cut
   falls in is never found.
 - **The day call limits it** (`newsItemReasons`): `web_page` backs an official action; on a card whose design is
-  `official_notice` it also backs How much and who paid, from the site (the registrable host) its action was found on; on
-  any other card, or from another site, neither; and when How much quotes anything but the notice, one line must be found
-  in a paper, so the notice's figures never stand in for a paper's. Nothing else reads `nl`: staging compares its length,
-  `list_news_items` returns it, and the news check's programs (`news.py`, `digest.py`) don't read it.
+  `official_notice` it also backs How much and who paid, from the site (the whole host, less a www) its action was found
+  on; on any other card, or from another site, neither; and when How much quotes anything but the notice, one line must be
+  found in a paper, so the notice's figures never stand in for a paper's. Nothing else reads `nl`: staging compares its
+  length, `list_news_items` returns it, and the news check's programs (`news.py`, `digest.py`) don't read it.
 - **Replayed on 24 Nov** (locally, with the live pages, not committed): all five pages the two cards quote read the same
   as the 22 and 24 Nov runs had read them; of N-1001's 6 and N-1013's 7 lines from pages, 12 are found, both official
-  actions among them, in 2.0 and 3.6 seconds. The one not found follows a heading with no full stop. With 22 Nov's other
-  lookups, N-1001 would still be kept back for How much: its paper's sentence wasn't found in the paper.
+  actions among them, in 2.0 and 3.6 seconds, and the same after the review's fixes. The one not found follows a heading
+  with no full stop. With 22 Nov's other lookups, N-1001 would still be kept back for How much: its paper's sentence
+  wasn't found in the paper.
+- **A second model's review (Fable, 24 Nov)** found nothing that makes a receipt lie; its findings applied here are F1 and
+  F7 (an address that names a paper has no page; the notice's site is its whole host) and F5 (a heading's word inside a
+  sentence splits none). Accepted limit (F1): a journal's own article page whose address holds no identifier can't be told
+  from another site's, so a paper's card wrongly declared an official notice could take its action and figures from it;
+  the meaning reading stands behind that.
 
 No migration, no tool-list change. The news lane's reading rules ("AskRigor's server looks each sentence up word for word
 in that source") hold for an official page's sentences from this release on.
