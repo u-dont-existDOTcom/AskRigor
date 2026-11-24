@@ -26,8 +26,10 @@ Owner answers 193a and 195a (29 October 2026) limited `finalize_research` to fiv
 6. A plain answer registered before the research and passed in `receipts` is compared with the answer in
    `plain_answer_comparison`, one entry for each of its claims (owner answer 217b, 2 November 2026), so the note on
    how the answer differs from a quick answer is always there. The
-   entries' own problems (an unshown quote, nothing behind a change) stay notes, and the note gives such a claim
-   as "This research did not check that." When the account turned the note off, a missing comparison stays a
+   entries' own problems (an unshown quote, nothing behind a change) stay notes, and the note says the research
+   claims to have checked such a claim but did not show what backs it. The note leads with the claims the research
+   corrected, then qualified, then confirmed, and closes with the claims it did not check in one line (owner answer
+   413a, 24 November 2026). When the account turned the note off, a missing comparison stays a
    note. A plain answer whose receipt is not passed cannot be required: AskRigor keeps no copy of it, only the
    signed digests of its claims in the receipt it hands back. The plain answer is matched to the research by
    `research_target`, word for word but for case and spacing, so its registration result quotes the target it signed,
@@ -181,8 +183,9 @@ comments were read here, a sentence the answer declares as not found or as a cor
 those are is the AI's declaration. The note names up to three such threads. When every thread behind a claim has a verified `forum_thread_read`
 receipt it says "1 forum thread read here" or "2 forum threads read here"; otherwise it says "my own reading".
 A review site does not count. A claim that can't be shown as
-declared (nothing behind it, or a quote the answer doesn't show, repeats or ends in a colon) goes in the note as "This
-research did not check that.", with an advisory note saying how to show it, and the rest of the note stays. Only a
+declared (nothing behind it, or a quote the answer doesn't show, repeats or ends in a colon) goes in the note's closing
+line of claims the research says it checked but did not show what backs, apart from the claims it did not check, with an
+advisory note saying how to show it, and the rest of the note stays. Only a
 registered claim left out of the comparison holds the note back, since no text of it is kept to show. The note quotes
 each registered claim with its figures, including figures absent from the checked draft; a confirmed or qualified claim
 with such figures says the research did not confirm them. If a receipt marked plain_answer does not verify, the result
