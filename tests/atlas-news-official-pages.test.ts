@@ -168,6 +168,23 @@ describe("a news card's quote is looked up in the page its check read, read agai
     expect(outcomes(lookups)).toEqual([["found", "web_page", undefined], ["not_checked", "web_page", "text_unavailable"]]);
   });
 
+  it("finds no sentence the reader's cut left unfinished, though what is left of it looks whole", async () => {
+    const before = "The whole sentence before the cut says one thing.";
+    const last = "The invented medicine lowers the rate of eye injuries";
+    for (const text of [`${before} ${last}`, `${before} ${last}.`, `${before} ${last} by 12.`, `${before} ${last} (see `]) {
+      const full = [filler(30), text].join("\n");
+      const lines = [line(before), line(`${last}.`), line(`${last} by 12.`)];
+      const texts = [forumTextDigest(full)];
+      const requests = lines.map((_, place) => request(place, NOTICE, texts));
+      const cut = await lookUpNewsPages(lines, requests, async () => page(full, { truncated: true }));
+      expect(cut.map(({ sentence }) => sentence), text).toEqual(["found", "not_checked", "not_checked"]);
+    }
+    // The same words at a page's own end are its last sentence.
+    const whole = [filler(30), `${before} ${last}.`].join("\n");
+    expect((await lookUpNewsPages([line(`${last}.`)], [request(0, NOTICE, [forumTextDigest(whole)])],
+      async () => page(whole)))[0]!.sentence).toBe("found");
+  });
+
   it("digests the text as returned: one text one digest, another text another", () => {
     expect(forumTextDigest(NOTICE_TEXT)).toMatch(/^[0-9a-f]{32}$/u);
     expect(forumTextDigest(NOTICE_TEXT)).toBe(createHash("sha256").update(NOTICE_TEXT, "utf8").digest("hex").slice(0, 32));

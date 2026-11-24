@@ -252,7 +252,8 @@ lookup reads only full-text handles and PubMed abstracts (`news/web-page.ts` now
   How much and who paid first), each within seven seconds, all at once and apart from the papers' lines; only for a dev
   account's call marked `findings_save` "off", the only call whose card can be staged. The same text: the quote is looked
   up in it by the news matching, as `web_page`. Another text: unchecked, `text_changed`. Unreadable or late: unchecked,
-  `text_unavailable`. Not in a page the reader cut at its size limit: unchecked, not missing.
+  `text_unavailable`. Not in a page the reader cut at its size limit: unchecked, not missing, and the sentence the cut
+  falls in is never found.
 - **The day call limits it** (`newsItemReasons`): `web_page` backs an official action; on a card whose design is
   `official_notice` it also backs How much and who paid, from the site (the registrable host) its action was found on; on
   any other card, or from another site, neither; and when How much quotes anything but the notice, one line must be found

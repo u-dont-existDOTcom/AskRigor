@@ -108,6 +108,13 @@ export async function lookUpNewsPages(
   }));
 }
 
+/** A cut text whose last words end no sentence, since the page's own sentence goes on after the cut, or may. */
+function openEnded(text: string): string {
+  let end = text.length;
+  while (end > 0 && /[\s\p{P}]/u.test(text[end - 1]!)) end -= 1;
+  return `${text.slice(0, end)}\u{FFFD}`;
+}
+
 /** A page read again, when its text is one the check's reads signed. Never throws, and waits no longer than it may. */
 async function readAgain(
   { url, texts }: NewsWebPage,
@@ -127,7 +134,8 @@ async function readAgain(
     ]);
     if (page?.access_state !== "read" || page.page_text === undefined) return "text_unavailable";
     if (!texts.includes(forumTextDigest(page.page_text))) return "text_changed";
-    return { find: quoteFinder(webPageBlocks(page.page_text), "news"), cut: page.truncated === true };
+    const cut = page.truncated === true;
+    return { find: quoteFinder(webPageBlocks(cut ? openEnded(page.page_text) : page.page_text), "news"), cut };
   } catch {
     return "text_unavailable";
   } finally {
