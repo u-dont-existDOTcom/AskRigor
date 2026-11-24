@@ -40,11 +40,14 @@ const GEMINI_METADATA = "https://mcp.askrigor.com/.well-known/oauth-protected-re
 const clients: Client[] = [];
 const servers: HttpServer[] = [];
 const fixtures: GeminiFixture[] = [];
+/** The token checks /mcp/gemini reported to the step log, in order (state, then MCP method). */
+const resourceChecks: string[] = [];
 
 afterEach(async () => {
   await Promise.all(clients.splice(0).map((client) => client.close().catch(() => undefined)));
   await Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve) => server.close(() => resolve()))));
   await Promise.all(fixtures.splice(0).map((fixture) => fixture.close()));
+  resourceChecks.length = 0;
 });
 
 async function start(options: { gemini: boolean }) {
@@ -63,6 +66,9 @@ async function start(options: { gemini: boolean }) {
     links: {
       count: (subject) => countGeminiLinks(fixture.server, subject),
       disconnect: (subject) => disconnectGeminiLinks(fixture.server, subject),
+    },
+    noteResourceCheck: (signIn, body) => {
+      resourceChecks.push(`${signIn?.state ?? "none"} ${(body as { method?: string } | undefined)?.method ?? "none"}`);
     },
     stop: () => undefined,
   };
@@ -153,6 +159,8 @@ describe("Gemini's sign-in on the HTTP server", () => {
       expect(challenge).toContain(`resource_metadata="${GEMINI_METADATA}"`);
       expect(challenge).toContain('scope="research:use"');
     }
+    // Each call's token check reaches the step log (which writes only the calls that carried a token).
+    expect(resourceChecks).toEqual(["absent initialize", "refused initialize", "refused initialize"]);
   });
 
   it("gives a Gemini token's person to the research tools on /mcp/gemini, with Gemini's own notice guidance", async () => {
