@@ -1,8 +1,10 @@
 import type { GeminiSignInRowStore } from "@askrigor/evidence-repository";
 
+import type { SignInState } from "../oauth-resource-server.js";
 import { createTokenBucketLimiter } from "../rate-limit.js";
 import type { GeminiLinks } from "../research-contributor-access-tool.js";
 import { geminiSignInSettingsFromEnv, type GeminiSignInSettings } from "./config.js";
+import { geminiSignInNote, mcpMethodOf } from "./diagnostics.js";
 import { GeminiLogin } from "./login.js";
 import { createGeminiAuthorizationServer, type GeminiAuthorizationServer } from "./provider.js";
 import { countGeminiLinks, disconnectGeminiLinks } from "./resource.js";
@@ -15,6 +17,11 @@ export interface GeminiSignIn {
   readonly server: GeminiAuthorizationServer;
   readonly routes: GeminiSignInRoutes;
   readonly links: GeminiLinks;
+  /**
+   * The step log's line for a research call on /mcp/gemini that carried a token (accepted or refused, and the MCP method
+   * by name); nothing when the step log is off or no token came.
+   */
+  noteResourceCheck(signIn: SignInState | undefined, body: unknown): void;
   /** Stops the hourly sweep of expired rows. */
   stop(): void;
 }
@@ -37,14 +44,19 @@ export function createGeminiSignIn(
   rows: GeminiSignInRowStore,
   options: { fetch?: typeof fetch; log?: (line: string) => void } = {},
 ): GeminiSignIn {
-  const server = createGeminiAuthorizationServer(settings, rows, options.fetch === undefined ? {} : { fetch: options.fetch });
-  const login = new GeminiLogin(settings);
   const log = options.log ?? ((line: string) => console.log(line));
+  // Off by default. When on, only fixed names are written (diagnostics.ts): no id, token, address or header value.
+  const diagnostic = settings.diagnostics ? (record: GeminiSignInDiagnostic) => log(JSON.stringify(record)) : undefined;
+  const server = createGeminiAuthorizationServer(settings, rows, {
+    ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+    ...(diagnostic === undefined ? {} : { diagnostic }),
+  });
+  const login = new GeminiLogin(settings);
   const routes = createGeminiSignInRoutes(server, login, {
     rateLimiter: createTokenBucketLimiter(GEMINI_SIGN_IN_RATE_LIMIT),
-    // Off by default. When on, only fixed stage and outcome names are written: no id, token, address or header.
-    ...(settings.diagnostics ? { diagnostic: (record: GeminiSignInDiagnostic) => log(JSON.stringify(record)) } : {}),
+    ...(diagnostic === undefined ? {} : { diagnostic }),
   });
+  const note = geminiSignInNote(diagnostic);
   const sweep = setInterval(() => {
     rows.sweep(new Date()).catch(() => undefined);
   }, SWEEP_MS);
@@ -55,6 +67,13 @@ export function createGeminiSignIn(
     links: {
       count: (subject: string) => countGeminiLinks(server, subject),
       disconnect: (subject: string) => disconnectGeminiLinks(server, subject),
+    },
+    noteResourceCheck: (signIn: SignInState | undefined, body: unknown) => {
+      if (note === undefined || signIn === undefined || signIn.state === "absent") return;
+      note("resource", signIn.state, {
+        method: mcpMethodOf(body),
+        ...(signIn.state === "refused" ? { reason: signIn.refusal } : {}),
+      });
     },
     stop: () => clearInterval(sweep),
   });

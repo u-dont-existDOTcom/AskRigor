@@ -54,9 +54,15 @@ declare module "oidc-provider" {
       readonly issuer: string;
       readonly client?: Client;
       readonly params?: Record<string, unknown>;
+      /** The parsed request body of a POST (the token and revocation endpoints); undefined before it is read. */
+      readonly body?: unknown;
       readonly entities: Record<string, unknown>;
     };
     set(field: string, value: string): void;
+    /** A request header's value, or "" (Koa). */
+    get(field: string): string;
+    /** The request's content type when it matches one of these, else false (or null without a body) (Koa). */
+    is(...types: string[]): string | false | null;
   }
 
   export interface InteractionDetails {

@@ -847,6 +847,7 @@ export function createAskRigorHttpServer(
           : geminiSurface && geminiSignIn !== undefined
             ? await attachGeminiSurfaceIdentity(request, geminiSignIn.server, oauthResourceServer)
             : await attachOptionalOAuthIdentity(request, oauthResourceServer);
+        if (geminiSurface && geminiSignIn !== undefined) geminiSignIn.noteResourceCheck(signIn, parsedBody);
         // A token that was sent and refused gets the transport challenge on /mcp/gemini, so Gemini refreshes it or signs
         // in again; a request without a token stays open, as before.
         if (geminiSurface && geminiSignIn !== undefined && signIn?.state === "refused") {
