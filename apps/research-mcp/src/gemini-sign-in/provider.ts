@@ -4,6 +4,7 @@ import type { GeminiSignInRowStore } from "@askrigor/evidence-repository";
 import Provider, { errors, type Client, type KoaContextWithOIDC } from "oidc-provider";
 
 import { GEMINI_ISSUER_PATH, GEMINI_SCOPE, type GeminiSignInSettings } from "./config.js";
+import { geminiSignInNote, watchGeminiSignInLibrary, type GeminiSignInDiagnostic } from "./diagnostics.js";
 import { allowGeminiClient, allowGeminiClientFetch, geminiSignInFetch } from "./google-client.js";
 import { errorPage } from "./pages.js";
 import { geminiSignInAdapterFactory, GeminiSignInSealer } from "./sealed-store.js";
@@ -37,7 +38,7 @@ const STATIC_SCOPES = ["openid", "offline_access", GEMINI_SCOPE, "cases:review"]
 export function createGeminiAuthorizationServer(
   settings: GeminiSignInSettings,
   rows: GeminiSignInRowStore,
-  options: { fetch?: typeof fetch; now?: () => Date } = {},
+  options: { fetch?: typeof fetch; now?: () => Date; diagnostic?: (record: GeminiSignInDiagnostic) => void } = {},
 ): GeminiAuthorizationServer {
   const now = options.now ?? (() => new Date());
   const issuer = settings.issuer.href.replace(/\/$/u, "");
@@ -165,6 +166,10 @@ export function createGeminiAuthorizationServer(
   });
   // Caddy terminates TLS; the dispatcher pins Host and the forwarded protocol before any request reaches the library.
   provider.proxy = true;
+  // The step log, when it is on, goes in first: outermost, so it sees each request's final outcome after the clean-up
+  // below, and before the request handler is made at the end (Koa composes its middleware then).
+  const note = geminiSignInNote(options.diagnostic);
+  if (note !== undefined) watchGeminiSignInLibrary(provider, note, { issuer, resource, now });
   provider.use(async (ctx, next) => {
     await next();
     // The metadata names only the scope that can be granted (the library lists every static scope otherwise).

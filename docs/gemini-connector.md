@@ -32,7 +32,7 @@ every plan. So Gemini signs in through AskRigor's own authorization server, buil
 | `ASKRIGOR_GEMINI_OAUTH` | `enabled` turns it on. Needs `ASKRIGOR_OAUTH_ENABLED=true` and the research-access database, or the server refuses to start. |
 | `ASKRIGOR_GEMINI_OAUTH_SECRET` | 32 or more random bytes, canonical base64url (`openssl rand 32 \| basenc --base64url \| tr -d =`). Every key of the feature is derived from it; changing it ends every link. |
 | `ASKRIGOR_GEMINI_LOGIN_CLIENT_ID` / `_SECRET` | Optional: a separate Auth0 application for this login. Without them, the Atlas's application (`ASKRIGOR_ATLAS_AUTH0_CLIENT_ID` / `_SECRET`) is used. |
-| `ASKRIGOR_GEMINI_OAUTH_DIAGNOSTICS` | `enabled` logs fixed stage and outcome names (no id, token, address or header). Off by default; for a first live test. |
+| `ASKRIGOR_GEMINI_OAUTH_DIAGNOSTICS` | `enabled` writes the step log: one line per step of a link (request, login, consent, the code's issue, Google's token call, each research call that carries a token), each naming its stage, its outcome and fixed details only (which parameters and headers came, what kind of audience an assertion names, the library's own error code and word-for-word message, coarse time buckets; `diagnostics.ts` lists them). No id, code, token, client id, address, header value or account. Off by default; for live tests of a link. |
 
 The issuer and resource come from `ASKRIGOR_OAUTH_RESOURCE_URL`'s origin; the Auth0 tenant from
 `ASKRIGOR_OAUTH_ISSUER_URL` and `ASKRIGOR_OAUTH_JWKS_URL`.
@@ -53,7 +53,12 @@ In the application this login uses (the Atlas's, or a new Regular Web Applicatio
    naming `/.well-known/oauth-protected-resource/mcp/gemini`; then a real link from a Gemini app (the owner's or a
    tester's), a research call, and removing the connector in Gemini (does Google's revocation arrive and end the link?).
    With `ASKRIGOR_GEMINI_OAUTH_DIAGNOSTICS=enabled` for that test, the log shows each stage, a missing `resource` and
-   the login's outcome (Auth0's `iss` response parameter is required: the tenant's metadata advertises it).
+   the login's outcome (Auth0's `iss` response parameter is required: the tenant's metadata advertises it). Since
+   23 Nov 2026 it also shows the steps after Allow: whether the code was issued to Google's address, whether Google's
+   token call arrived and why it failed (for instance an assertion whose audience is not one of AskRigor's addresses),
+   and each research call's token check. Read it with
+   `ssh -n mission-control-secondary 'docker logs --timestamps --since <time> askrigor-research-mcp-1 2>&1 | grep askrigor_gemini_sign_in'`.
+   The owner's link of 22 Nov 2026 ended after Allow and left a consent and no token; the token call was invisible.
 5. Only after a real link works: the Add page's Gemini section goes public.
 
 ## Rollback
@@ -66,6 +71,8 @@ the secret.
 ## Tests
 
 `tests/gemini-sign-in.test.ts` (the end-to-end link and the four required refusals: forged assertion, reused `jti`, wrong
-redirect, missing PKCE), `tests/gemini-sign-in-rules.test.ts`, `tests/gemini-sign-in-server.test.ts`, and
+redirect, missing PKCE), `tests/gemini-sign-in-rules.test.ts`, `tests/gemini-sign-in-server.test.ts`,
+`tests/gemini-sign-in-diagnostics.test.ts` (the step log of a whole link and of each failure, and that no line holds a
+value a request carried), and
 `scripts/gemini-sign-in-postgres-acceptance.mts` on a real PostgreSQL 17.6 (run by
 `npm run contributor-access:postgres-acceptance`).

@@ -19,6 +19,11 @@ export function googleConnectorIdOf(clientId: unknown): string | undefined {
   return typeof clientId === "string" ? GOOGLE_CLIENT_ID_PATTERN.exec(clientId)?.[1] : undefined;
 }
 
+/** Whether an address is one of Google's redirect addresses for a Gemini connector (any connector). */
+export function isGoogleRedirect(uri: unknown): boolean {
+  return typeof uri === "string" && GOOGLE_REDIRECT_PATTERN.test(uri);
+}
+
 /** Before any fetch: only a Gemini connector's document address on Google's one host. */
 export function allowGeminiClientFetch(clientId: unknown): boolean {
   return googleConnectorIdOf(clientId) !== undefined;

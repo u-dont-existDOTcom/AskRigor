@@ -5,6 +5,13 @@ import { cookieHeader, readCookie, readForm, sameSitePost } from "../atlas/parti
 import type { TokenBucketLimiter } from "../rate-limit.js";
 import { GEMINI_ISSUER_PATH, GEMINI_RESOURCE_PATH, GEMINI_SCOPE } from "./config.js";
 import {
+  authorizationRequestShape,
+  geminiSignInNote,
+  type GeminiSignInDetail,
+  type GeminiSignInDiagnostic,
+  type GeminiSignInStage,
+} from "./diagnostics.js";
+import {
   GEMINI_CALLBACK_PATH,
   GeminiLogin,
   GeminiLoginError,
@@ -60,11 +67,9 @@ export function createGeminiSignInRoutes(
     bearer_methods_supported: ["header"],
     resource_name: "AskRigor for Google Gemini",
   });
-  const note = (stage: GeminiSignInDiagnostic["stage"], outcome: string) => options.diagnostic?.({
-    event: "askrigor_gemini_sign_in",
-    stage,
-    outcome,
-  });
+  const writeNote = geminiSignInNote(options.diagnostic);
+  const note = (stage: GeminiSignInStage, outcome: string, detail?: GeminiSignInDetail) =>
+    writeNote?.(stage, outcome, detail);
 
   const pinHeaders = (request: IncomingMessage) => {
     request.headers.host = issuer.host;
@@ -221,6 +226,8 @@ export function createGeminiSignInRoutes(
         pathname === GEMINI_ISSUER_PATH || pathname.startsWith(`${GEMINI_ISSUER_PATH}/`);
       if (!inScope) return false;
       if (!options.rateLimiter.consume(clientIp)) {
+        // Logged, so a refused call is never mistaken for one that didn't come (Codex's review, 23 Nov 2026).
+        note("library", "rate_limited", { path: pathKind(pathname) });
         response.writeHead(429, { "content-type": "application/json", "retry-after": "60", "cache-control": "no-store" });
         response.end(JSON.stringify({ error: "rate_limit_exceeded" }));
         return true;
@@ -264,7 +271,27 @@ export function createGeminiSignInRoutes(
           return true;
         }
         const path = pathname.slice(GEMINI_ISSUER_PATH.length) || "/";
-        if (path === "/auth" && (method === "GET" || method === "POST")) {
+        // Only the library's exact addresses and methods reach it. Its router is more lenient (letter case, one trailing
+        // slash, HEAD beside GET), and three review rounds found variants that skipped this dispatcher's own checks for
+        // a new link and the step log (Codex, 23 Nov 2026); refusing every variant here keeps one definition of each.
+        const served = libraryMethods(path);
+        if (served === undefined) {
+          response.writeHead(404, { "content-type": "application/json", "cache-control": "no-store" });
+          response.end(JSON.stringify({ error: "not_found" }));
+          return true;
+        }
+        if (!served.has(method)) return methodNotAllowed(response, served);
+        // Google's calls are logged on arrival too, so one that stalls or never finishes still leaves a line.
+        if (path === "/token" || path === "/token/revocation") {
+          note(path === "/token" ? "token" : "revocation", "received");
+        }
+        if (path === "/auth") {
+          // What Gemini asked for, by shape only (the step log, when on): which parameters came, never their values.
+          if (writeNote !== undefined) {
+            note("authorization", "requested", method === "GET"
+              ? authorizationRequestShape(query, server.settings.resource.href)
+              : { method: "post" });
+          }
           // Finding 3 of Fable's recheck: a link must say which resource it is for. Gemini sends it (its requests to Auth0
           // on 20 Nov 2026 carried resource=), so a request without it is refused before any login, and no token is ever
           // issued for /mcp/gemini to a connector that belongs to some other MCP server.
@@ -310,14 +337,36 @@ export function consentPostFromThisSite(request: IncomingMessage, origin: string
   return request.headers.origin === "null" && request.headers["sec-fetch-site"] === "same-origin";
 }
 
-export interface GeminiSignInDiagnostic {
-  readonly event: "askrigor_gemini_sign_in";
-  readonly stage: "login" | "consent" | "callback" | "library" | "token" | "resource";
-  readonly outcome: string;
+export type { GeminiSignInDiagnostic } from "./diagnostics.js";
+
+/** Which kind of sign-in address a path is, by name only. */
+function pathKind(pathname: string): string {
+  if (pathname === GEMINI_RESOURCE_METADATA_PATH || DISCOVERY_ALIASES.has(pathname)) return "metadata";
+  if (pathname === GEMINI_CALLBACK_PATH) return "callback";
+  if (INTERACTION.test(pathname)) return "interaction";
+  const path = pathname.slice(GEMINI_ISSUER_PATH.length);
+  if (path === "/token") return "token";
+  if (path === "/token/revocation") return "revocation";
+  if (path === "/auth" || path.startsWith("/auth/")) return "authorization";
+  return "other";
 }
 
-function methodNotAllowed(response: ServerResponse): true {
-  response.writeHead(405, { "content-type": "application/json", allow: "GET, POST", "cache-control": "no-store" });
+/**
+ * The methods each address of the library may be called with, exactly as it is spelled: the authorization endpoint,
+ * its resume address after a step, the token and revocation endpoints and the key set. Undefined for anything else.
+ */
+function libraryMethods(path: string): ReadonlySet<string> | undefined {
+  if (path === "/auth" || /^\/auth\/[A-Za-z0-9_-]{1,64}$/u.test(path)) return AUTH_METHODS;
+  if (path === "/token" || path === "/token/revocation") return POST_ONLY;
+  if (path === "/jwks") return READ_METHODS;
+  return undefined;
+}
+const AUTH_METHODS: ReadonlySet<string> = new Set(["GET", "POST"]);
+const POST_ONLY: ReadonlySet<string> = new Set(["POST"]);
+const READ_METHODS: ReadonlySet<string> = new Set(["GET", "HEAD"]);
+
+function methodNotAllowed(response: ServerResponse, allowed: ReadonlySet<string> = AUTH_METHODS): true {
+  response.writeHead(405, { "content-type": "application/json", allow: [...allowed].join(", "), "cache-control": "no-store" });
   response.end(JSON.stringify({ error: "method_not_allowed" }));
   return true;
 }

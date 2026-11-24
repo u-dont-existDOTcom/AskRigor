@@ -119,7 +119,8 @@ describe("the signed ledger", () => {
     expect(first.token).toMatch(/^fl1~/u);
     const verified = verifyFindingsLedger(first.token, SECRET);
     expect(verified.ok).toBe(true);
-    const altered = `${first.token!.slice(0, -3)}${first.token!.endsWith("A") ? "B" : "A"}${first.token!.slice(-2)}`;
+    // The replaced character itself decides the replacement, so the token always changes (it was the last one: 1 in 64).
+    const altered = `${first.token!.slice(0, -3)}${first.token!.at(-3) === "A" ? "B" : "A"}${first.token!.slice(-2)}`;
     expect(verifyFindingsLedger(altered, SECRET)).toMatchObject({ ok: false });
     expect(verifyFindingsLedger(first.token, "another-secret-0123456789abcdef0123456789")).toEqual(
       { ok: false, reason: "bad_signature" });
