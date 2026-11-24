@@ -85,7 +85,11 @@ count.
 account only while its test window has it on: `set_research_trial` (a runtime action, dev accounts only) with
 `later_inputs.researchTrial` {claimAccounting, hrpCore, minutes}, 1 to 120 whole minutes from now and never more than 120
 after the window began; 0 ends it. In this process's memory only, under the account's digest; a restart clears it, and
-`inspect` says nothing of it. With both switches off every text and result is as before.
+`inspect` says nothing of it. With both switches off every text and result is as before: 1,640 calls (`inspect`,
+registrations, menus, protocol pages and final checks, both kinds of app, with AskRigor's planning call and without it)
+gave the same bytes on ef980488 and on this branch, off and in mode trial with no window, but for four that name the new
+things themselves: an error that lists the known actions or later inputs now lists the new ones, `set_research_trial` is
+an action, and a later input `hrpCoreHeld` is read for nothing where it was refused as unknown.
 
 Tests: `tests/claim-accounting.test.ts`, `tests/research-trial.test.ts`, `tests/hrp-core.test.ts`,
 `tests/finalize-hrp-core.test.ts`. One existing test changed: `tests/later-inputs.test.ts` lists the two new later inputs.

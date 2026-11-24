@@ -562,7 +562,8 @@ minutes from now, never more than 120 minutes after it began however often it is
 a restart. Only a dev account, only its own window (`dev_account_required`), and only while one of the switches is in mode
 trial (`trial_off`). Its result says in plain words what is on and until when; `inspect` says nothing of it, as of a pause
 of the planning call. Each call goes by the window as it is when the call is made, so a test round starts each of its parts
-with `inspect` and a new registration. With both switches off every text and result is as before.
+with `inspect` and a new registration. With both switches off every text and result is as before; only an error that lists
+the known actions or later inputs names the new ones.
 
 ### AskRigor's own planning call, on dev accounts (owner answer 298b, 13 November 2026)
 
