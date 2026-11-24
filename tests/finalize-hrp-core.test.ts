@@ -14,7 +14,8 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { FINAL_CHECK_PANEL_RENDER_SOURCE } from "../apps/research-mcp/src/final-check-panel.js";
-import { HRP_CORE_LOAD_FIRST, HRP_CORE_NOT_SHOWN, HRP_CORE_RECEIPT_USE, hrpCoreDigest } from "../apps/research-mcp/src/hrp-core.js";
+import { HRP_CORE_ALREADY_HELD, HRP_CORE_LOAD_FIRST, HRP_CORE_NOT_SHOWN, hrpCoreDigest, hrpCoreReceiptUse }
+  from "../apps/research-mcp/src/hrp-core.js";
 import { currentHrpCore, registerTools, type RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
 import { finalizeResearch, plainAnswerClaimDigest, repeatedNotesLine, type FinalizeResearchInput, type FinalizeResearchOptions }
   from "../apps/research-mcp/src/research-finalization-gate.js";
@@ -300,7 +301,13 @@ describe("load_protocol's receipt for HRP's core", () => {
     const slipGiven = slipIn(result)!;
     expect(claimsOf(slipGiven)).toMatchObject({ kind: "protocol_core", hrp: hrpCoreDigest(core) });
     expect(Object.keys(claimsOf(slipGiven)!).sort()).toEqual(["hrp", "kind", "order", "t"]);
-    expect(texts(result)).toContain(`research_receipt: ${slipGiven} ${HRP_CORE_RECEIPT_USE}`);
+    expect(texts(result)).toContain(`research_receipt: ${slipGiven} ${hrpCoreReceiptUse(core)}`);
+    // It says how a registration after it is not sent the core again.
+    expect(hrpCoreReceiptUse(core)).toContain(`If you register the plain answer in this conversation, give ` +
+      `later_inputs.hrpCoreHeld "${hrpCoreDigest(core)}", so it is not sent again.`);
+    const after = await call("manage_research_access", { action: "register_plain_answer", plainAnswer: { researchTarget: TARGET,
+      text: CLAIMS[0], claims: CLAIMS }, later_inputs: { hrpCoreHeld: hrpCoreDigest(core) } });
+    expect(texts(after)).toContain(HRP_CORE_ALREADY_HELD);
     expect(result.structuredContent).toEqual(plainResult.structuredContent);
     // The exact bytes are the last text, as before, and everything else is as it was.
     expect(texts(result).at(-1)).toBe(core.text);

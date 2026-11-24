@@ -28,7 +28,7 @@ import { researchPlannerFromEnv, type ResearchPlanner } from "./research-planner
 import type { ResearchLane } from "./research-steering.js";
 import { researchTrialWindows, switchHolds, type ResearchSwitchModes, type ResearchTrialSwitch, type ResearchTrialWindows }
   from "./research-trial.js";
-import { HRP_CORE_RECEIPT_USE, hrpCoreDigest, type HrpCore } from "./hrp-core.js";
+import { hrpCoreDigest, hrpCoreReceiptUse, type HrpCore } from "./hrp-core.js";
 import {
   answerReviewNote, researchReviewerFromEnv, type ResearchReviewer, type ResearchReviewerCall,
 } from "./research-reviewer.js";
@@ -2266,10 +2266,12 @@ function defineResearchOperations(
             if (secret === undefined) return undefined;
             const verified = verifyResearchReceipt(receipt, { secret });
             if (!verified.ok || verified.kind !== "plain_answer") return undefined;
-            const { acct, target, claims } = verified.claims;
+            const { acct, target, claims, first } = verified.claims;
             return acct === plainAnswerAccountBinding(secret, accountKey) && typeof target === "string"
-              // Owner answer 413a: the claims' digests too, in the order registered.
-              ? { target, issuedAt: verified.issued_at, claims: claims === undefined ? [] : [claims].flat() }
+              // Owner answer 413a: the claims' digests too, in the order registered, when they were registered to be
+              // accounted for on the menu (first: counted from 1, as the registration's result listed them).
+              ? { target, issuedAt: verified.issued_at,
+                ...(first === "1" && Array.isArray(claims) ? { claims } : {}) }
               : undefined;
           },
         },
@@ -3493,9 +3495,10 @@ function hrpCoreReceiptsFor(options: RegisterToolsOptions, extra: ResearchOperat
  * result stays as it is. Without a digest, or where this server cannot sign receipts, the result as it was.
  */
 function withHrpCoreReceipt(result: CallToolResult, sha256: string | undefined): CallToolResult {
-  const receipt = sha256 === undefined ? undefined : researchReceipt("protocol_core", { hrp: hrpCoreDigest({ sha256 }) });
+  if (sha256 === undefined) return result;
+  const receipt = researchReceipt("protocol_core", { hrp: hrpCoreDigest({ sha256 }) });
   return receipt === undefined ? result : { ...result, content: [...result.content,
-    { type: "text", text: `research_receipt: ${receipt} ${HRP_CORE_RECEIPT_USE}` }] };
+    { type: "text", text: `research_receipt: ${receipt} ${hrpCoreReceiptUse({ sha256 })}` }] };
 }
 
 /** The pseudonymous key of the account a call is signed in as, read from the call alone; undefined for any other call. */

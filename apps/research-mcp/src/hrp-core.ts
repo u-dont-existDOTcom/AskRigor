@@ -1,6 +1,6 @@
 /**
- * HRP's core handed over when the plain answer is registered (owner answer 412a, 24 November 2026). Two baseline chats of
- * 22 November researched without loading HRP, and one loaded none of it; the owner chose: "When the AI registers its
+ * HRP's core handed over when the plain answer is registered (owner answer 412a, 24 November 2026). An AI can research
+ * without ever loading HRP, as one of two baseline chats of 22 November did; the owner chose: "When the AI registers its
  * plain answer, the result carries the core's exact text and names the further sections to fetch." So the result carries
  * the same bytes load_protocol serves for section "core" (register-tools.ts joins both with one function), once, in its
  * structured content, and says where they are. An AI that registers again in the same conversation says it holds them,
@@ -42,8 +42,8 @@ export const HRP_CORE_RESULT_LIMITS = Object.freeze({ chatGptBytes: 60_000, stru
 const READ_AND_FOLLOW = "Read it before your first search and follow it; do not load the core again in this " +
   "conversation. Before a step that needs a further section (hrp_core.further_sections), load it by name with " +
   "load_protocol, protocol \"hrp\".";
-const registerAgain = (core: HrpCore): string => "If you register the plain answer again in this conversation, give " +
-  `later_inputs.hrpCoreHeld "${hrpCoreDigest(core)}", so it is not sent again.`;
+const registerAgain = (core: Pick<HrpCore, "sha256">, again = " again"): string => "If you register the plain answer" +
+  `${again} in this conversation, give later_inputs.hrpCoreHeld "${hrpCoreDigest(core)}", so it is not sent again.`;
 
 /** The core as the result's structured content carries it. */
 export function hrpCoreStructured(core: HrpCore) {
@@ -74,8 +74,8 @@ export const HRP_CORE_ALREADY_HELD = "You already hold HRP's core rules in this 
   "again: follow them, and give finalize_research the research_receipt that came with them too.";
 
 /** load_protocol's words beside the receipt it gives for the core, while the switch holds (owner answer 412a, option c). */
-export const HRP_CORE_RECEIPT_USE = "Give finalize_research this research_receipt with the others: it shows that HRP's " +
-  "core rules were loaded.";
+export const hrpCoreReceiptUse = (core: Pick<HrpCore, "sha256">): string => "Give finalize_research this research_receipt " +
+  `with the others: it shows that HRP's core rules were loaded. ${registerAgain(core, "")}`;
 
 /**
  * The final check's one note, for an account the switch holds for, when its research shows no receipt of HRP's core

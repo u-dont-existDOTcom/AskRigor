@@ -678,6 +678,24 @@ describe("the account tool with the claims accounted for (owner answer 413a)", (
     }
   });
 
+  it("accounts only for a plain answer registered to be accounted for: one from before a window opened is planned as before", async () => {
+    const { call, register } = await tool({ accounting: false });
+    const receipt = receiptOf(await register());
+    vi.stubEnv("ASKRIGOR_CLAIM_ACCOUNTING", "on");
+    const planned = await call({ action: "plan_research", later_inputs: { researchMenu: menuWith(receipt) } });
+    expect(planned.isError, words(planned)).not.toBe(true);
+    expect(planned.structuredContent).not.toHaveProperty("problems");
+    expect(planned.structuredContent!.researchMenu).not.toHaveProperty("claims");
+    expect(words(planned)).not.toContain("Not on this plan");
+    // And one registered with it, planned after the window ended, is planned as on any account without it.
+    const after = receiptOf(await register());
+    vi.stubEnv("ASKRIGOR_CLAIM_ACCOUNTING", "off");
+    const ended = await call({ action: "plan_research", later_inputs: { researchMenu: menuWith(after) } });
+    expect(ended.isError, words(ended)).not.toBe(true);
+    expect(ended.structuredContent!.researchMenu).not.toHaveProperty("claims");
+    expect(ended.structuredContent!.problems).toEqual([expect.stringContaining("AskRigor ignored later_inputs.researchMenu.left_out")]);
+  });
+
   it("reads the outline's placeholders sent back as not given, with no problem named", async () => {
     const { call, register } = await tool({ accounting: true });
     const registered = await register();

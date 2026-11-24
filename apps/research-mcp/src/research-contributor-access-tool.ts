@@ -708,9 +708,10 @@ export interface PlainAnswerOptions {
    */
   sign: (claims: ResearchReceiptClaims, accountKey: string) => string | undefined;
   /**
-   * Reads a plain-answer research receipt this account signed: its research target's digest, its issue time and its
-   * claims' digests (plainAnswerClaimDigest) in the order registered; undefined when it is not a valid plain-answer
-   * receipt of this account, or this server cannot verify receipts.
+   * Reads a plain-answer research receipt this account signed: its research target's digest, its issue time and, for a
+   * plain answer registered for the menu to account for its claims (owner answer 413a), their digests
+   * (plainAnswerClaimDigest) in the order registered; undefined when it is not a valid plain-answer receipt of this
+   * account, or this server cannot verify receipts.
    */
   read?: (receipt: string, accountKey: string) =>
     { target: string; issuedAt: string; claims?: readonly string[] } | undefined;
@@ -1312,7 +1313,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
             ? { planner, asked, reviewed, latest, markSecret: options.menuDigestSecret?.() } : undefined,
           options.askrigorHolds, asked, isChatGptCall(extra), devAccount,
           options.claimAccounting?.(accountKey, devAccount) === true,
-          // Owner answer 412a: HRP's core, read while the plan is made, and whether the AI says it holds it.
+          // Owner answer 412a: HRP's core, what the call says of holding it, and the result with a notice it may get.
           options.hrpCoreFor?.(accountKey, devAccount) !== true ? undefined : {
             read: options.hrpCore ?? (async () => undefined), held: parsed.hrpCoreHeld,
             shown: (result) => withToolListNotice(result, input, options.toolListVersion),
@@ -2236,7 +2237,8 @@ async function planResearchAction(
   if (goAheadProblem !== undefined) problems.push(goAheadProblem);
   // Owner answer 413a: where each claim the receipt signed stands on this menu, in every decision made from it here, so
   // each sees the same tasks. Exact: the numbers the tasks declare and the digests of the claims left out; a menu is
-  // never refused for either.
+  // never refused for either. A plain answer registered without it (a test window opened since) was never asked to
+  // account for its claims, and listed them from 0, so its menu is planned as before.
   const accounted = !accounting || read?.claims === undefined || read.claims.length === 0 ? undefined
     : accountForClaims(plan.tasks, plan.left_out, read.claims, plainAnswerClaimDigest);
   const claims = accounted?.accounts;
