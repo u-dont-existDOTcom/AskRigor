@@ -1,6 +1,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
+import type { InteractionResults } from "oidc-provider";
+
 import { cookieHeader, readCookie, readForm, sameSitePost } from "../atlas/participation.js";
 import type { TokenBucketLimiter } from "../rate-limit.js";
 import { GEMINI_ISSUER_PATH, GEMINI_RESOURCE_PATH, GEMINI_SCOPE } from "./config.js";
@@ -18,7 +20,7 @@ import {
   LOGIN_RESULT_COOKIE,
   LOGIN_STATE_COOKIE,
 } from "./login.js";
-import { consentPage, errorPage } from "./pages.js";
+import { RESUME_PATH, consentPage, errorPage, moveOnPage } from "./pages.js";
 import { LOGIN_SECONDS, setPageHeaders, type GeminiAuthorizationServer } from "./provider.js";
 
 /**
@@ -113,17 +115,33 @@ export function createGeminiSignInRoutes(
     }
     if (details.prompt.name === "consent" && details.session !== undefined) {
       setPageHeaders((field, value) => response.setHeader(field, value));
-      // A form's redirects go on to Google's addresses after Allow, so the policy names them (browsers apply
-      // form-action to the redirects that follow a submission).
-      response.setHeader("content-security-policy", "default-src 'none'; style-src 'unsafe-inline'; " +
-        "form-action 'self' https://oauth-redirect.googleusercontent.com https://oauth-redirect-sandbox.googleusercontent.com " +
-        "https://oauth-redirect-test.googleusercontent.com; frame-ancestors 'none'; base-uri 'none'");
       response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
       response.end(consentPage({ uid, formToken: formToken(uid, details.session.uid) }));
       note("consent", "shown");
       return;
     }
     fail(response, 400, "server_error");
+  };
+
+  /**
+   * Allow and Cancel answer the form with a page of this server that goes on by itself, never with a redirect. Chromium
+   * checks every hop of a form submission's redirect chain against the form page's form-action, and Google's relay
+   * (oauth-redirect.googleusercontent.com) answers with another redirect, to an address the policy didn't name: the
+   * browser cancelled the chain and stayed on the Allow page, Google never got the code, and a second press of Allow was
+   * answered "session expired" (the owner's tries of 22, 23 and 24 Nov 2026; the same failure, and this fix, on Google's
+   * developer forum, 15 Oct 2026). A page's own navigation is no form submission.
+   */
+  const moveOn = async (request: IncomingMessage, response: ServerResponse, result: InteractionResults,
+    options: { mergeWithLastSubmission: boolean }): Promise<boolean> => {
+    const next = new URL(await server.provider.interactionResult(request, response, result, options), origin);
+    if (next.origin !== origin || next.search !== "" || next.hash !== "" || !RESUME_PATH.test(next.pathname)) {
+      fail(response, 500, "server_error");
+      return false;
+    }
+    setPageHeaders((field, value) => response.setHeader(field, value));
+    response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    response.end(moveOnPage(next.pathname));
+    return true;
   };
 
   const consentDecision = async (request: IncomingMessage, response: ServerResponse, uid: string) => {
@@ -155,18 +173,15 @@ export function createGeminiSignInRoutes(
       if (requested.includes(GEMINI_SCOPE)) grant.rejectOIDCScope(GEMINI_SCOPE);
       grant.addResourceScope(server.settings.resource.href, GEMINI_SCOPE);
       const grantId = await grant.save();
-      await server.provider.interactionFinished(request, response, { consent: { grantId } }, {
-        mergeWithLastSubmission: true,
-      });
-      note("consent", "allowed");
+      if (await moveOn(request, response, { consent: { grantId } }, { mergeWithLastSubmission: true })) note("consent", "allowed");
       return;
     }
     if (decision === "cancel") {
-      await server.provider.interactionFinished(request, response, {
+      const moved = await moveOn(request, response, {
         error: "access_denied",
         error_description: "The person cancelled the connection.",
       }, { mergeWithLastSubmission: false });
-      note("consent", "cancelled");
+      if (moved) note("consent", "cancelled");
       return;
     }
     fail(response, 400, "invalid_request");

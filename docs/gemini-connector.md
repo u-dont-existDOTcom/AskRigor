@@ -16,6 +16,12 @@ every plan. So Gemini signs in through AskRigor's own authorization server, buil
   Google's six addresses for the same connector (`apps/research-mcp/src/gemini-sign-in/google-client.ts`).
 - **Login:** AskRigor's own regular web application in the Auth0 tenant, `openid` only, `prompt=login`; then a consent
   page. Only `research:use` on `/mcp/gemini` is ever granted.
+- **After Allow or Cancel:** the form is answered with a page of AskRigor's own that goes on by itself (a meta refresh to
+  the library's next step, and a link), never with a redirect. Chromium checks every hop of a form's redirect chain against the
+  form page's `form-action`, and Google's relay redirects once more, to another Google address: with a redirect the browser
+  stayed on the Allow page and Google never got the code (the owner's links of 22, 23 and 24 Nov 2026; the same failure and
+  the same fix on Google's developer forum, "Gemini Spark custom MCP OAuth stops after 302 callback and never calls /token",
+  15 Oct 2026). Reproduced in Chromium on 24 Nov 2026 with three local addresses.
 - **Tokens:** opaque; access 1 hour, links (grant and refresh token, not rotated) 180 days. Stored encrypted in
   `living_evidence.gemini_oauth_store`, tokens only as HMACs (privacy data map, "Gemini's sign-in").
 - **Ending a link:** Gemini's revocation call; `manage_research_access` action `disconnect_gemini` from any connected

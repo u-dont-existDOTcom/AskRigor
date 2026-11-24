@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { IncomingMessage } from "node:http";
 
 import { sameSitePost } from "../apps/research-mcp/src/atlas/participation.js";
+import { moveOnPage } from "../apps/research-mcp/src/gemini-sign-in/pages.js";
 import { consentPostFromThisSite } from "../apps/research-mcp/src/gemini-sign-in/routes.js";
 import { GOOGLE_JWKS_URL } from "../apps/research-mcp/src/gemini-sign-in/google-client.js";
 import {
@@ -24,6 +25,7 @@ import {
   clientAssertion,
   googleDocument,
   linkToCode,
+  movesOnTo,
   pkce,
   startGeminiFixture,
   tokenRequest,
@@ -296,6 +298,11 @@ describe("Gemini's sign-in rules (design v2)", () => {
       const action = /<form method="post" action="([^"]+)"/u.exec(html)![1]!;
       const token = /name="form_token" value="([^"]+)"/u.exec(html)![1]!;
       response = await browser.submit(action, { decision: "cancel", form_token: token });
+      // Cancel goes on from a page of this server too (the next test).
+      expect(response.status).toBe(200);
+      const onward = movesOnTo(await response.text());
+      expect(onward).toMatch(/^\/oauth\/gemini\/auth\/[A-Za-z0-9_-]{1,64}$/u);
+      response = await browser.request(new URL(onward!, "https://mcp.askrigor.com").href);
       while (response.status === 302 || response.status === 303) {
         const location = new URL(response.headers.get("location")!, "https://mcp.askrigor.com");
         if (location.origin === "https://oauth-redirect.googleusercontent.com") {
@@ -306,6 +313,55 @@ describe("Gemini's sign-in rules (design v2)", () => {
         response = await browser.request(location.href);
       }
       throw new Error(`no redirect to Google: ${response.status}`);
+    });
+
+    // 24 Nov 2026: Chromium checks every hop of a form's redirect chain against the form page's form-action, and Google's
+    // relay redirects once more, to an address no policy can name; the browser cancelled the chain, stayed on the Allow
+    // page, and Google never got the code. So the form is never answered with a redirect, and its page allows no other
+    // address; the page that answers goes on by itself.
+    it("answers Allow with a page of its own that goes on to Google, never with a redirect of the form", async () => {
+      const { challenge } = pkce();
+      let response = await browser.request(authorizeUrl({
+        response_type: "code", client_id: CLIENT_ID, redirect_uri: GOOGLE_REDIRECT, scope: "research:use", state: "s",
+        code_challenge: challenge, code_challenge_method: "S256", resource: RESOURCE,
+      }));
+      while (response.status === 302 || response.status === 303) {
+        response = await browser.request(new URL(response.headers.get("location")!, "https://mcp.askrigor.com").href);
+      }
+      const policy = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+      expect(response.headers.get("content-security-policy")).toBe(policy);
+      const html = await response.text();
+      const action = /<form method="post" action="([^"]+)"/u.exec(html)![1]!;
+      const token = /name="form_token" value="([^"]+)"/u.exec(html)![1]!;
+      const answer = await browser.submit(action, { decision: "allow", form_token: token });
+      expect(answer.status).toBe(200);
+      expect(answer.headers.get("location")).toBeNull();
+      expect(answer.headers.get("cache-control")).toBe("no-store");
+      expect(answer.headers.get("content-security-policy")).toBe(policy);
+      const page = await answer.text();
+      const onward = movesOnTo(page)!;
+      // The library's own next step on this server, and nothing of the link in it: no code, state or address.
+      expect(onward).toMatch(/^\/oauth\/gemini\/auth\/[A-Za-z0-9_-]{1,64}$/u);
+      expect(page).toContain(`<a href="${onward}">continue to Google Gemini</a>`);
+      expect(page).not.toMatch(/code=|state=|https?:/u);
+      response = await browser.request(new URL(onward, "https://mcp.askrigor.com").href);
+      expect([302, 303]).toContain(response.status);
+      const location = new URL(response.headers.get("location")!);
+      expect(location.origin).toBe("https://oauth-redirect.googleusercontent.com");
+      expect(location.searchParams.get("code")).toEqual(expect.any(String));
+      expect(location.searchParams.get("state")).toBe("s");
+      // The page is used: a second press of Allow, or a reload, meets the expired step.
+      const again = await browser.submit(action, { decision: "allow", form_token: token });
+      expect(again.status).toBe(400);
+      expect(await again.text()).toContain("took too long");
+    });
+
+    it("goes on only to the library's own step", () => {
+      for (const path of ["/oauth/gemini/auth/", "/oauth/gemini/auth/a/b", "/oauth/gemini/auth/a?x=1", "https://evil.example/oauth/gemini/auth/a",
+        "//evil.example/oauth/gemini/auth/a", "/oauth/gemini/auth/a\"><script>", "/mcp/gemini"]) {
+        expect(() => moveOnPage(path), path).toThrow("GEMINI_SIGN_IN_PAGE_INPUT_INVALID");
+      }
+      expect(movesOnTo(moveOnPage("/oauth/gemini/auth/abc_DEF-1"))).toBe("/oauth/gemini/auth/abc_DEF-1");
     });
 
     it("refuses an Auth0 ID token with a forged signature", async () => {

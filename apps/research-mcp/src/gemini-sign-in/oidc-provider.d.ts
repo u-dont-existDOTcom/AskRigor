@@ -122,6 +122,13 @@ declare module "oidc-provider" {
     callback(): (request: IncomingMessage, response: ServerResponse) => Promise<void>;
     use(middleware: (ctx: KoaContextWithOIDC, next: () => Promise<void>) => Promise<void>): this;
     interactionDetails(request: IncomingMessage, response: ServerResponse): Promise<InteractionDetails>;
+    /** Keeps the result and gives the address that goes on; interactionFinished redirects to it. */
+    interactionResult(
+      request: IncomingMessage,
+      response: ServerResponse,
+      result: InteractionResults,
+      options?: { mergeWithLastSubmission?: boolean },
+    ): Promise<string>;
     interactionFinished(
       request: IncomingMessage,
       response: ServerResponse,
