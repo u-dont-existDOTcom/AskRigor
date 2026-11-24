@@ -36,6 +36,8 @@ export interface AtlasNewsReceiptClaims {
   nl: string[];
   ns: string[];
   nr: string[];
+  /** The PubMed record AskRigor read itself for the card's DOI, when the full-text tool admitted no copy of it. */
+  np?: string;
 }
 
 export interface AtlasNewsStageInput {

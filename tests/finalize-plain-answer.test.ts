@@ -87,14 +87,18 @@ const check = (overrides: Partial<FinalizeResearchInput> = {}, note: boolean | n
   }));
 const steps = (overrides: Partial<FinalizeResearchInput> = {}) =>
   advisoryNotes(check(overrides)).filter((step) => step !== TOOL_LIST_REFRESH_HINT);
+// Owner answer 413a (24 Nov 2026): what the research changed leads the note, and the claims it did not check close it in
+// one line, rather than a sentence each.
 const NOTE = "Without AskRigor, a quick answer would have said: “Vitamin D supplements prevent colds in most " +
   "adults.” This research corrected that, from a full-text audit of 1 study: “In three large trials, " +
-  "vitamin D did not prevent colds in adults with normal levels.” It would also have said: “A daily dose of " +
-  "1,000 IU is enough.” This research did not check that.";
-const NOT_CHECKED_NOTE = "Without AskRigor, a quick answer would have said: “Vitamin D supplements prevent colds in " +
-  "most adults.” This research did not check that. It would also have said: “A daily dose of 1,000 IU is enough.” " +
-  "This research did not check that.";
-const UNTIL_CHECKED = ' Until then, the note gives this claim as "This research did not check that."';
+  "vitamin D did not prevent colds in adults with normal levels.” It did not check one other point of the quick " +
+  "answer: “A daily dose of 1,000 IU is enough.”";
+// The first claim given as checked, with nothing the check could show behind it, and the second not checked: the note
+// tells the two apart (owner answer 413a), rather than saying "did not check" of both.
+const NOT_CHECKED_NOTE = "Without AskRigor, a quick answer would have said: “A daily dose of 1,000 IU is enough.” " +
+  "This research did not check that. It says it checked one more point, but did not show what backs it: " +
+  "“Vitamin D supplements prevent colds in most adults.”";
+const UNTIL_CHECKED = " Until then, the note says the research claims to have checked this claim but did not show what backs it.";
 
 describe("finalize_research compares the answer with the plain answer registered before research (owner answer 140b)", () => {
   it("writes the note from the comparison, quoting the registered claims exactly and naming what backs a change", () => {
@@ -105,16 +109,17 @@ describe("finalize_research compares the answer with the plain answer registered
     expect(result.plain_answer_note).toBe(NOTE);
     // The note is written for the end of the answer; it is not a caveat the draft must already carry.
     expect(result.caveats.join(" ")).not.toContain("quick answer would have said");
-    // In the registered order, whatever the comparison's order; a qualification and a confirmation, with the work
-    // behind them in the server's words.
+    // Owner answer 413a: a qualification before a confirmation, whatever the comparison's or the registration's order,
+    // with the work behind them in the server's words.
     const both = check({ plain_answer_comparison: [
       { claim: CLAIMS[1]!, outcome: "qualified", answer_quote: QUALIFIED, sources: [DOI, `https://doi.org/${DOI.toUpperCase()}`] },
       { claim: CLAIMS[0]!, outcome: "confirmed", answer_quote: CORRECTED, sources: [DOI] }
     ] });
-    expect(both.plain_answer_note).toBe("Without AskRigor, a quick answer would have said: “Vitamin D supplements " +
-      "prevent colds in most adults.” This research confirmed that, from a full-text audit of 1 study: “In three large trials, vitamin D did not prevent colds in adults with normal levels.” It would also have said: “A daily dose of " +
+    expect(both.plain_answer_note).toBe("Without AskRigor, a quick answer would have said: “A daily dose of " +
       "1,000 IU is enough.” This research qualified that, from a full-text audit of 1 study: “The trials gave " +
-      "1,000 to 4,000 IU a day, and only people low in vitamin D might benefit.”");
+      "1,000 to 4,000 IU a day, and only people low in vitamin D might benefit.” It would also have said: “Vitamin D " +
+      "supplements prevent colds in most adults.” This research confirmed that, from a full-text audit of 1 study: " +
+      "“In three large trials, vitamin D did not prevent colds in adults with normal levels.”");
     // A claim copied with other quotation marks, spacing or case is the same claim.
     expect(check({ plain_answer_comparison: [
       { ...COMPARISON[0]!, claim: `  ${CLAIMS[0]!.toUpperCase()} ` }, COMPARISON[1]!
@@ -198,7 +203,7 @@ describe("finalize_research compares the answer with the plain answer registered
     });
     expect(result.plain_answer_note).toBe("Without AskRigor, a quick answer would have said: " +
       `“${claims[0]}”. This research corrected that, from a full-text audit of 1 study: “${corrected}” ` +
-      `It would also have said: “${claims[1]}” This research did not check that.`);
+      `It did not check one other point of the quick answer: “${claims[1]}”`);
   });
 
   it.each(["o354-work-left", "q137", "s359-t1"])("%s: even a sourced confirmation needs the answer's quote", () => {
@@ -880,12 +885,12 @@ describe("27 Oct exact plain-answer note regressions", () => {
     expect(advisoryNotes(missing).join(" ")).toContain("plain_answer_comparison[0]");
     expect(advisoryNotes(missing)).toContain(`plain_answer_comparison[0] is ${outcome} without answer_quote: ` +
       "copy the answer's own sentence for this item from answer_draft." + UNTIL_CHECKED);
-    expect(missing.plain_answer_note).toBe(`Without AskRigor, a quick answer would have said: “${claim}” This research did not check that.`);
+    expect(missing.plain_answer_note).toBe(`Without AskRigor, a quick answer would have said: “${claim}” This research says it checked that, but did not show what backs it.`);
     expect(missing.next_steps).toEqual([]);
     const stale = checkedItem(outcome, "The previous draft used different synthetic words.");
     expect(stale.status).toBe("ready_with_limits");
     expect(advisoryNotes(stale)).toContain("plain_answer_comparison[0].answer_quote gives text the answer does not show: copy each sentence exactly from answer_draft." + UNTIL_CHECKED);
-    expect(stale.plain_answer_note).toBe(`Without AskRigor, a quick answer would have said: “${claim}” This research did not check that.`);
+    expect(stale.plain_answer_note).toBe(`Without AskRigor, a quick answer would have said: “${claim}” This research says it checked that, but did not show what backs it.`);
     expect(stale.next_steps).toEqual([]);
     expect(checkedItem(outcome, finding).status).toBe("ready_with_limits");
   });
@@ -895,8 +900,9 @@ describe("27 Oct exact plain-answer note regressions", () => {
       plain_answer_comparison: claims.map((claim) => ({ claim, outcome: "confirmed", answer_quote: finding })) });
     expect(result.status).toBe("ready_with_limits");
     expect(advisoryNotes(result)).toContain("plain_answer_comparison[1].answer_quote repeats plain_answer_comparison[0].answer_quote: one quote backs only one item." + UNTIL_CHECKED);
-    expect(result.plain_answer_note).toBe(`Without AskRigor, a quick answer would have said: “${claims[0]}” ` +
-      `This research did not check that. It would also have said: “${claims[1]}” This research did not check that.`);
+    // Neither names a source, so neither is backed: one closing line for both.
+    expect(result.plain_answer_note).toBe(`Without AskRigor, a quick answer would have said: “${claims[0]}”; ` +
+      `“${claims[1]}” This research says it checked those points, but did not show what backs them.`);
     expect(result.next_steps).toEqual([]);
   });
   it("r332: a quote ending in a colon is a lead-in, not the item's sentence", () => {
@@ -905,7 +911,7 @@ describe("27 Oct exact plain-answer note regressions", () => {
       plain_answer_comparison: [{ claim, outcome: "confirmed", answer_quote: lead }] });
     expect(result.status).toBe("ready_with_limits");
     expect(advisoryNotes(result)).toContain("plain_answer_comparison[0].answer_quote ends with a colon: give the answer's sentence for this item, rather than its lead-in." + UNTIL_CHECKED);
-    expect(result.plain_answer_note).toBe(`Without AskRigor, a quick answer would have said: “${claim}” This research did not check that.`);
+    expect(result.plain_answer_note).toBe(`Without AskRigor, a quick answer would have said: “${claim}” This research says it checked that, but did not show what backs it.`);
     expect(result.next_steps).toEqual([]);
   });
   it("q136-responders and l32: a first-turn correction needs backing, and is never asked of corrections", () => {
@@ -914,7 +920,7 @@ describe("27 Oct exact plain-answer note regressions", () => {
     expect(result.status, advisoryNotes(result).join("\n")).toBe("ready_with_limits");
     expect(result.next_steps).toEqual([]);
     // #394's run: l32-negative-controls' first turn printed such a correction, with nothing behind it, as the research's.
-    expect(result.plain_answer_note).toBe(`Without AskRigor, a quick answer would have said: “${claim}” This research did not check that.`);
+    expect(result.plain_answer_note).toBe(`Without AskRigor, a quick answer would have said: “${claim}” This research says it checked that, but did not show what backs it.`);
     expect(advisoryNotes(result).join(" ")).toContain("plain_answer_comparison[0] is corrected with nothing behind it");
     expect(advisoryNotes(result).join(" ")).not.toContain("corrections");
     const missing = check({ receipts: [plainReceipt(1_000, [claim])], key_sources: [], answer_draft: `${finding}\n\nNo study's methods were checked in full text for this answer.`,
@@ -926,6 +932,72 @@ describe("27 Oct exact plain-answer note regressions", () => {
   });
 });
 
+// Owner answer 413a (24 Nov 2026): "it said 'the plain answer would have said X, but askrigor didn't check that' like over
+// and over and over". What the research changed leads the note; the rest close it, one line each.
+describe("owner answer 413a: the note leads with what the research changed and closes with the rest", () => {
+  const claims = [
+    "Vitamin D supplements prevent colds in most adults.",
+    "A daily dose of 1,000 IU is enough.",
+    "Colds last about a week.",
+    "Vitamin C works better than vitamin D.",
+    "Vitamin D works within a day."
+  ];
+  const quotes = {
+    confirmed: "In three large trials, vitamin D prevented some colds in adults low in it.",
+    qualified: "Most colds last a week or more, and some last longer.",
+    corrected: "In the trials, any effect took weeks of daily use to appear."
+  };
+  const draft = `${LINK}\n\n${quotes.confirmed} ${quotes.qualified} ${quotes.corrected}`;
+  const compare = (comparison: Comparison, registered: readonly string[] = claims) => check({
+    receipts: [plainReceipt(1_000, registered), audit()], answer_draft: draft, plain_answer_comparison: comparison
+  });
+
+  it("gives corrected, then qualified, then confirmed claims, and the unchecked ones in one closing line", () => {
+    const result = compare([
+      { claim: claims[0]!, outcome: "confirmed", answer_quote: quotes.confirmed, sources: [DOI] },
+      { claim: claims[1]!, outcome: "not_checked" },
+      { claim: claims[2]!, outcome: "qualified", answer_quote: quotes.qualified, sources: [DOI] },
+      { claim: claims[3]!, outcome: "not_checked" },
+      { claim: claims[4]!, outcome: "corrected", answer_quote: quotes.corrected, sources: [DOI] }
+    ]);
+    expect(result.next_steps).toEqual([]);
+    expect(result.plain_answer_note).toBe(`Without AskRigor, a quick answer would have said: “${claims[4]}” This ` +
+      `research corrected that, from a full-text audit of 1 study: “${quotes.corrected}” It would also have said: ` +
+      `“${claims[2]}” This research qualified that, from a full-text audit of 1 study: “${quotes.qualified}” It would ` +
+      `also have said: “${claims[0]}” This research confirmed that, from a full-text audit of 1 study: ` +
+      `“${quotes.confirmed}” It did not check 2 other points of the quick answer: “${claims[1]}”; “${claims[3]}”`);
+    // However many claims went unchecked, the note says so once.
+    expect(result.plain_answer_note!.split("did not check")).toHaveLength(2);
+  });
+
+  it("keeps the claims it did not check apart from those it says it checked without showing what backs them", () => {
+    const result = compare([
+      { claim: claims[0]!, outcome: "confirmed", answer_quote: quotes.confirmed },
+      { claim: claims[1]!, outcome: "not_checked" },
+      { claim: claims[2]!, outcome: "qualified", answer_quote: quotes.qualified, sources: [DOI] },
+      { claim: claims[3]!, outcome: "not_checked" },
+      { claim: claims[4]!, outcome: "corrected", answer_quote: "Vitamin D never works.", sources: [DOI] }
+    ]);
+    expect(result.next_steps).toEqual([]);
+    expect(result.plain_answer_note).toBe(`Without AskRigor, a quick answer would have said: “${claims[2]}” This ` +
+      `research qualified that, from a full-text audit of 1 study: “${quotes.qualified}” It did not check 2 other ` +
+      `points of the quick answer: “${claims[1]}”; “${claims[3]}” It says it checked 2 more points too, but did not ` +
+      `show what backs them: “${claims[0]}”; “${claims[4]}”`);
+  });
+
+  it("names the quick answer's claims once when the research checked none of them", () => {
+    const three = claims.slice(0, 3);
+    expect(compare(three.map((claim) => ({ claim, outcome: "not_checked" as const })), three).plain_answer_note)
+      .toBe(`Without AskRigor, a quick answer would have said: “${three[0]}”; “${three[1]}”; “${three[2]}” This ` +
+        "research did not check those points.");
+    // A closing list ends its sentence once, after the last quotation, when the claims carry no full stop of their own.
+    const bare = ["Vitamin D prevents colds", "Sunlight helps"];
+    expect(compare(bare.map((claim) => ({ claim, outcome: "not_checked" as const })), bare).plain_answer_note)
+      .toBe("Without AskRigor, a quick answer would have said: “Vitamin D prevents colds”; “Sunlight helps”. This " +
+        "research did not check those points.");
+  });
+});
+
 // #394's run: when a quoted sentence ended inside bold markers, the note put a full stop after its closing quotation mark.
 describe("the note's quotations end their sentences inside emphasis", () => {
   it("adds no full stop after a bolded quote that ends its own sentence", () => {
@@ -933,7 +1005,7 @@ describe("the note's quotations end their sentences inside emphasis", () => {
     const result = check({ answer_draft: `${LINK}\n\n${bold} ${QUALIFIED}`,
       plain_answer_comparison: [{ ...COMPARISON[0]!, answer_quote: bold }, COMPARISON[1]!] });
     expect(result.next_steps).toEqual([]);
-    expect(result.plain_answer_note).toContain(`from a full-text audit of 1 study: “${bold}” It would also have said:`);
+    expect(result.plain_answer_note).toContain(`from a full-text audit of 1 study: “${bold}” It did not check one other point`);
     expect(result.plain_answer_note).not.toContain(`${bold}”.`);
   });
 });
@@ -953,7 +1025,8 @@ describe("owner answer 210b: the plain-answer note keeps checked claims and name
     plain_answer_comparison: [{ claim, outcome: "qualified", answer_quote: finding, sources: [thread.url] }],
     ...overrides
   });
-  const notChecked = `Without AskRigor, a quick answer would have said: “${claim}” This research did not check that.`;
+  const saidChecked = `Without AskRigor, a quick answer would have said: “${claim}” This research says it checked that, ` +
+    "but did not show what backs it.";
   const threadNote = `Without AskRigor, a quick answer would have said: “${claim}” This research qualified that, ` +
     `from my own reading of 1 forum thread ([Vitamin D experiences](${thread.url})): “${finding}”`;
   const unbackedAdvisory = (index: number, outcome: "confirmed" | "qualified") =>
@@ -968,7 +1041,7 @@ describe("owner answer 210b: the plain-answer note keeps checked claims and name
   const comparisonNotes = (result: ReturnType<typeof check>) =>
     advisoryNotes(result).filter((note) => note.startsWith("plain_answer_comparison"));
 
-  it.each(["confirmed", "qualified"] as const)("keeps an unbacked confirmation as not checked beside a backed %s, without blocking", (outcome) => {
+  it.each(["confirmed", "qualified"] as const)("keeps an unbacked confirmation apart, as said to be checked, beside a backed %s, without blocking", (outcome) => {
     const result = check({ plain_answer_comparison: [
       { claim: CLAIMS[0]!, outcome: "confirmed", answer_quote: CORRECTED },
       { claim: CLAIMS[1]!, outcome, answer_quote: QUALIFIED, sources: [DOI] }
@@ -977,9 +1050,10 @@ describe("owner answer 210b: the plain-answer note keeps checked claims and name
     expect(result.next_steps).toEqual([]);
     expect(result.next_step_kinds).toEqual([]);
     expect(result.finalization_receipt).toEqual(expect.any(String));
-    expect(result.plain_answer_note).toBe("Without AskRigor, a quick answer would have said: “Vitamin D supplements " +
-      "prevent colds in most adults.” This research did not check that. It would also have said: “A daily dose of " +
-      `1,000 IU is enough.” This research ${outcome} that, from a full-text audit of 1 study: “${QUALIFIED}”`);
+    expect(result.plain_answer_note).toBe("Without AskRigor, a quick answer would have said: “A daily dose of " +
+      `1,000 IU is enough.” This research ${outcome} that, from a full-text audit of 1 study: “${QUALIFIED}” ` +
+      "It says it checked one more point too, but did not show what backs it: “Vitamin D supplements prevent colds " +
+      "in most adults.”");
     expect(comparisonNotes(result)).toEqual([unbackedAdvisory(0, "confirmed")]);
   });
 
@@ -987,7 +1061,7 @@ describe("owner answer 210b: the plain-answer note keeps checked claims and name
     ["missing", undefined, "plain_answer_comparison[0] is confirmed without answer_quote: copy the answer's own sentence for this item from answer_draft."],
     ["absent from the draft", "Vitamin D never works.", "plain_answer_comparison[0].answer_quote gives text the answer does not show: copy each sentence exactly from answer_draft."],
     ["ending in a colon", "Synthetic results:", "plain_answer_comparison[0].answer_quote ends with a colon: give the answer's sentence for this item, rather than its lead-in."]
-  ] as const)("a quote %s marks only its claim as not checked and keeps the backed qualification", (_, answer_quote, advisory) => {
+  ] as const)("a quote %s marks only its claim as said to be checked and keeps the backed qualification", (_, answer_quote, advisory) => {
     const result = check({ answer_draft: `${LINK}\n\nSynthetic results: ${CORRECTED} ${QUALIFIED}`,
       plain_answer_comparison: [
         { claim: CLAIMS[0]!, outcome: "confirmed", ...(answer_quote === undefined ? {} : { answer_quote }), sources: [DOI] },
@@ -995,13 +1069,14 @@ describe("owner answer 210b: the plain-answer note keeps checked claims and name
       ] });
     expect(result.status).toBe("ready_with_limits");
     expect(result.next_steps).toEqual([]);
-    expect(result.plain_answer_note).toBe("Without AskRigor, a quick answer would have said: “Vitamin D supplements " +
-      "prevent colds in most adults.” This research did not check that. It would also have said: “A daily dose of " +
-      `1,000 IU is enough.” This research qualified that, from a full-text audit of 1 study: “${QUALIFIED}”`);
+    expect(result.plain_answer_note).toBe("Without AskRigor, a quick answer would have said: “A daily dose of " +
+      `1,000 IU is enough.” This research qualified that, from a full-text audit of 1 study: “${QUALIFIED}” ` +
+      "It says it checked one more point too, but did not show what backs it: “Vitamin D supplements prevent colds " +
+      "in most adults.”");
     expect(comparisonNotes(result)).toEqual([advisory + UNTIL_CHECKED]);
   });
 
-  it("a reused quote marks only the later claim as not checked and keeps the backed confirmation", () => {
+  it("a reused quote marks only the later claim as said to be checked and keeps the backed confirmation", () => {
     const result = check({ plain_answer_comparison: [
       { claim: CLAIMS[0]!, outcome: "confirmed", answer_quote: QUALIFIED, sources: [DOI] },
       { claim: CLAIMS[1]!, outcome: "qualified", answer_quote: QUALIFIED, sources: [DOI] }
@@ -1010,7 +1085,7 @@ describe("owner answer 210b: the plain-answer note keeps checked claims and name
     expect(result.next_steps).toEqual([]);
     expect(result.plain_answer_note).toBe("Without AskRigor, a quick answer would have said: “Vitamin D supplements " +
       `prevent colds in most adults.” This research confirmed that, from a full-text audit of 1 study: “${QUALIFIED}” ` +
-      "It would also have said: “A daily dose of 1,000 IU is enough.” This research did not check that.");
+      "It says it checked one more point too, but did not show what backs it: “A daily dose of 1,000 IU is enough.”");
     expect(comparisonNotes(result)).toEqual(["plain_answer_comparison[1].answer_quote repeats " +
       "plain_answer_comparison[0].answer_quote: one quote backs only one item." + UNTIL_CHECKED]);
   });
@@ -1081,7 +1156,7 @@ describe("owner answer 210b: the plain-answer note keeps checked claims and name
       plain_answer_comparison: [{ claim, outcome: "qualified", answer_quote: finding, sources: [url] }] });
     expect(result.status).toBe("ready_with_limits");
     expect(result.next_steps).toEqual([]);
-    expect(result.plain_answer_note).toBe(notChecked);
+    expect(result.plain_answer_note).toBe(saidChecked);
     expect(comparisonNotes(result)).toEqual([sourcesAdvisory(url), unbackedAdvisory(0, "qualified")]);
   });
 
@@ -1090,7 +1165,7 @@ describe("owner answer 210b: the plain-answer note keeps checked claims and name
     const result = forumCheck({ plain_answer_comparison: [{ claim, outcome: "qualified", answer_quote: finding, sources: [url] }] });
     expect(result.status).toBe("ready_with_limits");
     expect(result.next_steps).toEqual([]);
-    expect(result.plain_answer_note).toBe(notChecked);
+    expect(result.plain_answer_note).toBe(saidChecked);
     expect(comparisonNotes(result)).toEqual([sourcesAdvisory(url), unbackedAdvisory(0, "qualified")]);
   });
 

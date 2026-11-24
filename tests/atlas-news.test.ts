@@ -14,12 +14,16 @@ import {
   checkNewsCard,
   newsCardDigest,
   newsCardFromCall,
+  newsPer100Words,
+  newsPublicTexts,
   numbersMissingFrom,
   wordCount,
   type NewsCard,
 } from "../apps/research-mcp/src/news/card.js";
 import {
+  NEWS_CHECK_V7_DAY,
   newsDayPayloadDigest,
+  newsExpiredItems,
   newsLatestDay,
   publishNewsDay,
   type NewsDayPayload,
@@ -92,12 +96,20 @@ describe("the news card: its shape and its rules, in code and in any language", 
     expect(result.digest).toMatch(/^[a-f0-9]{64}$/u);
   });
 
-  it("counts the Finding's words without the tag: 12 pass, 13 don't, in a script without spaces too", () => {
-    expect(codes(card((value) => { value.finding = "one two three four five six seven eight nine ten eleven twelve"; })))
-      .toEqual([]);
-    expect(codes(card((value) => {
-      value.finding = "one two three four five six seven eight nine ten eleven twelve thirteen";
-    }))).toEqual(["finding_too_long"]);
+  it("counts the Finding's words without the tag: 24 pass, 25 don't, about 20 the aim, in a script without spaces too", () => {
+    // The 23 Nov 2026 news audit: a finding cut to 12 words lost its group, comparator or time frame.
+    const words = (count: number) => Array.from({ length: count }, (_, place) => `word${place + 1}`).join(" ");
+    expect(codes(card((value) => { value.finding = words(24); }))).toEqual([]);
+    const tooLong = checkNewsCard(card((value) => { value.finding = words(25); }));
+    expect(tooLong.status === "rejected" && tooLong.problems).toEqual([{ code: "finding_too_long",
+      message: expect.stringMatching(/has 25 words; at most 24, about 20 the aim/u) }]);
+    // A 24-word finding in long words still fits its character limit: the word cap is the one that acts.
+    const long = "Antihypertensive medication prevented considerably more cardiovascular hospitalisations than " +
+      "injurious falls among septuagenarians, octogenarians and nonagenarians independently across socioeconomically " +
+      "heterogeneous neighbourhoods over approximately ten years";
+    expect(wordCount(long)).toBe(24);
+    expect(long.length).toBeGreaterThan(200);
+    expect(codes(card((value) => { value.finding = long; }))).toEqual([]);
     expect(wordCount("毎日の散歩で血圧が下がった")).toBeGreaterThan(1);
   });
 
@@ -106,6 +118,39 @@ describe("the news card: its shape and its rules, in code and in any language", 
     expect(codes(card((value) => { value.how_much = "Walkers did better within 6 months"; })))
       .toEqual(["per_100_not_in_how_much"]);
     expect(codes(card((value) => { value.outcome_kind = "scale"; delete value.per_100; }))).toEqual([]);
+  });
+
+  it("takes a comparison of \"none\" for a study of one group, only with its reason, and shows it as no figure", () => {
+    // The 22 Nov 2026 news audit: a records review of one treatment has no comparison figure, and null was refused.
+    const single = card((value) => {
+      value.design = "people_no_comparison_group";
+      value.label = "harm_signal";
+      value.meets_our_bar = { meets: false, reason: "One group, no comparison", reason_code: "early_uncontrolled" };
+      value.how_much = "About 4 in 100 people treated had the invented reaction within 6 months";
+      value.per_100 = { treated: 4, comparison: "none", no_comparison_reason: "Records of treated people only",
+        outcome: "the invented reaction", time_frame: "6 months" };
+    });
+    const accepted = checked(single);
+    expect(accepted.card.per_100).toEqual({ treated: 4, comparison: "none",
+      no_comparison_reason: "Records of treated people only", outcome: "the invented reaction", time_frame: "6 months" });
+    expect(newsPer100Words(accepted.card.per_100!)).toBe("4 in 100; no comparison figure: Records of treated people only");
+    expect(newsPer100Words(checked(CARD).card.per_100!)).toBe("12 in 100 against 7 in 100");
+    // The reason is shown beside How much's figures, so it is held to the draft's numbers like them.
+    expect(newsPublicTexts(accepted.card).how_much).toBe("About 4 in 100 people treated had the invented reaction " +
+      "within 6 months\nRecords of treated people only");
+    // "none" needs its reason; a number takes none; How much still shows the treated group's figure.
+    expect(codes(card((value) => { value.per_100 = { ...value.per_100, comparison: "none" }; })))
+      .toEqual(["per_100_no_comparison_reason"]);
+    expect(codes(card((value) => { value.per_100 = { ...value.per_100, no_comparison_reason: "No comparison" }; })))
+      .toEqual(["per_100_no_comparison_reason"]);
+    expect(codes(card((value) => {
+      value.per_100 = { ...single.per_100, treated: 9 };
+      value.how_much = single.how_much;
+    }))).toEqual(["per_100_not_in_how_much"]);
+    // null, as on 22 Nov, and any other word, stay unreadable.
+    expect(codes(card((value) => { value.per_100 = { ...value.per_100, comparison: null }; }))).toEqual(["card_unreadable"]);
+    expect(codes(card((value) => { value.per_100 = { ...value.per_100, comparison: "not studied" }; })))
+      .toEqual(["card_unreadable"]);
   });
 
   it("keeps a safety notice to official notices, and work in animals or cells out of the main items", () => {
@@ -489,6 +534,83 @@ describe("the day call: one day, whole or nothing, never late", () => {
     const base = { day: "2026-11-15", version: 1 };
     expect(await publishNewsDay(payload({ day: "2026-11-22", not_after: Math.floor(later.getTime() / 1000) + 600, base,
       order: [] }), deps(store, clean, later))).toMatchObject({ status: "committed", order: [] });
+  });
+
+  it("lets a carried item expire after its seven days with its reason, one staged before version 7 too, never judged again", async () => {
+    // The 23 Nov 2026 news audit: a card stored on 22 Nov, before the news check's version 7, is carried by the
+    // seven-day order. Nothing keeps it there for good: it leaves after its seven days, as every item does, and the
+    // day says why; it is never read or judged again (the payload gives it no reading, the call no decision).
+    expect(NEWS_CHECK_V7_DAY).toBe("2026-11-23");
+    const store = new InMemoryAtlasNewsStore(databaseClock);
+    const at = (day: string) => new Date(`${day}T07:00:00.000Z`);
+    const day = (on: string, rest: Partial<NewsDayPayload>) =>
+      payload({ day: on, not_after: Math.floor(at(on).getTime() / 1000) + 600, ...rest });
+    const before = await stage(store, CARD, "2026-11-22T06:00:00.000Z");
+    expect(await publishNewsDay(day("2026-11-22", { order: [before.number],
+      places: [{ number: before.number, reason: "First." }], readings: [reading(before.number, CARD)] }),
+    deps(store, clean, at("2026-11-22")))).toMatchObject({ status: "committed", order: [before.number] });
+    const sevenCard = card((value) => { value.item_id = "item-0010"; });
+    const seven = await stage(store, sevenCard, "2026-11-23T06:00:00.000Z");
+    const monday = await publishNewsDay(day("2026-11-23", { base: { day: "2026-11-22", version: 1 },
+      order: [before.number, seven.number], places: [{ number: seven.number, reason: "Below the first." }],
+      readings: [reading(seven.number, sevenCard)] }), deps(store, clean, at("2026-11-23")));
+    expect(monday).toMatchObject({ status: "committed", order: [before.number, seven.number] });
+    expect(monday).not.toHaveProperty("expired");
+    // 29 Nov: the card of 22 Nov has had its seven days; the order carries only the card of 23 Nov.
+    const sunday = await runAtlasNewsAction({ action: "publish_news_day", news_day: day("2026-11-29",
+      { base: { day: "2026-11-23", version: 1 }, order: [seven.number] }) }, deps(store, clean, at("2026-11-29")));
+    expect(sunday.news).toMatchObject({ status: "committed", result: { order: [seven.number],
+      expired: [{ number: before.number, committed: "2026-11-22", reason: "seven_days_staged_before_v7" }] } });
+    expect(sunday.text).toContain(`expired from the seven-day order: ${before.number} (its seven days passed; staged ` +
+      "before the news check's version 7, it was never judged by that version's bar, nor judged again, first stored " +
+      "2026-11-22)");
+    // 30 Nov: the card of 23 Nov expires too, for its seven days alone.
+    expect(await publishNewsDay(day("2026-11-30", { base: { day: "2026-11-29", version: 1 }, order: [] }),
+      deps(store, clean, at("2026-11-30")))).toMatchObject({ status: "committed", order: [],
+      expired: [{ number: seven.number, committed: "2026-11-23", reason: "seven_days" }] });
+    // Its row is never changed by its expiry: still the decision of the day that stored it.
+    expect((await store.inspectNumbers([before.number, seven.number], at("2026-11-30").toISOString()))
+      .map(({ state, committedDay, committedVersion }) => ({ state, committedDay, committedVersion })))
+      .toEqual([{ state: "shadow", committedDay: "2026-11-22", committedVersion: 1 },
+        { state: "shadow", committedDay: "2026-11-23", committedVersion: 1 }]);
+  });
+
+  it("names as expired only the base's items on show that the day no longer carries", () => {
+    const base = { day: "2026-11-28", version: 1, order: ["N-1001", "N-1002", "N-1003", "N-1004"], items: [
+      { number: "N-1001", state: "shadow" as const, committedDay: "2026-11-21" },
+      { number: "N-1002", state: "withdrawn" as const, committedDay: "2026-11-22" },
+      { number: "N-1003", state: "shadow" as const, committedDay: "2026-11-23" },
+      { number: "N-1004", state: "shadow" as const, committedDay: "2026-11-24" },
+    ] };
+    expect(newsExpiredItems(base, "2026-11-30")).toEqual([
+      { number: "N-1001", committed: "2026-11-21", reason: "seven_days_staged_before_v7" },
+      { number: "N-1003", committed: "2026-11-23", reason: "seven_days" },
+    ]);
+    expect(newsExpiredItems(base, "2026-11-28")).toEqual([{ number: "N-1001", committed: "2026-11-21",
+      reason: "seven_days_staged_before_v7" }]);
+    expect(newsExpiredItems(null, "2026-11-30")).toEqual([]);
+  });
+
+  it("stores a card whose study had one group, its comparison \"none\" with its reason, and reads it so", async () => {
+    const single = card((value) => {
+      value.item_id = "item-0011";
+      value.design = "people_no_comparison_group";
+      value.how_much = "About 4 in 100 people treated had the invented reaction within 6 months";
+      value.per_100 = { treated: 4, comparison: "none", no_comparison_reason: "Records of treated people only",
+        outcome: "the invented reaction", time_frame: "6 months" };
+    });
+    const draft = "In an invented records review, about 4 in 100 people treated had the invented reaction within 6 " +
+      "months; records of treated people only. About 100 million adults have mild high blood pressure.";
+    const store = new InMemoryAtlasNewsStore(databaseClock);
+    const staged = await stage(store, single, undefined, draft);
+    const result = await publishNewsDay(payload({ order: [staged.number],
+      places: [{ number: staged.number, reason: "First." }], readings: [reading(staged.number, single, undefined, draft)] }),
+    deps(store));
+    expect(result).toMatchObject({ status: "committed", order: [staged.number], keptBack: [] });
+    const [item] = await store.inspectNumbers([staged.number], AT.toISOString());
+    expect(item!.card.per_100).toEqual(single.per_100);
+    const one = await runAtlasNewsAction({ action: "list_news_items", news_number: staged.number }, deps(store));
+    expect(one.text).toContain("people per 100: 4 in 100; no comparison figure: Records of treated people only;");
   });
 });
 

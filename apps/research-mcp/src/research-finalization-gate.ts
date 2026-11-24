@@ -1888,6 +1888,14 @@ export interface FinalizeResearchOptions {
   newsCard?: { card: NewsCard; digest: string };
   /** The news card's backing lines as looked up after this check's earlier pass, in their order. */
   newsLookups?: readonly SourceLineLookup[];
+  /**
+   * Atlas news (the 23 Nov 2026 news audit): the PubMed record AskRigor read itself for the news card's DOI, when the
+   * full-text tool admitted no copy of it (a short news item, say) and no record or text of it was read: a record whose
+   * own DOI is the card's, found by PubMed's search for that DOI (newsPubmedFallbackRequestOf asks for it). The card's
+   * DOI is then verified through it, its lines that quote that paper are looked up in its title and abstract, and the
+   * receipt signs its PMID (`np`).
+   */
+  newsPubmedFallback?: { doi: string; pmid: string };
   /** Told whether this research read YouTube comments, for a kept copy of a card that wasn't saved to leave them out. */
   onCommentsRead?: (read: boolean) => void;
   /**
@@ -4562,7 +4570,7 @@ export function finalizeResearch(
           let shown = true;
           const notShown = (step: RuleInput): void => {
             shown = false;
-            addStep("declaration", joinRules(rule`${step}`, " Until then, the note gives this claim as \"This research did not check that.\""));
+            addStep("declaration", joinRules(rule`${step}`, " Until then, the note says the research claims to have checked this claim but did not show what backs it."));
           };
           if (entry.answer_quote === undefined) {
             notShown(rule`${at} is ${entry.outcome} without answer_quote: copy the answer's own sentence for this item from answer_draft.`);
@@ -4582,7 +4590,7 @@ export function finalizeResearch(
             }
           }
           if (shown) creditedComparison.add(index);
-          found.set(number, !shown ? { claim: entry.claim, outcome: "not_checked" } : {
+          found.set(number, !shown ? { claim: entry.claim, outcome: "not_checked", saidChecked: true } : {
             claim: entry.claim, outcome: entry.outcome,
             ...(entry.answer_quote === undefined ? {} : { quote: entry.answer_quote }),
             ...(basesOf(work).length > 0 ? { work: countWork([work]) } : {}),
@@ -5125,13 +5133,23 @@ export function finalizeResearch(
   const newsDoi = options.newsCard?.card.doi;
   const namesNewsDoi = (source: string) => newsDoi !== undefined &&
     sourceLinks(source).linkIds.map(normalizeIdentifier).includes(normalizeIdentifier(newsDoi));
-  const newsDoiVerified = newsDoi === undefined || (input.key_sources.some(({ id }) => namesNewsDoi(id)) &&
-    (options.newsCard!.card.backing.length === 0 || options.newsCard!.card.backing.some(({ source }) => namesNewsDoi(source))) &&
-    paperReceipts(sourceLinks(newsDoi)).some(({ kind }) =>
-      kind === "pubmed_record" || SOURCE_TEXT_KINDS.has(kind)));
+  const newsDoiQuoted = newsDoi !== undefined && input.key_sources.some(({ id }) => namesNewsDoi(id)) &&
+    (options.newsCard!.card.backing.length === 0 || options.newsCard!.card.backing.some(({ source }) => namesNewsDoi(source)));
+  const newsDoiReceipts = newsDoi === undefined ? [] : paperReceipts(sourceLinks(newsDoi));
+  const newsPaperRead = newsDoiReceipts.some(({ kind }) => kind === "pubmed_record" || SOURCE_TEXT_KINDS.has(kind));
+  // The 23 Nov 2026 news audit: a short news item the full-text tool tried and admitted no copy of (a lead or a route
+  // failure signed for its DOI), with no record or text of it read, is read in its PubMed record, which AskRigor
+  // fetches itself (register-tools.ts), for a record whose own DOI is the card's.
+  const newsFullTextRefused = newsDoiReceipts.some(({ kind }) =>
+    kind === "full_text_lead" || kind === "full_text_route_failure");
+  const newsFallback = newsDoi !== undefined && newsDoiQuoted && !newsPaperRead && newsFullTextRefused &&
+    options.newsPubmedFallback !== undefined &&
+    normalizeIdentifier(options.newsPubmedFallback.doi) === normalizeIdentifier(newsDoi)
+    ? options.newsPubmedFallback : undefined;
+  const newsDoiVerified = newsDoi === undefined || (newsDoiQuoted && (newsPaperRead || newsFallback !== undefined));
   const newsClaims = options.newsCard !== undefined && newsDoiVerified &&
     (options.newsLookups !== undefined || newsLines.length === 0)
-    ? signedNewsClaims(options.newsCard, options.newsLookups ?? [], sourceReadingOf) : undefined;
+    ? signedNewsClaims(options.newsCard, options.newsLookups ?? [], sourceReadingOf, newsFallback?.pmid) : undefined;
   // The recheck of #417: each forum thread whose id-only link, as the card gives it, is the link its reader read, as the
   // read's receipt signed it (`l`): the save publishes no other page's link.
   const threadLinks = findingsCard.status === "checked" && input.findings_card !== undefined
@@ -5176,7 +5194,9 @@ export function finalizeResearch(
       // this receipt and the user's yes to it (owner answer 143a).
       ...(mapOffered && mapAccount !== undefined ? { map: "offered", acct: mapAccount } : {}),
       // Atlas news, stage 1: the news card's digest, its lines' lookups and sections, and how its sources were read.
-      ...(newsClaims === undefined ? {} : { news: newsClaims.news, nl: newsClaims.nl, ns: newsClaims.ns, nr: newsClaims.nr }),
+      ...(newsClaims === undefined ? {} : { news: newsClaims.news, nl: newsClaims.nl, ns: newsClaims.ns, nr: newsClaims.nr,
+        // The PubMed record AskRigor read itself for the card's DOI, when the full-text tool admitted no copy.
+        ...(newsClaims.np === undefined ? {} : { np: newsClaims.np }) }),
       // A call marked findings_save "off": save_research_findings refuses this receipt's card.
       ...(savingOff ? { fs: "off" } : {}),
       // Owner answer 310a: the check's AI readings were made by the call's caller, not by the server.
@@ -5223,10 +5243,20 @@ export function finalizeResearch(
     BACKING_REQUESTS.set(parsedOutput, { lines: backingLines, requests: backingRequests });
   }
   if (options.newsCard !== undefined) NEWS_DOI_VERIFIED.set(parsedOutput, newsDoiVerified);
+  // The 23 Nov 2026 news audit: a passing check whose card's DOI only lacks a paper read, after the full-text tool
+  // admitted no copy, asks for that DOI's PubMed record; register-tools.ts fetches it and checks again with it.
+  if (passed && newsDoi !== undefined && newsDoiQuoted && !newsPaperRead && newsFullTextRefused &&
+    options.newsPubmedFallback === undefined) {
+    NEWS_PUBMED_FALLBACK_REQUESTS.set(parsedOutput, { doi: newsDoi });
+  }
   if (passed && newsLines.length > 0 && options.newsCard !== undefined && options.newsLookups === undefined &&
     newsDoiVerified) {
     NEWS_REQUESTS.set(parsedOutput, { lines: newsLines.map(({ source, quote }) => ({ source, sentence: quote })),
-      requests: newsRequests });
+      // The lines that quote the card's DOI are looked up in the PubMed record read for it, when that is how it was read.
+      requests: newsFallback === undefined ? newsRequests : newsRequests.map((request, line) =>
+        namesNewsDoi(newsLines[line]!.source)
+          ? { ...request, pmids: [newsFallback.pmid, ...request.pmids.filter((pmid) => pmid !== newsFallback.pmid)] }
+          : request) });
   }
   // Stage 1 of enforcing HRP: the ledger is built here unless the caller gives notes of its own after the check.
   if (ledgerSource !== undefined) {
@@ -5424,10 +5454,19 @@ export interface NewsRequests {
 
 const NEWS_REQUESTS = new WeakMap<FinalizeResearchOutput, NewsRequests>();
 const NEWS_DOI_VERIFIED = new WeakMap<FinalizeResearchOutput, boolean>();
+const NEWS_PUBMED_FALLBACK_REQUESTS = new WeakMap<FinalizeResearchOutput, { doi: string }>();
 
 /** Whether this result's news card's DOI is one the call's verified receipts name; undefined without a news card. */
 export function newsDoiVerifiedOf(result: FinalizeResearchOutput): boolean | undefined {
   return NEWS_DOI_VERIFIED.get(result);
+}
+
+/**
+ * The DOI whose PubMed record this passing check's news card needs read (FinalizeResearchOptions.newsPubmedFallback):
+ * a key source the card quotes, which the full-text tool admitted no copy of and no record or text of was read.
+ */
+export function newsPubmedFallbackRequestOf(result: FinalizeResearchOutput): { doi: string } | undefined {
+  return NEWS_PUBMED_FALLBACK_REQUESTS.get(result);
 }
 
 /** Where this result's news card's backing lines may be looked up: a passing check whose lines haven't been yet. */
@@ -5974,6 +6013,11 @@ interface ComparedClaim {
   work?: VerifiedWork;
   /** Forum threads read here that back it (owner answer 210b). */
   threads?: ReadonlyArray<{ url: string; title?: string | undefined; readHere: boolean }>;
+  /**
+   * The comparison gave it as confirmed, corrected or qualified, but the check could not show what backs that, so the
+   * note counts it as not checked and says the research claims to have checked it (owner answer 413a).
+   */
+  saidChecked?: true;
 }
 
 type RegisteredPlainAnswer =
@@ -6147,26 +6191,60 @@ function readThreadsPhrase(threads: ReadonlyArray<{ url: string; title?: string 
     `(${named.join(", ")}${more > 0 ? ` and ${more} more` : ""})`;
 }
 
+/** The order the note gives the claims the research checked in (owner answer 413a): what it changed first. */
+const NOTE_ORDER: Readonly<Record<PlainAnswerOutcome, number>> = { corrected: 0, qualified: 1, confirmed: 2, not_checked: 3 };
+
+/** Claims as a closing line of the note lists them: each quoted exactly, the last one ending the sentence. */
+function quotations(claims: readonly string[]): string {
+  return claims.map((claim, index) => index === claims.length - 1 ? quotation(claim) : `\u201C${claim.trim()}\u201D`)
+    .join("; ");
+}
+
 /**
- * The note a checked answer ends with (owner answer 140b): each registered claim quoted exactly, in order, including
- * its figures, so the reader can see what was checked (31 Oct regressions). Each claim is followed by what the
- * research found, with the answer's own sentence and what backs it, for example "Without AskRigor, a quick
- * answer would have said: “X.” This research corrected that, from full-text audits of 2 studies: “Y.”"
+ * The note a checked answer ends with (owner answer 140b): what the research found in the quick answer it would have
+ * given without AskRigor, each claim quoted exactly, including its figures (31 Oct regressions). Owner answer 413a (24
+ * Nov 2026, after "it said 'the plain answer would have said X, but askrigor didn't check that' like over and over"):
+ * the claims the research corrected come first, then those it qualified, then those it confirmed, in the order
+ * registered within each, each with the answer's own sentence and what backs it, for example "Without AskRigor, a
+ * quick answer would have said: “X.” This research corrected that, from full-text audits of 2 studies: “Y.”" The rest
+ * close the note in one line each: the claims it did not check, then those it says it checked but did not show what
+ * backs.
  */
 function plainAnswerNote(compared: readonly ComparedClaim[], draft: string): string {
   const numbers = extractUnsignedNumbers(displayedProse(draft).map(visibleText).join("\n"));
-  return compared.map(({ claim, outcome, quote, work, threads }, index) => {
+  // Array.prototype.sort is stable, so claims with one outcome keep the order registered.
+  const checked = compared.filter(({ outcome }) => outcome !== "not_checked")
+    .sort((left, right) => NOTE_ORDER[left.outcome] - NOTE_ORDER[right.outcome]);
+  const unchecked = compared.filter(({ outcome, saidChecked }) => outcome === "not_checked" && saidChecked !== true)
+    .map(({ claim }) => claim);
+  const unbacked = compared.filter(({ saidChecked }) => saidChecked === true).map(({ claim }) => claim);
+  const lines = checked.map(({ claim, outcome, quote, work, threads }, index) => {
     const lead = index === 0 ? "Without AskRigor, a quick answer would have" : "It would also have";
-    const said = `${lead} said: ${quotation(claim)}`;
-    if (outcome === "not_checked") return `${said} This research did not check that.`;
-    // Non-not_checked entries reach a passing note only with their checked quote. A confirmed or qualified claim
-    // whose figures the checked draft does not show says so, rather than seeming to confirm them (31 Oct).
+    // Each reaches a passing note only with its checked quote. A confirmed or qualified claim whose figures the
+    // checked draft does not show says so, rather than seeming to confirm them (31 Oct).
     const bases = [...(work === undefined ? [] : [verifiedWorkPhrase(work)]), ...(threads === undefined ? [] : [readThreadsPhrase(threads)])];
     const from = bases.length === 0 ? "" : `, from ${bases.join(" and ")}`;
     const figuresUnchecked = outcome !== "corrected" &&
       extractUnsignedNumbers(claim).some((value) => !includesAbsoluteNumber(numbers, value));
-    return `${said} This research ${outcome} that${from}${figuresUnchecked ? ", but not its figures" : ""}: ${quotation(quote!)}`;
-  }).join(" ");
+    return `${lead} said: ${quotation(claim)} This research ${outcome} that${from}${figuresUnchecked ? ", but not its figures" : ""}: ${quotation(quote!)}`;
+  });
+  const opening = "Without AskRigor, a quick answer would have said:";
+  if (unchecked.length > 0) {
+    lines.push(lines.length === 0
+      ? `${opening} ${quotations(unchecked)} This research did not check ${unchecked.length === 1 ? "that" : "those points"}.`
+      : `It did not check ${unchecked.length === 1 ? "one other point" : `${unchecked.length} other points`} of the quick ` +
+        `answer: ${quotations(unchecked)}`);
+  }
+  if (unbacked.length > 0) {
+    const them = unbacked.length === 1 ? "it" : "them";
+    lines.push(lines.length === 0
+      ? `${opening} ${quotations(unbacked)} This research says it checked ${unbacked.length === 1 ? "that" : "those points"}, ` +
+        `but did not show what backs ${them}.`
+      // "too" only after claims it checked: after unchecked claims alone, it would say something was checked.
+      : `It says it checked ${unbacked.length === 1 ? "one more point" : `${unbacked.length} more points`}` +
+        `${checked.length > 0 ? " too" : ""}, but did not show what backs ${them}: ${quotations(unbacked)}`);
+  }
+  return lines.join(" ");
 }
 
 // Bounded and closed to brackets and parentheses, so a long draft is read in linear time.

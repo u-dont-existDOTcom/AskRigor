@@ -11,6 +11,7 @@ import {
 } from "@askrigor/evidence-repository";
 
 import { newsCardDigest, newsCardSchema } from "../apps/research-mcp/src/news/card.js";
+import { newsPubmedFallback, type NewsPubmedSource } from "../apps/research-mcp/src/news/pubmed-fallback.js";
 import { registerTools, type RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
 import { finalizeResearchInputSchema } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
@@ -125,14 +126,14 @@ describe("finalize_research stages the owner's news check's own card (Atlas news
     later_inputs: laterInputs,
   });
 
-  async function setUp(mode: "off" | "shadow", devAccount = true) {
+  async function setUp(mode: "off" | "shadow", devAccount = true, extra: Partial<RegisterToolsOptions> = {}) {
     process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
     const service = await accessService();
     if (devAccount) process.env.ASKRIGOR_DEV_ACCOUNT_KEYS = researchAccountReference(service.accountKeyForSubject(SUBJECT));
     else delete process.env.ASKRIGOR_DEV_ACCOUNT_KEYS;
     const store = new InMemoryAtlasNewsStore();
     return { store, finalize: finalizeTool({ researchContributorAccessService: service,
-      atlasNews: { mode, staging: store } }) };
+      atlasNews: { mode, staging: store }, ...extra }) };
   }
 
   it("stages a passing news check's card, marked off, from a dev account, and signs the news claims into its receipt", async () => {
@@ -151,6 +152,18 @@ describe("finalize_research stages the owner's news check's own card (Atlas news
     const again = await finalize(call({ news_card: NEWS_CARD, findings_save: "off" }));
     expect((again.structuredContent as Record<string, any>).news).toMatchObject({ status: "staged", number: "N-1001",
       already_staged: true });
+  });
+
+  it("looks the news card's lines up by the news card's rules: a quote that keeps its section's label is found", async () => {
+    // The 23 Nov 2026 news audit (fix 2): "FUNDING: …" was looked for whole, and the who-paid line was not found.
+    const { finalize } = await setUp("shadow");
+    const labelled = { ...NEWS_CARD, item_id: "item-0044",
+      backing: [{ field: "who_paid", source: "PMC10518852", quote: `FUNDING: ${FUNDING}` }] };
+    const structured = (await finalize(call({ news_card: labelled, findings_save: "off" })))
+      .structuredContent as Record<string, any>;
+    expect(structured.news).toMatchObject({ status: "staged" });
+    const signed = verifyResearchReceipt(structured.finalization_receipt as string, { secret: SECRET });
+    expect(signed.ok && signed.claims).toMatchObject({ nl: ["1:f:full_text"], ns: ["1:Funding"] });
   });
 
   it("stages nothing without the mark, from an account that isn't a dev account, or with news off, and says why", async () => {
@@ -200,14 +213,114 @@ describe("finalize_research stages the owner's news check's own card (Atlas news
     const { store, finalize } = await setUp("shadow");
     const without = (await finalize(call({ findings_save: "off" }))).structuredContent as Record<string, any>;
     const broken = (await finalize(call({ findings_save: "off",
-      news_card: { ...NEWS_CARD, finding: "one two three four five six seven eight nine ten eleven twelve thirteen" } })))
+      news_card: { ...NEWS_CARD, finding: Array.from({ length: 25 }, (_, place) => `word${place + 1}`).join(" ") } })))
       .structuredContent as Record<string, any>;
     expect(broken.status).toBe(without.status);
     expect(broken.next_steps).toEqual(without.next_steps);
     expect(broken.news).toMatchObject({ status: "not_staged", reason: "card_rejected" });
-    expect(broken.news.problems[0]).toContain("13 words");
+    expect(broken.news.problems[0]).toContain("25 words; at most 24");
     expect(without.news).toBeUndefined();
     expect(await store.inspectDay(new Date().toISOString().slice(0, 10), new Date().toISOString()))
       .toEqual({ day: null, items: [] });
+  });
+
+  // The 23 Nov 2026 news audit (fix 3): a short news item the full-text tool admitted no copy of (it refused a JAMA news
+  // piece under its 2,000-character floor), whose PubMed record the check never fetched, left its card unverified. Its
+  // PubMed record is now read by AskRigor itself, through a stubbed PubMed here.
+  const NEWS_DOI = "10.1000/invented.news.item";
+  const NEWS_PMID = "99999903";
+  const NEWS_TITLE = "An invented society advises on an invented drug while breastfeeding.";
+  const NEWS_ABSTRACT = "The invented society now advises shared decisions about the invented drug while breastfeeding.";
+  const NEWS_ITEM_CARD = {
+    ...NEWS_CARD,
+    item_id: "item-0043",
+    check_id: "check-0043",
+    finding: "An invented society advises shared decisions about an invented drug while breastfeeding",
+    who_paid: { status: "not_checked", industry_funded: "not_checked", funders: [], declarations: [] },
+    read: { depth: "secondary_only", method_audit: "not_validated" },
+    sources: [NEWS_DOI],
+    doi: NEWS_DOI,
+    backing: [
+      { field: "limits", source: NEWS_DOI, quote: NEWS_ABSTRACT },
+      { field: "finding", source: NEWS_DOI, quote: "An invented society advises on an invented drug while breastfeeding" },
+    ],
+  };
+  const newsItemCall = (receipts: string[]) => {
+    const base = call({ news_card: NEWS_ITEM_CARD, findings_save: "off" }, receipts);
+    return { ...base,
+      key_sources: [...base.key_sources, { read_depth: "secondary_only", answer_marker: "News", id: NEWS_DOI,
+        status: "lead_only" }],
+      answer_draft: `${base.answer_draft}\n\nAn invented journal's news item was read in a secondary copy only. ` +
+        `[News](https://doi.org/${NEWS_DOI})` };
+  };
+  const lead = (state = "ABSTRACT_ONLY") => issueResearchReceipt("full_text_lead", { doi: NEWS_DOI, state },
+    { secret: SECRET });
+  const pubmed = (recordDoi = NEWS_DOI) => {
+    const asked: string[] = [];
+    const source: NewsPubmedSource = {
+      pmidsForDoi: async (doi) => { asked.push(doi); return [NEWS_PMID]; },
+      record: async (pmid) => ({ pmid, doi: recordDoi, title: NEWS_TITLE, abstract: NEWS_ABSTRACT }),
+    };
+    return { asked, source };
+  };
+
+  it("reads a short news item the full-text tool admitted no copy of in its PubMed record, and says so", async () => {
+    const { asked, source } = pubmed();
+    const { store, finalize } = await setUp("shadow", true, { newsPubmed: source });
+    const structured = (await finalize(newsItemCall([lead()]))).structuredContent as Record<string, any>;
+    expect(structured.status).toMatch(/^ready/u);
+    expect(asked).toEqual([NEWS_DOI]);
+    const digest = newsCardDigest(newsCardSchema.parse(NEWS_ITEM_CARD));
+    expect(structured.news).toEqual({ status: "staged", number: "N-1001", card_digest: digest, already_staged: false,
+      pubmed_record: NEWS_PMID });
+    // The quotes were looked up in the record's abstract and title, and the receipt signs which record that was.
+    const signed = verifyResearchReceipt(structured.finalization_receipt as string, { secret: SECRET });
+    expect(signed.ok && signed.claims).toMatchObject({ news: digest, nl: ["1:f:abstract", "2:f:abstract"],
+      ns: ["2:Title"], np: NEWS_PMID });
+    const [item] = await store.inspectNumbers(["N-1001"], new Date().toISOString());
+    expect(item!.receiptClaims).toMatchObject({ np: NEWS_PMID, nl: ["1:f:abstract", "2:f:abstract"] });
+  });
+
+  it("keeps a news item unverified when PubMed's record has another DOI, or the full-text tool was never tried", async () => {
+    const other = pubmed("10.1000/another.item");
+    const mismatched = await setUp("shadow", true, { newsPubmed: other.source });
+    const refused = (await mismatched.finalize(newsItemCall([lead()]))).structuredContent as Record<string, any>;
+    expect(other.asked).toEqual([NEWS_DOI]);
+    expect(refused.news).toEqual({ status: "not_staged", reason: "doi_not_verified" });
+    const signed = verifyResearchReceipt(refused.finalization_receipt as string, { secret: SECRET });
+    expect(signed.ok && signed.claims.np).toBeUndefined();
+    // With no lead or route failure from the full-text tool for it, no record is fetched: the DOI stays as it was.
+    const untried = pubmed();
+    const quiet = await setUp("shadow", true, { newsPubmed: untried.source });
+    const unread = (await quiet.finalize(newsItemCall([issueResearchReceipt("doi_resolution", { doi: NEWS_DOI },
+      { secret: SECRET })]))).structuredContent as Record<string, any>;
+    expect(untried.asked).toEqual([]);
+    expect(unread.news).toEqual({ status: "not_staged", reason: "doi_not_verified" });
+    for (const store of [mismatched.store, quiet.store]) {
+      expect(await store.inspectDay(new Date().toISOString().slice(0, 10), new Date().toISOString()))
+        .toEqual({ day: null, items: [] });
+    }
+  });
+});
+
+describe("the news card's PubMed fallback reads a DOI as acquisition and the final check do", () => {
+  // Codex's review of #517: a SICI-form DOI given with "<" and ">" percent-escaped, as acquire_open_full_text's published
+  // pattern takes it, is the same DOI as its record's own spelling.
+  const record = { pmid: "99999905", doi: "10.1000/(SICI)invented<item>2.0.CO;2-X", title: "An invented news item.",
+    abstract: "An invented council paid for the invented trial." };
+  const source: NewsPubmedSource = {
+    pmidsForDoi: async () => [record.pmid],
+    record: async (pmid) => pmid === record.pmid ? record : undefined,
+  };
+
+  it("keeps the record for the escaped form, the link form and the plain form alike", async () => {
+    for (const doi of ["10.1000/(sici)invented%3Citem%3E2.0.co;2-x", "https://doi.org/10.1000/%28SICI%29invented%3Citem%3E2.0.CO%3B2-X",
+      "doi: 10.1000/(SICI)invented<item>2.0.CO;2-X"]) {
+      expect((await newsPubmedFallback(doi, source))?.pmid).toBe(record.pmid);
+    }
+  });
+
+  it("still refuses a record whose own DOI is another", async () => {
+    expect(await newsPubmedFallback("10.1000/(sici)invented%3Citem%3E2.0.co;2-y", source)).toBeUndefined();
   });
 });

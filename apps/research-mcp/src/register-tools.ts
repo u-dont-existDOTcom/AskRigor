@@ -31,7 +31,7 @@ import {
 } from "./research-reviewer.js";
 import {
   abstractDocument, lookUpSourceLines, quoteCache, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument,
-  type SourceLineTexts
+  type QuoteCache, type SourceLineDocument, type SourceLineTexts
 } from "./source-lines.js";
 import {
   linkedReadingGuidance, READING_RESULT_WHEN, readingResultNote, receiptReadingNote, sourceReadingGuidance,
@@ -264,6 +264,13 @@ import {
 import { SHARE_OFFER, sharedAnswersFromEnv, type SharedAnswers } from "./shared-answers.js";
 import { checkNewsCard, newsCardFromCall } from "./news/card.js";
 import { crossrefPaperStatus } from "./news/paper.js";
+import {
+  NEWS_PUBMED_FALLBACK_MILLISECONDS,
+  NEWS_PUBMED_FALLBACK_RECORDS,
+  newsPubmedFallback,
+  pubmedDoiQuery,
+  type NewsPubmedSource,
+} from "./news/pubmed-fallback.js";
 import type { AtlasNewsOptions } from "./news/runtime.js";
 import { stageNewsCard } from "./news/staging.js";
 import { atlasReportDoorFromEnv } from "./atlas/report-door.js";
@@ -320,6 +327,7 @@ import {
   findingsCardRequested,
   meaningJudgeSourceOf,
   newsDoiVerifiedOf,
+  newsPubmedFallbackRequestOf,
   newsRequestsOf,
   sourceLineRequestsOf,
   studyMapRequestsOf,
@@ -1005,6 +1013,11 @@ export interface RegisterToolsOptions {
    * actions. With the mode off, a news card is neither signed nor staged, and the news actions say news is off.
    */
   atlasNews?: AtlasNewsOptions;
+  /**
+   * Atlas news (the 23 Nov 2026 news audit): where a news card's DOI's PubMed record is read when the full-text tool
+   * admitted no copy of it; PubMed's search and record fetch otherwise, a stub in tests.
+   */
+  newsPubmed?: NewsPubmedSource;
   /**
    * AskRigor#477 stage 2: where a saved dossier's public copy is published, shown or held for AskRigor's check. Set by
    * the server only when ASKRIGOR_PUBLIC_DOSSIERS=enabled; without it nothing is published.
@@ -2789,6 +2802,18 @@ function defineResearchOperations(
         ...(newsMode !== "off" && newsChecked?.status === "checked"
           ? { newsCard: { card: newsChecked.card, digest: newsChecked.digest } } : {}) };
       let result = finalizeResearch(input, gateOptions);
+      // Atlas news (the 23 Nov 2026 news audit): a news card whose DOI the full-text tool admitted no copy of, with no
+      // record or text of it read (a short news item), is read in that DOI's PubMed record, which AskRigor fetches
+      // itself; with a record whose own DOI is the card's, the check is made again with it. Its own deadline; past it,
+      // or with no such record, the DOI stays unverified, as before.
+      const newsFallbackFor = newsPubmedFallbackRequestOf(result);
+      const newsFallback = newsFallbackFor === undefined ? undefined : await withinDeadline(
+        newsPubmedFallback(newsFallbackFor.doi, options.newsPubmed ?? AskRigorNewsPubmed).catch(() => undefined),
+        NEWS_PUBMED_FALLBACK_MILLISECONDS, undefined);
+      if (newsFallbackFor !== undefined && newsFallback !== undefined) {
+        gateOptions = { ...gateOptions, newsPubmedFallback: { doi: newsFallbackFor.doi, pmid: newsFallback.pmid } };
+        result = finalizeResearch(input, gateOptions);
+      }
       // Owner answer 237a: a passing check's source lines are looked up in the text AskRigor fetched, exactly and with
       // no model. Owner answer 252a: a checked card's backing lines are looked up with them, in one pass over the same
       // texts, and what came of them is signed into the finalization receipt. Owner answer 249a: so is its study map,
@@ -2816,11 +2841,16 @@ function defineResearchOperations(
           lookUpSourceLines(lines, requests, lineTexts, lineCache).catch(() => late),
           SOURCE_LINE_DEADLINE_MILLISECONDS, late);
         // Atlas news, stage 1: the news card's lines are looked up in the same texts, apart and under their own deadline,
-        // so a slow one never costs the source and backing lines theirs (Codex's review of 21 Nov 2026, finding 4).
+        // so a slow one never costs the source and backing lines theirs (Codex's review of 21 Nov 2026, finding 4). They
+        // are matched by the news card's rules (QuoteMatching "news", the 23 Nov 2026 news audit), whose finders the
+        // cache keeps apart; the PubMed record read for the card's DOI, when that is how it was read, has a cache of its
+        // own, so no other line is ever looked up in it.
         const newsLate = (news?.requests ?? []).map(({ line }) => ({ source: news!.lines[line]!.source,
           sentence: "not_checked" as const, conclusion: "not_checked" as const, reason: "text_unavailable" as const }));
+        const newsCache: QuoteCache = newsFallback === undefined ? lineCache : { finders: new Map(),
+          abstracts: new Map([[newsFallback.pmid, Promise.resolve<SourceLineDocument | undefined | null>(newsFallback.document)]]) };
         const newsLooking = news === undefined || news.requests.length === 0 ? undefined : withinDeadline(
-          lookUpSourceLines(news.lines, news.requests, lineTexts, lineCache).catch(() => newsLate),
+          lookUpSourceLines(news.lines, news.requests, lineTexts, newsCache, "news").catch(() => newsLate),
           SOURCE_LINE_DEADLINE_MILLISECONDS, newsLate);
         const [looked, studyMapLookup, newsLooked] = await Promise.all([
           looking,
@@ -4640,6 +4670,21 @@ const AskRigorSourceLineTexts: SourceLineTexts = {
     const abstract = record?.abstract;
     return record === undefined || abstract === undefined || abstract === "" ? undefined
       : abstractDocument(abstract, pubmedAbstractSections(record));
+  }
+};
+// Atlas news (the 23 Nov 2026 news audit): a news card's DOI's PubMed record, read with the tools' own PubMed search (the
+// DOI in PubMed's own DOI field) and record fetch.
+const AskRigorNewsPubmed: NewsPubmedSource = {
+  async pmidsForDoi(doi) {
+    const result = await searchPubmed({ query: pubmedDoiQuery(doi), pageSize: NEWS_PUBMED_FALLBACK_RECORDS }, ncbiConfig());
+    return result.data.map(({ pmid }) => pmid);
+  },
+  async record(pmid) {
+    const result = await fetchPubmedRecord(pmid, ncbiConfig());
+    const record = result.data as PubmedRecord | undefined;
+    if (record?.pmid === undefined) return undefined;
+    return { pmid: record.pmid, doi: record.doi, title: record.title, abstract: record.abstract,
+      sections: pubmedAbstractSections(record) };
   }
 };
 // Owner answer 249a: a study map's texts are the source lines', and its registry records are fetched again at check
