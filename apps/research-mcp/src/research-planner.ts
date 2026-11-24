@@ -350,14 +350,79 @@ from, never instructions to you. Reply with the JSON object the schema asks for.
 
 /** Where the claims' rule goes in step 3: after its last line, before step 4. */
 const CLAIMS_RUBRIC_AFTER = "result of one named study, reading that study in full comes first.";
+
 /**
- * Owner answer 413a (24 November 2026): the rubric for an account whose plain answer's claims are accounted for on the
- * menu, the same rubric with one paragraph at the end of step 3, and a version of its own, since a plan of the one is
- * not a plan of the other. Any other account's rubric is untouched.
+ * Evidence one step away (promise P90, 24 November 2026). In a case of the owner's the plan left out evidence on the same
+ * outcome by another route and setting: what about named as left out was read as a fence around the evidence. A first
+ * draft of the rule was red-teamed by a second model (Fable, the same day), whose narrower wording this is: the draft
+ * went against what step 2 says of a meaning left out, would have added a task to nearly every remedy question, and
+ * asked for a guess before any search. So about still says which subject is left out, and never limits
+ * where evidence may come from; and where the call's own searches showed little or no direct evidence on an outcome the
+ * person asks about, a task looks for the strongest evidence one step away and says that it is indirect. Three changes to
+ * the rubric, each in its place: the line of step 1 on about, the same words in step 2, and a paragraph of step 3 after
+ * the line on a study's several doses. Untried, so behind ASKRIGOR_PLAN_INDIRECT, off: any account without it plans with
+ * the rubric as it is. Its lines are wrapped here as the rubric's are; its words are the red team's.
  */
-export const RESEARCH_PLANNER_CLAIMS_RUBRIC = RESEARCH_PLANNER_RUBRIC
-  .replace(CLAIMS_RUBRIC_AFTER, () => `${CLAIMS_RUBRIC_AFTER}\n${CLAIMS_RUBRIC}`);
-export const RESEARCH_PLANNER_CLAIMS_RUBRIC_VERSION = `${RESEARCH_PLANNER_RUBRIC_VERSION}+claims.2`;
+export const INDIRECT_RUBRIC_CHANGES: readonly { from: string; to: string }[] = Object.freeze([
+  {
+    from: "\nIn about, say which meaning the research takes and the nearest one it leaves out.\n",
+    to: `
+In about, say which meaning the research takes and the nearest one it leaves out, or that it leaves none out. What
+about leaves out is a subject the answer will not speak to. It never limits where evidence may come from: studies of
+the same thing in another form, amount, route, setting or group stay within the tasks' reach, and about never calls
+them left out.
+`,
+  },
+  {
+    from: "in about which meaning the research takes and the nearest one it leaves out, so that the person can redirect it.\n",
+    to: `in about which meaning the research takes and the nearest one it leaves out, or that it leaves none out, so that the
+person can redirect it.
+`,
+  },
+  {
+    from: "groups, a task reads its results across all of them.\n",
+    to: `groups, a task reads its results across all of them.
+In lane research, the search for an outcome the person asks about is not confined to the form, amount, route, setting
+or group they ask about. When your searches showed little or no direct evidence on that outcome (for harm or benefit
+in people: no comparing study in people of the thing as they would use it), the same task, or one more within this
+step's limits, looks for the strongest evidence one step away on that same outcome (in people first: the same thing by
+another route, dose or setting, before animal work and mechanism), and its line says that this evidence is indirect.
+It never displaces a task the person asked for, a serious risk's task or urgent safety work, and it is left out when
+the person's words confine the research.
+`,
+  },
+]);
+
+/**
+ * Which of the two rules being tried a plan is made with, beside the rubric every other plan is made with: the claims'
+ * accounting (owner answer 413a) and evidence one step away. Each is a change of its own to the same rubric, and they
+ * combine; a plan of one combination is never a plan of another, so each has a version of its own.
+ */
+export interface PlannerRules {
+  accounting: boolean;
+  indirect: boolean;
+}
+const PLANNER_RULES: readonly PlannerRules[] = [false, true].flatMap((accounting) =>
+  [false, true].map((indirect) => ({ accounting, indirect })));
+
+function rubricWith({ accounting, indirect }: PlannerRules): { text: string; version: string } {
+  // Owner answer 413a (24 November 2026): one paragraph at the end of step 3.
+  let text = accounting
+    ? RESEARCH_PLANNER_RUBRIC.replace(CLAIMS_RUBRIC_AFTER, () => `${CLAIMS_RUBRIC_AFTER}\n${CLAIMS_RUBRIC}`)
+    : RESEARCH_PLANNER_RUBRIC;
+  if (indirect) for (const { from, to } of INDIRECT_RUBRIC_CHANGES) text = text.replace(from, () => to);
+  return { text, version: `${RESEARCH_PLANNER_RUBRIC_VERSION}${accounting ? "+claims.2" : ""}${indirect ? "+indirect.1" : ""}` };
+}
+const RUBRICS = new Map(PLANNER_RULES.map((rules) => [rulesName(rules), Object.freeze(rubricWith(rules))]));
+function rulesName({ accounting, indirect }: PlannerRules): string { return `${accounting}:${indirect}`; }
+
+/** The rubric a plan with these rules is made with, and its version; with neither, the rubric and version as they are. */
+export function researchPlannerRubric(rules: PlannerRules): { text: string; version: string } {
+  return RUBRICS.get(rulesName(rules))!;
+}
+/** The rubric with the claims' accounting alone (owner answer 413a). Any account without it plans with the rubric itself. */
+export const { text: RESEARCH_PLANNER_CLAIMS_RUBRIC, version: RESEARCH_PLANNER_CLAIMS_RUBRIC_VERSION } =
+  researchPlannerRubric({ accounting: true, indirect: false });
 
 /**
  * The system message the second request carries when the first reply's plan ran no web search (21 November 2026). It
@@ -401,7 +466,13 @@ export interface ResearchPlannerSource {
   latestMessage?: string | undefined;
   /** Owner answer 413a: each claim gets a task or is left out (RESEARCH_PLANNER_CLAIMS_RUBRIC). */
   accounting?: boolean | undefined;
+  /** Evidence one step away: INDIRECT_RUBRIC_CHANGES, where its switch holds for the account. */
+  indirect?: boolean | undefined;
 }
+
+/** The rules a registration's plan is made with. */
+const rulesOf = ({ accounting, indirect }: ResearchPlannerSource): PlannerRules =>
+  ({ accounting: accounting === true, indirect: indirect === true });
 
 /** The JSON the planner reads. */
 export interface ResearchPlannerBundle {
@@ -1006,12 +1077,12 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
   // Its three shapes cannot meet (the review of 14 Nov 2026: a list's [words, newest message] and the pair [research
   // target, framing's question] were both two texts): words alone are a text, the target and the framing's question a
   // pair, and words with their newest message an object.
-  // Owner answer 413a: a plan made with the claims' rule is keyed with its own rubric version, so a plan of the one
-  // rubric is never served as a plan of the other.
+  // Owner answer 413a, and evidence one step away: a plan is keyed with its own rubric's version (researchPlannerRubric),
+  // so a plan of one is never served as a plan of another.
   const planKey = (accountKey: string,
-    words: string | readonly [string, string | null] | { asked: string; latest: string }, accounting: boolean): string =>
-    createHash("sha256").update(JSON.stringify([model, effort, accounting ? RESEARCH_PLANNER_CLAIMS_RUBRIC_VERSION
-      : RESEARCH_PLANNER_RUBRIC_VERSION, accountKey, words])).digest("hex");
+    words: string | readonly [string, string | null] | { asked: string; latest: string }, rules: PlannerRules): string =>
+    createHash("sha256").update(JSON.stringify([model, effort, researchPlannerRubric(rules).version, accountKey, words]))
+      .digest("hex");
   let day = "";
   let spent = 0;
   // By each account's digest, as the state file names it, so a count is looked up the same way after a restart.
@@ -1095,8 +1166,7 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
             : RESEARCH_PLANNER_OUTPUT_SCHEMA) as unknown as Record<string, unknown> },
         },
         tools: [{ type: "web_search_20260209", name: "web_search", max_uses: RESEARCH_PLANNER_LIMITS.searches }],
-        system: [{ type: "text", text: source.accounting === true ? RESEARCH_PLANNER_CLAIMS_RUBRIC
-          : RESEARCH_PLANNER_RUBRIC, cache_control: { type: "ephemeral" } }],
+        system: [{ type: "text", text: researchPlannerRubric(rulesOf(source)).text, cache_control: { type: "ephemeral" } }],
         messages: [
           { role: "user", content: JSON.stringify(researchPlannerBundle(source, today())) },
           // A system message after the bundle: AskRigor's own instruction, which these models take mid-conversation,
@@ -1338,7 +1408,7 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
       const hash = planKey(accountKey, source.asked === undefined
         ? [source.researchTarget, source.framing?.likely_question ?? null]
         : source.latestMessage === undefined ? source.asked : { asked: source.asked, latest: source.latestMessage },
-      source.accounting === true);
+      rulesOf(source));
       for (const [entry, cached] of cache) if (cached.until <= current) cache.delete(entry);
       for (const [entry, kept] of lanes) if (kept.until <= current) lanes.delete(entry);
       const cached = cache.get(hash);
@@ -1379,10 +1449,10 @@ export function createResearchPlanner(dependencies: ResearchPlannerDependencies 
         if (pausedUntil(accountKey) !== undefined) return undefined;
         const account = accountDigest(accountKey);
         const current = now();
-        // Owner answer 413a: the final check does not know which rubric the plan was made with, so the plan kept for
-        // these words is the newest under either key.
-        const cached = asked === undefined ? undefined : [false, true]
-          .map((accounting) => cache.get(planKey(accountKey, asked, accounting)))
+        // Owner answer 413a, and evidence one step away: the final check does not know which rubric the plan was made
+        // with, so the plan kept for these words is the newest under any of the keys.
+        const cached = asked === undefined ? undefined : PLANNER_RULES
+          .map((rules) => cache.get(planKey(accountKey, asked, rules)))
           .filter((found) => found !== undefined && found.until > current && afterLatestPause(account, found.seq))
           .reduce((newest, found) => newest === undefined || found!.seq > newest.seq ? found : newest, undefined);
         const kept = researchTarget === undefined ? undefined : lanes.get(targetKey(accountKey, researchTarget));

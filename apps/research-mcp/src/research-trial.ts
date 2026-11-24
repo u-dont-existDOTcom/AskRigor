@@ -3,17 +3,18 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 
 /**
- * Two changes to research, each behind a switch of its own (config.ts) and each tried on the owner's account before a
+ * Three changes to research, each behind a switch of its own (config.ts) and each tried on the owner's account before a
  * release (24 November 2026): the menu accounts for the plain answer's claims (owner answer 413a, claim-accounting.ts),
- * and HRP's core handed over when the plain answer is registered (owner answer 412a, hrp-core.ts). A switch is off, the
- * default and any other value; trial, for a dev account only while its test window has it on; dev, for every dev
- * account; or on, for every account.
+ * HRP's core handed over when the plain answer is registered (owner answer 412a, hrp-core.ts), and AskRigor's own plan
+ * reaching for evidence one step away (promise P90, research-planner.ts). A switch is off, the default and any other
+ * value; trial, for a dev account only while its test window has it on; dev, for every dev account; or on, for every
+ * account (the third changes only a plan AskRigor makes itself, which it makes for dev accounts alone).
  *
  * The window is a test round's: the same question asked with the change and without it on one account, in whichever
  * order, with no other account and no setting changed. Like a pause of the planning call (owner answer 395b,
  * research-planner.ts), it is set through manage_research_access, ends by itself, is in this process's memory only, and
  * inspect says nothing of it, so the person's AI is not told of a test. It names its account by digest, never the key,
- * and holds two yes-or-no settings and two times; nothing of a question, and it is neither stored nor logged.
+ * and holds three yes-or-no settings and two times; nothing of a question, and it is neither stored nor logged.
  */
 export const RESEARCH_SWITCH_MODES = ["off", "trial", "dev", "on"] as const;
 export type ResearchSwitchMode = (typeof RESEARCH_SWITCH_MODES)[number];
@@ -31,10 +32,14 @@ export function switchHolds(mode: ResearchSwitchMode, devAccount: boolean, inTri
 export const RESEARCH_TRIAL_SWITCHES = Object.freeze({
   claimAccounting: "the menu's accounting of the quick answer's claims",
   hrpCore: "HRP's core with the registration of the quick answer",
+  indirectEvidence: "AskRigor's own plan reaching for evidence one step away",
 });
 export type ResearchTrialSwitch = keyof typeof RESEARCH_TRIAL_SWITCHES;
 export type ResearchSwitchModes = Readonly<Record<ResearchTrialSwitch, ResearchSwitchMode>>;
 const SWITCH_NAMES = Object.keys(RESEARCH_TRIAL_SWITCHES) as ResearchTrialSwitch[];
+/** One value for each switch, by its name. */
+const eachSwitch = <T>(value: (name: ResearchTrialSwitch) => T): Record<ResearchTrialSwitch, T> =>
+  Object.fromEntries(SWITCH_NAMES.map((name) => [name, value(name)])) as Record<ResearchTrialSwitch, T>;
 
 /** The longest a window runs, from when it began, however often it is set again. */
 export const RESEARCH_TRIAL_MAX_MINUTES = 120;
@@ -42,6 +47,7 @@ export const RESEARCH_TRIAL_MAX_MINUTES = 120;
 export const researchTrialInputSchema = z.object({
   claimAccounting: z.boolean(),
   hrpCore: z.boolean(),
+  indirectEvidence: z.boolean(),
   minutes: z.number().int().min(0).max(RESEARCH_TRIAL_MAX_MINUTES),
 }).strict();
 export type ResearchTrialInput = z.output<typeof researchTrialInputSchema>;
@@ -65,10 +71,10 @@ export function createResearchTrialWindows(now: () => number = Date.now): Resear
     const window = windows.get(account);
     return window !== undefined && window.until > now() ? window : undefined;
   };
-  const shown = ({ claimAccounting, hrpCore, until }: ResearchTrialWindow): ResearchTrialWindow =>
-    ({ claimAccounting, hrpCore, until });
+  const shown = (window: ResearchTrialWindow): ResearchTrialWindow =>
+    ({ ...eachSwitch((name) => window[name]), until: window.until });
   return {
-    set(accountKey, { claimAccounting, hrpCore, minutes }) {
+    set(accountKey, { minutes, ...settings }) {
       if (!Number.isInteger(minutes) || minutes < 0 || minutes > RESEARCH_TRIAL_MAX_MINUTES) {
         throw new RangeError(`A test window is 0 to ${RESEARCH_TRIAL_MAX_MINUTES} whole minutes.`);
       }
@@ -83,7 +89,7 @@ export function createResearchTrialWindows(now: () => number = Date.now): Resear
       }
       const started = kept?.started ?? at;
       const until = Math.min(at + minutes * 60_000, started + RESEARCH_TRIAL_MAX_MINUTES * 60_000);
-      const window = { claimAccounting, hrpCore, until, started };
+      const window = { ...eachSwitch((name) => settings[name]), until, started };
       windows.set(account, window);
       // It leaves memory when it ends, also when no later call comes to find it over.
       const forget = setTimeout(() => {
@@ -106,7 +112,7 @@ export const researchTrialWindows: ResearchTrialWindows = createResearchTrialWin
 /** A time as the window's texts give it: hours and minutes, UTC. */
 const utcClock = (at: number): string => new Date(at).toISOString().slice(11, 16);
 
-/** Whether the server lets a window decide anything: one of the two switches is in mode trial. */
+/** Whether the server lets a window decide anything: one of the switches is in mode trial. */
 export const trialOffered = (modes: ResearchSwitchModes): boolean =>
   SWITCH_NAMES.some((name) => modes[name] === "trial");
 
@@ -135,12 +141,11 @@ export function researchTrialText(modes: ResearchSwitchModes, window: ResearchTr
 /** What set_research_trial's result carries: what holds on the account now, and until when the window runs. */
 export function researchTrialState(modes: ResearchSwitchModes, window: ResearchTrialWindow | undefined) {
   return {
-    claimAccounting: switchHolds(modes.claimAccounting, true, window?.claimAccounting === true),
-    hrpCore: switchHolds(modes.hrpCore, true, window?.hrpCore === true),
+    ...eachSwitch((name) => switchHolds(modes[name], true, window?.[name] === true)),
     until: window === undefined ? null : new Date(window.until).toISOString(),
   };
 }
 
-/** Why nothing was changed while neither switch is in mode trial. */
-export const TRIAL_OFF_NOTHING_CHANGED = "Neither of AskRigor's two research switches is in trial mode on this server, " +
+/** Why nothing was changed while no switch is in mode trial. */
+export const TRIAL_OFF_NOTHING_CHANGED = "None of AskRigor's three research switches is in trial mode on this server, " +
   "so a test window would change nothing; nothing was changed.";

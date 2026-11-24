@@ -209,7 +209,7 @@ export const manageResearchAccessInputSchema = z.object({
     "disconnect_gemini",
     // Owner answer 395b (21 Nov 2026, runtime only): a test round's pause of a dev account's planning call.
     "pause_research_planner",
-    // Owner answers 413a and 412a (24 Nov 2026, runtime only): a dev account's test window for two switches.
+    // Owner answers 413a and 412a (24 Nov 2026, runtime only): a dev account's test window for three switches.
     "set_research_trial",
   ]),
   agreement: freeContributorAgreementSchema.extend({ noticeVersion: noticeVersionSchema }).strict().optional(),
@@ -474,11 +474,12 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     .describe("With register_plain_answer and a research's first plan_research, where HRP's core is handed over: whether " +
       "it is in this result (here), comes with plan_research's, is to be loaded with load_protocol (load_it), is held " +
       "already or is not for this research."),
-  // Owner answers 413a and 412a (runtime only): what the two switches come to on a dev account after its test window was
-  // set, and until when the window runs; null once none runs. Only that call's own result carries it, as for the pause.
+  // Owner answers 413a and 412a, and P90 (runtime only): what the three switches come to on a dev account after its test
+  // window was set, and until when it runs; null once none runs. Only that call's own result carries it, as for the pause.
   researchTrial: z.object({
     claimAccounting: z.boolean(),
     hrpCore: z.boolean(),
+    indirectEvidence: z.boolean(),
     until: z.iso.datetime().nullable(),
   }).strict().optional()
     .describe("With set_research_trial: whether each switch holds for this account now, and when its test window ends, " +
@@ -698,7 +699,12 @@ export interface ResearchContributorToolOptions {
   hrpCoreFor?: (accountKey: string, devAccount: boolean) => boolean;
   /** The receipt load_protocol gives for the core, for a plan_research result that hands it over; undefined: unsigned. */
   hrpCoreReceipt?: (core: HrpCore) => string | undefined;
-  /** The two switches' modes and the test windows (research-trial.ts), for set_research_trial; undefined: none offered. */
+  /**
+   * Promise P90: whether AskRigor's own plan reaches for evidence one step away on this account (research-planner.ts).
+   * Undefined or false: the plan is made as before.
+   */
+  indirectEvidence?: (accountKey: string, devAccount: boolean) => boolean;
+  /** The switches' modes and the test windows (research-trial.ts), for set_research_trial; undefined: none offered. */
   researchTrial?: () => { modes: ResearchSwitchModes; windows: ResearchTrialWindows };
 }
 
@@ -1325,7 +1331,8 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         const latest = parsed.asked === undefined ? undefined : latestMessage(parsed.asked);
         return await registerPlainAnswer(options.service, auth.subject, parsed.plainAnswer!, options.plainAnswer,
           parsed.framing, planner?.enabled === true
-            ? { planner, asked, reviewed, latest, markSecret: options.menuDigestSecret?.() } : undefined,
+            ? { planner, asked, reviewed, latest, markSecret: options.menuDigestSecret?.(),
+              indirect: options.indirectEvidence?.(accountKey, devAccount) === true } : undefined,
           options.askrigorHolds, asked, isChatGptCall(extra), devAccount,
           options.claimAccounting?.(accountKey, devAccount) === true,
           // Owner answer 412a: HRP's core, what the call says of holding it, and the result with a notice it may get.
@@ -1409,8 +1416,8 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
             plannerPausedUntil: until === undefined ? null : new Date(until).toISOString() }),
         };
       }
-      // Owner answers 413a and 412a (24 Nov 2026): a test round turns one of the two changes on or off for a dev account,
-      // for at most two hours, so the same question can be asked with it and without it; the window ends by itself.
+      // Owner answers 413a and 412a, and P90 (24 Nov 2026): a test round turns one of the three changes on or off for a dev
+      // account, for at most two hours, so the same question can be asked with it and without it; it ends by itself.
       if (parsed.action === "set_research_trial") {
         const accountKey = options.service.accountKeyForSubject(auth.subject);
         if (!isDevAccount(accountKey, options.devAccountKeys?.() ?? new Set())) {
@@ -1688,8 +1695,9 @@ async function registerPlainAnswer(
   // AskRigor's own review reads its drafts at the final check (owner answer 301a).
   // Owner answer 304a: latest is the newest of the person's messages when the call passed on more than one, and
   // markSecret signs the mark a menu carries when the planning call read that message as telling the AI to go on.
+  // Promise P90: indirect, whether the plan reaches for evidence one step away on this account.
   planning?: { planner: ResearchPlanner; asked: string | undefined; reviewed?: boolean; latest?: string | undefined;
-    markSecret?: string | undefined },
+    markSecret?: string | undefined; indirect?: boolean },
   // The owner, 14 Nov 2026: what AskRigor already holds for the question, read while the plan is made.
   holds?: AskRigorHoldsOptions,
   // Owner answer 307b: the person's own words, on any account, when the call passed them on (later_inputs.asked). The
@@ -1983,7 +1991,7 @@ function planClaimsHere(plan: ResearchPlan, registered: readonly string[]):
  */
 async function plannedResearch(
   planning: { planner: ResearchPlanner; asked: string | undefined; latest?: string | undefined;
-    markSecret?: string | undefined },
+    markSecret?: string | undefined; indirect?: boolean },
   plainAnswer: z.infer<typeof plainAnswerInputSchema>,
   framing: Framing | undefined,
   receipt: string,
@@ -1999,7 +2007,8 @@ async function plannedResearch(
       researchTarget: plainAnswer.researchTarget, quickAnswer: plainAnswer.text, claims: plainAnswer.claims, framing,
       ...(menuHistory.length === 0 ? {} : { menuHistory }),
       ...(planning.latest === undefined ? {} : { latestMessage: planning.latest }),
-      ...(accounting ? { accounting: true } : {}) },
+      ...(accounting ? { accounting: true } : {}),
+      ...(planning.indirect === true ? { indirect: true } : {}) },
     accountKey)),
     new Promise<undefined>((resolve) => { waited = setTimeout(() => resolve(undefined), PLANNER_WAIT_MS); }),
   ]).catch(() => undefined).finally(() => clearTimeout(waited));

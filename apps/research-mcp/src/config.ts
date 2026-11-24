@@ -437,6 +437,15 @@ export function hrpCoreModeFromEnv(value = process.env.ASKRIGOR_HRP_CORE): Resea
 }
 
 /**
+ * Promise P90: ASKRIGOR_PLAN_INDIRECT, off (the default, and any other value), trial, dev or on (research-trial.ts). Where
+ * it holds, AskRigor's own plan reaches for evidence one step away where it found little direct evidence
+ * (research-planner.ts, INDIRECT_RUBRIC_CHANGES); it plans for dev accounts alone, whatever the mode.
+ */
+export function planIndirectModeFromEnv(value = process.env.ASKRIGOR_PLAN_INDIRECT): ResearchSwitchMode {
+  return researchSwitchMode(value);
+}
+
+/**
  * Whether the owner's findings actions for the Atlas are open on review_research_contribution (Atlas phase 2 design,
  * section 3): ASKRIGOR_ATLAS_REVIEW set to "enabled". It stays closed until the release has applied migration 0017,
  * granted the review role its functions, bound the promotion timer to the deployed image and checked the catalog;

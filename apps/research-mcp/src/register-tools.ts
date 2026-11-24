@@ -136,6 +136,7 @@ import {
   hrpCoreModeFromEnv,
   ncbiConfigFromEnv,
   optionalLivingEvidenceReuseConfigFromEnv,
+  planIndirectModeFromEnv,
   askrigorBuildCommitFromEnv,
   SERVICE_VERSION
 } from "./config.js";
@@ -2246,7 +2247,9 @@ function defineResearchOperations(
       hrpCore: currentHrpCore,
       hrpCoreFor: (accountKey, devAccount) => switchHoldsFor(options, "hrpCore", accountKey, devAccount),
       hrpCoreReceipt: protocolCoreReceipt,
-      // Owner answers 413a and 412a: a dev account's test window for the two switches.
+      // Promise P90: AskRigor's own plan reaches for evidence one step away, on an account that has it.
+      indirectEvidence: (accountKey, devAccount) => switchHoldsFor(options, "indirectEvidence", accountKey, devAccount),
+      // Owner answers 413a and 412a, and P90: a dev account's test window for the three switches.
       researchTrial: () => ({ modes: researchSwitchModes(), windows: options.researchTrialWindows ?? researchTrialWindows }),
       ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
@@ -3478,9 +3481,10 @@ function findingsLedgerFor(options: RegisterToolsOptions, devAccount: () => bool
     ((options.findingsLedgerAccounts ?? findingsLedgerAccountsFromEnv()) === "all" || devAccount());
 }
 
-/** The modes of the two switches of 24 November 2026, as the server is set (owner answers 413a and 412a). */
+/** The modes of the three switches of 24 November 2026, as the server is set (owner answers 413a and 412a, and P90). */
 function researchSwitchModes(): ResearchSwitchModes {
-  return { claimAccounting: claimAccountingModeFromEnv(), hrpCore: hrpCoreModeFromEnv() };
+  return { claimAccounting: claimAccountingModeFromEnv(), hrpCore: hrpCoreModeFromEnv(),
+    indirectEvidence: planIndirectModeFromEnv() };
 }
 
 /** Whether one of them holds for an account: its mode, and for a dev account its test window (research-trial.ts). */

@@ -296,7 +296,7 @@ describe("the registration that hands it over (owner answer 412a)", () => {
       const windows = createResearchTrialWindows();
       const { register, access } = await server(mode, { researchTrialWindows: windows });
       if (window !== undefined) {
-        windows.set(access.accountKeyForSubject("auth0|dev"), { claimAccounting: false, hrpCore: window, minutes: 10 });
+        windows.set(access.accountKeyForSubject("auth0|dev"), { claimAccounting: false, hrpCore: window, indirectEvidence: false, minutes: 10 });
       }
       return data(await register({ subject })).hrp_core !== undefined;
     };

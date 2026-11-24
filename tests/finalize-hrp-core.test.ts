@@ -345,7 +345,7 @@ describe("load_protocol's receipt for HRP's core", () => {
     const given = async (mode: string, subject: string | null, window?: boolean) => {
       const windows = createResearchTrialWindows();
       const { call, access } = await server(mode, { researchTrialWindows: windows });
-      if (window !== undefined) windows.set(access.accountKeyForSubject("auth0|dev"), { claimAccounting: true, hrpCore: window, minutes: 9 });
+      if (window !== undefined) windows.set(access.accountKeyForSubject("auth0|dev"), { claimAccounting: true, hrpCore: window, indirectEvidence: true, minutes: 9 });
       return slipIn(await call("load_protocol", { protocol: "hrp", section: "core" }, subject)) !== undefined;
     };
     for (const [mode, dev, person, unknown] of [["off", false, false, false], ["", false, false, false], ["trial", false, false, true],
