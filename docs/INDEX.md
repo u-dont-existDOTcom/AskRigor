@@ -155,6 +155,12 @@ records decisions and their sources; it adds no authority to the list above.
   "none" comparison, the news quote rules, the PubMed fallback, the expiry reasons), after five rounds of Codex's review;
   no setting, site or migration change; build, stages A to C, one acceptance, the plugin receipt and rollback; live 23 Nov
   2026, 22:04:32 UTC.
+- `audits/2026-11-24-quick-answer-note-gemini-step-log-production-release.md`: #519 and #516 (with #518's records), the
+  owner's "Yes, release both" (24 Nov 2026, 13:19:44 UTC; 413a and 411b): the quick-answer note leads with what the research
+  changed and closes with the rest; the Gemini step log after Allow (fixed names only) and the sign-in's exact addresses; the
+  refresh notice names each app's steps; no setting, site or migration change; build, stages A to C (stage C stopped once at a
+  laptop connection and ran again on the coordinator's word), one acceptance, the plugin receipt and rollback; live 24 Nov
+  2026, 14:07:54 UTC.
 - `audits/2026-11-15-caller-readings-production-release.md`: #469, owner answer 310a: a `finalize_research` call marked `later_inputs.ai_readings` `caller` gets every rule check and no AI reading from the server, on any account (no review of the draft, no second reading, no meaning judge); the result, the receipt and the check line say who made the readings, and such a call saves no findings card (question 311); live since 14:14 UTC on 15 Nov 2026 after waiting for research in progress to end; one marked check on the owner's dev account passed in 0.9 seconds with the review's count unchanged; in production only the review of the draft is switched on among the check's three AI readings.
 - `audits/2026-11-14-learn-mode-production-release.md`: #461, owner answer 303a: learn mode for a dev account's own menu choices (a switch, off by default; while on, the newest 20 choices with the person's reasons, read by AskRigor's planning call; off deletes them); the plan's lane in the call record; no step-aside on a plan made without a web search; migration 0035 and the access role's grants; live 14 Nov 2026, 10:15:55 UTC.
 - `audits/2026-11-09-owner-answer-281-production-release.md`: #433, research the person can steer (stage 1), the content-free call record, how a free account's notice was accepted, words that are not sizes and people's reports first, with the privacy notice of November 9 released first (owner answer 281, 9 Nov 2026).
