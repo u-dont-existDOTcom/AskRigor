@@ -374,6 +374,10 @@ describe("Europe PMC's own query syntax, told by structure alone", () => {
       "\"AUTH:Invented\" seizure", "\"a distance~5 phrase\"", "does it cause seizures?", "épilepsie : carence", "épilepsie: carence",
       "発作 OR けいれん", "эпилепсия: дефицит", "10.1000/invented", "seizure[Title/Abstract]", "vitamine B6 & crises",
       "\"an escaped \\\" mark: inside\" seizure",
+      // Hyphens, plus signs and marks that are no operator's (the review of #521, F3).
+      "sars-cov-2 seizures", "well-being (post-ictal)", "Ca2+ channel block", "valproate - seizures", "vitamin D + K2",
+      "stop! seizures", "seizures?", "what causes seizures? (children)", "R&D seizures", "seizure|fit", "\"-seizures\" valproate",
+      "\"a && b || c?d\" seizure", "valproate[tiab] NOT review[pt]", "2020:2021[dp]",
     ]) expect(europePmcOnlySyntax(query), query).toBe(false);
   });
 
@@ -384,5 +388,21 @@ describe("Europe PMC's own query syntax, told by structure alone", () => {
       "\"invented compound seizure\"~5", "seizure~2", "seizure^3 AND compound", "\"seizure\"^2", "seizure \"convulsive",
       "DOI:10.1000/invented", "TNF: a review", "発作 OR AUTH:発作", "(OPEN_ACCESS:y)",
     ]) expect(europePmcOnlySyntax(query), query).toBe(true);
+  });
+
+  it("reads the index's other operators as Europe PMC's, since PubMed reads them otherwise (the review of #521, F3)", () => {
+    for (const query of [
+      "valproate -seizures", "-seizures valproate", "+valproate +seizures", "valproate !seizures", "valproate (-seizures)",
+      "valproate -\"convulsive episode\"", "valproate -(seizures OR fits)", "発作 -けいれん", "valproate\t-seizures",
+      "valproate && seizures", "valproate || lamotrigine", "valpro?te", "m?use AND seizure",
+    ]) expect(europePmcOnlySyntax(query), query).toBe(true);
+  });
+
+  it("asks PubMed nothing for a query that leaves words out by a minus, which PubMed would ask for", async () => {
+    configured();
+    const asked = providers(unreachable, { count: 3 });
+    const { result } = await search({ query: "valproate -seizures" });
+    expect(asked.pubmed).toEqual([]);
+    expectAsBefore(result);
   });
 });
