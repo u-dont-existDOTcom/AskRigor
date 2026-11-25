@@ -12,10 +12,12 @@ button.allow{background:#1a56db;border-color:#1a56db;color:#fff}small{color:#576
 
 const UID = /^[A-Za-z0-9_-]{1,64}$/u;
 const TOKEN = /^[A-Za-z0-9_-]{1,128}$/u;
+/** The library's own next step after a decision: a path on this server, and nothing else. */
+export const RESUME_PATH = /^\/oauth\/gemini\/auth\/[A-Za-z0-9_-]{1,64}$/u;
 
-function page(title: string, body: string): string {
+function page(title: string, body: string, head = ""): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
-    `<meta name="robots" content="noindex"><title>${title}</title><style>${STYLE}</style></head><body><main>${body}</main></body></html>`;
+    `<meta name="robots" content="noindex">${head}<title>${title}</title><style>${STYLE}</style></head><body><main>${body}</main></body></html>`;
 }
 
 /** The consent step, after the person signed in to AskRigor. Allow and Cancel post back to the same interaction. */
@@ -38,6 +40,14 @@ this link, choose Cancel.</p>
 <button type="submit" name="decision" value="cancel">Cancel</button></div>
 </form>
 <p><small>Requested by accountlinking.google.com, Google's service for Gemini connectors.</small></p>`);
+}
+
+/** After Allow or Cancel: goes on to Google by itself, with a link where a browser doesn't (routes.ts, moveOn). */
+export function moveOnPage(path: string): string {
+  if (!RESUME_PATH.test(path)) throw new Error("GEMINI_SIGN_IN_PAGE_INPUT_INVALID");
+  return page("Going back to Google Gemini", `<h1>Going back to Google Gemini</h1>
+<p>If nothing happens, <a href="${path}">continue to Google Gemini</a>.</p>`,
+  `<meta http-equiv="refresh" content="0;url=${path}">`);
 }
 
 const ERROR_TEXT: Readonly<Record<string, string>> = {
