@@ -2577,6 +2577,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "test",
   "tested_vs_sold",
   "text_bytes",
+  "text_changed",
   "text_expired",
   "text_unavailable",
   "third_party_candidate_source_only",

@@ -16,7 +16,8 @@ import { receiptText } from "./research-receipts.js";
  * claim sit beside them. Whether they back the claim is meaning: the meaning judge reads that where it is on.
  *
  * Finding a quote or not never stops an answer, as the six blocking checks (owner answers 193a, 195a and 217b) don't
- * name it: a quote not found is a note, and the panel says so. Nothing here is stored.
+ * name it: a quote not found is a note, and the panel says so. Nothing here is stored. No line is looked up in a web
+ * page but the Atlas news card's, in news/web-page.ts.
  */
 
 export const SOURCE_LINE_LIMITS = { lines: 12, quote: 600, claim: 300, against: 500, section: 120 } as const;
@@ -114,6 +115,31 @@ export function sourceLineDocument(index: AuditableDocumentIndex): SourceLineDoc
       };
     })
   };
+}
+
+/**
+ * The text of a web page, as read_forum_thread's reader returns it, as a news card's quotes are looked up in it
+ * (news/web-page.ts). As an HTML full text's, its lines run on within a section, so a line a tag broke is never a
+ * sentence of its own. A known section heading on a line of its own starts a section afresh only where the line before it
+ * ended a sentence (the review of #521, F5): a heading's word inside one ("There is no <b>Conclusion</b> …", which the
+ * layout puts on a line of its own) runs on, so neither part of that sentence is found as a whole one.
+ */
+export function webPageBlocks(text: string): SourceLineDocument["blocks"] {
+  const blocks: Array<SourceLineDocument["blocks"][number]> = [];
+  let section: string | undefined;
+  let starts = true;
+  for (const given of text.split("\n")) {
+    const line = given.trim();
+    if (line === "") continue;
+    if (sectionKind(line) !== undefined && (starts || endsSentenceLine(blocks.at(-1)!.text))) {
+      section = receiptText(line, SOURCE_LINE_LIMITS.section);
+      starts = true;
+      continue;
+    }
+    blocks.push({ text: line, ...(section === undefined ? {} : { section }), ...(starts ? {} : { runsOn: true }) });
+    starts = false;
+  }
+  return blocks;
 }
 
 /** A PubMed abstract as the source line reads it: a structured one's sections each a block, under its label, as a label
@@ -215,7 +241,7 @@ function quoteForm(quote: string, matching: QuoteMatching = "standard"): string 
   return matching === "news" ? form.replace(DASH_SPACING, "-") : form;
 }
 
-type Finder = (quote: string) => { found: boolean; section?: string | undefined };
+export type Finder = (quote: string) => { found: boolean; section?: string | undefined };
 
 /*
  * Whole sentences only (the recheck of #417, 5 November 2026): a quote is the paper's own words only when it is one or
@@ -286,6 +312,16 @@ function endsInAbbreviation(sentence: string, matching: QuoteMatching): boolean 
   if (!ABBREVIATION_END.test(sentence)) return false;
   return matching !== "news" || !ADDRESS_END.test(sentence);
 }
+
+// A line's last sentence mark, and what follows it.
+const LAST_SENTENCE_END = /^([\s\S]*\p{STerm})([^\p{STerm}]*)$/u;
+
+/** Whether a line ends a sentence: its last sentence mark is no abbreviation's, and only what may lie between a quote and
+ * its sentence's end (TRAILING) follows it. */
+function endsSentenceLine(line: string): boolean {
+  const end = LAST_SENTENCE_END.exec(figureText(bracketedSuperscripts(line.slice(-TRAILING_REACH))));
+  return end !== null && TRAILING.test(end[2]!) && !endsInAbbreviation(end[1]!, "news");
+}
 // A section's label and its colon at a line's start ("Conclusions: Vitamin D…", as a PDF or a plain text sets a
 // structured abstract's): the label's text, for sectionKind, the list full-text admission reads headings by.
 const LABEL_LINE = /^\s*([^\s:：][^:：\n]{0,60}?)\s*[:：]\s*/u;
@@ -336,7 +372,7 @@ interface Searchable {
   blocks: Array<{ start: number; section: string | undefined }>;
 }
 
-function searchable(document: SourceLineDocument, reading: (text: string) => string,
+function searchable(document: Pick<SourceLineDocument, "blocks">, reading: (text: string) => string,
   matching: QuoteMatching = "standard"): Searchable {
   const textForm = matchingForm(matching);
   const paragraphs: Array<Array<SourceLineDocument["blocks"][number]>> = [];
@@ -433,7 +469,7 @@ function endsSentence(text: string, sentences: Searchable["sentences"], last: nu
  * found only as one or more whole sentences of a paragraph (above): a part of a sentence, which may have lost its
  * negation, is not.
  */
-function finder(document: SourceLineDocument, matching: QuoteMatching = "standard"): Finder {
+function finder(document: Pick<SourceLineDocument, "blocks">, matching: QuoteMatching = "standard"): Finder {
   const forms = [(text: string) => text, (text: string) => text.replace(BROKEN_WORD, ""),
     (text: string) => text.replace(BROKEN_WORD, "-")].map((reading) => searchable(document, reading, matching));
   return (quote) => {
@@ -464,6 +500,11 @@ function finder(document: SourceLineDocument, matching: QuoteMatching = "standar
     }
     return { found: false };
   };
+}
+
+/** Looks quotes up in a text's blocks alone, as a line's quotes are by the matching given (news/web-page.ts). */
+export function quoteFinder(blocks: SourceLineDocument["blocks"], matching: QuoteMatching): Finder {
+  return finder({ blocks }, matching);
 }
 
 const longEnough = (quote: string): boolean => quoteForm(quote).replace(/[^\p{L}\p{N}]/gu, "").length >= SHORTEST_QUOTE;

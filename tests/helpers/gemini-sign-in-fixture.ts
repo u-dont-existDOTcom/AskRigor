@@ -369,6 +369,11 @@ export async function clientAssertion(fixture: GeminiFixture, overrides: Record<
   }, signOptions);
 }
 
+/** The address a page goes on to by itself (its meta refresh), as a browser follows it. */
+export function movesOnTo(html: string): string | undefined {
+  return /<meta http-equiv="refresh" content="0;url=([^"]+)">/u.exec(html)?.[1];
+}
+
 /** Runs the whole link in a browser up to Google's redirect; returns the code and the PKCE verifier. */
 export async function linkToCode(fixture: GeminiFixture, browser: Browser,
   options: { scope?: string; resource?: string | null } = {}): Promise<{ code: string; verifier: string; location: URL }> {
@@ -386,6 +391,11 @@ export async function linkToCode(fixture: GeminiFixture, browser: Browser,
   for (let step = 0; step < 12; step += 1) {
     if (response.status === 200) {
       const html = await response.text();
+      const next = movesOnTo(html);
+      if (next !== undefined) {
+        response = await browser.request(new URL(next, "https://mcp.askrigor.com").href);
+        continue;
+      }
       const token = /name="form_token" value="([^"]+)"/u.exec(html)?.[1];
       const action = /<form method="post" action="([^"]+)"/u.exec(html)?.[1];
       if (token === undefined || action === undefined) throw new Error(`unexpected page: ${html.slice(0, 200)}`);

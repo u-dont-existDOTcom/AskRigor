@@ -1,6 +1,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
+import type { InteractionResults } from "oidc-provider";
+
 import { cookieHeader, readCookie, readForm, sameSitePost } from "../atlas/participation.js";
 import type { TokenBucketLimiter } from "../rate-limit.js";
 import { GEMINI_ISSUER_PATH, GEMINI_RESOURCE_PATH, GEMINI_SCOPE } from "./config.js";
@@ -18,7 +20,7 @@ import {
   LOGIN_RESULT_COOKIE,
   LOGIN_STATE_COOKIE,
 } from "./login.js";
-import { consentPage, errorPage } from "./pages.js";
+import { RESUME_PATH, consentPage, errorPage, moveOnPage } from "./pages.js";
 import { LOGIN_SECONDS, setPageHeaders, type GeminiAuthorizationServer } from "./provider.js";
 
 /**
@@ -113,17 +115,36 @@ export function createGeminiSignInRoutes(
     }
     if (details.prompt.name === "consent" && details.session !== undefined) {
       setPageHeaders((field, value) => response.setHeader(field, value));
-      // A form's redirects go on to Google's addresses after Allow, so the policy names them (browsers apply
-      // form-action to the redirects that follow a submission).
-      response.setHeader("content-security-policy", "default-src 'none'; style-src 'unsafe-inline'; " +
-        "form-action 'self' https://oauth-redirect.googleusercontent.com https://oauth-redirect-sandbox.googleusercontent.com " +
-        "https://oauth-redirect-test.googleusercontent.com; frame-ancestors 'none'; base-uri 'none'");
       response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
       response.end(consentPage({ uid, formToken: formToken(uid, details.session.uid) }));
       note("consent", "shown");
       return;
     }
     fail(response, 400, "server_error");
+  };
+
+  /**
+   * Allow and Cancel answer the form with a page of this server that goes on by itself, never with a redirect. Chromium
+   * checks every hop of a form submission's redirect chain against the form page's form-action, and Google's relay
+   * (oauth-redirect.googleusercontent.com) answers with another redirect, to an address the policy didn't name: the
+   * browser cancelled the chain and stayed on the Allow page, Google never got the code, and a second press of Allow was
+   * answered "session expired" (the owner's tries of 22, 23 and 24 Nov 2026; the same failure, and this fix, on Google's
+   * developer forum, 15 Oct 2026). Reproduced in Chromium with three local addresses, not with Google's relay; Firefox and
+   * Safari were not tried. A page's own navigation is no form submission.
+   */
+  const moveOn = async (request: IncomingMessage, response: ServerResponse, path: string, result: InteractionResults,
+    options: { mergeWithLastSubmission: boolean }) => {
+    await server.provider.interactionResult(request, response, result, options);
+    setPageHeaders((field, value) => response.setHeader(field, value));
+    response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    response.end(moveOnPage(path));
+  };
+
+  /** The library's own next step, as a path on this server; undefined for anything else. */
+  const resumePath = (returnTo: string): string | undefined => {
+    const next = new URL(returnTo, origin);
+    return next.origin === origin && next.search === "" && next.hash === "" && RESUME_PATH.test(next.pathname)
+      ? next.pathname : undefined;
   };
 
   const consentDecision = async (request: IncomingMessage, response: ServerResponse, uid: string) => {
@@ -142,6 +163,9 @@ export function createGeminiSignInRoutes(
     if (!sameToken(formToken(uid, details.session.uid), form.get("form_token"))) {
       return fail(response, 403, "invalid_request");
     }
+    // Checked before anything is kept, so an address the library might one day give in another form ends here.
+    const next = resumePath(details.returnTo);
+    if (next === undefined) return fail(response, 500, "server_error");
     const decision = form.get("decision");
     if (decision === "allow") {
       const clientId = details.params.client_id;
@@ -155,14 +179,12 @@ export function createGeminiSignInRoutes(
       if (requested.includes(GEMINI_SCOPE)) grant.rejectOIDCScope(GEMINI_SCOPE);
       grant.addResourceScope(server.settings.resource.href, GEMINI_SCOPE);
       const grantId = await grant.save();
-      await server.provider.interactionFinished(request, response, { consent: { grantId } }, {
-        mergeWithLastSubmission: true,
-      });
+      await moveOn(request, response, next, { consent: { grantId } }, { mergeWithLastSubmission: true });
       note("consent", "allowed");
       return;
     }
     if (decision === "cancel") {
-      await server.provider.interactionFinished(request, response, {
+      await moveOn(request, response, next, {
         error: "access_denied",
         error_description: "The person cancelled the connection.",
       }, { mergeWithLastSubmission: false });
