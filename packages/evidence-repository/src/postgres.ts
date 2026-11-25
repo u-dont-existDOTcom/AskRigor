@@ -176,19 +176,31 @@ function assertSafeSchema(schema: string): string {
   return schema;
 }
 
+/**
+ * The repository's connections. PostgreSQL's just-in-time compilation is off on them (24 November 2026): for the
+ * stored-plans catalog, over ten tiny tables that were never analyzed, the estimated cost passed the compilation's own
+ * threshold, so every call compiled 176 functions (204 to 294 ms measured, against 3 to 4 ms without), and the first
+ * call after a quiet hour often passed the statement limit (9 timeouts from 23 to 24 November). These queries are small,
+ * so the compilation never pays for itself here. The connection goes to PostgreSQL directly, which takes this option.
+ */
+export function evidencePoolConfig(options: EvidenceRepositoryOptions): PoolConfig {
+  return {
+    connectionString: options.connectionString,
+    ssl: options.ssl,
+    connectionTimeoutMillis: options.connectionTimeoutMillis,
+    query_timeout: options.queryTimeoutMillis,
+    statement_timeout: options.statementTimeoutMillis,
+    options: "-c jit=off",
+  };
+}
+
 export class PostgresEvidenceRepository {
   readonly schema: string;
   private readonly pool: Pool;
 
   constructor(options: EvidenceRepositoryOptions) {
     this.schema = assertSafeSchema(options.schema ?? "living_evidence");
-    this.pool = new Pool({
-      connectionString: options.connectionString,
-      ssl: options.ssl,
-      connectionTimeoutMillis: options.connectionTimeoutMillis,
-      query_timeout: options.queryTimeoutMillis,
-      statement_timeout: options.statementTimeoutMillis,
-    });
+    this.pool = new Pool(evidencePoolConfig(options));
   }
 
   async migrate(): Promise<void> {
