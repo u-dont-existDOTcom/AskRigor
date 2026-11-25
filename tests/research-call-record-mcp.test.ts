@@ -14,6 +14,7 @@ import { RESEARCH_USE_SCOPE, createJwtOAuthResourceServer } from "../apps/resear
 import { clientResultBytes, forTextClients, waitForPendingCallRecords } from "../apps/research-mcp/src/tool-result.js";
 import { researchCallRecordingOptions } from "../apps/research-mcp/src/research-call-recording.js";
 import { MCP_RESULT_MAX_BYTES } from "../apps/research-mcp/src/config.js";
+import { SAFETY_LIMITS_INSPECT_SENTENCE } from "../apps/research-mcp/src/safety-limits.js";
 
 const clients: Client[] = [];
 const servers: Server[] = [];
@@ -369,6 +370,31 @@ describe("list_calls", () => {
     expect(CALL_RECORD_SENTENCE).toContain("action list_calls");
     const none = await createManageResearchAccessHandler({ service })({ action: "inspect" }, auth);
     expect(text(none)).not.toContain("list_calls");
+  });
+
+  // Promise P69 (owner answer 400a, Codex's review of HRP 20.6.44): HRP asks every AI to declare safety_limits, which
+  // nothing published describes, so inspect gives its shape, and only with the switch on.
+  it("gives safety_limits' shape in inspect only with the switch on", async () => {
+    const text = (result: { content: unknown }) => (result.content as Array<{ text: string }>).map(({ text }) => text)
+      .join("\n");
+    // An account that hasn't chosen a mode is told nothing of it; an active one is, with the switch on.
+    const before = await createManageResearchAccessHandler({ service, safetyLimits: true })({ action: "inspect" }, auth);
+    expect((before.structuredContent as { access?: { status?: string } }).access?.status).not.toBe("ACTIVE");
+    expect(text(before)).not.toContain("safety_limits");
+    const active = new ResearchContributorAccessService({ store: new InMemoryResearchContributorAccessStore(),
+      identitySecret: Buffer.alloc(32, 41) });
+    const accepted = await createManageResearchAccessHandler({ service: active })({ action: "accept_free_contributor",
+      agreement: { noticeVersion: RESEARCH_USE_NOTICE_VERSION, eligibleDeidentifiedResearchContributionRequired: true,
+        prohibitedPrivateAndRawContentExcluded: true, proposalReviewAndNoAuthorityAcknowledged: true,
+        paidPrivateAlternativeAcknowledged: true } }, auth);
+    expect(accepted.isError).not.toBe(true);
+    const on = await createManageResearchAccessHandler({ service: active, safetyLimits: true })({ action: "inspect" }, auth);
+    expect((on.structuredContent as { access?: { status?: string } }).access?.status).toBe("ACTIVE");
+    expect(text(on)).toContain(SAFETY_LIMITS_INSPECT_SENTENCE);
+    const off = await createManageResearchAccessHandler({ service: active })({ action: "inspect" }, auth);
+    expect(text(off)).not.toContain("safety_limits");
+    expect(SAFETY_LIMITS_INSPECT_SENTENCE).toContain("later_inputs.safety_limits");
+    expect(SAFETY_LIMITS_INSPECT_SENTENCE).not.toContain("none_noticed");
   });
 
   it("requires a valid sign-in, without requiring enrollment", async () => {

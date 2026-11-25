@@ -9,10 +9,14 @@ import { digestCanonicalJson } from "./lessons/incident-contracts.js";
 /**
  * Owner request (2026-10-22): an app keeps the tool list it loaded until its user refreshes AskRigor, so after a
  * release that changes the tools it cannot send their newest fields, and nothing told the user. The model gives the
- * user this sentence.
+ * user this sentence. Owner, 22 Nov 2026 (Inbox): people should also be told how to do it; the steps were read in each
+ * app on 23 Nov 2026: ChatGPT's settings list AskRigor under Plugins with a "Refresh tools" button, and Claude's
+ * Plugins page has none (its menu offers Disconnect), so in Claude a new chat comes first.
  */
 export const TOOL_LIST_REFRESH_SENTENCE = "AskRigor has been updated since this app loaded its tools. To use its " +
-  "newest checks, refresh AskRigor in this app's settings and start a new chat.";
+  "newest checks, refresh AskRigor's tools: in ChatGPT, open Settings, then Plugins, then AskRigor, and press Refresh " +
+  "tools; in Claude, start a new chat, and if this message comes back, open Plugins, then AskRigor, disconnect it and " +
+  "connect it again; in another app, refresh AskRigor in its settings. Then start a new chat.";
 
 /** A tool list version: 16 hexadecimal characters of the SHA-256 of the tool list (toolListVersionOf). */
 const VERSION_PATTERN = /^[0-9a-f]{16}$/u;

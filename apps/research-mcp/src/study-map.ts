@@ -2,6 +2,9 @@ import type { ClinicalTrial } from "@askrigor/sources";
 import { z } from "zod";
 
 import { figureText } from "./binary-results.js";
+import {
+  DECLARED_ONLY_REGISTRY_FORMATS, REGISTRY_END, REGISTRY_START, SEARCHED_REGISTRY_FORMATS, type RegistryFormat
+} from "./registry-formats.js";
 import { salvageFinalizeInput } from "./salvage-finalize-input.js";
 import {
   lookUpQuotes, quoteCache, quoteTooShort, SOURCE_LINE_OUTCOMES, SOURCE_LINE_TEXTS,
@@ -99,36 +102,12 @@ export interface RegistryNumber {
   key: string;
 }
 
-// The formats of the trial registries AskRigor knows: strict, fixed-digit forms, each with its prefix (an EudraCT or EU
-// CT number with its label), in figureText's form (lower case, ASCII digits, dashes as "-"). A number is its core: a
-// registry's name or a label around it is set aside, so "EudraCT 2010-012345-12" and "EudraCT number: 2010-012345-12"
-// are one number.
-const START = String.raw`(?<![\p{L}\p{N}])`;
-const END = String.raw`(?![\p{L}\p{N}])`;
-type Format = readonly [registry: string, pattern: string, core: (parts: string[]) => string];
-const SEARCHED_FORMATS: readonly Format[] = [
-  ["NCT", String.raw`nct[\s-]?(\d{8})`, ([digits]) => `NCT${digits}`],
-  ["ISRCTN", String.raw`isrctn[\s-]?(\d{8})`, ([digits]) => `ISRCTN${digits}`],
-  ["EudraCT", String.raw`(?:eudract|ctis|eu[\s-]?ct|euctr)(?:[\s-]*(?:number|no\.?|nr\.?|id))?[\s:#-]*(\d{4}-\d{6}-\d{2})`,
-    ([digits]) => digits!],
-  ["ACTRN", String.raw`actrn[\s-]?(\d{14})`, ([digits]) => `ACTRN${digits}`],
-  ["ChiCTR", String.raw`chictr-?(\d{10})`, ([digits]) => `ChiCTR${digits}`],
-  ["ChiCTR", String.raw`chictr-([a-z]{3})-(\d{8})`, ([kind, digits]) => `ChiCTR-${kind!.toUpperCase()}-${digits}`],
-  ["DRKS", String.raw`drks[\s-]?(\d{8})`, ([digits]) => `DRKS${digits}`],
-  ["CTRI", String.raw`ctri/(\d{4})/(\d{2,3})/(\d{6})`, (parts) => `CTRI/${parts.join("/")}`],
-  ["jRCT", String.raw`jrct(\d{10})`, ([digits]) => `jRCT${digits}`],
-  ["UMIN", String.raw`umin[\s-]?(\d{9})`, ([digits]) => `UMIN${digits}`],
-  ["PACTR", String.raw`pactr(\d{15})`, ([digits]) => `PACTR${digits}`],
-  ["KCT", String.raw`kct(\d{7})`, ([digits]) => `KCT${digits}`],
-  ["TCTR", String.raw`tctr(\d{11})`, ([digits]) => `TCTR${digits}`],
-  ["RBR", String.raw`rbr-([0-9a-z]{6,8})`, ([code]) => `RBR-${code}`]
-];
-// Netherlands Trial Register numbers are accepted as the map declares them, and never looked for in a text: their
-// short forms are also gene and product names (NTR1, a neurotensin receptor).
-const DECLARED_ONLY_FORMATS: readonly Format[] = [
-  ["NTR", String.raw`ntr[\s-]?(\d{4,})`, ([digits]) => `NTR${digits}`],
-  ["NL", String.raw`nl[\s-]?(\d{4,})`, ([digits]) => `NL${digits}`]
-];
+// The trial registries' formats (registry-formats.ts), which the privacy screens' research identifiers read too.
+const START = REGISTRY_START;
+const END = REGISTRY_END;
+type Format = RegistryFormat;
+const SEARCHED_FORMATS = SEARCHED_REGISTRY_FORMATS;
+const DECLARED_ONLY_FORMATS = DECLARED_ONLY_REGISTRY_FORMATS;
 const compiled = (formats: readonly Format[]) => formats.map(([registry, pattern, core]) =>
   ({ registry, pattern: new RegExp(`${START}${pattern}${END}`, "gu"), core }));
 const SEARCHED = compiled(SEARCHED_FORMATS);
@@ -653,16 +632,37 @@ class Joins<Key> {
 
 const people = (count: number): string => `${count} independent group${count === 1 ? "" : "s"} of people`;
 
+/** A claim or link of the map, by what identifies it, with the notes about it. */
+export interface StudyMapPart {
+  /** Its kind, its sentences and the sources of the studies it rests on: never its place. */
+  about: string[];
+  notes: string[];
+  /** The passage a withdrawal of it names: a claim's sentence in the answer, a link's passage. */
+  passages: string[];
+}
+
 /**
  * The map's checks, once the check passes: notes for the AI, none of which holds the answer back, and the runtime
- * study_map result. Items are named by their places as given.
+ * study_map result. Items are named by their places as given. `parts` gives each claim and link by what identifies it,
+ * with the notes about it, for the findings ledger (Codex's third review of 17 Nov 2026, finding 1).
  */
 export function checkStudyMap(
   map: CheckedStudyMap,
   lookup: StudyMapLookup,
   context: StudyMapContext
-): { check: StudyMapCheck; notes: string[] } {
+): { check: StudyMapCheck; notes: string[]; parts: StudyMapPart[] } {
   const notes: string[] = [];
+  const sourceOf = (id: string): string => map.studies.find((study) => study.id === id)?.source ?? id;
+  const claimParts: StudyMapPart[] = map.claims.map(({ quote, studies, passages }) => ({ about: ["claim", quote,
+    studies.map(sourceOf).join("\u0001"),
+    passages.map(({ study, passage: text }) => `${sourceOf(study)}\u0001${text}`).join("\u0002")], notes: [],
+  passages: [quote] }));
+  const linkParts: StudyMapPart[] = map.links.map(({ from, kind, to, passage: text }) =>
+    ({ about: ["link", sourceOf(from), kind, sourceOf(to), text], notes: [], passages: [text] }));
+  const about = (note: string, ...parts: readonly StudyMapPart[]): void => {
+    notes.push(note);
+    for (const part of parts) part.notes.push(note);
+  };
   const ids = map.studies.map(({ id }) => id);
   const at = new Map(ids.map((id, index) => [id, index]));
   const requests = map.studies.map((_, index) => context.requests[index] ?? { tied: false, handles: [], pmids: [] });
@@ -677,14 +677,19 @@ export function checkStudyMap(
     "and check the answer again.";
 
   // A passage too short to mean much isn't looked up, as a source line's quote isn't.
-  const short = new Set<string>();
-  for (const claim of map.claims) {
+  const short = new Map<string, StudyMapPart[]>();
+  const tooShort = (where: string, part: StudyMapPart) => short.set(where, [...short.get(where) ?? [], part]);
+  for (const [index, claim] of map.claims.entries()) {
     for (const { place, passage: text } of claim.passages) {
-      if (quoteTooShort(text)) short.add(`study_map.claims[${claim.place}].passages[${place}]`);
+      if (quoteTooShort(text)) tooShort(`study_map.claims[${claim.place}].passages[${place}]`, claimParts[index]!);
     }
   }
-  for (const link of map.links) if (quoteTooShort(link.passage)) short.add(`study_map.links[${link.place}]`);
-  for (const where of short) notes.push(`A passage given in ${where} is too short to mean much: give the whole sentence.`);
+  for (const [index, link] of map.links.entries()) {
+    if (quoteTooShort(link.passage)) tooShort(`study_map.links[${link.place}]`, linkParts[index]!);
+  }
+  for (const [where, parts] of short) {
+    about(`A passage given in ${where} is too short to mean much: give the whole sentence.`, ...parts);
+  }
 
   // 1 and 2: a study tied to a receipt, and its text read, or what the map gives from it isn't looked up.
   // A registry number an abstract doesn't name isn't asked about: abstracts often leave it out.
@@ -732,28 +737,30 @@ export function checkStudyMap(
   }
   const unfoundLinks = map.links.filter((_, index) => lookup.links[index] === "not_found");
   if (unfoundLinks.length > 0) {
-    notes.push(`The ${unfoundLinks.length === 1 ? "passage" : "passages"} given in ` +
+    about(`The ${unfoundLinks.length === 1 ? "passage" : "passages"} given in ` +
       `${names(unfoundLinks.map(({ place }) => `study_map.links[${place}]`))} ${unfoundLinks.length === 1 ? "isn't" : "aren't"} ` +
-      `in the text of either study AskRigor looked in. ${exactly}`);
+      `in the text of either study AskRigor looked in. ${exactly}`,
+    ...linkParts.filter((_, index) => lookup.links[index] === "not_found"));
   }
 
   // 3: each claim is in the answer, rests on a passage from each of its studies, and an absence claim on two or more
   // studies is among them.
   for (const [index, claim] of map.claims.entries()) {
     const name = `study_map.claims[${claim.place}]`;
+    const part = claimParts[index]!;
     if (!context.shown(claim.quote)) {
-      notes.push(`${name}.quote isn't in the answer: copy the claim's sentence exactly from answer_draft.`);
+      about(`${name}.quote isn't in the answer: copy the claim's sentence exactly from answer_draft.`, part);
     }
     const bare = claim.studies.filter((study) => !claim.passages.some((given) => given.study === study));
     if (bare.length > 0) {
-      notes.push(`${name} rests on ${names(bare)} but gives no passage from ${bare.length === 1 ? "it" : "them"}: give, ` +
-        "in passages, each study's sentence the claim rests on, copied whole and exactly.");
+      about(`${name} rests on ${names(bare)} but gives no passage from ${bare.length === 1 ? "it" : "them"}: give, ` +
+        "in passages, each study's sentence the claim rests on, copied whole and exactly.", part);
     }
     const unfound = claim.passages.flatMap(({ study, place }, passage) => lookup.claims[index]?.[passage] === "not_found"
       ? [`${name}.passages[${place}] (from ${study}, in ${textName(ids.indexOf(study))})`] : []);
     if (unfound.length > 0) {
-      notes.push(`The ${unfound.length === 1 ? "passage" : "passages"} given in ${names(unfound)} ` +
-        `${unfound.length === 1 ? "isn't" : "aren't"} in the text AskRigor looked in. ${exactly}`);
+      about(`The ${unfound.length === 1 ? "passage" : "passages"} given in ${names(unfound)} ` +
+        `${unfound.length === 1 ? "isn't" : "aren't"} in the text AskRigor looked in. ${exactly}`, part);
     }
   }
   for (const { index, quote, studies } of context.absenceClaims) {
@@ -912,11 +919,12 @@ export function checkStudyMap(
       : new Set(studies.map((study) => groups.root(study))).size;
     if (counted !== undefined && claim.groups > counted) {
       const reasons = groups.reasons(studies);
-      notes.push(reasons.length === 0
+      about(reasons.length === 0
         ? `study_map.claims[${claim.place}] counts ${people(claim.groups)} but rests on ${studies.length === 1 ? "one study"
           : `${studies.length} studies`}: give each study it rests on, or count only those it names, and check the answer again.`
         : `study_map.claims[${claim.place}] counts ${people(claim.groups)}, but ${reasons.join("; ")}, so AskRigor counts ` +
-          `${counted}: count them once, or, if they are different people, give each its own group, and check the answer again.`);
+          `${counted}: count them once, or, if they are different people, give each its own group, and check the answer again.`,
+      claimParts[index]!);
     }
     return {
       place: claim.place,
@@ -947,7 +955,8 @@ export function checkStudyMap(
       links: map.links.map(({ place }, index) => ({ place, outcome: lookup.links[index] ?? "not_checked" })),
       claims
     },
-    notes
+    notes,
+    parts: [...claimParts, ...linkParts]
   };
 }
 

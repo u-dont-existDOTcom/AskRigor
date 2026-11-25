@@ -1,4 +1,6 @@
 import { registerForumTools } from "./forum-tools.js";
+import { findingsCardReminder } from "./findings/card-reminder.js";
+import { resultSizeDeclarationsFromEnv, resultSizeMeta } from "./result-size-limits.js";
 import type { RedditReaderClient } from "./reddit-reader-client.js";
 import type { readForumPage } from "@askrigor/sources";
 import {
@@ -10,12 +12,17 @@ import { COMMUNITY_LEADS_GUIDANCE } from "./community-leads.js";
 import { aiReadingsMarker, finalCheckAsked, findingsSaveOff, withLaterInputs } from "./later-inputs.js";
 import { openToolOutputSchema } from "./connector-input-schema.js";
 import { atlasLookupInputSchema, atlasLookupOutputSchema, atlasLookupToolResult, atlasOrigin, configuredAtlasLookupSource } from "./atlas/lookup-tool.js";
+import { personMarkSinceFromEnv } from "./atlas/person-reading.js";
 import { atlasNearFinder, type AskRigorHoldsOptions } from "./askrigor-holds.js";
 import { OWNER_POINTERS } from "./owner-pointers.js";
 import type { AtlasPageSource } from "@askrigor/evidence-repository";
 import { currentProtocolElementNames } from "./protocol-rule-names.js";
 import { createHash } from "node:crypto";
 import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
+import {
+  findingsLedgerAccountsFromEnv, findingsLedgerEnabledFromEnv, findingsLedgerGuidance, findingsLedgerMemory,
+  findingsLedgerMemoryKey, type FindingChecker, type FindingsLedgerAccounts, type FindingsLedgerMemory, type ObservedFinding
+} from "./findings-ledger.js";
 import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./meaning-judge.js";
 import { researchPlannerFromEnv, type ResearchPlanner } from "./research-planner.js";
 import type { ResearchLane } from "./research-steering.js";
@@ -24,7 +31,7 @@ import {
 } from "./research-reviewer.js";
 import {
   abstractDocument, lookUpSourceLines, quoteCache, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument,
-  type SourceLineTexts
+  type QuoteCache, type SourceLineDocument, type SourceLineTexts
 } from "./source-lines.js";
 import {
   linkedReadingGuidance, READING_RESULT_WHEN, readingResultNote, receiptReadingNote, sourceReadingGuidance,
@@ -51,6 +58,8 @@ import {
   type ResearchContributionReviewService,
   type ResearchContributorAccessService,
   type ResearchCallRecordStore,
+  type ResearchDossierPublisher,
+  type ResearchDossierStore,
 } from "@askrigor/evidence-repository";
 import {
   getProtocolManifest,
@@ -106,7 +115,9 @@ import {
   type GeminiYoutubeScoutNeverStarted
 } from "@askrigor/sources";
 import { z } from "zod";
-import { EUROPE_PMC_SECTIONS, EUROPE_PMC_FULL_TEXT_COVERAGE, europePmcSections } from "./europe-pmc-sections.js";
+import {
+  EUROPE_PMC_SECTIONS, EUROPE_PMC_FULL_TEXT_COVERAGE, europePmcOnlySyntax, europePmcSections
+} from "./europe-pmc-sections.js";
 
 import { infoAccessClientFromEnv, LIBRARY_CALL_DEADLINE_MS, type InfoAccessClient } from "./infoaccess-client.js";
 import { authorizedSubject } from "./research-contributor-access-tool.js";
@@ -116,9 +127,13 @@ import {
   atlasReviewEnabledFromEnv,
   crossrefConfigFromEnv,
   devAccountKeysFromEnv,
+  dossierPrivacyReadingFromEnv,
+  safetyLimitsFromEnv,
   findingsLibraryEnabledFromEnv,
   ncbiConfigFromEnv,
-  optionalLivingEvidenceReuseConfigFromEnv
+  optionalLivingEvidenceReuseConfigFromEnv,
+  askrigorBuildCommitFromEnv,
+  SERVICE_VERSION
 } from "./config.js";
 import type { AtlasReview } from "./findings/atlas-review.js";
 import { createConcurrencyLimiter } from "./rate-limit.js";
@@ -249,6 +264,18 @@ import {
   type ResearchMapOptions,
 } from "./research-contributor-access-tool.js";
 import { SHARE_OFFER, sharedAnswersFromEnv, type SharedAnswers } from "./shared-answers.js";
+import { checkNewsCard, newsCardFromCall } from "./news/card.js";
+import { crossrefPaperStatus } from "./news/paper.js";
+import {
+  NEWS_PUBMED_FALLBACK_MILLISECONDS,
+  NEWS_PUBMED_FALLBACK_RECORDS,
+  newsPubmedFallback,
+  pubmedDoiQuery,
+  type NewsPubmedSource,
+} from "./news/pubmed-fallback.js";
+import type { AtlasNewsOptions } from "./news/runtime.js";
+import { stageNewsCard } from "./news/staging.js";
+import { lookUpNewsPages, onNewsPage, type NewsLineLookup } from "./news/web-page.js";
 import { atlasReportDoorFromEnv } from "./atlas/report-door.js";
 import {
   AnalysisStaging,
@@ -300,13 +327,35 @@ import {
   parseFinalizeResearchInput,
   finalizeResearchOutputSchema,
   finalizeResearchPublishedOutputSchema,
+  findingsCardRequested,
   meaningJudgeSourceOf,
+  newsDoiVerifiedOf,
+  newsPubmedFallbackRequestOf,
+  newsRequestsOf,
   sourceLineRequestsOf,
   studyMapRequestsOf,
   backingRequestsOf,
+  settleFindingsLedger,
+  shortLookupDeclared,
   type FinalizeResearchOptions,
   type FinalizeResearchOutput
 } from "./research-finalization-gate.js";
+import {
+  DOSSIER_PRIVACY_READING_LIMITS,
+  type DossierPrivacyReader,
+} from "./findings/dossier-privacy-reading.js";
+import {
+  DOSSIER_CONFLICT_READING_LIMITS,
+  deadlineConflictReader,
+  type DossierConflictReader,
+} from "./findings/dossier-conflict-reading.js";
+import {
+  researchDossierAllowed,
+  researchDossierFromCall,
+  researchDossierLine,
+  saveResearchDossier,
+  type ResearchDossierSaveOutcome,
+} from "./findings/dossier.js";
 import {
   assessTreatmentCoverageFromReceipts,
   treatmentCoverageFromReceiptsInputSchema,
@@ -345,7 +394,9 @@ const ATLAS_LOOKUP_SOURCE = configuredAtlasLookupSource();
 // five minutes) and the owner's pointers.
 const ASKRIGOR_HOLDS: AskRigorHoldsOptions = {
   ...(ATLAS_LOOKUP_SOURCE === undefined ? {}
-    : { atlas: atlasNearFinder(ATLAS_LOOKUP_SOURCE, { origin: atlasOrigin(process.env.ASKRIGOR_ATLAS_PUBLIC_ORIGIN) }) }),
+    : { atlas: atlasNearFinder(ATLAS_LOOKUP_SOURCE, { origin: atlasOrigin(process.env.ASKRIGOR_ATLAS_PUBLIC_ORIGIN),
+      // Atlas Release B (Fable's recheck, change 2): while the mark is on, never from a reading older than its keep time.
+      fresh: personMarkSinceFromEnv(process.env, () => undefined) !== undefined }) }),
   pointers: () => OWNER_POINTERS,
 };
 
@@ -605,6 +656,16 @@ const ALL_JOURNALS_OUTPUT_SHAPE = {
   })),
   // The review of 12 Nov 2026: when the records OpenAlex returned don't all fit one result, how many it shows of them.
   records_shown: z.object({ shown: z.number().int().nonnegative(), of: z.number().int().positive() }).strict().optional()
+};
+// The owner's test run of 24 Nov 2026, runtime only: beside the failed envelope of a search Europe PMC did not answer,
+// PubMed's own envelope for the same query, with its own receipt. Such a result is no error (europePmcFromPubmed), so
+// the failed envelope is checked too, and its error may say what kind of failure it was.
+const PUBMED_INSTEAD_OUTPUT_SHAPE = {
+  error: errorSchema.extend({ failure_kind: z.enum(["timeout", "network"]).optional() }).optional(),
+  pubmed_search_instead: pubmedSearchEnvelopeSchema.extend({
+    note: z.string(),
+    research_receipt: z.string().optional()
+  }).optional()
 };
 const searchClinicalTrialsInputSchema = z.object({
   query: z.string().trim().min(1).max(5_000).describe("ClinicalTrials.gov search query."),
@@ -946,19 +1007,69 @@ export interface RegisterToolsOptions {
   /** Whether the findings actions are open; defaults to ASKRIGOR_ATLAS_REVIEW. */
   atlasReviewEnabled?: boolean;
   researchAccessRequired?: boolean;
+  /** Gemini's sign-in (owner answer 386b): the account's Gemini links, for manage_research_access. */
+  geminiLinks?: import("./research-contributor-access-tool.js").GeminiLinks;
   /** Replaces the production lesson queue, for tests. */
   lessonSubmission?: (raw: unknown, context: LessonSubmissionContext) => Promise<ConnectorLessonSubmissionResult>;
   /** Replaces the production findings library, for tests. */
   findingsSave?: (raw: unknown, context: FindingsSaveContext) => Promise<FindingsSaveResult>;
   /** Keeps a private copy of a card that wasn't saved; for tests. */
   findingsKeep?: (input: UnsavedCardInput) => Promise<UnsavedCardResult>;
+  /**
+   * AskRigor#477 stage 1 (owner answer 329a): where a free contributor's research dossier is saved privately; without it
+   * none is asked for or saved. Set by the server when ASKRIGOR_RESEARCH_DOSSIERS=enabled.
+   */
+  researchDossiers?: ResearchDossierStore;
+  /**
+   * Atlas news, stage 1 (plan 2026-11-21-atlas-news-stage1.md): ASKRIGOR_ATLAS_NEWS, the research-access role's staging
+   * store for finalize_research, and the review role's store and the papers' retraction lookup for the owner's news
+   * actions. With the mode off, a news card is neither signed nor staged, and the news actions say news is off.
+   */
+  atlasNews?: AtlasNewsOptions;
+  /**
+   * Atlas news (the 23 Nov 2026 news audit): where a news card's DOI's PubMed record is read when the full-text tool
+   * admitted no copy of it; PubMed's search and record fetch otherwise, a stub in tests.
+   */
+  newsPubmed?: NewsPubmedSource;
+  /**
+   * AskRigor#477 stage 2: where a saved dossier's public copy is published, shown or held for AskRigor's check. Set by
+   * the server only when ASKRIGOR_PUBLIC_DOSSIERS=enabled; without it nothing is published.
+   */
+  researchDossierPublisher?: ResearchDossierPublisher;
+  /** For tests: the notices that cover public dossiers, in place of PUBLIC_DOSSIER_NOTICE_VERSIONS (none until v7). */
+  publicDossierNotices?: readonly string[];
+  /**
+   * AskRigor#477 stage 1, off by default: every dossier read for personal details before it is stored, on the research
+   * planner's Claude API path; defaults to ASKRIGOR_DOSSIER_PRIVACY_READING=on. With it on and the planner off, no
+   * dossier is saved.
+   */
+  dossierPrivacyReading?: boolean;
+  /** Promise P69: finalize_research reads later_inputs.safety_limits (ASKRIGOR_SAFETY_LIMITS=on when not given). */
+  safetyLimits?: boolean;
   /** Whether the findings library is open; defaults to ASKRIGOR_FINDINGS_LIBRARY. */
   findingsLibrary?: boolean;
+  /**
+   * Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026): whether the final check keeps a findings ledger and plan_research
+   * says what can stop an answer; defaults to ASKRIGOR_FINDINGS_LEDGER=on. Its memory of the last ledger issued
+   * for each account and research target is this process's, unless replaced for tests.
+   */
+  findingsLedger?: boolean;
+  /**
+   * Whose answers get it while it is on (Fable's check of 17 Nov 2026): "dev", only the owner's development accounts, or
+   * "all"; defaults to ASKRIGOR_FINDINGS_LEDGER_ACCOUNTS, "dev" unless it is "all".
+   */
+  findingsLedgerAccounts?: FindingsLedgerAccounts;
+  findingsLedgerMemory?: FindingsLedgerMemory;
   /** Shared questions and answers (owner answer 200a); null turns them off; defaults to the server's settings. */
   sharedAnswers?: SharedAnswers | null;
   /** How long finalize_research waits for a findings save; replaced for tests. */
   findingsSaveDeadlineMilliseconds?: number;
   mcpSurface?: McpSurface;
+  /**
+   * Whether tools/list declares Claude Code's larger result sizes (result-size-limits.ts); defaults to
+   * ASKRIGOR_DECLARE_RESULT_SIZES, off until a release changes the tool list anyway (each change costs apps a refresh).
+   */
+  declareResultSizes?: boolean;
   /** The versions this server runs, returned by get_protocol_manifest. */
   runningVersions?: RunningVersions;
   /** This surface's tool list version (toolListVersionOf), which a call's tool_list_version is compared with. */
@@ -1363,24 +1474,11 @@ function defineResearchOperations(
     },
     async ({ query, date_range, page_size, cursor }) => {
       try {
-        const search = (pageSize: number | undefined) => searchPubmed(
-          {
-            query,
-            ...(date_range === undefined ? {} : { dateRange: date_range }),
-            ...(pageSize === undefined ? {} : { pageSize }),
-            ...(cursor === undefined ? {} : { cursor })
-          },
-          ncbiConfig()
-        );
-        const pubmedTotal = (page: { raw_metadata?: unknown }) =>
-          (page.raw_metadata as { total_count?: number } | undefined)?.total_count;
+        const search = pubmedSearch(query, date_range, cursor);
         const result = await readSmallSearchWhole(await search(page_size), cursor === undefined, pubmedTotal, search);
         const total = pubmedTotal(result);
-        return withResearchReceipt(pubmedToolResult(
-          `PubMed search returned ${result.pagination.returned} PMID record(s); access status ${result.access_status}.` +
-            smallLiteratureSearchNote(total) + literatureOutageNote("pubmed", result.error) + angleBracketDoiNote(result.data),
-          result
-        ), literatureSearchReceipt("pubmed", query, result, total, date_range));
+        return withResearchReceipt(pubmedToolResult(pubmedSearchText(result, total), result),
+          literatureSearchReceipt("pubmed", query, result, total, date_range));
       } catch (error) {
         return pubmedToolResult(
           "PubMed search retrieval failed; access status error.",
@@ -1441,7 +1539,7 @@ function defineResearchOperations(
       outputSchema: europePmcSearchEnvelopeSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async (args) => {
+    async (args, extra) => {
       const { query, date_range, page_size, cursor } = args;
       // Owner answer 283a (9 Nov 2026): later_inputs.index all_journals searches OpenAlex instead (later-inputs.ts).
       if ((args as { index?: unknown }).index === "all_journals") {
@@ -1461,6 +1559,10 @@ function defineResearchOperations(
         const europePmcTotal = (page: { raw_metadata?: unknown }) =>
           (page.raw_metadata as { hit_count?: number } | undefined)?.hit_count;
         const result = await readSmallSearchWhole(await search(page_size), cursor === undefined, europePmcTotal, search);
+        // A search Europe PMC did not answer, in words PubMed reads too, is answered from PubMed by AskRigor itself.
+        const instead = literatureOutage("europe_pmc", result.error) && cursor === undefined && !europePmcOnlySyntax(query)
+          ? await searchPubmedInstead(query, date_range, page_size) : undefined;
+        if (instead !== undefined) return europePmcFromPubmed(result, query, date_range, instead, isActionCall(extra));
         const total = europePmcTotal(result);
         return withResearchReceipt(europePmcToolResult(
           `Europe PMC search returned ${result.pagination.returned} record(s); access status ${result.access_status}.` +
@@ -2074,6 +2176,8 @@ function defineResearchOperations(
     createManageResearchAccessHandler({
       service: options.researchContributorAccessService,
       callRecord: options.researchCallRecord,
+      ...(options.geminiLinks === undefined ? {} : { geminiLinks: options.geminiLinks }),
+      ...((options.safetyLimits ?? safetyLimitsFromEnv()) ? { safetyLimits: true } : {}),
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
       signIn: options.signIn,
       toolListVersion: options.toolListVersion,
@@ -2087,6 +2191,12 @@ function defineResearchOperations(
       researchReviewer: () => configuredReviewer(options),
       // The owner, 14 Nov 2026: what AskRigor already holds for a registered question, for every account.
       askrigorHolds: ASKRIGOR_HOLDS,
+      // AskRigor#477 stage 1: plan_research asks for the research dossier where one can be saved.
+      ...(options.researchDossiers === undefined ? {} : { researchDossiers: true }),
+      // AskRigor#477 stage 2: stage 2's declarations in the shape only while public dossiers are on.
+      ...(options.researchDossierPublisher === undefined ? {} : { publicDossiers: true }),
+      // Enforcing HRP, stage 1: plan_research says what can stop an answer while the findings ledger is on for the account.
+      findingsLedger: (devAccount) => findingsLedgerFor(options, () => devAccount),
       ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
       ...(sharing === undefined ? {} : { sharedAnswers: { ...sharing, versions: async () =>
@@ -2156,6 +2266,20 @@ function defineResearchOperations(
         review: options.atlasReview,
         // The source checks use the provider settings the connector's own provider tools use.
         providers: () => ({ crossref: crossrefConfig(), pubmed: ncbiConfig() }),
+        // Atlas news, stage 1: the owner's news actions, through the review role, with each paper's retraction status
+        // read through the check_retraction_status tool's own call.
+        news: {
+          mode: options.atlasNews?.mode ?? "off",
+          ...(options.atlasNews?.review === undefined ? {} : { store: options.atlasNews.review }),
+          paperStatus: options.atlasNews?.paperStatus ?? crossrefPaperStatus(crossrefConfig),
+          ...(options.atlasNews?.now === undefined ? {} : { now: options.atlasNews.now }),
+        },
+        // AskRigor#477 stage 2 (Codex's re-review): a held dossier copy's privacy reading, made later on the owner's
+        // action, on the planner's own path and only while the reading is on.
+        dossierPrivacyReader: () => dossierPrivacyReaderOf(options),
+        // Codex's third review: a show of a held dossier copy is compared first with the shown dossiers, on the
+        // planner's own paid path, as automatic publication is; a planner that is off answers that the reading is off.
+        dossierConflictReader: () => dossierConflictReaderOf(options),
       },
       ...(sharing === undefined ? {} : { sharedAnswers: sharing.vault }),
     }),
@@ -2593,6 +2717,23 @@ function defineResearchOperations(
       const library = options.findingsLibrary ?? findingsLibraryEnabledFromEnv();
       const researcher = await researchUseAccount(extra, options.researchContributorAccessService);
       const account = library ? researcher : undefined;
+      // Enforcing HRP, stage 1: this process's memory of the last ledger issued of each lineage (chat) of this account
+      // and research target, read and replaced in one step once the call's notes are all given (Codex's review of 17
+      // Nov 2026, finding 3, and its sixth review, finding 1).
+      const ledgerMemory = options.findingsLedgerMemory ?? findingsLedgerMemory;
+      const ledgerKey = findingsLedgerFor(options, () => researcher !== undefined &&
+        isDevAccount(researcher.accountKey, devAccountKeysFromEnv())) && secret !== undefined &&
+        checkedInput !== undefined ? findingsLedgerMemoryKey(secret, researcher?.accountKey, checkedInput.research_target)
+        : undefined;
+      // Codex's review of 17 Nov 2026, finding 7: the notes this tool gives after the check's own passes are findings of
+      // the ledger as the check's are, each with the part of the check it came from; the ledger is built once they are
+      // all given. With the ledger off, a note is given as before and nothing else is kept.
+      const lateFindings: ObservedFinding[] = [];
+      const lateCoverage: FindingChecker[] = [];
+      const addLateNote = (note: string, finding: Omit<ObservedFinding, "text">): void => {
+        result.notes = [...(result.notes ?? []), note];
+        if (ledgerKey !== undefined) lateFindings.push({ text: note, ...finding });
+      };
       // Owner answer 301a: for the owner's dev accounts, AskRigor's own review of the draft, once per call whatever the
       // check's status. It starts as soon as its inputs are known, so it runs while the check's other lookups wait, and
       // is awaited before the result is returned. Advice only: it adds one note and changes nothing else of the result.
@@ -2629,7 +2770,9 @@ function defineResearchOperations(
           : account === undefined ? "private" as const : account.mode === "FREE_CONTRIBUTOR" ? "save" as const : "offer" as const,
         ...(callerReads ? { aiReadings: "caller" as const } : {}),
         ...(readsOnMobile(extra._meta) ? { mobileClient: true } : {}),
+        ...((options.safetyLimits ?? safetyLimitsFromEnv()) ? { safetyLimits: true } : {}),
         ...(options.toolListVersion === undefined ? {} : { toolListVersion: options.toolListVersion }),
+        ...(ledgerKey === undefined ? {} : { findingsLedger: { account: researcher?.accountKey, deferred: true } }),
         ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) }),
         // Owner answer 190a: every active research account's plain answer, registered before research, is compared
         // with the answer, on the MCP connector only.
@@ -2649,8 +2792,32 @@ function defineResearchOperations(
           : {})
       };
       let commentsRead = false;
-      let gateOptions: FinalizeResearchOptions = { ...finalizeOptions, onCommentsRead: (read) => { commentsRead = read; } };
+      // AskRigor#477: the card guidance says the dossier's own value test only where one can be saved (Codex's red team
+      // of the instruction proposal, item 3).
+      const dossierAsk = researchDossierAllowed(options.researchDossiers !== undefined, researcher, findingsSaveOff(input)) &&
+        checkedInput !== undefined && !shortLookupDeclared(checkedInput);
+      // Atlas news, stage 1: the news card, read from the raw call on its own while news isn't off. Its backing lines are
+      // looked up with the findings card's, and its own claims signed into the receipt; it never changes the check.
+      const newsMode = options.atlasNews?.mode ?? "off";
+      const newsGiven = newsCardFromCall(input);
+      const newsChecked = newsGiven === undefined ? undefined : checkNewsCard(newsGiven);
+      let gateOptions: FinalizeResearchOptions = { ...finalizeOptions, onCommentsRead: (read) => { commentsRead = read; },
+        ...(dossierAsk ? { researchDossierAsk: true } : {}),
+        ...(newsMode !== "off" && newsChecked?.status === "checked"
+          ? { newsCard: { card: newsChecked.card, digest: newsChecked.digest } } : {}) };
       let result = finalizeResearch(input, gateOptions);
+      // Atlas news (the 23 Nov 2026 news audit): a news card whose DOI the full-text tool admitted no copy of, with no
+      // record or text of it read (a short news item), is read in that DOI's PubMed record, which AskRigor fetches
+      // itself; with a record whose own DOI is the card's, the check is made again with it. Its own deadline; past it,
+      // or with no such record, the DOI stays unverified, as before.
+      const newsFallbackFor = newsPubmedFallbackRequestOf(result);
+      const newsFallback = newsFallbackFor === undefined ? undefined : await withinDeadline(
+        newsPubmedFallback(newsFallbackFor.doi, options.newsPubmed ?? AskRigorNewsPubmed).catch(() => undefined),
+        NEWS_PUBMED_FALLBACK_MILLISECONDS, undefined);
+      if (newsFallbackFor !== undefined && newsFallback !== undefined) {
+        gateOptions = { ...gateOptions, newsPubmedFallback: { doi: newsFallbackFor.doi, pmid: newsFallback.pmid } };
+        result = finalizeResearch(input, gateOptions);
+      }
       // Owner answer 237a: a passing check's source lines are looked up in the text AskRigor fetched, exactly and with
       // no model. Owner answer 252a: a checked card's backing lines are looked up with them, in one pass over the same
       // texts, and what came of them is signed into the finalization receipt. Owner answer 249a: so is its study map,
@@ -2660,7 +2827,8 @@ function defineResearchOperations(
       const lookups = checkedInput?.source_lines === undefined ? undefined : sourceLineRequestsOf(result);
       const backing = backingRequestsOf(result);
       const mapRequests = studyMapRequestsOf(result);
-      if (lookups !== undefined || backing !== undefined || mapRequests !== undefined) {
+      const news = newsRequestsOf(result);
+      if (lookups !== undefined || backing !== undefined || mapRequests !== undefined || news !== undefined) {
         const lineTexts = options.sourceLineTexts ?? AskRigorSourceLineTexts;
         const mapTexts = options.studyMapTexts ?? AskRigorStudyMapTexts;
         // One paper's text is read once when both look in the same texts.
@@ -2676,14 +2844,38 @@ function defineResearchOperations(
         const looking = requests.length === 0 ? undefined : withinDeadline(
           lookUpSourceLines(lines, requests, lineTexts, lineCache).catch(() => late),
           SOURCE_LINE_DEADLINE_MILLISECONDS, late);
-        const [looked, studyMapLookup] = await Promise.all([
+        // Atlas news, stage 1: the news card's lines are looked up in the same texts, apart and under their own deadline,
+        // so a slow one never costs the source and backing lines theirs (Codex's review of 21 Nov 2026, finding 4). They
+        // are matched by the news card's rules (QuoteMatching "news", the 23 Nov 2026 news audit), whose finders the
+        // cache keeps apart; the PubMed record read for the card's DOI, when that is how it was read, has a cache of its
+        // own, so no other line is ever looked up in it.
+        const newsCache: QuoteCache = newsFallback === undefined ? lineCache : { finders: new Map(),
+          abstracts: new Map([[newsFallback.pmid, Promise.resolve<SourceLineDocument | undefined | null>(newsFallback.document)]]) };
+        const newsLate = ({ line }: { line: number }): NewsLineLookup => ({ source: news!.lines[line]!.source,
+          sentence: "not_checked", conclusion: "not_checked", reason: "text_unavailable" });
+        // The 24 Nov 2026 news audit: a line that rests on a web address its check read, which names no paper, is looked up
+        // in that page, read again (news/web-page.ts), apart from the others, so a slow page never costs a paper's lines
+        // theirs. Only a call whose card could be staged reads a page: the owner's own news check, marked off.
+        const pagesRead = researcher !== undefined && isDevAccount(researcher.accountKey, devAccountKeysFromEnv()) &&
+          findingsSaveOff(input);
+        const newsPages = pagesRead ? (news?.requests ?? []).filter(onNewsPage) : [];
+        const newsPapers = (news?.requests ?? []).filter((request) => !newsPages.some(({ line }) => line === request.line));
+        const newsLooking = news === undefined || newsPapers.length === 0 ? undefined : withinDeadline<NewsLineLookup[]>(
+          lookUpSourceLines(news.lines, newsPapers, lineTexts, newsCache, "news").catch(() => newsPapers.map(newsLate)),
+          SOURCE_LINE_DEADLINE_MILLISECONDS, newsPapers.map(newsLate));
+        const newsPagesLooking = news === undefined || newsPages.length === 0 ? undefined : withinDeadline(
+          lookUpNewsPages(news.lines, newsPages, options.forumPageReader).catch(() => newsPages.map(newsLate)),
+          SOURCE_LINE_DEADLINE_MILLISECONDS, newsPages.map(newsLate));
+        const [looked, studyMapLookup, newsLooked, newsPagesLooked] = await Promise.all([
           looking,
           // The map keeps its own deadline; this one only guards against a lookup that never settles.
           mapRequests === undefined ? undefined : withinDeadline(
             lookUpStudyMap(mapRequests.map, mapRequests.requests, mapTexts,
               { cache: mapCache, milliseconds: SOURCE_LINE_DEADLINE_MILLISECONDS, ...(looking === undefined ? {} : { after: looking }) })
               .catch(() => lateStudyMapLookup(mapRequests.map)),
-            SOURCE_LINE_DEADLINE_MILLISECONDS + STUDY_MAP_GUARD_MILLISECONDS, lateStudyMapLookup(mapRequests.map))
+            SOURCE_LINE_DEADLINE_MILLISECONDS + STUDY_MAP_GUARD_MILLISECONDS, lateStudyMapLookup(mapRequests.map)),
+          newsLooking,
+          newsPagesLooking,
         ]);
         const fromLines = lookups?.length ?? 0;
         const withLines: FinalizeResearchOptions = {
@@ -2697,10 +2889,20 @@ function defineResearchOperations(
           backingLookups: backing.lines.map(({ finding, line }, place) =>
             ({ finding, line, lookup: looked?.[fromLines + place] ?? late[fromLines + place]! }))
         };
+        // Atlas news, stage 1: the news lines' lookups, which the receipt signs as `nl`, in the lines' order.
+        const newsFound = new Map<number, NewsLineLookup | undefined>([
+          ...newsPapers.map(({ line }, place): [number, NewsLineLookup | undefined] => [line, newsLooked?.[place]]),
+          ...newsPages.map(({ line }, place): [number, NewsLineLookup | undefined] => [line, newsPagesLooked?.[place]])
+        ]);
+        const withNews: FinalizeResearchOptions = news === undefined ? withBacking : {
+          ...withBacking,
+          newsLookups: news.lines.map((_, line) => newsFound.get(line) ?? newsLate({ line }))
+        };
         // The review of 5 November (finding 6): a receipt that can't be issued with what the lookups found (one too
-        // long, say) never stops the call: the check is made again without the backing lines' lookups, and otherwise
-        // stands as the first pass made it.
-        for (const attempt of withBacking === withLines ? [withLines] : [withBacking, withLines]) {
+        // long, say) never stops the call: the check is made again without the news lines' lookups, then without the
+        // backing lines' too, and otherwise stands as the first pass made it. A receipt without the news claims stages
+        // nothing (news/staging.ts).
+        for (const attempt of [...new Set([withNews, withBacking, withLines])]) {
           try {
             result = finalizeResearch(input, attempt);
             gateOptions = attempt;
@@ -2810,8 +3012,17 @@ function defineResearchOperations(
         if (kept?.status === "kept") {
           keptCardId = kept.card_id;
           result.findings_card.saved = { status: "not_saved", reason: KEPT_FOR_REVIEW };
-          result.notes = [...(result.notes ?? []), unsavedCardNote(kept.card_id)];
+          addLateNote(unsavedCardNote(kept.card_id), { checker: "call", call: true });
         }
+      }
+      // AskRigor#475: a free contributor's first pass with no card, though the check's note asked for one, says the card
+      // belongs to this answer, harms and safety signals included (findings/card-reminder.ts).
+      const cardReminder = findingsCardReminder({ findings: finalizeOptions.findings,
+        savingOn: account?.findingsSave === true && !callSavingOff, status: result.status,
+        cardStatus: result.findings_card.status, turnAlreadyPassed: result.turn_already_passed === true,
+        cardRequested: findingsCardRequested(result) });
+      if (cardReminder !== undefined) {
+        result.findings_card.problems = [...result.findings_card.problems, cardReminder];
       }
       // Owner answer 143a: a free answer whose research map was filed ends by saying what was saved, the card's id
       // included when its save confirmed.
@@ -2839,18 +3050,111 @@ function defineResearchOperations(
           );
         }
       }
+      // Atlas news, stage 1 (plan 2026-11-21-atlas-news-stage1.md): the check stages its own news card, for the owner's
+      // news run only (a dev account, the call marked findings_save "off", a receipt signing the news claims), bounded
+      // like the dossier's save; whatever happens, the check stands, and the result says whether and why.
+      const newsStaging = await stageNewsCard({
+        mode: newsMode,
+        checked: newsChecked,
+        passed: result.status === "ready" || result.status === "ready_with_limits",
+        receipt: result.finalization_receipt,
+        savingOff: callSavingOff,
+        devAccount: researcher === undefined ? undefined : isDevAccount(researcher.accountKey, devAccountKeysFromEnv()),
+        doiVerified: newsDoiVerifiedOf(result) !== false,
+        draft: checkedInput?.answer_draft,
+        store: options.atlasNews?.staging,
+        secret,
+        now: options.atlasNews?.now ?? (() => new Date()),
+      });
+      if (newsStaging !== undefined) result.news = newsStaging;
+      // AskRigor#477, stage 1 (owner answer 329a, 16 Nov 2026): this research's dossier, saved privately for AskRigor's
+      // owner to review, for a free contributor whose yes covers notice v6, with card saving on. Saved whole or not at
+      // all, read back, and said in one line before the check line; never a step of the check. Paid private accounts
+      // are not offered one yet (owner answer 330a).
+      if (options.researchDossiers !== undefined && checkedInput !== undefined) {
+        const dossierStore = options.researchDossiers;
+        // Codex's final check, off by default: the meaning-based privacy reading, on the planner's own API path. With it
+        // on, a planner that is off reads nothing, and nothing is saved.
+        const privacyReading = dossierPrivacyReaderOf(options);
+        // The save's outer deadline: past it the answer goes on without the save, and the conflict reader starts no
+        // further paid call (Codex's re-review of stage 2), so the copy is held, waiting for the conflict check.
+        const saveDeadline = (options.findingsSaveDeadlineMilliseconds ?? FINDINGS_SAVE_DEADLINE_MILLISECONDS) +
+          (privacyReading === undefined ? 0 : DOSSIER_PRIVACY_READING_LIMITS.timeoutMs) +
+          // Stage 2: one conflict comparison's wait, while public dossiers are on.
+          (options.researchDossierPublisher === undefined ? 0 : DOSSIER_CONFLICT_READING_LIMITS.timeoutMs);
+        const saveStopsAt = Date.now() + saveDeadline;
+        const outcome = await withinDeadline(saveResearchDossier(dossierStore, {
+          dossier: researchDossierFromCall(input),
+          account: researcher,
+          callSavingOff,
+          finalizationReceipt: result.finalization_receipt,
+          shortLookup: shortLookupDeclared(checkedInput),
+          validatedSources: result.sources.validated.length,
+          receipts: checkedInput.receipts,
+          atlasReuse: checkedInput.atlas_reuse ?? [],
+          cardId: result.findings_card.saved?.card_id,
+          // Codex's second pass: whether comments were read is the final check's own decision, never a receipt's kind;
+          // the card's findings are what its receipt's held places refer to.
+          commentsRead,
+          ...(checkedInput.findings_card === undefined ? {} : { cardFindings: checkedInput.findings_card.findings.length }),
+          ...(privacyReading === undefined ? {} : { privacyReading }),
+          // AskRigor#477 stage 2: where the research ran, and the public copy, only while public dossiers are on.
+          ...(options.mcpSurface === undefined ? {} : { surface: options.mcpSurface }),
+          ...(options.researchDossierPublisher === undefined ? {} : { publication: {
+            publisher: options.researchDossierPublisher,
+            ...(options.publicDossierNotices === undefined ? {} : { noticeCovering: options.publicDossierNotices }),
+            // Codex's review of stage 2, finding 3: the meaning-based conflict check on the planner's own paid path,
+            // made only here, while public dossiers are on; with the planner off a copy with candidates is held.
+            conflictReader: async (conflictRequest) =>
+              await deadlineConflictReader(configuredPlanner(options).readDossierConflicts, saveStopsAt)(conflictRequest),
+          } }),
+          secret,
+          versions: {
+            askrigor: SERVICE_VERSION,
+            build: options.runningVersions?.build ?? askrigorBuildCommitFromEnv(),
+            ...(options.runningVersions === undefined ? {} : {
+              hrp: options.runningVersions.hrp, universal: options.runningVersions.universal,
+            }),
+          },
+        }).catch((): ResearchDossierSaveOutcome => ({ disposition: { status: "unavailable", reason: "store_unavailable" } })),
+        saveDeadline,
+        { disposition: { status: "unconfirmed", reason: "not_confirmed_in_time" } } as ResearchDossierSaveOutcome);
+        if (outcome !== undefined) {
+          if (outcome.disposition !== undefined) result.research_dossier = outcome.disposition;
+          if (outcome.note !== undefined) addLateNote(outcome.note, { checker: "call", call: true });
+          const line = outcome.disposition === undefined ? undefined : researchDossierLine(outcome.disposition);
+          if (line !== undefined && result.finalization_receipt !== undefined) {
+            result.saved_line = result.saved_line === undefined ? line : `${result.saved_line} ${line}`;
+          }
+        }
+      }
       // Owner answer 200a: a research account's answer ends with the offer to share a de-identified copy of it.
       if (sharing !== undefined && researcher !== undefined) result.share_offer = { ...SHARE_OFFER };
       // Owner answer 301a: the review's one note, after every other part of the result is settled, so no later pass of
       // the check can drop it and nothing else of the result depends on it.
       if (reviewing !== undefined) {
-        const reviewNote = answerReviewNote(await reviewing);
-        if (reviewNote !== undefined) result.notes = [...(result.notes ?? []), reviewNote];
+        const review = await reviewing;
+        const reviewNote = answerReviewNote(review);
+        // Only a review that ran looked for what an earlier one found; only its gaps are about the answer. One that did
+        // not run is named apart for the reader (Fable's check of 17 Nov 2026).
+        if (review.reviewing.status === "reviewed") lateCoverage.push("review");
+        if (reviewNote !== undefined) {
+          addLateNote(reviewNote, review.reviewing.status === "reviewed" && review.reviewing.review.gaps.length > 0
+            ? { checker: "review" } : { checker: "review", call: true,
+              ...(review.reviewing.status === "reviewed" ? {} : { notRun: true as const }) });
+        }
       }
       // Owner answer 310a: what a call that leaves the AI readings to its caller did not get from the server, and a
       // value that was not read as that.
-      if (callerReads) result.notes = [...(result.notes ?? []), CALLER_READINGS_NOTE];
-      if (aiReadings.note !== undefined) result.notes = [...(result.notes ?? []), aiReadings.note];
+      if (callerReads) addLateNote(CALLER_READINGS_NOTE, { checker: "call", call: true });
+      if (aiReadings.note !== undefined) addLateNote(aiReadings.note, { checker: "call", call: true });
+      // Enforcing HRP, stage 1: the findings ledger, built once, now that every note of the call is given, from the
+      // latest ledger this process remembers, and remembered in the same step, with no await between (Codex's review of
+      // 17 Nov 2026, finding 3): a call that ran long can't overwrite a newer one's ledger.
+      if (ledgerKey !== undefined) {
+        ledgerMemory.update(ledgerKey, (remembered) =>
+          settleFindingsLedger(result, { late: lateFindings, coverage: lateCoverage, remembered })?.remember);
+      }
       const card = result.findings_card;
       const analyses = result.analyses_saved;
       const passing = result.status === "ready" || result.status === "ready_with_limits";
@@ -2930,7 +3234,8 @@ function defineResearchOperations(
           (result.previous_check === undefined ? "" :
             `\nThe previous final check in this conversation did not pass (${result.previous_check.open.join(", ") || "steps open"}), ` +
               "so an answer given after it went out unchecked; if one did, this answer says what changed from it.") +
-          (card.status === "absent" || card.status === "private"
+          (cardReminder !== undefined ? `\nFindings card: ${cardReminder}`
+            : card.status === "absent" || card.status === "private"
             ? ""
             : `\nFindings card: ${card.status}` +
               (card.saved !== undefined
@@ -2985,6 +3290,8 @@ function defineResearchOperations(
                 "carry_forward, pass that value as carried_state in this turn's next finalize_research call, so what " +
                 `it carried still holds; otherwise pass this one, in this turn or a later one: ${result.carry_forward}`
               : `\nPass this as carried_state in this conversation's next finalize_research call, in this turn or a later one: ${result.carry_forward}`) +
+          // Enforcing HRP, stage 1: the findings' ids and dispositions, and the ledger to pass back.
+          findingsLedgerGuidance(result.check_findings, result.findings_ledger) +
           // Owner answer 172a: the round within this turn, carried by the model like the conversation's state. 13 Nov
           // 2026: after a pass that followed a pass in this turn no other call is due, so the token is given only for a
           // call made despite that; it is what tells such a call that the turn had already passed.
@@ -3083,6 +3390,39 @@ function findingsSaveAccount(account: {
   noticeVersion: string | null;
 }): FindingsSaveAccount {
   return { mode: account.mode, noticeVersion: account.noticeVersion };
+}
+
+/**
+ * AskRigor's privacy reading of a research dossier (findings/dossier-privacy-reading.ts), on the research planner's own
+ * Claude API path, while ASKRIGOR_DOSSIER_PRIVACY_READING is on (or the tests' own setting); undefined while it is off.
+ * A planner that is off answers that the reading is off.
+ */
+export function dossierPrivacyReaderOf(options: Pick<RegisterToolsOptions, "dossierPrivacyReading" |
+  "researchPlanner" | "meaningJudge"> = {}): DossierPrivacyReader | undefined {
+  if (!(options.dossierPrivacyReading ?? dossierPrivacyReadingFromEnv())) return undefined;
+  return async (texts) => await configuredPlanner(options as RegisterToolsOptions).readDossierPrivacy?.(texts) ??
+    { status: "unavailable", reason: "off" };
+}
+
+/**
+ * AskRigor's conflict reading for an owner's show or a later admission of a dossier copy (Codex's third review, P1), on
+ * the research planner's own path with its own day's cap, each comparison within four calls' waits.
+ */
+export function dossierConflictReaderOf(options: Pick<RegisterToolsOptions, "researchPlanner" | "meaningJudge"> = {}):
+  DossierConflictReader {
+  return async (conflictRequest) => await deadlineConflictReader(
+    configuredPlanner(options as RegisterToolsOptions).readDossierConflicts,
+    Date.now() + 4 * DOSSIER_CONFLICT_READING_LIMITS.timeoutMs)(conflictRequest);
+}
+
+/**
+ * Enforcing HRP, stage 1: whether a call's answer gets the findings ledger (Fable's check of 17 Nov 2026): the ledger is
+ * on, and the account is one of the owner's development accounts or ASKRIGOR_FINDINGS_LEDGER_ACCOUNTS is "all". With
+ * it off, the account is not looked at.
+ */
+function findingsLedgerFor(options: RegisterToolsOptions, devAccount: () => boolean): boolean {
+  return (options.findingsLedger ?? findingsLedgerEnabledFromEnv()) &&
+    ((options.findingsLedgerAccounts ?? findingsLedgerAccountsFromEnv()) === "all" || devAccount());
 }
 
 /**
@@ -3326,11 +3666,12 @@ async function readSmallSearchWhole<Page extends { error?: unknown; pagination: 
   first: Page,
   firstPage: boolean,
   totalOf: (page: Page) => number | undefined,
-  searchAgain: (pageSize: number) => Promise<Page>
+  searchAgain: (pageSize: number) => Promise<Page>,
+  waitMs = WHOLE_SEARCH_WAIT_MS
 ): Promise<Page> {
   const total = totalOf(first);
   if (
-    !firstPage || first.error !== undefined || total === undefined ||
+    !firstPage || first.error !== undefined || total === undefined || waitMs <= 0 ||
     total > WHOLE_SEARCH_RECORDS || first.pagination.returned >= total
   ) {
     return first;
@@ -3339,7 +3680,7 @@ async function readSmallSearchWhole<Page extends { error?: unknown; pagination: 
   const whole = await Promise.race([
     searchAgain(WHOLE_SEARCH_RECORDS).catch(() => undefined),
     new Promise<undefined>((resolve) => {
-      timer = setTimeout(resolve, WHOLE_SEARCH_WAIT_MS, undefined);
+      timer = setTimeout(resolve, waitMs, undefined);
     })
   ]).finally(() => clearTimeout(timer));
   return whole !== undefined && whole.error === undefined && whole.pagination.returned > first.pagination.returned
@@ -3375,17 +3716,117 @@ export const EUROPE_PMC_OUTAGE_NOTE = " Europe PMC's search did not work (its si
   "sections needs Europe PMC, so try that later. If Europe PMC stays unavailable, say in the answer that it could not " +
   "be searched.";
 
+/** Whether a search failed on the provider's own side: not a refusal of the query itself (a 4xx) or of access. */
+function literatureOutage(
+  provider: "pubmed" | "europe_pmc",
+  error: { code: string; http_status?: number } | undefined
+): boolean {
+  return error !== undefined && (["upstream_unavailable", "response_invalid", "rate_limited", "unreachable"]
+    .some((kind) => error.code === `${provider}_${kind}`) ||
+    (error.code === `${provider}_request_failed` && error.http_status === undefined));
+}
+
 export function literatureOutageNote(
   provider: "pubmed" | "europe_pmc",
   error: { code: string; http_status?: number } | undefined
 ): string {
-  if (error === undefined) {
-    return "";
+  return !literatureOutage(provider, error) ? "" : provider === "pubmed" ? PUBMED_OUTAGE_NOTE : EUROPE_PMC_OUTAGE_NOTE;
+}
+
+/*
+ * The owner's test run of 24 Nov 2026 (09:52 UTC): Europe PMC answered none of three searches (europe_pmc_unreachable,
+ * 20 seconds each), one of them the only one that named seizures. Each result said to search PubMed with the same
+ * words; the AI didn't, and the answer didn't say so. So AskRigor now makes that PubMed search itself, when the query is
+ * written as both indexes read it (europePmcOnlySyntax) and is no later page of a Europe PMC search, and gives PubMed's
+ * records and receipt beside the failed envelope.
+ */
+/** What such a result says: that Europe PMC failed, what AskRigor did, and what was still not searched. */
+export const PUBMED_INSTEAD_NOTE = " Europe PMC's search did not work (its side, not this query), so AskRigor searched " +
+  "PubMed instead with the same query (and the same dates and page size, when given): pubmed_search_instead holds " +
+  "PubMed's own records, and this result's research_receipt is that PubMed search's, never a Europe PMC search's. " +
+  "PubMed reads the words its own way and holds citations, so what only Europe PMC has (preprints, its other sources " +
+  "and searches within full-text sections) was not searched: try Europe PMC again later. If it stays unavailable, say " +
+  "in the answer that Europe PMC could not be searched and PubMed was searched in its place.";
+/** Added when PubMed has more: its cursor is search_pubmed's, never a Europe PMC search's. */
+const PUBMED_INSTEAD_NEXT_PAGE = " PubMed has more records: for its next page, call search_pubmed with the same query, " +
+  "dates and page size and the next_cursor in pubmed_search_instead.";
+/**
+ * How long the second search is waited for in all, after Europe PMC's own 20 seconds at most, within the client's 60. Its
+ * requests are raced, not aborted: one already sent may finish, and is then not used.
+ */
+const PUBMED_INSTEAD_MS = 10_000;
+
+type PubmedSearchPage = Awaited<ReturnType<typeof searchPubmed>>;
+/** PubMed's own answer to a query Europe PMC didn't answer. */
+interface PubmedInstead {
+  result: PubmedSearchPage;
+  total: number | undefined;
+}
+
+/** PubMed's search of one query, by page size: search_pubmed's, and the second search's. */
+function pubmedSearch(query: string, dateRange: { start: string; end: string } | undefined, cursor?: string) {
+  return (pageSize: number | undefined): Promise<PubmedSearchPage> => searchPubmed({
+    query,
+    ...(dateRange === undefined ? {} : { dateRange }),
+    ...(pageSize === undefined ? {} : { pageSize: Math.min(pageSize, MAX_PUBMED_PAGE_SIZE) }),
+    ...(cursor === undefined ? {} : { cursor })
+  }, ncbiConfig());
+}
+
+const pubmedTotal = (page: { raw_metadata?: unknown }): number | undefined =>
+  (page.raw_metadata as { total_count?: number } | undefined)?.total_count;
+
+/** What a PubMed search's result says first. */
+function pubmedSearchText(result: PubmedSearchPage, total: number | undefined): string {
+  return `PubMed search returned ${result.pagination.returned} PMID record(s); access status ${result.access_status}.` +
+    smallLiteratureSearchNote(total) + literatureOutageNote("pubmed", result.error) + angleBracketDoiNote(result.data);
+}
+
+/**
+ * PubMed's search of a query Europe PMC didn't answer, made as search_pubmed makes it (a small search read whole) within
+ * PUBMED_INSTEAD_MS in all. Undefined when PubMed doesn't answer it in that time, for whatever reason: the result is then
+ * as it was.
+ */
+async function searchPubmedInstead(
+  query: string,
+  dateRange: { start: string; end: string } | undefined,
+  pageSize: number | undefined
+): Promise<PubmedInstead | undefined> {
+  const deadline = Date.now() + PUBMED_INSTEAD_MS;
+  try {
+    const search = pubmedSearch(query, dateRange);
+    const first = await withinDeadline(search(pageSize), PUBMED_INSTEAD_MS, undefined);
+    if (first === undefined || first.error !== undefined) return undefined;
+    const result = await readSmallSearchWhole(first, true, pubmedTotal, search, deadline - Date.now());
+    return { result, total: pubmedTotal(result) };
+  } catch {
+    return undefined;
   }
-  const providerSide = ["upstream_unavailable", "response_invalid", "rate_limited", "unreachable"]
-    .some((kind) => error.code === `${provider}_${kind}`) ||
-    (error.code === `${provider}_request_failed` && error.http_status === undefined);
-  return !providerSide ? "" : provider === "pubmed" ? PUBMED_OUTAGE_NOTE : EUROPE_PMC_OUTAGE_NOTE;
+}
+
+/**
+ * A failed Europe PMC search answered from PubMed: the failed envelope as it is, PubMed's beside it with its own
+ * receipt, and the note in the text and, for an app that hands its model only the structured content, there too. It
+ * isn't flagged as an error: an app may hand its model only part of an error's text (Claude Code, read in its build
+ * 2.1.328 on 24 Nov 2026, keeps about 10,000 characters of an error and none of its structured content), and what
+ * PubMed found would be cut with it.
+ */
+function europePmcFromPubmed(
+  failed: { pagination: { returned: number }; access_status: string },
+  query: string,
+  dateRange: { start: string; end: string } | undefined,
+  { result, total }: PubmedInstead,
+  actionCall: boolean
+): CallToolResult {
+  const receipt = literatureSearchReceipt("pubmed", query, result, total, dateRange);
+  const note = PUBMED_INSTEAD_NOTE + (result.pagination.next_cursor === undefined ? "" : PUBMED_INSTEAD_NEXT_PAGE);
+  return withResearchReceipt(successfulToolResult(
+    `Europe PMC search returned ${failed.pagination.returned} record(s); access status ${failed.access_status}.` +
+      `${note} ${pubmedSearchText(result, total)}`,
+    // The Custom GPT's Actions return no receipt (actions/research-routes.ts leaves out the result's own).
+    { ...failed, pubmed_search_instead: { note: note.trim(), ...result,
+      ...(receipt === undefined || actionCall ? {} : { research_receipt: receipt }) } }
+  ), receipt);
 }
 
 // Owner answer 283a (9 Nov 2026): the free all-journal index. A search past OpenAlex's free daily allowance comes back
@@ -4351,6 +4792,21 @@ const AskRigorSourceLineTexts: SourceLineTexts = {
       : abstractDocument(abstract, pubmedAbstractSections(record));
   }
 };
+// Atlas news (the 23 Nov 2026 news audit): a news card's DOI's PubMed record, read with the tools' own PubMed search (the
+// DOI in PubMed's own DOI field) and record fetch.
+const AskRigorNewsPubmed: NewsPubmedSource = {
+  async pmidsForDoi(doi) {
+    const result = await searchPubmed({ query: pubmedDoiQuery(doi), pageSize: NEWS_PUBMED_FALLBACK_RECORDS }, ncbiConfig());
+    return result.data.map(({ pmid }) => pmid);
+  },
+  async record(pmid) {
+    const result = await fetchPubmedRecord(pmid, ncbiConfig());
+    const record = result.data as PubmedRecord | undefined;
+    if (record?.pmid === undefined) return undefined;
+    return { pmid: record.pmid, doi: record.doi, title: record.title, abstract: record.abstract,
+      sections: pubmedAbstractSections(record) };
+  }
+};
 // Owner answer 249a: a study map's texts are the source lines', and its registry records are fetched again at check
 // time, by NCT number alone.
 const AskRigorStudyMapTexts: StudyMapTexts = {
@@ -4521,6 +4977,9 @@ function collectResearchOperations(
         throw new Error(`Incomplete research operation definition: ${name}`);
       }
       const annotations = Object.freeze({ ...config.annotations });
+      // Server fix 3 (17 Nov 2026): a larger result size for Claude Code, only while declarations are on.
+      const sizeMeta = resultSizeMeta(name, { declare: options.declareResultSizes ?? resultSizeDeclarationsFromEnv(),
+        gemini: options.mcpSurface === "/mcp/gemini" });
       const _meta = PRIVATE_MCP_OPERATION_NAMES.has(name)
         ? evidenceGapReviewSecurityMetadata()
         : PUBLIC_READ_OPERATION_NAMES.has(name)
@@ -4540,7 +4999,8 @@ function collectResearchOperations(
         : name === "get_youtube_video" || name === "get_youtube_comments" || name === "search_youtube_comments"
           ? publishedOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
         : name === "fetch_clinical_trial" ? publishedOutputSchema.extend(CLINICAL_TRIAL_REGISTRATION_OUTPUT_SHAPE)
-        : name === "search_europe_pmc" ? publishedOutputSchema.extend(ALL_JOURNALS_OUTPUT_SHAPE)
+        : name === "search_europe_pmc"
+          ? publishedOutputSchema.extend({ ...ALL_JOURNALS_OUTPUT_SHAPE, ...PUBMED_INSTEAD_OUTPUT_SHAPE })
           : name === STUDY_AUDIT_TOOL ? studyMethodAuditRuntimeOutputSchema
             : publishedOutputSchema;
       const outputSchema = openToolOutputSchema(runtimeOutputSchema, publishedOutputSchema);
@@ -4567,6 +5027,8 @@ function collectResearchOperations(
             service: options.researchContributorAccessService,
             resourceMetadataUrl: options.oauthResourceMetadataUrl,
             signIn: options.signIn,
+            // Gemini's compact tool list has no manage_research_access (gemini-tool-catalog.ts).
+            noticeElsewhere: options.mcpSurface === "/mcp/gemini",
           })
         : evolvingExecute;
       const mcpConfig = Object.freeze({
@@ -4574,7 +5036,7 @@ function collectResearchOperations(
         inputSchema: evolving.inputSchema,
         outputSchema,
         annotations,
-        _meta: Object.freeze({ ...config._meta, ..._meta }),
+        _meta: Object.freeze({ ...config._meta, ..._meta, ...sizeMeta }),
       });
       operations.push(Object.freeze({
         name,

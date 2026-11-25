@@ -1,5 +1,7 @@
 import {
   ATLAS_AI_READINGS_CALLER,
+  ATLAS_NAMED_VIDEO_LINK,
+  ATLAS_NAMED_VIDEOS_PER_FINDING,
   ATLAS_PUBLICATION_HOLD_REASONS,
   ATLAS_PUBLICATION_SCHEMA,
   ATLAS_PUBLICATION_SCHEMA_V2,
@@ -122,8 +124,9 @@ export function drawnFromYouTubeComments(finding: StoredFinding): boolean {
  * declares none (owner answer 191b); the finding's claim, certainty, applies_to, kind, subject, subject type, direction,
  * numbers block (the raw counts and follow-up; rates, NNT and NNH are worked out when the pages render), searches, source identifiers,
  * why_not_usual and what_would_change_it; its verified bases; the day the card was saved; and the AskRigor version from
- * its stamp. Never the ARF number, the account or contributor, the thread key, the answer quote, the surface, the
- * reported model, a YouTube video id or count. Every text is written without text-direction controls, which could show
+ * its stamp; and the watch pages of the videos the person named (owner answer 307b). Never the ARF number, the account
+ * or contributor, the thread key, the answer quote, the surface, the reported model, the id of a video AskRigor found, or
+ * a count of videos. Every text is written without text-direction controls, which could show
  * reversed characters as an address the contact-details check never sees (contact-check.ts). Undefined when the card has
  * no such finding or its fields do not make a publication.
  */
@@ -135,6 +138,15 @@ export function publishedFindingOf(record: FindingsRecord, findingNumber: number
   return parsed.success ? parsed.data : undefined;
 }
 
+/**
+ * The videos the person named that a stored finding is about, as the Atlas holds them (owner answer 307b): each watch
+ * page the save stored, once, and nothing else of a video.
+ */
+export function namedVideosOf(finding: Pick<StoredFinding, "named_videos">): string[] {
+  return [...new Set((finding.named_videos ?? []).filter((link) => ATLAS_NAMED_VIDEO_LINK.test(link)))]
+    .slice(0, ATLAS_NAMED_VIDEOS_PER_FINDING);
+}
+
 /** A finding's version 1 fields, unchecked: what publishedFindingOf reads, and what a version 3 builds on. */
 function publishedFieldsOf(record: FindingsRecord, findingNumber: number,
   ownerTopic?: NonNullable<AtlasPublishedFinding["topic"]>): AtlasPublishedFinding | undefined {
@@ -142,6 +154,7 @@ function publishedFieldsOf(record: FindingsRecord, findingNumber: number,
   if (!Number.isSafeInteger(findingNumber) || findingNumber < 1 || finding === undefined) return undefined;
   const topic = record.card.topic ?? ownerTopic;
   const plain = withoutDirectionControls;
+  const named = namedVideosOf(finding);
   return {
     schema: ATLAS_PUBLICATION_SCHEMA,
     topic: topic === undefined ? null : { key: topic.key, label: plain(topic.label) },
@@ -177,6 +190,8 @@ function publishedFieldsOf(record: FindingsRecord, findingNumber: number,
     askrigor_version: /^[0-9A-Za-z][0-9A-Za-z.+-]{0,39}$/u.test(record.stamp.askrigor_version)
       ? record.stamp.askrigor_version
       : "unknown",
+    // Owner answer 307b: the videos the person named, as the save stored their watch pages.
+    ...(named.length === 0 ? {} : { named_videos: named }),
     ...(callerMadeAiReadings(record) ? { ai_readings: ATLAS_AI_READINGS_CALLER } : {}),
   };
 }
@@ -334,6 +349,7 @@ export function canonicalResearchOf(finding: StoredFinding, numbers: readonly At
   const sources = finding.sources.filter((source) => !isYouTubeVideoId(source) && keys.has(sourceIdKey(source)));
   const research = researchBehindOf(finding, { sources, numbers: null });
   const own = (finding.numbers ?? []).map(({ source: _source, ...figure }) => figure);
+  const named = namedVideosOf(finding);
   const figureSources = own.length === numbers.length && own.every((figure, index) =>
     JSON.stringify(figure) === JSON.stringify(numbers[index]))
     ? (finding.numbers ?? []).map(({ source }) => source === undefined
@@ -345,6 +361,8 @@ export function canonicalResearchOf(finding: StoredFinding, numbers: readonly At
     ...(research?.source_reading === undefined ? {} : { source_reading: research.source_reading }),
     ...(figureSources.some((source) => source !== null) ? { figure_sources: figureSources } : {}),
     ...(research?.forum_signal === undefined ? {} : { forum_signal: research.forum_signal }),
+    // Owner answer 307b: the videos the person named, as the save stored their watch pages.
+    ...(named.length === 0 ? {} : { named_videos: named }),
     ...readings,
   });
   return parsed.success ? parsed.data : readings;
@@ -364,6 +382,8 @@ export function researchKeeping(research: AtlasResearch, keeps: (source: string)
     ...(reading.length === 0 ? {} : { source_reading: reading }),
     ...(figures.some((source) => source !== null) ? { figure_sources: figures } : {}),
     ...(research.forum_signal === undefined ? {} : { forum_signal: research.forum_signal }),
+    // Owner answer 307b: a named video is no source, so no dropped source takes it with it.
+    ...(research.named_videos === undefined ? {} : { named_videos: research.named_videos }),
     ...(research.ai_readings === undefined ? {} : { ai_readings: research.ai_readings }),
   };
   return Object.keys(kept).length === 0 ? undefined : kept;
@@ -563,6 +583,13 @@ export const QUICK_ANSWER_TEST_WAITING = "waiting for the quick-answer test (own
  * Owner answer 240a: what publishing makes is kept for AskRigor's research, off every list, until a separate AI's
  * quick-answer test shows it (docs/atlas-quick-answer-test.md), since the AI that did the research can't fairly judge
  * its own card. Held findings stay held, and a card the owner publishes shows at once.
+ *
+ * The owner, 17 Nov 2026 ("show all the findings automatically when they pass quality checks like this one, i
+ * shouldn't be reviewing everything"): with showOnPages (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS=enabled), a finding that
+ * passed the final check and the publication checks shows on the pages at once, unreviewed, labelled "Not checked by
+ * supervisors yet", and nothing is kept. What is held, left out or never published stays so: a finding whose text
+ * holds contact details, a card reference or a YouTube link is held, one drawn from YouTube comments is left out, and
+ * a paid private or earlier-notice card publishes nothing here (planCardPublication, cardPublicationProblems).
  */
 export class AtlasCardPublisher implements FindingsCardPublisher {
   private readonly now: () => Date;
@@ -572,6 +599,8 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
     now?: () => Date;
     /** The sources' titles and years for the pages; without it, a page shows each source's identifier alone. */
     sourceTitles?: AtlasSourceTitleLookup;
+    /** Show what the save publishes at once instead of keeping it for the quick-answer test (the owner, 17 Nov 2026). */
+    showOnPages?: boolean;
   }) {
     this.now = options.now ?? (() => new Date());
   }
@@ -602,16 +631,21 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
         sourceTitles: await cardSourceTitles(saved.record, this.options.sourceTitles),
       });
       if (plan.problems.length === 0 && plan.drafts.length > 0) {
+        // Codex's review of 17 Nov 2026, finding 4: what the save shows at once is stored as such (migration 0041), so
+        // its page says nothing of the quick-answer test whether the setting is on or later turned off.
+        const showing = this.options.showOnPages === true;
         const rows = await this.options.store.publish({
           cardNumber: saved.issueNumber,
           cardSha256: saved.record.card_sha256,
-          findings: plan.drafts,
+          findings: showing
+            ? plan.drafts.map((draft) => draft.state === "unreviewed" ? { ...draft, shownBy: "automatic_showing" as const } : draft)
+            : plan.drafts,
           publishedAt: this.now().toISOString(),
           revive: false,
         });
         const waiting = rows.filter(({ outcome, state }) => outcome === "published" && state === "unreviewed")
           .map(({ publicationNumber }) => publicationNumber);
-        if (waiting.length > 0) {
+        if (waiting.length > 0 && !showing) {
           await this.options.store.keep({ publicationNumbers: waiting, atlasNumbers: [], keep: true,
             reason: QUICK_ANSWER_TEST_WAITING, at: this.now().toISOString() });
         }
@@ -690,7 +724,8 @@ export async function reconcileCardPublications(input: {
       const target = decidedPublicationState(decision, intents);
       const draft = target === undefined ? undefined
         : decidedPublicationDraft(input.card!.record, decision.itemNumber, target);
-      return draft === undefined ? [] : [draft];
+      // The owner's decision publishes it: the owner's action (Codex's re-review of 17 Nov 2026, finding 4).
+      return draft === undefined ? [] : [{ ...draft, shownBy: "owner_action" as const }];
     });
     if (drafts.length > 0) {
       changed.push(...(await input.store.publish({

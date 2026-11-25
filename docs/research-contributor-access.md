@@ -18,7 +18,10 @@ AskRigor has two research-use modes:
   yet" until the owner reviews them. Signed-in people can vote and comment.
   Under notice v5 (owner answer 253a, 2026-11-05; built, not yet released), a
   card's summary of what communities reported also holds links to the forum
-  threads AskRigor read. This is the free product.
+  threads AskRigor read. Under notice v6 (owner answer 307b, 15 November 2026;
+  built, not yet released), a card may link a YouTube video that a person
+  named; videos AskRigor itself finds through YouTube's search stay out, and
+  cards still hold no YouTube comments. This is the free product.
 - **Paid private.** No research progress is submitted. Research findings and
   lesson feedback are saved only when the user accepts saving them for that
   answer. The answer's offer to save its findings ends with "Saved findings
@@ -33,29 +36,61 @@ usage itself is scientific evidence.
 
 ## Exact notice
 
-The version is `free-contributor-v5-2026-11-05` (owner answer 253a,
-2026-11-05; wording the owner chose, built, not yet released). The server returns
-the complete notice from `RESEARCH_USE_NOTICE`. Free mode activates only when
-all four versioned agreement fields are literal `true`. Silence, inferred
+The version is `free-contributor-v6-2026-11-15` (owner answer 307b,
+15 November 2026; wording the owner chose, built, not yet released). The server
+returns the complete notice from `RESEARCH_USE_NOTICE`. Free mode activates only
+when all four versioned agreement fields are literal `true`. Silence, inferred
 consent, a different notice version, or a partially checked agreement is rejected.
 
-Version 5 keeps every other sentence of v4 and changes the second sentence's
-community summary to:
+Version 6 keeps every other sentence of v5. Its second sentence now ends:
+
+> ... and links to the forum threads AskRigor read, never YouTube comments.
+
+and this sentence follows it:
+
+> A card may link a video that a person named.
+
+The decision behind it (owner answer 307b): a saved findings card and its page
+in the public Atlas may link a YouTube video that a person named themselves (the
+asker, someone reporting what worked for them, or AskRigor's owner); videos that
+AskRigor itself finds through YouTube's search stay out, as before; cards still
+hold no YouTube comments. The privacy page and terms say the same.
+
+Version 6 is material, since a card may publish a link it could not hold
+before; `RESEARCH_USE_NOTICE_CHANGES` declares it so (see below). An account
+that accepted v1 to v5 therefore inspects as `UNENROLLED`, and research tools
+refuse it with `RESEARCH_ACCESS_REQUIRED`, until it accepts v6; the owner's own
+login accepts v6 by the owner's standing instruction, as below. Migration
+`0036_research_use_notice_v6` widens the same constraint as 0011, 0016, 0020
+and 0028 to admit all six versions, safely on repeated runs. An image that reads
+only v1 to v5 fails the access check of an account whose row carries v6, so an
+image rollback below v6 first runs
+`infra/living-evidence-production/research-use-notice-v6-hold.sql`, which holds
+v6 rows in `research_use_notice_v6_hold` (migrator only) and marks the accounts
+revoked, so the person can accept v5 there;
+`research-use-notice-v6-restore.sql`, run once an image reading v6 serves again,
+restores each account still exactly in the held state. Neither script holds how
+the notice was accepted, so a restored account's way of acceptance reads as not
+recorded. The Docker acceptance is
+`npm run contributor-access:notice-v6-rollback-acceptance`.
+
+Version 5 (owner answer 253a, 2026-11-05) kept every other sentence of v4 and
+changed the second sentence's community summary to:
 
 > ... and what public online communities reported, summarized without their posts or names: the communities, counts of what people reported, and links to the forum threads AskRigor read, never YouTube comments or video IDs.
 
-The privacy page and terms say the same. A card saved for an account that
-accepted only v4 stores no thread link; one saved under v5, or a paid private
-user's yes to a save, stores each thread's link as the Atlas publishes it
-(`docs/superpowers/plans/2026-11-05-atlas-research-behind.md`).
+A card stores each thread's link as the Atlas publishes it
+(`docs/superpowers/plans/2026-11-05-atlas-research-behind.md`) for a free
+account whose yes covers the current notice, or on a paid private user's yes to
+a save; a card saved for an account still on an earlier notice stores none.
 
-An account that accepted v1 to v4 inspects as `UNENROLLED`, and research tools
-refuse it with `RESEARCH_ACCESS_REQUIRED`, until it accepts v5. Migration
+An account that accepted v1 to v4 inspected as `UNENROLLED`, and research tools
+refused it with `RESEARCH_ACCESS_REQUIRED`, until it accepted v5. Migration
 `0028_research_use_notice_v5` widens the same constraint as 0011, 0016 and 0020
 to admit all five versions, safely on repeated runs; it is renumbered when the
 Atlas stack next takes in main. An image that reads only v1 to v4 fails the
 access check of an account whose row carries v5, so an image rollback below v5
-first runs `infra/living-evidence-production/research-use-notice-v5-hold.sql`,
+also runs `infra/living-evidence-production/research-use-notice-v5-hold.sql`,
 which holds v5 rows in `research_use_notice_v5_hold` (migrator only) and marks
 the accounts revoked, so the person can accept v4 there;
 `research-use-notice-v5-restore.sql`, run once an image reading v5 serves again,
@@ -228,13 +263,22 @@ was released on 12 November:
   declaration, without which an allocation is not used: below), the tasks done, and optionally the
   plain answer's receipt. Each task gets a time range from its kind's
   planning estimate per source (`PLAN_TASK_MINUTES` in `apps/research-mcp/src/research-steering.ts`, measured on the
-  timing runs of 9 November 2026); tasks that could change the conclusion are recommended first, then those that could
-  change how sure it is, within the check-back allowance; detail alone is never recommended. Guided always asks;
-  balanced asks when the recommended tasks could take more than about 10 minutes (the high end of their range) or the
-  person's choices could steer the research, as they usually can unless the question is precise (owner answer 284, 10
-  November 2026), except that length alone is no reason to ask when the menu carries AskRigor's own mark that the
-  person's newest message told the AI to go on (owner answer 304a, 14 November 2026; "A follow-up that says to go
-  on", below); autonomous goes on, and after the allowance checks what it has and gives that answer, ending with the
+  timing runs of 9 November 2026). A task the person's own words asked for is marked `person_asked` by the planning
+  call, or by the AI writing the menu, and is always recommended, whatever its length. The remaining tasks that could
+  change the conclusion are recommended first, then those that could change how sure it is, within the check-back
+  allowance left; detail alone is otherwise never recommended. Guided always asks;
+  balanced asks when the person's choices could steer the research, as they usually can unless the question is precise
+  (owner answer 284, 10 November 2026). Since owner answer 399b (21 November 2026; built, not yet released) a research's
+  first menu (nothing carried, nothing done, not changed) no longer waits for its length: "drop the 10-minute stop for a
+  first question on the balanced style, for every account (it's everyone's default): the research goes on, opening
+  with how it read your question and how long it may take; the guided style still asks." Its go-ahead says why
+  (the shown-plan block) and has the AI write one line to the person before its first research call: how it read the
+  question, and that the research may take the recommended tasks' time with the final check and the answer. An app
+  that shows nothing the AI writes until the answer is its limit, and the line then opens the answer. Before, a menu
+  asked whenever the recommended tasks could take more than about 10 minutes (the high end of their range), unless it
+  carried AskRigor's own mark that the person's newest message told the AI to go on (owner answer 304a, 14 November
+  2026; "A follow-up that says to go on", below). A later menu (one carrying an allocation not yet the person's, say)
+  still asks past 10 minutes, whatever mark it carries; autonomous goes on, and after the allowance checks what it has and gives that answer, ending with the
   open tasks as a numbered menu and the question whether to spend more time on them; a person's allocation is followed,
   in their own minutes as given (only AskRigor's own estimates are rounded for the menu; 12 November 2026).
   An allocation that names no task on the menu still open counts as none, so the menu recommends and decides as if
@@ -314,8 +358,9 @@ was released on 12 November:
   the question itself fixes exactly what to look up, as with one result of one named study; and that every task on
   the menu is needed to answer is not by itself a reason for none, since the person may mean a different reading or
   comparison than the one the model picked. The placeholder left in is read as not given, exactly, so the call sent
-  back unchanged is handed back again and not planned. Guided and autonomous research, tasks past 10 minutes, the
-  person's declared allocation, a changed menu and a re-plan need no `steering_choice`, as they needed no judgment.
+  back unchanged is handed back again and not planned. Guided and autonomous research, the person's declared
+  allocation, a changed menu and a re-plan need no `steering_choice`, as they need no judgment; since owner answer 399b
+  a balanced first menu past 10 minutes does, since its length no longer asks on its own.
   When the menu asks and a question was named, whatever the reason for the ask, the result carries it as
   `researchMenu.steering_choice`; the reply the text hands over puts it to the person, in their language, in place
   of the general sentence on what their choices could change; `next_step` says to put it to them, right after "Ask
@@ -401,12 +446,67 @@ was released on 12 November:
   read the whole style and wrote it back, so the later write undid the other's change); the account's other switches
   each write only their own column.
 
+### Showing the plan and taking a steer (22 November 2026; built, not released)
+
+Part A of `docs/superpowers/plans/2026-11-22-steering-plan-shown.md` adds a first line on `inspect`, after the notice
+is accepted, in apps that show words between calls. It applies only if this inspect starts research on a question of theirs, as the AI judges. It says the AI is building the plan (about a minute with
+AskRigor's planning call, a few minutes for the AI's own first look), then will show whether it waits and how to
+change it. A planned account whose registration gets no usable plan says that its own first look needs a few
+minutes more. ChatGPT, detected by `isChatGptCall(extra)`, gets neither line; missing signals count as another app.
+
+A full research menu that goes on asks the AI to show its reading and the nearest reading left out, then numbered
+recommended tasks with rough minutes and reading depth, the total including the final check and answer, and a steer
+line saying why it started without waiting. The person's own go-ahead, autonomous style and an assumed answer each
+have their own line. ChatGPT instead opens with the reading and answer, and ends with the tasks done, open tasks
+and minutes, and how to redirect the next turn. Light look-ups and asides keep their short lines. An ask opens with
+its own reason: a needed answer, a changed plan, a later long step, the chosen guided style, or a choice about time.
+
+A steer goes in `later_inputs.researchMenu` as runtime-only `person_steered: true`, with the person's own words in
+`person_reason`; without non-empty words it is ignored. On a changed menu or re-plan without a named question, balanced and autonomous follow the revised recommendation,
+even past about 10 minutes. Guided asks until the person gives an allocation; an answered allocation goes on.
+A first menu keeps every existing reason to ask. False, null and absent steer declarations are silent.
+An unusable attempted steer is reported with its reason; only a changed menu or re-plan uses the opening
+saying the last message did not reach AskRigor as a change. The AI keeps the same target and plain-answer receipt for narrowing, widening or redirecting the
+same question, passes the last menu digest and finished task numbers, and marks requested tasks `person_asked`.
+It shows what finished tasks found, what changed and what remains, avoids repeating finished tasks, and keeps their
+receipts. A different thing requires a new plain-answer registration and an explanation of which finished work
+still applies. The steer instructions are in both text and `next_step`. Learn mode records no steered menu choice;
+it adds no storage of steering messages.
+
+A registration without an AskRigor plan gives `menu_outline`: the corrected-menu example, its signed receipt, one
+task with placeholders. Ordinary accounts keep their existing steering field and wording; dev outlines omit
+`steering_choice`, so no account is asked for it before its first menu. A dev account without an AskRigor plan
+can still have that first menu call returned for its steering judgment when the waiting decision needs it.
+The target is copied only through
+300 characters; longer targets use the existing placeholder. `heldVariants` still selects a result within the
+client byte limit. A handed-over research or light plan, or an aside, gets no outline.
+
+The dev planner rubric is `2026-11-22.3`: consider both sold and self-prepared forms, give the likely form its own
+task when strength, content or use differs much, and name the nearest form or reading left out. Owner answer 402a
+also includes the tradition's own sources and material differences for traditional, regional or folk concepts,
+claims, remedies, diagnoses or practices, including safety questions with no system named; safety and benefit
+evidence is matched to those claims and the actual preparation, with urgent work first. Every account's first
+screen loads HRP TraditionalSystemAccount and begins finding that account beside the studies, leaving full reading
+for research tasks. Owner answer 410b adds open options for health problems or goals: the screen and every
+structured framing next step load TraditionalSystemAccount/OptionsFromLivingTraditions and begin its bounded
+source search beside benefit and harm checks, immediately after the 402a guidance. Planner step 3 likewise plans
+living traditions' own accounts and benefit/harm checks matched to the actual preparations and populations.
+Explicit topic/source limits are honoured, excluded source work is omitted, confined treatment, diagnostic,
+administrative and lookup requests are not widened, and the search is not added during an emergency. Overlapping
+work is combined, only distinct questions split, and serious-risk tasks and existing task limits are preserved.
+Ask-first stops remain before the screen guidance. Part B is not built:
+ordinary accounts' steering judgment and form questions, guided approval and existing time checkpoints retain their
+decisions. No live steering acceptance is claimed; nothing here says steering has been proven to work.
+
 ### AskRigor's own planning call, on dev accounts (owner answer 298b, 13 November 2026)
 
 On a dev account, with the call switched on, AskRigor plans the research itself when the plain answer is registered:
 one Claude API call that first searches the web (at most two searches) for what the question refers to, then says
 what it is about, names the one question to put to the person before researching, or the word none, and lists two
-to five research tasks (`apps/research-mcp/src/research-planner.ts`). The owner, 13 November: "perhaps the research
+to five research tasks (`apps/research-mcp/src/research-planner.ts`). When a reply's plan ran no web search, the same
+request is sent once more with one fixed instruction to search first, while the call's time (at least 20 seconds
+left) and the day's cap allow; the plan that searched is used, otherwise the first one (21 November 2026, after round
+1 of the clean comparison, where three of five live plans ran none). The owner, 13 November: "perhaps the research
 plan should be tried directly as an api call rather than hope the AI can figure it out". Rounds 4 to 6 of the
 owner's ChatGPT runs had left that judgment to the person's AI, and it went wrong in a different place each round.
 
@@ -464,6 +564,39 @@ owner's ChatGPT runs had left that judgment to the person's AI, and it went wron
   (`fallbacks: "default"`); when the whole chain declines, the AI plans as before. The SDK's own logging and
   tracing are off for this client and the meaning judge's, whatever the environment says: at debug level the SDK
   logs requests and replies whole.
+- **When it asks (the owner's Inbox reply of 21 November 2026; rubric 2026-11-21.1; built, not yet released).** "i
+  turned off the menu because it was often asking for clarifdication where none was needed". The call names a
+  question only when the research needs the person's answer:
+  - a fact only they can give for a decision about one person or one thing (an unnamed medicine, a dose's units or
+    strength, who it is for, what they tried when they ask to leave it out), unless the safe answer is the same
+    either way;
+  - or two different things their words can mean, which its search couldn't settle, with no meaning clearly
+    likeliest and no one answer that can serve them.
+  Otherwise it writes none, says in `about` which reading it took, and gives any risky reading or situation (a
+  stronger form, another route, pregnancy, a child, a common medicine) a task of its own. A general question about
+  evidence gets no questions about the person: the plan covers the common situations. The balanced style's
+  10-minute stop, which on its own asked before 14 of the 15 replayed plans, went for a first menu by owner answer
+  399b (the research style, above).
+- **A test round's pause (owner answer 395b, 21 November 2026; built, not yet released).** To compare a dev
+  account's research with and without the call on the same day and build, a session pauses that account's own call
+  with the runtime-only action `pause_research_planner` and `later_inputs.pauseMinutes` (so the published tool list
+  is unchanged): whole minutes from now, 1 to 120, or 0 to end it. While it runs the account goes as with the call
+  off: `register_plain_answer` makes no call and hands on no plan, `inspect` asks for none of the person's words,
+  `plan_research` names no learn mode and keeps no menu answer, and the final check finds no plan's lane, so a light
+  look-up's draft is reviewed like any other. AskRigor's review of a draft still runs, from the research target alone
+  unless the AI passes the person's words. Starting a pause forgets what the hour kept of the account's plans and
+  lanes, and registrations are numbered in the order they begin, so no research registered during or after the pause
+  takes a plan made before it, even a final check waiting on a plan still being made; research registered before it
+  keeps its own plan, but not its light lane: a menu handed over before the pause goes as research while it runs. A paused registration costs nothing and counts nothing toward the account's calls for the day.
+  Learn mode's setting can still be changed. Set again while it runs, a pause keeps its start and ends at most two
+  hours after it. `inspect` says nothing of a pause: every AI calls it before research, so a "without" chat told of a
+  test would be a third condition (Fable's recheck, 21 Nov). The pause's own result gives its end
+  (`plannerPausedUntil`), the owner's account page says the call is paused and until when, and the call record
+  (`list_calls`) shows a plan's lane on each registration that was planned, so a round can prove each run's arm.
+  Only a dev account can pause, only its own call, and only while the call is on (`planner_off` otherwise). The pause
+  is kept in process memory only, under the account's 16-hex-character digest, until an hour after its end; a
+  restart ends every pause. A session turns it on only for a test round, and the person's own research in that window
+  goes without plans too.
 - **What it costs and keeps.** Paid from the owner's monthly Claude API credit
   (`governance/chat-work-authority-policy.json`, `OWNER_ANSWER_298B`). Measured on 13 November on the five test
   questions: 6 to 9 cents and 10 to 22 seconds a call with one or two searches. AskRigor stores nothing it sends or
@@ -583,7 +716,9 @@ answered `ask`, since balanced research asks first whenever the recommended task
 minutes. The option the owner chose in the Inbox on 14 November at 10:05 UTC: "when your latest message tells the AI
 to go on, continue or dig deeper, and the plan has no question for you, the research goes on with the recommended
 tasks without asking. The planning call judges whether your message says that. A first question still follows the
-10-minute rule. The cost: a follow-up can then run longer than 10 minutes before you hear back."
+10-minute rule. The cost: a follow-up can then run longer than 10 minutes before you hear back." Since owner answer
+399b (21 November 2026) no first menu on the balanced style waits for its length, so the mark no longer makes the
+difference there; it is still made and checked.
 
 - **The judgment is the planning call's.** When the AI passes on the person's words as a list of more than one
   message (`later_inputs.asked`), the planning call's bundle also carries the newest one as `latest_message`
@@ -602,10 +737,14 @@ tasks without asking. The planning call judges whether your message says that. A
   the registered research target is not asked about for its length alone: it goes on with the recommended tasks, the
   result says `went_on_as_asked`, and the go-ahead adds "AskRigor did not ask first, though these tasks could take
   more than about 10 minutes: its own plan read the person's latest message as telling you to go on." The
-  recommended tasks are those of any menu, within the account's check-back allowance.
+  recommended tasks are those of any menu, within the account's check-back allowance. Superseded by owner answer 399b
+  (21 November 2026): every balanced first menu goes on whatever its length (the shown-plan block), so the mark, which
+  comes only with a first menu, changes no decision, and `went_on_as_asked` is no longer given; the mark is still
+  made and checked.
 - **What still asks.** Guided research, as it asks before every long task; a plan that names a question; a menu
-  changed after the person saw it; a re-plan; and any menu without the mark, which is every menu the AI writes
-  itself and every menu of an account whose research AskRigor does not plan. A mark written by the AI, altered, or
+  changed after the person saw it; a re-plan; and, before owner answer 399b, any long menu without the mark, which is
+  every menu the AI writes itself and every menu of an account whose research AskRigor does not plan; since 399b a
+  balanced first menu goes on whatever its length, mark or no mark, and a later one past 10 minutes asks. A mark written by the AI, altered, or
   copied to another menu or another registration is not one, and is never an error: the menu is planned as if it
   carried none. A menu refused for another field goes back for correction with its mark.
 - **The plan cache.** Words that came as a list of more than one message are kept under a key that holds the newest
@@ -615,7 +754,7 @@ tasks without asking. The planning call judges whether your message says that. A
 - **What is new in what is sent or kept.** Nothing is kept. The person's newest message goes to the planning call a
   second time, by itself, beside the words it was already part of.
 
-#### What AskRigor already holds for a question (owner answer 306a, 14 November 2026; released the same day)
+#### What AskRigor already holds for a question (owner answer 306a, 14 November 2026; released the same day, and its wording fixed the same evening)
 
 The owner, 14 November 2026: "make sure if someone asks about peeling sweet potatoes it explains they should cut out
 any parts that turn dark after some seconds of air contact", "make sure someone asking for central sensitization type
@@ -666,7 +805,11 @@ it had been handed, and said why when asked: "Neither finding changes the peelin
 irrelevant to the specific question." The owner had asked for the opposite, so the wording above replaced it (#466):
 what counts is the question's subject, and a step aside with something held says itself where that goes
 (`asideGuidance` and `asideNextStep` with `held`). Three runs of a GPT model given the new result word for word
-(through Codex, no tools) each gave both findings after the peeling steps, as leads not reviewed by a person.
+(through Codex, no tools) each gave both findings after the peeling steps, as leads not reviewed by a person. Released
+at 22:36 UTC the same day; the owner's ChatGPT, asked the same question two minutes later, gave its peeling steps
+and then both findings under "AskRigor's Atlas also holds this", as AI-generated and not yet reviewed, each with the
+roots it applies to, its certainty and a link to its page. It did not turn them into the owner's own advice ("cut out
+any parts that turn dark"): a finding is given as what it found, and advice of the owner's is a pointer's to give.
 
 What is handed over shrinks to fit the size a client accepts (`MCP_RESULT_MAX_BYTES`): the last finding is dropped,
 one at a time, then the matched pointers are listed by id and subject only, then nothing is held; a research
@@ -684,9 +827,58 @@ rare topic was placed by its subject; a long research target with three long fin
 pointer ten times by word groups read apart (central with sensitive, neuroplastic with symptoms), which are
 phrases now.
 
-A pointer never goes on the Atlas: its pages take no video link (owner answers 170 and 171), and a pointer's link is
-one the owner gave, not data from a video platform's API. Nothing new is kept or sent: the research target is read in
+A pointer never went on the Atlas: its pages took no video link then (owner answers 170 and 171; since owner answer
+307b, below, a finding may link a video that a person named), and a pointer's link is one the owner gave, not data
+from a video platform's API. Nothing new is kept or sent: the research target is read in
 memory, against public findings and the pointers' word groups.
+
+#### A video that a person named (owner answer 307b, 15 November 2026; built, not yet released)
+
+The owner, 14 November 2026, in the Inbox: "the atlas can carry video links. youtube prohibits using what they supply
+via their api for building public metrics and whatnot i guess but this is not that." Then option b of question 307,
+chosen on 15 November: a saved findings card and its page in the Atlas may link a video that a person named, the
+notice says so (version 6, above), and an email tells YouTube. Until then a stored card and every Atlas page held no
+YouTube link (owner answers 170 and 171).
+
+- **The field.** A finding of the card's later shape may give `named_videos`: at most three links to the YouTube
+  videos it is about, each as the person gave it. A video is never a source: the finding still cites its studies or
+  forum threads.
+- **Tied to the person.** `register_plain_answer` reads `later_inputs.asked` on every account, and the plain-answer
+  receipt signs that words were passed on (`asked`) and the IDs of the videos those words link (`vids`). The words are
+  neither signed nor kept. At the final check a named video counts when the latest plain-answer receipt of this
+  account for the same research target signs its ID. A video read with `extract_youtube_video_claims` does not
+  count by itself: that reading shows the video was read, not who gave it. The finalization receipt signs the videos
+  that count (`nv`), by the finding's place.
+- **Stored** as the video's watch page (`https://www.youtube.com/watch?v=` and its ID) and nothing else of the video,
+  only when the receipt signed it, under the same consent as a forum thread's link: a free contributor whose yes
+  covers the current notice, or a paid private user's yes to the save. `stored_without` names
+  `named_video_links_as_given` when a stored link is not the link the card gave. The kept copy of a card that wasn't
+  saved never holds one.
+- **Published and shown.** The publication carries it and so does an accepted version's research, so acceptance and
+  revision keep it. The finding's page shows it under "The video this is about", as one fixed link
+  (`namedVideoAnchor`), the only YouTube link the pages' last check lets through. A registration hands it over with a
+  held finding (`askrigor_holds.atlas_findings[].named_videos`), with one more sentence in `how_to_use` only then.
+- **Notes, never steps.** A link that is not a video's address, a video the check cannot tie to the person, and a
+  linkable video that no finding links each add a note; the check's status is the same with and without
+  `named_videos`.
+- **Unchanged.** Every text the library and the Atlas keep still holds no YouTube link; a finding drawn from YouTube
+  comments is still held for the owner (owner answers 173 and 219b); the published tool lists; people's reports, whose
+  texts take no link.
+
+Codex wrote the tests (`tests/named-videos*.test.ts`) and they showed three defects, fixed before the commit: a
+video that a YouTube search of the research turned up and the tool then read passed as the person's when no words were
+passed on; a card whose links were stored in another form, or not all kept, read back as tampered with; and a
+link with a default port written out passed. Codex's review of the whole change then found five more, fixed the same
+way: a video read by the tool counted without proof that the person gave it (so only the person's own words count
+now); an older registration, or one for another target, could authorize a link; an empty `named_videos` made an
+intact card read as tampered with; a link written with an upper-case scheme was not read; and two docs still said
+the Atlas holds no video link. A sixth, a video named after the card was saved, is a stated limit.
+
+Limits: an app that passes on none of the person's words cannot link a video. A video named after the card was saved
+is not added to it: a later save of the same card from the same research is a duplicate and writes nothing (Codex's
+review of 15 November 2026, finding 4). The lookup tool's published output is fixed, so it gives the finding's page,
+which shows the link. An image
+from before this release cannot read a stored row that holds a link (`infra/living-evidence-production/README.md`).
 
 ### AskRigor's own review of a draft answer, on dev accounts (owner answer 301a, 13 November 2026)
 
@@ -831,6 +1023,51 @@ but skips the card save and reports "not saved: this dev account's card saving i
 turns the setting off before a run and on after it, and the release record shows both. The setting does not change
 paid-private saves or research-map and source-analysis contributions. This adds no connector tool; the catalog
 stays at 33.
+
+## Private research dossiers (AskRigor#477 stage 1; owner answer 329a, 16 November 2026; built, not yet released)
+
+Notice v6 covers a free contributor's research dossier, kept privately for the owner's review (owner answer 329a).
+With a passing final check, the AI may send `later_inputs.research_dossier`: the question in general terms, the topic
+and forms, the searches, the studies, their results, up to 30 conclusions, what was covered, what communities reported
+(counts only in this stage), open trails and its own statement that the research saves a later reader substantial work
+(`apps/research-mcp/src/findings/dossier.ts` has the exact shape and limits, which the owner said are starting values
+to revisit). The server saves it whole or not at all, after exact checks with no model: each study one paper the
+receipts confirm, entered once, and read by a receipt of this call (or held by a checked Atlas finding used here) before
+a result or conclusion rests on it, a search never standing in for reading it; each search matching its own receipt;
+counts, numbers needed to treat or harm and calculated figures adding up; references, coverage and forms; people's
+reports only from forum threads AskRigor's reader read in this research, kept as counts under the communities their
+receipts name; once YouTube comments were read, each conclusion says whether it draws on them, and one that does, or a
+card finding the same check held for them, refuses the dossier; and the dossier's privacy screen
+(`apps/research-mcp/src/findings/dossier-privacy.ts`) over every text, the ids and the topic key included: the findings
+card's screen, then the person's own voice, relatives, carers and places in English, French, Spanish, German,
+Portuguese and Italian, a first name about a particular person, a date of birth or where someone lives, contacts and
+links, and any word in a script it cannot read or that mixes scripts, after folding look-alike letters, invisible
+characters and capitals; an author before "et al." and patients' partners in a study's report pass. It refuses the
+whole dossier when in doubt, and still cannot prove that a text identifies no one, so the owner's review reads each one.
+A study's identifiers that receipts link through one another are one paper, and a conclusion that repeats a card finding
+the same check held apart for YouTube comments refuses the dossier. Whether the papers
+say what the dossier claims is stored as the AI's judgement (Codex's review of 16 November 2026 set the paper, forum,
+YouTube and privacy checks).
+
+`finalize_research`'s `research_dossier` says what happened: `saved` (an ARD number and version, read back by its
+digest), `duplicate`, `insufficient` (paths and rules, never values), `private`, `consent_blocked`, `not_sent` (the
+research did work a quick answer cannot do and sent none), `unconfirmed` (whenever the write may have landed) or
+`unavailable`; the answer ends with one line saying which. The AI is asked for the dossier before its first final check
+(Codex's red team of the instruction proposal, worded as it corrected it): `plan_research`, for a plan that goes on and
+is no light look-up, gives the request, the shape and the guards, in its text and in `research_dossier_request`; a check
+that is not ready yet reminds it; the card guidance says the dossier's own value test; HRP 20.6.43's
+`DeepResearchTimeSavingAtlasPreservation` says the same. Every ask goes by one rule (`researchDossierAllowed`: the
+store on, a free contributor whose yes covers notice v6, saving on, a call not marked off) and never follows a short
+look-up. What was left out for the owner is in `/home/joel/askrigor-releases/20261116-477/instruction-disagreements.md`.
+After a check that held card findings apart for YouTube comments, each conclusion also says which card finding it is,
+by its place, or none, and a held one refuses the dossier. `ASKRIGOR_DOSSIER_PRIVACY_READING=on` (off in the code's
+default; owner answer 334a releases it on, and the privacy page says so) adds a meaning-based privacy reading before
+storage on the research planner's API path (the infra README has its settings, limits and cost); with it on, a dossier
+is saved only after the reading passes it. Paid private accounts are not offered a dossier (owner answer 330a); a dev account with card saving off,
+and a call marked `findings_save` off, save none. Nothing is asked for or saved unless the server runs with
+`ASKRIGOR_RESEARCH_DOSSIERS=enabled`. Storage, roles, revocation, deletion with `forget_card` (the forgotten save's
+research thread only, never by a card number, which several people's saves share) and the rollback hazards are in
+`infra/living-evidence-production/README.md` (migration `0037_research_dossiers`).
 
 ## Identity boundary
 

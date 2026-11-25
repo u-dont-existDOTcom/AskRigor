@@ -3,9 +3,12 @@ import {
   PostgresAtlasPlacementStore,
   PostgresAtlasReportReviewStore,
   PostgresAtlasGlanceStore,
+  PostgresAtlasPersonClaimStore,
   PostgresAtlasPublicationStore,
   PostgresAtlasReader,
   PostgresAtlasReviewStore,
+  PostgresResearchDossierEraser,
+  PostgresResearchDossierPublicationReview,
 } from "@askrigor/evidence-repository";
 import { getProtocolManifest } from "@askrigor/protocol";
 
@@ -16,15 +19,18 @@ import {
   announcingGlanceStore,
   announcingPublicationStore,
   announcingReviewStore,
+  announcingDossierReview,
 } from "../atlas/change-signal.js";
 import { AtlasCardPublisher } from "../atlas/publication.js";
 import {
   askrigorBuildCommitFromEnv,
   atlasReviewEnabledFromEnv,
+  atlasShowSavedFindingsFromEnv,
   crossrefConfigFromEnv,
   findingsLibraryEnabledFromEnv,
   livingEvidenceReuseConfigFromEnv,
   ncbiConfigFromEnv,
+  publicDossiersEnabledFromEnv,
   researchContributionReviewConfigFromEnv,
   SERVICE_VERSION,
 } from "../config.js";
@@ -146,6 +152,8 @@ function createFindingsServiceFromEnv(): FindingsSaveService {
           store: announcingPublicationStore(publications),
           now,
           sourceTitles: atlasSourceTitleLookup({ crossref: crossrefConfigFromEnv(), pubmed: ncbiConfigFromEnv(), now }),
+          // The owner, 17 Nov 2026: what passed the checks shows on the pages at once, while the setting is on.
+          showOnPages: atlasShowSavedFindingsFromEnv(),
         }),
       }),
       // Owner answer 173: the findings a saved card leaves out are held for the owner's review, through the
@@ -232,6 +240,13 @@ export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): 
         schema: review.schema,
         ssl: review.ssl,
       })),
+      // Atlas Release B (Fable's recheck): the owner's notices on claims about named people, listed and acknowledged
+      // under his login, through the same role's notice functions.
+      personNotices: new PostgresAtlasPersonClaimStore({
+        connectionString: review.connectionString,
+        schema: review.schema,
+        ssl: review.ssl as never,
+      }),
       reader: new PostgresAtlasReader({
         connectionString: reader.connectionString,
         schema: reader.schema,
@@ -259,6 +274,20 @@ export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): 
       // Owner answer 173: the held YouTube findings, through the review role: listed on the card view, deleted early,
       // moved out of cards stored before, and deleted with a forgotten card.
       held: heldYouTubeFindingsStoresFromEnv(env).review,
+      // AskRigor#477 stage 1: forget_card erases the research thread's dossiers, through the same review role.
+      dossiers: new PostgresResearchDossierEraser({
+        connectionString: review.connectionString,
+        schema: review.schema,
+        ssl: review.ssl,
+      }),
+      // AskRigor#477 stage 2: the dossiers' public copies, through the same review role, while public dossiers are on.
+      ...(publicDossiersEnabledFromEnv(env.ASKRIGOR_PUBLIC_DOSSIERS) ? {
+        dossierPublications: announcingDossierReview(new PostgresResearchDossierPublicationReview({
+          connectionString: review.connectionString,
+          schema: review.schema,
+          ssl: review.ssl,
+        })),
+      } : {}),
       // publish_cards looks a card's sources up for their titles and years, with the call's provider settings.
       sourceTitles: (providers) => atlasSourceTitleLookup({ ...providers, now }),
     });

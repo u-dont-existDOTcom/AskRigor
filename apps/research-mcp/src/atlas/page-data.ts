@@ -7,6 +7,7 @@ import type {
   AtlasFindingDirection,
   AtlasFindingKind,
   AtlasLabel,
+  AtlasChallengeVerdict,
   AtlasPageChallenge,
   AtlasPageOwnComment,
   AtlasPageOwnVote,
@@ -18,10 +19,16 @@ import type {
   AtlasPageSource,
   AtlasPageSourceIdentifiers,
   AtlasPageSourceScheme,
+  AtlasGlanceRow,
+  AtlasPersonReading,
+  AtlasPersonRemoval,
+  AtlasPublicationRoute,
   AtlasPublishedFinding,
   AtlasSubjectType,
 } from "@askrigor/evidence-repository";
-import { ATLAS_OWN_COMMENTS_PER_PAGE, ATLAS_OWN_VOTES_PER_PAGE } from "@askrigor/evidence-repository";
+import {
+  ATLAS_NAMED_VIDEO_LINK,
+  ATLAS_NAMED_VIDEOS_PER_FINDING, ATLAS_OWN_COMMENTS_PER_PAGE, ATLAS_OWN_VOTES_PER_PAGE } from "@askrigor/evidence-repository";
 
 import { shownCommunity } from "../forum-thread-links.js";
 import { opensYouTube, passesPageGuard, rowPassesPageGuard } from "./page-guard.js";
@@ -30,10 +37,15 @@ import {
   foldAtlasSearchTexts,
   matchFoldedAtlasSearch,
   prepareAtlasSearch,
+  atlasSearchQuery,
   type AtlasSearchField,
   type AtlasSearchQuery,
   type AtlasSearchText,
 } from "./search.js";
+
+import { ATLAS_TOPIC_FAMILIES, atlasSearchFamily, atlasTopicFamily, type AtlasTopicFamily } from "./topic-families.js";
+import { applyPersonClaims, personKeptOutOfSearch, personReadingState, personSentencesOf, relevantRemovalNumbers,
+  type PersonClaimContext, type PersonClaimView } from "./person-claims.js";
 
 /**
  * What the public Atlas pages show (decision 171, section 4C; plan
@@ -183,6 +195,12 @@ export interface ShownFinding {
   /** Owner answer 252a: what people report, from its publication's version 3 fields; null when it gives none. */
   forumSignal: ShownForumSignal | null;
   /**
+   * Owner answer 307b: the YouTube videos the person named that the finding is about, each as its watch page: an
+   * unreviewed finding's from its publication, an accepted one's from its version's research or else its
+   * publication. The Atlas holds nothing else of a video.
+   */
+  namedVideos: string[];
+  /**
    * Owner answer 311a: "caller" when the app that sent the checking call made the final check's AI readings, as the
    * finalization receipt signed it and the card's stamp kept it: the page then says who did what. Null when AskRigor's
    * server made them, and for a finding whose research was erased.
@@ -193,6 +211,27 @@ export interface ShownFinding {
    * publication's challenge mark; null for none, or for a mark whose texts a page would refuse.
    */
   challenge: ShownChallenge | null;
+  /**
+   * Codex's review of 17 Nov 2026, finding 4, and its re-review: how it reached the pages, as its publication stores it
+   * (migration 0041): the owner's action, the quick-answer test, automatic showing, or null when not recorded. Its page
+   * says the quick-answer test happened only for quick_answer_test, or from a challenge mark's stored verdict.
+   */
+  shownBy: AtlasPublicationRoute | null;
+  /**
+   * Codex's third review of 17 Nov 2026, finding 2: the quick-answer test's verdict when its own showing showed it
+   * (shownBy quick_answer_test); null otherwise. The page says a quick AI answer misses it only for pass.
+   */
+  shownTestVerdict: AtlasChallengeVerdict | null;
+  /**
+   * Atlas Release B, while the mark is on: the reading's view of its sentences (atlas/person-claims.ts). Its texts
+   * above are then the pages' own, each unsupported claim about a named person with its mark before it.
+   */
+  personClaims?: PersonClaimView;
+  /**
+   * Atlas Release B, while the mark is on: the owner's own texts shown with it (its public change notes; a curated
+   * scorecard row's texts), read with it like its other texts (Codex's second review of B).
+   */
+  ownerTexts?: Array<{ path: string; text: string }>;
 }
 
 /** A finding's challenge mark as its pages show it: never who marked it. */
@@ -253,6 +292,8 @@ export interface AtlasTopicModel {
   topic: { key: string; label: string };
   sections: Array<{ id: TopicSectionId; heading: string; findings: ShownFinding[] }>;
   connections: Array<{ from: ShownRelated; to: ShownRelated; relation: AtlasPageFinding["links"][number]["relation"] }>;
+  /** A curated, cross-topic research collection: forms grouped without treating one isomer as another. */
+  family?: { intro: string; unfinishedResearch: string; groups: Array<{ key: string; heading: string; summary: string; findings: ShownFinding[] }> };
 }
 
 export interface AtlasFindingModel {
@@ -302,7 +343,9 @@ export interface AtlasFindingParticipationView {
   olderHref: string | null;
 }
 
-export type AtlasChangeEntryKind = "published" | AtlasPageChangeKind;
+/** Atlas Release B: a claim about a named person taken off, disputed or put back (the public history, design 4.6). */
+export type AtlasPersonChangeEntryKind = "person_taken_off" | "person_disputed" | "person_restored";
+export type AtlasChangeEntryKind = "published" | AtlasPageChangeKind | AtlasPersonChangeEntryKind;
 
 export interface AtlasChangeEntry {
   at: string;
@@ -438,6 +481,12 @@ async function relatedFindings(reads: AtlasPageReads, atlasNumbers: readonly str
   return related;
 }
 
+/** A finding's named videos as its page links them (owner answer 307b): each watch page once, and nothing else. */
+function shownNamedVideos(links: readonly string[] | undefined): string[] {
+  return [...new Set((links ?? []).filter((link) => ATLAS_NAMED_VIDEO_LINK.test(link)))]
+    .slice(0, ATLAS_NAMED_VIDEOS_PER_FINDING);
+}
+
 function fromPublished(publication: AtlasPagePublication, published: AtlasPublishedFinding): ShownFinding {
   const details = new Map((published.source_details ?? []).map(({ source, title, year }) => [source, { title, year }]));
   const shownSource = (source: string): ShownSource | null => {
@@ -493,6 +542,9 @@ function fromPublished(publication: AtlasPagePublication, published: AtlasPublis
     stateChangedAt: publication.stateChangedAt,
     kept: publication.kept,
     challenge: shownChallenge(publication),
+    shownBy: publication.shownBy,
+    shownTestVerdict: publication.shownTestVerdict,
+    namedVideos: shownNamedVideos(published.named_videos),
     ...researchBehind(published, shownSource),
     aiReadings: published.ai_readings ?? null,
   };
@@ -665,6 +717,9 @@ function fromCanonical(
     stateChangedAt: publication.stateChangedAt,
     kept: publication.kept,
     challenge: shownChallenge(publication),
+    shownBy: publication.shownBy,
+    shownTestVerdict: publication.shownTestVerdict,
+    namedVideos: shownNamedVideos(content.research?.named_videos ?? publication.published?.named_videos),
     // Owner answers 252a and 255a: an accepted or edited finding shows the research behind it from its own version, or
     // from its publication's fields; both are erased with its F number's wording.
     ...canonicalResearch(content, publication, sources, finding.sources),
@@ -725,14 +780,119 @@ function shownFindingOf(
   const shown = publication.state === "unreviewed"
     ? publication.published === null ? undefined : fromPublished(publication, publication.published)
     : canonicalShows(finding) ? fromCanonical(publication, finding, related) : undefined;
-  return shown === undefined || !rowPassesPageGuard(shown) ? undefined : shown;
+  // Owner answer 307b: its named videos are watch links of one exact form (shownNamedVideos), which the page writes
+  // as the one link the last check sets aside; every text of the row is read as before.
+  return shown === undefined || !rowPassesPageGuard({ ...shown, namedVideos: [] }) ? undefined : shown;
 }
 
-async function shownFindings(reads: AtlasPageReads, publications: readonly AtlasPagePublication[]): Promise<ShownFinding[]> {
+async function shownFindings(reads: AtlasPageReads, publications: readonly AtlasPagePublication[], raw = false):
+  Promise<ShownFinding[]> {
   const findings = await readFindings(reads, publications.flatMap(({ atlasNumber }) => atlasNumber === null ? [] : [atlasNumber]));
-  return publications.flatMap((publication) => {
-    const shown = shownFindingOf(publication, findings);
-    return shown === undefined ? [] : [shown];
+  const shown = publications.flatMap((publication) => {
+    const finding = shownFindingOf(publication, findings);
+    return finding === undefined ? [] : [finding];
+  });
+  // Atlas Release B, while the mark is on: a finding's public change notes are read with it, on every path alike.
+  if (reads.personClaims !== undefined) await withChangeNotes(reads, shown);
+  return raw ? shown : await markedFindings(reads, shown);
+}
+
+/** Where one public change note sits among a finding's owner texts: stable as more notes come. */
+export const changeNotePath = (change: { kind: string; decidedAt: string }) => `change.${change.kind}.${change.decidedAt}`;
+
+async function withChangeNotes(reads: AtlasPageReads, shown: ShownFinding[]): Promise<void> {
+  if (!shown.some(({ status }) => status.kind !== "unreviewed")) return;
+  const notes = new Map<string, Array<{ path: string; text: string }>>();
+  for (const change of [...await reads.listChanges(CHANGES_READ)].reverse()) {
+    if (change.kind === "withdrawn" || change.publicNote === null || !passesPageGuard(change.publicNote)) continue;
+    notes.set(change.atlasNumber, [...(notes.get(change.atlasNumber) ?? []),
+      { path: changeNotePath(change), text: change.publicNote }]);
+  }
+  for (const finding of shown) {
+    if (finding.status.kind === "unreviewed") continue;
+    const have = new Set((finding.ownerTexts ?? []).map(({ path }) => path));
+    const own = (notes.get(finding.status.atlasNumber) ?? []).filter(({ path }) => !have.has(path));
+    if (own.length > 0) finding.ownerTexts = [...(finding.ownerTexts ?? []), ...own.map((note) => ({ ...note }))];
+  }
+}
+
+/** One of the owner's curated scorecard rows as a subject the reading reads like a finding (Codex's second review). */
+export function glanceSubjectOf(row: AtlasGlanceRow): ShownFinding {
+  const at = row.shownAt ?? row.proposedAt;
+  const texts: Array<[string, string | null]> = [["what", row.what], ["result", row.result],
+    ["comparison", row.comparison], ["followUp", row.followUp], ["limits", row.limits]];
+  return {
+    publicationNumber: row.publicId, question: null, usualAnswer: null, links: {} as ShownFinding["links"],
+    status: { kind: "unreviewed" }, topic: null, claim: "", certainty: null, appliesTo: null, kind: null, subject: null,
+    subjectType: null, direction: null, numbers: [], searches: [], sources: [], whyNotUsual: null, whatWouldChangeIt: null,
+    verifiedBases: [], savedOn: at.slice(0, 10), researchCheckedOn: null, askrigorVersion: null, contested: [],
+    replacedBy: [], publishedAt: at, stateChangedAt: at, kept: false, research: [], forumSignal: null, namedVideos: [],
+    aiReadings: null, challenge: null, shownBy: null, shownTestVerdict: null,
+    ownerTexts: texts.flatMap(([path, text]) => text === null ? [] : [{ path: `glance.${path}`, text }]),
+  };
+}
+
+/**
+ * The owner's curated scorecard rows as the pages show them while the mark is on: each read like a finding first (not
+ * shown until it is), and an unverified claim about a person in one left out (no dispute form serves these rows).
+ */
+export async function markedGlanceRows(reads: AtlasPageReads, rows: readonly AtlasGlanceRow[]): Promise<AtlasGlanceRow[]> {
+  if (reads.personClaims === undefined || rows.length === 0) return [...rows];
+  const marked = new Map((await markedFindings(reads, rows.map(glanceSubjectOf),
+    { leaveOutUnverified: true, hideUnread: true })).map((subject) => [subject.publicationNumber, subject]));
+  return rows.flatMap((row) => {
+    const subject = marked.get(row.publicId);
+    if (subject === undefined) return [];
+    const text = (path: string) => subject.ownerTexts?.find((owner) => owner.path === `glance.${path}`)?.text;
+    const what = text("what");
+    const result = text("result");
+    const limits = text("limits");
+    const comparison = row.comparison === null ? null : text("comparison");
+    const followUp = row.followUp === null ? null : text("followUp");
+    if (what === undefined || result === undefined || limits === undefined || comparison === undefined ||
+      followUp === undefined) return [];
+    return [{ ...row, what, result, limits, comparison, followUp }];
+  });
+}
+
+/**
+ * Atlas Release B: every route's findings through the one function that builds their sentences' view
+ * (applyPersonClaims), in the page's own snapshot; unchanged while the mark is off. A finding first published after the
+ * mark was switched on and not yet read is left out (Fable's recheck, change 1).
+ */
+export async function markedFindings(reads: AtlasPageReads, shown: readonly ShownFinding[],
+  options: Pick<PersonClaimContext, "leaveOutUnverified" | "hideUnread"> = {}): Promise<ShownFinding[]> {
+  const person = reads.personClaims;
+  if (person === undefined || shown.length === 0) return [...shown];
+  // The same complete raw view on every path (Codex's third review of B): the direct page's findings carry their change
+  // notes too, as the worker's and the lists' do (the notes are attached once).
+  await withChangeNotes(reads, shown as ShownFinding[]);
+  const numbers = unique(shown.map(({ publicationNumber }) => publicationNumber));
+  const readings = new Map<string, AtlasPersonReading>();
+  const removals: AtlasPersonRemoval[] = [];
+  for (let start = 0; start < numbers.length; start += READ_CHUNK) {
+    const chunk = numbers.slice(start, start + READ_CHUNK);
+    for (const reading of await person.readReadings(chunk)) readings.set(reading.publicationNumber, reading);
+    removals.push(...await person.readRemovals(chunk));
+  }
+  // A sentence that repeats one taken off elsewhere stays off while that one is off.
+  const repeats = [...readings.values()].flatMap(({ sentences }) => sentences.flatMap(({ repeats: removal }) =>
+    removal === null ? [] : [removal]));
+  const known = new Set(removals.map(({ removalNumber }) => removalNumber));
+  if (repeats.some((removal) => !known.has(removal))) {
+    removals.push(...(await person.readRemovalsByNumber(unique(repeats))).filter(({ removalNumber }) => !known.has(removalNumber)));
+  }
+  const memory = await person.listTakenOffMemory();
+  const keys = unique(shown.flatMap((finding) => personSentencesOf(finding).map(({ key }) => key)));
+  const globalRemovals = keys.length === 0 ? [] : await person.readRemovalsBySentenceKeys(keys);
+  const unread = shown.some((finding) => personReadingState(finding, readings.get(finding.publicationNumber),
+    relevantRemovalNumbers(finding, memory)) === "unread");
+  const removedNames = unread ? await person.listRemovedNames() : [];
+  const now = new Date();
+  return shown.flatMap((finding) => {
+    const marked = applyPersonClaims(finding, { since: person.since, reading: readings.get(finding.publicationNumber),
+      removals, removedNames, now, memory, globalRemovals, ...options });
+    return marked === undefined ? [] : [marked];
   });
 }
 
@@ -823,9 +983,44 @@ async function contestedPairs(reads: AtlasPageReads): Promise<AtlasContestedPair
   return pairs;
 }
 
+/** Curated substance-family aliases are identity links, not a mechanism or effect inference. */
+function matchesFamilyTerm(texts: AtlasSearchText[], term: string): boolean {
+  const query = atlasSearchQuery(term).query;
+  return query !== null && matchFoldedAtlasSearch(prepareAtlasSearch(query), texts) !== undefined;
+}
+
+function inTopicFamily(texts: AtlasSearchText[], family: AtlasTopicFamily): boolean {
+  return family.aliases.some((term) => matchesFamilyTerm(texts, term));
+}
+
+async function loadAtlasTopicFamily(source: AtlasPageSource, family: AtlasTopicFamily): Promise<AtlasTopicModel | undefined> {
+  return source.read(async (reads) => {
+    const grouped = family.sections.map((section) =>
+      ({ key: section.key, heading: section.heading, summary: section.summary, findings: [] as ShownFinding[] }));
+    const seen = new Set<string>();
+    for await (const finding of allShown(reads)) {
+      if (seen.has(finding.publicationNumber)) continue;
+      const texts = foldAtlasSearchTexts(searchTextsOf(finding));
+      if (!inTopicFamily(texts, family)) continue;
+      seen.add(finding.publicationNumber);
+      const section = family.sections.find((candidate) => candidate.key !== "general" &&
+        candidate.aliases.some((term) => matchesFamilyTerm(texts, term))) ?? family.sections[0]!;
+      grouped[family.sections.indexOf(section)]!.findings.push(finding);
+    }
+    if (seen.size === 0) return undefined;
+    for (const group of grouped) group.findings.sort((left, right) =>
+      Number(left.status.kind === "unreviewed") - Number(right.status.kind === "unreviewed") ||
+      byStrength(left, right) || Date.parse(right.publishedAt) - Date.parse(left.publishedAt));
+    return { topic: { key: family.key, label: family.label }, sections: [], connections: [],
+      family: { intro: family.intro, unfinishedResearch: family.unfinishedResearch, groups: grouped } };
+  });
+}
+
 /** A topic page: the findings on the topic, by section; undefined when none shows. */
 export async function loadAtlasTopic(source: AtlasPageSource, topicKey: string, options: { includeKept?: boolean } = {}):
   Promise<AtlasTopicModel | undefined> {
+  const family = atlasTopicFamily(topicKey);
+  if (family !== undefined) return loadAtlasTopicFamily(source, family);
   return await source.read(async (reads) => {
     const shown = oncePerFinding(await shownFindings(reads,
       await reads.listPublications({ topicKey, limit: ATLAS_TOPIC_FINDINGS, includeKept: options.includeKept === true })))
@@ -883,12 +1078,13 @@ export interface AtlasTopicsModel {
 }
 
 /** Exhaust the public reader in bounded chunks in the same snapshot; never silently stop at its 500-row limit. */
-export async function* allShown(reads: AtlasPageReads, before?: string, includeKept = false): AsyncGenerator<ShownFinding> {
+export async function* allShown(reads: AtlasPageReads, before?: string, includeKept = false, raw = false):
+  AsyncGenerator<ShownFinding> {
   let cursor = before;
   for (;;) {
     const publications = await reads.listPublications({ limit: READ_CHUNK, includeKept,
       ...(cursor === undefined ? {} : { before: cursor }) });
-    for (const finding of await shownFindings(reads, publications)) yield finding;
+    for (const finding of await shownFindings(reads, publications, raw)) yield finding;
     if (publications.length < READ_CHUNK) return;
     const next = publications.at(-1)!.publicationNumber;
     if (next === cursor) throw new Error("ATLAS_PAGE_CURSOR_STALLED");
@@ -908,14 +1104,32 @@ export interface AtlasSitemapEntry {
  * no finding's text, is always listed.
  */
 export async function loadAtlasSitemap(source: AtlasPageSource): Promise<AtlasSitemapEntry[]> {
-  return await source.read(async (reads) => {
+  const { entries, personOn } = await source.read(async (reads) => {
     const reviewed: Array<ShownFinding & { status: Exclude<ShownStatus, { kind: "unreviewed" }> }> = [];
+    // Atlas Release B: a page kept out of search engines for a claim about a person is never listed, nor a topic page
+    // that shows one.
+    const outOfSearch = new Set<string>();
+    const noindexNumbers = new Set<string>();
     for await (const finding of allShown(reads)) {
+      if (finding.personClaims?.noindex === true) {
+        noindexNumbers.add(finding.publicationNumber);
+        if (finding.topic !== null) outOfSearch.add(finding.topic.key);
+        continue;
+      }
       if (finding.status.kind !== "unreviewed") reviewed.push(finding as typeof reviewed[number]);
     }
     const once = oncePerFinding(reviewed) as typeof reviewed;
     const entries: AtlasSitemapEntry[] = [{ path: "/atlas/topics", lastModified: null }];
-    if (once.length === 0) return entries;
+    const personOn = reads.personClaims !== undefined;
+    if (once.length === 0) return { entries, personOn };
+    // A finding's page also prints its card's other findings: one with a marked claim keeps it out (Codex, B).
+    const siblingOut = new Set<string>();
+    if (personOn && noindexNumbers.size > 0) {
+      for (let start = 0; start < once.length; start += READ_CHUNK) {
+        for (const { publicationNumber, siblingNumber } of await reads.listCardSiblings(once.slice(start, start + READ_CHUNK)
+          .map((finding) => finding.publicationNumber))) if (noindexNumbers.has(siblingNumber)) siblingOut.add(publicationNumber);
+      }
+    }
     const newest = once.reduce((day, { status }) => status.checkedOn > day ? status.checkedOn : day, "");
     entries.push({ path: "/atlas", lastModified: newest }, { path: "/atlas/changes", lastModified: newest });
     const topics = new Map<string, string>();
@@ -925,13 +1139,26 @@ export async function loadAtlasSitemap(source: AtlasPageSource): Promise<AtlasSi
       if (finding.status.checkedOn > day) topics.set(finding.topic.key, finding.status.checkedOn);
     }
     for (const [key, day] of [...topics].sort(([left], [right]) => left.localeCompare(right))) {
-      entries.push({ path: `/atlas/topics/${key}`, lastModified: day });
+      if (!outOfSearch.has(key)) entries.push({ path: `/atlas/topics/${key}`, lastModified: day });
     }
     for (const finding of once.sort((left, right) => numberOf(left.publicationNumber) - numberOf(right.publicationNumber))) {
+      if (siblingOut.has(finding.publicationNumber)) continue;
       entries.push({ path: `/atlas/findings/${finding.publicationNumber}`, lastModified: finding.status.checkedOn });
     }
-    return entries;
+    return { entries, personOn };
   });
+  if (!personOn) return entries;
+  const home = await loadAtlasHome(source);
+  const changes = await loadAtlasChanges(source);
+  const out = new Set<string>();
+  if (personKeptOutOfSearch([...home.picks.map(({ finding }) => finding), ...home.strongestChecked,
+    ...home.recentlyPublished, ...home.recentlyChecked, ...home.contested.flatMap(({ findings }) => findings)])) {
+    out.add("/atlas");
+  }
+  if (personKeptOutOfSearch(changes.entries.flatMap(({ finding }) => finding === null ? [] : [finding]))) {
+    out.add("/atlas/changes");
+  }
+  return entries.filter(({ path }) => !out.has(path));
 }
 
 /** Every shown publication, including leads and earlier findings; filters never use private or stale card wording. */
@@ -1029,7 +1256,7 @@ export function searchTextsOf(finding: ShownFinding): AtlasSearchText[] {
 
 /** The deepest results page a search answers: the first 2,000 matches are listed, and a narrower search finds the rest. */
 export const ATLAS_SEARCH_MAX_PAGE = 100;
-export interface AtlasSearchResult { finding: ShownFinding; foundIn: AtlasSearchField[] }
+export interface AtlasSearchResult { finding: ShownFinding; foundIn: AtlasSearchField[]; relatedForm?: boolean }
 export interface AtlasSearchModel {
   results: AtlasSearchResult[];
   /** How many findings match in all. */
@@ -1077,20 +1304,34 @@ export function searchAtlasIndex(index: AtlasSearchIndex, options: {
 }): AtlasSearchModel {
   const page = searchPageOf(options.page);
   const search = prepareAtlasSearch(options.search);
+  const family = options.topicKey === undefined ? atlasSearchFamily(options.search.text) : undefined;
   const reach = page * ATLAS_FINDINGS_PER_PAGE;
   const groups: AtlasSearchResult[][] = Array.from({ length: 8 }, () => []);
+  const related: AtlasSearchResult[] = [];
   let total = 0;
   for (const { finding, texts } of index.entries) {
     if (options.topicKey !== undefined && finding.topic?.key !== options.topicKey) continue;
     const match = matchFoldedAtlasSearch(search, texts);
-    if (match === undefined) continue;
-    total += 1;
-    groups[match.rank * 2 + (match.asTyped ? 0 : 1)]!.push({ finding, foundIn: match.foundIn });
+    if (match !== undefined) {
+      total += 1;
+      groups[match.rank * 2 + (match.asTyped ? 0 : 1)]!.push({ finding, foundIn: match.foundIn });
+    } else if (family !== undefined) {
+      // The umbrella term "inositol" also finds chemically related IP6 / phytate records. Specific searches such as
+      // "IP6" are not broadened to other forms, and related matches follow all literal matches.
+      const alias = family.aliases.map((term) => atlasSearchQuery(term).query)
+        .filter((query): query is AtlasSearchQuery => query !== null)
+        .map((query) => matchFoldedAtlasSearch(prepareAtlasSearch(query), texts))
+        .find((candidate) => candidate !== undefined);
+      if (alias !== undefined) {
+        total += 1;
+        related.push({ finding, foundIn: alias.foundIn, relatedForm: true });
+      }
+    }
   }
-  // Within a group of equal matches, the stronger claims first (strength.ts), then the newest, as the index holds them.
   for (const group of groups) group.sort((left, right) => byStrength(left.finding, right.finding));
+  related.sort((left, right) => byStrength(left.finding, right.finding));
   return {
-    results: groups.flat().slice(reach - ATLAS_FINDINGS_PER_PAGE, reach),
+    results: [...groups.flat(), ...related].slice(reach - ATLAS_FINDINGS_PER_PAGE, reach),
     total,
     page,
     pages: Math.min(ATLAS_SEARCH_MAX_PAGE, Math.max(1, Math.ceil(total / ATLAS_FINDINGS_PER_PAGE))),
@@ -1108,16 +1349,30 @@ export async function loadAtlasSearch(source: AtlasPageSource, options: {
 export async function loadAtlasTopics(source: AtlasPageSource): Promise<AtlasTopicsModel> {
   return await source.read(async (reads) => {
     const topics = new Map<string, AtlasTopicsModel["topics"][number]>();
+    const familyCounts = new Map<string, number>(ATLAS_TOPIC_FAMILIES.map((family) => [family.key, 0]));
     let withoutTopic = 0;
     for await (const finding of allShown(reads)) {
-      if (finding.topic === null) { withoutTopic += 1; continue; }
-      const topic = topics.get(finding.topic.key);
-      if (topic === undefined) topics.set(finding.topic.key, { ...finding.topic, count: 1 });
-      else {
-        topic.count += 1;
-        // As on the topic page, prefer the canonical topic label over a card's earlier spelling.
-        if (finding.status.kind !== "unreviewed") topic.label = finding.topic.label;
+      // Ordinary topic lists retain their prior visibility policy; a curated family can also show research-only
+      // findings with their explicit "kept" / unreviewed labels and direct links.
+      if (!finding.kept) {
+        if (finding.topic === null) withoutTopic += 1;
+        else {
+          const topic = topics.get(finding.topic.key);
+          if (topic === undefined) topics.set(finding.topic.key, { ...finding.topic, count: 1 });
+          else {
+            topic.count += 1;
+            if (finding.status.kind !== "unreviewed") topic.label = finding.topic.label;
+          }
+        }
       }
+      const texts = foldAtlasSearchTexts(searchTextsOf(finding));
+      for (const family of ATLAS_TOPIC_FAMILIES) {
+        if (inTopicFamily(texts, family)) familyCounts.set(family.key, (familyCounts.get(family.key) ?? 0) + 1);
+      }
+    }
+    for (const family of ATLAS_TOPIC_FAMILIES) {
+      const count = familyCounts.get(family.key) ?? 0;
+      if (count > 0) topics.set(family.key, { key: family.key, label: family.label, count });
     }
     return { topics: [...topics.values()].sort((a, b) => a.label.localeCompare(b.label, "en") || a.key.localeCompare(b.key)),
       withoutTopic };
@@ -1260,7 +1515,9 @@ export async function loadAtlasFinding(
     const partners = finding === undefined ? []
       : [...finding.contradicts.map(({ atlasNumber }) => atlasNumber), ...finding.replacedBy];
     const related = await relatedFindings(reads, partners);
-    const shown = shownFindingOf(publication, findings, related);
+    const unmarked = shownFindingOf(publication, findings, related);
+    if (unmarked === undefined) return undefined;
+    const [shown] = await markedFindings(reads, [unmarked]);
     if (shown === undefined) return undefined;
     const siblingNumbers = (await reads.listCardSiblings([publicationNumber])).map(({ siblingNumber }) => siblingNumber);
     const siblings = siblingNumbers.length === 0 ? []
@@ -1318,6 +1575,11 @@ export async function loadAtlasChanges(source: AtlasPageSource): Promise<AtlasCh
       .map((publication) => [publication.publicationNumber, publication])).values()];
     const shown = new Map((await shownFindings(reads, publications))
       .map((finding) => [finding.publicationNumber, finding]));
+    // Atlas Release B, while the mark is on: a note shows only as its finding's reading shows it (Codex's second review).
+    const personOn = reads.personClaims !== undefined;
+    const noteOf = (finding: ShownFinding | null, change: { kind: string; decidedAt: string; publicNote: string | null }) =>
+      !personOn ? change.publicNote : finding === null || change.publicNote === null ? null
+        : finding.ownerTexts?.find(({ path }) => path === changeNotePath(change))?.text ?? null;
     const byAtlasNumber = new Map<string, ShownFinding>();
     for (const publication of [...changedPublications].sort(byPublicationNumber)) {
       const finding = shown.get(publication.publicationNumber);
@@ -1348,7 +1610,7 @@ export async function loadAtlasChanges(source: AtlasPageSource): Promise<AtlasCh
         if (onPages.has(change.atlasNumber)) {
           entries.push({
             at: change.decidedAt, kind: "withdrawn", atlasNumber: change.atlasNumber, finding: null,
-            labelBefore: change.labelBefore, labelAfter: change.labelAfter, note: change.publicNote,
+            labelBefore: change.labelBefore, labelAfter: change.labelAfter, note: noteOf(null, change),
           });
         }
         continue;
@@ -1357,8 +1619,25 @@ export async function loadAtlasChanges(source: AtlasPageSource): Promise<AtlasCh
       if (finding === undefined) continue;
       entries.push({
         at: change.decidedAt, kind: change.kind, atlasNumber: change.atlasNumber, finding,
-        labelBefore: change.labelBefore, labelAfter: change.labelAfter, note: change.publicNote,
+        labelBefore: change.labelBefore, labelAfter: change.labelAfter, note: noteOf(finding, change),
       });
+    }
+    // Atlas Release B: each claim about a named person taken off, disputed or put back, in fixed words (design 4.6).
+    if (reads.personClaims !== undefined) {
+      const personChanges = (await reads.personClaims.listPersonChanges(ATLAS_CHANGE_ENTRIES))
+        .filter(({ subjectKind }) => subjectKind === "publication");
+      const missing = unique(personChanges.map(({ publicationNumber }) => publicationNumber)).filter((number) => !shown.has(number));
+      for (let start = 0; start < missing.length; start += READ_CHUNK) {
+        const more = await reads.listPublications({ publicationNumbers: missing.slice(start, start + READ_CHUNK),
+          limit: READ_CHUNK });
+        for (const finding of await shownFindings(reads, more)) shown.set(finding.publicationNumber, finding);
+      }
+      for (const change of personChanges) {
+        const finding = shown.get(change.publicationNumber);
+        if (finding === undefined) continue;
+        entries.push({ at: change.changedAt, kind: `person_${change.state}`, finding, labelBefore: null, labelAfter: null,
+          atlasNumber: finding.status.kind === "unreviewed" ? null : finding.status.atlasNumber, note: null });
+      }
     }
     entries.sort((left, right) => Date.parse(right.at) - Date.parse(left.at));
     return { entries: entries.slice(0, ATLAS_CHANGE_ENTRIES) };

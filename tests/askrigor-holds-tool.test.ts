@@ -73,10 +73,10 @@ describe("what registration hands over from AskRigor", () => {
     const receiptText = `research_receipt: ${structured.research_receipt}`;
     const blocks = texts(result);
     const at = blocks.indexOf(receiptText);
-    expect(at).toBe(2);
+    expect(at).toBe(3);
     expect(blocks[at + 1]).toBe(heldText(held));
     expect(blocks[at + 2]).toBe(FINALIZE_REMINDER);
-    expect(structured.next_step).toBe(`${framingNextStep(account.steering, undefined)} ${HELD_NEXT_STEP}`);
+    expect(structured.next_step).toBe(`${framingNextStep(account.steering, undefined)} ${HELD_NEXT_STEP} Fill in menu_outline for your plan_research call.`);
     expect(verifyResearchReceipt(structured.research_receipt!, receiptOptions)).toMatchObject({ ok: true, kind: "plain_answer" });
   });
 
@@ -87,8 +87,8 @@ describe("what registration hands over from AskRigor", () => {
     expect(result.isError).not.toBe(true);
     const others = (await heldFor({ pointers: () => OWNER_POINTERS }, "How long do I boil an egg?"))!;
     expect(data(result).askrigor_holds).toEqual(others);
-    expect(texts(result)[3]).toBe(heldText(others));
-    expect(data(result).next_step).toBe(framingNextStep(account.steering, undefined));
+    expect(texts(result)[4]).toBe(heldText(others));
+    expect(data(result).next_step).toBe(`${framingNextStep(account.steering, undefined)} Fill in menu_outline for your plan_research call.`);
     expect(data(result).next_step).not.toContain(HELD_NEXT_STEP);
   });
 
@@ -99,11 +99,12 @@ describe("what registration hands over from AskRigor", () => {
     expect(data(result)).not.toHaveProperty("askrigor_holds");
     expect(texts(result)).toEqual([
       framingGuidance(account.steering, undefined),
+      "Fill in menu_outline for your plan_research call.",
       expect.stringContaining("Plain answer registered: 1 claim, signed with the time."),
       `research_receipt: ${data(result).research_receipt}`,
       FINALIZE_REMINDER,
     ]);
-    expect(data(result).next_step).toBe(framingNextStep(account.steering, undefined));
+    expect(data(result).next_step).toBe(`${framingNextStep(account.steering, undefined)} Fill in menu_outline for your plan_research call.`);
     const empty = await fixture({ atlas: async () => [], pointers: () => [] });
     const withoutMatches = await empty.call({ action: "register_plain_answer", plainAnswer: PLAIN });
     expect(withoutMatches).toEqual(result);
@@ -119,7 +120,7 @@ describe("what registration hands over from AskRigor", () => {
       owner_pointers: held.owner_pointers, other_owner_pointers: held.other_owner_pointers,
     } });
     expect(data(result).askrigor_holds).not.toHaveProperty("atlas_findings");
-    expect(data(result).next_step?.endsWith(HELD_NEXT_STEP)).toBe(true);
+    expect(data(result).next_step).toContain(`${HELD_NEXT_STEP} Fill in menu_outline for your plan_research call.`);
     expect(verifyResearchReceipt(data(result).research_receipt!, receiptOptions).ok).toBe(true);
     expect(JSON.stringify(result)).not.toContain("synthetic private atlas failure");
   });

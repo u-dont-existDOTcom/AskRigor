@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
@@ -34,6 +35,17 @@ const ATLAS_REPORT_REVIEW_FUNCTIONS = ["inspect_atlas_reports", "decide_atlas_re
 const ATLAS_GLANCE_FUNCTIONS = ["propose_atlas_glance_row", "set_atlas_glance_row_state", "inspect_atlas_glance_rows"];
 // The owner, 6 Nov: migration 0030's two functions for findings that challenge the usual view, for the review role.
 const ATLAS_CHALLENGE_FUNCTIONS = ["mark_atlas_challenges", "inspect_atlas_challenges"];
+// Atlas news, stage 1 (migration 0043): the review role's three news functions.
+const ATLAS_NEWS_REVIEW_FUNCTIONS = ["commit_atlas_news_day", "withdraw_atlas_news_items", "inspect_atlas_news"];
+// Codex's third review of 17 Nov 2026, finding 2: migration 0041's showing that records how, for the review role.
+const ATLAS_SHOW_FUNCTIONS = ["show_atlas_publications"];
+// Atlas Release B (migration 0042): the person-claim readings, disputes, decisions, spend and the 90-day purge of
+// dispute texts that the privacy notice promises.
+const ATLAS_PERSON_FUNCTIONS = ["save_atlas_person_reading", "fail_atlas_person_reading", "reserve_atlas_person_spend",
+  "settle_atlas_person_spend", "claim_atlas_person_reading", "submit_atlas_person_dispute", "decide_atlas_person_claim",
+  "list_atlas_person_queue", "take_atlas_person_hints", "ack_atlas_person_hint", "atlas_person_removed_texts_for",
+  "take_atlas_person_notices", "record_atlas_person_notice", "list_atlas_person_notices",
+  "list_atlas_person_unchecked_removals", "purge_atlas_person_disputes"];
 const ATLAS_PARTICIPATION_FUNCTIONS = [
   "inspect_atlas_participant", "set_atlas_display_name", "set_atlas_vote", "post_atlas_comment", "delete_atlas_comment",
   "report_atlas_comment", "end_atlas_sessions", "atlas_session_current", "forget_atlas_participant",
@@ -280,8 +292,11 @@ describe("production living-evidence deployment", () => {
     );
     // The three contribution functions, then migration 0017's five Atlas functions (Atlas phase 2), migration 0019's
     // six held YouTube findings functions (owner answer 173), migration 0021's six publication functions and migration
-    // 0022's five moderation functions (decision 171), and since then 0024's, 0025's, 0026's, 0027's and 0030's.
-    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(36);
+    // 0022's five moderation functions (decision 171), and since then 0024's, 0025's, 0026's, 0027's and 0030's,
+    // 0037's dossier erasure (AskRigor#477 stage 1), 0040's eleven dossier publication functions (stage 2), 0041's
+    // showing that records how, 0042's sixteen person-claim functions (Atlas Release B) and 0043's three news functions
+    // (Atlas news, stage 1).
+    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(68);
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failure_code text");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failed_at timestamptz");
     expect(migration).toContain("(status = 'FAILED' AND completed_at IS NULL");
@@ -393,6 +408,18 @@ describe("production living-evidence deployment", () => {
     expect(noticeV5.match(/research_use_accounts_free_notice_check/gu)).toHaveLength(4);
     expect(noticeV5).toContain("IF NOT EXISTS");
     expect(noticeV5).not.toMatch(/CREATE TABLE|GRANT|DELETE|UPDATE/iu);
+    // Owner answer 307b (a card may link a YouTube video that a person named): and now v1 to v6, under the same
+    // idempotence guard, with 0028 among the migrations every migrate applies again first.
+    const noticeV6 = await read("packages/evidence-repository/migrations/0036_research_use_notice_v6.sql");
+    expect(noticeV6).toContain(
+      "notice_version IN ('free-contributor-v1-2026-09-01', 'free-contributor-v2-2026-09-30', 'free-contributor-v3-2026-10-22', 'free-contributor-v4-2026-10-25', 'free-contributor-v5-2026-11-05', 'free-contributor-v6-2026-11-15')",
+    );
+    expect(noticeV6).toContain("pg_get_constraintdef(oid) NOT LIKE '%free-contributor-v6-2026-11-15%'");
+    expect(noticeV6.match(/research_use_accounts_free_notice_check/gu)).toHaveLength(4);
+    expect(noticeV6).toContain("IF NOT EXISTS");
+    expect(noticeV6).not.toMatch(/CREATE TABLE|GRANT|DELETE|UPDATE/iu);
+    expect(noticeV6).toContain("Every migrate applies 0011, 0016, 0020 and 0028 again first");
+    expect(noticeV6).toContain("Owner answer 307b (15 November 2026)");
     expect(await read("packages/evidence-repository/src/postgres.ts"))
       .toContain('"0015_research_detailed_lesson_reports",\n      "0016_research_use_notice_v3",\n      "0017_atlas_findings",\n');
     expect(provision).not.toMatch(
@@ -403,6 +430,56 @@ describe("production living-evidence deployment", () => {
     expect(provision).not.toContain("analysis_versions");
     expect(provision).not.toContain("frontier_contributions");
     expect(provision).not.toContain("set -x");
+  });
+
+  // Owner answer 307b (15 November 2026): notice version 6, for a rollback to an image that reads only v1 to v5.
+  it("ships the v6 hold/restore pair and its disposable PostgreSQL acceptance (owner answer 307b)", async () => {
+    const hold = await read("infra/living-evidence-production/research-use-notice-v6-hold.sql");
+    const restore = await read("infra/living-evidence-production/research-use-notice-v6-restore.sql");
+    expect(hold).toContain("CREATE TABLE IF NOT EXISTS research_use_notice_v6_hold");
+    expect(hold).toContain("REVOKE ALL ON TABLE research_use_notice_v6_hold FROM PUBLIC");
+    expect(hold).toContain("acl.grantee <> class.relowner");
+    expect(hold).toContain("ON CONFLICT (account_key) DO NOTHING");
+    expect(hold).toContain("WHERE notice_version = 'free-contributor-v6-2026-11-15'");
+    expect(hold).toContain("AND account.notice_version = 'free-contributor-v6-2026-11-15'");
+    expect(hold).toContain("GREATEST(now(), created_at, updated_at)");
+    expect(hold).toContain("SET status = 'REVOKED'");
+    expect(hold).not.toMatch(/DELETE FROM|UPDATE research_contribution_proposals|UPDATE atlas_/u);
+    for (const guard of [
+      "account.status = 'REVOKED'", "account.mode IS NULL", "account.notice_version IS NULL",
+      "account.revoked_at = hold.held_at", "account.updated_at = hold.held_at",
+    ]) expect(restore).toContain(guard);
+    expect(restore).toContain("DELETE FROM research_use_notice_v6_hold");
+    expect(restore).toContain("\\if :hold_exists");
+    // The statements are the v5 pair's with only the version changed, so what the v5 pair's Docker acceptance showed
+    // of them holds here too.
+    const statements = (sql: string) => sql.split("\n").filter((line) => !line.startsWith("--")).join("\n");
+    const asV6 = (sql: string) => statements(sql)
+      .replaceAll("free-contributor-v5-2026-11-05", "free-contributor-v6-2026-11-15")
+      .replaceAll("v5", "v6").replaceAll("v1 to v4", "v1 to v5");
+    const v5Hold = await read("infra/living-evidence-production/research-use-notice-v5-hold.sql");
+    const v5Restore = await read("infra/living-evidence-production/research-use-notice-v5-restore.sql");
+    expect(statements(hold)).toBe(asV6(v5Hold));
+    expect(statements(restore)).toBe(asV6(v5Restore));
+    // How the notice was accepted (migration 0031) is left to the account table's trigger: no statement of either
+    // script names the pair, the hold says so, and the acceptance checks that the hold clears it and the restore leaves
+    // it not recorded, for a person's yes and for the owner's standing instruction alike.
+    for (const script of [hold, restore]) expect(statements(script)).not.toMatch(/notice_accepted_(?:by|at)/u);
+    expect(hold).toContain("How the notice was accepted (notice_accepted_by and notice_accepted_at,");
+    expect(restore).toContain("a restored\n-- account's way of acceptance reads as not recorded.");
+    const runner = await read("scripts/run-research-use-notice-v6-rollback-acceptance.sh");
+    expect(runner).toContain("phase seed\nrun_sql \"$hold\"\nrun_sql \"$hold\"\nphase after-hold\nphase reenroll-v5\nrun_sql \"$restore\"\nrun_sql \"$restore\"\nphase after-restore");
+    const acceptance = await read("scripts/research-use-notice-v6-rollback-acceptance.mts");
+    expect(acceptance).toContain("[V1, V2, V3, V4, V5]");
+    expect(acceptance).toContain('const V6 = "free-contributor-v6-2026-11-15"');
+    expect(acceptance).toContain('const STANDING = "OWNER_STANDING_INSTRUCTION_2026_11_06"');
+    for (const check of ["NEWER_ROW_OVERWRITTEN", "NOT_RESTORED_EXACTLY", "HOLD_NOT_EMPTIED", "SETTINGS_CHANGED",
+      "HOLD_READABLE_BY_RUNTIME_ROLE", "HOLD_READABLE_BY_READER", "OTHER_TABLE_CHANGED_", "ACCEPTANCE_NOT_CLEARED",
+      "ACCEPTANCE_NOT_LEFT_UNRECORDED"]) {
+      expect(acceptance).toContain(check);
+    }
+    expect(await read("package.json")).toContain('"contributor-access:notice-v6-rollback-acceptance": "bash scripts/run-research-use-notice-v6-rollback-acceptance.sh"');
+    expect(await read("infra/living-evidence-production/README.md")).toContain("Undo no migration: 0036 stays");
   });
 
   it("ships the v5 hold/restore pair and its disposable PostgreSQL acceptance (owner answer 253a)", async () => {
@@ -500,7 +577,8 @@ describe("production living-evidence deployment", () => {
     // findings save switch (decision 171), 0024 the findings kept for research (owner answers 229a and 231a), 0025 the
     // placements under Health, 0026 people's reports (owner answer 229a), 0027 a problem's rows at a glance, 0028
     // notice version 5 (owner answer 253a), 0029 the research behind each finding (owner answers 254a and 255a) and
-    // 0030 the findings that challenge the usual view (the owner, 6 November 2026).
+    // 0030 the findings that challenge the usual view (the owner, 6 November 2026). After the account migrations 0031
+    // to 0035 comes 0036, notice version 6 (owner answer 307b).
     expect(repository).toContain(
       '"0016_research_use_notice_v3",\n      "0017_atlas_findings",\n      "0018_atlas_card_fields",\n      ' +
       '"0019_held_youtube_findings",\n      "0020_research_use_notice_v4",\n      "0021_atlas_publications",\n      ' +
@@ -508,7 +586,10 @@ describe("production living-evidence deployment", () => {
       '"0025_atlas_placements",\n      "0026_atlas_reports",\n      "0027_atlas_glance_rows",\n      ' +
       '"0028_research_use_notice_v5",\n      "0029_atlas_research_behind",\n      "0030_atlas_challenges",\n      ' +
       '"0031_research_notice_acceptance",\n      "0032_research_call_record",\n      "0033_research_steering",\n      ' +
-      '"0034_research_call_record_plan_next",\n      "0035_research_menu_learning",\n    ]');
+      '"0034_research_call_record_plan_next",\n      "0035_research_menu_learning",\n      ' +
+      '"0036_research_use_notice_v6",\n      "0037_research_dossiers",\n      ' +
+      '"0038_research_proposal_idempotency_index",\n      "0039_gemini_oauth_store",\n      "0040_research_dossier_publications",\n      ' +
+      '"0041_atlas_show_saved_findings",\n      "0042_atlas_person_readings",\n      "0043_atlas_news_items",\n    ]');
     // append_only_guard on exactly the eight canonical tables; the two private review tables are not among them.
     const guarded = migration.slice(migration.indexOf("FOREACH table_name IN ARRAY ARRAY["));
     expect([...guarded.slice(0, guarded.indexOf("] LOOP")).matchAll(/'([a-z_]+)'/gu)].map(([, table]) => table))
@@ -570,9 +651,11 @@ describe("production living-evidence deployment", () => {
     expect(granted.filter((name) => name!.includes("atlas")))
       .toEqual([...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
         ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS,
-        ...ATLAS_CHALLENGE_FUNCTIONS]);
-    // With the three contribution functions and migration 0019's six (owner answer 173).
-    expect(granted).toHaveLength(36);
+        ...ATLAS_CHALLENGE_FUNCTIONS, ...ATLAS_SHOW_FUNCTIONS, ...ATLAS_NEWS_REVIEW_FUNCTIONS, ...ATLAS_PERSON_FUNCTIONS]);
+    // With the three contribution functions, migration 0019's six (owner answer 173), 0037's dossier erasure, 0040's
+    // eleven dossier publication functions (AskRigor#477 stage 2), 0041's showing, 0042's sixteen person-claim
+    // functions (Atlas Release B) and 0043's three news functions.
+    expect(granted).toHaveLength(68);
     // Each grant names the function's exact signature, as the migration's REVOKE does.
     const signature = (text: string, prefix: string) => {
       const start = text.indexOf(prefix) + prefix.length;
@@ -852,10 +935,15 @@ describe("production living-evidence deployment", () => {
       expect(script).not.toContain("held_youtube_findings TO");
       expect(script).not.toMatch(/GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE|TRUNCATE|ALL)\s+ON\s+(?:TABLE\s+)?living_evidence\.held/iu);
     }
-    // With the pending-withdrawal function and migration 0022's nine participation functions (decision 171, 4E).
-    expect(granted(access)).toHaveLength(15);
+    // With the pending-withdrawal function, migration 0022's nine participation functions (decision 171, 4E),
+    // migration 0037's three dossier functions (AskRigor#477 stage 1), 0040's two (stage 2) and migration 0043's news
+    // staging.
+    expect(granted(access)).toHaveLength(21);
     expect(access).not.toContain("purge");
-    expect(review).not.toContain("purge");
+    // Owner answer 173: nothing purges the held YouTube findings. The one purge the review role holds is Release B's
+    // deletion of dispute texts after 90 days, which the privacy notice promises (migration 0042); it touches no held row.
+    expect(review.replaceAll("purge_atlas_person_disputes", "")).not.toContain("purge");
+    expect(await read("packages/evidence-repository/migrations/0042_atlas_person_readings.sql")).not.toMatch(/held/iu);
     // The release: migrate first, then both provisioning scripts, before the image serves.
     expect(runbook).toContain("Migration `0019_held_youtube_findings` adds");
     expect(runbook).toContain("re-run `/usr/local/bin/provision-research-access-role` and " +
@@ -876,12 +964,19 @@ describe("production living-evidence deployment", () => {
     // 0024, the findings kept for research (owner answers 229a and 231a), then 0025, the placements under Health, 0026,
     // people's reports (owner answer 229a), 0027, a problem's rows at a glance, 0028, notice version 5 (owner answer
     // 253a), 0029, the research behind each finding (owner answers 254a and 255a), and 0030, the findings that challenge
-    // the usual view (the owner, 6 November 2026).
-    expect(order.slice(-15)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
+    // the usual view (the owner, 6 November 2026). After the account migrations 0031 to 0035 comes 0036, notice
+    // version 6 (owner answer 307b), then 0037, the private research dossiers (AskRigor#477 stage 1), 0038, the index
+    // for the proposal lookup by idempotency key, 0039, Gemini's sign-in (owner answer 386b), 0040, the dossiers on the
+    // public Atlas (stage 2), 0041, how a publication reached the pages (Codex's review of 17 Nov 2026, finding 4), 0042,
+    // the person-claim readings (Atlas Release B), and last 0043, Atlas news in shadow (owner answer 397a).
+    expect(order.slice(-23)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
       "0023_research_findings_save_switch", "0024_atlas_kept_for_research", "0025_atlas_placements", "0026_atlas_reports",
       "0027_atlas_glance_rows", "0028_research_use_notice_v5", "0029_atlas_research_behind", "0030_atlas_challenges",
       "0031_research_notice_acceptance", "0032_research_call_record",
-      "0033_research_steering", "0034_research_call_record_plan_next", "0035_research_menu_learning"]);
+      "0033_research_steering", "0034_research_call_record_plan_next", "0035_research_menu_learning",
+      "0036_research_use_notice_v6", "0037_research_dossiers", "0038_research_proposal_idempotency_index",
+      "0039_gemini_oauth_store", "0040_research_dossier_publications", "0041_atlas_show_saved_findings",
+      "0042_atlas_person_readings", "0043_atlas_news_items"]);
     // One table and its sequence, safe to run again; the reason lists replaced on every run.
     expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS atlas_publication_number_seq AS bigint START WITH 1001");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS atlas_publications (");
@@ -969,8 +1064,10 @@ describe("production living-evidence deployment", () => {
       expect(review).not.toContain(helper);
       expect(access).not.toContain(helper);
     }
-    // With the pending-withdrawal function and migration 0019's hold of YouTube findings (owner answer 173).
-    expect(access.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(15);
+    // With the pending-withdrawal function, migration 0019's hold of YouTube findings (owner answer 173), migration
+    // 0037's three dossier functions (AskRigor#477 stage 1), 0040's two (stage 2) and migration 0043's news staging
+    // (Atlas news, stage 1).
+    expect(access.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(21);
     expect(access).not.toMatch(/GRANT[^;]*atlas_(?:participants|votes|comments|comment_reports|home_picks|session_ends)/u);
     // Writes happen only inside the functions; nothing outside them touches a table or grants a role.
     const outsideFunctions = migration.replace(/AS \$function\$[\s\S]*?\$function\$;/gu, "");
@@ -1053,10 +1150,14 @@ describe("production living-evidence deployment", () => {
     const review = await read("infra/living-evidence-production/provision-research-review-role.sh");
     const gaps = await read("infra/living-evidence-production/provision-evidence-gap-role.sh");
     const reader = await read("infra/living-evidence-production/init-reader.sh");
-    // Last in the migrate list, right after 0034.
+    // Right after 0034 in the migrate list; only 0036 (notice version 6, owner answer 307b), 0037, 0038, 0039, 0040, 0041,
+    // 0042 and 0043 follow it.
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
-    expect(order.slice(-2)).toEqual(["0034_research_call_record_plan_next", "0035_research_menu_learning"]);
+    expect(order.slice(-10)).toEqual(["0034_research_call_record_plan_next", "0035_research_menu_learning",
+      "0036_research_use_notice_v6", "0037_research_dossiers", "0038_research_proposal_idempotency_index",
+      "0039_gemini_oauth_store", "0040_research_dossier_publications", "0041_atlas_show_saved_findings",
+      "0042_atlas_person_readings", "0043_atlas_news_items"]);
     // Safe to run again: the columns, the table and the index come once, and every check is added by its name only
     // when it is missing.
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS learn_menu_choices boolean NOT NULL DEFAULT false");
@@ -1101,6 +1202,280 @@ describe("production living-evidence deployment", () => {
       expect(script).toContain("REVOKE ALL ON ALL TABLES IN SCHEMA living_evidence FROM");
       expect(script).not.toMatch(/research_menu_choices|learn_menu_choices|research_call_record/u);
     }
+  });
+
+  // AskRigor#477 stage 1 (owner answer 329a, 16 Nov 2026): the private research dossiers.
+  it("ships migration 0037's private research dossiers, additive, safe to run again, reached only through role functions", async () => {
+    const migration = await read("packages/evidence-repository/migrations/0037_research_dossiers.sql");
+    const repository = await read("packages/evidence-repository/src/postgres.ts");
+    const access = await read("infra/living-evidence-production/provision-research-access-role.sh");
+    const review = await read("infra/living-evidence-production/provision-research-review-role.sh");
+    const gaps = await read("infra/living-evidence-production/provision-evidence-gap-role.sh");
+    const runbook = await read("infra/living-evidence-production/README.md");
+    const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
+    const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
+    expect(order.slice(-7)).toEqual(["0037_research_dossiers", "0038_research_proposal_idempotency_index",
+      "0039_gemini_oauth_store", "0040_research_dossier_publications", "0041_atlas_show_saved_findings",
+      "0042_atlas_person_readings", "0043_atlas_news_items"]);
+    // Additive: new objects only, each made once; nothing existing is dropped or altered but one trigger it owns.
+    expect(migration).not.toMatch(/DROP (?!TRIGGER IF EXISTS)|ALTER TABLE|CREATE TABLE (?!IF NOT EXISTS)/u);
+    expect([...migration.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)/gu)].map(([, name]) => name)).toEqual([
+      "research_dossiers", "research_dossier_versions", "research_dossier_identifiers", "research_dossier_requests",
+      "research_dossier_events"]);
+    expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS research_dossier_number_seq");
+    expect(migration).toContain("CREATE UNIQUE INDEX IF NOT EXISTS research_dossier_one_first_version");
+    // Every request and the version it got, the deduplicated ones too, so a retry finds its own (Codex's review, 5).
+    expect(migration).toContain("request_key char(64) PRIMARY KEY");
+    expect(migration.match(/INSERT INTO research_dossier_requests/gu)).toHaveLength(2);
+    // ARD numbers keep every digit past four (Codex's review, 8): lpad would cut ARD-10000 to ARD-1000.
+    expect(migration).toContain("lpad(next_dossier::text, greatest(4, length(next_dossier::text)), '0')");
+    expect(migration).not.toMatch(/lpad\(nextval/u);
+    expect(migration).toContain("previous_version_id uuid UNIQUE REFERENCES research_dossier_versions(version_id)");
+    // What a stored dossier never holds: no column for an answer, a question's text, a person or a YouTube id.
+    expect(migration).not.toMatch(/answer_text|asked|research_target text|subject|email|youtube|video_id/iu);
+    // Every function that touches the tables is SECURITY DEFINER and revoked from PUBLIC; the guard keeps rows fixed.
+    const functions = migration.split("CREATE OR REPLACE FUNCTION ").slice(1).map((chunk) => ({
+      name: chunk.slice(0, chunk.indexOf("(")),
+      header: chunk.slice(0, chunk.indexOf("AS $")),
+    }));
+    expect(functions.map(({ name }) => name)).toEqual(["research_dossier_version_guard",
+      "append_research_dossier_version", "latest_research_dossier_version", "read_research_dossier_version",
+      "erase_research_dossiers", "withdraw_research_dossiers_on_revocation"]);
+    for (const { name, header } of functions) {
+      expect(migration).toMatch(new RegExp(`REVOKE ALL ON FUNCTION ${name}\\([^;]*\\) FROM PUBLIC;`, "u"));
+      if (name !== "research_dossier_version_guard") expect(header).toContain("SECURITY DEFINER");
+    }
+    // Revocation withdraws pending versions in the database itself, so an earlier image's revocation does too.
+    // And a person's own revocation of an account a notice rollback hold already marked revoked: a new revoked_at
+    // (Codex's second pass), so the hold's trigger-off steps never lose it.
+    expect(migration).toContain("CREATE TRIGGER research_dossiers_withdraw_on_revocation\n" +
+      "  AFTER UPDATE OF status, revoked_at ON research_use_accounts\n" +
+      "  FOR EACH ROW WHEN (NEW.status = 'REVOKED'\n" +
+      "    AND (OLD.status IS DISTINCT FROM 'REVOKED' OR OLD.revoked_at IS DISTINCT FROM NEW.revoked_at))");
+    // The account is read in the append's own transaction, under a lock a revocation, a mode change or the saving
+    // switch waits for (Codex's review, 4): active, free, notice v6, card saving on.
+    expect(migration).toContain("WHERE account.account_key = target_account_key\n   FOR NO KEY UPDATE;");
+    expect(migration).not.toContain("FOR KEY SHARE");
+    expect(migration).toContain("account_row.notice_version IS DISTINCT FROM 'free-contributor-v6-2026-11-15'");
+    expect(migration).toContain("account_row.findings_save IS NOT TRUE");
+    // Nothing for PUBLIC or the canonical reader, whose default table grants would otherwise read the tables.
+    for (const table of ["research_dossiers", "research_dossier_versions", "research_dossier_identifiers",
+      "research_dossier_requests", "research_dossier_events"]) {
+      expect(migration).toContain(`REVOKE ALL ON TABLE ${table} FROM PUBLIC;`);
+      expect(migration).toContain(`REVOKE ALL ON TABLE ${table} FROM askrigor_reader;`);
+    }
+    expect(migration).toContain("REVOKE ALL ON SEQUENCE research_dossier_number_seq FROM PUBLIC;");
+    // The access role appends, finds the newest version and reads back; the review role erases; no table right.
+    const signatures = (script: string) => [...script.matchAll(/GRANT EXECUTE ON FUNCTION living_evidence\.(\w+)\(([^)]*)\)/gu)]
+      // 0040's publication functions (AskRigor#477 stage 2) have their own test.
+      .filter(([, name]) => name!.includes("research_dossier") &&
+        !/publish|publication|living_person|conflict|importance|privacy|show|admi/u.test(name!))
+      .map(([, name, args]) => `${name}(${args!.replace(/\s+/gu, " ").trim()})`);
+    expect(signatures(access)).toEqual([
+      "append_research_dossier_version(text, text, text, text, text, jsonb, text, integer, jsonb, uuid, uuid, timestamptz)",
+      "latest_research_dossier_version(text, text)",
+      "read_research_dossier_version(text, uuid)",
+    ]);
+    // Erasure by the forgotten research thread's key alone, never by a card number (Codex's review, 1).
+    expect(signatures(review)).toEqual(["erase_research_dossiers(text, timestamptz)"]);
+    expect(migration).toContain("CREATE OR REPLACE FUNCTION erase_research_dossiers(target_thread_key text, change_time timestamptz)");
+    expect(migration).not.toMatch(/card_number = ANY|target_card_numbers/u);
+    for (const script of [access, review, gaps]) {
+      expect(script).not.toMatch(/(?:SELECT|INSERT|UPDATE|DELETE|USAGE)[^;]*ON (?:TABLE |SEQUENCE )?living_evidence\.research_dossier/iu);
+    }
+    expect(gaps).not.toContain("research_dossier");
+    // The runbook names the release order, what an earlier image cannot read, and read-only counts.
+    expect(runbook).toContain("0037_research_dossiers");
+    // And the two rollback hazards (Codex's review, finding 7): the v6 hold's revocations would withdraw pending
+    // versions for good, so the trigger is off around it with research-mcp stopped, or the rollback stops at ce1d677a;
+    // an earlier image's forget_card strips the thread key, so it is recovered from the card's marker and its
+    // dossiers erased by it first. No card number erases a dossier.
+    const hazards = runbook.slice(runbook.indexOf("Image rollback hazards (Codex's review of 16 November 2026, finding 7)"));
+    expect(hazards).toContain("Roll back no lower than `ce1d677a` when you can");
+    expect(hazards).toContain("ALTER TABLE living_evidence.research_use_accounts DISABLE TRIGGER " +
+      "research_dossiers_withdraw_on_revocation;\n   -- here, research-use-notice-v6-hold.sql, as above\n" +
+      "   ALTER TABLE living_evidence.research_use_accounts ENABLE TRIGGER research_dossiers_withdraw_on_revocation;");
+    expect(hazards).toContain("stop `research-mcp` before\n   each run of the hold");
+    expect(hazards).toContain("<!-- askrigor-findings-card:<data> -->");
+    expect(hazards).toContain("SELECT living_evidence.erase_research_dossiers('<thread key>', now());");
+    expect(hazards).toContain("SELECT count(*) FROM living_evidence.research_dossiers WHERE thread_key = '<thread key>';");
+    expect(runbook).not.toMatch(/erase_research_dossiers\([^)]*integer\[\]/u);
+    const v6Hold = await read("infra/living-evidence-production/research-use-notice-v6-hold.sql");
+    expect(v6Hold).toContain("marking an account REVOKED here fires research_dossiers_withdraw_on_revocation,");
+    const acceptance = await read("scripts/research-contributor-access-postgres-acceptance.mts");
+    expect(acceptance).toContain("DISABLE TRIGGER research_dossiers_withdraw_on_revocation");
+    expect(acceptance).toContain("DOSSIER_NOTICE_HOLD_WITHDREW");
+    expect(acceptance).toContain("DOSSIER_REVOCATION_DURING_HOLD_LOST");
+    expect(hazards).toContain("the\n   trigger also fires when a revoked account is revoked again at a new time");
+    expect(runbook).toContain("SELECT count(*) FROM living_evidence.research_dossier_versions");
+    expect(runbook).toContain("ASKRIGOR_RESEARCH_DOSSIERS=enabled");
+  });
+
+  // 16 Nov 2026: nine server-built analyses' lookups by idempotency key, each reading every proposal's payload, all hit
+  // the research-access role's five-second statement timeout. The index answers that lookup.
+  it("ships migration 0038's index for the proposal lookup by idempotency key, an index only, matching the lookup", async () => {
+    const migration = await read("packages/evidence-repository/migrations/0038_research_proposal_idempotency_index.sql");
+    const repository = await read("packages/evidence-repository/src/postgres.ts");
+    const store = await read("packages/evidence-repository/src/research-contributor-access.ts");
+    const contracts = await read("packages/evidence-repository/src/contracts.ts");
+    const runbook = await read("infra/living-evidence-production/README.md");
+    const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
+    const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
+    expect(order.slice(-6)).toEqual(["0038_research_proposal_idempotency_index", "0039_gemini_oauth_store",
+      "0040_research_dossier_publications", "0041_atlas_show_saved_findings", "0042_atlas_person_readings",
+      "0043_atlas_news_items"]);
+    // One index, made once; no table, row, constraint, trigger, function or grant, and not CONCURRENTLY, which migrate()'s
+    // single transaction cannot run.
+    const statements = migration.replace(/--[^\n]*\n/gu, "").split(";").map((part) => part.trim()).filter(Boolean);
+    expect(statements).toEqual(["SET search_path TO __SCHEMA__, public",
+      "CREATE INDEX IF NOT EXISTS research_contribution_proposals_idempotency_idx\n" +
+      "  ON research_contribution_proposals (account_key, proposal_kind, (payload_json ->> 'idempotencyKey'))\n" +
+      "  WHERE status IN ('PENDING_REVIEW', 'ACCEPTED', 'REJECTED')"]);
+    // The index's columns, expression and predicate are the lookup's own, so the planner can answer it from the index.
+    const lookup = store.slice(store.lastIndexOf("async findOwnProposalByIdempotencyKey("));
+    expect(lookup.slice(0, lookup.indexOf("return result"))).toContain(
+      "WHERE account_key = $1 AND proposal_kind = $2\n" +
+      "          AND payload_json ->> 'idempotencyKey' = $3\n" +
+      "          AND status IN ('PENDING_REVIEW', 'ACCEPTED', 'REJECTED')");
+    // Every proposal kind's key is at most 200 characters, far within a B-tree entry, so no insert can fail on it.
+    expect(contracts.match(/idempotencyKey: z\.string\(\)\.regex\(\/\^\[a-zA-Z0-9\]\[a-zA-Z0-9\._:-\]\{0,199\}\$\/u\)/gu))
+      .toHaveLength(3);
+    // The runbook gives the lock, what an earlier image does with the index, the rollback and read-only checks.
+    const section = runbook.slice(runbook.indexOf("Migration `0038_research_proposal_idempotency_index`"));
+    expect(section).toContain("SHARE lock");
+    expect(section).toContain("Leave the index in place on a rollback");
+    expect(section).toContain("SELECT count(*), pg_size_pretty(pg_total_relation_size('living_evidence.research_contribution_proposals'))");
+    expect(section).toContain("research_contribution_proposals_idempotency_idx");
+  });
+
+  // Owner answer 386b (20 Nov 2026): Gemini's sign-in keeps its authorization server's state in one sealed table.
+  it("ships migration 0039's Gemini sign-in table, additive, safe to run again, kept from every role but the access role", async () => {
+    const migration = await read("packages/evidence-repository/migrations/0039_gemini_oauth_store.sql");
+    const repository = await read("packages/evidence-repository/src/postgres.ts");
+    const provision = await read("infra/living-evidence-production/provision-research-access-role.sh");
+    const runbook = await read("infra/living-evidence-production/README.md");
+    const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
+    const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
+    // Right after 0038; 0043 (Atlas news, owner answer 397a) was released with it and comes last, after the next
+    // release's 0040 to 0042, which are numbered before it.
+    expect(order.slice(-6)).toEqual(["0038_research_proposal_idempotency_index", "0039_gemini_oauth_store",
+      "0040_research_dossier_publications", "0041_atlas_show_saved_findings", "0042_atlas_person_readings",
+      "0043_atlas_news_items"]);
+    // One new table and its indexes, each made once; nothing existing is dropped or altered.
+    expect([...migration.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)/gu)].map(([, name]) => name)).toEqual(["gemini_oauth_store"]);
+    expect([...migration.matchAll(/CREATE INDEX IF NOT EXISTS (\w+)/gu)]).toHaveLength(4);
+    expect(migration).not.toMatch(/\b(DROP|ALTER TABLE|TRUNCATE|DELETE|UPDATE|INSERT)\b/u);
+    // Keys and indexes are 32-byte HMACs; payloads sealed and bounded; no text column could hold a token or subject.
+    expect(migration).toContain("key bytea NOT NULL CHECK (octet_length(key) = 32)");
+    expect(migration).toContain("payload bytea NOT NULL CHECK (octet_length(payload) BETWEEN 29 AND 65536)");
+    expect(migration).not.toMatch(/\b(subject|token|account_id|client_id)\s+text\b/u);
+    // Kept from PUBLIC and the canonical reader; only the research-access role gets it, and only these four rights.
+    expect(migration).toContain("REVOKE ALL ON TABLE gemini_oauth_store FROM PUBLIC;");
+    expect(migration).toContain("REVOKE ALL ON TABLE gemini_oauth_store FROM askrigor_reader;");
+    expect(migration).not.toMatch(/\bGRANT\b/u);
+    expect(provision).toContain("GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE living_evidence.gemini_oauth_store\n  TO askrigor_research_access;");
+    // The runbook gives the order (migrate, then the role script), what an earlier image does, and the rollback.
+    const section = runbook.slice(runbook.indexOf("Migration `0039_gemini_oauth_store`"));
+    expect(section).toContain("provision-research-access-role.sh");
+    expect(section).toContain("An earlier image never reads the table");
+    expect(section).toContain("DELETE FROM living_evidence.gemini_oauth_store");
+  });
+});
+
+// Codex's review of 17 Nov 2026, finding 4, and its later reviews: how a publication reached the pages and the owner's
+// decision, stored with it. The owner, 19 Nov 2026 (352b): findings that name a living person are shown like any other,
+// so nothing of #488's hold is here: no table, trigger or lock, and no edit of a released migration.
+describe("migration 0041", () => {
+  it("adds only nullable columns with their checks and three functions in their own shapes, granted as they need", async () => {
+    const migration = await read("packages/evidence-repository/migrations/0041_atlas_show_saved_findings.sql");
+    const original = await read("packages/evidence-repository/migrations/0021_atlas_publications.sql");
+    const kept = await read("packages/evidence-repository/migrations/0024_atlas_kept_for_research.sql");
+    const repository = await read("packages/evidence-repository/src/postgres.ts");
+    const review = await read("infra/living-evidence-production/provision-research-review-role.sh");
+    const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
+    const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
+    // After every released migration; only 0042, Atlas Release B, and 0043, Atlas news (which reads no Atlas
+    // publication), follow it.
+    expect(order.slice(-3)).toEqual(["0041_atlas_show_saved_findings", "0042_atlas_person_readings",
+      "0043_atlas_news_items"]);
+    // 0021 is released: byte for byte as main has it, so an earlier image's migrate still passes this database.
+    expect(createHash("sha256").update(original).digest("hex"))
+      .toBe("f52a42ebd1a31f2adcef2ee267ab1a611e24d26afe44a3d9b04e2e7198d08443");
+    // Four nullable columns, each held by a check added by name.
+    for (const column of ["shown_by text", "shown_test_verdict text", "owner_decision text", "owner_decided_at timestamptz"]) {
+      expect(migration).toContain(`ALTER TABLE atlas_publications ADD COLUMN IF NOT EXISTS ${column};`);
+    }
+    // Each ends at its type, so none is NOT NULL or has a default, and there is no other.
+    expect(migration.match(/ADD COLUMN/gu)).toHaveLength(4);
+    expect(migration).toContain("ADD CONSTRAINT atlas_publications_v1_shown_by_check CHECK (\n" +
+      "  shown_by IS NULL OR shown_by IN ('owner_action', 'quick_answer_test', 'automatic_showing')\n);");
+    expect(migration).toContain("ADD CONSTRAINT atlas_publications_v1_shown_test_verdict_check CHECK (\n" +
+      "  (shown_by IS NOT DISTINCT FROM 'quick_answer_test') = (shown_test_verdict IS NOT NULL)\n" +
+      "  AND (shown_test_verdict IS NULL OR shown_test_verdict IN ('pass', 'headline', 'fail'))\n);");
+    expect(migration).toContain("ADD CONSTRAINT atlas_publications_v1_owner_decision_check CHECK (\n" +
+      "  (owner_decision IS NULL) = (owner_decided_at IS NULL)\n" +
+      "  AND (owner_decision IS NULL OR owner_decision IN ('published', 'shown'))\n);");
+    expect(migration.match(/ADD CONSTRAINT/gu)).toHaveLength(3);
+    // No table, trigger, lock, sequence or index, nothing dropped but the checks it adds again, and no other reason held.
+    expect(migration).not.toMatch(/CREATE (TABLE|TRIGGER|CONSTRAINT TRIGGER|INDEX|SEQUENCE)|advisory|DROP (FUNCTION|COLUMN|TABLE|TRIGGER)/iu);
+    // #488's hold words, joined here so that a search of the code for them finds none (the design of 19 Nov 2026).
+    const holdWords = new RegExp(["liv" + "ing", "claim" + "_key", "held_check", "kept" + "Reason", "advisory"].join("|"), "iu");
+    expect(migration).not.toMatch(holdWords);
+    // Three functions: 0021's and 0024's in their own shapes, so their grants stand, and one new one, granted.
+    const functions = migration.split("CREATE OR REPLACE FUNCTION ").slice(1);
+    expect(functions.map((chunk) => chunk.slice(0, chunk.indexOf("("))))
+      .toEqual(["publish_atlas_findings", "keep_atlas_publications", "show_atlas_publications"]);
+    const header = (text: string, name: string) => {
+      const start = text.indexOf(`CREATE OR REPLACE FUNCTION ${name}(`);
+      return text.slice(start, text.indexOf("LANGUAGE plpgsql", start));
+    };
+    expect(header(migration, "publish_atlas_findings")).toBe(header(original, "publish_atlas_findings"));
+    expect(header(migration, "keep_atlas_publications")).toBe(header(kept, "keep_atlas_publications"));
+    expect(migration.match(/SECURITY DEFINER\nSET search_path = __SCHEMA__, pg_catalog, pg_temp/gu)).toHaveLength(3);
+    for (const signature of ["publish_atlas_findings(integer, text, jsonb, timestamptz, boolean)",
+      "keep_atlas_publications(text[], text[], boolean, text, timestamptz)",
+      "show_atlas_publications(text[], text[], text, text, timestamptz)"]) {
+      expect(migration).toContain(`REVOKE ALL ON FUNCTION ${signature} FROM PUBLIC;`);
+      expect(review).toContain(`GRANT EXECUTE ON FUNCTION living_evidence.${signature}\n  TO askrigor_research_review;`);
+    }
+    // A draft's route: the save's automatic_showing only unreviewed, the owner's on a draft that shows; a revived one
+    // takes the draft's, none when it comes back held, and the owner's decision is stored only with his route.
+    expect(migration).toContain("(draft_shown_by = '\"automatic_showing\"'::jsonb AND draft_state = 'unreviewed')\n" +
+      "             OR (draft_shown_by = '\"owner_action\"'::jsonb AND draft_state IN ('unreviewed', 'accepted', 'edited'))");
+    expect(migration).toContain("shown_by = CASE WHEN draft_state = 'held' THEN NULL ELSE coalesce(draft_shown_by #>> '{}', stored.shown_by) END,");
+    expect(migration).toContain("owner_decision = CASE WHEN draft_shown_by = '\"owner_action\"'::jsonb THEN 'published'\n" +
+      "                                   ELSE stored.owner_decision END,");
+    // 0024's keep: showing again through it records no route; keeping never clears the owner's decision, not even when
+    // it brings back a finding he unpublished (Codex's red team of 19 Nov 2026).
+    const keep = migration.slice(migration.indexOf("CREATE OR REPLACE FUNCTION keep_atlas_publications("),
+      migration.indexOf("REVOKE ALL ON FUNCTION keep_atlas_publications"));
+    expect(keep).toContain("SET kept_for_research_at = NULL, kept_reason = NULL, shown_by = NULL, shown_test_verdict = NULL");
+    expect(keep).not.toContain("owner_decision");
+    // The showing that says how: the owner's or the test's with its verdict, only for a kept one, and the owner's
+    // decision only with his route.
+    const show = migration.slice(migration.indexOf("CREATE OR REPLACE FUNCTION show_atlas_publications("),
+      migration.indexOf("REVOKE ALL ON FUNCTION show_atlas_publications"));
+    expect(show).toContain("OR shown_route IS NULL OR shown_route NOT IN ('owner_action', 'quick_answer_test')");
+    expect(show).toContain("IF target.kept_for_research_at IS NOT NULL THEN");
+    expect(show).toContain("owner_decision = CASE WHEN shown_route = 'owner_action' THEN 'shown' ELSE stored.owner_decision END,");
+    // The pages read the route and the test's verdict, never the owner's decision.
+    const pages = await read("packages/evidence-repository/src/atlas-pages.ts");
+    const columns = pages.slice(pages.indexOf("const PAGE_PUBLICATION_COLUMNS"), pages.indexOf("function publicationsSql"));
+    expect(columns).toContain("listed.shown_by, listed.shown_test_verdict");
+    expect(columns).not.toContain("owner_decision");
+  });
+
+  it("says the setting stays off, who must say who acts at release, and how a rollback stays safe", async () => {
+    const readme = await read("infra/living-evidence-production/README.md");
+    expect(readme).toContain("Leave it unset, which is off, for now: it goes on only once the later release\n" +
+      "that marks an unconfirmed claim about a named person \"Unverifiable\"");
+    expect(readme).not.toContain("The recommended value is `enabled`");
+    expect(readme).toContain("whatever calls `show_on_pages` or `publish_cards` says who acts in\n`later_inputs.shown_by`");
+    expect(readme).toContain("To roll back to the image before this release, leave the setting off.");
+    // Nothing of #488's hold. The write-ups' own two functions (AskRigor#487, migration 0040) carry the words in their
+    // names and are not the hold.
+    const withoutDossierFunctions = readme.replace(/\b(?:decide|state)_research_dossier_living_person\b/gu, "");
+    expect(withoutDossierFunctions).not.toMatch(new RegExp(["living" + "_person", "LIVING" + "_PERSON", "atlas-hold-" + "living"].join("|"), "u"));
   });
 });
 

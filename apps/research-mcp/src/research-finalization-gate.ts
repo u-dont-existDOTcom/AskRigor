@@ -1,8 +1,10 @@
 import {
-  findingsSaveMarker, findingsSaveOff, laterInputShape, mergeLaterInputs, TOP_LEVEL_FALLBACK_INPUTS
+  FINDINGS_LEDGER_LATER_INPUTS, finalizeResearchLaterShape, findingsSaveMarker, findingsSaveOff, laterInputShape,
+  mergeLaterInputs, TOP_LEVEL_FALLBACK_INPUTS
 } from "./later-inputs.js";
 import { sourceIdentifierOf } from "./atlas/page-data.js";
 import { atlasReuseSchema, checkAtlasReuse, atlasSourceDigest, checkedAtlasSources } from "./atlas/reuse.js";
+import { RESEARCH_DOSSIER_CARD_SENTENCE, researchDossierDispositionSchema } from "./findings/dossier-disposition.js";
 import { preventingRuleSchema } from "./protocol-rule-names.js";
 import { rule, joinRules, ruleText, ruleParts, type RuleInput, type CheckRule } from "./check-rules.js";
 import { buildCheckReport, checkReportSchema, issueCheckReportToken, type ReportReceipt } from "./check-report.js";
@@ -66,28 +68,34 @@ import {
 } from "./tool-list-currency.js";
 import type { MeaningJudgeSource, MeaningJudgment } from "./meaning-judge.js";
 import {
-  quoteShown, sourceLineCheckSchema, sourceLineNotes, sourceLineSchema,
+  quoteShown, sourceLineCheckSchema, sourceLineMissing, sourceLineNotes, sourceLineSchema,
   type SourceLineLookup, type SourceLineRequest
 } from "./source-lines.js";
 import {
   checkStudyMap, readStudyMap, studyMapCheckSchema,
   type CheckedStudyMap, type StudyMapCheck, type StudyMapLookup, type StudyMapRequest, type StudyMapRequests
 } from "./study-map.js";
-import type { SecondReaderFinding } from "./second-reader.js";
+import type { SecondReaderFinding, SecondReaderKind } from "./second-reader.js";
+import {
+  checkFindingsSchema, findingItem, findingsLedger, type FindingChecker, type FindingsLedgerParams, type FindingsLedgerResult,
+  type ObservedFinding, type RememberedLedger
+} from "./findings-ledger.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
 import {
   findingsAndMapSaveOffer,
   findingsCardDigest,
   findingsCardSchema,
   findingsSaveOffer,
+  FINDINGS_PRIVACY_PROBLEMS,
   heldByCardFields,
   isYouTubeVideoId,
+  namedVideoIdOf,
   PUBLIC_VALUE_SCOPES,
   screenFindingsCard,
   signedFindingBases,
+  signedNamedVideos,
   verifiedWorkPhrase,
   type FindingsCard,
-  type FindingsPrivacyReason,
   type VerifiedBasis,
   type VerifiedWork
 } from "./findings/card.js";
@@ -120,7 +128,12 @@ import {
   type ResearchReceiptRejection
 } from "./research-receipts.js";
 import { claimCoverageNotes, extractedClaimIds } from "./claim-coverage.js";
+import { SAFETY_LIMIT_FOR_JUDGE, isSafetyLimit, reviewSafetyLimits, withoutSafetyLimits } from "./safety-limits.js";
 import { untraceableCitationNote } from "./citation-markers.js";
+import type { NewsCard } from "./news/card.js";
+import { signedNewsClaims } from "./news/claims.js";
+import type { NewsLine, NewsLineLookup, NewsLineRequest, NewsWebPage } from "./news/web-page.js";
+import { newsStagingSchema } from "./news/staging.js";
 
 /**
  * Server-side completion gate for MCP research (finalize_research).
@@ -1032,10 +1045,11 @@ export const finalizeResearchInputSchema = z.object({
 }).strict();
 
 // Later fields have one declaration, in later-inputs.ts. The runtime parser sees them after the envelope is
-// merged; the top-level schema used by tools/list is unchanged.
-export function finalizeResearchRuntimeInputSchema() {
+// merged; the top-level schema used by tools/list is unchanged. The findings ledger's are fields only for a call the
+// ledger is active for (Codex's sixth review of 17 Nov 2026, finding 3); for any other they are unknown, as before it.
+export function finalizeResearchRuntimeInputSchema({ findingsLedger = false }: { findingsLedger?: boolean } = {}) {
   const later = laterInputShape("finalize_research");
-  return finalizeResearchInputSchema.extend({
+  const schema = finalizeResearchInputSchema.extend({
     ...later,
     answer_draft: finalizeResearchInputSchema.shape.answer_draft.describe(
       "The exact answer to check. Only source provenance and links, declared reading depth (with each cited key " +
@@ -1047,6 +1061,8 @@ export function finalizeResearchRuntimeInputSchema() {
       "Optional legacy renderings of answer guidance. Limits may be reworded or translated directly; missing " +
       "or changed limit sentences do not create steps.")
   });
+  // Read from the raw call (findings-ledger.ts): accepted as given, and never part of the checked input's type.
+  return findingsLedger ? schema.extend(FINDINGS_LEDGER_LATER_INPUTS) as unknown as typeof schema : schema;
 }
 export type FinalizeResearchInput = z.output<ReturnType<typeof finalizeResearchRuntimeInputSchema>>;
 
@@ -1173,7 +1189,13 @@ export function normalizeFinalizeResearchInput(rawInput: unknown): unknown {
 }
 
 /** Merge later inputs, keep independently usable fields, and return all format problems as notes. */
-export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseResult<FinalizeResearchInput> & {
+/**
+ * `findingsLedger`: whether the findings ledger is active for this call, so that later_inputs.findings_ledger and
+ * later_inputs.finding_responses are inputs of it; otherwise they are unknown inputs, as before the ledger (Codex's sixth
+ * review of 17 Nov 2026, finding 3).
+ */
+export function parseFinalizeResearchInput(rawInput: unknown, { findingsLedger = false }: { findingsLedger?: boolean } = {}):
+  z.ZodSafeParseResult<FinalizeResearchInput> & {
   notes: string[]; droppedFindingsCard: boolean; droppedCard?: unknown;
   /** The study map as checked (owner answer 249a): each item at its place as given. */
   studyMap?: CheckedStudyMap;
@@ -1182,15 +1204,15 @@ export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseRes
 } {
   const topLevel = new Set([...Object.keys(finalizeResearchInputSchema.shape), "later_inputs"]);
   // The usable later inputs are kept, each bad key dropped alone, and a key in both places takes its later form.
-  const { input, problems } = mergeLaterInputs("finalize_research", rawInput, topLevel, undefined,
-    { keepUsable: true, fallback: TOP_LEVEL_FALLBACK_INPUTS });
+  const { input, problems } = mergeLaterInputs("finalize_research", rawInput, topLevel,
+    finalizeResearchLaterShape(findingsLedger), { keepUsable: true, fallback: TOP_LEVEL_FALLBACK_INPUTS });
   const notes = problems.map(({ path, message, kind }) =>
     kind === "dropped" ? `${inputPath(path)}: dropped. ${message}` : `${inputPath(path)}: ${message}`);
   // The test marker, read from the raw call on its own: a value other than "off", or later_inputs sent as text, is read
   // as off, which a note says (the recheck of 5 Nov 2026).
   const marker = findingsSaveMarker(rawInput).note;
   if (marker !== undefined) notes.push(marker);
-  const runtime = finalizeResearchRuntimeInputSchema();
+  const runtime = finalizeResearchRuntimeInputSchema({ findingsLedger });
   const object = input !== null && typeof input === "object" && !Array.isArray(input);
   const essential = object ? ["answer_draft", "research_target"].flatMap((key) => {
     const field = key as "answer_draft" | "research_target";
@@ -1811,6 +1833,22 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
   turn_already_passed: z.literal(true).optional()
     .describe("True when this turn's check had already passed before this call: give this checked answer now, with " +
       "no further check in this turn."),
+  // AskRigor#477 stage 1 (owner answer 329a, 16 November 2026), runtime only (owner answer 189a): this research's
+  // dossier, saved privately for the owner's review. Never a blocking step: the six blocking checks stay six.
+  research_dossier: researchDossierDispositionSchema.optional(),
+  // Atlas news, stage 1, runtime only (owner answer 189a): whether this call's news card was staged for the day's call.
+  news: newsStagingSchema.optional(),
+  // Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026), runtime only (owner answer 189a), with ASKRIGOR_FINDINGS_LEDGER
+  // on: every problem this check found, with its id and disposition, and the signed ledger for the next call.
+  check_findings: checkFindingsSchema.optional()
+    .describe("Every problem this check found, a stop or a note, with an id kept through the draft's edits and its " +
+      "disposition: open, unresolved (still found after the draft changed), fixed or withdrawn (no longer found), " +
+      "disputed (with the reason the reader sees) or not_rechecked. Records only: it stops and holds nothing."),
+  findings_ledger: z.string().optional()
+    .describe("The signed ledger of this research's findings, to pass back as later_inputs.findings_ledger in its " +
+      "next finalize_research call. Signed, not encrypted: whoever holds it can read what it carries, the findings' " +
+      "ids, digests, kinds and dispositions, revision numbers, and the dispute reasons of findings still disputed; no " +
+      "words of the answer or of the findings."),
 });
 
 export const finalizeResearchPublishedOutputSchema = finalizeResearchRetainedOutputSchema.omit({ research_plan: true, notes: true })
@@ -1843,8 +1881,30 @@ export interface FinalizeResearchOptions {
    * line, which the finalization receipt signs.
    */
   backingLookups?: readonly BackingLookup[];
+  /**
+   * Atlas news, stage 1 (news/card.ts): the call's news card as checked, whose backing lines are looked up once this
+   * check passes, like a findings card's, and whose own claims (`news`, `nl`, `ns`, `nr`) the finalization receipt
+   * signs under their own condition. It never changes what the check finds, stops or holds.
+   */
+  newsCard?: { card: NewsCard; digest: string };
+  /** The news card's backing lines as looked up after this check's earlier pass, in their order. */
+  newsLookups?: readonly NewsLineLookup[];
+  /**
+   * Atlas news (the 23 Nov 2026 news audit): the PubMed record AskRigor read itself for the news card's DOI, when the
+   * full-text tool admitted no copy of it (a short news item, say) and no record or text of it was read: a record whose
+   * own DOI is the card's, found by PubMed's search for that DOI (newsPubmedFallbackRequestOf asks for it). The card's
+   * DOI is then verified through it, its lines that quote that paper are looked up in its title and abstract, and the
+   * receipt signs its PMID (`np`).
+   */
+  newsPubmedFallback?: { doi: string; pmid: string };
   /** Told whether this research read YouTube comments, for a kept copy of a card that wasn't saved to leave them out. */
   onCommentsRead?: (read: boolean) => void;
+  /**
+   * AskRigor#477 stage 1: a research dossier can be saved for this account and call (researchDossierAllowed, and no
+   * short look-up), so the card guidance also says the dossier's own value test (Codex's red team of the instruction
+   * proposal, item 3). Advice only: no check reads it.
+   */
+  researchDossierAsk?: boolean;
   now?: () => Date;
   // Rule, module and case names from the canonical protocols, which the answer
   // must not show (the rerun's answer headed its prompt with one).
@@ -1878,6 +1938,22 @@ export interface FinalizeResearchOptions {
   mobileClient?: boolean;
   /** This surface's tool list version (toolListVersionOf), which a call's tool_list_version is compared with. */
   toolListVersion?: string;
+  /**
+   * Promise P69 (the owner, chat, 21 Nov 2026; ASKRIGOR_SAFETY_LIMITS=on): read later_inputs.safety_limits, list each
+   * research step a model's or app's own safety rules limited as a limit in AskRigor's words saying who reports it, and
+   * look its sentence up in the draft. Notes and limits only.
+   */
+  safetyLimits?: boolean;
+  /**
+   * Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026; ASKRIGOR_FINDINGS_LEDGER=on): every problem this check reports
+   * becomes a record with an id and a disposition in check_findings, and a signed findings_ledger carries them to the
+   * next call. `account` is the research account's key the ledger is bound to (none for a caller without one);
+   * `remembered`, the ledgers the server last issued for this account and research target, one per lineage. With
+   * `deferred`, the caller gives notes of its own after the check, and builds the ledger itself, once they are all
+   * given, with settleFindingsLedger (Codex's review of 17 Nov 2026, finding 7). It changes nothing the check finds,
+   * stops or holds.
+   */
+  findingsLedger?: { account?: string | undefined; remembered?: readonly RememberedLedger[] | undefined; deferred?: boolean };
 }
 
 // The owner's words (2026-10-15), many users' reports and the owner's own
@@ -1913,7 +1989,10 @@ export function finalizeResearch(
   rawInput: unknown,
   options: FinalizeResearchOptions
 ): FinalizeResearchOutput {
-  const parsed = parseFinalizeResearchInput(rawInput);
+  // Promise P69: with the switch off, safety_limits is taken out before anything reads the call, so no note of any kind
+  // (a duplicate, a bad value) can come from it (Codex's recheck of 21 Nov 2026).
+  const parsed = parseFinalizeResearchInput(options.safetyLimits === true ? rawInput : withoutSafetyLimits(rawInput),
+    { findingsLedger: options.findingsLedger !== undefined });
   if (!parsed.success) return invalidFinalizeResearchInput(parsed.error, options, parsed.notes);
   const input = parsed.data;
   // A test run's call, marked findings_save "off", read from the raw call on its own: it offers no save and files no
@@ -2005,7 +2084,49 @@ export function finalizeResearch(
     return note;
   };
   let researchAdvised = false;
+  // Stage 1 of enforcing HRP: every problem this check finds, as admitted below, for the findings ledger, and which
+  // part of the check gave each note that only some calls run (by default the rules, which run at every call).
+  const observedSteps: ObservedFinding[] = [];
+  const noteCheckers = new Map<string, FindingChecker>();
+  // Fable's check of 17 Nov 2026: the notes that say a part of the check did not run, no problem of the answer.
+  const notRunNotes = new Set<string>();
+  const checkedBy = (checker: FindingChecker, note: string): string => {
+    if (!noteCheckers.has(note)) noteCheckers.set(note, checker);
+    return note;
+  };
+  // Codex's re-review of 17 Nov 2026, finding 1, and its third review, finding 1: what a look-up's note is about, so an
+  // earlier one counts as rechecked only when each line it was about was looked up again in full. A line is its
+  // passages and what they are from (findingItem: a source line's or backing line's quotes and source, a study map
+  // claim's or link's sentences and studies), never its place or how many lines its source has.
+  // Each line's passages too, the quotes the answer shows, by which a withdrawal settles the finding of a line taken
+  // out (Codex's third review of 17 Nov 2026, finding 3): of each note, those it objects to, by default all the line's
+  // and, for a note that some of its quotes weren't found, only those (its fourth review, finding 1).
+  const noteItems = new Map<string, Set<string>>();
+  const notePassages = new Map<string, Array<{ item: string; passage: string }>>();
+  const checkedItems: string[] = [];
+  const lineItems = (checker: FindingChecker, lines: ReadonlyArray<{ item: string; full: boolean;
+    notes: readonly string[]; passages: readonly string[]; objected?: ReadonlyMap<string, readonly string[]> }>):
+    void => {
+    for (const { item, full, notes: given, passages, objected } of lines) {
+      if (full) checkedItems.push(item);
+      for (const note of given) {
+        if (noteCheckers.get(note) !== checker) continue;
+        noteItems.set(note, new Set([...noteItems.get(note) ?? [], item]));
+        notePassages.set(note, [...notePassages.get(note) ?? [],
+          ...(objected?.get(note) ?? passages).map((passage) => ({ item, passage }))]);
+      }
+    }
+  };
+  // A look-up cut short (a text that couldn't be read just then, or was no longer held, or came too late) did not run
+  // in full.
+  const cutShort = (reason: string | undefined) =>
+    reason === "text_unavailable" || reason === "text_expired" || reason === "late";
   const addCheckStep = (step: CheckStep, blockingRule?: FinalCheckBlockingRule): void => {
+    if (options.findingsLedger !== undefined) {
+      const stop = blockingRule !== undefined && FINAL_CHECK_BLOCKING_RULES.includes(blockingRule) ? blockingRule : undefined;
+      observedSteps.push({ kind: step.kind, text: step.text, ...(step.rule === undefined ? {} : { rule: step.rule }),
+        ...(stop === undefined ? {} : { stop }), ...(ALWAYS_REPEATED_NOTE_KINDS.has(step.kind) ? { call: true } : {}) });
+    }
     if (step.deferUntilNextTurn === true) {
       caveatOnce(step.rule ?? step.text, step.deferredCaveat!);
     }
@@ -2027,6 +2148,9 @@ export function finalizeResearch(
     for (const value of steps) addCheckStep({ kind, text: ruleText(value), rule: ruleParts(value) }, blockingRule);
   };
   let missingDeclaration = false;
+  // Codex's review of 17 Nov 2026, finding 5: whether this check asked for a findings card that did not come, kept apart
+  // from the notes it shows, which leave out a request an earlier check of the turn already gave.
+  let cardRequested = false;
   const requireDeclaration = (step: RuleInput): void => {
     missingDeclaration = true;
     addStep("declaration", rule`${step}`);
@@ -2178,10 +2302,12 @@ export function finalizeResearch(
     const subreddit = reader === "reddit" && isSignedSubreddit(text(claims.c)) ? text(claims.c) : undefined;
     const read = /^[0-9]{1,9}$/u.test(text(claims.n)) ? Number(text(claims.n)) : 0;
     const known = forumReads.get(claims.u) ??
-      { reader, subreddit: undefined, first: 0, parts: new Map<string, number>(), links: new Set<string>() };
+      { reader, subreddit: undefined, first: 0, parts: new Map<string, number>(), links: new Set<string>(),
+        texts: new Set<string>() };
     if (known.reader !== reader) known.reader = undefined;
     known.subreddit ??= subreddit;
     if (reader === "page" && text(claims.l) !== "") known.links.add(text(claims.l));
+    if (reader === "page" && /^[0-9a-f]{32}$/u.test(text(claims.tx))) known.texts.add(text(claims.tx));
     // A Reddit continuation, or a forum's page, by what it continues or which page it is; a Reddit first read alone.
     const part = reader === "reddit" ? text(claims.m) : reader === "page" ? `page:${text(claims.w)}` : "";
     if (part === "") known.first = Math.max(known.first, read);
@@ -2788,6 +2914,15 @@ export function finalizeResearch(
   // draft holds none of the app's own citation markers. Both are exact checks, and notes only: the six blocking checks
   // stay six (owner answers 193a, 195a and 217b).
   for (const note of claimCoverageNotes(extractedClaimIds(verified), input.claim_coverage)) addStep("declaration", note);
+  // Promise P69 (the owner, 21 Nov 2026: "explain to people in the answer when a guardrail is preventing you from
+  // considering something at your max intelligence"), with the switch on: each research step the AI declares a model's
+  // or app's own safety rules limited becomes a limit in AskRigor's fixed words saying who reports it, and its sentence
+  // in the answer is looked up with the other declared quotes (below). Whether a safety rule did it stays the
+  // reporter's judgment, which AskRigor doesn't confirm; nothing asks for a declaration of none. Notes and limits only:
+  // the six blocking checks stay six.
+  const safetyLimits = options.safetyLimits === true ? reviewSafetyLimits(input.safety_limits) : undefined;
+  for (const note of safetyLimits?.notes ?? []) addStep("declaration", rule`${note}`);
+  for (const limit of safetyLimits?.limits ?? []) caveatOnce(rule`${limit}`, limit);
   const markerNote = untraceableCitationNote(input.answer_draft);
   if (markerNote !== undefined) addStep("declaration", markerNote);
   const communityLeads = input.community_leads ?? [];
@@ -4081,11 +4216,7 @@ export function finalizeResearch(
   // what the gate enforces.
   // Same short-lookup and pre-triage exemptions as the existing research/discovery routing. No content matcher
   // decides whether a finding matters: the model declares it, and these checks compare only exact fields.
-  const shortLookup = input.community_evidence === "not_relevant" &&
-    input.not_relevant_reason !== undefined && input.not_relevant_basis === "no_real_world_outcome" &&
-    input.question_about === "other" && input.treatment_choice !== "compared" &&
-    input.commercial_review_applicability?.status !== "required" &&
-    input.shopping?.status !== "buy_options" && input.shopping?.status !== "no_live_option_found";
+  const shortLookup = shortLookupDeclared(input);
   const emergency = input.community_evidence === "not_relevant" &&
     input.not_relevant_reason !== undefined && input.not_relevant_basis === "emergency_before_triage";
   const atlasReuse = checkAtlasReuse({ receipts: verified, target: targetDigest,
@@ -4168,6 +4299,8 @@ export function finalizeResearch(
   let cardBases: VerifiedBasis[][] | undefined;
   // The places of a checked card's findings held apart as drawn from YouTube comments (owner answer 219b).
   let heldFindings: number[] = [];
+  // What the receipt signs of a checked card's named videos (owner answer 307b): those this call ties to the person.
+  let namedVideoClaims: string[] = [];
   // The meaning judge's holds and notes (owner answer 221), added after the check's own notes.
   const judgeHeld: number[] = [];
   const judgeNotes: string[] = [];
@@ -4208,14 +4341,24 @@ export function finalizeResearch(
     );
   } else {
     // A card's findings each cite a study audited or read as a lead here, or a
-    // video audited here, so an answer resting on none of them (a handoff, a
-    // correction, a question about given figures) has nothing a card can hold
-    // and is not asked for one (the 2026-10-15 owner regressions).
+    // video audited here, or rest on forum reports alone: a forum_signal naming
+    // threads AskRigor's reader read here, which the card check takes with no
+    // study only as support_not_located, by the query of a literature search
+    // passed here (findings/research-behind.ts). So an answer resting on none of
+    // them (a handoff, a correction, a question about given figures, or a simple
+    // question about a thread read here, with no search for studies of what it
+    // reports) has nothing a card can hold and is not asked for one (the
+    // 2026-10-15 owner regressions). Codex's review of 19 Nov 2026 (AskRigor#491,
+    // P1): a forum-only answer was never asked, so AskRigor#475's reminder never
+    // ran for it; owner answer 354b, after Codex's recheck: it is asked only when
+    // it can hold such a finding, not for every verified read.
     const citable = validatedIds.size > 0 || leadSources.length > 0 || auditedAtAll.size > 0 ||
-      materialVideos.length > 0;
+      materialVideos.length > 0 || (forumThreads.size > 0 && literatureQueries.size > 0);
     if (findingsOpen(options) && input.findings_card === undefined && !parsed.droppedFindingsCard && citable) {
+      cardRequested = true;
       requireDeclaration(
         joinRules(joinRules(joinRules(joinRules(joinRules((options.findings === "save" ? joinRules("Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for ", "the owner's review.") : joinRules("Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings ", "library, and they are saved only if the user says yes.")), " Put in the answer's best findings, none the user corrected, and no personal details, and say in "), "public_value whether they would help anyone beyond this person."), " A public card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers "), "(for an effect, harm or overlooked_option) and searches (for nothing_found), as the findings description "), "says. With no finding that a plain web search of the problem wouldn't already give, send no card.",
+          options.researchDossierAsk === true ? ` ${RESEARCH_DOSSIER_CARD_SENTENCE}` : "",
           // Owner answer 219b: once comments were read, each finding says whether it draws on them.
           !commentsRead ? "" : joinRules(" This research read YouTube comments, so each finding also gives ",
             "draws_on_youtube_comments: true when any part of it rests on what commenters wrote, false when none does; ",
@@ -4314,6 +4457,40 @@ export function finalizeResearch(
           finding.sources.some((source) => !isYouTubeVideoId(source)));
         const signalMissing = forumThreads.size > 0 && findingsInCard.every(({ forum_signal: signal }) => signal === undefined);
         if (scope === "public" && (studyWithoutBacking || signalMissing)) notes.push(RESEARCH_BEHIND_NOTE);
+        // Owner answer 307b: a finding may link a YouTube video that the person named, and the save keeps the link only
+        // for a video this call ties to the person: one their own words linked when the plain answer was registered for
+        // this research target (the registration's receipt signs those IDs). Any other link is not signed, so it is not
+        // stored, and a note says so. A video read with extract_youtube_video_claims no longer counts by itself: that
+        // reading proves the video was read, not who gave it (Codex's review of 15 November 2026, finding 1). Nothing
+        // here holds the card or the answer back.
+        const registered = videosNamedAtRegistration(verified, options.plainAnswer?.account, targetDigest);
+        const namedByPerson = (id: string) => registered.videos.has(id);
+        namedVideoClaims = signedNamedVideos(input.findings_card, namedByPerson);
+        const notVideos: string[] = [];
+        const notNamed: string[] = [];
+        findingsInCard.forEach(({ named_videos: links }, index) => (links ?? []).forEach((link, place) => {
+          const id = namedVideoIdOf(link);
+          if (id === undefined) notVideos.push(`findings_card.findings[${index}].named_videos[${place}]`);
+          else if (!namedByPerson(id)) notNamed.push(`findings_card.findings[${index}].named_videos[${place}]`);
+        }));
+        if (notVideos.length > 0) {
+          notes.push(inputNote(`${joinNames(notVideos)} ${notVideos.length === 1 ? "is" : "are"} not stored: a named ` +
+            "video is the address of a video's own page on youtube.com or youtu.be, as the person gave it."));
+        }
+        if (notNamed.length > 0) {
+          notes.push(inputNote(`${joinNames(notNamed)} ${notNamed.length === 1 ? "is" : "are"} not stored: AskRigor ` +
+            "keeps a video's link only when the person's own words, passed on in later_inputs.asked when the plain " +
+            "answer was registered for this research target, link it. " + (registered.wordsPassedOn
+            ? "The words passed on with the latest registration link no such video; if the person named it in a later " +
+              "message, register the plain answer again with all their messages in later_inputs.asked."
+            : "No words of the person were passed on with that registration: register it again with them in " +
+              "later_inputs.asked.") +
+            " A video found through AskRigor's YouTube tools is never linked."));
+        }
+        const linkable = registered.videos.size > 0;
+        if (scope === "public" && linkable && findingsInCard.every(({ named_videos: links }) => (links ?? []).length === 0)) {
+          notes.push(inputNote(NAMED_VIDEOS_NOTE));
+        }
         // A paid private answer offers the save only when a finding rests on such work, which the offer names with
         // this call's counts; without one there is no offer line, and the receipt still signs the card, so the user
         // can still ask for the save. Owner answer 156a (2026-10-22): findings declared personal only are never
@@ -4396,7 +4573,7 @@ export function finalizeResearch(
           let shown = true;
           const notShown = (step: RuleInput): void => {
             shown = false;
-            addStep("declaration", joinRules(rule`${step}`, " Until then, the note gives this claim as \"This research did not check that.\""));
+            addStep("declaration", joinRules(rule`${step}`, " Until then, the note says the research claims to have checked this claim but did not show what backs it."));
           };
           if (entry.answer_quote === undefined) {
             notShown(rule`${at} is ${entry.outcome} without answer_quote: copy the answer's own sentence for this item from answer_draft.`);
@@ -4416,7 +4593,7 @@ export function finalizeResearch(
             }
           }
           if (shown) creditedComparison.add(index);
-          found.set(number, !shown ? { claim: entry.claim, outcome: "not_checked" } : {
+          found.set(number, !shown ? { claim: entry.claim, outcome: "not_checked", saidChecked: true } : {
             claim: entry.claim, outcome: entry.outcome,
             ...(entry.answer_quote === undefined ? {} : { quote: entry.answer_quote }),
             ...(basesOf(work).length > 0 ? { work: countWork([work]) } : {}),
@@ -4491,6 +4668,8 @@ export function finalizeResearch(
           ...(harms === undefined ? [] : [{ at: `binary_results[${index}].harms_quote`, quote: harms }])
         ]),
         ...(input.safety_claims ?? []).map(({ quote }, index) => ({ at: `safety_claims[${index}]`, quote })),
+        // Each declared safety limit is said in the answer, by the sentence its entry copies (promise P69).
+        ...(safetyLimits?.quotes ?? []),
         // A harm the screen found is shown in the answer by the sentence the entry copies.
         ...harmScreen.flatMap(({ state, answer_quote: quote }, index) =>
           (state === "label_warning" || state === "reported_signal") && quote !== undefined
@@ -4524,7 +4703,11 @@ export function finalizeResearch(
     else if (declared !== current) addStep("tool_list", toolListNoticeRule(declared, current)!);
   }
 
-  const secondReading = checkSecondReading(input, options.secondReading, stepSink(addStep, "second_reading"));
+  // Stage 1 of enforcing HRP: a second-reading finding the writer dismissed is still a finding, disputed with its reason
+  // ("the writer replied" is not "it was fixed").
+  const secondReading = checkSecondReading(input, options.secondReading, stepSink(addStep, "second_reading"),
+    options.findingsLedger === undefined ? undefined : (step, reason) => observedSteps.push({ kind: "second_reading",
+      text: ruleText(step), rule: step, disputed: reason }));
 
   // Owner answer 172a: at most ten rounds in a turn, and a step that comes back unchanged three rounds running is no
   // longer asked for. The steps left stay in next_steps; a stopped check has none, and says why in `stopped`.
@@ -4569,26 +4752,36 @@ export function finalizeResearch(
     // The note comes with a passing check, whose answer goes out as checked, so it asks for the check again (the
     // regression run on #389's build: o356-dropout-nausea and q136-weak-lead edited after the check instead).
     // After a pass that followed a pass in this turn, the turn's last check, the change asks for no further call.
-    if (repeated >= 3) notes.push(`The draft repeats ${repeated} of the panel's limits word for word; the panel ` +
-      "already lists every limit beneath the answer. Keep only those that change what this person should believe " +
-      `or do, in your own words, ${passedEarlierThisTurn ? "with no further check in this turn"
-        : "and call finalize_research again with the changed draft"}.`);
+    if (repeated >= 3) notes.push(checkedBy("passing", `The draft repeats ${repeated} of the panel's limits word ` +
+      "for word; the panel already lists every limit beneath the answer. Keep only those that change what this person " +
+      `should believe or do, in your own words, ${passedEarlierThisTurn ? "with no further check in this turn"
+        : "and call finalize_research again with the changed draft"}.`));
   }
   // Owner answer 237a: each line's quotes are looked up once the check passes, in the text its key source's verified
   // receipts name, and what came of it goes to the AI as notes, and to the panel. None of it holds the answer back.
   const sourceLines = input.source_lines ?? [];
-  // Where a quote said to come from a source may be looked up: the texts its key source's verified receipts name.
-  const quoteRequest = (source: string, line: number): SourceLineRequest => {
+  // The page a web address was read as here, by its verified forum_thread_read receipts (the address compared as a
+  // thread's link is), with the digest of its text each read signed (`tx`). The page reader reads https alone, so an
+  // address given as http was read so. Reddit's own reader signs no page, and an address that names a paper is the
+  // paper's (the review of #521, F1): its words are never a web page's.
+  const webPageRead = (address: string): NewsWebPage | undefined => {
+    if (!/^https?:\/\//iu.test(address.trim()) || addressNamesPaper(address)) return undefined;
+    const read = readsOf(address);
+    return read?.reader !== "page" || read.texts.size === 0 ? undefined
+      : { url: address.trim().replace(/^http:/iu, "https:"), texts: [...read.texts] };
+  };
+  // Where a quote said to come from a source may be looked up: the texts its key source's verified receipts name. For the
+  // news card's lines alone (`webPages`), also the page a key source that is a web address was read as, when no receipt
+  // of a paper names it.
+  const quoteRequest = (source: string, line: number, webPages = false): NewsLineRequest => {
     const key = input.key_sources.find(({ id }) => normalizeIdentifier(id) === normalizeIdentifier(source));
     const receipts = key === undefined ? [] : paperReceipts(sourceLinks(key.id));
-    return {
-      line,
-      keySource: key !== undefined,
-      handles: [...new Set(receipts.flatMap(({ kind, claims }) =>
-        SOURCE_TEXT_KINDS.has(kind) && text(claims.handle) !== "" ? [text(claims.handle)] : []))],
-      pmids: [...new Set([...(key !== undefined && isPmid(normalizeIdentifier(key.id)) ? [normalizeIdentifier(key.id)] : []),
-        ...receipts.flatMap(({ claims }) => text(claims.pmid) === "" ? [] : [text(claims.pmid)])])]
-    };
+    const handles = [...new Set(receipts.flatMap(({ kind, claims }) =>
+      SOURCE_TEXT_KINDS.has(kind) && text(claims.handle) !== "" ? [text(claims.handle)] : []))];
+    const pmids = [...new Set([...(key !== undefined && isPmid(normalizeIdentifier(key.id)) ? [normalizeIdentifier(key.id)] : []),
+      ...receipts.flatMap(({ claims }) => text(claims.pmid) === "" ? [] : [text(claims.pmid)])])];
+    const page = !webPages || key === undefined || receipts.length > 0 ? undefined : webPageRead(key.id);
+    return { line, keySource: key !== undefined, handles, pmids, ...(page === undefined ? {} : { page }) };
   };
   const sourceLineRequests: SourceLineRequest[] = sourceLines.map(({ source }, line) => quoteRequest(source, line));
   // Owner answer 252a: a checked card's backing lines are looked up the same way, once the check passes; what came of
@@ -4598,22 +4791,42 @@ export function finalizeResearch(
       ({ finding: index, line: place, source: line.source, sentence: line.sentence, conclusion: line.conclusion })))
     : [];
   const backingRequests: SourceLineRequest[] = backingLines.map(({ source }, line) => quoteRequest(source, line));
+  // Atlas news, stage 1: the news card's backing lines are looked up the same way, once the check passes.
+  const newsLines = options.newsCard?.card.backing ?? [];
+  const newsRequests: NewsLineRequest[] = newsLines.map(({ source }, line) => quoteRequest(source, line, true));
   const backingLookups = options.backingLookups ?? [];
+  const backingItems: Array<{ item: string; full: boolean; notes: string[]; passages: string[];
+    objected?: Map<string, string[]> }> = [];
   for (const { finding, line, lookup } of backingLookups) {
+    const given = notes.length;
     const missing = [
-      ...(lookup.sentence === "not_found" ? ["sentence"] : []),
-      ...(lookup.conclusion === "not_found" ? ["conclusion"] : [])
+      ...(lookup.sentence === "not_found" ? ["sentence" as const] : []),
+      ...(lookup.conclusion === "not_found" ? ["conclusion" as const] : [])
     ];
     const at = `findings_card.findings[${finding}].backing[${line}]`;
+    let missingNote: string | undefined;
     if (missing.length > 0) {
-      notes.push(`The ${missing.join(" and the ")} of ${at} ${missing.length === 1 ? "isn't" : "aren't"} in the text ` +
-        "AskRigor fetched, so the Atlas won't show it. Copy each whole and exactly, in the paper's language.");
+      missingNote = `The ${missing.join(" and the ")} of ${at} ` +
+        `${missing.length === 1 ? "isn't" : "aren't"} in the text AskRigor fetched, so the Atlas won't show it. Copy ` +
+        "each whole and exactly, in the paper's language.";
+      notes.push(checkedBy("backing_lines", missingNote));
     } else if (lookup.text === "search_copy" || lookup.text === "library_copy") {
-      notes.push(`The quotes of ${at} were found only in ${lookup.text === "search_copy" ? "the copy the AI supplied"
-        : "the owner's library copy"}, which the Atlas never quotes; a quote found in a full text AskRigor fetched ` +
-        "itself or a PubMed abstract is shown.");
+      notes.push(checkedBy("backing_lines", `The quotes of ${at} were found only in ${lookup.text === "search_copy"
+        ? "the copy the AI supplied" : "the owner's library copy"}, which the Atlas never quotes; a quote found in a ` +
+        "full text AskRigor fetched itself or a PubMed abstract is shown."));
     }
+    const backed = backingLines.find((backing) => backing.finding === finding && backing.line === line);
+    backingItems.push({ item: backed === undefined ? findingItem("backing_lines", at)
+      : findingItem("backing_lines", normalizeIdentifier(backed.source), backed.sentence, backed.conclusion ?? ""),
+    full: !cutShort(lookup.reason), notes: notes.slice(given),
+    passages: backed === undefined ? [] : [backed.sentence, ...backed.conclusion === undefined ? []
+      : [backed.conclusion]],
+    // The quotes not found, which alone that note objects to.
+    ...(backed === undefined || missingNote === undefined ? {} : { objected: new Map([[missingNote,
+      missing.flatMap((quote) => quote === "sentence" ? [backed.sentence] : backed.conclusion === undefined ? []
+        : [backed.conclusion])]]) }) });
   }
+  if (options.findingsLedger !== undefined) lineItems("backing_lines", backingItems);
   const sourceLineChecks = passed && draft !== undefined ? (options.sourceLineLookups ?? []).flatMap((lookup, index) => {
     const line = sourceLines[index];
     if (line === undefined) return [];
@@ -4621,7 +4834,24 @@ export function finalizeResearch(
     return [{ ...lookup, label: key?.answer_marker ?? lookup.source,
       shown: quoteShown(draft, line.sentence) && quoteShown(draft, line.conclusion) }];
   }) : [];
-  for (const note of sourceLineChecks.flatMap(sourceLineNotes)) if (!notes.includes(note)) notes.push(note);
+  for (const note of sourceLineChecks.flatMap(sourceLineNotes)) {
+    if (!notes.includes(note)) notes.push(checkedBy("source_lines", note));
+  }
+  if (options.findingsLedger !== undefined) {
+    // The lines checked, in sourceLineChecks' order.
+    const checkedLines = sourceLineChecks.length === 0 ? [] : (options.sourceLineLookups ?? []).flatMap((_, index) =>
+      sourceLines[index] === undefined ? [] : [sourceLines[index]!]);
+    lineItems("source_lines", sourceLineChecks.map((check, index) => {
+      const checked = checkedLines[index]!;
+      const missing = sourceLineMissing(check);
+      return { item: findingItem("source_lines", normalizeIdentifier(checked.source), checked.sentence,
+        checked.conclusion), full: !cutShort(check.reason), notes: sourceLineNotes(check),
+      passages: [checked.sentence, checked.conclusion],
+      // The quotes not found, which alone that note objects to.
+      ...(missing === undefined ? {}
+        : { objected: new Map([[missing.note, missing.quotes.map((quote) => checked[quote])]]) }) };
+    }));
+  }
   // Owner answer 249a: the study map. Each study's source resolves through the verified receipts as a source line's
   // does, so its passages are looked up in its own text only, once the check passes; what the map gives is compared
   // exactly, and what came of it goes to the AI as notes. None of it holds the answer back or consumes a round.
@@ -4653,14 +4883,21 @@ export function finalizeResearch(
       sameQuote
     });
     studyMapCheck = checked.check;
-    for (const note of checked.notes) if (!notes.includes(note)) notes.push(note);
+    for (const note of checked.notes) if (!notes.includes(note)) notes.push(checkedBy("study_map", note));
+    if (options.findingsLedger !== undefined) {
+      const full = options.studyMapLookup.done && options.studyMapLookup.studies.every(({ reason }) => !cutShort(reason));
+      lineItems("study_map", checked.parts.map(({ about, notes: given, passages }) =>
+        ({ item: findingItem("study_map", ...about), full, notes: given, passages })));
+    }
   }
   // Owner answer 221: the meaning judge's notes, for the AI only; none of them is a step or holds the answer back.
   const judgment = options.meaningJudgment;
   if (judgment !== undefined && passed) {
     if (judgment.status === "skipped") {
-      judgeNotes.push(`The meaning judge did not run (${MEANING_JUDGE_SKIP_REASONS[judgment.reason] ?? judgment.reason}); ` +
-        "this check is as it would be without it.");
+      const notRun = `The meaning judge did not run (${MEANING_JUDGE_SKIP_REASONS[judgment.reason] ?? judgment.reason}); ` +
+        "this check is as it would be without it.";
+      judgeNotes.push(notRun);
+      notRunNotes.add(notRun);
     } else {
       // Only an entry the note credits to its work was the judge's question.
       for (const { item, backed, why } of judgment.comparison) {
@@ -4671,7 +4908,8 @@ export function finalizeResearch(
       }
       for (const { limit, why } of judgment.limits) {
         const text = limits[limit - 1];
-        if (text === undefined) continue;
+        // A safety limit is the AI's report, which the judge never reads (promise P69): no verdict on it counts.
+        if (text === undefined || isSafetyLimit(text)) continue;
         judgeNotes.push(`The meaning judge reads limits[${limit - 1}] (${JSON.stringify(limitOpening(text))}) as not ` +
           `applying to this answer${because(why)}. Leave it out of the answer's own words; the panel still lists it.`);
       }
@@ -4699,13 +4937,51 @@ export function finalizeResearch(
           "about what and in whom, and applies_to to say whom it holds for, then send the card and check the answer again.");
       }
     }
-    for (const note of judgeNotes) if (!notes.includes(note)) notes.push(note);
+    for (const note of judgeNotes) if (!notes.includes(note)) notes.push(checkedBy("meaning_judge", note));
   }
   if (status === "stopped" && saveOfferCaveat !== undefined) {
     const at = caveats.indexOf(saveOfferCaveat);
     if (at >= 0) caveats.splice(at, 1);
     mapOffered = false;
   }
+  // Stage 1 of enforcing HRP (design-v2 of 17 Nov 2026): every problem found, admitted as a step or given as a note,
+  // for the ledger, which is built once every note is given (settleFindingsLedger). It records; it changes nothing.
+  const ledgerSource: FindingsLedgerSource | undefined = options.findingsLedger === undefined ? undefined : (() => {
+    const admitted = new Set(observedSteps.map(({ text }) => text));
+    const observed: ObservedFinding[] = [...observedSteps, ...notes.filter((note) => !admitted.has(note))
+      .map((note) => ({ text: note, ...(repeatedNotes.has(note) ? { call: true } : {}),
+        ...(noteCheckers.has(note) ? { checker: noteCheckers.get(note)! } : {}),
+        ...(notRunNotes.has(note) ? { notRun: true as const } : {}),
+        ...(noteItems.has(note) ? { items: [...noteItems.get(note)!] } : {}),
+        ...(notePassages.has(note) ? { passages: notePassages.get(note)! } : {}) }))];
+    // Codex's review of 17 Nov 2026, finding 1: the parts of the check that ran in full in this call; an earlier finding
+    // of any other part is not rechecked, never fixed.
+    const coverage: FindingChecker[] = ["rules", "call",
+      ...(passed && draft !== undefined ? ["passing" as const] : []),
+      ...(secondReading?.status === "ran" ? ["second_reading" as const] : []),
+      ...(passed && judgment?.status === "ran" ? ["meaning_judge" as const] : []),
+      ...(passed && draft !== undefined && options.sourceLineLookups !== undefined &&
+        options.sourceLineLookups.every(({ reason }) => !cutShort(reason)) ? ["source_lines" as const] : []),
+      ...(options.backingLookups !== undefined && options.backingLookups.every(({ lookup }) => !cutShort(lookup.reason))
+        ? ["backing_lines" as const] : []),
+      ...(passed && draft !== undefined && studyMap !== undefined && options.studyMapLookup?.done === true &&
+        options.studyMapLookup.studies.every(({ reason }) => !cutShort(reason)) ? ["study_map" as const] : [])];
+    return {
+      secret: options.secret!,
+      account: options.findingsLedger!.account,
+      target: input.research_target,
+      versions: options.runningVersions,
+      raw: rawInput,
+      observed,
+      draft,
+      coverage,
+      checkedItems,
+      // Fable's check of 17 Nov 2026: the turns this call carries, so the ledger remembered for this research is used
+      // only for a call of its own chat.
+      turns: { call: callRound.turn, ...(carried?.turn === undefined ? {} : { carried: carried.turn }) },
+      now: options.now?.() ?? new Date()
+    } satisfies FindingsLedgerSource;
+  })();
   // 5 Nov 2026: a note an earlier check of this turn gave is not given again (runs removed a study to quiet a note
   // their drafts already met in their own words); a note whose words changed is new. A token without turn_notes, or
   // from an earlier turn, repeats nothing.
@@ -4717,7 +4993,8 @@ export function finalizeResearch(
   // dev account the meaning judge can raise a new concern at every pass). The notes are compared and carried as a
   // first pass words them, so the turn still gives each once.
   const lastCheck = passed && passedEarlierThisTurn;
-  if (newNotes.length < notes.length) newNotes.push(repeatedNotesLine(notes.length - newNotes.length, lastCheck));
+  const notRepeated = notes.length - newNotes.length;
+  if (notRepeated > 0) newNotes.push(repeatedNotesLine(notRepeated, lastCheck));
   const shownNotes = lastCheck
     ? newNotes.map((note) => repeatPassNote(note, inputNotes.has(note) ? "input" : "answer")) : newNotes;
   const output: FinalizeResearchOutput = {
@@ -4861,6 +5138,31 @@ export function finalizeResearch(
       const read = readsOf(url);
       return read?.reader === "reddit" ? read.subreddit : undefined;
     }) : [];
+  // Atlas news, stage 1: the news card's own claims, signed once its lines are looked up (or it has none), and only for a
+  // card whose DOI is the paper this check read: a key source whose own record, full text or audit receipts name that DOI
+  // (a DOI resolution or a failed acquisition doesn't count), so the paper the day call checks for retraction is the
+  // paper the check read (Codex's reviews of 21 Nov 2026, finding 3 and its second round's B).
+  // It must also be the paper the card quotes: a backing line's source is that DOI's paper (Codex's third round, B).
+  const newsDoi = options.newsCard?.card.doi;
+  const namesNewsDoi = (source: string) => newsDoi !== undefined &&
+    sourceLinks(source).linkIds.map(normalizeIdentifier).includes(normalizeIdentifier(newsDoi));
+  const newsDoiQuoted = newsDoi !== undefined && input.key_sources.some(({ id }) => namesNewsDoi(id)) &&
+    (options.newsCard!.card.backing.length === 0 || options.newsCard!.card.backing.some(({ source }) => namesNewsDoi(source)));
+  const newsDoiReceipts = newsDoi === undefined ? [] : paperReceipts(sourceLinks(newsDoi));
+  const newsPaperRead = newsDoiReceipts.some(({ kind }) => kind === "pubmed_record" || SOURCE_TEXT_KINDS.has(kind));
+  // The 23 Nov 2026 news audit: a short news item the full-text tool tried and admitted no copy of (a lead or a route
+  // failure signed for its DOI), with no record or text of it read, is read in its PubMed record, which AskRigor
+  // fetches itself (register-tools.ts), for a record whose own DOI is the card's.
+  const newsFullTextRefused = newsDoiReceipts.some(({ kind }) =>
+    kind === "full_text_lead" || kind === "full_text_route_failure");
+  const newsFallback = newsDoi !== undefined && newsDoiQuoted && !newsPaperRead && newsFullTextRefused &&
+    options.newsPubmedFallback !== undefined &&
+    normalizeIdentifier(options.newsPubmedFallback.doi) === normalizeIdentifier(newsDoi)
+    ? options.newsPubmedFallback : undefined;
+  const newsDoiVerified = newsDoi === undefined || (newsDoiQuoted && (newsPaperRead || newsFallback !== undefined));
+  const newsClaims = options.newsCard !== undefined && newsDoiVerified &&
+    (options.newsLookups !== undefined || newsLines.length === 0)
+    ? signedNewsClaims(options.newsCard, options.newsLookups ?? [], sourceReadingOf, newsFallback?.pmid) : undefined;
   // The recheck of #417: each forum thread whose id-only link, as the card gives it, is the link its reader read, as the
   // read's receipt signed it (`l`): the save publishes no other page's link.
   const threadLinks = findingsCard.status === "checked" && input.findings_card !== undefined
@@ -4896,12 +5198,18 @@ export function finalizeResearch(
             ...(backingClaims === undefined || backingClaims.bl.length === 0 ? {} : { bl: backingClaims.bl }),
             ...(backingClaims === undefined || backingClaims.bs.length === 0 ? {} : { bs: backingClaims.bs }),
             ...(threadCommunities.length === 0 ? {} : { ft: threadCommunities }),
-            ...(threadLinks.length === 0 ? {} : { fl: threadLinks })
+            ...(threadLinks.length === 0 ? {} : { fl: threadLinks }),
+            // Owner answer 307b: the videos the card links that this call ties to the person, by the finding's place.
+            ...(namedVideoClaims.length === 0 ? {} : { nv: namedVideoClaims })
           }
         : {}),
       // An offer that asks to file this research's map, made to this account: a paid private map is filed only with
       // this receipt and the user's yes to it (owner answer 143a).
       ...(mapOffered && mapAccount !== undefined ? { map: "offered", acct: mapAccount } : {}),
+      // Atlas news, stage 1: the news card's digest, its lines' lookups and sections, and how its sources were read.
+      ...(newsClaims === undefined ? {} : { news: newsClaims.news, nl: newsClaims.nl, ns: newsClaims.ns, nr: newsClaims.nr,
+        // The PubMed record AskRigor read itself for the card's DOI, when the full-text tool admitted no copy.
+        ...(newsClaims.np === undefined ? {} : { np: newsClaims.np }) }),
       // A call marked findings_save "off": save_research_findings refuses this receipt's card.
       ...(savingOff ? { fs: "off" } : {}),
       // Owner answer 310a: the check's AI readings were made by the call's caller, not by the server.
@@ -4921,10 +5229,23 @@ export function finalizeResearch(
   });
   if (carry === "too_large") output.carry_forward_note = CARRIED_STATE_TOO_LARGE;
   else if (carry !== undefined) Object.assign(output, carry);
+  // Codex's re-review of 17 Nov 2026, finding 7: the ledger's notes, given once every note of the call is, are given
+  // once in a turn as the check's own are. settleFindingsLedger leaves out one an earlier check of this turn gave, and
+  // gives the carried state again with the ledger's notes among those this turn has given.
+  if (ledgerSource !== undefined && carry !== undefined && carry !== "too_large") {
+    ledgerSource.turn = { given: givenThisTurn, repeated: notRepeated, lastCheck,
+      carry: (given) => buildCarriedState(input, carried, options, {
+        status: status === "stopped" ? "not_ready" : status,
+        open: checkRound === undefined ? [...new Set(stepKinds)] : [...new Set(openSteps.map(({ kind }) => kind))],
+        caveats, turn: callRound.turn, firstTurn, notes: [...givenNotes, ...given],
+        ...(previousOpen === undefined ? {} : { previousOpen })
+      }) };
+  }
   if (checkRound?.status === "open") {
     output.round_token = checkRound.token;
   }
   const parsedOutput = finalizeResearchOutputSchema.parse(output);
+  if (cardRequested) FINDINGS_CARD_REQUESTED.add(parsedOutput);
   if (passed && draft !== undefined && sourceLines.length > 0 && options.sourceLineLookups === undefined) {
     SOURCE_LINE_REQUESTS.set(parsedOutput, sourceLineRequests);
   }
@@ -4933,6 +5254,29 @@ export function finalizeResearch(
   }
   if (passed && backingLines.length > 0 && options.backingLookups === undefined) {
     BACKING_REQUESTS.set(parsedOutput, { lines: backingLines, requests: backingRequests });
+  }
+  if (options.newsCard !== undefined) NEWS_DOI_VERIFIED.set(parsedOutput, newsDoiVerified);
+  // The 23 Nov 2026 news audit: a passing check whose card's DOI only lacks a paper read, after the full-text tool
+  // admitted no copy, asks for that DOI's PubMed record; register-tools.ts fetches it and checks again with it.
+  if (passed && newsDoi !== undefined && newsDoiQuoted && !newsPaperRead && newsFullTextRefused &&
+    options.newsPubmedFallback === undefined) {
+    NEWS_PUBMED_FALLBACK_REQUESTS.set(parsedOutput, { doi: newsDoi });
+  }
+  if (passed && newsLines.length > 0 && options.newsCard !== undefined && options.newsLookups === undefined &&
+    newsDoiVerified) {
+    NEWS_REQUESTS.set(parsedOutput, { lines: newsLines.map(({ source, quote, field }) => ({ source, sentence: quote, field })),
+      // The lines that quote the card's DOI are looked up in the PubMed record read for it, when that is how it was read.
+      requests: newsFallback === undefined ? newsRequests : newsRequests.map((request, line) =>
+        namesNewsDoi(newsLines[line]!.source)
+          ? { ...request, pmids: [newsFallback.pmid, ...request.pmids.filter((pmid) => pmid !== newsFallback.pmid)] }
+          : request) });
+  }
+  // Stage 1 of enforcing HRP: the ledger is built here unless the caller gives notes of its own after the check.
+  if (ledgerSource !== undefined) {
+    FINDINGS_LEDGER_SOURCES.set(parsedOutput, ledgerSource);
+    if (options.findingsLedger!.deferred !== true) {
+      settleFindingsLedger(parsedOutput, { remembered: options.findingsLedger!.remembered });
+    }
   }
   // Owner answer 221: what the meaning judge may read of a passing check with a draft, for the tool's dev accounts.
   if (passed && draft !== undefined) {
@@ -4955,14 +5299,46 @@ export function finalizeResearch(
             return [{ ...entry, number: place + 1, ...(result === undefined ? {} : { researchResult: result }) }];
           }) } : {}),
       keySources: input.key_sources,
-      limits: [...parsedOutput.limits]
+      // A safety limit holds the AI's own words about its research, which stay in this result (promise P69; Codex's
+      // review of 21 Nov 2026): the judge reads the answer, which says it, and a fixed line in the limit's place, so the
+      // list keeps the numbering the check reads its verdicts by (Codex's recheck).
+      limits: parsedOutput.limits.map((limit) => isSafetyLimit(limit) ? SAFETY_LIMIT_FOR_JUDGE : limit)
     });
   }
   return parsedOutput;
 }
 
+/** What the card's later shape adds for a video the person named (owner answer 307b), as a note. */
+export const NAMED_VIDEOS_NOTE = "The person named a YouTube video in this research. A finding about that video may " +
+  "link it: give that finding named_videos, the video's address as the person gave it, and send the whole card in " +
+  "later_inputs.findings_card. AskRigor then keeps the link with the saved finding and shows it on the finding's " +
+  "page in the Atlas. It links no video found through its own YouTube tools.";
+
+/**
+ * The YouTube videos the person's own words named when this account registered its plain answer for this research
+ * target (owner answer 307b): the registration's receipt signs the IDs of the videos those words link (`vids`), and
+ * whether any words of the person were passed on at all (`asked`). Only the latest registration for this target counts,
+ * since its words hold the person's messages so far; another target's, an older one and another account's count for
+ * nothing (Codex's review of 15 November 2026, findings 1 and 2).
+ */
+function videosNamedAtRegistration(
+  verified: readonly VerifiedReceipt[],
+  account: string | undefined,
+  target: string,
+): { wordsPassedOn: boolean; videos: Set<string> } {
+  const own = account === undefined ? []
+    : verified.filter(({ kind, claims }) => kind === "plain_answer" && text(claims.acct) === account &&
+      text(claims.target) === target);
+  const latest = [...own].sort((left, right) => receiptOrder(left) - receiptOrder(right) || left.index - right.index).at(-1);
+  return {
+    wordsPassedOn: latest !== undefined && text(latest.claims.asked) === "1",
+    videos: new Set(latest === undefined ? []
+      : list(latest.claims.vids).filter((id) => /^[A-Za-z0-9_-]{11}$/u.test(id))),
+  };
+}
+
 /** What the card's later shape adds for the Atlas's research behind each finding (owner answer 252a), as a note. */
-export const RESEARCH_BEHIND_NOTE = "The Atlas shows the research behind each finding. Send the whole card in " +
+export const RESEARCH_BEHIND_NOTE ="The Atlas shows the research behind each finding. Send the whole card in " +
   "later_inputs.findings_card, and give each finding that cites a study backing: up to 3 lines {source, sentence, " +
   "conclusion, against}, the paper's sentence behind the finding and its conclusion each copied whole and exactly (at " +
   "most 300 characters), and the strongest thing against it in your own words; and each figure its source " +
@@ -4972,9 +5348,81 @@ export const RESEARCH_BEHIND_NOTE = "The Atlas shows the research behind each fi
   "studies_measured for outcome_mismatch}. A finding may rest on its forum_signal alone, with no sources, when the " +
   "reports agree. Then check the answer again.";
 
+/** What the findings ledger of a check is built from, but for the notes its caller gives after it. */
+type FindingsLedgerSource = Omit<FindingsLedgerParams, "remembered" | "coverage" | "observed"> & {
+  observed: readonly ObservedFinding[];
+  coverage: readonly FindingChecker[];
+  /**
+   * The turn's notes, so the ledger's are given once in it (Codex's re-review of 17 Nov 2026, finding 7): the digests
+   * of the notes earlier checks of this turn gave, how many of this check's were not repeated and whether it is the
+   * turn's last check, and the carried state again with more notes given. Absent without a carried state.
+   */
+  turn?: {
+    given: ReadonlySet<string>;
+    repeated: number;
+    lastCheck: boolean;
+    carry: (given: readonly string[]) => ReturnType<typeof buildCarriedState>;
+  };
+};
+// Stage 1 of enforcing HRP: what each check's findings ledger is built from, by the result it returned.
+const FINDINGS_LEDGER_SOURCES = new WeakMap<FinalizeResearchOutput, FindingsLedgerSource>();
+
+/**
+ * Enforcing HRP, stage 1 (Codex's review of 17 Nov 2026, finding 7): the one place a check's findings ledger is built,
+ * once every note of the call is given. The check's own steps and notes, and `late`, the notes its caller gave after it
+ * (the review of the draft, a kept card or dossier, what the call left to its caller), each with the part of the
+ * check it came from, are matched with the ledger passed back or `remembered`; `coverage` adds the parts the caller
+ * ran in full. It sets check_findings, findings_ledger and the ledger's notes on the result, and returns the ledger;
+ * nothing for a result whose check kept none.
+ */
+export function settleFindingsLedger(result: FinalizeResearchOutput, settle: {
+  late?: readonly ObservedFinding[]; coverage?: readonly FindingChecker[]; remembered?: readonly RememberedLedger[] | undefined;
+}): FindingsLedgerResult | undefined {
+  const source = FINDINGS_LEDGER_SOURCES.get(result);
+  if (source === undefined) return undefined;
+  const ledger = findingsLedger({
+    ...source,
+    observed: [...source.observed, ...settle.late ?? []],
+    coverage: [...source.coverage, ...settle.coverage ?? []],
+    remembered: settle.remembered
+  });
+  result.check_findings = ledger.checkFindings;
+  if (ledger.token === undefined) delete result.findings_ledger;
+  else result.findings_ledger = ledger.token;
+  const notes = [...result.notes ?? []];
+  const { turn } = source;
+  // What a ledger could not carry is said at every check of a turn (Codex's fourth review of 17 Nov 2026, finding 2).
+  const fresh = turn === undefined ? ledger.notes
+    : ledger.notes.filter((note) => ledger.retention.includes(note) || !turn.given.has(noteDigest(note)));
+  if (turn !== undefined) {
+    // The line that stands for the notes not repeated counts the ledger's too.
+    const left = ledger.notes.length - fresh.length;
+    const line = notes.indexOf(repeatedNotesLine(turn.repeated, turn.lastCheck));
+    if (left > 0 && turn.repeated > 0 && line >= 0) {
+      notes[line] = repeatedNotesLine(turn.repeated + left, turn.lastCheck);
+    } else if (left > 0) notes.push(repeatedNotesLine(left, turn.lastCheck));
+    const carry = turn.carry(ledger.notes);
+    if (carry !== undefined && carry !== "too_large") Object.assign(result, carry);
+  }
+  for (const note of fresh) if (!notes.includes(note)) notes.push(note);
+  if (notes.length > 0) result.notes = notes;
+  return ledger;
+}
+
 // What a passing check gives the meaning judge, by the result it returned; nothing else reads it, and it goes with the
 // result object.
 const MEANING_JUDGE_SOURCES = new WeakMap<FinalizeResearchOutput, MeaningJudgeSource>();
+
+// The results whose check asked for a findings card that did not come (Codex's review of 17 Nov 2026, finding 5).
+const FINDINGS_CARD_REQUESTED = new WeakSet<FinalizeResearchOutput>();
+
+/**
+ * Whether this result's check asked for a findings card that did not come, whether or not its notes show the request:
+ * a request an earlier check of the turn gave is left out of the notes, and the card reminder still needs to know it.
+ */
+export function findingsCardRequested(result: FinalizeResearchOutput): boolean {
+  return FINDINGS_CARD_REQUESTED.has(result);
+}
 
 /** What the meaning judge may read of this result's check: a passing check with a draft only. */
 export function meaningJudgeSourceOf(result: FinalizeResearchOutput): MeaningJudgeSource | undefined {
@@ -5009,6 +5457,34 @@ const BACKING_REQUESTS = new WeakMap<FinalizeResearchOutput, BackingRequests>();
 /** Where this result's card's backing lines may be looked up: a passing check whose lines haven't been yet. */
 export function backingRequestsOf(result: FinalizeResearchOutput): BackingRequests | undefined {
   return BACKING_REQUESTS.get(result);
+}
+
+/** A checked news card's backing lines, as quotes to look up, and where each may be (Atlas news, stage 1). */
+export interface NewsRequests {
+  lines: readonly NewsLine[];
+  requests: readonly NewsLineRequest[];
+}
+
+const NEWS_REQUESTS = new WeakMap<FinalizeResearchOutput, NewsRequests>();
+const NEWS_DOI_VERIFIED = new WeakMap<FinalizeResearchOutput, boolean>();
+const NEWS_PUBMED_FALLBACK_REQUESTS = new WeakMap<FinalizeResearchOutput, { doi: string }>();
+
+/** Whether this result's news card's DOI is one the call's verified receipts name; undefined without a news card. */
+export function newsDoiVerifiedOf(result: FinalizeResearchOutput): boolean | undefined {
+  return NEWS_DOI_VERIFIED.get(result);
+}
+
+/**
+ * The DOI whose PubMed record this passing check's news card needs read (FinalizeResearchOptions.newsPubmedFallback):
+ * a key source the card quotes, which the full-text tool admitted no copy of and no record or text of was read.
+ */
+export function newsPubmedFallbackRequestOf(result: FinalizeResearchOutput): { doi: string } | undefined {
+  return NEWS_PUBMED_FALLBACK_REQUESTS.get(result);
+}
+
+/** Where this result's news card's backing lines may be looked up: a passing check whose lines haven't been yet. */
+export function newsRequestsOf(result: FinalizeResearchOutput): NewsRequests | undefined {
+  return NEWS_REQUESTS.get(result);
 }
 
 // Why the meaning judge did not run, as its note says it.
@@ -5403,7 +5879,8 @@ function quoteShownBeyond(shownBlocks: readonly string[], quote: string, others:
 
 /** Meaning belongs to the reader; this gate compares only shown and declared text. */
 function checkSecondReading(input: FinalizeResearchInput | undefined, reading: FinalizeResearchOptions["secondReading"],
-  nextSteps: Pick<RuleInput[], "push">): FinalizeResearchOutput["second_reading"] {
+  nextSteps: Pick<RuleInput[], "push">, onDismissed?: (step: CheckRule, reason: string) => void
+): FinalizeResearchOutput["second_reading"] {
   if (reading === undefined) return undefined;
   if (reading.status === "skipped") return { status: "skipped", reason: reading.reason, findings: 0, open: 0, dismissed: 0 };
   const labels = {
@@ -5413,13 +5890,18 @@ function checkSecondReading(input: FinalizeResearchInput | undefined, reading: F
   };
   const showing = quoteLocator(displayedProse(input?.answer_draft ?? ""));
   const findings = reading.findings.filter(({ kind, quote }) => Object.hasOwn(labels, kind) && showing(quote).length > 0);
-  const dismissedQuotes = (input?.reader_dismissed ?? []).map(({ quote }) => quoteForms(quote));
+  const dismissals = (input?.reader_dismissed ?? []).map(({ quote, reason }) => ({ forms: quoteForms(quote), reason }));
+  // One wording for the note and for a dismissed finding, so the findings ledger knows them as the same finding.
+  const step = (kind: SecondReaderKind, quote: string): CheckRule =>
+    rule`A second reading found a sentence that looks like ${labels[kind]} not in the declarations: ${JSON.stringify(quote)}. Declare it in ${kind}, or list it in reader_dismissed with a one-line reason.`;
   let open = 0;
   let dismissed = 0;
   for (const { kind, quote } of findings) {
     const normalized = quoteForms(quote);
-    if (dismissedQuotes.some((other) => normalized.some((text, i) => text === other[i]))) {
+    const dismissal = dismissals.find((other) => normalized.some((text, i) => text === other.forms[i]));
+    if (dismissal !== undefined) {
       dismissed += 1;
+      onDismissed?.(step(kind, quote), dismissal.reason);
       continue;
     }
     const covered = kind === "key_terms"
@@ -5429,7 +5911,7 @@ function checkSecondReading(input: FinalizeResearchInput | undefined, reading: F
         text.length > 0 && (text.includes(normalized[i]!) || normalized[i]!.includes(text))));
     if (covered) continue;
     open += 1;
-    nextSteps.push(rule`A second reading found a sentence that looks like ${labels[kind]} not in the declarations: ${JSON.stringify(quote)}. Declare it in ${kind}, or list it in reader_dismissed with a one-line reason.`);
+    nextSteps.push(step(kind, quote));
   }
   return { status: "ran", findings: findings.length, open, dismissed };
 }
@@ -5448,19 +5930,6 @@ const privateFindings = (): FindingsCardCheck => ({ status: "private", problems:
 /** Whether this call's research account has the findings library open: saved (free) or offered (paid private). */
 const findingsOpen = (options: FinalizeResearchOptions): boolean =>
   options.findings === "save" || options.findings === "offer";
-
-// What a privacy problem is, as the card's problem names it.
-const FINDINGS_PRIVACY_PROBLEMS: Readonly<Record<FindingsPrivacyReason, string>> = {
-  secret_like_data: "something shaped like a key or token",
-  direct_identifier: "contact details, an address or a number shaped like a phone number",
-  personal_narrative: "a first-person health story, or a personal age or date",
-  raw_conversation: "lines of a chat transcript",
-  unsafe_url: "a link to a page other than a study's or a video's",
-  quoted_material: "a long quotation",
-  control_or_markup: "markup, a link to a page other than a study's or a video's, or a line break",
-  prompt_injection_like_text: "wording that reads like instructions to a tool",
-  not_a_source_identifier: "something other than a DOI, PMID, PMCID, NCT id or YouTube video id"
-};
 
 /**
  * Checks a findings card against this call. Each finding's sentence must be
@@ -5557,6 +6026,11 @@ interface ComparedClaim {
   work?: VerifiedWork;
   /** Forum threads read here that back it (owner answer 210b). */
   threads?: ReadonlyArray<{ url: string; title?: string | undefined; readHere: boolean }>;
+  /**
+   * The comparison gave it as confirmed, corrected or qualified, but the check could not show what backs that, so the
+   * note counts it as not checked and says the research claims to have checked it (owner answer 413a).
+   */
+  saidChecked?: true;
 }
 
 type RegisteredPlainAnswer =
@@ -5607,6 +6081,19 @@ function researchTimeSentence(verified: readonly VerifiedReceipt[], now: Date): 
   }
   return ` The research took about ${minutes} ${minutes === 1 ? "minute" : "minutes"}, from its first research call ` +
     "to this check.";
+}
+
+/**
+ * The short look-up the final check exempts from the Atlas lookup (a question with no real-world outcome, about
+ * something other than a symptom or a test, comparing no treatments and buying nothing), read from the declarations
+ * alone; AskRigor#477's dossier asks for none after one.
+ */
+export function shortLookupDeclared(input: FinalizeResearchInput): boolean {
+  return input.community_evidence === "not_relevant" &&
+    input.not_relevant_reason !== undefined && input.not_relevant_basis === "no_real_world_outcome" &&
+    input.question_about === "other" && input.treatment_choice !== "compared" &&
+    input.commercial_review_applicability?.status !== "required" &&
+    input.shopping?.status !== "buy_options" && input.shopping?.status !== "no_live_option_found";
 }
 
 // Receipts that are no part of the research a map maps (owner answer 143a): a plain answer written before it, a final
@@ -5717,26 +6204,60 @@ function readThreadsPhrase(threads: ReadonlyArray<{ url: string; title?: string 
     `(${named.join(", ")}${more > 0 ? ` and ${more} more` : ""})`;
 }
 
+/** The order the note gives the claims the research checked in (owner answer 413a): what it changed first. */
+const NOTE_ORDER: Readonly<Record<PlainAnswerOutcome, number>> = { corrected: 0, qualified: 1, confirmed: 2, not_checked: 3 };
+
+/** Claims as a closing line of the note lists them: each quoted exactly, the last one ending the sentence. */
+function quotations(claims: readonly string[]): string {
+  return claims.map((claim, index) => index === claims.length - 1 ? quotation(claim) : `\u201C${claim.trim()}\u201D`)
+    .join("; ");
+}
+
 /**
- * The note a checked answer ends with (owner answer 140b): each registered claim quoted exactly, in order, including
- * its figures, so the reader can see what was checked (31 Oct regressions). Each claim is followed by what the
- * research found, with the answer's own sentence and what backs it, for example "Without AskRigor, a quick
- * answer would have said: “X.” This research corrected that, from full-text audits of 2 studies: “Y.”"
+ * The note a checked answer ends with (owner answer 140b): what the research found in the quick answer it would have
+ * given without AskRigor, each claim quoted exactly, including its figures (31 Oct regressions). Owner answer 413a (24
+ * Nov 2026, after "it said 'the plain answer would have said X, but askrigor didn't check that' like over and over"):
+ * the claims the research corrected come first, then those it qualified, then those it confirmed, in the order
+ * registered within each, each with the answer's own sentence and what backs it, for example "Without AskRigor, a
+ * quick answer would have said: “X.” This research corrected that, from full-text audits of 2 studies: “Y.”" The rest
+ * close the note in one line each: the claims it did not check, then those it says it checked but did not show what
+ * backs.
  */
 function plainAnswerNote(compared: readonly ComparedClaim[], draft: string): string {
   const numbers = extractUnsignedNumbers(displayedProse(draft).map(visibleText).join("\n"));
-  return compared.map(({ claim, outcome, quote, work, threads }, index) => {
+  // Array.prototype.sort is stable, so claims with one outcome keep the order registered.
+  const checked = compared.filter(({ outcome }) => outcome !== "not_checked")
+    .sort((left, right) => NOTE_ORDER[left.outcome] - NOTE_ORDER[right.outcome]);
+  const unchecked = compared.filter(({ outcome, saidChecked }) => outcome === "not_checked" && saidChecked !== true)
+    .map(({ claim }) => claim);
+  const unbacked = compared.filter(({ saidChecked }) => saidChecked === true).map(({ claim }) => claim);
+  const lines = checked.map(({ claim, outcome, quote, work, threads }, index) => {
     const lead = index === 0 ? "Without AskRigor, a quick answer would have" : "It would also have";
-    const said = `${lead} said: ${quotation(claim)}`;
-    if (outcome === "not_checked") return `${said} This research did not check that.`;
-    // Non-not_checked entries reach a passing note only with their checked quote. A confirmed or qualified claim
-    // whose figures the checked draft does not show says so, rather than seeming to confirm them (31 Oct).
+    // Each reaches a passing note only with its checked quote. A confirmed or qualified claim whose figures the
+    // checked draft does not show says so, rather than seeming to confirm them (31 Oct).
     const bases = [...(work === undefined ? [] : [verifiedWorkPhrase(work)]), ...(threads === undefined ? [] : [readThreadsPhrase(threads)])];
     const from = bases.length === 0 ? "" : `, from ${bases.join(" and ")}`;
     const figuresUnchecked = outcome !== "corrected" &&
       extractUnsignedNumbers(claim).some((value) => !includesAbsoluteNumber(numbers, value));
-    return `${said} This research ${outcome} that${from}${figuresUnchecked ? ", but not its figures" : ""}: ${quotation(quote!)}`;
-  }).join(" ");
+    return `${lead} said: ${quotation(claim)} This research ${outcome} that${from}${figuresUnchecked ? ", but not its figures" : ""}: ${quotation(quote!)}`;
+  });
+  const opening = "Without AskRigor, a quick answer would have said:";
+  if (unchecked.length > 0) {
+    lines.push(lines.length === 0
+      ? `${opening} ${quotations(unchecked)} This research did not check ${unchecked.length === 1 ? "that" : "those points"}.`
+      : `It did not check ${unchecked.length === 1 ? "one other point" : `${unchecked.length} other points`} of the quick ` +
+        `answer: ${quotations(unchecked)}`);
+  }
+  if (unbacked.length > 0) {
+    const them = unbacked.length === 1 ? "it" : "them";
+    lines.push(lines.length === 0
+      ? `${opening} ${quotations(unbacked)} This research says it checked ${unbacked.length === 1 ? "that" : "those points"}, ` +
+        `but did not show what backs ${them}.`
+      // "too" only after claims it checked: after unchecked claims alone, it would say something was checked.
+      : `It says it checked ${unbacked.length === 1 ? "one more point" : `${unbacked.length} more points`}` +
+        `${checked.length > 0 ? " too" : ""}, but did not show what backs ${them}: ${quotations(unbacked)}`);
+  }
+  return lines.join(" ");
 }
 
 // Bounded and closed to brackets and parentheses, so a long draft is read in linear time.
@@ -5929,6 +6450,34 @@ function linkNamesDoi(link: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Whether an address names a paper, so that a news card's quote from it is never a web page's (the review of #521, F1): a
+ * DOI in its path or query, a PMCID as a part of either, or a PMID in PubMed's, NCBI's or Europe PMC's own addresses,
+ * whatever follows it. Read as given and decoded. Any other address names none: a journal's own page that holds no
+ * identifier, say, which code can't tell from another site's.
+ */
+export function addressNamesPaper(address: string): boolean {
+  let url: URL;
+  try {
+    url = new globalThis.URL(address.trim());
+  } catch {
+    return false;
+  }
+  const given = `${url.pathname}${url.search}`;
+  const forms = [given];
+  try {
+    forms.push(decodeURIComponent(given));
+  } catch {
+    // An escape that decodes to no text leaves the address as given.
+  }
+  if (forms.some((form) => /10\.\d{4,9}\//u.test(form) || /(?:^|[/=])PMC[1-9]\d{0,8}(?![a-z0-9])/iu.test(form))) return true;
+  const host = url.hostname.toLowerCase().replace(/^www\./u, "");
+  const parts = url.pathname.toLowerCase().split("/").slice(1);
+  return parts.some((part) => /^[1-9]\d{0,8}$/u.test(part)) && (host === "pubmed.ncbi.nlm.nih.gov" ||
+    (host === "ncbi.nlm.nih.gov" && (parts[0] === "pubmed" || parts[0] === "pmc")) ||
+    (host === "europepmc.org" && parts.includes("med")));
 }
 
 /**
@@ -6255,6 +6804,8 @@ interface ForumThreadReads {
   parts: Map<string, number>;
   /** A forum page's id-only links as its reader read them, by their digests (forumLinkDigest). */
   links: Set<string>;
+  /** The digests of a forum page's text as each read of it returned it (forumTextDigest). */
+  texts: Set<string>;
 }
 
 /**

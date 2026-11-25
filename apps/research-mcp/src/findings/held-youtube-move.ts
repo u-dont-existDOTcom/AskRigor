@@ -92,8 +92,8 @@ export function recordWithoutYouTubeFindings(
   // What the record already left out of the checked card besides YouTube data stays named (owner answers 219b and 252a).
   const without = STORED_WITHOUT.filter((item) =>
     item === "youtube_comment_findings" || (item === "youtube_video_ids_and_links" && linksReplaced) ||
-    ((item === "youtube_comment_declarations" || item === "backing_quotes_not_kept" || item === "forum_thread_links") &&
-      (record.stored_without ?? []).includes(item)));
+    ((item === "youtube_comment_declarations" || item === "backing_quotes_not_kept" || item === "forum_thread_links" ||
+      item === "named_video_links_as_given") && (record.stored_without ?? []).includes(item)));
   return {
     schema: record.schema,
     card: stored.card,

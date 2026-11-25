@@ -43,10 +43,12 @@
     "contributor-access:deterministic-acceptance": "tsx scripts/accept-research-contributor-access.mts",
     "contributor-access:acceptance": "npm run contributor-access:deterministic-acceptance && npm run contributor-access:postgres-acceptance",
     "contributor-access:postgres-acceptance": "bash scripts/run-research-contributor-access-postgres-acceptance.sh",
+    "dossier-publications:postgres-acceptance": "bash scripts/run-research-dossier-publications-postgres-acceptance.sh",
     "contributor-access:notice-v2-rollback-acceptance": "bash scripts/run-research-use-notice-v2-rollback-acceptance.sh",
     "contributor-access:notice-v3-rollback-acceptance": "bash scripts/run-research-use-notice-v3-rollback-acceptance.sh",
     "contributor-access:notice-v4-rollback-acceptance": "bash scripts/run-research-use-notice-v4-rollback-acceptance.sh",
     "contributor-access:notice-v5-rollback-acceptance": "bash scripts/run-research-use-notice-v5-rollback-acceptance.sh",
+    "contributor-access:notice-v6-rollback-acceptance": "bash scripts/run-research-use-notice-v6-rollback-acceptance.sh",
     "owner-review:preflight": "tsx scripts/owner-review-task-preflight.mts",
     "owner-review:acceptance": "npm run contributor-access:acceptance",
     "promotion-scheduler:preflight": "tsx scripts/promotion-scheduler-task-preflight.mts",
@@ -74,6 +76,8 @@
     "@modelcontextprotocol/sdk": "1.32.2",
     "fast-xml-parser": "5.12.0",
     "jose": "6.2.17",
+    "oauth4webapi": "3.8.8",
+    "oidc-provider": "9.15.0",
     "zod": "4.6.7"
   },
   "devDependencies": {

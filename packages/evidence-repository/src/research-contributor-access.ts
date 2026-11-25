@@ -43,11 +43,15 @@ import {
 
 import { RESEARCH_USE_NOTICE_CHANGES, type ResearchUseNoticeChange } from "./research-use-notice-changes.js";
 import { PostgresResearchCallRecordStore } from "./research-call-record.js";
+import { PostgresResearchUserCounts } from "./research-user-counts.js";
+import { PostgresResearchDossierStore } from "./research-dossiers.js";
+import { PostgresGeminiSignInRowStore } from "./gemini-sign-in-rows.js";
+import { PostgresResearchDossierPublisher } from "./research-dossier-publications.js";
 export { contributionPrivacyBoundarySchema, researchContributionProposalInputSchema };
 export { RESEARCH_USE_NOTICE_CHANGES, type ResearchUseNoticeChange };
 
 export const RESEARCH_USE_NOTICE_VERSION =
-  "free-contributor-v5-2026-11-05" as const;
+  "free-contributor-v6-2026-11-15" as const;
 
 /**
  * Notices free accounts accepted before the current one, oldest first. Such an
@@ -57,13 +61,15 @@ export const RESEARCH_USE_NOTICE_VERSION =
  * published in the public Atlas and the notice says what deleting a card
  * removes and what stays (owner answers 159, 1b and 7, and 160b, 2026-10-22),
  * v4 when free cards publish on save, with votes and comments (owner answer 171, 2026-10-25), v5 when a card's
- * summary of what communities reported holds links to the forum threads AskRigor read (owner answer 253a, 2026-11-05).
+ * summary of what communities reported holds links to the forum threads AskRigor read (owner answer 253a, 2026-11-05),
+ * v6 when a card may link a YouTube video that a person named (owner answer 307b, 15 November 2026).
  */
 export const EARLIER_RESEARCH_USE_NOTICE_VERSIONS = [
   "free-contributor-v1-2026-09-01",
   "free-contributor-v2-2026-09-30",
   "free-contributor-v3-2026-10-22",
   "free-contributor-v4-2026-10-25",
+  "free-contributor-v5-2026-11-05",
 ] as const;
 
 const researchUseNoticeVersionSchema = z.enum([
@@ -104,14 +110,20 @@ export interface ResearchUseNoticeAcceptance {
   current: "accepted" | "carried_forward";
 }
 
-// Version 5 (owner answer 253a, 2026-11-05), word for word as the owner chose it: a card's summary of what public
-// online communities reported holds the communities, counts of what people reported and links to the forum threads
-// AskRigor read, never their posts or names, YouTube comments or video IDs. All other sentences remain version 4's
-// (owner answer 171, 2026-10-25: free cards publish on save, with the unreviewed label, votes and comments; deleting a
-// card removes it from the Atlas unless its findings were already accepted; an accepted finding stays while valid).
+// Version 6 (owner answer 307b, 15 November 2026), word for word as the owner chose it: the second sentence now ends
+// "never YouTube comments." and a new sentence follows it, "A card may link a video that a person named." The decision:
+// a saved findings card and its page in the public Atlas may link a YouTube video that a person named themselves (the
+// asker, someone reporting what worked for them, or AskRigor's owner); videos that AskRigor itself finds through
+// YouTube's search stay out, as now; cards still hold no YouTube comments. All other sentences remain version 5's
+// (owner answer 253a, 2026-11-05: a card's summary of what public online communities reported holds the communities,
+// counts of what people reported and links to the forum threads AskRigor read, never their posts or names), which
+// kept version 4's (owner answer 171, 2026-10-25: free cards publish on save, with the unreviewed label, votes and
+// comments; deleting a card removes it from the Atlas unless its findings were already accepted; an accepted finding
+// stays while valid).
 export const RESEARCH_USE_NOTICE = [
   "Free AskRigor use is reciprocal: what AskRigor learns from your research is saved for its research library.",
-  "That includes deidentified structured research progress and, for each finished research answer whose findings would help other people, a findings card: the question in general terms, the main findings and how certain they are, the public studies behind them, and what public online communities reported, summarized without their posts or names: the communities, counts of what people reported, and links to the forum threads AskRigor read, never YouTube comments or video IDs.",
+  "That includes deidentified structured research progress and, for each finished research answer whose findings would help other people, a findings card: the question in general terms, the main findings and how certain they are, the public studies behind them, and what public online communities reported, summarized without their posts or names: the communities, counts of what people reported, and links to the forum threads AskRigor read, never YouTube comments.",
+  "A card may link a video that a person named.",
   "AskRigor never saves raw chat, prompts, identity or contact details, private health narratives, uploads, or raw source or provider bodies.",
   "Saved research is reviewed and does not become evidence, conclusions, or scientific authority merely because it was saved or repeated.",
   "Your findings cards are published in AskRigor's public Atlas as soon as they are saved, written without you and marked \"Not checked by supervisors yet\" until AskRigor's owner has reviewed them, and people who sign in can vote and comment on them.",
@@ -169,8 +181,9 @@ export type ResearchContributionProposalKind =
  * The research style an account sets once, for every research it runs (owner answer 279a, 9 November 2026, from the
  * owner's report AskRigor#434). style is how often the AI stops to ask the person: guided asks at the framing and before
  * every long task; balanced, the default, asks only questions that could redirect the research and shows the menu of
- * next tasks when the rest could take more than about 10 minutes or the person's choices could steer the research, as
- * they usually can unless the question is precise (owner answer 284, 10 November 2026); autonomous goes on through the
+ * next tasks when the person's choices could steer the research, as they usually can unless the question is precise
+ * (owner answer 284, 10 November 2026), and since owner answer 399b (21 November 2026) a first menu no longer waits
+ * for its length, which past about 10 minutes it did; autonomous goes on through the
  * passes and checks back after checkBackMinutes. adjustmentDetail is what the answer says about the variables each key observational study
  * adjusted for: flagged, the default, only those that look doubtful on a quick check ("default balanced mode might only
  * mention the adjustments you think on a quick check look potentially inappropriate or controversial"), or all. None of
@@ -1170,6 +1183,26 @@ implements ResearchContributorAccessStore {
    */
   callRecordStore(): PostgresResearchCallRecordStore {
     return new PostgresResearchCallRecordStore(this.pool, this.schema);
+  }
+
+  /** AskRigor#477 stage 1 (owner answer 329a): the private research dossiers, on this store's pool and schema. */
+  dossierStore(): PostgresResearchDossierStore {
+    return new PostgresResearchDossierStore(this.pool, this.schema);
+  }
+
+  /** The public user count (the owner's request of 20 Nov 2026): two aggregates, on this store's pool and schema. */
+  userCounts(): PostgresResearchUserCounts {
+    return new PostgresResearchUserCounts(this.pool, this.schema);
+  }
+
+  /** Gemini's sign-in (owner answer 386b): the authorization server's sealed rows, on this store's pool and schema. */
+  geminiSignInRows(): PostgresGeminiSignInRowStore {
+    return new PostgresGeminiSignInRowStore(this.pool, this.schema);
+  }
+
+  /** AskRigor#477 stage 2: the dossiers' public copies, published on this store's pool and schema. */
+  dossierPublisher(): PostgresResearchDossierPublisher {
+    return new PostgresResearchDossierPublisher(this.pool, this.schema);
   }
 
   async getAccount(accountKey: string): Promise<ResearchUseAccountRecord | null> {

@@ -219,6 +219,26 @@ reprovision the access role before serving the image that reads the setting. The
 off before a run and on afterwards, recording both. An earlier image ignores the setting, so rollback to it
 requires pausing regressions to avoid saving their cards again; the column and choice can remain in place.
 
+Atlas Release B (19 Nov 2026): migration `0042_atlas_person_readings` adds the readings that mark unverified claims
+about named people, the disputed sentences, the private disputes and the reading's daily spend, and its functions;
+reprovision the review role (this folder's `provision-research-review-role.sh` grants them). The mark stays off until
+`ASKRIGOR_ATLAS_PERSON_MARK` names the instant it was switched on (an ISO time, such as `2026-11-20T09:00:00Z`): findings
+published before it show under a banner until the worker has read them, later ones only once read. The reading uses
+`ASKRIGOR_ATLAS_PERSON_READING_KEY_FILE` and `_WORKSPACE_ID` (by default the meaning judge's) and
+`ASKRIGOR_ATLAS_PERSON_READING_DAILY_CAP_USD` (default 1; for the first 24 hours after the switch the cap is USD 5,
+counted under the switch's date, unless the setting is 0). The owner's notices (legal letters, data requests,
+refusals, parked findings and changes on findings the owner checked) stay in the private table until he acknowledges
+them; nothing is sent. Before the mark, give the daily scheduled check that writes his Inbox a step that calls the
+review tool's `list_person_notices` under the owner's login, writes one Inbox item per open notice (kind, finding,
+dispute number; a legal one flagged), and calls `ack_person_notice` with `later_inputs.personNotice` when he has
+answered it (the shell route is `person-claims-admin.js notices` and `ack <notice> owner`); the log counts what is
+open, hourly. The old `ASKRIGOR_ATLAS_PERSON_NOTICE_URL` and `_SECRET` settings are gone. Publish the privacy and terms text with the setting, not before. Roll back only to a build that has Release B: an older image shows these claims without their mark, on lists,
+kept pages and lookups alike. If an older image is unavoidable: pause the writers (no saves and no `show_on_pages`), and
+with the mark still on, withdraw every publication `node apps/research-mcp/dist/atlas/person-claims-admin.js
+rollback-list` prints (unread findings, findings with a marked claim, and findings with a sentence taken off or left
+out) with the owner's `unpublish_finding`, and every curated scorecard row (G-number) it prints with the glance review's
+withdrawal; only then unset `ASKRIGOR_ATLAS_PERSON_MARK` and let the older image serve. The same tool lists the open disputes (`queue`) and takes a sentence off or puts it back (`take-off`, `restore`).
+
 Earlier notice v3 (owner answers 159, 1b and 7, and 160b, 2026-10-22): the free
 contributor notice's third version, `free-contributor-v3-2026-10-22`, says that findings
 the owner accepts may be published in the public Atlas and what deleting a
@@ -310,6 +330,67 @@ image). Undo no migration: 0028 stays and widens only the notice check.
 `npm run contributor-access:notice-v5-rollback-acceptance` checks the pair with
 real PostgreSQL in Docker, including v1 to v4 accounts.
 
+Owner answer 307b (15 November 2026; built, not yet released): the free
+contributor notice's sixth version, `free-contributor-v6-2026-11-15`, says a
+card may link a video that a person named. A saved findings card and its page
+in the public Atlas may link a YouTube video that a person named themselves (the
+asker, someone reporting what worked for them, or AskRigor's owner); videos that
+AskRigor itself finds through YouTube's search stay out, as before; cards still
+hold no YouTube comments. Migration `0036_research_use_notice_v6` admits v1 to
+v6 under the same `research_use_accounts_free_notice_check`, without new columns
+or grants, and is safe to run again. Run the one-shot admin `migrate` before an
+image offering v6 serves. The privacy page and terms say the same; the release
+sets their effective dates. Version 6 is material, so earlier accounts, v5's
+included, accept v6 before free research. The owner's own login needs no step:
+its first call accepts v6 by the owner's standing instruction and records it
+(the next paragraph). Any other dev account the regression harness uses first
+switches card saving off (`set_findings_save` with `findingsSave: false`, which
+works whatever notice the account accepted, since it publishes nothing), then
+accepts v6; switching saving back on needs v6.
+For an image rollback below v6, follow the v4 order above with
+`research-use-notice-v6-hold.sql` and `research-use-notice-v6-restore.sql`
+(`research_use_notice_v6_hold`; held accounts may accept v5 on the earlier
+image, the owner's own login too: the standing instruction never reactivates a
+revoked login). Undo no migration: 0036 stays and widens only the notice check.
+For a target below v5, also use the v5 pair; each hold moves only its own
+notice version. Neither script holds how the notice was accepted, so a restored
+account's way of acceptance reads as "not recorded".
+`npm run contributor-access:notice-v6-rollback-acceptance` checks the pair with
+real PostgreSQL in Docker, including v1 to v5 accounts, an account the standing
+instruction accepted, and what becomes of the acceptance record.
+
+Image rollback hazard of the same release, as for the release of 5 November
+below: an image from before it cannot parse a row that holds a named video's
+link (`named_videos`). Three kinds:
+
+- **Publications** whose `published_json` holds it: the earlier image's pages
+  leave such an unreviewed publication out, and its publication store refuses the
+  row, so its owner tools that list publications fail on it.
+- **Atlas intents and accepted versions** whose research holds it
+  (`content.research.named_videos`; `atlas_finding_versions.research`): the
+  earlier image parses the research strictly.
+- **Findings cards** stored with it, which the earlier image's review reads as
+  unreadable.
+
+A link is stored only when a research answer names a video and its card is
+saved, so check first, read-only, as the migrator:
+
+```sql
+SELECT count(*) FROM living_evidence.atlas_publications
+ WHERE published_json ? 'named_videos';
+SELECT count(*) FROM living_evidence.atlas_finding_intents
+ WHERE payload_json -> 'content' -> 'research' ? 'named_videos';
+SELECT count(*) FROM living_evidence.atlas_finding_versions
+ WHERE research ? 'named_videos';
+```
+
+and count the findings cards saved since the release in the owner's review.
+With none of any, the rollback needs no step beyond the notice's hold. With
+some, the earlier image needs a hotfix that reads them tolerantly, with the
+publications withdrawn first if they must not show meanwhile. At the release,
+make the first research that names a video the last acceptance step, after
+everything else is confirmed, so that a rollback for another reason meets none.
+
 The owner, 6 November 2026 (built, not yet released; plan
 `../../docs/superpowers/plans/2026-11-07-next-build.md`): a new notice version asks again only when it collects or
 publishes more, and the owner's own login (`ASKRIGOR_OAUTH_ALLOWED_SUBJECT`) accepts each new one by the owner's
@@ -352,6 +433,236 @@ mode off, so a rollback below this image empties the table and turns the switch 
 (`DELETE FROM living_evidence.research_menu_choices; UPDATE living_evidence.research_use_accounts SET
 learn_menu_choices = false WHERE learn_menu_choices;`) to keep the promise that what was kept can be deleted. Undo no
 migration.
+
+AskRigor#477 stage 1 (owner answer 329a, 16 November 2026; built, not yet released; design
+`/home/joel/askrigor-releases/20261116-477/design-v2.md`): migration `0037_research_dossiers` adds a free
+contributor's private research dossier: the tables `research_dossiers`, `research_dossier_versions`,
+`research_dossier_identifiers`, `research_dossier_requests` (each save request and the version it got, so a retry
+returns its own) and `research_dossier_events`, the sequence `research_dossier_number_seq` (ARD numbers, four digits
+at least and every digit past them), five SECURITY DEFINER functions and a trigger on `research_use_accounts` that
+withdraws an account's dossier versions still waiting for review when the account is revoked. A save checks the
+account under a row lock that a revocation, a switch to paid private or card saving switched off waits for, and
+that waits for them. It is additive and safe to run again; it changes no existing table, row or grant. Every table
+and the sequence are revoked from PUBLIC and from the canonical reader, whose default grants would otherwise read
+them; the functions are revoked from PUBLIC. Release, in this order: run the
+one-shot admin `migrate`; re-run `/usr/local/bin/provision-research-access-role` (it now grants
+`append_research_dossier_version`, `latest_research_dossier_version` and `read_research_dossier_version`) and
+`/usr/local/bin/provision-research-review-role` (it now grants `erase_research_dossiers(text, timestamptz)`, which
+`forget_card` calls with the research-thread key of the save it forgets, never a card number, which several people's
+saves can share);
+then serve the image, and only then set `ASKRIGOR_RESEARCH_DOSSIERS=enabled` in `runtime.env` and recreate
+`research-mcp`. Without the setting nothing is asked for or saved. Turning it off again stops new saves and keeps what
+was saved.
+
+Owner answer 400a (22 November 2026; promise P69): `ASKRIGOR_SAFETY_LIMITS=on` in `runtime.env`, then recreate
+`research-mcp`, has `finalize_research` read `later_inputs.safety_limits` (the research steps a model's or app's own
+safety rules limited, as the AI declares them under HRP 20.6.44's LimitsNote) and list each as a limit saying who
+reports it, with one line above the final check panel's fold (`docs/final-check.md`). Off in the code's default; any
+other value, or none, turns it off, which is its rollback: nothing is stored, so nothing needs undoing. AskRigor's own
+planning call and review log `fallback_answered` or `fallback_refused` whatever the setting.
+
+Optional, off by default, the owner's decision (Codex's final check): `ASKRIGOR_DOSSIER_PRIVACY_READING=on` in
+`runtime.env` has every dossier read for personal details before it is stored
+(`apps/research-mcp/src/findings/dossier-privacy-reading.ts`), on the research planner's own Claude API path: its key
+file (`ASKRIGOR_RESEARCH_PLANNER_KEY_FILE`), its day's cap (`ASKRIGOR_RESEARCH_PLANNER_DAILY_CAP_USD`, within the
+owner's ceiling with the meaning judge's) and its state file, so it needs `ASKRIGOR_RESEARCH_PLANNER=on`; with the
+reading on and the planner off, no dossier is saved. One call per dossier to `claude-haiku-5-5`, the smallest model the
+planner prices: at most 64,000 characters of the dossier's text fields (never its identifiers, the chat or the
+answer; a typical dossier has about 7,500, and only one near every limit of the schema is longer), 1,024 reply tokens
+and 8 seconds, no retry. A refusal, a reply that is no reading, a text too long, a timeout, an error or the day's cap
+leave the dossier unsaved, with the reason in `research_dossier`. Expected cost per dossier at the list price the
+planner counts (USD 0.10 per million input tokens and 0.50 per million output tokens): about USD 0.0004 for a typical
+dossier (some 2,200 tokens in with the rubric, up to 300 out), about USD 0.002 for the longest that fits (some 16,000
+tokens in, 1,024 out), never more than about USD 0.007. It sends the dossier's text to Anthropic's API, which the
+privacy page says (owner answer 334a, 16 November 2026: the release turns the reading on, with the planner's settings
+above in `runtime.env`).
+
+Image rollback hazards (Codex's review of 16 November 2026, finding 7): an earlier image never reads the five
+tables, so its pages, review and research are unaffected, and its `finalize_research` drops a
+`later_inputs.research_dossier` with a note and checks the answer as before. Two things need care.
+
+1. The notice hold revokes, and revocation withdraws. Roll back no lower than `ce1d677a` when you can: it reads notice
+   v6, so no hold runs and no account changes. A target below v6 (`80ebc006` or earlier) needs the v6 hold above, which
+   marks every v6 account `REVOKED`; on its own that fires `research_dossiers_withdraw_on_revocation`, which withdraws
+   every version of their dossiers still waiting for review, for good: the restore puts the accounts back but never a
+   version's review state, since a withdrawal is an append-only event. So for such a target, stop `research-mcp` before
+   each run of the hold, run it as the migrator with the trigger off, and turn the trigger on again before
+   `research-mcp` starts; the two counts of withdrawals must match (the restore needs no step: the trigger fires only
+   when an active account is revoked):
+
+   ```sql
+   SELECT count(*) FROM living_evidence.research_dossier_events WHERE event = 'withdrawn';
+   ALTER TABLE living_evidence.research_use_accounts DISABLE TRIGGER research_dossiers_withdraw_on_revocation;
+   -- here, research-use-notice-v6-hold.sql, as above
+   ALTER TABLE living_evidence.research_use_accounts ENABLE TRIGGER research_dossiers_withdraw_on_revocation;
+   SELECT count(*) FROM living_evidence.research_dossier_events WHERE event = 'withdrawn';
+   ```
+
+   With `research-mcp` stopped, no one's revocation lands while the trigger is off. A person who revokes later, on
+   the earlier image, still withdraws their versions, even while the hold has marked their account `REVOKED`: the
+   trigger also fires when a revoked account is revoked again at a new time, which is how that revocation is written
+   (Codex's second pass), and the restore then leaves their account revoked.
+2. An earlier image's `forget_card` cannot erase a dossier, and it strips the research-thread key from the person's
+   card markers, the only link this image's `forget_card` follows to their dossiers, those saved without a card too
+   (no card number finds a dossier: several people's saves can share one). So while an earlier image serves, hold
+   `forget_card` requests until the dossier-aware image serves again (the privacy page promises no deadline). For one
+   that cannot wait, first recover the thread key from the named card's issue on GitHub: its body ends with the hidden
+   marker `<!-- askrigor-findings-card:<data> -->`, whose data is base64url JSON with the key as `thread`. Then, as the
+   migrator, erase that thread's dossiers and check that none is left before the earlier image's `forget_card` runs:
+
+   ```sql
+   SELECT living_evidence.erase_research_dossiers('<thread key>', now());
+   SELECT count(*) FROM living_evidence.research_dossiers WHERE thread_key = '<thread key>';
+   ```
+
+A request that names a dossier by its ARD number is met, on any image, with `SELECT
+living_evidence.erase_research_dossiers(thread_key::text, now()) FROM living_evidence.research_dossiers WHERE
+dossier_number = 'ARD-0001' AND erased_at IS NULL;` as the migrator, which erases that dossier's research thread, the
+person's own. Revocation needs no step: the trigger lives in the database, and an earlier image's migrations never
+drop it. A rollback below the image that runs `migrate` with 0037 needs no other change to the database; its own
+`migrate` leaves 0037's objects alone. Read-only counts, as the migrator, before and after:
+
+```sql
+SELECT count(*) FROM living_evidence.research_dossiers WHERE erased_at IS NULL;
+SELECT count(*) FROM living_evidence.research_dossier_versions WHERE erased_at IS NULL;
+SELECT event, count(*) FROM living_evidence.research_dossier_events GROUP BY event ORDER BY event;
+```
+
+Until the owner's review tool lists dossiers, the owner reads them as the migrator, read-only:
+`SELECT d.dossier_number, v.version_number, v.created_at, v.payload_json FROM living_evidence.research_dossiers d JOIN
+living_evidence.research_dossier_versions v ON v.dossier_number = d.dossier_number WHERE v.erased_at IS NULL ORDER BY
+v.created_at DESC LIMIT 20;`
+
+Undo no migration.
+
+Migration `0038_research_proposal_idempotency_index` (16 November 2026; built, not yet released) adds one index,
+`research_contribution_proposals_idempotency_idx`, on `research_contribution_proposals (account_key, proposal_kind,
+(payload_json ->> 'idempotencyKey'))` for the statuses `PENDING_REVIEW`, `ACCEPTED` and `REJECTED`: the research-access
+role's lookup of an account's own proposal by its idempotency key, which every server-built analysis runs before it is
+filed. Without it each lookup reads and decompresses the payload of every proposal; on 16 November 2026 nine made
+together for one passing check were all cancelled by the role's five-second statement timeout, and those analyses were
+not filed. It changes no table, row, constraint or grant, and no query. Every idempotency key is at most 200 characters,
+so no insert can fail on the index.
+
+The lock: `migrate` runs every migration in one transaction, so the index is built without CONCURRENTLY and takes a
+SHARE lock on `research_contribution_proposals` (reads go on, inserts and updates wait). `migrate` already holds that
+table under ACCESS EXCLUSIVE until it commits, because re-running 0009 and 0012 drops and recreates their triggers, so
+during every `migrate` the research-access role's reads and writes of proposals already wait; the build lengthens that
+wait by one pass over every proposal's payload, about 25 microseconds a row with the table cached (0.5 s for 20,000
+synthetic proposals of 19 KB, 406 MB), more from a cold disk. A final check that files analyses during that wait may
+time out as before; run `migrate` when the table's size makes that matter. Read-only, as the migrator, before and after:
+
+```sql
+SELECT count(*), pg_size_pretty(pg_total_relation_size('living_evidence.research_contribution_proposals'))
+  FROM living_evidence.research_contribution_proposals;
+SELECT indexname, indexdef FROM pg_indexes
+  WHERE schemaname = 'living_evidence' AND indexname = 'research_contribution_proposals_idempotency_idx';
+```
+
+An earlier image needs no step: its `migrate` re-runs its own migrations and leaves the index alone, and its lookup is
+the same query, which uses it. Leave the index in place on a rollback: dropping it brings the timeouts back, and the
+next `migrate` that includes 0038 builds it again. Should it ever have to go, drop it outside a transaction without
+blocking writes: `DROP INDEX CONCURRENTLY IF EXISTS living_evidence.research_contribution_proposals_idempotency_idx;`.
+Undo no migration.
+
+Migration `0039_gemini_oauth_store` (owner answer 386b, 20 November 2026; built, not yet released; design
+`../../docs/superpowers/plans/2026-11-21-gemini-sign-in-design.md`, operator notes `../../docs/gemini-connector.md`)
+adds one table, `gemini_oauth_store`, and its four indexes: the state of AskRigor's own authorization server for
+Google's Gemini app (login sessions, interactions, codes, tokens, grants and client-assertion replay marks). Keys and
+indexes are 32-byte HMACs and payloads AES-256-GCM ciphertext under keys derived from `ASKRIGOR_GEMINI_OAUTH_SECRET`,
+so the table holds no token, code or subject in the clear. It changes no existing table, row, constraint or grant. It
+revokes the table from PUBLIC and `askrigor_reader`; after `migrate`, rerun `provision-research-access-role.sh`, which
+grants `askrigor_research_access` SELECT, INSERT, UPDATE and DELETE on it and nothing else. The lock is only the new
+table's. Read-only checks, as the migrator:
+
+```sql
+SELECT model, count(*) FROM living_evidence.gemini_oauth_store GROUP BY model;
+SELECT grantee, privilege_type FROM information_schema.role_table_grants
+  WHERE table_schema = 'living_evidence' AND table_name = 'gemini_oauth_store';
+```
+
+An earlier image never reads the table, so it needs no step. Rollback: unset `ASKRIGOR_GEMINI_OAUTH` and recreate the
+research service; every Gemini path answers 404 again and no link works. Leave the table. To end every link for good
+before switching it on again, `DELETE FROM living_evidence.gemini_oauth_store;` as the migrator (or change the secret).
+Undo no migration.
+
+Migration `0043_atlas_news_items` (21 November 2026; built, not yet released; plan
+`../../docs/superpowers/plans/2026-11-21-atlas-news-stage1.md`) adds Atlas news in shadow: two tables,
+`atlas_news_items` (each news check's card as its final check passed it, its draft and the receipt's news claims) and
+`atlas_news_days` (each day the owner's day call committed, whole), a sequence for the N-numbers, and four SECURITY
+DEFINER functions. It is numbered after the open branches' 0039 to 0042, which may land before or after it; none of
+them reads these tables. No role gets a table right, the canonical reader included (the migration revokes the reader's
+default privilege, as 0037 does), so no page can read a shadow item or a draft. The research-access role executes
+`stage_atlas_news_card` (`provision-research-access-role.sh`); the review role executes `commit_atlas_news_day`,
+`withdraw_atlas_news_items` and `inspect_atlas_news` (`provision-research-review-role.sh`). The release runs the
+migration, then both provisioning scripts, then deploys with `ASKRIGOR_ATLAS_NEWS=shadow`; with the variable unset or
+`off`, nothing stages or commits. `commit_atlas_news_day` compares the run's deadline with `clock_timestamp()` as its
+last step, so a late call stores nothing. Read-only, as the migrator:
+
+```sql
+SELECT state, count(*) FROM living_evidence.atlas_news_items GROUP BY state;
+SELECT news_day, day_version, jsonb_array_length(stored_order), committed_at FROM living_evidence.atlas_news_days
+  ORDER BY news_day DESC, day_version DESC LIMIT 14;
+```
+
+To stop news, set `ASKRIGOR_ATLAS_NEWS=off` and restart: staging and the news actions stop, and nothing is shown in any
+case. The owner's `withdraw_news_item` with `news_number` "all" withdraws every item and keeps each withdrawal on its row.
+An earlier image needs no step: it never reads these tables. Undo no migration.
+
+Migration `0040_research_dossier_publications` (AskRigor#477 stage 2, owner answers 331a, 332a and 333a; built, not
+yet released; 0039 is another branch's) adds the research dossiers' public copies: `research_dossier_public_notices`
+(the notices whose yes covers a dossier on the public Atlas, empty), `research_dossier_publications` (a dossier's public
+number, D-1001 onward), `research_dossier_public_versions` (one copy per saved version: shown, held for AskRigor's check
+with its reasons, superseded, taken down or erased; its public content, topic, related topics, the dossiers it conflicts
+with, where its research ran, whether the privacy reading passed its saved content, without which it never shows, and
+whether a claim names a living person, or that its AI did not say, with the owner's recorded statement and decision)
+and
+`research_dossier_public_events` (append-only), thirteen role functions, three pure helpers that derive a copy from its
+private record, two internal functions for the conflict candidates, three for the comparison a show of a held copy is
+checked against, one for whether a copy held for the privacy reading alone may show by itself, two that take the per-topic locks (automatic
+publication and every review transition that changes what is shown take the same locks, in the same order), and two
+views. The research-access role publishes and reads a topic's shown copies
+(`publish_research_dossier_version`, which derives the public copy and why it is held from the saved private record and
+refuses anything else, and any copy the pages' last check would leave out, and admits copies one topic at a time against the conflict check's candidates, and
+`research_dossier_conflict_candidates`, every shown copy on the topic, a linked topic or under another name, a page at a
+time); the review role
+lists, inspects and decides (`list_research_dossier_publications`, `inspect_research_dossier_publication`,
+`decide_research_dossier_publication`, `decide_research_dossier_living_person`, the owner's own decision with his
+reason, the only way a copy whose claim names a living person shows, each comparing a held or taken-down copy with the
+shown dossiers before it shows it (`research_dossier_show_candidates` lists them; the function lists them again under the
+topic locks and refuses a show compared with any other set, and an important conflict, or a comparison that could not be
+made, shows nothing without the owner's override, kept with who and when and the pairs of findings for the pages), `state_research_dossier_living_person`, the
+owner's own statement, recorded once with who and when, on a copy whose AI did not say whether a claim names one,
+without which the ordinary show refuses it, `list_research_dossier_privacy_pending` and
+`record_research_dossier_privacy_reading`, a privacy reading made later of a copy held waiting for one, bound to the
+digest of the content it read (a refusal is final for that content; a reader that could not read is kept apart as
+temporary), `admit_research_dossier_after_privacy` and `list_research_dossier_admission_pending`, which show by itself
+a copy held only for the privacy reading once a later reading passed it, if it otherwise qualifies, after fresh
+conflict and eligibility checks under the account's, the dossier's and the topic locks (never one the owner held or
+took down, nor one refused, withdrawn or ineligible; an important conflict found then holds it for that instead), and
+`revise_research_dossier_importance`, a
+reviewed revision of an importance mark as a new version, never an edit in place);
+the canonical reader reads only the views `research_dossier_public_pages`, `research_dossier_public_history`,
+`research_dossier_public_topics` (each shown topic once, for the topics list) and `research_dossier_public_changes` (a
+number a trigger raises with every change to the copies, which every server's pages cache under, so a withdrawal or an
+erasure is never served from a cache). A
+trigger on `research_dossier_events` takes a copy off the pages when its version is withdrawn or rejected, and erases it
+when its version is erased, unless the owner accepted it, so an earlier image's revocation and `forget_card` keep them in
+step; a trigger on `research_use_accounts` treats losing access like erasure for an accepted copy, detaching its
+dossier's copies from the private versions and the account and clearing their origin. Its release: the one-shot admin `migrate`, then re-run `/usr/local/bin/provision-research-access-role` and
+`/usr/local/bin/provision-research-review-role`, before the image serves. While public dossiers, the owner's review and
+`ASKRIGOR_DOSSIER_PRIVACY_READING=on` are all set, each server reads up to five copies waiting for the privacy reading
+every half hour, on the planner's paid path (about USD 0.007 each at most), stopping at the first reading that could not
+be made; the owner's `read_dossier_privacy` reads one at once. A copy held for the reading alone that it passes is then
+compared with the shown dossiers it could contradict (one more conflict reading on the same path when any shows) and
+shown if it otherwise qualifies; one whose comparison could not be made is compared again on a later sweep. Nothing is published until both
+`ASKRIGOR_PUBLIC_DOSSIERS=enabled` (off by default; it also needs `ASKRIGOR_RESEARCH_DOSSIERS=enabled`) and the release of
+notice v7, on the owner's yes, which adds its version to `research_dossier_public_notices` and to
+`PUBLIC_DOSSIER_NOTICE_VERSIONS`. Read-only, as the migrator:
+`SELECT state, count(*) FROM living_evidence.research_dossier_public_versions GROUP BY state;`. An earlier image never
+reads these tables. Undo no migration; to take everything off the pages at once, set `ASKRIGOR_PUBLIC_DOSSIERS` off
+(the pages stop reading the views) or take copies down with `take_down_dossier`. Its own PostgreSQL acceptance:
+`npm run dossier-publications:postgres-acceptance`.
 
 Owner answers 254a and 255a (2026-11-05; built, not yet released; plan
 `../../docs/superpowers/plans/2026-11-05-atlas-research-behind.md`): migration
@@ -696,6 +1007,57 @@ the owner refreshes each connector's tool list. Before anything is published,
 the owner sets the 217 test cards aside (`set_aside_cards` with `cards` naming
 ARF-0001, ARF-0016 to ARF-0038, ARF-0042, ARF-0043 and ARF-0049 to ARF-0239, as
 section 4G of the 171 plan lists them, sent again until no card waits).
+
+Since owner answer 240a the save path keeps each finding it publishes for
+AskRigor's research until the quick-answer test shows it
+(`../../docs/atlas-quick-answer-test.md`). The owner, 17 Nov 2026, asked for
+what passed the checks to show at once: `ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS=enabled`
+in `runtime.env` makes the save path keep nothing, so a saved finding shows on
+the pages at once, unreviewed and labelled "Not checked by supervisors yet".
+Leave it unset, which is off, for now: it goes on only once the later release
+that marks an unconfirmed claim about a named person "Unverifiable" (the owner,
+19 Nov 2026, 353b and 356a) has shipped and has read the findings already shown.
+With it off, a save publishes exactly as before: kept for the quick-answer test,
+off every list, with its own page and in the research lookup. Findings that
+name a living person are published like any other (352b); nothing holds them.
+
+Migration `0041_atlas_show_saved_findings` stores how each publication reached
+the pages, as the action that showed it said, at that moment (`shown_by`):
+`owner_action` for the owner's `publish_cards`, a decision's publication and his
+own `show_on_pages`; `quick_answer_test`, with the test's verdict
+(`shown_test_verdict`: `pass`, `headline` or `fail`), for the quick-answer
+test's own `show_on_pages`; `automatic_showing` for a save under the setting;
+empty, not recorded, for every publication from before 0041 and for one an
+earlier image publishes or shows again. The owner's own publishing or showing
+is also stored as his decision (`owner_decision`, `owner_decided_at`), which no
+save, keeping or showing of the test's changes, so a finding he checked stays
+known as his even after it is unpublished and kept again. A page says the
+quick-answer test found that a quick AI answer misses a finding only when its
+record says the test showed it with a pass, or from a challenge mark's stored
+verdict, whether the setting is on or not.
+
+Run the one-shot admin `migrate` before the new image serves, then
+`provision-research-review-role.sh`: `migrate` adds four nullable columns, each
+held by a check added by name, replaces `publish_atlas_findings` (0021's shape)
+and `keep_atlas_publications` (0024's shape), whose grants stand, and adds
+`show_atlas_publications`, which the grant script grants to the review role. It
+adds no table, trigger or lock and edits no earlier migration. From this
+release, whatever calls `show_on_pages` or `publish_cards` says who acts in
+`later_inputs.shown_by`: the owner's review connector `owner`; the scheduled
+quick-answer test `quick_answer_test`, with `later_inputs.quick_answer_verdict`,
+and only for `show_on_pages`. A call that doesn't say is refused and changes
+nothing. Held, YouTube-comment and paid private findings are unaffected.
+
+To roll back to the image before this release, leave the setting off. Its
+`migrate` passes this database (0021 is unchanged, and it ignores 0041), puts
+back 0021's `publish_atlas_findings` and 0024's `keep_atlas_publications`,
+which write no route, and never reads the new columns: what it publishes is
+not recorded, what it publishes again or shows again keeps the route it had,
+and its pages say what they said before this release. This image's next `migrate` replaces the two functions again. Undo no
+migration. Before the earlier image serves, the owner's review connector and
+the scheduled quick-answer test stop sending `later_inputs.shown_by`, and the
+test its `later_inputs.quick_answer_verdict` with `show_on_pages`: the earlier
+image refuses both as inputs it doesn't know.
 
 An image rollback below 0021 needs no drain: the earlier image never reads the
 table, publishes nothing at a save, and has no publication action. Undo no

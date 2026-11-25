@@ -11,12 +11,11 @@ import { digestCanonicalJson } from "../apps/research-mcp/src/lessons/incident-c
 
 export const FROZEN_TOOL_LIST_SURFACES = ["mcp", "claude", "gemini"] as const;
 export type FrozenSurface = typeof FROZEN_TOOL_LIST_SURFACES[number];
-export const TOOL_LIST_FROZEN_MESSAGE = "The tool list is frozen (owner answer 189a). A new input gets a later shape " +
-  "entry; a newer form of an existing input (enum, nested field or relaxed limit) redeclares it in the later shape. " +
-  "Both are accepted at the top level or in later_inputs.<name>. A new action or category goes in the runtime enum " +
-  "only, named in results or the protocol. New guidance belongs in results or the protocol. Only " +
-  "adding or removing a tool may change the list; then rewrite the fixtures with " +
-  "scripts/freeze-tool-lists.mts --write, and record in the release record that apps need one refresh.";
+export const TOOL_LIST_CHANGED_MESSAGE = "The served tool list differs from tests/fixtures/frozen-tool-lists. " +
+  "The list may change (the owner lifted owner answer 189a's freeze on 22 Nov 2026), but each change costs every app " +
+  "one Refresh and leaves open chats on the old list: batch changes into few releases, keep running versions and " +
+  "dates out of descriptions, and keep later_inputs accepted. If the change is intended, rewrite the fixtures with " +
+  "scripts/freeze-tool-lists.mts --write, and say in the release record that apps need one refresh.";
 
 /** Exactly the surface's served list, without running versions or the embedded tool_list_version value. */
 export function frozenSurfaceServer(surface: FrozenSurface): McpServer {
@@ -51,7 +50,7 @@ if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === resolve(
     const tools = await servedToolList(frozenSurfaceServer(surface));
     if (write) await writeFile(frozenToolListPath(surface), `${JSON.stringify(tools, null, 2)}\n`);
     else if (!isDeepStrictEqual(JSON.parse(await readFile(frozenToolListPath(surface), "utf8")), tools)) {
-      throw new Error(`${surface}: ${TOOL_LIST_FROZEN_MESSAGE}`);
+      throw new Error(`${surface}: ${TOOL_LIST_CHANGED_MESSAGE}`);
     }
     const omitted = tools.filter(({ inputSchema }) => !Object.hasOwn(inputSchema.properties ?? {}, "later_inputs"))
       .map(({ name }) => name);

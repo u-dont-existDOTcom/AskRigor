@@ -4,6 +4,7 @@ import { coreSectionNames, getProtocolManifest, loadProtocol, protocolNamedEleme
 import { XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 import { undoStudyMapSingleLeadsHrp, undoWordsAreNotSizesHrp } from "./helpers/undo-read-depth.js";
+import { undoDeepResearchSavingPolicy } from "./helpers/undo-deep-research-saving.js";
 
 const FIXTURE = "./fixtures/protocol-edits/2026-11-09-words-are-not-sizes-hrp.json";
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
@@ -66,7 +67,8 @@ describe("owner answer 282a: HRP 20.6.41", () => {
   });
 
   it("leaves every core section byte for byte unchanged", async () => {
-    const text = await loadProtocol("hrp");
+    // Compare this historical change at its own version, before later approved core edits.
+    const text = undoDeepResearchSavingPolicy(await loadProtocol("hrp"));
     const prior = await undoWordsAreNotSizesHrp(text);
     const core = new Set(coreSectionNames("hrp"));
     expect(core.has("StatisticalAndClinicalInterpretation")).toBe(false);
@@ -79,14 +81,14 @@ describe("owner answer 282a: HRP 20.6.41", () => {
   });
 
   it("binds the current manifest and first revision to these bytes, and reverses to 20.6.40's", async () => {
-    const text = await loadProtocol("hrp");
+    const text = undoDeepResearchSavingPolicy(await loadProtocol("hrp"));
     const { hrp } = JSON.parse(await readFile(new URL(FIXTURE, import.meta.url), "utf8")) as {
       hrp: { from: { version: string; sha256: string }; to: { version: string; sha256: string }; edits: Array<[string, string]> };
     };
     expect(XMLValidator.validate(text)).toBe(true);
     expect(hrp.to.version).toBe("20.6.41");
     expect(await getProtocolManifest("hrp")).toEqual({
-      name: "HRP", version: hrp.to.version, revisionDate: "2026-11-09", sha256: hrp.to.sha256,
+      name: "HRP", version: "20.6.46", revisionDate: "2026-11-22", sha256: "d7dd99297c422faa381ef4ecb0db1a95ed0ad27ed52a1f574fc458c47dab6e65",
     });
     expect([...text.matchAll(/<Revision version="([^"]+)"/gu)].slice(0, 2).map((match) => match[1]))
       .toEqual(["20.6.41", "20.6.40"]);

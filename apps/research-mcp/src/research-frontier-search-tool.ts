@@ -120,6 +120,15 @@ export interface ResearchFrontierCatalogReader {
 export interface ResearchFrontierSearchDependencies {
   reader?: ResearchFrontierCatalogReader;
   now?: () => Date;
+  /** A failure's class only, never its message or the query; console.error by default. */
+  log?: (line: string) => void;
+}
+
+/** A catalog failure's class: PostgreSQL's five-character code when it has one, "malformed" for rows not as they should be. */
+function catalogFailureClass(error: unknown): string {
+  if (error instanceof z.ZodError) return "malformed";
+  const code = error !== null && typeof error === "object" ? (error as { code?: unknown }).code : undefined;
+  return typeof code === "string" && /^[0-9A-Z]{5}$/u.test(code) ? code : "error";
 }
 
 const LIMITATIONS = [
@@ -173,7 +182,9 @@ export async function searchResearchFrontiers(
       searchStatus: "matched",
       data,
     });
-  } catch (_error) {
+  } catch (error) {
+    // Until 24 Nov 2026 nothing said why the catalog failed: nine statement timeouts went unseen.
+    (dependencies.log ?? ((line: string) => console.error(line)))(`research frontier catalog: ${catalogFailureClass(error)}`);
     return response({
       retrievedAt,
       query: parsed,

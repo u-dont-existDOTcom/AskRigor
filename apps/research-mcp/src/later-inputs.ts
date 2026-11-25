@@ -13,14 +13,19 @@ import { SOURCE_LINE_LIMITS, sourceLineSchema } from "./source-lines.js";
 import { sourceReadingInputSchema } from "./source-reading.js";
 import { keyNameSchema, nameFormsSchema, searchCoverageSchema } from "./absence-searches.js";
 import { studyMapSchema } from "./study-map.js";
-import { keepItemsInputSchema } from "./atlas/kept-review.js";
+import { ATLAS_SHOWN_BY, keepItemsInputSchema } from "./atlas/kept-review.js";
 import { placementsInputSchema } from "./atlas/placement-review.js";
 import { reportVerdictSchema } from "./atlas/report-review.js";
 import { atlasReportShareSchema, reportNumberSchema } from "./atlas/report-door.js";
 import { glanceRowIdSchema, glanceRowInputSchema } from "./atlas/glance-review.js";
+import { personNoticeNumberSchema } from "./atlas/person-notice-review.js";
 import { challengeMarkInputShape } from "./atlas/challenge-review.js";
+import { newsDateInputSchema, newsNumberInputSchema } from "./news/inputs.js";
+import { dossierFindingInputSchema, dossierImportanceInputSchema, dossierLivingPersonInputSchema, dossierNumberInputSchema,
+  dossierOverrideConflictsInputSchema, dossierStateInputSchema, dossierVersionInputSchema } from "./atlas/dossier-review.js";
 import { claimCoverageSchema } from "./claim-coverage.js";
-import { ASKED_LIMIT, framingSchema, researchMenuSchema, researchSteeringInputSchema } from "./research-steering.js";
+import { ASKED_LIMIT, PLANNER_PAUSE_MAX_MINUTES, framingSchema, researchMenuSchema, researchSteeringInputSchema }
+  from "./research-steering.js";
 
 /**
  * list_calls' page: the calls received before a time, as a previous listing's next_before gave it (the review of 12 Nov
@@ -79,7 +84,8 @@ export function finalCheckAsked(raw: unknown): string | undefined {
 }
 
 /**
- * Owner answer 189a: published tool definitions stay fixed. A new input gets a later shape entry; a newer form
+ * Built under owner answer 189a's freeze (lifted 22 Nov 2026; AGENTS.md): later_inputs stays accepted for apps that
+ * hold an older tool list. A new input gets a later shape entry; a newer form
  * of an existing input (enum, nested field or relaxed limit) redeclares that input in the later shape. Either
  * form reaches runtime validation at the top level or through later_inputs, never both. A new action or category
  * goes in the runtime enum only, named in results or the protocol. New guidance belongs in results or the protocol.
@@ -106,7 +112,8 @@ const LATER_INPUT_SHAPES = Object.freeze({
         "For the Atlas's research behind each finding (owner answer 252a), each finding may also give backing (the " +
         "paper's sentence and conclusion, copied exactly, and the strongest thing against it), each figure's source, " +
         "and forum_signal (what people report in the forum threads read here); one resting on its forum_signal alone " +
-        "may have no sources."),
+        "may have no sources. A finding about a YouTube video that the person named themselves may give its link in " +
+        "named_videos, as they gave it (owner answer 307b); AskRigor links no video found through its own tools."),
     // Owner answer 237a: the one optional field the source line adds.
     source_lines: z.array(sourceLineSchema).min(1).max(SOURCE_LINE_LIMITS.lines).optional()
       .describe("Optional: for each key claim, the key source's id, the claim, the paper's sentence and its own " +
@@ -164,6 +171,17 @@ const LATER_INPUT_SHAPES = Object.freeze({
     findings_save: findingsSaveMarkerSchema
       .describe("off: save no findings card from this call, whatever the account's setting, as a test run does. It " +
         "can only turn saving off; any value other than off leaves the account's setting to decide."),
+    // Promise P69 (the owner, 21 Nov 2026): each research step a model's or app's own safety rules limited. Read entry by
+    // entry in the final check, only while ASKRIGOR_SAFETY_LIMITS is on (safety-limits.ts), so any value parses here and
+    // a call with the switch off gets no note about it (Codex's review of 21 Nov 2026).
+    safety_limits: z.unknown().optional()
+      .describe("Each research step a model's or app's own safety rules refused, stopped with a model switch, " +
+        "narrowed or softened, as you observed it or as the person reported it (such as an app's prompt to switch " +
+        "models): what was left out in neutral words, whether it was examined, whether it was done again and recovered, " +
+        "what it could change, and the answer's own sentence saying it. No withheld details, links, addresses or ways " +
+        "to find them. " +
+        "AskRigor lists each as a limit, saying who reports it, and looks the sentence up in answer_draft; what it finds " +
+        "are notes. Declare only what you observed or were told; never infer a limit, or its absence."),
     // Owner answer 301a (13 Nov 2026): the person's words, for AskRigor's own review of the draft on a dev account. Read
     // from the raw call (finalCheckAsked), so any value parses here and none is ever a problem or a step; used in memory
     // for that call only, and never signed, stored or logged.
@@ -179,6 +197,20 @@ const LATER_INPUT_SHAPES = Object.freeze({
         "rubrics (the review of the draft, the second reading and the meaning judge), so AskRigor's server makes " +
         "none for this call. The rule checks run as always. The result, its receipt and the check line say so, and " +
         "no findings card is saved from the call. Any other value leaves the readings to AskRigor."),
+    // AskRigor#477, stage 1 (owner answer 329a, 16 Nov 2026): this research's dossier, saved privately for AskRigor's
+    // owner to review. Read from the raw call (researchDossierFromCall), so any value parses here and its own checks
+    // name every problem: a dossier never holds back the answer.
+    research_dossier: z.unknown().optional()
+      .describe("When this research would save a later reader substantial work compared with one ordinary AI answer: " +
+        "its dossier, in general terms, as this check's result describes it. AskRigor checks it against this call's " +
+        "receipts and saves it whole, privately for its owner's review, or says why not."),
+    // Atlas news, stage 1 (plan 2026-11-21-atlas-news-stage1.md): the news check's card. Read from the raw call
+    // (newsCardFromCall), so any value parses here and its own checks name every problem: a news card never holds back
+    // the answer.
+    news_card: z.unknown().optional()
+      .describe("Only for AskRigor's own news check: the news card, as the news check's instructions give its fields. " +
+        "AskRigor checks it, looks its backing lines up in the texts it fetched, signs it into the receipt and, for " +
+        "the owner's news run, stages it privately for the day's call."),
   },
   // Owner answer 219b: the card exactly as finalize_research checked it, its findings' declarations included.
   save_research_findings: {
@@ -249,6 +281,10 @@ const LATER_INPUT_SHAPES = Object.freeze({
     researchSteering: researchSteeringInputSchema.optional()
       .describe("With set_research_steering, when the person asks: style, checkBackMinutes and adjustmentDetail, any " +
         "of them."),
+    // AskRigor#477 stage 1 (Codex's final check): a test run's plan_research call marked off asks for no research
+    // dossier, as its final check saves none.
+    findings_save: findingsSaveMarkerSchema
+      .describe("off: with plan_research, ask for no research dossier, as a test run does. It changes nothing else."),
     // The review of 12 Nov 2026: list_calls shows what fits one result; its result says where the next ones start.
     callsPage: callsPageSchema.optional()
       .describe("With list_calls: before, the UTC time a previous result's calls_page.next_before gave, for the calls " +
@@ -257,6 +293,10 @@ const LATER_INPUT_SHAPES = Object.freeze({
     // The owner, 14 Nov 2026: one of the owner's pointers, by the id a registration's result lists.
     ownerPointer: z.string().trim().regex(/^[A-Za-z0-9][A-Za-z0-9-]{0,63}$/u).optional()
       .describe("With owner_pointer: the pointer's id, as register_plain_answer's askrigor_holds lists it."),
+    // Owner answer 395b (21 Nov 2026): a test round's pause of a dev account's planning call, in whole minutes.
+    pauseMinutes: z.number().int().min(0).max(PLANNER_PAUSE_MAX_MINUTES).optional()
+      .describe(`With pause_research_planner, on a dev account for a test round only: whole minutes from now, at most ` +
+        `${PLANNER_PAUSE_MAX_MINUTES}, to pause AskRigor's own planning call; 0 ends the pause.`),
   },
   review_research_contribution: {
     sharedAnswerId: sharedAnswerIdSchema.optional()
@@ -284,6 +324,48 @@ const LATER_INPUT_SHAPES = Object.freeze({
     // The owner, 6 Nov 2026: findings that challenge the usual view, with mark_challenge (items too, and with
     // clear_challenge).
     ...challengeMarkInputShape,
+    // Atlas news, stage 1 (plan 2026-11-21-atlas-news-stage1.md): the day's payload, an item or every item, and a day.
+    // news_day is checked by the day call itself, which names every problem.
+    news_day: z.unknown().optional()
+      .describe("With publish_news_day: the day's publish.json from the news check, unchanged."),
+    news_number: newsNumberInputSchema.optional()
+      .describe("With withdraw_news_item: an N-number, or all. With list_news_items: one N-number, read in full."),
+    news_date: newsDateInputSchema.optional()
+      .describe("With list_news_items: the day to list, YYYY-MM-DD."),
+    // AskRigor#477 stage 2: research dossiers on the public Atlas.
+    dossier: dossierNumberInputSchema.optional()
+      .describe("With inspect_dossier, show_dossier, hold_dossier, take_down_dossier, accept_dossier, " +
+        "show_dossier_naming_living_person, revise_dossier_importance, state_dossier_living_person or " +
+        "read_dossier_privacy: the dossier's public number, such as D-1001."),
+    dossierVersion: dossierVersionInputSchema.optional()
+      .describe("With show_dossier, hold_dossier, take_down_dossier, accept_dossier, " +
+        "show_dossier_naming_living_person, revise_dossier_importance, state_dossier_living_person or " +
+        "read_dossier_privacy: the version; its newest by default."),
+    dossierState: dossierStateInputSchema.optional()
+      .describe("With list_dossiers: shown, held (the check's queue, by default), superseded, taken_down or erased."),
+    dossierFinding: dossierFindingInputSchema.optional()
+      .describe("With revise_dossier_importance: the finding's id in the dossier, such as f3."),
+    dossierImportance: dossierImportanceInputSchema.optional()
+      .describe("With revise_dossier_importance: the finding's new mark, decision_changing, important or context; a " +
+        "new version of the copy gets it, with your reason."),
+    dossierLivingPerson: dossierLivingPersonInputSchema.optional()
+      .describe("With state_dossier_living_person: your own statement for a copy whose researching AI did not say " +
+        "whether a claim names a living person, names_no_living_person or names_a_living_person; recorded once, with " +
+        "who and when."),
+    dossierOverrideConflicts: dossierOverrideConflictsInputSchema.optional()
+      .describe("With show_dossier, accept_dossier, show_dossier_naming_living_person or revise_dossier_importance of " +
+        "a shown copy: the shown dossiers, such as D-1002, whose findings AskRigor's conflict check read as " +
+        "contradicting the copy's, in a pair with at least one important finding, or that it could not compare it " +
+        "with; naming them all shows it anyway, recorded with who and when, up to 50 of them."),
+    // Codex's fourth review of 17 Nov 2026 (P1s): the owner and the scheduled quick-answer test share one login, so a
+    // showing says who acts.
+    shown_by: z.enum(ATLAS_SHOWN_BY).optional()
+      .describe("With show_on_pages, which needs it: owner when AskRigor's owner shows them, or quick_answer_test, " +
+        "with quick_answer_verdict, when the quick-answer test does. With publish_cards, which needs it too: owner, " +
+        "AskRigor's owner, the only one who publishes cards."),
+    // Atlas Release B (Fable's recheck): the owner's notice to acknowledge.
+    personNotice: personNoticeNumberSchema.optional()
+      .describe("With ack_person_notice, which needs it: the notice's number, as list_person_notices gives it."),
   },
 } satisfies Record<string, z.ZodRawShape>);
 
@@ -315,6 +397,29 @@ const OPEN_INPUT_ENUMS: Readonly<Record<string, { field: string; description: st
 
 export function laterInputNames(tool: string): readonly string[] {
   return Object.keys(laterInputShape(tool));
+}
+
+/**
+ * Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026): the findings ledger and the writer's replies to its findings. Read
+ * from the raw call (findings-ledger.ts), so any value parses here and every problem is a note. Later inputs of
+ * finalize_research only for a call the ledger is active for (ASKRIGOR_FINDINGS_LEDGER on, and the caller among
+ * ASKRIGOR_FINDINGS_LEDGER_ACCOUNTS); for any other they are unknown inputs, named as such, with guidance that lists
+ * neither, exactly as before the ledger (Codex's sixth review of 17 Nov 2026, finding 3).
+ */
+export const FINDINGS_LEDGER_LATER_INPUTS = Object.freeze({
+  findings_ledger: z.unknown().optional()
+    .describe("When a finalize_research result gave findings_ledger: that value, unchanged, in this research's next " +
+      "call."),
+  finding_responses: z.unknown().optional()
+    .describe("When a finalize_research result lists findings with ids: for each you won't fix, {id, response: " +
+      "\"disputed\", reason} with a reason the reader will see; \"fixed\" or \"withdrawn\" (with passage, the words " +
+      "withdrawn) count only when the next draft no longer gives the check that finding."),
+} satisfies z.ZodRawShape);
+
+/** finalize_research's later inputs for a call, with the findings ledger's only while the ledger is active for it. */
+export function finalizeResearchLaterShape(findingsLedger: boolean): z.ZodRawShape {
+  return findingsLedger ? { ...laterInputShape("finalize_research"), ...FINDINGS_LEDGER_LATER_INPUTS }
+    : laterInputShape("finalize_research");
 }
 
 interface RuntimeInputOptions {

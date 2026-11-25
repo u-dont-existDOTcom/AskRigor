@@ -11,16 +11,17 @@ const pages = [
   ["site/index.html", "AskRigor | Evidence-first research retrieval", "https://askrigor.com/"],
   ["site/privacy/index.html", "Privacy | AskRigor", "https://askrigor.com/privacy"],
   ["site/terms/index.html", "Terms | AskRigor", "https://askrigor.com/terms"],
-  ["site/support/index.html", "Support | AskRigor", "https://askrigor.com/support"]
+  ["site/support/index.html", "Support | AskRigor", "https://askrigor.com/support"],
+  ["site/how-to-research/index.html", "How to research | AskRigor", "https://askrigor.com/how-to-research"]
 ] as const;
 
 const pageHtml = async (file: string) => readFile(rootFile(file), "utf8");
 
 describe("AskRigor public site", () => {
-  it("ships exactly eight complete public pages", async () => {
+  it("ships exactly nine complete public pages", async () => {
     const result = await validatePublicSite(rootFile("site/"));
     expect(result.errors).toEqual([]);
-    expect(result.pages).toBe(8);
+    expect(result.pages).toBe(9);
     expect(result.internalLinks).toBeGreaterThanOrEqual(16);
   });
 
@@ -45,8 +46,31 @@ describe("AskRigor public site", () => {
 
   it("counts only same-origin anchor navigation links", async () => {
     const result = await validatePublicSite(rootFile("site/"));
-    // 104 since 9 Nov 2026: the What's new link to the privacy notice's call record.
-    expect(result.internalLinks).toBe(104);
+    // 105 since 16 Nov 2026: the new inositol Atlas overview link in the roadmap adds one to the previous 104.
+    // 106 since 21 Nov 2026: the home page footer's "User count" link to the public user count's text page.
+    // 126 since the How to research page (owner answer 365 1a): its own 12 links (brand, menu, footer) and its menu
+    // item on the eight other pages add 20.
+    // 128 since the 21 Nov 2026 release record: the roadmap's "What's new" links the user count page and the privacy notice.
+    // 131 since release b's record: its roadmap lines link the privacy notice, the terms and the How to research page.
+    expect(result.internalLinks).toBe(131);
+  });
+
+  it("puts the approved cautions on the How to research page, linked from every page's menu (owner answer 365 1a)", async () => {
+    const page = await pageHtml("site/how-to-research/index.html");
+    // The draft's page text only: its review notes and sources table stay with the draft.
+    for (const note of ["Draft for", "owner library", "Not used, because", "this session"]) expect(page).not.toContain(note);
+    // Every in-page link lands on a part of the page.
+    const ids = [...page.matchAll(/\sid="([^"]+)"/gu)].map((match) => match[1]);
+    const targets = [...page.matchAll(/href="#([^"]+)"/gu)].map((match) => match[1]);
+    expect(targets).toHaveLength(6);
+    for (const target of targets) expect(ids).toContain(target);
+    // Each number's source is linked, over HTTPS: the draft's 35 links (the canonical <link> is not one).
+    const external = [...page.matchAll(/<a href="(https?:[^"]+)"/gu)].map((match) => match[1]);
+    expect(external).toHaveLength(35);
+    for (const url of external) expect(url).toMatch(/^https:\/\//u);
+    for (const file of ["site/index.html", "site/roadmap/index.html", "site/compare/free-chatgpt/index.html"]) {
+      expect(await pageHtml(file)).toContain('<li><a href="/how-to-research">How to research</a></li>');
+    }
   });
 
   it("discloses connected research and the bounded legacy checkpoint", async () => {
@@ -172,20 +196,60 @@ describe("AskRigor public site", () => {
       "the summary it wrote of that, with the answer\u2019s research question, for its owner\u2019s review: no comment " +
       "text, commenter names, channel, comment or video IDs, or links. It is never published, and it is deleted on " +
       "request, or if YouTube asks AskRigor to delete it.</p>";
+    // Owner answer 307b (15 November 2026): the section then says, in a paragraph of its own, the one thing of a
+    // video a saved card may hold: the link of a video that a person named.
+    const named = "<p>A saved findings card, and its page in the public Atlas, may link a YouTube video that a " +
+      "person named themselves. The link is the address that person gave: it is not taken from YouTube API " +
+      "Services, and no YouTube API Data is stored with it or shown beside it.</p>";
     const start = privacy.indexOf("<section><h2>YouTube refresh, storage, and deletion</h2>");
     const section = privacy.slice(start, privacy.indexOf("</section>", start));
-    expect(section.endsWith(paragraph)).toBe(true);
+    expect(section.endsWith(paragraph + named)).toBe(true);
     expect(privacy.split(paragraph)).toHaveLength(2);
+    expect(privacy.split(named)).toHaveLength(2);
     expect(privacy).not.toContain("answer's research question");
     expect(privacy).not.toContain("owner's review");
-    expect(privacy).toContain("Effective November 12, 2026");
+    expect(privacy).toContain("Effective November 25, 2026");
     expect(privacy).toContain("public forum websites (the page’s link), Reddit (a thread’s link or deidentified search words");
+  });
+
+  // AskRigor#477 stage 1 (owner answer 329a, 16 Nov 2026): notice v6 covers a private research dossier; the page
+  // describes it in wording only, adding nothing the shared path did not already include.
+  it("describes the private research dossier inside the free shared path, never shown and erased with its card", async () => {
+    const privacy = await pageHtml("site/privacy/index.html");
+    const start = privacy.indexOf("<section><h2>Research access and shared learning</h2>");
+    const section = privacy.slice(start, privacy.indexOf("</section>", start));
+    expect(section).toContain("When a research run would save a later reader substantial work, these parts of it are " +
+      "kept together as one private research dossier: the question in general terms, the searches, the studies and how " +
+      "each was read, their results with numbers, the conclusions and how certain they are, what was covered, what " +
+      "communities reported as a findings card summarizes it, what is still open, and the AI’s own statement of the " +
+      "work it saves.");
+    expect(section).toContain("A dossier holds nothing this paragraph excludes; only AskRigor’s owner can read it, it is " +
+      "never shown on a page, revoking access withdraws it while it waits for review, and deleting a findings card of " +
+      "the same research, or asking with the dossier’s ARD-#### id, erases it.");
+    // Owner answer 334a (16 Nov 2026: the release turns the AI privacy reading on): the owner's sentence, word for word
+    // in the page's typographic apostrophes, right after the dossier's, the effective date unchanged.
+    expect(section).toContain("erases it. Before a research dossier is stored, its text (never your chat or anything " +
+      "about you) is checked for personal details by an AI model from Anthropic, on AskRigor’s own account. Each " +
+      "submission first enters");
+    // Two AI readings by Anthropic, each disclosed once: this one, and Atlas Release B's reading for claims about named
+    // people (design of 19 Nov 2026, section 6; Codex's red team: "Anthropic also receives that memory"); and, once,
+    // the Claude session that reads disputes for the owner (Fable's recheck of B, change 5).
+    expect(privacy.match(/Anthropic/gu)).toHaveLength(3);
+    expect(privacy).toContain("AskRigor’s operator handles disputes with Claude, an AI model from Anthropic, which reads " +
+      "disputes, with any link and email address given with them, for AskRigor’s owner.");
+    expect(privacy).toContain("To find claims about people, AskRigor sends each finding’s text, the sentences it quotes " +
+      "from its sources and any taken-off claims about the names in it to an AI model from Anthropic, on AskRigor’s own " +
+      "account.");
+    expect(privacy).toContain("Effective November 25, 2026");
+    // After the exclusions it relies on, and before the paid private sentence, which it does not change.
+    expect(section.indexOf("private research dossier")).toBeGreaterThan(section.indexOf("It excludes raw chat"));
+    expect(section.indexOf("private research dossier")).toBeLessThan(section.indexOf("Paid private mode submits"));
   });
 
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "Effective November 12, 2026",
+      "Effective November 25, 2026",
       "AskRigor may also read a study from its operator's own study library: for the operator's own research, and for a free or paying account only while the same study is publicly available elsewhere. The library receives only the study's DOI, with no question, health detail, or account information.",
       "Optional lesson feedback",
       "separate consent",
@@ -217,6 +281,21 @@ describe("AskRigor public site", () => {
     expect(html).not.toContain("fixed OpenAI privacy check");
   });
 
+  // Owner answer 417a (24 Nov 2026): the Gemini sign-in's step log, the owner's sentence word for word, and the next
+  // sentence, which begins where "that log" has been named.
+  it("says what the Gemini sign-in's step log writes, and what else records calls", async () => {
+    const privacy = await pageHtml("site/privacy/index.html");
+    expect(privacy).toContain("payload, comment text, user identifier, or credential. While the cause of a failing Gemini " +
+      "connection is being found, a second log, off by default, is on for Gemini’s sign-in: at each step of a connection, " +
+      "and at each research call that carries a Gemini sign-in, it writes the time and fixed words, counts and status codes " +
+      "only (the step and how it ended, which parts of the request came and of what kind, coarse time ranges, the type of " +
+      "call, and the reason for a failure in words set in advance), never an identifier, code, token, web address, header " +
+      "value, account, tool name, or anything you ask or are answered. Apart from that log, the only record of calls is the " +
+      "content-free call record described under “Your call record”, and only for signed-in research accounts. The optional " +
+      "lesson path");
+    expect(privacy.match(/only record of calls is/giu)).toHaveLength(1);
+  });
+
   it("describes the findings library as approved for its go-live", async () => {
     const privacy = await pageHtml("site/privacy/index.html");
     for (const fragment of [
@@ -229,7 +308,8 @@ describe("AskRigor public site", () => {
     ]) expect(privacy).toContain(fragment);
     const terms = await pageHtml("site/terms/index.html");
     for (const fragment of [
-      "Effective November 6, 2026",
+      // November 21, 2026: Atlas Release B's "Claims about people in the Atlas" (owner answer 366b).
+      "Effective November 21, 2026",
       "for each finished research answer a findings card",
       "or a findings card saved under it",
       "saves an answer’s findings card or lesson feedback only when you accept saving it for that answer",
@@ -241,21 +321,21 @@ describe("AskRigor public site", () => {
   it("says free cards publish on save, paid findings wait for acceptance, and how votes and comments work", async () => {
     const privacy = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "<p>Findings cards saved in free contributor mode are published in AskRigor’s public Atlas as soon as they are saved, written without the person and marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed them. Findings from a paid private card are published only after AskRigor’s owner accepts them. An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify anyone.</p></section>",
+      "<p>Findings cards saved in free contributor mode are published in AskRigor’s public Atlas as soon as they are saved, written without the person and marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed them. Findings from a paid private card are published only after AskRigor’s owner accepts them. An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify the person who asked. Findings may name other people, such as study authors, sellers and people who make public health claims; see “People named in the Atlas” below.</p></section>",
       "Paid private mode sends no research contribution to that path. Findings cards saved in free contributor mode are published in AskRigor’s public Atlas as soon as they are saved, written without the person and marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed them. Findings from a paid private card are published only after AskRigor’s owner accepts them.",
       "<section><h2>Votes and comments in the Atlas</h2><p>To vote on a finding or comment on it, you sign in with an AskRigor account. AskRigor stores each vote and comment with a key derived from the account, never its email address. Votes are shown only as totals. A comment is public and is shown with the display name you choose, so don’t post contact details or anything that identifies you or someone else. AskRigor checks comments for contact details and links before showing them, and its owner may hide or remove any comment. You can delete your own votes and comments at any time.</p></section>",
       "To request deletion of a findings card, send its <code>ARF-####</code> id to the same address. No reason is " +
         "needed. Deletion removes the card and everything that ties it to you; findings from the card that " +
         "AskRigor’s owner has already accepted are written without you, so they stay while they are valid, as " +
         "described above.",
-      "Effective November 12, 2026",
+      "Effective November 25, 2026",
     ]) expect(privacy).toContain(fragment);
     const terms = await pageHtml("site/terms/index.html");
     for (const fragment of [
-      "rather than silently rewritten. Findings cards saved in free contributor mode are published in AskRigor’s public Atlas as soon as they are saved, written without you and marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed them. Findings from a paid private card are published only after AskRigor’s owner accepts them. If you ask to delete a findings card, everything that ties it to you is removed, and the card leaves the Atlas unless AskRigor’s owner has already accepted its findings; no reason is needed. An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify anyone.</p></section>",
+      "rather than silently rewritten. Findings cards saved in free contributor mode are published in AskRigor’s public Atlas as soon as they are saved, written without you and marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed them. Findings from a paid private card are published only after AskRigor’s owner accepts them. If you ask to delete a findings card, everything that ties it to you is removed, and the card leaves the Atlas unless AskRigor’s owner has already accepted its findings; no reason is needed. An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify the person who asked. Findings may name other people, such as study authors, sellers and people who make public health claims; see “Claims about people in the Atlas” below and the privacy notice.</p></section>",
       "<section><h2>Comments in the Atlas</h2><p>Comments in the Atlas must be about the finding. Your own experiences are welcome, and comments are not medical advice. Don’t post contact details, personal information about anyone else, advertising or harassment. AskRigor may hide or remove any comment and stop an account from commenting. By posting a comment you let AskRigor show it in the Atlas, and you can delete it at any time.</p></section>",
       "does not promise attribution, publication, compensation, or a particular outcome",
-      "Effective November 6, 2026",
+      "Effective November 21, 2026",
     ]) expect(terms).toContain(fragment);
   });
 

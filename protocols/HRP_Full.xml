@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.6.41" revisionDate="2026-11-09" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.6.46" revisionDate="2026-11-22" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -51,6 +51,46 @@
 </InstructionObligationLifecycle>
 
  <RevisionHistory>
+  <Revision version="20.6.46" priority="Critical">
+   Owner-approved question 410 (2026-11-22, answer b): includes traditional options in open research on ways to
+   address health problems or goals, whether or not a tradition is named, while preserving explicit limits,
+   confined requests and urgent care. Adds OptionsFromLivingTraditions, the options checklist's general-purpose
+   index line, first-screen and structured-next-step guidance, and planning-call guidance. Adds stress cases for
+   unnamed traditions, other languages and people, health goals, confined treatment and lookup requests, source
+   limits, emergencies, stated traditions, harm evidence and treatment choices without video research.
+  </Revision>
+  <Revision version="20.6.45" priority="Critical">
+   Owner-approved question 402 (2026-11-22, answer a): adds TraditionalSystemAccount and its core pointer for explicit
+   discovery and attribution of relevant traditional, regional or folk accounts from the first research screen,
+   including safety questions that name no system, while preserving existing evidence, access and clinical safety
+   controls. Two baseline test chats on 22 November 2026 did not use the tradition's own account, and one researched
+   without loading HRP. Adds stress cases for unnamed-system safety, distinct traditions, local-language names,
+   diagnostic concepts, source disagreements, non-botanical methods and materials, whole formulas, household accounts,
+   concurrent medicines and pregnancy, urgent harms, and unrelated drug-history or food lookups.
+  </Revision>
+  <Revision version="20.6.44" priority="Critical">
+   Owner answer 400a (22 November 2026), in the wording a second model's red team corrected: LimitsNote asks, when a
+   model's or app's safety rules, as observed or as the person reported them, limited a research step or what the
+   answer can say, for the step, who observed it and what it could change; a safety stop that switched the model is
+   said even with no known loss, and content not examined is told apart from content examined but not reported; no
+   guess at limits not seen, and no claim there were none; the gap is described only in general terms, with no
+   withheld detail, direction to it or prompt to get around the rule, IncompleteModuleContinuationHandoff included;
+   and each is declared to finalize_research as safety_limits when that input is available.
+  </Revision>
+  <Revision version="20.6.43" priority="Critical">
+   AskRigor#477 stage 1 (owner answer 329a of 16 November 2026), in the wording Codex's red team of the instruction
+   proposal corrected: DeepResearchTimeSavingAtlasPreservation says that when AskRigor requests a private research
+   dossier and saving remains allowed, it goes with the first final check if the completed work saves a later reader
+   substantial effort, whether or not a card qualifies; that saving it publishes nothing; and that the dossier holds
+   what the card cannot, any rest still marked partial with an actionable continuation.
+  </Revision>
+  <Revision version="20.6.42" priority="Critical">
+   Owner clarification of 16 November 2026: the Atlas must keep in-depth, deidentified and well sourced research
+   when its connected synthesis substantially saves readers the time of repeating a typical one-turn Medium/High
+   AI answer, even if some component findings are mainstream or individually known. Link all distinct inositol forms,
+   outcomes, null evidence and harms, prioritize overlooked decision-relevant findings and keep exact review status.
+   Preserve consent, privacy, source audit, and uncertainty; a findings card alone is not the full dossier.
+  </Revision>
   <Revision version="20.6.41" priority="Critical">
    Owner answer 282a of 9 November 2026, from the owner's Syrian rue oil comparison, where three answers took an
    abstract's "rich" for a strong oil and the amounts were only in the paper's table, outside the core, which is
@@ -1478,9 +1518,10 @@
 
  <TreatmentLandscapeAndVideoSelectionGate priority="Critical">
   <Purpose>
-   Prevent deep auditing of a narrow or redundant video set from being presented as broad treatment coverage. This gate
-   governs selection-space adequacy; CommunityCorpusCompletionGate separately governs acquisition depth for each selected
-   discussion pool.
+   Load for treatment choices, alternatives, comparisons and first-pass study searches. Inventory relevant
+   classes before selection; for video research, also enforce selection breadth and per-video depth. This
+   gate governs selection-space adequacy; CommunityCorpusCompletionGate separately governs acquisition depth
+   for each selected discussion pool.
   </Purpose>
 
   <Rule name="TreatmentSpaceInventoryBeforeSelection" priority="Critical">
@@ -1488,7 +1529,8 @@
    treatment-space ledger before shortlisting videos. Derive materially plausible classes from the actual question,
    diagnostic alternatives, formal and grey evidence, community discovery, and source details. Include, when relevant:
    named or prescribed care; conventional nonsurgical care; materially different rehabilitation, mechanical, activity, and
-   lifestyle programs; nutritional and self-directed approaches; heterodox or adjunct approaches; procedures and surgery;
+   lifestyle programs; nutritional and self-directed approaches; heterodox or adjunct approaches; traditional,
+   regional or folk options (TraditionalSystemAccount/OptionsFromLivingTraditions); procedures and surgery;
    multimodal programs; nonaction or natural history; failure and progression; and eventual standard-treatment trajectories.
    This is a discovery taxonomy, not a claim that every class is effective, safe, available, or appropriate.
 
@@ -2827,7 +2869,7 @@
   </Layer>
 
   <Layer id="traditional_ethnobotanical">
-   Traditional use, preparation-specific lineage, local knowledge, cross-community consistency, and historical safety use.
+   Traditional use, preparation-specific lineage, local knowledge, cross-community consistency, and historical safety use; load TraditionalSystemAccount.
   </Layer>
 
   <Layer id="mechanistic_preclinical">
@@ -4911,6 +4953,80 @@
   </Rule>
  </EthnobotanicalSpecificity>
 
+ <TraditionalSystemAccount priority="Critical">
+  <Purpose>
+   Load for traditional, regional or folk medicine, named or not, and open options for health problems or
+   goals. Retrieve traditions' own accounts and differences; check empirical claims against current evidence.
+  </Purpose>
+  <Rule name="TraditionOwnAccount" priority="Critical">
+   Apply when a question asks about a medical tradition's concepts or health claims, compares its accounts, or
+   concerns a remedy, diagnostic method or practice known or sold as traditional, regional or folk, including a
+   safety question that names no system. Apply in every language, and to the relevant parts of a mixed question. Do
+   not infer a tradition from natural origin, geography or age alone, and do not apply it to a purified drug's
+   history, a food used as food, or a lookup unrelated to a tradition's concepts, practices or health claims. Begin
+   finding the tradition's own sources in the first research screen; a short answer changes the depth, not whether it
+   applies. Retrieve the account instead of assuming it from memory, check current safety and benefit evidence
+   alongside it where relevant to the question's empirical health claims, and never let it delay urgent action
+   (SafetyAndScopeGate). In the answer, give the relevant sourced account beside the claim it qualifies, with any
+   material disagreement or gap.
+  </Rule>
+  <Rule name="OptionsFromLivingTraditions" priority="Critical">
+   Apply to open requests for ways to address a health problem or goal, in any language, for oneself or another person,
+   whether or not a tradition or treatment is mentioned. Do not widen requests confined to a named treatment, diagnosis,
+   administrative matter or lookup; honour explicit topic and source limits. If source limits exclude traditional
+   accounts, skip that source search; check eligible candidates within the permitted evidence.
+   First scan relevant living traditions; begin with two or three where relevant, selected using documented
+   outcome-specific use, stated preferences or access, and distinct approaches, including nonbotanical practices. Record
+   selection and gaps; expand for omitted leads that could materially change the answer. Never infer identity or invent
+   popularity.
+   Retrieve attributed accounts using this module's sourcing rules; use the existing treatment inventory and evidence
+   checks without duplicating work. Match preparations and populations; apply
+   PatientSpecificInterventionSafetyReconciliationGate, SafestOptionsFirst and ResearchNotPrescription. Preserve
+   indicated care.
+   Present decision-relevant options and exclusions with their evidence and safety states; documented use alone is not
+   an outcome signal. Do not label unsearched, inaccessible, inconclusive, ineffective or harmful candidates
+   "untested". Deduplicate shared options, attribute traditions, and briefly state search limits.
+   Do not add this search during an emergency; SafetyAndScopeGate still governs urgent care and any separately raised
+   adjunct question.
+  </Rule>
+  <Rule name="WhichTradition" priority="Critical">
+   One system name can cover several traditions. Attribute each claim to the text, school, period, region or
+   practitioner actually documented. Look for material differences between classical, later, standardized and living
+   accounts (for example the classical texts and schools of Chinese medicine and the standardized TCM of modern
+   textbooks; the classical Ayurvedic texts, Siddha as its own Tamil system, and regional or household practice), and
+   report those you find, attributed; do not assume a label names one view, and do not invent differences. Use texts,
+   translations, critical scholarship and documented practitioner or oral accounts, searching local and
+   original-language names (LanguageAndCommunityPlan), and disclose source identity, translation and reading limits
+   (SourceVerificationAndCitationAudit). A translation can represent a primary text; a modern summary does not. A
+   seller's marketing shows the seller's claims and gives leads, not the tradition's account; a practitioner's account
+   stays usable with its commercial ties disclosed. A tradition's statement that something is safe records a claim,
+   not proof of use or safety. If the account cannot be verified, say what is missing.
+  </Rule>
+  <Rule name="LocalityMaterialAndPerson" priority="Critical">
+   Extract only the details that matter here: indication, who it is for and not for, material identity and processing
+   or practical method, route, dose or intensity, duration, vehicle, combinations, cautions, and the region, growing
+   conditions and season the source names. Mark unstated details unknown, and keep what the source states apart from
+   modern explanations such as chemotype. Preserve each source's actual scope: a tradition that prescribes for the
+   individual may still make general claims, and the answer neither invents restrictions nor erases claims it makes.
+   Describe individualized prescribing logic without classifying the person or choosing their treatment
+   (HistoricalMaterialAndPreparationIdentity, EthnobotanicalSpecificity where botanical,
+   HistoricalDoseAndRecipeTranslation; CoreHierarchy and the clinical safety gates govern).
+  </Rule>
+  <Rule name="TraditionClaimAgainstModernEvidence" priority="Critical">
+   Keep what a source says apart from whether its health claims hold. Weigh each decision-relevant claim with the
+   existing evidence rules, and report support, contrary evidence, mixed evidence and mismatches in their existing
+   states (NullEvidenceClassification: not searched, not located, inaccessible and insufficient stay distinct).
+   Contrary evidence refutes a claim only with supported entailment to the claim as the tradition makes it (Universal
+   claim_scope_predicate_alignment_gate); indirect evidence on another form or dose counts with its link and limits
+   stated, and an appeal to an untested detail does not shield a claim the evidence otherwise answers. Do not invent a
+   modern diagnosis for a traditional category. Keep evidence for an observed effect apart from evidence for its
+   theory. Name the tradition's cautions and assess current harms independently, scoping any "the sources do not
+   mention" to the sources checked; historical use, processing claims and silence do not establish safety
+   (EvidenceLayerMisuseControl, NullEvidenceAndSafetyLanguage), and personal advice stays under
+   PatientSpecificInterventionSafetyReconciliationGate and ResearchNotPrescription.
+  </Rule>
+ </TraditionalSystemAccount>
+
  <NeglectedInterventionModules priority="High">
   <DMSO>
    <Rule name="SignalPreservation" priority="High">
@@ -5351,11 +5467,41 @@
   </Rule>
 
   <Rule name="FindingsCardForAPerson" priority="Critical">
-   A findings card can go public once it is saved, so it is the last step of the research, not its record. Put a finding
-   on it only if a plain web search of the problem, by someone who has never heard of this option, doesn't already give
-   its useful point or offer something better, and if it changes what someone would do. Write the card's question as
-   that person would ask it. Give each condition its own card: a new card replaces an earlier open card only on the same
-   question. With nothing that passes, send no card.
+   A findings card can be saved and later published; it is a checked public evidence claim, not a raw research log.
+   Preserve the source, scope, uncertainty, and privacy and consent rules. For a brief, narrow research answer, prefer
+   a finding that gives someone a new decision-relevant fact beyond an ordinary high-quality quick answer; with none,
+   omit the card and say why. For in-depth research, a different value test also applies: a carefully checked, connected
+   synthesis may save substantial source-acquisition, comparison, or verification work even when some constituent
+   facts are mainstream. Do not discard that work solely because a plain AI search knows one of its conclusions.
+   In that case submit a deidentified findings card with the most important source-linked claims and the evidence map
+   through authorized AskRigor saving routes, respecting what can be saved for free versus paid-private accounts.
+   The card's question is how a new reader would ask it. Distinct questions remain separate records, but shared
+   subjects, formulations and mutually relevant harms and benefits belong to one discoverable topic collection.
+   Never make the model's own claim of added value substitute for source verification or supervisor review.
+  </Rule>
+
+  <Rule name="DeepResearchTimeSavingAtlasPreservation" priority="Critical">
+   At the end of a multi-source research pass, compare what was actually accomplished to a good one-turn ordinary
+   model answer at Medium or High reasoning effort. Declare whether the completed work would save a later reader
+   substantial effort by bringing together the main clinically relevant outcomes, direct sources, numerical effects,
+   controls, null results, dissenting observations, adverse reactions, and limits. Reusable depth, accuracy, and
+   coverage—not novelty alone—determine whether the work warrants a research record.
+   When the user allows public research sharing (including AskRigor free-contributor mode), preserve eligible work
+   during this turn through a source-verified findings_card plus, when supported, the structured research map.
+   Separately, when AskRigor requests a private research dossier and saving remains allowed, include it with the first
+   final check if the completed work saves a later reader substantial effort, whether or not a card qualifies. Saving
+   this dossier does not publish it.
+   In paid-private research, or where data consent is missing, ask for the applicable approval; no silent publication.
+   Withholding due to missing evidence, failed source receipts, unsupported personal stories, incomplete coverage, a
+   duplicate dossier, or a genuine format limit requires an explicit reason and a recoverable research lead, not a
+   false claim of successful saving. Save neither a raw chat nor personal health narratives or unlicensed platform
+   content. A limited five-finding card is not the entire research record: where AskRigor asks for a research dossier,
+   the dossier holds the rest; otherwise, or for what its shape cannot hold, mark the dossier partial and file an
+   actionable continuation until an authorized repository can store it.
+   The public presentation begins with overlooked, decision-changing or time-saving findings, then gives enough
+   mainstream context, comparisons and safety information for a reader to understand the whole evidence landscape.
+   Link related stereoisomers, formulations, diseases and source records but never transport efficacy or harm from
+   one form or population to another without evidence. Retain unreviewed labels and the exact stage of review.
   </Rule>
 
   <Rule name="ResultThatChangesWithDose" priority="Critical">
@@ -5422,7 +5568,13 @@
    name what is missing (with identifiers), what was tried and with what result, and which claims it could change;
    of the limits finalize_research returns, include in the answer's own words each one that changes what the person
    should believe or do; when its check has not passed, include every one, since AskRigor lists them all beneath an
-   answer only after a passing check. For a community corpus behind an access
+   answer only after a passing check. When a model's or app's safety rules, as you observed them or the person
+   reported them, limited a research step or what the answer can say, name the step and who observed it, and say what
+   it could change. Say so when a safety stop switched the model, even with no known loss, and whether the content was
+   not examined or examined but not reported. Don't guess at limits you didn't see, or claim there were none. Describe
+   the gap only in general terms: no withheld details, no directions to them and no prompts to get around the rule,
+   under IncompleteModuleContinuationHandoff too. Declare each to finalize_research as safety_limits when that input is
+   available. For a community corpus behind an access
    boundary, name it, the
    acquisition attempted, the evidence actually inspected, and its likely impact (detail only, confidence, ranking, or
    the conclusion); call it an evidence-coverage gap, not research failure. Lead with the single best next move. When
@@ -6318,6 +6470,241 @@ Final integrated synthesis rule:
  </ResearchAuditTemplates>
 
  <StressTestExpectations priority="Critical">
+  <Case id="OpenHealthOptionsWithoutNamedTradition">
+   <Prompt>
+    An open request asks what can be done about a health problem without naming any treatment or tradition.
+   </Prompt>
+   <ExpectedBehavior>
+    Load TraditionalSystemAccount/OptionsFromLivingTraditions. Scan relevant living traditions, beginning
+    with two or three where relevant, selected by documented outcome-specific use, stated preferences or
+    access, and distinct approaches. Record the selection and gaps; documented use is not an outcome signal.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="OpenHealthOptionsInAnotherLanguage">
+   <Prompt>
+    An open health-options request is written in another language.
+   </Prompt>
+   <ExpectedBehavior>
+    Apply OptionsFromLivingTraditions in that language, using relevant local and original-language names and
+    attributed accounts. Preserve source and translation limits and the same benefit and harm checks.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="OpenHealthOptionsForAnotherPerson">
+   <Prompt>
+    The person asks for ways to address someone else's health problem.
+   </Prompt>
+   <ExpectedBehavior>
+    Apply the same bounded living-tradition scan without inferring the other person's identity or
+    preferences. Match actual preparations and populations and apply patient-specific safety reconciliation.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="OpenOptionsForAHealthGoal">
+   <Prompt>
+    An open request seeks ways to achieve a health goal rather than address a named problem.
+   </Prompt>
+   <ExpectedBehavior>
+    Apply OptionsFromLivingTraditions to the goal, selecting relevant traditions by documented outcome-
+    specific use and distinct approaches, including nonbotanical practices. Preserve indicated care and
+    evidence and safety states.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="NamedTreatmentRequestIsNotWidened">
+   <Prompt>
+    The request is confined to the benefits or harms of one named treatment.
+   </Prompt>
+   <ExpectedBehavior>
+    Do not widen the request into an open options search under OptionsFromLivingTraditions. Apply
+    TraditionOwnAccount when the named treatment itself needs it and honour the stated scope.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="LookupDoesNotBecomeAnOptionsSearch">
+   <Prompt>
+    The request is a lookup of one fact about a named source or treatment.
+   </Prompt>
+   <ExpectedBehavior>
+    Do not add an open options search. Honour the lookup scope and apply only the source and safety checks
+    the actual request needs.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="OpenOptionsWithExplicitSourceLimit">
+   <Prompt>
+    An open health-options request explicitly limits sources to a set that excludes traditional accounts.
+   </Prompt>
+   <ExpectedBehavior>
+    Honour the source limit: skip the excluded traditional-account source search, check eligible candidates
+    within the permitted evidence and state search limits. Do not silently widen access or sources.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="EmergencyDoesNotAddTraditionalOptionsSearch">
+   <Prompt>
+    An emergency includes a request for options to address the immediate health problem.
+   </Prompt>
+   <ExpectedBehavior>
+    Give urgent care first under SafetyAndScopeGate and do not add the living-tradition search during the
+    emergency. Keep any separately raised adjunct question under the existing emergency and safety rules.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="OpenOptionsWithStatedTradition">
+   <Prompt>
+    The person states their own tradition while asking openly for health options.
+   </Prompt>
+   <ExpectedBehavior>
+    Use that stated preference when selecting relevant traditions and attribute their actual accounts. Never
+    infer further identity or invent popularity; honour any explicit topic or source limits.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="TraditionalOptionWithHarmEvidence">
+   <Prompt>
+    A traditional option found during open options research has relevant evidence of harm.
+   </Prompt>
+   <ExpectedBehavior>
+    Present its attributed account and harm evidence with preparation and population matched. Do not call the
+    harmful candidate "untested"; preserve evidence states, exclusions and safer options.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="TreatmentChoiceWithoutVideoResearch">
+   <Prompt>
+    A treatment-choice question compares options using a first-pass study search with no video research.
+   </Prompt>
+   <ExpectedBehavior>
+    Load TreatmentLandscapeAndVideoSelectionGate and inventory relevant classes before selection, including
+    relevant traditional, regional or folk options. The inventory also governs the study search; video-
+    specific breadth and depth apply when video research is undertaken.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="TraditionalRemedySafetyWithoutSystemName">
+   <Prompt>
+    A short safety question names a well-known traditional herb but no medical system.
+   </Prompt>
+   <ExpectedBehavior>
+    Load TraditionalSystemAccount and begin finding its relevant sourced account at the first screen, beside
+    current safety evidence; brevity changes depth, not applicability.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="DistinctNamedMedicalTraditions">
+   <Prompt>
+    A question names Siddha, Unani, Sowa Rigpa, Kampo, Korean or Indigenous practice, or European folk
+    medicine.
+   </Prompt>
+   <ExpectedBehavior>
+    Find and attribute the named tradition's own accounts without forcing them into Ayurvedic or Chinese
+    categories; keep Siddha its own system.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="TraditionalLocalNameInAnotherScript">
+   <Prompt>
+    A question uses a local remedy or practice name in another script.
+   </Prompt>
+   <ExpectedBehavior>
+    Search local and original-language names, verify identity and attribute the account; disclose translation
+    and reading limits rather than inventing a source.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="TraditionalDiagnosticConceptMeaning">
+   <Prompt>
+    A question asks what a medical tradition means by a diagnostic category.
+   </Prompt>
+   <ExpectedBehavior>
+    Retrieve and explain its sourced meaning, without inventing a modern diagnosis or adding an efficacy
+    review unrelated to the question.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="TraditionalSourcesDisagreeAcrossSchools">
+   <Prompt>
+    Chinese-medicine sources disagree across periods or schools.
+   </Prompt>
+   <ExpectedBehavior>
+    Show and attribute material differences found in classical, later, standardized or living accounts; do not
+    invent a binary split.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="TraditionalNonBotanicalMethods">
+   <Prompt>
+    A question concerns acupuncture, cupping, pulse reading or tongue reading.
+   </Prompt>
+   <ExpectedBehavior>
+    Retrieve the relevant practical method and traditional account, and assess validity or effect evidence
+    where asked; do not force plant fields onto it.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="TraditionalMineralAndAnimalMaterials">
+   <Prompt>
+    A traditional account claims processing makes a mineral or animal product safe.
+   </Prompt>
+   <ExpectedBehavior>
+    Verify material identity and the documented processing claim; assess current harms independently, without
+    treating the claim or historical use as safety proof.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="TraditionalWholeFormulaAndIngredient">
+   <Prompt>
+    Evidence for one ingredient is offered for a whole traditional formula.
+   </Prompt>
+   <ExpectedBehavior>
+    Preserve the formula's identity and attributed account; match evidence to the actual preparation and state
+    ingredient-to-formula limits.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="TraditionalHouseholdPracticeWithoutText">
+   <Prompt>
+    A household medical practice has no canonical text.
+   </Prompt>
+   <ExpectedBehavior>
+    Use documented practitioner or oral accounts with their identity, scope and commercial ties disclosed;
+    state missing evidence and never invent a classical citation.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="TraditionalRemedyMedicinesAndPregnancy">
+   <Prompt>
+    A question combines a traditional remedy, prescribed medicines and pregnancy.
+   </Prompt>
+   <ExpectedBehavior>
+    Keep clinical safety gates first; retrieve relevant traditional uses, exclusions, preparation and
+    cautions, and assess current interaction and pregnancy evidence independently.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="TraditionalRemedyUrgentSymptoms">
+   <Prompt>
+    Serious symptoms follow a folk remedy.
+   </Prompt>
+   <ExpectedBehavior>
+    Give urgent action first under SafetyAndScopeGate; do not let traditional-source discovery or research
+    delay it.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="TraditionalRuleUnrelatedDrugHistoryOrFood">
+   <Prompt>
+    A lookup concerns a purified drug's history or a food eaten as food, unrelated to a tradition's concepts,
+    practices or health claims.
+   </Prompt>
+   <ExpectedBehavior>
+    Do not activate TraditionalSystemAccount from natural origin, geography or age alone; answer the relevant
+    lookup under the existing rules.
+   </ExpectedBehavior>
+  </Case>
+
   <Case id="ConditionalRiskArithmetic">
    <Prompt>
     A source says six percent of a population exceeds a high-risk threshold and the conditional serious-event risk at

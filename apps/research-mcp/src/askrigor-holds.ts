@@ -1,8 +1,9 @@
-import type { AtlasPageSource } from "@askrigor/evidence-repository";
+import { ATLAS_NAMED_VIDEOS_PER_FINDING, type AtlasPageSource } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
 import { ATLAS_NEAR, nearAtlasMatches } from "./atlas/near-match.js";
 import { loadAtlasSearchIndex, NOT_CHECKED_LABEL, type AtlasSearchIndex, type ShownFinding } from "./atlas/page-data.js";
+import { machineFinding } from "./atlas/person-claims.js";
 import { atlasPageUrl } from "./atlas/reuse.js";
 import { ownerPointersFor, type OwnerPointer } from "./owner-pointers.js";
 
@@ -36,6 +37,11 @@ export const heldAtlasFindingSchema = z.object({
   question: z.string().nullable(),
   page_url: z.url(),
   shared_words: z.array(z.string()),
+  /**
+   * Owner answer 307b (15 November 2026): the YouTube videos a person named that the finding is about, each as its
+   * watch page, as the finding's page links them; left out when it has none.
+   */
+  named_videos: z.array(z.url()).min(1).max(ATLAS_NAMED_VIDEOS_PER_FINDING).optional(),
 }).strict();
 export type HeldAtlasFinding = z.infer<typeof heldAtlasFindingSchema>;
 
@@ -70,7 +76,10 @@ export function shownOwnerPointer({ id, about, says, link, checked, limits, adde
   return { id, about, says, ...(link === undefined ? {} : { link: { ...link } }), checked, limits, added };
 }
 
-function heldFinding(finding: ShownFinding, words: readonly string[], origin: string): HeldAtlasFinding {
+function heldFinding(shown: ShownFinding, words: readonly string[], origin: string): HeldAtlasFinding {
+  // Atlas Release B (Fable's recheck, change 2): what another AI app is handed follows the lookup's rule, so an
+  // unverified claim about a named person is left out, with the line saying so, never handed over in brackets.
+  const finding = machineFinding(shown);
   return {
     publication_number: finding.publicationNumber,
     state: finding.status.kind === "unreviewed" ? NOT_CHECKED_LABEL : "checked",
@@ -81,6 +90,7 @@ function heldFinding(finding: ShownFinding, words: readonly string[], origin: st
     question: finding.question,
     page_url: atlasPageUrl(finding.publicationNumber, origin),
     shared_words: [...words],
+    ...(finding.namedVideos.length === 0 ? {} : { named_videos: [...finding.namedVideos] }),
   };
 }
 
@@ -101,6 +111,12 @@ export const ATLAS_NEAR_RETRY_MS = 30_000;
 export function atlasNearFinder(source: AtlasPageSource, settings: {
   origin?: string; now?: () => number; keepMs?: number; waitMs?: number; retryMs?: number;
   load?: (source: AtlasPageSource) => Promise<AtlasSearchIndex>;
+  /**
+   * Atlas Release B, while the mark is on (Fable's recheck, change 2): a reading older than keepMs is never used, so a
+   * claim taken off after a dispute is not handed over from it; a registration waits for the new one, at most waitMs,
+   * or gets none.
+   */
+  fresh?: boolean;
 } = {}): (text: string) => Promise<HeldAtlasFinding[]> {
   const origin = settings.origin ?? "https://askrigor.com";
   const now = settings.now ?? Date.now;
@@ -109,19 +125,32 @@ export function atlasNearFinder(source: AtlasPageSource, settings: {
   const retryMs = settings.retryMs ?? ATLAS_NEAR_RETRY_MS;
   const load = settings.load ?? ((from: AtlasPageSource) => loadAtlasSearchIndex(from, true));
   let ready: AtlasSearchIndex | undefined;
+  /** When the reading that is ready began: its findings are as of then. */
+  let readyAt = Number.NEGATIVE_INFINITY;
   let readAgainAt = Number.NEGATIVE_INFINITY;
   let noWaitUntil = Number.NEGATIVE_INFINITY;
   let reading: Promise<AtlasSearchIndex> | undefined;
+  /** When the reading in flight began. */
+  let readingBegan = Number.NEGATIVE_INFINITY;
+  const fresh = settings.fresh === true;
   const read = (): void => {
-    if (reading !== undefined) return;
+    // While the mark is on, a reading in flight that began keepMs ago or more no longer stands for a new one (Codex's
+    // check of the last fix round): its findings would be too old to hand over when it ends.
+    if (reading !== undefined && !(fresh && now() - readingBegan >= keepMs)) return;
+    const began = now();
+    readingBegan = began;
     const mine = Promise.resolve().then(() => load(source)).then((index): AtlasSearchIndex => ({
       // A finding a later one replaced is not handed over; its replacement is, where it is near.
       entries: index.entries.filter(({ finding }) => finding.status.kind !== "superseded"), bytes: index.bytes,
     }));
     reading = mine;
     mine.then((index) => {
+      // A reading that ends after a newer one never replaces it.
+      if (began < readyAt) return;
       ready = index;
-      readAgainAt = now() + keepMs;
+      readyAt = began;
+      // While the mark is on, the keep time counts from when the reading began, as its findings are as of then.
+      readAgainAt = fresh ? began + keepMs : now() + keepMs;
     }, () => {
       readAgainAt = now() + retryMs;
     }).finally(() => {
@@ -132,9 +161,10 @@ export function atlasNearFinder(source: AtlasPageSource, settings: {
     try {
       const current = now();
       if (current >= readAgainAt) read();
-      let index = ready;
+      let index = fresh && current - readyAt >= keepMs ? undefined : ready;
       if (index === undefined) {
         const first = reading;
+        const firstBegan = readingBegan;
         if (first === undefined || current < noWaitUntil) return [];
         let timer: ReturnType<typeof setTimeout> | undefined;
         const late = new Promise<never>((_, reject) => {
@@ -148,6 +178,8 @@ export function atlasNearFinder(source: AtlasPageSource, settings: {
         } finally {
           clearTimeout(timer);
         }
+        // Never one that began keepMs ago or more, even if it ended during this wait.
+        if (fresh && now() - firstBegan >= keepMs) return [];
       }
       return nearAtlasMatches(index, text).map(({ finding, words }) => heldFinding(finding, words, origin));
     } catch {
@@ -161,7 +193,7 @@ export const OWNER_POINTER_HOW = "It is the owner's own pointer, not a finding o
   "what to weigh. Leave it out when the question is about something else than its subject.";
 
 /** How to use what is handed over, said once, beside it: an app may give its model only the structured result. */
-function howToUse(findings: number, pointers: number, others: number): string {
+function howToUse(findings: number, pointers: number, others: number, videos = false): string {
   const parts: string[] = [];
   if (findings > 0) {
     // 14 Nov 2026, the owner's ChatGPT after the release: told to give a finding "where one bears on the question",
@@ -177,7 +209,10 @@ function howToUse(findings: number, pointers: number, others: number): string {
       "it is plainly about another thing than the question is (another food, substance, condition or device). One " +
       `whose state is ${JSON.stringify(NOT_CHECKED_LABEL)} was written by an AI and not reviewed by a person: say ` +
       "so, and give it as a lead, not as established. Give one labelled lead or contested as that. When you " +
-      "research, search_research_frontiers still gives the receipt the final check needs.");
+      "research, search_research_frontiers still gives the receipt the final check needs." +
+      // Owner answer 307b: said only when a finding links a video, so the words every other registration gets stand.
+      (videos ? " A finding that gives named_videos is about those videos, which a person named: give their links " +
+        "with it, as the videos it is about, not as its evidence." : ""));
   }
   if (pointers > 0) {
     parts.push("owner_pointers: AskRigor's owner asked that people with this kind of question be shown " +
@@ -207,7 +242,8 @@ function holding(findings: readonly HeldAtlasFinding[], pointers: readonly Shown
   others: ReadonlyArray<{ id: string; about: string }>): AskRigorHolds | undefined {
   if (findings.length === 0 && pointers.length === 0 && others.length === 0) return undefined;
   return {
-    how_to_use: howToUse(findings.length, pointers.length, others.length),
+    how_to_use: howToUse(findings.length, pointers.length, others.length,
+      findings.some(({ named_videos: links }) => (links ?? []).length > 0)),
     ...(findings.length === 0 ? {} : { atlas_findings: [...findings] }),
     ...(pointers.length === 0 ? {} : { owner_pointers: [...pointers] }),
     ...(others.length === 0 ? {} : { other_owner_pointers: [...others] }),

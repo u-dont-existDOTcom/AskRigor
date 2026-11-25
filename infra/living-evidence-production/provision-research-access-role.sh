@@ -68,9 +68,29 @@ GRANT INSERT, SELECT, DELETE ON TABLE living_evidence.research_call_record
 -- Owner answer 303a (migration 0035): a dev account's own menu choices, while its learn mode is on.
 GRANT INSERT, SELECT, DELETE ON TABLE living_evidence.research_menu_choices
   TO askrigor_research_access;
+-- Owner answer 386b (migration 0039): Gemini's sign-in, sealed rows of AskRigor's own authorization server.
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE living_evidence.gemini_oauth_store
+  TO askrigor_research_access;
 GRANT EXECUTE ON FUNCTION living_evidence.withdraw_pending_research_contribution_proposals(
   text, timestamptz
 ) TO askrigor_research_access;
+-- AskRigor#477 stage 1 (migration 0037): a free contributor's research dossier, appended and read back only through
+-- these functions, which check the account themselves; no table right on the dossiers.
+GRANT EXECUTE ON FUNCTION living_evidence.append_research_dossier_version(
+  text, text, text, text, text, jsonb, text, integer, jsonb, uuid, uuid, timestamptz
+) TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.latest_research_dossier_version(text, text)
+  TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.read_research_dossier_version(text, uuid)
+  TO askrigor_research_access;
+-- AskRigor#477 stage 2 (migration 0040): a saved dossier's public copy, published only through this function, which
+-- checks the account and its notice itself, derives the copy and why it is held from the private record and admits it
+-- one topic at a time, and the shown copies that are its conflict check's candidates, a page at a time.
+GRANT EXECUTE ON FUNCTION living_evidence.publish_research_dossier_version(
+  text, uuid, jsonb, text[], text, text[], timestamptz
+) TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.research_dossier_conflict_candidates(text, uuid, text, integer, integer)
+  TO askrigor_research_access;
 GRANT EXECUTE ON FUNCTION living_evidence.hold_youtube_findings(
   integer, text, timestamptz, jsonb, text, text, text
 ) TO askrigor_research_access;
@@ -100,6 +120,9 @@ GRANT EXECUTE ON FUNCTION living_evidence.take_down_atlas_report(text, text)
 GRANT EXECUTE ON FUNCTION living_evidence.set_atlas_report_answer(text, text, text, timestamptz)
   TO askrigor_research_access;
 GRANT EXECUTE ON FUNCTION living_evidence.forget_atlas_reports(text)
+  TO askrigor_research_access;
+-- Atlas news, stage 1 (migration 0043): a passing news check stages its own card, inside finalize_research.
+GRANT EXECUTE ON FUNCTION living_evidence.stage_atlas_news_card(jsonb, timestamptz)
   TO askrigor_research_access;
 ALTER ROLE askrigor_research_access SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_access SET idle_in_transaction_session_timeout = '5s';

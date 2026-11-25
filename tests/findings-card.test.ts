@@ -11,11 +11,16 @@ import {
   isSafeReportedModel,
   isSourceIdentifier,
   screenFindingsCard,
+  withoutStudyForms,
   withoutYouTubeData,
 } from "../apps/research-mcp/src/findings/card.js";
 import { saveResearchFindingsInputSchema } from "../apps/research-mcp/src/findings/contracts.js";
 import { finalizeResearchPublishedInputSchema } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { CARD, parsedCard } from "./helpers/findings-fixtures.js";
+import {
+  PHONE_NUMBERS_AND_CONTACTS_AMONG_IDENTIFIERS,
+  SOURCE_IDENTIFIER_SENTENCES,
+} from "./helpers/research-identifier-texts.js";
 
 describe("findings card", () => {
   it("has one canonical text and digest, whatever the key order, spacing or omitted defaults", () => {
@@ -94,6 +99,23 @@ describe("findings card", () => {
     expect(screenFindingsCard(findingsCardSchema.parse({
       ...CARD, findings: [{ ...CARD.findings[0], sources: ["10.1002/art.41142", "my own notes"] }],
     }))).toEqual([{ field: "findings[0].sources[1]", reasonCode: "not_a_source_identifier" }]);
+  });
+
+  it("passes its own identifiers in their exact shapes and refuses the dossier screen's phone numbers among them", () => {
+    // 16 Nov 2026: the research dossier's screen now sets aside every trial registry's numbers in their exact shapes.
+    // A card's texts are public, and a card's privacy problem is rewritten, never final, so its screen keeps to DOIs,
+    // PMIDs, PMCIDs and NCT numbers, in the same exact shapes, which only tightens it (Codex's red team of 16 Nov).
+    const withLead = (lead: string) => screenFindingsCard(findingsCardSchema.parse({ ...CARD, open_leads: [lead] }));
+    for (const text of SOURCE_IDENTIFIER_SENTENCES) expect(withLead(text), text).toEqual([]);
+    for (const text of PHONE_NUMBERS_AND_CONTACTS_AMONG_IDENTIFIERS) {
+      expect(withLead(text), text).toEqual([{ field: "open_leads[0]", reasonCode: "direct_identifier" }]);
+    }
+    expect(withLead("Check whether the registered trial ACTRN12620000032954 has posted results."))
+      .toEqual([{ field: "open_leads[0]", reasonCode: "direct_identifier" }]);
+    expect(withoutStudyForms("PMID 31234567 (PMC7654321), NCT01234567 and ACTRN12620000032954"))
+      .toBe("SOURCE (SOURCE), SOURCE and ACTRN12620000032954");
+    // A number the text goes on with is no PubMed record's: it stays, and is read as before.
+    expect(withoutStudyForms("PMID 612 345 678")).toBe("PMID 612 345 678");
   });
 
   it("checks sources and the reported model by their form", () => {

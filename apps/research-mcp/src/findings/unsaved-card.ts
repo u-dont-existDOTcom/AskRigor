@@ -121,6 +121,14 @@ class CopyWalk {
         if (typeof field === "string") this.leftOut.push(`${at}: the literature search's query, which is checked, never kept`);
         continue;
       }
+      // Owner answer 307b: a named video's link is kept only as a passing final check signed it for a saved card, never
+      // in this copy, which no receipt covers.
+      if (name === "named_videos") {
+        if (Array.isArray(field) && field.length > 0) {
+          this.leftOut.push(`${at}: a named video's link, which is kept only with a saved card`);
+        }
+        continue;
+      }
       const copied = name === "sources" ? this.sources(field, at) : this.value(field, at, depth + 1);
       if (copied !== undefined) copy[name] = copied;
     }

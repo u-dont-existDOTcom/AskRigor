@@ -26,8 +26,10 @@ Owner answers 193a and 195a (29 October 2026) limited `finalize_research` to fiv
 6. A plain answer registered before the research and passed in `receipts` is compared with the answer in
    `plain_answer_comparison`, one entry for each of its claims (owner answer 217b, 2 November 2026), so the note on
    how the answer differs from a quick answer is always there. The
-   entries' own problems (an unshown quote, nothing behind a change) stay notes, and the note gives such a claim
-   as "This research did not check that." When the account turned the note off, a missing comparison stays a
+   entries' own problems (an unshown quote, nothing behind a change) stay notes, and the note says the research
+   claims to have checked such a claim but did not show what backs it. The note leads with the claims the research
+   corrected, then qualified, then confirmed, and closes with the claims it did not check in one line (owner answer
+   413a, 24 November 2026). When the account turned the note off, a missing comparison stays a
    note. A plain answer whose receipt is not passed cannot be required: AskRigor keeps no copy of it, only the
    signed digests of its claims in the receipt it hands back. The plain answer is matched to the research by
    `research_target`, word for word but for case and spacing, so its registration result quotes the target it signed,
@@ -181,8 +183,9 @@ comments were read here, a sentence the answer declares as not found or as a cor
 those are is the AI's declaration. The note names up to three such threads. When every thread behind a claim has a verified `forum_thread_read`
 receipt it says "1 forum thread read here" or "2 forum threads read here"; otherwise it says "my own reading".
 A review site does not count. A claim that can't be shown as
-declared (nothing behind it, or a quote the answer doesn't show, repeats or ends in a colon) goes in the note as "This
-research did not check that.", with an advisory note saying how to show it, and the rest of the note stays. Only a
+declared (nothing behind it, or a quote the answer doesn't show, repeats or ends in a colon) goes in the note's closing
+line of claims the research says it checked but did not show what backs, apart from the claims it did not check, with an
+advisory note saying how to show it, and the rest of the note stays. Only a
 registered claim left out of the comparison holds the note back, since no text of it is kept to show. The note quotes
 each registered claim with its figures, including figures absent from the checked draft; a confirmed or qualified claim
 with such figures says the research did not confirm them. If a receipt marked plain_answer does not verify, the result
@@ -224,7 +227,14 @@ bold "results") starts a new section. Where it refuses a quote it could have fou
 (Thai, Lao, Tibetan) is found only as a whole paragraph; a Greek question mark is the semicolon once a text is in NFC,
 where Unicode's rules end no sentence; an unknown subheading (a PDF's, or an HTML page's the section-name list doesn't
 know) runs into the next sentence, and so does a table's or a list's item without a full stop, so those sentences are
-refused; and JATS superscript citations read as bare digits, so a quote that leaves one out is refused.
+refused; and JATS superscript citations read as bare digits, so a quote that leaves one out is refused. No source line is
+looked up in a web page. The Atlas news card's lines alone are (`apps/research-mcp/src/news/web-page.ts`, 24 November
+2026): a line whose key source is a web address that names no paper (a DOI, PMID or PMCID) and that no paper's receipt
+names is looked up in the page `read_forum_thread` read there, which AskRigor's server reads again, only when its text is
+the one that read's receipt signed (`tx`, a digest of the text returned; the receipt's other digests are of links). Its
+lines run on within a section, as an HTML paper's do, and a known section heading's line starts a section only after a
+sentence's end, so an agency page's sentence right after another heading or a list item with no full stop is refused. A
+quote found so is signed as `web_page` and is never a paper's.
 
 Owner answer 249a (5 November 2026) adds the study map, an optional later input, and no blocking rule
 (`apps/research-mcp/src/study-map.ts`; plan `docs/superpowers/plans/2026-11-05-study-map.md`). When a conclusion
@@ -596,6 +606,49 @@ checking them (`apps/research-mcp/src/absence-searches.ts`):
   or published, a findings card above all, never falls back (its third check: a corrected card's unusable later form
   gave way to the out-of-date top-level card, which was saved): its later form is read, and a card that doesn't parse is
   kept privately, with its note, as before. Other tools still refuse a call whose `later_inputs` has a problem.
+
+Promise P69 (the owner, chat, 21 November 2026: "explain to people in the answer when a guardrail is preventing you
+from considering something at your max intelligence"; owner answer 400a, 22 November 2026: HRP 20.6.44's LimitsNote
+asks every AI for it, and the release turns the check on; built, not yet released) adds one later input, notes, limits
+and no blocking rule. With `ASKRIGOR_SAFETY_LIMITS=on` (off in the code's default; the release sets it):
+
+- **The declaration.** `later_inputs.safety_limits` holds up to 20 entries, one for each research step a model's or
+  app's own safety rules refused, stopped with a model switch, narrowed or softened, as the AI observed it or as the
+  person reported it (such as an app's prompt to switch models): the step; the kind; what was left out, in neutral
+  words; whether it was not examined or examined but not reported; whether it was done again (no, by the same model,
+  by another) and whether that recovered it; what it could change (a detail, the confidence, the conclusion, no loss
+  identified, unknown) and, optionally, which conclusion; who reports it; and the answer's own sentence saying it.
+  Only the step, what was left out and the answer's sentence are needed: every other field says "not known" when left
+  out (the AI is the reporter unless it says the person is), and a field the entry doesn't take is dropped unread.
+  Since nothing published describes the input, `inspect` gives its shape to an active account with the switch on, and
+  a note on an entry that isn't usable repeats it (Codex's review of HRP 20.6.44). An
+  entry's own words may hold no link or address (an exact, structural test of the forms whose shape is unambiguous:
+  a scheme such as "https://", "file:/" or "mailto:", a "//host", "www.", a DOI): it names a kind of content, never
+  where to find what a model declined to give. A bare host name ("example.org") or a numeric address is not tested,
+  since its shape can't be told from ordinary words ("mg.kg", "dott.ssa", a section "1.2.3.4"); the description asks
+  for none. The input
+  is read entry by entry, and only with the switch on: with it off, it is taken out of the call before anything reads
+  it, at the top level or in later_inputs, so it is noted nowhere; with it on, an entry that isn't usable is a note by
+  its place and the schema's own field names, never a key or value it gave, and the others still count.
+- **A limit that says who reports it.** Each entry becomes one limit that starts "As the AI reports," or "As the
+  person reports," then "a model's safety rules limited a research step", with the step and topic inside fixed words,
+  so the panel lists it whatever the answer wrote, without AskRigor vouching for the report; the panel also shows one
+  line above its fold saying how many steps were reported limited. The meaning judge never reads a safety limit's
+  words: a fixed line holds its place in the list it reads, and no verdict on that place counts.
+- **Notes only, and no request for none.** The answer's sentence is looked up with the other declared quotes; one the
+  draft doesn't show is a note naming the entry's place, never its words. Nothing asks for a declaration when none
+  comes, and none is ever shown as "no limit": a model often cannot see its own guardrail (a classifier stops it from
+  outside, or an app switches models without telling the next one). Limit: whether a safety rule did it, and what it
+  cost, are the reporter's judgment, which the check doesn't make or confirm; neutral wording, too, is the AI's to
+  keep (no word list judges it).
+- **AskRigor's own calls.** When Anthropic's fallback model served the planning call or the draft review, the API's own
+  record of it (the last `fallback_message` entry in `usage.iterations`, never a comparison of model names) is logged
+  by its class, `fallback_answered`, or `fallback_refused` when the chain ended in a refusal, and kept with the call's
+  outcome in memory. It shows that a fallback ran, not how many models declined. This part is not behind the switch:
+  it only logs. Telling the person's AI that a plan or a review came from the fallback model is the next step.
+
+The record of every guardrail event the sessions and the runner see, and how answers will say it once the owner
+chooses HRP's wording, is on the owner's private pages (`askrigor/guardrails/`).
 
 AskRigor#431 (7 November 2026; released 9 November 2026) adds two notes, one later input and no blocking rule. A ChatGPT
 run fact-checked a video whose 22 claims `extract_youtube_video_claims` listed, answered a few of them, cited with

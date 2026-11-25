@@ -15,7 +15,7 @@ import {
   atlasPool,
   type PostgresAtlasStoreOptions,
 } from "./atlas-findings.js";
-import { ATLAS_AI_READINGS_CALLER, ATLAS_PUBLISHED_BACKING_PER_FINDING, atlasResearchSchemas } from "./atlas-research.js";
+import { ATLAS_AI_READINGS_CALLER, ATLAS_PUBLISHED_BACKING_PER_FINDING, atlasNamedVideosSchema, atlasResearchSchemas } from "./atlas-research.js";
 import { assertNoProhibitedPersistentKeys } from "./contracts.js";
 
 // Decision 171, section 4B (owner answers 168a and "171 approved", 24 Oct 2026; plan
@@ -192,6 +192,8 @@ export const atlasPublishedFindingSchema = z.object({
   backing: z.array(atlasPublishedBackingSchema).min(1).max(ATLAS_PUBLISHED_BACKING_PER_FINDING).optional(),
   source_reading: z.array(publishedResearch.reading).min(1).max(10).optional(),
   forum_signal: atlasPublishedForumSignalSchema.optional(),
+  // Owner answer 307b: the videos the person named that this finding is about, in any version.
+  named_videos: atlasNamedVideosSchema.optional(),
   // Owner answer 311a: the app that sent the checking call made the final check's AI readings, from the saved card's
   // stamp. It goes with any version, so a finding that makes only a version 1 or 2 publication still says so.
   ai_readings: z.literal(ATLAS_AI_READINGS_CALLER).optional(),
@@ -254,6 +256,46 @@ export interface AtlasPublicationDraft {
   /** With held: why. */
   heldBecause: AtlasPublicationHoldReason[] | null;
   published: AtlasPublishedFinding;
+  /**
+   * How it reaches the pages (migration 0041): automatic_showing for an unreviewed draft the save shows at once;
+   * owner_action for one the owner publishes (publish_cards, a decision's publication), which shows. Never
+   * quick_answer_test, which only the quick-answer test's own showing records, with its verdict (keep with a route).
+   * Left out, as for every draft before it, nothing is recorded: kept, it reaches the pages once a showing says how.
+   */
+  shownBy?: AtlasPublicationRoute;
+}
+
+/**
+ * How a publication reached the pages (Codex's review of 17 Nov 2026, finding 4, its re-review and its third review,
+ * finding 2), stored apart as the action that showed it said, at that moment: owner_action, the owner published it, or
+ * his own show_on_pages showed it again; quick_answer_test, the quick-answer test's own show_on_pages showed it again,
+ * with its verdict; automatic_showing, the save showed it at once (ASKRIGOR_ATLAS_SHOW_SAVED_FINDINGS). None (null) is
+ * not recorded: a publication from before migration 0041, one an earlier image published or showed again, or one
+ * still kept since its save. Nothing is read from a kept reason's text. A page says the quick-answer test found a
+ * quick AI answer misses a finding only for quick_answer_test with the verdict pass, or from a challenge mark's stored
+ * verdict.
+ */
+export const ATLAS_PUBLICATION_ROUTES = ["owner_action", "quick_answer_test", "automatic_showing"] as const;
+export type AtlasPublicationRoute = typeof ATLAS_PUBLICATION_ROUTES[number];
+
+/**
+ * How a show_on_pages shows a kept publication again (migration 0041's show_atlas_publications): by the owner's action,
+ * or by the quick-answer test, which gives its verdict. Codex's fourth review of 17 Nov 2026 (P1s): the showing says
+ * which; the owner's is stored as his decision too, apart from the route, and no later showing replaces it.
+ */
+export type AtlasShowRoute =
+  | { by: "owner_action" }
+  | { by: "quick_answer_test"; verdict: AtlasChallengeVerdict };
+
+/**
+ * What the owner decided of a publication, stored apart from how it last reached the pages (migration 0041's
+ * owner_decision and owner_decided_at): published, his publish_cards or a decision of his published it; shown, his own
+ * show_on_pages showed it again. No save, keeping or showing of the test's changes it; keeping a finding he unpublished
+ * keeps it, so a finding he checked stays known as his.
+ */
+export interface AtlasOwnerDecision {
+  decision: "published" | "shown";
+  decidedAt: string;
 }
 
 export interface AtlasPublishInput {
@@ -442,6 +484,11 @@ export interface AtlasKeepChange {
   keep: boolean;
   reason: string | null;
   at: string;
+  /**
+   * With keep false: how the showing shows them, recorded with each kept one it shows (Codex's third review of 17 Nov
+   * 2026, finding 2). Left out, as by an earlier caller, it records no route: not recorded.
+   */
+  route?: AtlasShowRoute;
 }
 
 export interface AtlasKeptView {
@@ -458,6 +505,12 @@ export interface AtlasKeptView {
 export const ATLAS_KEEP_NUMBERS_PER_CALL = 100;
 
 function validateKeep(change: AtlasKeepChange): void {
+  const route = change.route as { by?: unknown; verdict?: unknown } | undefined;
+  if (route !== undefined && (change.keep || typeof route !== "object" || route === null ||
+    !(route.by === "owner_action" ? route.verdict === undefined
+      : route.by === "quick_answer_test" && (ATLAS_CHALLENGE_VERDICTS as readonly unknown[]).includes(route.verdict)))) {
+    throw invalid();
+  }
   const count = change.publicationNumbers.length + change.atlasNumbers.length;
   const reasonOk = change.keep
     ? typeof change.reason === "string" && change.reason === change.reason.trim() && change.reason.length >= 1 &&
@@ -506,7 +559,9 @@ function validatePublishInput(input: AtlasPublishInput): AtlasPublicationDraft[]
     if (!Number.isInteger(draft.findingNumber) || draft.findingNumber < 1 || draft.findingNumber > 5 ||
       !["unreviewed", "held", "accepted", "edited"].includes(draft.state) ||
       accepted !== (draft.atlasNumber !== null) || (draft.atlasNumber !== null && !ATLAS_NUMBER.test(draft.atlasNumber)) ||
-      (draft.state === "held") !== (draft.heldBecause !== null) || !validHeldReasons(draft.heldBecause)) {
+      (draft.state === "held") !== (draft.heldBecause !== null) || !validHeldReasons(draft.heldBecause) ||
+      (draft.shownBy !== undefined && !((draft.shownBy === "automatic_showing" && draft.state === "unreviewed") ||
+        (draft.shownBy === "owner_action" && draft.state !== "held")))) {
       throw invalid();
     }
     const parsed = atlasPublishedFindingSchema.safeParse(draft.published);
@@ -574,6 +629,12 @@ const iso = (value: string) => new Date(value).toISOString();
 export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
   private readonly rows: AtlasPublicationView[] = [];
   private nextNumber = 1_001;
+  // How each publication reached the pages, when its draft or the showing said (migration 0041's shown_by), and the
+  // quick-answer test's verdict with its route (shown_test_verdict).
+  private readonly routes = new Map<string, AtlasPublicationRoute>();
+  private readonly testVerdicts = new Map<string, AtlasChallengeVerdict>();
+  // What the owner decided of each, by his own action (migration 0041's owner_decision and owner_decided_at).
+  private readonly ownerDecisions = new Map<string, AtlasOwnerDecision>();
 
   async publish(input: AtlasPublishInput): Promise<AtlasPublishedRow[]> {
     const drafts = validatePublishInput(input);
@@ -582,8 +643,11 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
     for (const draft of drafts) {
       const existing = this.rows.find((row) => row.cardSha256 === input.cardSha256 && row.findingNumber === draft.findingNumber);
       if (existing === undefined) {
+        const publicationNumber = `P-${this.nextNumber++}`;
+        if (draft.shownBy !== undefined) this.routes.set(publicationNumber, draft.shownBy);
+        if (draft.shownBy === "owner_action") this.ownerDecisions.set(publicationNumber, { decision: "published", decidedAt: at });
         this.rows.push({
-          publicationNumber: `P-${this.nextNumber++}`,
+          publicationNumber,
           cardNumber: input.cardNumber,
           cardSha256: input.cardSha256,
           findingNumber: draft.findingNumber,
@@ -612,6 +676,17 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
           cardNumber: input.cardNumber,
           stateChangedAt: later(at, existing.stateChangedAt),
         });
+        // Back held, it has no page, so no route; otherwise the draft's route, when it gives one (migration 0041).
+        if (draft.state === "held") {
+          this.routes.delete(existing.publicationNumber);
+          this.testVerdicts.delete(existing.publicationNumber);
+        } else if (draft.shownBy !== undefined) {
+          this.routes.set(existing.publicationNumber, draft.shownBy);
+          this.testVerdicts.delete(existing.publicationNumber);
+          if (draft.shownBy === "owner_action") {
+            this.ownerDecisions.set(existing.publicationNumber, { decision: "published", decidedAt: at });
+          }
+        }
         outcomes.set(draft.findingNumber, "revived");
       } else {
         outcomes.set(draft.findingNumber, "existing");
@@ -726,6 +801,14 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
     }
     for (const row of targets) {
       if (!change.keep) {
+        // Shown again: how, as the showing says, or not recorded when it doesn't (migration 0041).
+        if (this.kept.has(row.publicationNumber)) {
+          if (change.route === undefined) this.routes.delete(row.publicationNumber);
+          else this.routes.set(row.publicationNumber, change.route.by);
+          if (change.route?.by === "quick_answer_test") this.testVerdicts.set(row.publicationNumber, change.route.verdict);
+          else this.testVerdicts.delete(row.publicationNumber);
+          if (change.route?.by === "owner_action") this.ownerDecisions.set(row.publicationNumber, { decision: "shown", decidedAt: at });
+        }
         this.kept.delete(row.publicationNumber);
         continue;
       }
@@ -778,6 +861,22 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
     return this.rows.filter((row) => this.challenges.has(row.publicationNumber))
       .sort((left, right) => atlasPublicationOrder(left.publicationNumber) - atlasPublicationOrder(right.publicationNumber))
       .map((row) => this.challengeView(row));
+  }
+
+  /** How a publication reached the pages, for the in-memory pages: null for one not recorded (migration 0041). */
+  shownByOf(publicationNumber: string): AtlasPublicationRoute | null {
+    return this.routes.get(publicationNumber) ?? null;
+  }
+
+  /** The quick-answer test's verdict when its own showing showed the publication, for the in-memory pages. */
+  testVerdictOf(publicationNumber: string): AtlasChallengeVerdict | null {
+    return this.testVerdicts.get(publicationNumber) ?? null;
+  }
+
+  /** What the owner decided of a publication by his own action, for tests: null when he hasn't (migration 0041). */
+  ownerDecisionOf(publicationNumber: string): AtlasOwnerDecision | null {
+    const decision = this.ownerDecisions.get(publicationNumber);
+    return decision === undefined ? null : { ...decision };
   }
 
   /** A publication's challenge mark, for the in-memory pages; null when it carries none. */
@@ -903,10 +1002,16 @@ export class PostgresAtlasPublicationStore implements AtlasPublicationStore {
 
   async keep(change: AtlasKeepChange): Promise<AtlasKeptView[]> {
     validateKeep(change);
+    // A showing that says how shows through migration 0041's show_atlas_publications, which records it.
+    const route = change.route;
     const result = await this.call<{ kept_publication_number: string; kept_state: AtlasPublicationState;
-      kept_atlas_number: string | null; kept: boolean }>(
-      `SELECT * FROM ${this.schema}.keep_atlas_publications($1::text[], $2::text[], $3::boolean, $4::text, $5::timestamptz)`,
-      [[...change.publicationNumbers], [...change.atlasNumbers], change.keep, change.reason, change.at]);
+      kept_atlas_number: string | null; kept: boolean }>(route === undefined
+      ? `SELECT * FROM ${this.schema}.keep_atlas_publications($1::text[], $2::text[], $3::boolean, $4::text, $5::timestamptz)`
+      : `SELECT * FROM ${this.schema}.show_atlas_publications($1::text[], $2::text[], $3::text, $4::text, $5::timestamptz)`,
+    route === undefined
+      ? [[...change.publicationNumbers], [...change.atlasNumbers], change.keep, change.reason, change.at]
+      : [[...change.publicationNumbers], [...change.atlasNumbers], route.by,
+          route.by === "quick_answer_test" ? route.verdict : null, change.at]);
     return result.rows.map((row) => ({ publicationNumber: row.kept_publication_number, state: row.kept_state,
       atlasNumber: row.kept_atlas_number, kept: row.kept, reason: null, keptAt: null }));
   }

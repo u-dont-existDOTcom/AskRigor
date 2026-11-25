@@ -16,7 +16,8 @@ import { receiptText } from "./research-receipts.js";
  * claim sit beside them. Whether they back the claim is meaning: the meaning judge reads that where it is on.
  *
  * Finding a quote or not never stops an answer, as the six blocking checks (owner answers 193a, 195a and 217b) don't
- * name it: a quote not found is a note, and the panel says so. Nothing here is stored.
+ * name it: a quote not found is a note, and the panel says so. Nothing here is stored. No line is looked up in a web
+ * page but the Atlas news card's, in news/web-page.ts.
  */
 
 export const SOURCE_LINE_LIMITS = { lines: 12, quote: 600, claim: 300, against: 500, section: 120 } as const;
@@ -116,6 +117,31 @@ export function sourceLineDocument(index: AuditableDocumentIndex): SourceLineDoc
   };
 }
 
+/**
+ * The text of a web page, as read_forum_thread's reader returns it, as a news card's quotes are looked up in it
+ * (news/web-page.ts). As an HTML full text's, its lines run on within a section, so a line a tag broke is never a
+ * sentence of its own. A known section heading on a line of its own starts a section afresh only where the line before it
+ * ended a sentence (the review of #521, F5): a heading's word inside one ("There is no <b>Conclusion</b> …", which the
+ * layout puts on a line of its own) runs on, so neither part of that sentence is found as a whole one.
+ */
+export function webPageBlocks(text: string): SourceLineDocument["blocks"] {
+  const blocks: Array<SourceLineDocument["blocks"][number]> = [];
+  let section: string | undefined;
+  let starts = true;
+  for (const given of text.split("\n")) {
+    const line = given.trim();
+    if (line === "") continue;
+    if (sectionKind(line) !== undefined && (starts || endsSentenceLine(blocks.at(-1)!.text))) {
+      section = receiptText(line, SOURCE_LINE_LIMITS.section);
+      starts = true;
+      continue;
+    }
+    blocks.push({ text: line, ...(section === undefined ? {} : { section }), ...(starts ? {} : { runsOn: true }) });
+    starts = false;
+  }
+  return blocks;
+}
+
 /** A PubMed abstract as the source line reads it: a structured one's sections each a block, under its label, as a label
  * ("RESULTS:") is no part of a sentence. */
 export function abstractDocument(abstract: string, sections?: ReadonlyArray<{ label?: string | undefined; text: string }>):
@@ -129,12 +155,93 @@ SourceLineDocument {
 // also be a real hyphen ("pre- and post-"), so each reading of the text is searched.
 const BROKEN_WORD = /(?<=\p{L})[-­‐‑]\s+(?=\p{Ll})/gu;
 
-/** A quote as it is looked up: without the quotation marks around it or a closing mark, which may differ. */
-function quoteForm(quote: string): string {
-  return figureText(quote).replace(/^["'\p{Pi}\p{Pf}\s]+/u, "").replace(/["'\p{Pi}\p{Pf}\p{STerm}\s]+$/u, "");
+/**
+ * How quotes are matched. "standard": the source lines' and the findings card's rules, below. "news": the Atlas news
+ * card's backing lines (the 23 Nov 2026 news audit: who paid, How much's figures and an agency's action failed on
+ * formatting alone), with three exact, structural additions and no fuzzy or meaning-based matching: a quote may start
+ * with a section's label and its colon ("FUNDING:", "Interpretation:"), which a PubMed abstract keeps apart from its
+ * text, so it is looked up as given and, when what is left is long enough to mean much on its own, without the label,
+ * then only in the section of that name; the white space beside a dash or a hyphen between two characters is set aside,
+ * in the quote and in the text ("1 – 14" is "1–14", "− 4" is "−4"; figureText already reads every dash and minus sign as
+ * one); and a sentence that ends in a web address by its own form ("://", or "www." and a host name) ends there, though
+ * its last word looks like an abbreviation. Labels and headings in the text are read as the standard matching reads
+ * them (Codex's reviews of #517: every wider guess let a part of a sentence be found as a whole one).
+ */
+export type QuoteMatching = "standard" | "news";
+
+/**
+ * The section labels the news matching knows besides the ones full-text admission does (`sectionKind`): a structured
+ * abstract's and a paper's back matter's, as journals set them, compared whole, in any case, after Unicode's NFKC form.
+ * A label not in the list is part of the text, as before: the quote is then looked up as given only.
+ */
+export const NEWS_QUOTE_LABELS: ReadonlySet<string> = new Set([
+  // Structured abstracts (IMRaD and the journals' variants, JAMA's key points and Lancet's research in context).
+  "abstract", "background", "backgrounds", "introduction", "context", "importance", "objective", "objectives", "aim",
+  "aims", "aim of the study", "purpose", "rationale", "question", "hypothesis", "design", "study design", "setting",
+  "settings", "design and setting", "design, setting, and participants", "design, setting and participants",
+  "setting and participants", "participants", "patients", "population", "subjects", "methods", "method",
+  "materials and methods", "methods and materials", "patients and methods", "methodology", "exposure", "exposures",
+  "intervention", "interventions", "main outcomes and measures", "main outcome measures", "main outcome measure",
+  "main outcomes", "outcomes", "outcome measures", "measurements", "measurements and main results", "results",
+  "result", "findings", "main results", "key findings", "conclusion", "conclusions", "conclusions and relevance",
+  "interpretation", "discussion", "summary", "significance", "implications", "meaning", "limitations",
+  "evidence before this study", "added value of this study", "implications of all the available evidence",
+  "evidence acquisition", "evidence synthesis", "data sources", "study selection", "data extraction",
+  "data synthesis", "registration", "trial registration", "clinical trial registration", "level of evidence",
+  // Back matter: who paid, the authors' interests and the other declarations.
+  "funding", "funding/support", "funding source", "funding sources", "source of funding", "sources of funding",
+  "funding information", "financial support", "role of the funder", "role of the funder/sponsor",
+  "role of the funding source", "conflict of interest", "conflicts of interest", "conflict of interest disclosures",
+  "conflict of interest statement", "competing interests", "competing interest", "declaration of interests",
+  "declaration of competing interest", "declaration of competing interests", "disclosure", "disclosures",
+  "financial disclosure", "financial disclosures", "acknowledgment", "acknowledgments", "acknowledgement",
+  "acknowledgements", "author contributions", "data availability", "data availability statement",
+  "data sharing statement", "ethics", "ethics statement", "ethics approval",
+  // The same back-matter labels in the languages full-text admission's headings cover.
+  "financement", "sources de financement", "conflits d'intérêts", "conflit d'intérêts", "liens d'intérêts",
+  "financiación", "financiamiento", "conflicto de intereses", "conflictos de intereses", "financiamento",
+  "conflito de interesses", "conflitos de interesse", "finanzierung", "förderung", "interessenkonflikt",
+  "interessenkonflikte", "finanziamento", "conflitto di interessi", "conflitti di interesse",
+]);
+
+/** A label, compared as NEWS_QUOTE_LABELS holds it: Unicode's NFKC form, small letters, single spaces, no closing mark. */
+function labelKey(label: string): string {
+  return label.normalize("NFKC").toLowerCase().replace(/\s+/gu, " ").trim().replace(/[\s:：.]+$/u, "");
 }
 
-type Finder = (quote: string) => { found: boolean; section?: string | undefined };
+/** Whether a news quote's own label is a section's: one full-text admission knows, or one of NEWS_QUOTE_LABELS. */
+function knownLabel(label: string): boolean {
+  return sectionKind(label) !== undefined || NEWS_QUOTE_LABELS.has(labelKey(label));
+}
+
+/**
+ * The forms a news quote is looked up in: as given, and, when it starts with a known section label and its colon,
+ * without them, at its start only ("INTERPRETATION: Anticoagulation did not…" is also "Anticoagulation did not…").
+ */
+export function newsQuoteForms(quote: string): string[] {
+  const label = LABEL_LINE.exec(quote);
+  if (label === null || !knownLabel(label[1]!)) return [quote];
+  const rest = quote.slice(label[0].length);
+  return rest.trim() === "" ? [quote] : [quote, rest];
+}
+
+// News matching: the white space beside a dash or a hyphen between two characters, in figureText's form, where every
+// dash and minus sign is already "-" and every run of white space one space.
+const DASH_SPACING = /(?<=\S) ?- ?(?=\S)/gu;
+const newsForm = (text: string): string => figureText(text).replace(DASH_SPACING, "-");
+
+/** A text in the matching's form: figureText's, and for the news matching without the white space beside a dash. */
+function matchingForm(matching: QuoteMatching): (text: string) => string {
+  return matching === "news" ? newsForm : figureText;
+}
+
+/** A quote as it is looked up: without the quotation marks around it or a closing mark, which may differ. */
+function quoteForm(quote: string, matching: QuoteMatching = "standard"): string {
+  const form = figureText(quote).replace(/^["'\p{Pi}\p{Pf}\s]+/u, "").replace(/["'\p{Pi}\p{Pf}\p{STerm}\s]+$/u, "");
+  return matching === "news" ? form.replace(DASH_SPACING, "-") : form;
+}
+
+export type Finder = (quote: string) => { found: boolean; section?: string | undefined };
 
 /*
  * Whole sentences only (the recheck of #417, 5 November 2026): a quote is the paper's own words only when it is one or
@@ -189,6 +296,32 @@ const TRAILING = new RegExp(String.raw`^(?:[\s"'\p{Pi}\p{Pf}\p{Pe}\p{STerm}]|${C
 // stop inside it ("vs.", "incl.", "approx.", "St.", "Dr.", "et al.") isn't told from a sentence's last word ("twice a
 // day.", "in all.", "10 mg."), so before a capital letter it still ends a sentence: a known limit.
 const ABBREVIATION_END = /(?:^|[^\p{L}\p{M}.])(?:(?:\p{L}\p{M}*)+\.){2,}$/u;
+// The news matching's: the same, except that a sentence that ends in a web address by one of an address's own exact
+// forms ends there, so the declaration after it starts one (the 23 Nov 2026 news audit): such a word is an address, not
+// an abbreviation. The forms: a last word holding "://" ("…at https://www.icmje.org/coi_disclosure.pdf."), or "www." and a
+// host name of two or more characters, with nothing or one space between them, as a line break leaves an address a PDF
+// set over two lines ("…at www.\nicmje.org/coi_disclosure.pdf.", N-1005 of 23 Nov). Nothing else is read as an address.
+// Codex's reviews of #517 found each looser form let a part of a sentence be found as a whole one, dropping a negation
+// before it: a colon, dash or slash beside an abbreviation ("…the earlier report:i.e. Vitamin D…", round 1), then an
+// underscore of Markdown emphasis ("…report, _i.e. Vitamin D…_", round 2). "www.i.e." has no host name, so it runs on.
+// The one case left that could end a sentence early: an abbreviation written onto the end of an address.
+const ADDRESS_END = /(?:\S*:\/\/\S*|(?:^|\s)www\.\s?[\p{L}\p{N}-]{2,}\.\S+)$/iu;
+
+/** Whether a sentence (its end trimmed) ends in an abbreviation, so the next one runs on from it. */
+function endsInAbbreviation(sentence: string, matching: QuoteMatching): boolean {
+  if (!ABBREVIATION_END.test(sentence)) return false;
+  return matching !== "news" || !ADDRESS_END.test(sentence);
+}
+
+// A line's last sentence mark, and what follows it.
+const LAST_SENTENCE_END = /^([\s\S]*\p{STerm})([^\p{STerm}]*)$/u;
+
+/** Whether a line ends a sentence: its last sentence mark is no abbreviation's, and only what may lie between a quote and
+ * its sentence's end (TRAILING) follows it. */
+function endsSentenceLine(line: string): boolean {
+  const end = LAST_SENTENCE_END.exec(figureText(bracketedSuperscripts(line.slice(-TRAILING_REACH))));
+  return end !== null && TRAILING.test(end[2]!) && !endsInAbbreviation(end[1]!, "news");
+}
 // A section's label and its colon at a line's start ("Conclusions: Vitamin D…", as a PDF or a plain text sets a
 // structured abstract's): the label's text, for sectionKind, the list full-text admission reads headings by.
 const LABEL_LINE = /^\s*([^\s:：][^:：\n]{0,60}?)\s*[:：]\s*/u;
@@ -197,9 +330,13 @@ const LABEL_LINE = /^\s*([^\s:：][^:：\n]{0,60}?)\s*[:：]\s*/u;
  * Where a paragraph's sentences start: Unicode's sentences (UAX #29), with an opening bracket its rules leave at a
  * sentence's end ("group.[12] Next") opening the next one, a sentence ending in an abbreviation run on into the next
  * (ABBREVIATION_END), and a sentence that starts with a section's label at a line's start (`lines`) starting again after
- * the label (LABEL_LINE): "We could not confirm the earlier report: vitamin D…" has no label, so it stays whole.
+ * the label (LABEL_LINE): "We could not confirm the earlier report: vitamin D…" has no label, so it stays whole. The news
+ * matching's only other boundary is an address's end (endsInAbbreviation). It reads labels in the text as the standard
+ * matching does: Codex's reviews of #517 found every wider guess, a label of NEWS_QUOTE_LABELS with its colon
+ * ("Background:foreground ratios…") or alone on its line ("Intervention\npatients…", "Background\nDNA damage…"), let a
+ * part of a sentence be found as a whole one, four rounds running, so they were taken out (a class, not a case).
  */
-function sentenceStarts(text: string, lines: readonly number[]): number[] {
+function sentenceStarts(text: string, lines: readonly number[], matching: QuoteMatching = "standard"): number[] {
   const segments: number[] = [];
   for (const { index } of SENTENCES.segment(text)) {
     let start = index;
@@ -207,7 +344,7 @@ function sentenceStarts(text: string, lines: readonly number[]): number[] {
     segments.push(start);
   }
   const starts = segments.filter((start, place) =>
-    place === 0 || !ABBREVIATION_END.test(text.slice(segments[place - 1]!, start).trimEnd()));
+    place === 0 || !endsInAbbreviation(text.slice(segments[place - 1]!, start).trimEnd(), matching));
   const labelled = new Set(starts);
   // The lines are in order, so the last sentence start at or before each is found going on, not again from the first.
   let sentence = 0;
@@ -235,7 +372,9 @@ interface Searchable {
   blocks: Array<{ start: number; section: string | undefined }>;
 }
 
-function searchable(document: SourceLineDocument, reading: (text: string) => string): Searchable {
+function searchable(document: Pick<SourceLineDocument, "blocks">, reading: (text: string) => string,
+  matching: QuoteMatching = "standard"): Searchable {
+  const textForm = matchingForm(matching);
   const paragraphs: Array<Array<SourceLineDocument["blocks"][number]>> = [];
   for (const block of document.blocks) {
     if (block.runsOn === true && paragraphs.length > 0) paragraphs.at(-1)!.push(block);
@@ -263,10 +402,10 @@ function searchable(document: SourceLineDocument, reading: (text: string) => str
     let line = "";
     let space = false;
     const spans: Array<{ start: number; end: number; raw: number }> = [];
-    const cuts = sentenceStarts(raw, lineStarts);
+    const cuts = sentenceStarts(raw, lineStarts, matching);
     cuts.forEach((cut, index) => {
       const piece = raw.slice(cut, cuts[index + 1] ?? raw.length);
-      const form = figureText(piece);
+      const form = textForm(piece);
       if (/^\s/u.test(piece)) space = true;
       if (form !== "") {
         if (space && line !== "") line += " ";
@@ -283,7 +422,7 @@ function searchable(document: SourceLineDocument, reading: (text: string) => str
     for (const { at, section } of starts) {
       while (span + 1 < spans.length && spans[span + 1]!.raw <= at) span += 1;
       const { start, end, raw: from } = spans[span]!;
-      const before = at - from > SECTION_REACH ? at - from : figureText(raw.slice(from, at)).length;
+      const before = at - from > SECTION_REACH ? at - from : textForm(raw.slice(from, at)).length;
       blocks.push({ start: next + Math.min(end, start + (before === 0 ? 0 : before + 1)), section });
     }
     for (const { start, end } of spans) sentences.push({ start: next + start, end: next + end });
@@ -330,25 +469,42 @@ function endsSentence(text: string, sentences: Searchable["sentences"], last: nu
  * found only as one or more whole sentences of a paragraph (above): a part of a sentence, which may have lost its
  * negation, is not.
  */
-function finder(document: SourceLineDocument): Finder {
+function finder(document: Pick<SourceLineDocument, "blocks">, matching: QuoteMatching = "standard"): Finder {
   const forms = [(text: string) => text, (text: string) => text.replace(BROKEN_WORD, ""),
-    (text: string) => text.replace(BROKEN_WORD, "-")].map((reading) => searchable(document, reading));
+    (text: string) => text.replace(BROKEN_WORD, "-")].map((reading) => searchable(document, reading, matching));
   return (quote) => {
-    const wanted = quoteForm(bracketedSuperscripts(quote));
-    if (wanted === "") return { found: false };
-    for (const { text, sentences, blocks } of forms) {
-      for (let at = text.indexOf(wanted); at >= 0; at = text.indexOf(wanted, at + 1)) {
-        const end = at + wanted.length;
-        const first = sentenceAt(sentences, at);
-        const last = sentenceAt(sentences, end - 1);
-        if (first < 0 || end > sentences[last]!.end || !LEADING.test(text.slice(sentences[first]!.start, at)) ||
-            !endsSentence(text, sentences, last, end)) continue;
-        const block = blocks.findLast(({ start }) => start <= at);
-        return { found: true, section: block?.section };
+    // The news matching looks a quote up as given and, when it starts with a section's label, without it: then only when
+    // what is left is long enough to mean much on its own ("Disclosures: None reported." is never looked for as "None
+    // reported.", which another section may say).
+    for (const given of matching === "news" ? newsQuoteForms(quote) : [quote]) {
+      if (given !== quote && !longEnough(given)) continue;
+      // Without its label, a quote is found only in the section of that same name, as a PubMed abstract keeps its
+      // sections apart from their text ("FUNDING: …" in the FUNDING section): an exact check of the label the quote
+      // gives against the document's own section names, so a sentence is never credited to another section (Codex's
+      // review of #517, round 4: "Conflict of Interest Disclosures: No information was provided." under FUNDING).
+      const label = given === quote ? undefined : labelKey(LABEL_LINE.exec(quote)![1]!);
+      const wanted = quoteForm(bracketedSuperscripts(given), matching);
+      if (wanted === "") continue;
+      for (const { text, sentences, blocks } of forms) {
+        for (let at = text.indexOf(wanted); at >= 0; at = text.indexOf(wanted, at + 1)) {
+          const end = at + wanted.length;
+          const first = sentenceAt(sentences, at);
+          const last = sentenceAt(sentences, end - 1);
+          if (first < 0 || end > sentences[last]!.end || !LEADING.test(text.slice(sentences[first]!.start, at)) ||
+              !endsSentence(text, sentences, last, end)) continue;
+          const block = blocks.findLast(({ start }) => start <= at);
+          if (label !== undefined && labelKey(block?.section ?? "") !== label) continue;
+          return { found: true, section: block?.section };
+        }
       }
     }
     return { found: false };
   };
+}
+
+/** Looks quotes up in a text's blocks alone, as a line's quotes are by the matching given (news/web-page.ts). */
+export function quoteFinder(blocks: SourceLineDocument["blocks"], matching: QuoteMatching): Finder {
+  return finder({ blocks }, matching);
 }
 
 const longEnough = (quote: string): boolean => quoteForm(quote).replace(/[^\p{L}\p{N}]/gu, "").length >= SHORTEST_QUOTE;
@@ -394,7 +550,8 @@ export async function lookUpQuotes(
   source: QuoteSource,
   quotes: readonly string[],
   texts: SourceLineTexts,
-  cache: QuoteCache = quoteCache()
+  cache: QuoteCache = quoteCache(),
+  matching: QuoteMatching = "standard"
 ): Promise<QuotesLookup> {
   const { handles, pmids } = source;
   let document: SourceLineDocument | undefined;
@@ -422,8 +579,9 @@ export async function lookUpQuotes(
       quotes: quotes.map(() => ({ outcome: "not_checked" }))
     };
   }
-  const key = handles.join(" ") + "|" + pmids.join(" ");
-  const find = cache.finders.get(key) ?? finder(document);
+  // A text's finder for each matching, as the two read its sentences apart.
+  const key = (matching === "standard" ? "" : `${matching}|`) + handles.join(" ") + "|" + pmids.join(" ");
+  const find = cache.finders.get(key) ?? finder(document, matching);
   cache.finders.set(key, find);
   return {
     document,
@@ -440,12 +598,16 @@ export async function lookUpQuotes(
 /** A line whose quotes are looked up: a source line, or a findings card's backing line, whose conclusion is optional. */
 export type QuotedLine = Pick<SourceLine, "source" | "sentence"> & { conclusion?: string | undefined };
 
-/** Looks each line's two quotes up in the text its key source's receipts name. A failed read leaves a line unchecked. */
+/**
+ * Looks each line's two quotes up in the text its key source's receipts name. A failed read leaves a line unchecked.
+ * `matching` "news" is the Atlas news card's (QuoteMatching); every other line is matched as "standard".
+ */
 export async function lookUpSourceLines(
   lines: readonly QuotedLine[],
   requests: readonly SourceLineRequest[],
   texts: SourceLineTexts,
-  cache: QuoteCache = quoteCache()
+  cache: QuoteCache = quoteCache(),
+  matching: QuoteMatching = "standard"
 ): Promise<SourceLineLookup[]> {
   const lookups: SourceLineLookup[] = [];
   for (const { line, keySource, handles, pmids } of requests) {
@@ -465,7 +627,7 @@ export async function lookUpSourceLines(
     const same = conclusion !== undefined && quoteForm(sentence) === quoteForm(conclusion);
     // A backing line may give no conclusion, which is then simply not looked up.
     const { document, reason, quotes } = await lookUpQuotes({ handles, pmids },
-      same || conclusion === undefined ? [sentence] : [sentence, conclusion], texts, cache);
+      same || conclusion === undefined ? [sentence] : [sentence, conclusion], texts, cache, matching);
     if (document === undefined) {
       lookups.push(unchecked(reason ?? "no_text"));
       continue;
@@ -499,9 +661,25 @@ const TEXT_NAMES: Readonly<Record<TextKind, string>> = {
   library_copy: "the copy from the owner's library"
 };
 
+/**
+ * The note that a checked line's quotes weren't found, with the quotes it is about (the findings ledger withdraws a
+ * finding of a line taken out only by a quote it objects to); none when no quote was looked up and not found.
+ */
+export function sourceLineMissing(check: SourceLineCheck):
+  { note: string; quotes: Array<"sentence" | "conclusion"> } | undefined {
+  const quotes = [
+    ...(check.sentence === "not_found" ? ["sentence" as const] : []),
+    ...(check.conclusion === "not_found" ? ["conclusion" as const] : [])
+  ];
+  return quotes.length === 0 ? undefined : { quotes, note: `The ${quotes.join(" and the ")} given for ${check.label} ` +
+    `${quotes.length === 1 ? "isn't" : "aren't"} in ${TEXT_NAMES[check.text ?? "full_text"]} AskRigor looked in. Copy ` +
+    "each whole and exactly, with no ellipsis, in the paper's language, or take it out of the answer and of " +
+    "source_lines, and check the answer again." };
+}
+
 /** What the AI should do about one checked line, as notes. None of them holds the answer back. */
 export function sourceLineNotes(check: SourceLineCheck): string[] {
-  const { label, reason, text } = check;
+  const { label, reason } = check;
   const notes: string[] = [];
   if (reason === "not_a_key_source") {
     notes.push(`source_lines names ${label}, which isn't in key_sources: give the id of a key source, so its quotes can ` +
@@ -522,15 +700,8 @@ export function sourceLineNotes(check: SourceLineCheck): string[] {
       "and the answer can't say AskRigor found both: give the paper's own conclusion, from its abstract or its " +
       "conclusions, as the second quote.");
   }
-  const missing = [
-    ...(check.sentence === "not_found" ? ["sentence"] : []),
-    ...(check.conclusion === "not_found" ? ["conclusion"] : [])
-  ];
-  if (missing.length > 0) {
-    notes.push(`The ${missing.join(" and the ")} given for ${label} ${missing.length === 1 ? "isn't" : "aren't"} in ` +
-      `${TEXT_NAMES[text ?? "full_text"]} AskRigor looked in. Copy each whole and exactly, with no ellipsis, in the ` +
-      "paper's language, or take it out of the answer and of source_lines, and check the answer again.");
-  }
+  const missing = sourceLineMissing(check);
+  if (missing !== undefined) notes.push(missing.note);
   if (!check.shown) {
     notes.push(`The answer doesn't show both quotes given for ${label}: show them, as written, beside the claim, with ` +
       "the strongest thing against it.");

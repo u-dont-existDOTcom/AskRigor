@@ -14,7 +14,7 @@
   <a class="skip-link" href="#content">Skip to content</a>
   <header class="site-header"><div class="shell masthead">
     <a class="brand" href="/"><img class="brand-mark" src="/assets/askrigor-mark.svg" alt="" width="36" height="36"><span>AskRigor</span></a>
-    <nav aria-label="Primary navigation"><ul class="nav-list"><li><a href="/">Home</a></li><li><a href="/compare">Compare</a></li><li><a href="/add">Add AskRigor</a></li><li><a href="/roadmap">Roadmap</a></li><li><a href="/privacy">Privacy</a></li><li><a href="/terms">Terms</a></li><li><a href="/support">Support</a></li></ul></nav>
+    <nav aria-label="Primary navigation"><ul class="nav-list"><li><a href="/">Home</a></li><li><a href="/compare">Compare</a></li><li><a href="/add">Add AskRigor</a></li><li><a href="/roadmap">Roadmap</a></li><li><a href="/how-to-research">How to research</a></li><li><a href="/privacy">Privacy</a></li><li><a href="/terms">Terms</a></li><li><a href="/support">Support</a></li></ul></nav>
   </div></header>
   <main id="content" class="shell">
     <section class="hero">
@@ -173,6 +173,58 @@
       <p class="meta">Changes you'd notice, newest first. Small fixes are left out.</p>
 
       <details open>
+        <summary>25 November 2026</summary>
+        <ul class="roadmap">
+          <li>When a Europe PMC search fails on Europe PMC's side, AskRigor now searches PubMed itself with the same words, and the result says so.</li>
+          <li>Connecting Gemini has been failing after Allow, most likely because Chrome-based browsers stopped the chain of redirects back to Google. AskRigor now goes on from a page of its own after Allow or Cancel. The first real connection after the release finished signing in and reached AskRigor's tools.</li>
+          <li>The privacy notice now describes the log of Gemini's sign-in steps that is on while the failing connection is traced: fixed words, counts and status codes only, never what you ask or are answered.</li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>24 November 2026</summary>
+        <ul class="roadmap">
+          <li>The note that compares a checked answer with a quick answer now starts with what the research corrected, then what it qualified and confirmed, and ends with the points it didn't check in one line.</li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>23 November 2026</summary>
+        <ul class="roadmap">
+          <li>When you ask what you can do about a health problem or goal, the AI now also looks at what living traditional medicine systems use for it: it starts with two or three, chosen by documented use for that problem, widens when a missed lead could change the answer, and checks each option's evidence and safety like any other.</li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>22 November 2026</summary>
+        <ul class="roadmap">
+          <li>When you ask about a traditional, regional or folk medical system, or a remedy sold as one, the AI is now told to look for that tradition's own sources (what it says, its uses, who it is not for, its cautions) beside the studies.</li>
+          <li>The research plan now shows each task's rough minutes and why it went on or stopped to ask you. A task your own words asked for is never dropped from the plan.</li>
+          <li>When a research step was limited by a model's or app's own safety rules, and the AI or you report it, the answer's list of limits now says so in AskRigor's fixed words.</li>
+          <li>Gemini's sign-in page now accepts the Allow button when the browser sends it from the same site. Connecting Gemini still fails after Allow; the cause is being traced.</li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>21 November 2026</summary>
+        <ul class="roadmap">
+          <li>The Atlas now marks a claim about a named person as unverified when no source AskRigor could open supports it, and leaves out claims of a crime or fraud, or about someone's health or sex life. The <a href="/privacy">privacy notice</a> and the <a href="/terms">terms</a> say how.</li>
+          <li>A new <a href="/how-to-research">How to research</a> page gives cautions for researching with an AI, with a source for each number.</li>
+          <li>The home page now shows how many people use AskRigor: the accounts with research turned on, and how many of them used it in the past 7 days. While the numbers are small, they read "fewer than 10". The <a href="/atlas/users">user count page</a> gives the same numbers and says how they are counted.</li>
+          <li>The <a href="/privacy">privacy notice</a> now says how the user count is made: from AskRigor's account records and its 7-day call record, kept only in the server's memory until the next count, with nothing about any person shown or kept for it.</li>
+          <li>On the balanced research style, a clear first question now goes straight to research. The answer opens with how the AI read your question and how long the research may take.</li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>16 November 2026</summary>
+        <ul class="roadmap">
+          <li><a href="/atlas/topics/inositol">The comprehensive inositol research overview</a> now brings together the different forms, human and animal evidence, safety, and sources in one place.</li>
+          <li>Searching the Atlas for inositol now also finds related IP6/phytate findings. Each individual finding retains its supervisor-review status.</li>
+        </ul>
+      </details>
+
+      <details>
         <summary>15 November 2026</summary>
         <ul class="roadmap">
           <li>If your message already says to go ahead, for example "accept everything on the menu" or "just answer", AskRigor no longer stops to show you the research menu. If it had a question for you, the answer starts by saying which answer it assumed.</li>
@@ -483,7 +535,7 @@
         </ul>
       </details>
 
-      <!-- Releases people wouldn't notice: 2026-10-11, 2026-11-14, 2026-11-15 -->
+      <!-- Releases people wouldn't notice: 2026-10-11, 2026-11-14, 2026-11-15, 2026-11-21, 2026-11-23 -->
     </section>
 
     <section aria-labelledby="tell">

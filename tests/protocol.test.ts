@@ -19,7 +19,7 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "e1705d3e958ea5d01936dbb9a8bf431139738ece551a111b69ba5d13b71595f9";
+  "d7dd99297c422faa381ef4ecb0db1a95ed0ad27ed52a1f574fc458c47dab6e65";
 const UNIVERSAL_SHA_256 =
   "e313306b09da7e359ea326a44c3850af020acbb2550c30bb2cddf46dc6074d9e";
 
@@ -37,8 +37,8 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.6.41",
-      revisionDate: "2026-11-09"
+      version: "20.6.46",
+      revisionDate: "2026-11-22"
     });
   });
 
@@ -254,7 +254,7 @@ describe("canonical protocol loader", () => {
     };
 
     expect(text).toMatch(
-      /<Protocol name="HRP" version="20\.6\.41" revisionDate="2026-11-09"/
+      /<Protocol name="HRP" version="20\.6\.46" revisionDate="2026-11-22"/
     );
     for (const required of [
       '<Revision version="20.5.19" priority="Critical">',

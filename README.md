@@ -23,8 +23,8 @@ AskRigor uses this order when sources disagree:
 6. current release/reviewer evidence indexed by `docs/INDEX.md`; and
 7. the recovery checkpoint at `project/CODEX-CURRENT-STATE.md`.
 
-The current canonical files identify HRP `20.6.41` (2026-11-09), SHA-256
-`e1705d3e958ea5d01936dbb9a8bf431139738ece551a111b69ba5d13b71595f9`,
+The current canonical files identify HRP `20.6.46` (2026-11-22), SHA-256
+`d7dd99297c422faa381ef4ecb0db1a95ed0ad27ed52a1f574fc458c47dab6e65`,
 and Universal Instructions `20.5.46` (2026-10-21), SHA-256
 `e313306b09da7e359ea326a44c3850af020acbb2550c30bb2cddf46dc6074d9e`.
 Those values are descriptive receipts derived from the exact XML bytes, not
@@ -447,8 +447,11 @@ repository, or adds an occurrence to an open card with the same question and
 claims. A later card from the same account on the same research target replaces
 the earlier one, so a corrected answer's findings are what gets reviewed.
 `finalize_research` is therefore declared a write. Nothing is accepted until
-the owner reviews it. Stored cards hold no YouTube video IDs or links while the
-YouTube compliance review is open, only how many videos backed each finding.
+the owner reviews it. Stored cards hold no YouTube comments, and no IDs or links
+of the videos AskRigor itself finds through YouTube's search while the YouTube
+compliance review is open, only how many such videos backed each finding; a
+card may link a YouTube video that a person named (owner answer 307b,
+15 November 2026; built, not yet released).
 The free contributor notice moves to `free-contributor-v2-2026-09-30`, which
 says findings cards are saved; accounts that accepted the first version accept
 the second before free research continues (migration
@@ -509,6 +512,20 @@ accepting v1 to v4 accept v5 before free research continues (migration
 stores no thread link. The privacy page and terms say the same; the v5 hold and
 restore scripts support image rollback. See
 `docs/superpowers/plans/2026-11-05-atlas-research-behind.md`.
+
+Owner answer 307b (15 November 2026; the owner's wording, built, not yet
+released): the free contributor notice moves to `free-contributor-v6-2026-11-15`.
+Its second sentence now ends "never YouTube comments." and a new sentence
+follows it: "A card may link a video that a person named." A saved findings
+card and its page in the public Atlas may link a YouTube video that a person
+named themselves (the asker, someone reporting what worked for them, or
+AskRigor's owner); videos that AskRigor itself finds through YouTube's search
+stay out, as before; cards still hold no YouTube comments. Version 6 is
+material, so accounts accepting v1 to v5 accept v6 before free research
+continues (migration `0036_research_use_notice_v6`), and the owner's own login
+accepts it by the owner's standing instruction of 6 November 2026. The privacy
+page and terms say the same; the v6 hold and restore scripts support image
+rollback.
 
 Decision 171, section 4C (built, not yet released): the research server renders
 the public Atlas pages under `/atlas` (home, topic, finding and what changed),

@@ -55,15 +55,22 @@ import {
   sameQuote,
   sentencesOf,
 } from "./research-finalization-gate.js";
-import { researchMapSavedLine } from "./findings/card.js";
+import { NAMED_VIDEOS_SIGNED, namedVideoIdsIn, researchMapSavedLine } from "./findings/card.js";
+import {
+  RESEARCH_DOSSIER_GUARDS,
+  RESEARCH_DOSSIER_REQUEST,
+  researchDossierShape,
+  researchDossierAllowed,
+} from "./findings/dossier.js";
 import {
   askrigorHoldsSchema, heldFor, heldText, heldVariants, HELD_NEXT_STEP, holdsSomethingNow, OWNER_POINTER_HOW,
   ownerPointerText, shownOwnerPointer, shownOwnerPointerSchema, type AskRigorHolds, type AskRigorHoldsOptions,
 } from "./askrigor-holds.js";
-import { askedText, callsPageSchema, laterInputShape, latestMessage } from "./later-inputs.js";
+import { askedText, callsPageSchema, findingsSaveOff, laterInputShape, latestMessage } from "./later-inputs.js";
+import { SAFETY_LIMITS_INSPECT_SENTENCE } from "./safety-limits.js";
 import { ownerPointerById } from "./owner-pointers.js";
 import { MCP_RESULT_MAX_BYTES } from "./config.js";
-import { clientResultBytes } from "./tool-result.js";
+import { clientResultBytes, isChatGptCall } from "./tool-result.js";
 import {
   ANSWER_REVIEW_ASKED,
   ASKED_LIMIT,
@@ -77,6 +84,7 @@ import {
   PERSON_GO_AHEADS,
   personGoAheadProblem,
   PLANNER_NOT_USED_REASONS,
+  PLANNER_PAUSE_MAX_MINUTES,
   PLAN_TASK_KINDS,
   RESEARCH_LANES,
   RESEARCH_LOOPS,
@@ -84,6 +92,7 @@ import {
   STEERING_CHOICE,
   asideGuidance,
   asideNextStep,
+  ORDINARY_STEERING_WORDING,
   correctedMenu,
   correctedMenuSchema,
   framingGuidance,
@@ -143,6 +152,7 @@ import {
   type ResearchReceiptClaims,
 } from "./research-receipts.js";
 import { toolListNotice, toolListVersionField } from "./tool-list-currency.js";
+import { WHAT_STOPS_TEXT, whatStops, whatStopsSchema } from "./findings-ledger.js";
 
 // A notice version as a pattern, not the current value: clients keep a tool's
 // schema for as long as a chat or connector lives, so a constant here would let
@@ -185,6 +195,10 @@ export const manageResearchAccessInputSchema = z.object({
     "list_calls",
     // The owner, 14 Nov 2026 (runtime only): one of the owner's pointers, by the id a registration's result lists.
     "owner_pointer",
+    // Owner answer 386b (21 Nov 2026; runtime only): end every Gemini link of this account, from any connected app.
+    "disconnect_gemini",
+    // Owner answer 395b (21 Nov 2026, runtime only): a test round's pause of a dev account's planning call.
+    "pause_research_planner",
   ]),
   agreement: freeContributorAgreementSchema.extend({ noticeVersion: noticeVersionSchema }).strict().optional(),
   plainAnswer: plainAnswerInputSchema.optional()
@@ -283,8 +297,11 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
   error: researchAccessErrorSchema.extend({
     // Owner answer 303a: learn mode asked of an account that is not a dev account, or while the planning call is off.
     code: z.union([researchAccessErrorSchema.shape.code, z.literal("call_record_unavailable"),
-      z.literal("learn_mode_unavailable")]),
+      z.literal("learn_mode_unavailable"), z.literal("gemini_links_unavailable"), z.literal("planner_off")]),
   }).optional(),
+  // Owner answer 386b (runtime only): how many Gemini links the account has, and how many a disconnect ended.
+  geminiLinks: z.number().int().nonnegative().optional(),
+  geminiLinksEnded: z.number().int().nonnegative().optional(),
   calls: z.array(z.object({
     received_at: z.iso.datetime(), tool: z.string(), action: z.string().nullable(),
     route: z.enum(["/mcp", "/mcp/claude", "/mcp/gemini"]), chatgpt: z.boolean(),
@@ -328,6 +345,7 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
       task: z.string(),
       kind: z.enum(PLAN_TASK_KINDS),
       could_change: z.enum(COULD_CHANGE),
+      person_asked: z.literal(true).optional(),
       loop: z.enum(RESEARCH_LOOPS).optional(),
       minutes: z.tuple([z.number(), z.number()]).nullable(),
     }).strict()),
@@ -362,6 +380,11 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     went_ahead: z.enum(PERSON_GO_AHEADS).optional(),
     assumed_answer_to: z.string().optional(),
     go_ahead_may_answer: z.literal(true).optional(),
+    research_started: z.literal(true).optional(),
+    first_menu: z.literal(true).optional(),
+    person_steered: z.literal(true).optional(),
+    person_steered_problem: z.string().optional(),
+    person_steered_invalid: z.literal(true).optional(),
   }).strict().optional(),
   // 12 Nov 2026 (runtime only): an ask's "you decide" call, ready to copy, and a refused menu's example, built from the
   // call's own. The call carries person_answered's placeholder, to be replaced (every account since 13 Nov 2026).
@@ -369,6 +392,7 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     .describe("With plan_research's ask: the later_inputs for the person's \"you decide\", with the recommended " +
       "allocation inside researchMenu, to be sent after replacing <true|false> in person_answered with whether the " +
       "person has answered this menu in a message of their own."),
+  menu_outline: correctedMenuSchema.optional(),
   corrected_later_inputs: correctedMenuSchema.optional()
     .describe("With a plan_research call whose menu could not be read: its later_inputs as they should be, built from " +
       "its own; replace each <...> with one of the values it lists."),
@@ -403,6 +427,26 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     .describe("With owner_pointer: the owner's pointer with that id, to be given to the person as the owner's own."),
   research_plan_not_used: z.enum(PLANNER_NOT_USED_REASONS).optional()
     .describe("With register_plain_answer on a dev account: why AskRigor's own planning call was not used."),
+  // AskRigor#477 stage 1 (runtime only): the research dossier, asked for with a research plan that goes on, for an
+  // account a dossier can be saved for, here as well as in the text, for an app that hands its model only this
+  // (Codex's red team of the instruction proposal, item 1).
+  research_dossier_request: z.object({
+    instruction: z.string(),
+    shape: z.string(),
+    guards: z.string(),
+  }).strict().optional()
+    .describe("With plan_research, when a research dossier can be saved: when to include one with the final check, " +
+      "its shape, and what keeps it truthful."),
+  // Enforcing HRP, stage 1 (runtime only): what can stop the answer, here as well as in the text.
+  what_stops: whatStopsSchema.optional()
+    .describe("With plan_research, while AskRigor keeps a findings ledger: the six checks that stop a whole answer, " +
+      "each in its scope, once the call gives a usable answer_draft and research_target; everything else is a note to " +
+      "fix or dispute."),
+  // Owner answer 395b (runtime only): when a dev account's paused planning call starts again; null once none runs. Only
+  // the pause's own result carries it: inspect, which every AI calls before research, says nothing of a pause.
+  plannerPausedUntil: z.iso.datetime().nullable().optional()
+    .describe("With pause_research_planner: when AskRigor's own planning call starts again for this account, in " +
+      "UTC; null when no pause runs."),
 }).strict();
 
 /**
@@ -523,12 +567,30 @@ export function researchMapFiledStep(): string {
     "receipts, and its result gives that line.";
 }
 
+/** One person's Gemini links, by their OAuth subject (gemini-sign-in/resource.ts). */
+export interface GeminiLinks {
+  count(subject: string): Promise<number>;
+  disconnect(subject: string): Promise<number>;
+}
+
 export interface ResearchContributorToolOptions {
   service?: ResearchContributorAccessService;
   callRecord?: ResearchCallRecordStore;
   resourceMetadataUrl?: URL;
   /** What happened to this request's sign-in on /mcp; undefined without OAuth. */
   signIn?: SignInState;
+  /**
+   * On a surface whose tool list has no manage_research_access (Gemini's compact list), a refusal for an account that has
+   * not accepted the notice says where the person can accept it, instead of naming a tool the AI cannot call.
+   */
+  noticeElsewhere?: boolean;
+  /** Gemini's sign-in (owner answer 386b): one account's links, to count in inspect and to end with disconnect_gemini. */
+  geminiLinks?: GeminiLinks;
+  /**
+   * Promise P69 (owner answer 400a): with ASKRIGOR_SAFETY_LIMITS on, inspect gives the shape of finalize_research's
+   * later input safety_limits, which HRP's LimitsNote asks every AI to declare and nothing published describes.
+   */
+  safetyLimits?: boolean;
   /** The canonical store's read-only identity view, which a submitted frontier is reconciled with. */
   canonical?: CanonicalIdentityReader;
   /** The plain answer before research, on the MCP connector only (owner answer 140b); undefined elsewhere. */
@@ -559,6 +621,19 @@ export interface ResearchContributorToolOptions {
    * the owner's pointers. Undefined: a registration says nothing of either, and owner_pointer finds none.
    */
   askrigorHolds?: AskRigorHoldsOptions;
+  /** AskRigor#477 stage 1: research dossiers are saved (ASKRIGOR_RESEARCH_DOSSIERS), so plan_research may ask for one. */
+  researchDossiers?: boolean;
+  /**
+   * AskRigor#477 stage 2: public dossiers are on (ASKRIGOR_PUBLIC_DOSSIERS), so the dossier's shape asks for stage 2's
+   * declarations too; otherwise it is stage 1's as released.
+   */
+  publicDossiers?: boolean;
+  /**
+   * Enforcing HRP, stage 1 (design-v2 of 17 Nov 2026): while the findings ledger is on for the account (whether it is
+   * one of the owner's development accounts is given), plan_research says up front what can stop an answer at the final
+   * check (the owner's note on question 338): the six whole-answer stops.
+   */
+  findingsLedger?: (devAccount: boolean) => boolean;
 }
 
 export interface ResearchMapOptions {
@@ -613,6 +688,70 @@ export const DETAILED_REPORTS_OFF = "Detailed lesson reports are off for this ac
 export const FINDINGS_SAVE_ON = "Findings-card saving is on for this dev account.";
 export const FINDINGS_SAVE_OFF = "Findings-card saving is off for this dev account; its final check still checks " +
   "the findings card and the answer.";
+
+/** A time as the pause's texts give it: hours and minutes, UTC. */
+const utcClock = (at: number): string => new Date(at).toISOString().slice(11, 16);
+
+/**
+ * Owner answer 395b (21 Nov 2026): the pause's own result, for the session that runs a test round, which compares the
+ * account's research with and without AskRigor's own planning call.
+ */
+export function plannerPausedText(until: number): string {
+  return `AskRigor's own planning call is paused for this dev account until ${utcClock(until)} UTC ` +
+    `(${new Date(until).toISOString()}). Until then this account's research goes as with that call off: a ` +
+    "registration makes no plan, inspect asks for none of the person's words and says nothing of the pause, a menu's " +
+    "answers are not kept for learn mode, and the final check finds no plan's lane; the final check's review of a " +
+    "draft still runs, from the research target alone unless the person's words come with the call. The plans the " +
+    "last hour kept for this account are forgotten, so no research registered during or after the pause takes one " +
+    "made before it; research registered before it keeps its own. The call starts again by itself at that time. " +
+    `Paused again while it runs, it keeps its start and ends at most ${PLANNER_PAUSE_MAX_MINUTES} minutes after it; ` +
+    "0 minutes ends it now. A restart of AskRigor's server ends it too: the call record (list_calls) shows a plan's " +
+    "lane on each registration that was planned, so a registration made while the pause ran shows none.";
+}
+
+/** Owner answer 395b: a pause ended, or none ran. */
+export const PLANNER_PAUSE_ENDED = "AskRigor's own planning call is on for this dev account: no pause runs.";
+
+/** Owner answer 395b: nothing to pause while the planning call is off on the server. */
+export const PLANNER_OFF_NOTHING_PAUSED = "AskRigor's own planning call is off on this server, so there is nothing to " +
+  "pause; nothing was changed.";
+
+/** A menu without the light lane only AskRigor's own plan sets (owner answer 395b: not honoured during a pause). */
+function withoutLane<T extends { lane?: unknown }>(menu: T): T {
+  const { lane: _lane, ...rest } = menu;
+  return rest as T;
+}
+
+export function planBuildingLine(planned: boolean): string {
+  return "If this inspect starts research on a question of theirs, then before your next call, tell the person in one line, in their language: you are " +
+    (planned ? "building the research plan, about a minute; " :
+      "taking a first look to build the research plan, a few minutes; ") +
+    "then you will show it and say whether you are waiting for their choice or starting, and how they can change it.";
+}
+
+function registrationMenuOutline(target: string, receipt: string, devAccount: boolean) {
+  // Supply only the registered target and opaque receipt, never the quick answer, claims or person's words.
+  const outline = correctedMenu({ research_target: target.length <= 300 ? target : undefined,
+    plain_answer_receipt: receipt });
+  if (!devAccount) {
+    // Reuse the ordinary menu's exact instruction, not a new steering rule or a default judgment.
+    outline.researchMenu.steering_could_help = `<${ORDINARY_STEERING_WORDING}>`;
+  }
+  return outline;
+}
+
+/**
+ * AskRigor's own planning call for this account (owner answer 298b): the planner while it is on, for a dev account
+ * whose call no test round has paused (owner answer 395b); otherwise undefined, and the account plans as with the
+ * call off.
+ */
+function activePlanner(options: ResearchContributorToolOptions, accountKey: string, devAccount: boolean):
+  ResearchPlanner | undefined {
+  if (!devAccount) return undefined;
+  const planner = options.researchPlanner?.();
+  return planner?.enabled === true && planner.pausedUntil?.(accountKey) === undefined ? planner : undefined;
+}
+
 
 /**
  * What inspect asks of an account whose research waits on the free-use notice: one not enrolled, one revoked, or one
@@ -837,7 +976,9 @@ export function withResearchMenuReading(execute: ResearchOperationHandler, optio
       const named = await (options.devAccount?.(extra) ?? Promise.resolve(false)).catch(() => false);
       return withToolListNotice(menuRefusal(reading, parsed?.error.issues, named), input, options.toolListVersion);
     }
-    const result = await execute({ ...input, later_inputs: reading.later }, extra);
+    // Codex's final check: a test run's findings_save "off" goes on with the menu, so the plan asks for no dossier.
+    const later_inputs = findingsSaveOff(input) ? { ...reading.later, findings_save: "off" } : reading.later;
+    const result = await execute({ ...input, later_inputs }, extra);
     return sentence === undefined ? result : withMenuReadingSentence(result, sentence);
   };
 }
@@ -895,6 +1036,11 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       return accessError("invalid_request",
         "later_inputs.ownerPointer goes only with action owner_pointer, which needs it.");
     }
+    // Owner answer 395b: so is later_inputs.pauseMinutes with pause_research_planner, for the same reason.
+    if ((input.action === "pause_research_planner") !== (input.pauseMinutes !== undefined)) {
+      return accessError("invalid_request",
+        "later_inputs.pauseMinutes goes only with action pause_research_planner, which needs it.");
+    }
     if (input.action === "list_calls") {
       if (options.callRecord === undefined || options.service === undefined) {
         const message = "This AskRigor server keeps no call record, so there is nothing to show.";
@@ -918,6 +1064,23 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       // The review of 12 Nov 2026: the budget counts the result as the app gets it, the tool-list notice included.
       return listedCalls(calls, page.data,
         (result) => clientResultBytes(withToolListNotice(result, input, options.toolListVersion)));
+    }
+    // Owner answer 386b: ending this account's Gemini links needs no active research account, only its sign-in.
+    if (input.action === "disconnect_gemini") {
+      if (options.geminiLinks === undefined) {
+        const message = "This AskRigor server has no Gemini sign-in, so there is no Gemini link to end.";
+        return { content: [{ type: "text", text: message }], isError: true,
+          structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
+            ok: false, error: { code: "gemini_links_unavailable", message },
+          }) };
+      }
+      const ended = await options.geminiLinks.disconnect(auth.subject);
+      const text = ended === 0
+        ? "This account had no Gemini link to end."
+        : `Ended ${ended === 1 ? "this account's Gemini link" : `this account's ${ended} Gemini links`}: Gemini can't ` +
+          "use AskRigor as this account any more, until the person connects it again from Gemini.";
+      return { content: [{ type: "text", text }],
+        structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: true, geminiLinksEnded: ended }) };
     }
     if (options.service === undefined) {
       return accessError(
@@ -1051,10 +1214,11 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       }
       if (parsed.action === "register_plain_answer") {
         // Owner answer 298b: on a dev account, AskRigor's own planning call makes the plan. Any other account's
-        // later_inputs.asked is not used, and not kept.
-        const devAccount = isDevAccount(options.service.accountKeyForSubject(auth.subject),
-          options.devAccountKeys?.() ?? new Set());
-        const planner = devAccount ? options.researchPlanner?.() : undefined;
+        // later_inputs.asked is read only for the YouTube videos the person named (owner answer 307b), and not kept.
+        const accountKey = options.service.accountKeyForSubject(auth.subject);
+        const devAccount = isDevAccount(accountKey, options.devAccountKeys?.() ?? new Set());
+        // Owner answer 395b: a dev account whose planning call a test round paused registers as with the call off.
+        const planner = activePlanner(options, accountKey, devAccount);
         // The person's words as one text: a list's messages in order, a blank line between them (askedText, which the
         // final check's review reads them with too).
         const asked = parsed.asked === undefined ? undefined : askedText(parsed.asked);
@@ -1071,24 +1235,34 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         return await registerPlainAnswer(options.service, auth.subject, parsed.plainAnswer!, options.plainAnswer,
           parsed.framing, planner?.enabled === true
             ? { planner, asked, reviewed, latest, markSecret: options.menuDigestSecret?.() } : undefined,
-          options.askrigorHolds);
+          options.askrigorHolds, asked, isChatGptCall(extra), devAccount);
       }
       if (parsed.action === "set_research_steering") {
-        // Owner answer 303a: learn mode only for a dev account, while AskRigor's own planning call is on.
+        // Owner answer 303a: learn mode only for a dev account, while AskRigor's own planning call is on. A test round's
+        // pause (owner answer 395b) leaves the setting free: it is a setting kept for later, not a use of the call.
         const devAccount = isDevAccount(options.service.accountKeyForSubject(auth.subject),
           options.devAccountKeys?.() ?? new Set());
         return await setResearchSteering(options.service, auth.subject, parsed.researchSteering!, devAccount,
           devAccount && options.researchPlanner?.()?.enabled === true);
       }
       if (parsed.action === "plan_research") {
-        const devAccount = isDevAccount(options.service.accountKeyForSubject(auth.subject),
-          options.devAccountKeys?.() ?? new Set());
+        const accountKey = options.service.accountKeyForSubject(auth.subject);
+        const devAccount = isDevAccount(accountKey, options.devAccountKeys?.() ?? new Set());
         // Owner answer 303a: on a dev account while AskRigor's own planning call is on, the menu names learn mode, and a
-        // call that carries the person's answer is kept while learn mode is on.
-        const learning = devAccount && options.researchPlanner?.()?.enabled === true
-          ? { log: options.log ?? defaultLog } : undefined;
-        return await planResearchAction(options.service, auth.subject, parsed.researchMenu!, options.plainAnswer,
-          options.menuDigestSecret?.(), devAccount, learning);
+        // call that carries the person's answer is kept while learn mode is on; not while a test round has paused the
+        // call (owner answer 395b).
+        const learning = activePlanner(options, accountKey, devAccount) !== undefined
+          ? { log: options.log ?? defaultLog, active: () => activePlanner(options, accountKey, devAccount) !== undefined }
+          : undefined;
+        // Owner answer 395b: while a test round has paused this dev account's call, a light lane, which AskRigor's own
+        // plan alone sets, is not honoured: a menu handed over before the pause goes as research (Codex's recheck).
+        const paused = devAccount && learning === undefined && options.researchPlanner?.()?.enabled === true &&
+          options.researchPlanner?.()?.pausedUntil?.(accountKey) !== undefined;
+        return await planResearchAction(options.service, auth.subject,
+          paused ? withoutLane(parsed.researchMenu!) : parsed.researchMenu!, options.plainAnswer,
+          options.menuDigestSecret?.(), devAccount, learning, options.researchDossiers === true, findingsSaveOff(parsed),
+          options.publicDossiers === true,
+          options.findingsLedger?.(devAccount) === true, isChatGptCall(extra));
       }
       if (parsed.action === "set_plain_answer_note") {
         return await setPlainAnswerNote(options.service, auth.subject, parsed.plainAnswerNote!, options.plainAnswer);
@@ -1106,6 +1280,30 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         return {
           content: [{ type: "text", text: parsed.findingsSave ? FINDINGS_SAVE_ON : FINDINGS_SAVE_OFF }],
           structuredContent: manageResearchAccessOutputSchema.parse({ ok: true, findingsSave: parsed.findingsSave }),
+        };
+      }
+      // Owner answer 395b (21 Nov 2026): a test round pauses a dev account's planning call for at most two hours, so its
+      // research goes as with the call off, and the call starts again by itself; 0 minutes ends the pause sooner.
+      if (parsed.action === "pause_research_planner") {
+        const accountKey = options.service.accountKeyForSubject(auth.subject);
+        if (!isDevAccount(accountKey, options.devAccountKeys?.() ?? new Set())) {
+          return accessError("dev_account_required", "Only a dev account listed in AskRigor's settings may pause " +
+            "AskRigor's own planning call; this account is not listed, so nothing was changed.");
+        }
+        const planner = options.researchPlanner?.();
+        if (planner?.enabled !== true || planner.pause === undefined) {
+          return {
+            content: [{ type: "text", text: PLANNER_OFF_NOTHING_PAUSED }],
+            structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: false,
+              error: { code: "planner_off", message: PLANNER_OFF_NOTHING_PAUSED } }),
+            isError: true,
+          };
+        }
+        const until = planner.pause(accountKey, parsed.pauseMinutes!);
+        return {
+          content: [{ type: "text", text: until === undefined ? PLANNER_PAUSE_ENDED : plannerPausedText(until) }],
+          structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: true,
+            plannerPausedUntil: until === undefined ? null : new Date(until).toISOString() }),
         };
       }
       // Consent counts only for the notice the user was shown: an earlier
@@ -1147,12 +1345,21 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       // Inspected, an account whose research waits on the notice is told to show it and ask, with the notice itself in
       // the text too, for an app that shows the model a tool's text alone.
       const nextStep = parsed.action === "inspect" && access.status !== "ACTIVE" ? noticeNextStep() : undefined;
-      // Owner answer 298b: a dev account whose research AskRigor plans itself is asked for the person's own words.
-      const planned = devAccount && plain !== undefined && options.researchPlanner?.()?.enabled === true;
       // Owner answer 303a: a dev account is told whether learn mode is on and how many of its menu choices are kept.
       const learnOn = settings?.steering.learnMenuChoices === true;
       const learnMode = settings === undefined || !devAccount ? undefined : { on: learnOn,
         kept: learnOn ? (await options.service.menuChoices(accountKey).catch(() => undefined))?.length : 0 };
+      // Owner answer 386b: inspect says how many Gemini links the account has, and how to end them.
+      const geminiLinks = parsed.action === "inspect" && options.geminiLinks !== undefined
+        ? await options.geminiLinks.count(auth.subject).catch(() => undefined)
+        : undefined;
+      // Owner answer 298b: a dev account whose research AskRigor plans itself is asked for the person's own words. Read
+      // after the account's reads, so a test round's pause begun meanwhile counts (owner answer 395b): while it runs,
+      // inspect is as with the call off, and says nothing of the pause, so the person's AI is not told of a test.
+      const planned = plain !== undefined && activePlanner(options, accountKey, devAccount) !== undefined;
+      const firstLine = parsed.action === "inspect" && access.status === "ACTIVE" && !isChatGptCall(extra)
+        ? planBuildingLine(planned) : undefined;
+      const inspectStep = [nextStep ?? (planned ? ASKED_REQUEST : undefined), firstLine].filter(Boolean).join(" ");
       return {
         content: [{
           type: "text",
@@ -1165,6 +1372,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
             (nextStep === undefined ? "" : ` ${nextStep} The notice, ${access.noticeVersion}: ${access.notice}`) +
             (plain === undefined ? "" : ` ${plainAnswerRequest(plain.note)}`) +
             (planned ? ` ${ASKED_REQUEST}` : "") +
+            (firstLine === undefined ? "" : ` ${firstLine}`) +
             (settings === undefined
               ? ""
               : ` ${settings.detailedLessonReports ? DETAILED_REPORTS_ON : DETAILED_REPORTS_OFF}`) +
@@ -1172,6 +1380,10 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
             (settings === undefined ? "" : ` ${steeringInspectText(settings.steering)}`) +
             (learnMode === undefined ? "" : ` ${learnModeInspectSentence(learnMode.on, learnMode.kept)}`) +
             (options.callRecord === undefined ? "" : ` ${CALL_RECORD_SENTENCE}`) +
+            (options.safetyLimits === true && access.status === "ACTIVE" ? ` ${SAFETY_LIMITS_INSPECT_SENTENCE}` : "") +
+            (geminiLinks === undefined || geminiLinks === 0 ? "" : ` This account is connected to Google Gemini ` +
+              `(${geminiLinks === 1 ? "one link" : `${geminiLinks} links`}); if the person asks to disconnect Gemini, ` +
+              "call manage_research_access with action disconnect_gemini.") +
             ` This account's reference, to give the user only when they ask for it: ${accountReference}.`,
         }],
         structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
@@ -1182,7 +1394,8 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           ...(settings === undefined || !devAccount ? {} : { findingsSave: settings.findingsSave }),
           ...(settings === undefined ? {} : { steering: shownSteering(settings.steering, devAccount) }),
           accountReference,
-          ...(nextStep !== undefined ? { next_step: nextStep } : planned ? { next_step: ASKED_REQUEST } : {}),
+          ...(geminiLinks === undefined || geminiLinks === 0 ? {} : { geminiLinks }),
+          ...(inspectStep ? { next_step: inspectStep } : {}),
         }),
       };
     } catch (error) {
@@ -1351,6 +1564,12 @@ async function registerPlainAnswer(
     markSecret?: string | undefined },
   // The owner, 14 Nov 2026: what AskRigor already holds for the question, read while the plan is made.
   holds?: AskRigorHoldsOptions,
+  // Owner answer 307b: the person's own words, on any account, when the call passed them on (later_inputs.asked). The
+  // receipt signs that words were passed on and the IDs of the YouTube videos they link, so the final check can tie a
+  // finding's named video to the person. The words themselves are neither signed nor kept.
+  personWords?: string,
+  chatGpt = false,
+  devAccount = false,
 ): Promise<CallToolResult> {
   const account = await plainAnswerAccount(service, subject, plain);
   if (account === undefined) return accessError("plain_answer_not_requested", plain === undefined ? PLAIN_ANSWER_SURFACE_UNAVAILABLE : PLAIN_ANSWER_NOT_REQUESTED);
@@ -1366,10 +1585,13 @@ async function registerPlainAnswer(
     if (earlier >= 0) problems.push(`plainAnswer.claims[${index}] repeats plainAnswer.claims[${earlier}]: give each claim once.`);
   });
   if (problems.length > 0) return rejectedPlainAnswer(problems);
+  const namedVideos = personWords === undefined ? [] : namedVideoIdsIn(personWords).slice(0, NAMED_VIDEOS_SIGNED);
   const receipt = plain!.sign({
     claims: plainAnswer.claims.map(plainAnswerClaimDigest),
     text: createHash("sha256").update(plainAnswer.text, "utf8").digest("hex"),
     target: researchTargetDigest(plainAnswer.researchTarget),
+    ...(personWords === undefined ? {} : { asked: "1" }),
+    ...(namedVideos.length === 0 ? {} : { vids: namedVideos }),
   }, account.accountKey);
   if (receipt === undefined) {
     return accessError("receipts_unavailable", "This AskRigor server cannot sign research receipts, so the plain " +
@@ -1392,6 +1614,10 @@ async function registerPlainAnswer(
     `Research target, as signed: ${JSON.stringify(plainAnswer.researchTarget)}. Give finalize_research this ` +
     "research_target word for word, in a later turn too (only case and spacing are ignored): a reworded one can't be " +
     "matched to this plain answer, and the answer then ends without the comparison. " +
+    // Owner answer 307b: said here, before the research, so the first card can carry the link.
+    (namedVideos.length === 0 ? "" : `The person's words link ${namedVideos.length === 1 ? "a YouTube video" :
+      `${namedVideos.length} YouTube videos`}: at the final check, a finding about a video the person named may link ` +
+      "it, with named_videos in later_inputs.findings_card, as the person gave its address. ") +
     (account.note ? NOTE_ON : NOTE_OFF);
   // Owner answer 298b: AskRigor's own planning call, for a dev account, once the plain answer is signed. It never
   // stops the registration: without a plan, the result is the one every account gets, with one sentence on why.
@@ -1406,6 +1632,10 @@ async function registerPlainAnswer(
   const heldAll = await holding;
   const plan = planned !== undefined && "later_inputs" in planned ? planned : undefined;
   const notPlanned = planned !== undefined && "reason" in planned ? planned : undefined;
+  const fallbackLine = notPlanned !== undefined && !chatGpt
+    ? "Tell the person in one line that the plan will take a few minutes more: you are taking a first look yourself."
+    : undefined;
+  const outline = plan === undefined ? registrationMenuOutline(plainAnswer.researchTarget, receipt, devAccount) : undefined;
   const notUsed = notPlanned === undefined ? undefined
     : plannerNotUsedSentence(notPlanned.reason, planning!.planner.accountDailyCalls);
   // A day's limit is the person's to know, so it goes to an app that hands its model only next_step too.
@@ -1446,6 +1676,8 @@ async function registerPlainAnswer(
       { type: "text", text: plan === undefined ? framingGuidance(account.steering, framing)
         : plannedGuidance(framing, plan) },
       ...(notUsed === undefined ? [] : [{ type: "text" as const, text: notUsed }]),
+      ...(fallbackLine === undefined ? [] : [{ type: "text" as const, text: fallbackLine }]),
+      ...(outline === undefined ? [] : [{ type: "text" as const, text: "Fill in menu_outline for your plan_research call." }]),
       { type: "text", text: summary },
       { type: "text", text: `research_receipt: ${receipt}` },
       // What AskRigor already holds, for the answer: after the receipt, so the first texts stay what to do next.
@@ -1454,7 +1686,9 @@ async function registerPlainAnswer(
       // Owner answer 301a: what the final check's review of the draft reads, said where the planner's texts are. Not
       // for a light plan (owner answer 302), whose draft is not reviewed: the request would promise a review that is
       // not made, and the final check knows a light look-up by its research target.
-      ...(planning?.reviewed === true && plan?.lane !== "light"
+      // Nor when the planning call was off for this registration (planned undefined): a test round's pause begun
+      // while the registration ran (owner answer 395b) leaves it as with the call off.
+      ...(planning?.reviewed === true && planned !== undefined && plan?.lane !== "light"
         ? [{ type: "text" as const, text: ANSWER_REVIEW_ASKED }] : []),
     ],
     structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
@@ -1462,7 +1696,10 @@ async function registerPlainAnswer(
       plainAnswer: { requested: true, note: account.note, claims: count },
       research_receipt: receipt,
       next_step: `${plan !== undefined ? plannedNextStep(framing, plan)
-        : `${framingNextStep(account.steering, framing)}${limitReached ? ` ${notUsed}` : ""}`}${heldStep}`,
+        : `${framingNextStep(account.steering, framing)}${limitReached ? ` ${notUsed}` : ""}`}${heldStep}` +
+        (fallbackLine === undefined ? "" : ` ${fallbackLine}`) +
+        (outline === undefined ? "" : " Fill in menu_outline for your plan_research call."),
+      ...(outline === undefined ? {} : { menu_outline: outline }),
       ...(plan === undefined ? {} : {
         research_plan: { source: "askrigor_planning_call", about: plan.about,
           steering_choice: plan.later_inputs.researchMenu.steering_choice ?? "none", searches: plan.searches,
@@ -1710,8 +1947,8 @@ function steeringChoiceUnclearRefusal(plan: ResearchMenuInput): CallToolResult {
 
 function steeringChoiceRefusal(plan: ResearchMenuInput): CallToolResult {
   const example = correctedMenu(plan, true);
-  const message = "plan_research planned nothing yet: this menu's tasks are short, so whether to ask the person " +
-    "first rests on later_inputs.researchMenu.steering_choice, which the call left out (steering_could_help alone, " +
+  const message = "plan_research planned nothing yet: whether this menu asks the person first rests on your " +
+    "steering judgment, later_inputs.researchMenu.steering_choice, which the call left out (steering_could_help alone, " +
     "true or false, does not replace it). Call it again with corrected_later_inputs, after replacing " +
     `${MENU_PLACEHOLDERS.steering_choice} with that question or with the word none: ${STEERING_CHOICE}.`;
   return {
@@ -1749,10 +1986,25 @@ async function planResearchAction(
   plain: PlainAnswerOptions | undefined,
   digestSecret?: string,
   devAccount = false,
-  // Owner answer 303a: given only for a dev account while AskRigor's own planning call is on.
-  learning?: { log: (failureClass: string) => void },
+  // Owner answer 303a: given only for a dev account while AskRigor's own planning call is on; active says whether it
+  // still is once the account is read (owner answer 395b: a test round's pause may begin meanwhile).
+  learning?: { log: (failureClass: string) => void; active?: () => boolean },
+  // AskRigor#477 stage 1: research dossiers are saved on this server; and the call is a test run's, marked
+  // findings_save "off", which asks for none.
+  dossiers = false,
+  callSavingOff = false,
+  // AskRigor#477 stage 2: public dossiers are on, so the shape asks for stage 2's declarations.
+  publicDossiers = false,
+  // Enforcing HRP, stage 1: say up front what can stop the answer.
+  upFront = false,
+  chatGpt = false,
 ): Promise<CallToolResult> {
   const account = await service.activeAccount(subject);
+  // Owner answer 395b: a pause begun while the account was read counts, as when the call is off.
+  const learningNow = learning?.active?.() === false ? undefined : learning;
+  // A light lane is set by AskRigor's own plan only, so a menu handed over before a pause begun meanwhile goes as
+  // research while it runs (Codex's recheck of 21 Nov); a pause already running is read before this call.
+  if (learning !== undefined && learningNow === undefined) plan = withoutLane(plan);
   const accountKey = service.accountKeyForSubject(subject);
   const read = plan.plain_answer_receipt === undefined ? undefined : plain?.read?.(plan.plain_answer_receipt, accountKey);
   const problems: string[] = [];
@@ -1774,7 +2026,7 @@ async function planResearchAction(
   // for a dev account while AskRigor's own planning call is on (learning is given only then), as the mark is made
   // only then: an account taken off the list keeps no go-ahead from a menu it was handed before (the review of 14
   // Nov 2026).
-  const goOnAsked = learning !== undefined && digest !== undefined && read !== undefined &&
+  const goOnAsked = learningNow !== undefined && digest !== undefined && read !== undefined &&
     plan.go_on_asked !== undefined &&
     plan.go_on_asked === goOnMark(plan.tasks, plan.plain_answer_receipt!, digestSecret!);
   const menu = digest === undefined ? undefined
@@ -1783,20 +2035,26 @@ async function planResearchAction(
   // declared the person's, or for a re-plan or a menu changed after it was shown (the review of #473, finding 1).
   const goAheadProblem = personGoAheadProblem(plan, menu?.changed === true);
   if (goAheadProblem !== undefined) problems.push(goAheadProblem);
-  // Owner answers 294c (12 Nov 2026) and 296b (13 Nov 2026): on a dev account, a menu whose decision rests on the
-  // judgment plans nothing until it names the question the AI would ask this person, or none; the yes or no alone
-  // no longer answers there. So the AI decides a short menu, not the default, and decides it by trying to name a
-  // choice of the person's first.
-  if (devAccount && steeringChoiceLeftOut(plan, account.steering, menu)) return steeringChoiceRefusal(plan);
-  // 13 Nov 2026, on every account: a steering_choice that is neither the word none nor a question ("none_needed")
-  // is handed back when the decision rests on it, for the exact word or the question.
-  if (steeringChoiceUnclearDecides(plan, account.steering, menu)) return steeringChoiceUnclearRefusal(plan);
-  // Round 3 of 12 Nov 2026 (every account since 13 Nov 2026): an allocation is the person's answer only with
-  // person_answered true; any other is not used, and the menu is planned as if none had come.
   const result = planResearch(plan, account.steering, read === undefined ? undefined : {
     matches: read.target === researchTargetDigest(plan.research_target),
     minutesSince: Math.max(0, Math.round((Date.now() - Date.parse(read.issuedAt)) / 60_000)),
   }, menu);
+  // Owner answers 294c (12 Nov 2026) and 296b (13 Nov 2026): on a dev account, a menu whose decision rests on the
+  // judgment plans nothing until it names the question the AI would ask this person, or none; the yes or no alone
+  // no longer answers there. So the AI decides a short menu, not the default, and decides it by trying to name a
+  // choice of the person's first.
+  if (devAccount && steeringChoiceLeftOut(plan, account.steering, menu)) {
+    const refused = steeringChoiceRefusal(plan);
+    return result.person_steered_problem === undefined ? refused
+      : withMenuReadingSentence(refused, result.person_steered_problem);
+  }
+  // 13 Nov 2026, on every account: a steering_choice that is neither the word none nor a question ("none_needed")
+  // is handed back when the decision rests on it, for the exact word or the question.
+  if (steeringChoiceUnclearDecides(plan, account.steering, menu)) {
+    const refused = steeringChoiceUnclearRefusal(plan);
+    return result.person_steered_problem === undefined ? refused
+      : withMenuReadingSentence(refused, result.person_steered_problem);
+  }
   // 11 Nov 2026: the problems come first, so an ask's text ends with the rule for the person's answer; only the stop
   // for an allocation not used comes before them (planResearchText). Whether the menu's numbers must stay as they are
   // goes by whether an allocation or a done list was given at all, even one that names no open task or is not used;
@@ -1807,27 +2065,42 @@ async function planResearchAction(
   const youDecide = youDecideLaterInputs(plan, result);
   // Owner answer 303a: the ask names learn mode on a dev account while the planning call is on, and a call that carries
   // the person's answer is kept while learn mode is on (menuChoiceOf decides whether it does), after the result.
-  const learnMode = learning === undefined ? undefined : account.steering.learnMenuChoices;
-  if (learning !== undefined && learnMode === true) {
+  const learnMode = learningNow === undefined ? undefined : account.steering.learnMenuChoices;
+  if (learningNow !== undefined && learnMode === true) {
     keepMenuChoice(service, accountKey, () => menuChoiceOf(plan, account.steering, personReasonOf(plan.person_reason)),
-      learning.log);
+      learningNow.log);
   }
   const text = planResearchText(result, new Set(plan.done ?? []), numbered, plan.research_target, youDecide,
-    problems, learnMode);
+    problems, learnMode, chatGpt);
   // An allocation not used is the first thing the text and next_step say, as a stop; the structured content also
   // names it first among its problems. The result is the ask again (or the menu that goes on), not an error.
+  if (result.person_steered_problem !== undefined) problems.unshift(result.person_steered_problem);
   const structuredProblems = result.allocation_not_used === true
     ? [`later_inputs.researchMenu.allocation: not used; ${PERSON_ANSWER_DECLARED}, which the call did not give`,
       ...problems]
     : problems;
+  // AskRigor#477 stage 1 (Codex's red team of the instruction proposal, items 1 and 3): a research plan that goes on,
+  // not a light look-up's, for an account a dossier can be saved for, asks for the dossier before the first final check,
+  // after everything else the result says and never in next_step, which an ask of the person's keeps.
+  const dossierRequest = researchDossierAllowed(dossiers, account, callSavingOff) && result.next === "go_on" &&
+    result.lane !== "light";
   return {
-    content: [{ type: "text", text }],
+    content: [{ type: "text", text },
+      ...(dossierRequest
+        ? [{ type: "text" as const, text: `${RESEARCH_DOSSIER_REQUEST} ${researchDossierShape(publicDossiers)} ` +
+          RESEARCH_DOSSIER_GUARDS }]
+        : []),
+      // Enforcing HRP, stage 1 (the owner's note on question 338): what can stop the answer, before research.
+      ...(upFront ? [{ type: "text" as const, text: WHAT_STOPS_TEXT }] : [])],
     structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
       ok: true,
       researchMenu: result,
       ...(structuredProblems.length === 0 ? {} : { problems: structuredProblems }),
-      next_step: planNextStep(result, learnMode),
+      next_step: planNextStep(result, learnMode, chatGpt),
       ...(youDecide === undefined ? {} : { you_decide_later_inputs: youDecide }),
+      ...(dossierRequest ? { research_dossier_request: { instruction: RESEARCH_DOSSIER_REQUEST,
+        shape: researchDossierShape(publicDossiers), guards: RESEARCH_DOSSIER_GUARDS } } : {}),
+      ...(upFront ? { what_stops: whatStops() } : {}),
     }),
   };
 }
@@ -2037,9 +2310,12 @@ export function createResearchAccessGuard(
       const mapped = mapError(error);
       return plainError(
         mapped.code,
-        mapped.code === "research_access_required"
-          ? `${mapped.message} Call manage_research_access with action inspect, show the user the notice it returns, and let them choose.`
-          : mapped.message,
+        mapped.code !== "research_access_required"
+          ? mapped.message
+          : options.noticeElsewhere === true
+            ? `${mapped.message} This connector can't show AskRigor's research notice. Tell the person to open AskRigor ` +
+              "once in Claude or ChatGPT (https://askrigor.com/add), read the notice there and choose; then retry here."
+            : `${mapped.message} Call manage_research_access with action inspect, show the user the notice it returns, and let them choose.`,
       );
     }
     return handler(input, extra);

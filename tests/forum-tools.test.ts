@@ -7,7 +7,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "../apps/research-mcp/src/community-leads.js";
 import { forumThreadDigest } from "../apps/research-mcp/src/research-finalization-gate.js";
-import { comparableUrl, forumPageDigest, forumSiteDigest, sameSiteRedirect } from "../apps/research-mcp/src/forum-thread-links.js";
+import {
+  comparableUrl, forumPageDigest, forumSiteDigest, forumTextDigest, isRedditLink, sameSiteRedirect
+} from "../apps/research-mcp/src/forum-thread-links.js";
 import { verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import type { RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
 import { builtContent } from "./helpers/text-payload.js";
@@ -61,6 +63,88 @@ describe("forum tools", () => {
         data: { access_state: "read", truncated: false, thread_comment_count: 3, comments_read: 2, comments_without_text: 1 } });
       expect((result.structuredContent!.data as { comments: unknown[] }).comments).toHaveLength(3);
       expect(result.structuredContent!.data).not.toHaveProperty("more");
+    } finally { await reader.close(); }
+  });
+  // Server fix 8 (Codex's red team of 17 Nov 2026, from the coconut run): truthful counts, and a way on or a reason.
+  const fixtureReader = (mode: string) => createRedditReaderClient({ target: "synthetic@reader.invalid",
+    keyFile: "/synthetic/key", knownHostsFile: "/synthetic/known-hosts", command: process.execPath,
+    args: [fileURLToPath(new globalThis.URL("./fixtures/reddit-reader-server.mjs", import.meta.url)), mode] });
+  const receiptOf = (content: Record<string, unknown>) => {
+    const verified = verifyResearchReceipt(content.research_receipt as string, { secret: SECRET });
+    if (!verified.ok) throw new Error("unverified");
+    return verified.claims;
+  };
+  it("reads a thread of 15 six at a time by its more value, counting the whole reading, to complete (test 1 and 7)", async () => {
+    const reader = fixtureReader("fifteen");
+    try {
+      const caller = await client({ redditReader: reader });
+      const read = async (more?: string) => (await caller.callTool({ name: "read_forum_thread",
+        arguments: { url: URL, ...(more === undefined ? {} : { more }) } })).structuredContent as Record<string, unknown> & {
+        data: Record<string, unknown> & { more?: string }; pagination: { exhausted: boolean; next_cursor?: string } };
+      const first = await read();
+      expect(first).toMatchObject({ access_status: "partial", pagination: { exhausted: false },
+        data: { thread_comment_count: 15, comments_read: 6, comments_read_this_call: 6, truncated: true } });
+      // The way on is the tool's own input, more, and the cursor says the same.
+      expect(first.pagination.next_cursor).toBe(first.data.more);
+      expect(first.data).not.toHaveProperty("terminal_reason");
+      // Test 7: the receipt signs this call's comments, as the result states them.
+      expect(receiptOf(first)).toMatchObject({ n: "6", e: "0" });
+      const second = await read(first.data.more);
+      expect(second).toMatchObject({ access_status: "partial", pagination: { exhausted: false },
+        data: { comments_read: 12, comments_read_this_call: 6, truncated: true } });
+      expect(receiptOf(second)).toMatchObject({ n: "6", e: "0" });
+      const third = await read(second.data.more);
+      expect(third).toMatchObject({ access_status: "complete", pagination: { exhausted: true }, limitations: [],
+        data: { comments_read: 15, comments_read_this_call: 3, comments_without_text: 0, truncated: false } });
+      expect(third.pagination).not.toHaveProperty("next_cursor");
+      expect(third.data).not.toHaveProperty("terminal_reason");
+      expect(receiptOf(third)).toMatchObject({ n: "3", e: "1" });
+    } finally { await reader.close(); }
+  });
+  it("says why a thread its reader ended at 6 of 15 goes no further, exhausted and part read (test 2)", async () => {
+    const reader = fixtureReader("six-of-fifteen");
+    try {
+      const result = await (await client({ redditReader: reader })).callTool({ name: "read_forum_thread", arguments: { url: URL } });
+      const content = result.structuredContent as Record<string, unknown> & { limitations: string[] };
+      expect(content).toMatchObject({ access_status: "partial", pagination: { exhausted: true },
+        data: { thread_comment_count: 15, comments_read: 6, truncated: true, terminal_reason: "site_limit" } });
+      expect(content.pagination).not.toHaveProperty("next_cursor");
+      expect(content.data).not.toHaveProperty("more");
+      expect(content.limitations).toEqual([expect.stringContaining("Reddit counts 15 comment(s) in this thread; the reader " +
+        "read 6 with text and 0 without, and its host offered no way to read the rest")]);
+      expect((result.content[0] as { text: string }).text).toMatch(/^Forum thread reading returned 6 comment\(s\) in this call; this reading has read 6 with text of the 15 Reddit counts, and ends here \(site_limit\)/u);
+      expect(receiptOf(content)).toMatchObject({ n: "6", e: "0" });
+    } finally { await reader.close(); }
+  });
+  it("refuses another thread's more value by name, reading nothing (test 3)", async () => {
+    const reader = fixtureReader("fifteen");
+    try {
+      const caller = await client({ redditReader: reader });
+      const first = await caller.callTool({ name: "read_forum_thread", arguments: { url: URL } });
+      const more = (first.structuredContent!.data as { more: string }).more;
+      const other = "https://www.reddit.com/r/example/comments/zzz999/";
+      const result = await caller.callTool({ name: "read_forum_thread", arguments: { url: other, more } });
+      const content = result.structuredContent as Record<string, unknown> & { limitations: string[] };
+      expect(content).toMatchObject({ access_status: "inaccessible", data: { access_state: "refused" } });
+      expect(content).not.toHaveProperty("research_receipt");
+      expect(content.limitations).toEqual([expect.stringContaining("This more value continues another thread")]);
+    } finally { await reader.close(); }
+  });
+  // Codex's review of 17 Nov 2026, finding 3: a more value changed in any part is refused, reading nothing.
+  it("refuses an edited more value, reading nothing and signing nothing", async () => {
+    const reader = fixtureReader("fifteen");
+    try {
+      const caller = await client({ redditReader: reader });
+      const first = await caller.callTool({ name: "read_forum_thread", arguments: { url: URL } });
+      const more = (first.structuredContent!.data as { more: string }).more;
+      const edited = `${more.slice(0, 5)}${more[5] === "A" ? "B" : "A"}${more.slice(6)}`;
+      const result = await caller.callTool({ name: "read_forum_thread", arguments: { url: URL, more: edited } });
+      const content = result.structuredContent as Record<string, unknown> & { limitations: string[] };
+      expect(content).toMatchObject({ access_status: "inaccessible", data: { access_state: "refused" } });
+      expect(content).not.toHaveProperty("research_receipt");
+      expect(content.limitations).toEqual(["AskRigor couldn't confirm this more value as one its reader gave, unchanged, " +
+        "so nothing was read: pass the more value exactly as the last result gave it, or call read_forum_thread with this " +
+        "url alone to read this thread from its start."]);
     } finally { await reader.close(); }
   });
   it.each(["read_forum_thread", "search_reddit_threads"])("returns visible enrollment guidance for %s even with the global guard enabled", async (name) => {
@@ -138,6 +222,35 @@ describe("forum tools", () => {
     thread.mockResolvedValue({ url: URL, access_state: "not_found" });
     await caller.callTool({ name: "read_forum_thread", arguments: { url: URL, more: "opaque" } });
     expect(thread).toHaveBeenCalledWith(URL, "opaque");
+  });
+  // The 24 Nov 2026 news audit: a news card's quote from a page is looked up only in the text this read returned.
+  it("signs the digest of a forum page's text as returned, and none for a Reddit thread or a page it couldn't read", async () => {
+    const caller = await client();
+    const read = async (url: string) => {
+      const result = await caller.callTool({ name: "read_forum_thread", arguments: { url } });
+      const verified = verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET });
+      if (!verified.ok) throw new Error("unverified");
+      return { claims: verified.claims, data: result.structuredContent!.data as { page_text?: string } };
+    };
+    const text = `Invented page.\n${"An invented line, with an accent: é.\n".repeat(60)}`;
+    page.mockResolvedValue({ url: "https://agency.example/notice", access_state: "read", page_text: text });
+    const notice = await read("https://agency.example/notice");
+    expect(notice.claims.tx).toBe(forumTextDigest(notice.data.page_text!));
+    expect(notice.claims.tx).toMatch(/^[0-9a-f]{32}$/u);
+    // Its own text: another text, or the same page's next read with one character changed, signs another digest.
+    page.mockResolvedValue({ url: "https://agency.example/notice", access_state: "read", page_text: text.replace("line", "Line") });
+    expect((await read("https://agency.example/notice")).claims).toMatchObject({ u: notice.claims.u, w: notice.claims.w });
+    expect((await read("https://agency.example/notice")).claims.tx).not.toBe(notice.claims.tx);
+    page.mockResolvedValue({ url: "https://agency.example/notice", access_state: "blocked" });
+    expect((await read("https://agency.example/notice")).claims).not.toHaveProperty("tx");
+    thread.mockResolvedValue({ access_state: "read", url: URL, community: "example", comments: [], comments_read: 7 });
+    expect((await read(URL)).claims).not.toHaveProperty("tx");
+    for (const link of [URL, "https://redd.it/abc123", "http://old.reddit.com/r/example", "https://REDDIT.com./x"]) {
+      expect(isRedditLink(link), link).toBe(true);
+    }
+    for (const link of ["https://notreddit.com/r/x", "https://agency.example/reddit.com", "reddit", ""]) {
+      expect(isRedditLink(link), link).toBe(false);
+    }
   });
   // The review of #417 (finding 3): each part of a thread is counted once, so a Reddit continuation signs which part it
   // continues and a forum page which page it read; a link the reader was sent on from is signed too.
@@ -576,11 +689,13 @@ describe("forum tools", () => {
           bytes: new TextEncoder().encode(destination.pathname === "/robots.txt" ? "User-agent: *\nAllow: /" : html) }) }
       }) });
       const result = await caller.callTool({ name: "read_forum_thread", arguments: { url: `https://${host}/showthread.php?t=77` } });
-      expect(result.structuredContent, host).toMatchObject({ data: { access_state: "read", truncated: false } });
+      expect(result.structuredContent, host).toMatchObject({ data: { access_state: "read" } });
       expect(result.structuredContent!.data, host).not.toHaveProperty("later_page_links");
       expect(result.structuredContent!.data, host).not.toHaveProperty("later_page_links_cut");
       const verified = verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET });
       if (!verified.ok) throw new Error("unverified");
+      // Server fix 8, C1: truncated whenever the read stopped before the thread's end, as its receipt signs it.
+      expect((result.structuredContent!.data as { truncated: boolean }).truncated, host).toBe(verified.claims.e === "0");
       return verified.claims;
     };
     const pager = `<div class="pagination"><a href="showthread.php?t=77&amp;page=2">2</a></div>`;
@@ -824,7 +939,10 @@ describe("read_forum_thread on a page of a longer thread", () => {
       const { content, claims, text } = await readOf({ ...read }, url);
       expect(claims, label).toMatchObject({ e: "0" });
       expect(content.access_status, label).toBe("partial");
-      expect(content.pagination.exhausted, label).toBe(false);
+      // Server fix 8, C1: with no way on, the reading is exhausted and says why.
+      expect(content.pagination.exhausted, label).toBe(true);
+      expect(content.data, label).toMatchObject({ truncated: true,
+        terminal_reason: limitation === UNKNOWN ? "pages_after_unknown" : "next_page_not_followable" });
       expect(content.pagination, label).not.toHaveProperty("next_cursor");
       expect(content.data, label).not.toHaveProperty("next_page");
       expect(content.limitations, label).toEqual([limitation]);
@@ -848,7 +966,12 @@ describe("read_forum_thread on a page of a longer thread", () => {
     ] as const) {
       const { content, claims } = await readOf({ ...read }, url);
       expect(content.access_status === "partial", label).toBe(claims.e === "0");
-      expect(content.pagination.exhausted, label).toBe(claims.e === "1");
+      expect(content.data.truncated, label).toBe(claims.e === "0");
+      // Server fix 8, C1: not exhausted only while a way on is given; a part-way read without one gives its reason.
+      expect(content.pagination.exhausted, label).toBe(content.data.next_page === undefined);
+      expect(content.data.terminal_reason !== undefined, label)
+        .toBe(claims.e === "0" && content.data.next_page === undefined);
+      if (label === "a page cut at the size limit") expect(content.data.terminal_reason).toBe("size_limit");
       // A link to go on with is always one the result also says to go on with.
       expect(content.pagination.next_cursor, label).toBe(content.data.next_page);
     }

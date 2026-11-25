@@ -20,6 +20,8 @@ import {
   ResearchContributionReviewService,
   ResearchContributorAccessService,
   type ResearchCallRecordStore,
+  type ResearchDossierPublisher,
+  type ResearchDossierStore,
 } from "@askrigor/evidence-repository";
 
 import {
@@ -44,6 +46,8 @@ import {
   researchFinalizationSigningConfigFromEnv,
   researchContributorAccessConfigFromEnv,
   researchContributionReviewConfigFromEnv,
+  researchDossiersEnabledFromEnv,
+  publicDossiersEnabledFromEnv,
   researchSessionCheckpointConfigFromEnv,
   researchActionsAreEnabled,
   SERVER_INSTRUCTIONS,
@@ -78,7 +82,7 @@ import {
   type TokenBucketLimiter,
   type TrustedClientIpHeader
 } from "./rate-limit.js";
-import { registerTools } from "./register-tools.js";
+import { dossierConflictReaderOf, dossierPrivacyReaderOf, registerTools } from "./register-tools.js";
 import {
   type RunningVersions,
   VERSION_PATH,
@@ -116,6 +120,12 @@ import {
   type SignInState,
 } from "./oauth-resource-server.js";
 
+import {
+  attachGeminiSurfaceIdentity,
+  geminiSignInFromEnv,
+  writeGeminiChallenge,
+  type GeminiSignIn,
+} from "./gemini-sign-in/index.js";
 import type { InfoAccessClient } from "./infoaccess-client.js";
 import type { LessonSubmissionResult } from "./lessons/contracts.js";
 import type { FindingsSaveResult } from "./findings/contracts.js";
@@ -124,12 +134,21 @@ import type { McpSurface } from "./register-tools.js";
 import { toolListVersionOf } from "./tool-list-currency.js";
 import type { AtlasReview } from "./findings/atlas-review.js";
 import { createAtlasReviewFromEnv } from "./findings/runtime.js";
+import { announcingDossierPublisher } from "./atlas/change-signal.js";
+import { startDossierPrivacySweep } from "./atlas/dossier-review.js";
 import { createAtlasPagesHandlerFromEnv, type AtlasPagesHandler } from "./atlas/pages-http.js";
+import { atlasNewsFromEnv, type AtlasNewsOptions } from "./news/runtime.js";
 
 export type McpToolCatalogProfile = "standard" | "gemini";
 
 export interface AskRigorMcpServerOptions {
   researchCallRecord?: ResearchCallRecordStore;
+  /** AskRigor#477 stage 1: where free contributors' research dossiers are saved privately; none without it. */
+  researchDossiers?: ResearchDossierStore;
+  /** Atlas news, stage 1: its mode and its two roles' stores; news is off without it. */
+  atlasNews?: AtlasNewsOptions;
+  /** AskRigor#477 stage 2: where a saved dossier's public copy is published; none without it. */
+  researchDossierPublisher?: ResearchDossierPublisher;
   infoAccess?: InfoAccessClient;
   publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
   oauthResourceMetadataUrl?: URL;
@@ -157,6 +176,8 @@ export interface AskRigorMcpServerOptions {
   toolListVersion?: string;
   /** What happened to this request's sign-in on /mcp; undefined without OAuth. */
   signIn?: SignInState;
+  /** Gemini's sign-in (owner answer 386b): the account's Gemini links, for manage_research_access. */
+  geminiLinks?: import("./research-contributor-access-tool.js").GeminiLinks;
 }
 
 export function createAskRigorServer(
@@ -210,7 +231,13 @@ function semverBuildMetadata(running: RunningVersions): string {
 }
 
 export interface AskRigorHttpServerOptions {
+  /** Replaces Atlas news's mode and stores, for tests; otherwise ASKRIGOR_ATLAS_NEWS decides. */
+  atlasNews?: AtlasNewsOptions;
   researchCallRecord?: ResearchCallRecordStore;
+  /** Replaces the research dossiers' store, for tests; otherwise ASKRIGOR_RESEARCH_DOSSIERS decides. */
+  researchDossiers?: ResearchDossierStore;
+  /** Replaces the dossiers' public copies' publisher, for tests; otherwise ASKRIGOR_PUBLIC_DOSSIERS decides. */
+  researchDossierPublisher?: ResearchDossierPublisher;
   publicServerEnabled?: boolean;
   actionsEnabled?: boolean;
   researchActionsEnabled?: boolean;
@@ -240,6 +267,8 @@ export interface AskRigorHttpServerOptions {
   oauthResourceServer?: AskRigorOAuthResourceServer;
   // Claude custom-connector resource (/mcp/claude). null forces it off.
   claudeOAuthResourceServer?: AskRigorOAuthResourceServer | null;
+  /** Gemini's sign-in (owner answer 386b): from the environment by default; null forces it off. */
+  geminiSignIn?: GeminiSignIn | null;
   researchContributorAccessService?: ResearchContributorAccessService;
   researchContributionReviewService?: ResearchContributionReviewService;
   /** The owner's findings actions for the Atlas; from the environment by default, and only while they are open. */
@@ -447,6 +476,21 @@ export function createAskRigorHttpServer(
       });
   // Owner answer 280a: the content-free call record, on the research-access database and pool.
   const researchCallRecord = options.researchCallRecord ?? researchAccessStore?.callRecordStore();
+  // Owner answer 386b: AskRigor's own authorization server for Google's Gemini app, on the same database and pool. It
+  // exists only beside the primary OAuth resource (its settings refuse to load without it).
+  const geminiSignIn = options.geminiSignIn === null
+    ? undefined
+    : options.geminiSignIn ?? geminiSignInFromEnv(researchAccessStore?.geminiSignInRows());
+  const geminiLinks = geminiSignIn?.links;
+  // AskRigor#477 stage 1 (owner answer 329a): research dossiers, on the research-access database and pool, once enabled.
+  const researchDossiers = options.researchDossiers ??
+    (researchDossiersEnabledFromEnv() ? researchAccessStore?.dossierStore() : undefined);
+  // AskRigor#477 stage 2: their public copies, only with the dossiers themselves and ASKRIGOR_PUBLIC_DOSSIERS=enabled.
+  const configuredPublisher = researchDossiers === undefined ? undefined : options.researchDossierPublisher ??
+    (publicDossiersEnabledFromEnv() ? researchAccessStore?.dossierPublisher() : undefined);
+  // Each publication drops the pages' cache, so a shown dossier shows at once.
+  const researchDossierPublisher = configuredPublisher === undefined ? undefined
+    : announcingDossierPublisher(configuredPublisher);
   const researchContributorAccessService =
     options.researchContributorAccessService ??
     (researchContributorAccessConfig === undefined || researchAccessStore === undefined
@@ -473,6 +517,10 @@ export function createAskRigorHttpServer(
             ssl: researchContributionReviewConfig.ssl,
           }),
         ));
+  // Atlas news, stage 1: off unless ASKRIGOR_ATLAS_NEWS is "shadow". Staging goes through the research-access role, as the
+  // dossiers are written; the owner's news actions through the review role, as the Atlas publications are. Each pool is
+  // made once per process.
+  const atlasNews = options.atlasNews ?? atlasNewsFromEnv(researchContributorAccessConfig);
   // The Atlas review's database pools and GitHub App token: made once per process, and only while it is open.
   const atlasReviewEnabled = options.atlasReviewEnabled ?? atlasReviewEnabledFromEnv();
   const atlasReview = options.atlasReview ?? (atlasReviewEnabled ? createAtlasReviewFromEnv() : undefined);
@@ -480,6 +528,8 @@ export function createAskRigorHttpServer(
   // signed-in reader's research account through the connector's own service, and knows the owner as its review does.
   const atlasPagesHandler = options.atlasPagesHandler ?? createAtlasPagesHandlerFromEnv(process.env, {
     ...(researchContributorAccessService === undefined ? {} : { researchAccess: researchContributorAccessService }),
+    // The public user count's two aggregates, on the research-access pool (ASKRIGOR_PUBLIC_USER_COUNTS; off by default).
+    ...(researchAccessStore === undefined ? {} : { userCounts: researchAccessStore.userCounts() }),
     ...(oauthResourceServer === undefined ? {} : { ownerSubjects: oauthResourceServer.reviewerSubjects }),
   });
   const researchAccessRequired = oauthResourceServer !== undefined;
@@ -506,6 +556,9 @@ export function createAskRigorHttpServer(
   );
   const mcpServerOptions = (profile?: McpToolCatalogProfile, signIn?: SignInState): AskRigorMcpServerOptions => ({
     researchCallRecord,
+    ...(researchDossiers === undefined ? {} : { researchDossiers }),
+    ...(atlasNews === undefined ? {} : { atlasNews }),
+    ...(researchDossierPublisher === undefined ? {} : { researchDossierPublisher }),
     publicEvidenceGapReviewService,
     oauthResourceMetadataUrl,
     allowedReviewerSubjects: oauthResourceServer?.reviewerSubjects,
@@ -516,10 +569,18 @@ export function createAskRigorHttpServer(
     researchAccessRequired,
     mcpSurface: profile === "gemini" ? GEMINI_COMPATIBLE_MCP_PATH : "/mcp",
     signIn,
+    ...(geminiLinks === undefined ? {} : { geminiLinks }),
+    // A tool's sign-in challenge on /mcp/gemini names AskRigor's own authorization server once Gemini's sign-in is on.
+    ...(profile === "gemini" && geminiSignIn !== undefined
+      ? { oauthResourceMetadataUrl: geminiSignIn.routes.resourceMetadataUrl }
+      : {}),
     ...(options.sharedAnswers === undefined ? {} : { sharedAnswers: options.sharedAnswers }),
   });
   const claudeMcpServerOptions = (signIn?: SignInState): AskRigorMcpServerOptions => ({
     researchCallRecord,
+    ...(researchDossiers === undefined ? {} : { researchDossiers }),
+    ...(atlasNews === undefined ? {} : { atlasNews }),
+    ...(researchDossierPublisher === undefined ? {} : { researchDossierPublisher }),
     publicEvidenceGapReviewService,
     oauthResourceMetadataUrl: claudeOAuthResourceServer === undefined
       ? undefined
@@ -532,6 +593,7 @@ export function createAskRigorHttpServer(
     researchAccessRequired,
     mcpSurface: CLAUDE_MCP_PATH,
     signIn,
+    ...(geminiLinks === undefined ? {} : { geminiLinks }),
     ...(options.sharedAnswers === undefined ? {} : { sharedAnswers: options.sharedAnswers }),
   });
   // Each surface's tool list version (owner request, 2026-10-22), taken at its first MCP request from a server made
@@ -592,6 +654,17 @@ export function createAskRigorHttpServer(
 
     if (
       await atlasPagesHandler.dispatch(request, response, {
+        pathname,
+        clientIp: resolveClientIp(request, trustedClientIpHeader),
+      })
+    ) {
+      return;
+    }
+
+    // Gemini's sign-in: /mcp/gemini's resource metadata, the authorization server's metadata and /oauth/gemini/*.
+    if (
+      geminiSignIn !== undefined &&
+      await geminiSignIn.routes.dispatch(request, response, {
         pathname,
         clientIp: resolveClientIp(request, trustedClientIpHeader),
       })
@@ -768,9 +841,19 @@ export function createAskRigorHttpServer(
       let server: McpServer | undefined;
       try {
         // /mcp/claude refused the request above unless its sign-in was valid.
+        const geminiSurface = pathname === GEMINI_COMPATIBLE_MCP_PATH;
         const signIn: SignInState | undefined = claudeSurface
           ? { state: "accepted" }
-          : await attachOptionalOAuthIdentity(request, oauthResourceServer);
+          : geminiSurface && geminiSignIn !== undefined
+            ? await attachGeminiSurfaceIdentity(request, geminiSignIn.server, oauthResourceServer)
+            : await attachOptionalOAuthIdentity(request, oauthResourceServer);
+        if (geminiSurface && geminiSignIn !== undefined) geminiSignIn.noteResourceCheck(signIn, parsedBody);
+        // A token that was sent and refused gets the transport challenge on /mcp/gemini, so Gemini refreshes it or signs
+        // in again; a request without a token stays open, as before.
+        if (geminiSurface && geminiSignIn !== undefined && signIn?.state === "refused") {
+          writeGeminiChallenge(response, geminiSignIn.routes.resourceMetadataUrl);
+          return;
+        }
         const profile = pathname === GEMINI_COMPATIBLE_MCP_PATH
           ? "gemini"
           : "standard";
@@ -800,6 +883,21 @@ export function createAskRigorHttpServer(
   if (researchCallRecord !== undefined) {
     const sweepTimer = startResearchCallRecordSweep(researchCallRecord);
     httpServer.once("close", () => clearInterval(sweepTimer));
+  }
+  if (geminiSignIn !== undefined && options.geminiSignIn === undefined) {
+    httpServer.once("close", () => geminiSignIn.stop());
+  }
+  // AskRigor#477 stage 2 (Codex's re-review): the dossier copies held waiting for the privacy reading are read by the
+  // server once the reader is available again, while public dossiers, the owner's review and the reading are all on.
+  // One held for the reading alone that it passes shows by itself if it otherwise qualifies, after a fresh conflict
+  // check on the planner's path (Codex's third review).
+  const dossierPrivacyReader = atlasReview === undefined || !publicDossiersEnabledFromEnv() ? undefined
+    : dossierPrivacyReaderOf();
+  if (atlasReview !== undefined && dossierPrivacyReader !== undefined) {
+    const dossierConflictReader = dossierConflictReaderOf();
+    const privacySweep = startDossierPrivacySweep(() => atlasReview.readPendingDossierPrivacy(dossierPrivacyReader,
+      dossierConflictReader));
+    httpServer.once("close", () => clearInterval(privacySweep));
   }
   return httpServer;
 }

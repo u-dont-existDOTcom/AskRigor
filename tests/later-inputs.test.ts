@@ -206,20 +206,39 @@ describe("later_inputs (owner answer 189a)", () => {
         : operation.name === "finalize_research" ? ["community_evidence", "treatment_choice", "open_leads", "another_pass_estimate", "findings_card", "source_lines", "study_map", "user_observations", "community_leads", "source_reading", "name_forms", "key_name", "search_coverage",
           // AskRigor#431: each listed video claim's status, a note only.
           "claim_coverage", "findings_save",
+          // Promise P69: the research steps a model's own safety rules limited, notes and limits only.
+          "safety_limits",
           // Owner answer 301a: the person's words, for AskRigor's own review of a dev account's draft.
           "asked",
           // Owner answer 310a: the app that sends the call makes the check's AI readings itself.
-          "ai_readings"]
+          "ai_readings",
+          // AskRigor#477 stage 1 (owner answer 329a): this research's dossier, saved privately for the owner's review.
+          "research_dossier",
+          // Atlas news, stage 1: the owner's news check's card, staged privately for the day's call.
+          "news_card"]
           : operation.name === "save_research_findings" ? ["findings_card"]
           // The recheck of 5 Nov 2026: a test run's audits are marked, so nothing of them is held for the review inbox.
           : operation.name === "validate_study_method_audit" ? ["audit", "findings_save"]
           : operation.name === "validate_review_method_audit" ? ["findings_save"]
             // Owner answer 200a: the shared answer's copy, its deletion code, and the owner's review of it.
             : operation.name === "manage_research_access" ? ["sharedAnswer", "shareCode", "atlasReport", "reportNumber",
-              "framing", "researchMenu", "asked", "researchSteering", "callsPage", "ownerPointer"]
+              "framing", "researchMenu", "asked", "researchSteering", "findings_save", "callsPage", "ownerPointer",
+              "pauseMinutes"]
               : operation.name === "review_research_contribution" ? ["sharedAnswerId", "items", "placements", "reportState", "report", "verdict", "glanceRow", "glanceRowId", "glanceState",
                 // The owner, 6 Nov 2026: a challenge mark's usual view, its source and the quick-answer verdict.
-                "usual_view", "usual_view_source_url", "usual_view_source_label", "quick_answer_verdict"] : [];
+                "usual_view", "usual_view_source_url", "usual_view_source_label", "quick_answer_verdict",
+                // Atlas news, stage 1: the day's payload, an item (or all) and a day, for the owner's news actions.
+                "news_day", "news_number", "news_date",
+                // AskRigor#477 stage 2: the research dossiers on the public Atlas, and a reviewed importance revision.
+                "dossier", "dossierVersion", "dossierState", "dossierFinding", "dossierImportance",
+                // Codex's re-review of stage 2: the owner's statement on whether a claim names a living person.
+                "dossierLivingPerson",
+                // Codex's third review of stage 2: the owner's override of the conflict check when he shows a copy.
+                "dossierOverrideConflicts",
+                // Codex's fourth review of 17 Nov 2026: who shows a finding, which show_on_pages needs.
+                "shown_by",
+                // Atlas Release B: the owner's notice to acknowledge.
+                "personNotice"] : [];
       expect(laterInputNames(operation.name)).toEqual(expected);
       // An MCP call always carries its request context; an empty one stands in for it here.
       const result = await operation.execute({ later_inputs: { synthetic_future_input: 1 } }, {} as never);
