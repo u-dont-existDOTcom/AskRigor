@@ -195,9 +195,12 @@
   roadmap's 23, 22 and 21 November sections live; the host the same; the step log since the switch: 32 lines, fixed
   names only, the marker in none; of 34 log lines 2 name an error, the two acceptances' expired-sign-in probes.
 - **Limits (known, released as such):**
-  - Gemini's Allow page is untried against Google's real relay, and in Firefox and Safari: the cause was reproduced in
-    Chromium with three local addresses, and from outside only the error pages can be checked. The owner's next try
-    shows whether Google's token call then arrives; if it doesn't, the step log names the next failing step.
+  - Gemini's Allow page was tried by the owner after the release, in a Chromium-based browser: the step log of
+    01:54:34 to 01:56:50 UTC shows the sign-in, Allow, the code issued to Google, Google's token call answered, then
+    initialize, tools/list and tools/call accepted at the Gemini connector. Those tool calls were answered with the
+    connector's notice, because the AskRigor account that Gemini signed in as had not accepted the current free
+    contributor notice, which a Gemini connection cannot show; that account is not the one the owner's other apps use.
+    Not tried in Firefox or Safari.
   - A search answered from PubMed counts as answered in the call record, with its duration, not as refused with
     `europe_pmc_unreachable` (the privacy page keeps a code only with a refusal). A retry during an outage searches
     PubMed again; a plain query with a word and a colon right after it ("TNF: ...") reads as a Europe PMC field and
