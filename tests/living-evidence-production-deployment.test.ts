@@ -1384,12 +1384,14 @@ describe("production living-evidence deployment", () => {
     expect(section).toContain("DELETE FROM living_evidence.gemini_oauth_store");
   });
 
-  // Owner answer 419a (26 Nov 2026): a yes given on AskRigor's terms page at sign-in is recorded as PERSON_SIGN_IN_PAGE.
-  it("ships migration 0044, which widens 0031's check under its own name for the terms page's yes and changes nothing else", async () => {
+  // Owner answer 419a (26 Nov 2026): a yes given on AskRigor's terms page at sign-in is recorded as PERSON_SIGN_IN_PAGE,
+  // and each of the Action's tokens answers once (the security review of 26 Nov 2026).
+  it("ships migration 0044: 0031's check widened under its own name, and the terms page's answers kept by token hash only", async () => {
     const migration = await read("packages/evidence-repository/migrations/0044_research_notice_sign_in_page.sql");
     const acceptance = await read("packages/evidence-repository/migrations/0031_research_notice_acceptance.sql");
     const repository = await read("packages/evidence-repository/src/postgres.ts");
     const runbook = await read("infra/living-evidence-production/README.md");
+    const provision = await read("infra/living-evidence-production/provision-research-access-role.sh");
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
     expect(order.at(-1)).toBe("0044_research_notice_sign_in_page");
@@ -1411,14 +1413,33 @@ describe("production living-evidence deployment", () => {
       expect(acceptance).toContain(kept);
       expect(migration).toContain(kept);
     }
-    // Nothing else: no table, column, row, trigger, function or grant.
+    // The answers: one new table and its index, each made once, holding a token's SHA-256, the first decision and when
+    // the row may go; no column could hold a subject, a token or an address.
     const statements = migration.replace(/--[^\n]*\n/gu, "");
-    expect(statements).not.toMatch(/\b(CREATE|GRANT|REVOKE|INSERT|UPDATE|DELETE|TRUNCATE|TRIGGER|FUNCTION)\b/u);
-    expect(statements).not.toMatch(/\bADD COLUMN\b|\bDROP (TABLE|COLUMN)\b/u);
-    // The runbook gives the rollback: the Action detached first, then the rows an earlier image cannot read mapped to
-    // the person's own yes.
+    expect([...statements.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)/gu)].map(([, name]) => name))
+      .toEqual(["research_terms_page_answers"]);
+    expect([...statements.matchAll(/CREATE INDEX IF NOT EXISTS (\w+)/gu)].map(([, name]) => name))
+      .toEqual(["research_terms_page_answers_usable_until"]);
+    expect(statements).toContain("token_sha256 text PRIMARY KEY CHECK (token_sha256 ~ '^[0-9a-f]{64}$')");
+    expect(statements).toContain("decision text NOT NULL CHECK (decision IN ('accept', 'decline'))");
+    expect(statements).toContain("usable_until timestamptz NOT NULL");
+    const table = statements.slice(statements.indexOf("CREATE TABLE"), statements.indexOf(");", statements.indexOf("CREATE TABLE")));
+    expect([...table.matchAll(/^\s+(\w+) /gmu)].map(([, column]) => column)).toEqual(["token_sha256", "decision", "usable_until"]);
+    // Nothing else: no row, trigger, function or grant, and nothing existing is dropped but the check it replaces.
+    expect(statements).not.toMatch(/\b(GRANT|INSERT|UPDATE|DELETE|TRUNCATE|TRIGGER|FUNCTION)\b/u);
+    expect(statements).not.toMatch(/\bADD COLUMN\b|\bDROP (TABLE|COLUMN|INDEX)\b/u);
+    // Kept from PUBLIC and the canonical reader; only the research-access role gets it, and only these three rights.
+    expect(statements).toContain("REVOKE ALL ON TABLE research_terms_page_answers FROM PUBLIC;");
+    expect(statements).toContain("REVOKE ALL ON TABLE research_terms_page_answers FROM askrigor_reader;");
+    expect(provision).toContain("GRANT SELECT, INSERT, DELETE ON TABLE living_evidence.research_terms_page_answers\n" +
+      "  TO askrigor_research_access;");
+    // The runbook gives the order (migrate, then the role script), what an earlier image does, and the rollback: the
+    // Action detached first, then the rows an earlier image cannot read mapped to the person's own yes.
     const section = runbook.slice(runbook.indexOf("Migration `0044_research_notice_sign_in_page`"));
     expect(section).toContain("terms-at-first-sign-in.md");
+    expect(section).toContain("provision-research-access-role");
+    expect(section).toContain("An earlier image never reads `research_terms_page_answers`");
+    expect(section).toContain("DELETE FROM living_evidence.research_terms_page_answers");
     expect(section).toContain("UPDATE living_evidence.research_use_accounts SET notice_accepted_by = 'PERSON'\n" +
       " WHERE notice_accepted_by = 'PERSON_SIGN_IN_PAGE';");
   });

@@ -81,18 +81,34 @@ Built on 26 November 2026 on a branch; nothing is deployed and no Auth0 setting 
   agreement and version, noted as `PERSON_SIGN_IN_PAGE`; Decline records nothing. Both answer with a page that posts a
   new token (`iss` `askrigor-terms`, `sub`, `state`, `accepted`, `notice_version` when the yes covers the current
   notice, valid five minutes) to `https://<tenant>/continue?state=<state>` by itself, the token only in the body.
-  Without a valid token the page says the link expired and records nothing; with the secret unset it answers 503.
+  A request without a single token and state gets a page saying the link expired, and nothing is recorded; with the
+  secret unset the page answers 503.
+- **The security review of 26 November** (three fixes before the owner's release):
+  1. *Single use.* The first POST, Accept or Decline, keeps the token's SHA-256 with its decision until the token
+     expires (`research_terms_page_answers`; expired rows go at each use). A later POST records nothing: the same
+     decision gets the same answer again (a double press), the other one is refused, so a copy of the page's address
+     can't record a yes and a Decline never becomes one. A GET still writes nothing.
+  2. *The version shown.* The notice's form carries the version it showed; an Accept for any other version records
+     nothing and shows the page again with the current notice, as `accept_free_contributor` refuses an earlier one.
+  3. *A way through.* A token that doesn't check out (a secret or issuer that differs from the Action's, an expired or
+     altered token) or a database that doesn't answer sends the person on with a signed "not recorded" answer, and a
+     plain link goes on when a browser or proxy stops the answer's form; the Action lets those through with nothing
+     recorded, so the research tools' refusal stays the backstop. A Decline is honoured whenever the token is the
+     Action's, and never gets the plain link. The Action logs one line per run of why it sent, skipped, ended or let a
+     sign-in through, reason codes only. The Action's token also names the `/continue` of the domain the person signs in
+     through, so a custom domain gets its answer.
 - **The record**: `NOTICE_ACCEPTED_BY` gains `PERSON_SIGN_IN_PAGE`, and migration `0044_research_notice_sign_in_page`
-  widens 0031's check for it, under the same name, and changes nothing else (tried on PostgreSQL 16: migrate twice, an
-  earlier image's migrate after it, the value written and read through the store, any other value refused, the
-  rollback's mapping). `inspect` and the Atlas show it as the person's own yes.
+  widens 0031's check for it, under the same name, and adds `research_terms_page_answers`, kept from every role but the
+  research-access role (tried on PostgreSQL 16: migrate twice, an earlier image's migrate after it, the value written and
+  read through the store, any other value refused, the rollback's mapping, the token claims). `inspect` and the Atlas
+  show it as the person's own yes.
 - **The Auth0 Action**, `ops/auth0/actions/terms-at-first-sign-in.js`, with its secrets, how its `NOTICE_VERSION` is
   kept in step with the server, the install steps and the rollback in `terms-at-first-sign-in.md` beside it. It
   redirects only an interactive OpenID Connect sign-in, never a refresh-token exchange or another grant, never
   `prompt=none`, at most once per transaction (Auth0's Action cache, by transaction ID), only for the applications in
   its `APPLY_TO` secret, and not when `app_metadata.askrigor_notice_version` already holds the current version. On
-  return it checks the answer with `api.redirect.validateToken`, denies a declined sign-in with a plain reason, and
-  records the accepted version in `app_metadata`.
+  return it checks the answer with `api.redirect.validateToken`, denies a verified Decline with a plain reason, records
+  a verified acceptance's version in `app_metadata`, and lets anything else through with nothing recorded, logging why.
 - **Tests**: `tests/account-terms.test.ts` and `tests/auth0-terms-action.test.ts`, the second with a round trip through
   the page in which Auth0's documented token behaviour is simulated; the migration's place and shape in
   `tests/living-evidence-production-deployment.test.ts`. No tool's name, description or schema changed.
@@ -103,17 +119,20 @@ The page also needs `ASKRIGOR_OAUTH_ENABLED=true` with `ASKRIGOR_OAUTH_ISSUER_UR
 
 **Auth0 steps, each with the owner's yes** (`ops/auth0/actions/terms-at-first-sign-in.md` has the detail):
 
-1. Release the server with the secret set and migration 0044 run; until the Action is attached nobody reaches the page.
-   Check that mcp.askrigor.com's proxy adds no content policy of its own to `/account/terms`, whose answer page must be
-   free to post to Auth0.
+1. Release the server with the secret set, migration 0044 run and the research-access role's provisioning re-run; until
+   the Action is attached nobody reaches the page. Check that mcp.askrigor.com's proxy adds no content policy of its own
+   to `/account/terms`, whose answer page must be free to post to Auth0.
 2. Create the Action (Login / Post Login) from `terms-at-first-sign-in.js`, with its four secrets: `TERMS_SECRET`,
    `TERMS_PAGE_URL` (`https://mcp.askrigor.com/account/terms`), `NOTICE_VERSION` (`free-contributor-v6-2026-11-15`)
    and `APPLY_TO`, naming only a dev application's client ID.
 3. Attach it to the Login flow (post-login trigger, after any other Action) and Apply.
-4. Try it through the dev application and a dev connector: the page once, Decline ending the sign-in with its reason,
-   Accept recorded and the sign-in finished, no page at the next sign-in, a token renewal untouched. Auth0's docs say
-   nothing of clients registered dynamically (ChatGPT's and Claude's), so try those before step 5.
-5. Then `APPLY_TO` `*`, for every application.
+4. Try it through the dev application and a dev connector, with Auth0's logs open: the page once, Decline ending the
+   sign-in with its reason, Accept recorded and the sign-in finished, no page at the next sign-in, a token renewal
+   untouched, and no log line saying "let through". Auth0's docs say nothing of clients registered dynamically
+   (ChatGPT's and Claude's), so try those before step 5.
+5. Then `APPLY_TO` `*`, for every application. Until that round trip has passed, `APPLY_TO` stays the dev application:
+   every failure lets people through with nothing recorded, so a mistake would not show as an outage, only as everyone
+   let in unasked.
 
 **Rollback**: remove the Action from the post-login trigger and Apply; sign-ins go on as before at once. The page
 itself can stay. A server rollback to an image from before migration 0044 first maps `PERSON_SIGN_IN_PAGE` to `PERSON`
@@ -128,6 +147,13 @@ itself can stay. A server rollback to an image from before migration 0044 first 
   Action records nothing and the page goes straight back at each sign-in) and for the owner's own free login, under the
   standing instruction (the instruction records its acceptance at the next research call, as now). It never switches a
   paid private account to free use; a second press of Accept, or a yes given meanwhile in an app, is not written over.
+- A second POST of the same decision gets the same answer again rather than a refusal, so a double press of Accept,
+  whose second request is the one the browser shows, doesn't strand a person whose yes is already recorded; it records
+  nothing, and the other decision is refused.
+- The way through lets a person past a page that failed without asking them, so the page can be skipped (someone could
+  go to `/continue` by hand), as anyone could sign in before 419a; nothing is recorded, and research still needs the
+  notice accepted. If the database fails as a Decline is kept, the Decline still ends the sign-in, but its token isn't
+  marked used.
 - A revoked or never-enrolled account is asked; Accept enrols it in free use, as `accept_free_contributor` would.
 - The answer page's content policy has no `form-action`: Auth0's `/continue` answers with redirects to whichever app
   is signing in, and Chromium checks each against `form-action` (Gemini's Allow page, 22 to 24 Nov). Its one script,
@@ -141,7 +167,9 @@ itself can stay. A server rollback to an image from before migration 0044 first 
 > Accept and continue, AskRigor records your yes on your research account, as it records a yes you give in an AI app:
 > the notice version, the time, and that you gave it on that page; Auth0 also keeps that version with your login, so
 > you aren't asked again until a new version collects or publishes more. If you choose Decline, nothing is recorded and
-> you aren't signed in.
+> you aren't signed in. So that the page's link can be used only once, AskRigor keeps a one-way fingerprint of the link
+> with your answer for about twelve minutes. If the page can't take your answer, you are signed in with nothing
+> recorded, and AskRigor's research tools ask for your yes before any research.
 
 ## Sources
 

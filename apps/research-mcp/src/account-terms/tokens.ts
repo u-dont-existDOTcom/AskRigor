@@ -1,4 +1,6 @@
-import { SignJWT, jwtVerify, type JWTPayload } from "jose";
+import { createHash } from "node:crypto";
+
+import { SignJWT, compactVerify, jwtVerify, type JWTPayload } from "jose";
 
 /**
  * AskRigor's terms page right after a person's first sign-in (owner answer 419a, 26 November 2026; plan
@@ -7,12 +9,15 @@ import { SignJWT, jwtVerify, type JWTPayload } from "jose";
  * ASKRIGOR_AUTH0_TERMS_SECRET, the Action's TERMS_SECRET.
  *
  * - The Action's token brings the person here (api.redirect.encodeToken). Auth0 writes sub (the user's ID), iss (the
- *   tenant's hostname), exp and ip; the Action adds aud "askrigor-terms" and asks for ten minutes. Auth0 adds the
- *   transaction's state to the page's address only after the Action has run, so this token cannot carry it (Auth0,
- *   "Redirect with Actions"): a state claim, when one is there, must equal the address's.
- * - The page's answer goes back to Auth0's /continue in a POST's body, never in an address: iss "askrigor-terms", sub,
- *   state, accepted and, when the account's yes covers the current notice, notice_version; valid five minutes. The
- *   Action checks it with api.redirect.validateToken, which checks the signature, the expiry and that its state is the
+ *   tenant's hostname), exp and ip; the Action adds aud "askrigor-terms", the /continue address of the domain the
+ *   person is signing in through (continue_uri), and asks for ten minutes. Auth0 adds the transaction's state to the
+ *   page's address only after the Action has run, so this token cannot carry it (Auth0, "Redirect with Actions"): a
+ *   state claim, when one is there, must equal the address's. The page's POST uses it once (routes.ts).
+ * - The page's answer goes back to Auth0's /continue in a POST's body, never in an address: iss "askrigor-terms", the
+ *   state, sub when known, and one outcome: accepted (with notice_version when the account's yes covers the current
+ *   notice), declined, or not_recorded with a reason, when the page could not take an answer (the security review of
+ *   26 Nov 2026: a failure here must not strand the sign-in, and must record nothing). Valid five minutes. The Action
+ *   checks it with api.redirect.validateToken, which checks the signature, the expiry and that its state is the
  *   transaction's.
  *
  * Neither stands in for the other: the Action's token never has iss "askrigor-terms" and has no state for Auth0 to
@@ -30,13 +35,22 @@ export const TERMS_TOKEN_MAX_SECONDS = 600;
 export const TERMS_ANSWER_SECONDS = 300;
 /** The clock difference allowed between Auth0 and this server. */
 export const TERMS_CLOCK_TOLERANCE_SECONDS = 30;
+/**
+ * Why the page let a sign-in go on without an answer: nothing was recorded, and the research tools still refuse. A token
+ * that did not check out; an account store that did not answer; a second press whose first press recorded nothing.
+ */
+export const TERMS_NOT_RECORDED_REASONS = ["link_not_verified", "account_store_unavailable", "already_answered"] as const;
+export type TermsNotRecordedReason = typeof TERMS_NOT_RECORDED_REASONS[number];
 
 export interface AccountTermsSettings {
-  /** The shared secret's text as UTF-8: Auth0 signs with the text itself, not with bytes it encodes. */
-  secret: Uint8Array;
+  /**
+   * The shared secret's text as UTF-8 (Auth0 signs with the text itself); undefined while ASKRIGOR_AUTH0_TERMS_SECRET
+   * is unset or malformed, and the page then answers 503 with only a way on to the tenant.
+   */
+  secret: Uint8Array | undefined;
   /** The tenant the connector already trusts (ASKRIGOR_OAUTH_ISSUER_URL). */
   issuerUrl: URL;
-  /** The tenant's /continue endpoint, where the page's answer goes. */
+  /** The tenant's /continue, where an answer goes unless the Action's token names the domain the person uses. */
   continueUrl: URL;
 }
 
@@ -44,12 +58,11 @@ export interface AccountTermsSettings {
 const SECRET = /^[A-Za-z0-9_-]{43,512}$/u;
 
 /**
- * The terms page's settings: the shared secret and the tenant the connector trusts. Undefined, and the page answers
- * 503, while the secret is unset or malformed or the connector's OAuth is off; nothing else depends on them.
+ * The terms page's settings: the tenant the connector trusts and, when set, the shared secret. Undefined while the
+ * connector's OAuth is off or its issuer is not an Auth0 tenant's, and the page answers 503; nothing else depends on it.
  */
 export function accountTermsSettingsFromEnv(env: NodeJS.ProcessEnv = process.env): AccountTermsSettings | undefined {
-  const secret = env.ASKRIGOR_AUTH0_TERMS_SECRET;
-  if (secret === undefined || !SECRET.test(secret) || env.ASKRIGOR_OAUTH_ENABLED !== "true") return undefined;
+  if (env.ASKRIGOR_OAUTH_ENABLED !== "true") return undefined;
   let issuerUrl: URL;
   try {
     issuerUrl = new URL(env.ASKRIGOR_OAUTH_ISSUER_URL ?? "");
@@ -61,17 +74,12 @@ export function accountTermsSettingsFromEnv(env: NodeJS.ProcessEnv = process.env
     issuerUrl.port !== "" || issuerUrl.pathname !== "/" || issuerUrl.search !== "" || issuerUrl.hash !== "") {
     return undefined;
   }
+  const secret = env.ASKRIGOR_AUTH0_TERMS_SECRET;
   return {
-    secret: new TextEncoder().encode(secret),
+    secret: secret !== undefined && SECRET.test(secret) ? new TextEncoder().encode(secret) : undefined,
     issuerUrl,
     continueUrl: new URL("/continue", issuerUrl),
   };
-}
-
-/** A page visit the Action's token admits: whose account, and the Auth0 transaction's state to return with. */
-export interface TermsVisit {
-  subject: string;
-  state: string;
 }
 
 /** A compact JWS, as the Action's token is: three base64url parts. */
@@ -83,21 +91,90 @@ const JWS = /^[A-Za-z0-9_-]{1,4096}\.[A-Za-z0-9_-]{1,4096}\.[A-Za-z0-9_-]{1,512}
 export const TERMS_STATE = /^[A-Za-z0-9._~+/=-]{1,2048}$/u;
 /** An Auth0 user ID as the research account key takes it (researchAccountKeyForSubject): no space or control character. */
 const SUBJECT = /^[^\s\u0000-\u001f\u007f]{1,512}$/u;
+const HOSTNAME = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/u;
 
-/**
- * The visit the Action's token admits, or undefined: the signature under the shared secret (HS256 only), the tenant
- * as issuer (Auth0 writes its hostname; the issuer URL is also taken), the page as audience, an expiry no more than ten
- * minutes ahead, a subject, and the state the address carries. Nothing is read from an unverified token.
- */
-export async function verifyTermsVisit(
-  token: unknown,
-  state: unknown,
-  settings: AccountTermsSettings,
-  now: Date,
-): Promise<TermsVisit | undefined> {
-  if (typeof token !== "string" || !JWS.test(token) || typeof state !== "string" || !TERMS_STATE.test(state)) {
+/** Where an answer goes: the state to return with, the /continue to post to, and whose sign-in it is, when known. */
+export interface TermsReturn {
+  state: string;
+  continueUrl: URL;
+  subject?: string;
+}
+
+/** A page visit the Action's token admits, once its signature and every claim check out. */
+export interface TermsVisit extends TermsReturn {
+  subject: string;
+  /** The token's SHA-256, by which its one answer is kept. */
+  tokenSha256: string;
+  /** When the token can no longer be used here, its expiry and the clock difference allowed: its answer is kept so long. */
+  usableUntil: Date;
+}
+
+export type TermsVisitCheck =
+  /** The signature and every claim check out. */
+  | { kind: "valid"; visit: TermsVisit }
+  /**
+   * The request is well formed but the token does not check out: a secret or issuer that differs from the Action's, an
+   * expired or altered token. signed says whether the signature itself checked out, so its subject and continue_uri can
+   * be trusted; without it the answer goes to the tenant the connector trusts.
+   */
+  | { kind: "unverified"; back: TermsReturn; signed: boolean }
+  /** No single token, or no single well-formed state: nothing to answer. */
+  | { kind: "malformed" };
+
+/** The /continue of the domain the Action says the person signs in through: https, no port, query or fragment. */
+function continueUrlOf(value: unknown): URL | undefined {
+  if (typeof value !== "string" || value.length > 300) return undefined;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
     return undefined;
   }
+  return url.protocol === "https:" && url.username === "" && url.password === "" && url.port === "" &&
+    url.pathname === "/continue" && url.search === "" && url.hash === "" && HOSTNAME.test(url.hostname) &&
+    url.href === `https://${url.hostname}/continue`
+    ? url
+    : undefined;
+}
+
+/** The claims of a token whose signature alone checks out; undefined when it does not. */
+async function signedClaims(token: string, secret: Uint8Array): Promise<JWTPayload | undefined> {
+  try {
+    const { payload } = await compactVerify(token, secret, { algorithms: ["HS256"] });
+    const claims: unknown = JSON.parse(new TextDecoder().decode(payload));
+    return typeof claims === "object" && claims !== null && !Array.isArray(claims) ? claims as JWTPayload : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * What a request's token and state admit. Valid: the signature under the shared secret (HS256 only), the tenant as
+ * issuer (Auth0 writes its hostname; the issuer URL is also taken), the page as audience, an expiry no more than ten
+ * minutes ahead, a subject, and the state the address carries. Nothing is read from a token whose signature fails.
+ */
+export async function checkTermsVisit(
+  token: unknown,
+  state: unknown,
+  settings: AccountTermsSettings & { secret: Uint8Array },
+  now: Date,
+): Promise<TermsVisitCheck> {
+  if (typeof token !== "string" || !JWS.test(token) || typeof state !== "string" || !TERMS_STATE.test(state)) {
+    return { kind: "malformed" };
+  }
+  const unverified = async (): Promise<TermsVisitCheck> => {
+    const claims = await signedClaims(token, settings.secret);
+    if (claims === undefined) return { kind: "unverified", signed: false, back: { state, continueUrl: settings.continueUrl } };
+    return {
+      kind: "unverified",
+      signed: true,
+      back: {
+        state,
+        continueUrl: continueUrlOf(claims.continue_uri) ?? settings.continueUrl,
+        ...(typeof claims.sub === "string" && SUBJECT.test(claims.sub) ? { subject: claims.sub } : {}),
+      },
+    };
+  };
   let payload: JWTPayload;
   try {
     ({ payload } = await jwtVerify(token, settings.secret, {
@@ -109,36 +186,49 @@ export async function verifyTermsVisit(
       currentDate: now,
     }));
   } catch {
-    return undefined;
+    return await unverified();
   }
   const exp = payload.exp!;
-  if (exp - Math.floor(now.getTime() / 1_000) > TERMS_TOKEN_MAX_SECONDS + TERMS_CLOCK_TOLERANCE_SECONDS) return undefined;
-  if (payload.iat !== undefined && exp - payload.iat > TERMS_TOKEN_MAX_SECONDS) return undefined;
-  if (typeof payload.sub !== "string" || !SUBJECT.test(payload.sub)) return undefined;
-  if (payload.state !== undefined && payload.state !== state) return undefined;
-  return { subject: payload.sub, state };
+  if (exp - Math.floor(now.getTime() / 1_000) > TERMS_TOKEN_MAX_SECONDS + TERMS_CLOCK_TOLERANCE_SECONDS ||
+    (payload.iat !== undefined && exp - payload.iat > TERMS_TOKEN_MAX_SECONDS) ||
+    typeof payload.sub !== "string" || !SUBJECT.test(payload.sub) ||
+    (payload.state !== undefined && payload.state !== state)) {
+    return await unverified();
+  }
+  return {
+    kind: "valid",
+    visit: {
+      subject: payload.sub,
+      state,
+      continueUrl: continueUrlOf(payload.continue_uri) ?? settings.continueUrl,
+      tokenSha256: createHash("sha256").update(token, "utf8").digest("hex"),
+      // Kept a minute past the last moment the token is admitted, so it is never admitted twice.
+      usableUntil: new Date((exp + TERMS_CLOCK_TOLERANCE_SECONDS + 60) * 1_000),
+    },
+  };
 }
 
-/** What the page answers Auth0: whether the sign-in goes on, and the notice version the account's yes covers. */
-export interface TermsAnswer {
-  accepted: boolean;
-  /** Only with accepted, when the account holds a yes that covers the current notice. */
-  noticeVersion?: string;
-}
+/** What the page answers Auth0: the sign-in goes on accepted, ends declined, or goes on with nothing recorded. */
+export type TermsAnswer =
+  /** noticeVersion: when the account holds a yes that covers the current notice. */
+  | { accepted: true; noticeVersion?: string }
+  | { accepted: false }
+  | { notRecorded: TermsNotRecordedReason };
 
 /** The page's answer for Auth0's /continue, signed with the shared secret, valid five minutes. */
-export async function signTermsAnswer(visit: TermsVisit, answer: TermsAnswer, settings: AccountTermsSettings,
+export async function signTermsAnswer(back: TermsReturn, answer: TermsAnswer, secret: Uint8Array,
   now: Date): Promise<string> {
   const issuedAt = Math.floor(now.getTime() / 1_000);
-  return await new SignJWT({
-    state: visit.state,
-    accepted: answer.accepted,
-    ...(answer.accepted && answer.noticeVersion !== undefined ? { notice_version: answer.noticeVersion } : {}),
-  })
+  const outcome = "notRecorded" in answer
+    ? { not_recorded: answer.notRecorded }
+    : answer.accepted && answer.noticeVersion !== undefined
+      ? { accepted: true, notice_version: answer.noticeVersion }
+      : { accepted: answer.accepted };
+  const jwt = new SignJWT({ state: back.state, ...outcome })
     .setProtectedHeader({ alg: "HS256", typ: "JWT" })
     .setIssuer(TERMS_TOKEN_AUDIENCE)
-    .setSubject(visit.subject)
     .setIssuedAt(issuedAt)
-    .setExpirationTime(issuedAt + TERMS_ANSWER_SECONDS)
-    .sign(settings.secret);
+    .setExpirationTime(issuedAt + TERMS_ANSWER_SECONDS);
+  if (back.subject !== undefined) jwt.setSubject(back.subject);
+  return await jwt.sign(secret);
 }

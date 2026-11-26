@@ -5,15 +5,17 @@ import type { AddressInfo } from "node:net";
 
 import {
   InMemoryResearchContributorAccessStore,
+  InMemoryTermsPageAnswerStore,
   RESEARCH_USE_NOTICE_CHANGES,
   RESEARCH_USE_NOTICE_VERSION,
   ResearchContributorAccessService,
 } from "@askrigor/evidence-repository";
 import { SignJWT, jwtVerify } from "jose";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 
-import { createAccountTermsRoutes } from "../apps/research-mcp/src/account-terms/routes.js";
+import { createAccountTermsRoutes, type AccountTermsAccess } from "../apps/research-mcp/src/account-terms/routes.js";
 import {
+  TERMS_NOT_RECORDED_REASONS,
   TERMS_TOKEN_AUDIENCE,
   TERMS_TOKEN_FIELD,
   TERMS_TOKEN_MAX_SECONDS,
@@ -24,26 +26,29 @@ import { createTokenBucketLimiter } from "../apps/research-mcp/src/rate-limit.js
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 
 // The Auth0 post-login Action of owner answer 419a, kept in the repository and run here without Auth0: its decisions,
-// its two handlers against a stand-in for Auth0's api object, and a round trip through AskRigor's page with Auth0's
-// documented token behaviour simulated. Synthetic secrets, users and states only.
+// its two handlers against a stand-in for Auth0's api object, its log lines, and round trips through AskRigor's page with
+// Auth0's documented token behaviour simulated. Synthetic secrets, users, hosts and states only.
 const require = createRequire(import.meta.url);
 const ACTION_PATH = "../ops/auth0/actions/terms-at-first-sign-in.js";
 
+interface ContinueDecision { deny: boolean; reason?: string; noticeVersion?: string; log: string }
 interface ActionModule {
   onExecutePostLogin(event: unknown, api: unknown): Promise<void>;
   onContinuePostLogin(event: unknown, api: unknown): Promise<void>;
   termsAction: {
-    TERMS_AUDIENCE: string; TOKEN_FIELD: string; TOKEN_SECONDS: number; METADATA_KEY: string; DECLINED: string;
-    UNCONFIRMED: string;
+    TERMS_AUDIENCE: string; TOKEN_FIELD: string; TOKEN_SECONDS: number; METADATA_KEY: string; LOG_PREFIX: string;
+    DECLINED: string;
     settingsOf(secrets: unknown): unknown;
     redirectDecision(event: unknown, settings: unknown, alreadySent: boolean): { redirect: boolean; reason: string };
-    continueDecision(payload: unknown, event: unknown): { deny: boolean; reason?: string; noticeVersion?: string };
+    continueDecision(payload: unknown, event: unknown): ContinueDecision;
+    continueUriOf(event: unknown): { continue_uri?: string };
   };
 }
 const action = require(ACTION_PATH) as ActionModule;
 const { termsAction } = action;
 
 const SECRET = "synthetic-terms-secret-for-tests-only-0123456789abcdef";
+const OTHER_SECRET = "another-synthetic-secret-0123456789abcdefghijklmno";
 const PAGE = "https://mcp.askrigor.example/account/terms";
 const USER = "auth0|synthetic-action-user";
 const TENANT = "identity.askrigor.example";
@@ -54,7 +59,7 @@ interface Event {
   secrets: Record<string, string | undefined>;
   client: { client_id: string };
   transaction: { id?: string; protocol?: string; prompt?: string[] };
-  request: { query: Record<string, string>; body: Record<string, string> };
+  request: { query: Record<string, string>; body: Record<string, string>; hostname?: string };
   user: { user_id: string; app_metadata: Record<string, unknown> };
 }
 
@@ -63,7 +68,7 @@ function eventOf(changes: Partial<Event> = {}): Event {
     secrets: { ...SECRETS },
     client: { client_id: "synthetic-dev-client" },
     transaction: { id: "synthetic-transaction-1", protocol: "oidc-basic-profile", prompt: [] },
-    request: { query: {}, body: {} },
+    request: { query: {}, body: {}, hostname: TENANT },
     user: { user_id: USER, app_metadata: {} },
     ...changes,
   };
@@ -97,7 +102,7 @@ function apiOf(options: {
       },
       validateToken: (input: { secret: string; tokenParameterName: string }) => {
         calls.validateToken.push(input);
-        if (options.validateToken === undefined) throw new Error("no token");
+        if (options.validateToken === undefined) throw new Error("The session token is invalid");
         return options.validateToken(input);
       },
     },
@@ -107,8 +112,14 @@ function apiOf(options: {
   return { api, calls, cache };
 }
 
+let logs: MockInstance<typeof console.log>;
+const logged = () => logs.mock.calls.map((call) => String(call[0]));
 const servers: HttpServer[] = [];
+beforeEach(() => {
+  logs = vi.spyOn(console, "log").mockImplementation(() => undefined);
+});
 afterEach(async () => {
+  logs.mockRestore();
   await Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve) => server.close(() => resolve()))));
 });
 
@@ -136,7 +147,7 @@ describe("the Action's settings", () => {
     expect(termsAction.TOKEN_FIELD).toBe(TERMS_TOKEN_FIELD);
     expect(termsAction.TOKEN_SECONDS).toBeLessThanOrEqual(TERMS_TOKEN_MAX_SECONDS);
     expect(accountTermsSettingsFromEnv({ ASKRIGOR_AUTH0_TERMS_SECRET: SECRET, ASKRIGOR_OAUTH_ENABLED: "true",
-      ASKRIGOR_OAUTH_ISSUER_URL: `https://${TENANT}/` })).toBeDefined();
+      ASKRIGOR_OAUTH_ISSUER_URL: `https://${TENANT}/` })?.secret).toBeDefined();
     for (const { version } of RESEARCH_USE_NOTICE_CHANGES) {
       expect(termsAction.settingsOf({ ...SECRETS, NOTICE_VERSION: version }), version).toBeDefined();
     }
@@ -146,6 +157,15 @@ describe("the Action's settings", () => {
     const instructions = await readFile(new URL("../ops/auth0/actions/terms-at-first-sign-in.md", import.meta.url), "utf8");
     expect(instructions).toContain(`| \`NOTICE_VERSION\` | \`${RESEARCH_USE_NOTICE_VERSION}\`, the server's ` +
       "`RESEARCH_USE_NOTICE_VERSION`. |");
+  });
+
+  it("are explained beside it: APPLY_TO stays the dev application until a dev round trip passes, and why", async () => {
+    const instructions = (await readFile(new URL("../ops/auth0/actions/terms-at-first-sign-in.md", import.meta.url), "utf8"))
+      .replace(/\s+/gu, " ");
+    const section = instructions.slice(instructions.indexOf("## Why `APPLY_TO` stays the dev application"));
+    expect(section).toContain("`APPLY_TO` names only the dev application until one whole round trip has passed");
+    expect(section).toContain("everyone would simply be let in without being asked");
+    expect(instructions).toContain("No log line may say `let through` during these steps.");
   });
 });
 
@@ -196,10 +216,11 @@ describe("whether a sign-in goes to the page", () => {
       .toEqual({ redirect: false, reason: "other_application" });
   });
 
-  it("redirects at most once per transaction through Auth0's cache, with a ten-minute token for the page", async () => {
+  it("redirects at most once per transaction, with a ten-minute token naming the /continue of the domain in use", async () => {
     const { api, calls } = apiOf();
     await action.onExecutePostLogin(eventOf(), api);
-    expect(calls.encodeToken).toEqual([{ secret: SECRET, expiresInSeconds: 600, payload: { aud: TERMS_TOKEN_AUDIENCE } }]);
+    expect(calls.encodeToken).toEqual([{ secret: SECRET, expiresInSeconds: 600,
+      payload: { aud: TERMS_TOKEN_AUDIENCE, continue_uri: `https://${TENANT}/continue` } }]);
     expect(calls.sendUserTo).toEqual([{ url: PAGE, options: { query: { session_token: "synthetic.encoded.token" } } }]);
     // The same transaction again (the pipeline run twice): no second redirect.
     await action.onExecutePostLogin(eventOf(), api);
@@ -209,6 +230,18 @@ describe("whether a sign-in goes to the page", () => {
     await action.onExecutePostLogin(eventOf({ transaction: { id: "synthetic-transaction-3", protocol: "oauth2-refresh-token" } }), api);
     expect(calls.sendUserTo).toHaveLength(2);
     expect(calls.deny).toEqual([]);
+    // One line per run, reason codes only: never the user's ID, a token, a state or an address.
+    expect(logged()).toEqual(["askrigor-terms: sent to the terms page", "askrigor-terms: skipped (already_sent)",
+      "askrigor-terms: sent to the terms page", "askrigor-terms: skipped (not_interactive)"]);
+  });
+
+  it("names a custom domain's /continue, and none when Auth0 gives no usable hostname", () => {
+    expect(termsAction.continueUriOf(eventOf({ request: { query: {}, body: {}, hostname: "Login.AskRigor.example" } })))
+      .toEqual({ continue_uri: "https://login.askrigor.example/continue" });
+    for (const hostname of [undefined, "", "localhost", "login.askrigor.example:8443", "login.askrigor.example/x",
+      "a b.example"]) {
+      expect(termsAction.continueUriOf(eventOf({ request: { query: {}, body: {}, hostname } })), String(hostname)).toEqual({});
+    }
   });
 
   it("touches nothing on a sign-in it doesn't send, and lets the sign-in go on if Auth0's api fails while sending", async () => {
@@ -226,33 +259,52 @@ describe("whether a sign-in goes to the page", () => {
     await expect(action.onExecutePostLogin(eventOf(), failingEncode.api)).resolves.toBeUndefined();
     expect([...calls.sendUserTo, ...failingEncode.calls.sendUserTo]).toEqual([]);
     expect([...calls.deny, ...failingEncode.calls.deny]).toEqual([]);
+    expect(logged()).toEqual(["askrigor-terms: skipped (not_interactive)", "askrigor-terms: skipped (accepted)",
+      "askrigor-terms: skipped (send_failed)", "askrigor-terms: skipped (send_failed)"]);
   });
 });
 
 describe("what the page's answer does to the sign-in", () => {
   const userEvent = eventOf();
 
-  it("records the accepted version, ends a declined sign-in with a plain reason, and refuses anything else", () => {
+  it("ends only a verified Decline, records an acceptance's version, and lets anything else through unrecorded", () => {
     expect(termsAction.continueDecision({ iss: TERMS_TOKEN_AUDIENCE, sub: USER, state: "s", accepted: true,
-      notice_version: RESEARCH_USE_NOTICE_VERSION }, userEvent)).toEqual({ deny: false, noticeVersion: RESEARCH_USE_NOTICE_VERSION });
+      notice_version: RESEARCH_USE_NOTICE_VERSION }, userEvent)).toEqual({ deny: false,
+      noticeVersion: RESEARCH_USE_NOTICE_VERSION, log: "accepted (version recorded)" });
     // A paid private account's answer names no version: the sign-in goes on and nothing is recorded.
     expect(termsAction.continueDecision({ iss: TERMS_TOKEN_AUDIENCE, sub: USER, accepted: true }, userEvent))
-      .toEqual({ deny: false, noticeVersion: undefined });
+      .toEqual({ deny: false, noticeVersion: undefined, log: "accepted (no version to record)" });
     expect(termsAction.continueDecision({ iss: TERMS_TOKEN_AUDIENCE, sub: USER, accepted: false }, userEvent))
-      .toEqual({ deny: true, reason: termsAction.DECLINED });
-    for (const payload of [null, "accepted", {}, { accepted: "true" }, { accepted: 1 },
-      { iss: TENANT, sub: USER, accepted: true }, { iss: TERMS_TOKEN_AUDIENCE, sub: "auth0|someone-else", accepted: true }]) {
+      .toEqual({ deny: true, reason: termsAction.DECLINED, log: "sign-in ended (declined)" });
+    // A Decline is honoured whoever's it says it is.
+    expect(termsAction.continueDecision({ iss: TERMS_TOKEN_AUDIENCE, sub: "auth0|someone-else", accepted: false },
+      userEvent).deny).toBe(true);
+    // The page's own "not recorded", whatever its reason.
+    for (const reason of TERMS_NOT_RECORDED_REASONS) {
+      expect(termsAction.continueDecision({ iss: TERMS_TOKEN_AUDIENCE, state: "s", not_recorded: reason }, userEvent))
+        .toEqual({ deny: false, noticeVersion: undefined, log: `let through, nothing recorded (page: ${reason})` });
+    }
+    expect(termsAction.continueDecision({ not_recorded: "<script>" }, userEvent).log)
+      .toBe("let through, nothing recorded (page: other)");
+    const through: Array<[unknown, string]> = [
+      [null, "answer_unreadable"], ["accepted", "answer_unreadable"], [{}, "answer_without_decision"],
+      [{ accepted: "true" }, "answer_without_decision"], [{ accepted: 1 }, "answer_without_decision"],
+      [{ iss: TENANT, sub: USER, accepted: true }, "answer_from_elsewhere"],
+      [{ iss: TENANT, sub: USER, accepted: false }, "answer_from_elsewhere"],
+      [{ iss: TERMS_TOKEN_AUDIENCE, sub: "auth0|someone-else", accepted: true }, "answer_for_another_user"],
+    ];
+    for (const [payload, reason] of through) {
       expect(termsAction.continueDecision(payload, userEvent), JSON.stringify(payload))
-        .toEqual({ deny: true, reason: termsAction.UNCONFIRMED });
+        .toEqual({ deny: false, noticeVersion: undefined, log: `let through, nothing recorded (${reason})` });
     }
     // A version that isn't one is never written to app_metadata.
-    expect(termsAction.continueDecision({ accepted: true, notice_version: "<script>" }, userEvent))
-      .toEqual({ deny: false, noticeVersion: undefined });
+    expect(termsAction.continueDecision({ accepted: true, notice_version: "<script>" }, userEvent).noticeVersion)
+      .toBeUndefined();
     expect(termsAction.DECLINED).toBe("You declined AskRigor's free-use notice, so you weren't signed in. To use " +
       "AskRigor, sign in again and accept it.");
   });
 
-  it("checks the answer with validateToken under the shared secret and the page's field", async () => {
+  it("checks the answer with validateToken under the shared secret and the page's field, and logs what it did", async () => {
     const accepted = apiOf({ validateToken: () => ({ iss: TERMS_TOKEN_AUDIENCE, sub: USER, accepted: true,
       notice_version: RESEARCH_USE_NOTICE_VERSION }) });
     await action.onContinuePostLogin(userEvent, accepted.api);
@@ -265,16 +317,19 @@ describe("what the page's answer does to the sign-in", () => {
     expect(declined.calls.deny).toEqual([termsAction.DECLINED]);
     expect(declined.calls.setAppMetadata).toEqual([]);
 
-    // Auth0 refused the token (signature, expiry or state): the sign-in ends, and nothing is recorded.
+    // No answer, or one Auth0 refuses (signature, expiry or state): the sign-in goes on, and nothing is recorded.
     const refused = apiOf({ validateToken: () => { throw new Error("The session token is invalid"); } });
     await action.onContinuePostLogin(userEvent, refused.api);
-    expect(refused.calls.deny).toEqual([termsAction.UNCONFIRMED]);
+    expect(refused.calls.deny).toEqual([]);
     expect(refused.calls.setAppMetadata).toEqual([]);
 
-    const paid = apiOf({ validateToken: () => ({ iss: TERMS_TOKEN_AUDIENCE, sub: USER, accepted: true }) });
-    await action.onContinuePostLogin(userEvent, paid.api);
-    expect(paid.calls.deny).toEqual([]);
-    expect(paid.calls.setAppMetadata).toEqual([]);
+    const notRecorded = apiOf({ validateToken: () => ({ iss: TERMS_TOKEN_AUDIENCE, not_recorded: "account_store_unavailable" }) });
+    await action.onContinuePostLogin(userEvent, notRecorded.api);
+    expect([...notRecorded.calls.deny, ...notRecorded.calls.setAppMetadata]).toEqual([]);
+
+    expect(logged()).toEqual(["askrigor-terms: accepted (version recorded)", "askrigor-terms: sign-in ended (declined)",
+      "askrigor-terms: let through, nothing recorded (answer_not_verified)",
+      "askrigor-terms: let through, nothing recorded (page: account_store_unavailable)"]);
   });
 });
 
@@ -302,16 +357,17 @@ describe("a round trip through AskRigor's page", () => {
     return payload;
   }
 
-  async function startPage() {
+  async function startPage(options: { serverSecret?: string; access?: AccountTermsAccess } = {}) {
     const store = new InMemoryResearchContributorAccessStore();
     const service = new ResearchContributorAccessService({ store, identitySecret: Buffer.alloc(32, 9),
       now: () => NOW.toISOString() });
     const server = createAskRigorHttpServer({
       researchContributorAccessService: service,
       accountTermsRoutes: createAccountTermsRoutes({
-        settings: accountTermsSettingsFromEnv({ ASKRIGOR_AUTH0_TERMS_SECRET: SECRET, ASKRIGOR_OAUTH_ENABLED: "true",
-          ASKRIGOR_OAUTH_ISSUER_URL: `https://${TENANT}/` }),
-        access: service,
+        settings: accountTermsSettingsFromEnv({ ASKRIGOR_AUTH0_TERMS_SECRET: options.serverSecret ?? SECRET,
+          ASKRIGOR_OAUTH_ENABLED: "true", ASKRIGOR_OAUTH_ISSUER_URL: `https://${TENANT}/` }),
+        access: options.access ?? service,
+        answers: new InMemoryTermsPageAnswerStore(),
         rateLimiter: createTokenBucketLimiter(PUBLIC_RATE_LIMIT),
         now: () => NOW,
       }),
@@ -321,12 +377,13 @@ describe("a round trip through AskRigor's page", () => {
     return { base: new URL(`http://127.0.0.1:${(server.address() as AddressInfo).port}`), store, service };
   }
 
-  /** The Action sends the person; the page is shown; the person answers; the Action reads the answer. */
-  async function signIn(decision: "accept" | "decline") {
-    const page = await startPage();
+  /** The Action sends the person; the page is shown or passes them on; they answer; the Action reads the answer. */
+  async function signIn(decision: "accept" | "decline" | "none", options: Parameters<typeof startPage>[0] = {}) {
+    const page = await startPage(options);
     const event = eventOf();
     // Auth0's encodeToken returns at once; the token it would return for the Action's request is made beforehand.
-    const request = { secret: SECRET, expiresInSeconds: 600, payload: { aud: TERMS_TOKEN_AUDIENCE } };
+    const request = { secret: SECRET, expiresInSeconds: 600,
+      payload: { aud: TERMS_TOKEN_AUDIENCE, continue_uri: `https://${TENANT}/continue` } };
     const token = await auth0EncodeToken(event)(request);
     const sender = apiOf({ encodeToken: (input) => { expect(input).toEqual(request); return token; } });
     await action.onExecutePostLogin(event, sender.api);
@@ -336,17 +393,27 @@ describe("a round trip through AskRigor's page", () => {
     const address = new URL(sent.url);
     address.searchParams.set("session_token", token);
     address.searchParams.set("state", STATE);
-    const visit = new URL(`${address.pathname}${address.search}`, page.base);
-    const shown = await (await fetch(visit)).text();
-    expect(shown).toContain("Accept and continue");
-    const answered = await (await fetch(new URL("/account/terms", page.base), {
-      method: "POST", body: new URLSearchParams({ session_token: token, state: STATE, decision }),
-    })).text();
+    let answered = await (await fetch(new URL(`${address.pathname}${address.search}`, page.base))).text();
+    if (decision !== "none") {
+      expect(answered).toContain("Accept and continue");
+      answered = await (await fetch(new URL("/account/terms", page.base), {
+        method: "POST", body: new URLSearchParams({ session_token: token, state: STATE,
+          notice_version: RESEARCH_USE_NOTICE_VERSION, decision }),
+      })).text();
+    }
     const form = /<form id="continue" method="post" action="([^"]+)">/u.exec(answered)![1]!;
     expect(new URL(form.replaceAll("&amp;", "&")).href).toBe(`https://${TENANT}/continue?state=${STATE}`);
     const answer = /<input type="hidden" name="session_token" value="([^"]+)">/u.exec(answered)![1]!;
-    const payload = await auth0ValidateToken(answer, STATE);
-    const receiver = apiOf({ validateToken: () => payload });
+    let validated: unknown;
+    try {
+      validated = await auth0ValidateToken(answer, STATE);
+    } catch (error) {
+      validated = error;
+    }
+    const receiver = apiOf({ validateToken: () => {
+      if (validated instanceof Error) throw validated;
+      return validated;
+    } });
     await action.onContinuePostLogin(event, receiver.api);
     // The Action's own token can never stand in for the answer: it has no state for Auth0 to match.
     await expect(auth0ValidateToken(token, STATE)).rejects.toThrow("State in the token does not match");
@@ -366,5 +433,23 @@ describe("a round trip through AskRigor's page", () => {
     expect(store.allAccounts()).toEqual([]);
     expect(receiver.calls.deny).toEqual([termsAction.DECLINED]);
     expect(receiver.calls.setAppMetadata).toEqual([]);
+  });
+
+  it("a server whose secret isn't the Action's: the person is let through, and nothing is recorded anywhere", async () => {
+    const { store, receiver } = await signIn("none", { serverSecret: OTHER_SECRET });
+    expect(store.allAccounts()).toEqual([]);
+    expect([...receiver.calls.deny, ...receiver.calls.setAppMetadata]).toEqual([]);
+    expect(logged().at(-1)).toBe("askrigor-terms: let through, nothing recorded (answer_not_verified)");
+  });
+
+  it("an account store that doesn't answer: the person is let through, and nothing is recorded anywhere", async () => {
+    const down: AccountTermsAccess = {
+      signInNoticeStatus: async () => { throw new Error("synthetic store failure"); },
+      acceptFreeContributor: async () => { throw new Error("synthetic store failure"); },
+    };
+    const { store, receiver } = await signIn("none", { access: down });
+    expect(store.allAccounts()).toEqual([]);
+    expect([...receiver.calls.deny, ...receiver.calls.setAppMetadata]).toEqual([]);
+    expect(logged().at(-1)).toBe("askrigor-terms: let through, nothing recorded (page: account_store_unavailable)");
   });
 });

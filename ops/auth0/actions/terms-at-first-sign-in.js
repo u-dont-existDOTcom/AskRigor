@@ -6,14 +6,21 @@
  * onExecutePostLogin sends a person to AskRigor's terms page (/account/terms) with a token signed by Auth0
  * (api.redirect.encodeToken) under the secret the server shares (its ASKRIGOR_AUTH0_TERMS_SECRET), only on an
  * interactive sign-in: never on a refresh-token exchange or any other token grant, never with prompt=none (Auth0 answers
- * a redirect there with an error), at most once per transaction, and not when the user's app_metadata already records the
- * current notice version. The page shows the free-use notice, or goes straight back when the account's yes already
- * covers it, and posts its signed answer to Auth0's /continue. Should sending fail unexpectedly, the sign-in goes on as
- * before 419a: AskRigor's research tools still refuse an account until the notice is accepted.
+ * a redirect there with an error), at most once per transaction, only for the applications APPLY_TO names, and not when
+ * the user's app_metadata already records the current notice version. The token also carries the /continue of the
+ * domain the person signs in through, where the page sends its answer. The page shows the free-use notice, or goes
+ * straight back when the account's yes already covers it, and posts its signed answer to that /continue.
  *
  * onContinuePostLogin checks that answer with api.redirect.validateToken (signature, expiry, the transaction's state).
- * Declined, it ends the sign-in with a plain reason (api.access.deny: without it the sign-in would go on). Accepted, it
- * records the version the answer names in app_metadata, so the page is not shown again until the version changes.
+ * A verified Decline ends the sign-in with a plain reason (api.access.deny: without it the sign-in would go on). A
+ * verified acceptance records the version the answer names in app_metadata, so the page is not shown again until the
+ * version changes. Anything else (an answer that does not verify, none at all, or the page's "not recorded" when it
+ * could not take an answer) lets the sign-in go on with nothing recorded (the security review of 26 Nov 2026: a failure
+ * of the page must not strand people), and AskRigor's research tools still refuse an account until the notice is
+ * accepted. Should sending fail unexpectedly, the sign-in goes on the same way.
+ *
+ * Each run logs one line of why it sent, skipped, ended or let a sign-in through (console.log, which Auth0 shows in its
+ * logs): fixed words and reason codes only, never a user's ID, email, token, state or address.
  *
  * The decisions are plain functions, exported beside the two handlers, so AskRigor's tests run them without Auth0
  * (tests/auth0-terms-action.test.ts).
@@ -37,14 +44,17 @@ const INTERACTIVE_PROTOCOLS = new Set(["oidc-basic-profile", "oidc-implicit-prof
 /** Marks a transaction already sent to the page, for at most the transaction's life. */
 const SENT_PREFIX = "askrigor-terms-sent:";
 const SENT_TTL_MS = 15 * 60 * 1000;
+/** Every line this Action logs starts so. */
+const LOG_PREFIX = "askrigor-terms: ";
 
 const SECRET = /^[A-Za-z0-9_-]{43,512}$/;
 const NOTICE_VERSION = /^free-contributor-v[1-9][0-9]*-[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+const HOSTNAME = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+/** The page's reasons for "not recorded", as the log shows them; anything else is logged as "other". */
+const REASON = /^[a-z_]{1,40}$/;
 
 const DECLINED = "You declined AskRigor's free-use notice, so you weren't signed in. To use AskRigor, sign in " +
   "again and accept it.";
-const UNCONFIRMED = "AskRigor couldn't confirm your answer to its free-use notice, so you weren't signed in. " +
-  "Sign in again.";
 
 /**
  * The Action's settings, from its secrets: TERMS_SECRET (shared with AskRigor's server), TERMS_PAGE_URL (the page,
@@ -93,6 +103,17 @@ function sentKey(event) {
 }
 
 /**
+ * The /continue of the domain this sign-in goes through (event.request.hostname, Auth0's own or a custom domain), for
+ * the page to send its answer to; nothing when Auth0 gives no such hostname, and the page uses the tenant's own.
+ */
+function continueUriOf(event) {
+  const host = event && event.request && typeof event.request.hostname === "string"
+    ? event.request.hostname.toLowerCase()
+    : "";
+  return HOSTNAME.test(host) ? { continue_uri: `https://${host}/continue` } : {};
+}
+
+/**
  * Whether this sign-in goes to the page, and why: { redirect, reason }. alreadySent says this transaction was sent
  * already (the Action's cache), so a person is redirected at most once per transaction.
  */
@@ -110,38 +131,62 @@ function redirectDecision(event, settings, alreadySent) {
   return { redirect: true, reason: "ask" };
 }
 
+/** A sign-in that goes on with nothing recorded, and why. */
+function letThrough(reason) {
+  return { deny: false, noticeVersion: undefined, log: `let through, nothing recorded (${reason})` };
+}
+
 /**
  * What the page's answer, already checked by api.redirect.validateToken, means for this sign-in:
- * { deny: true, reason } or { deny: false, noticeVersion } (noticeVersion undefined when the answer names none, as for a
- * paid private account). Its issuer and subject, when the payload carries them, must be the page's and this user's.
+ * { deny, reason?, noticeVersion?, log }. Only a Decline ends it; an acceptance records its version unless the answer is
+ * for another user; anything else lets it through with nothing recorded.
  */
 function continueDecision(payload, event) {
-  if (payload === null || typeof payload !== "object") return { deny: true, reason: UNCONFIRMED };
-  if (payload.iss !== undefined && payload.iss !== TERMS_AUDIENCE) return { deny: true, reason: UNCONFIRMED };
+  if (payload === null || typeof payload !== "object") return letThrough("answer_unreadable");
+  if (payload.iss !== undefined && payload.iss !== TERMS_AUDIENCE) return letThrough("answer_from_elsewhere");
+  if (typeof payload.not_recorded === "string") {
+    return letThrough(`page: ${REASON.test(payload.not_recorded) ? payload.not_recorded : "other"}`);
+  }
+  if (payload.accepted === false) return { deny: true, reason: DECLINED, log: "sign-in ended (declined)" };
+  if (payload.accepted !== true) return letThrough("answer_without_decision");
   const userId = event && event.user && event.user.user_id;
-  if (payload.sub !== undefined && payload.sub !== userId) return { deny: true, reason: UNCONFIRMED };
-  if (payload.accepted === false) return { deny: true, reason: DECLINED };
-  if (payload.accepted !== true) return { deny: true, reason: UNCONFIRMED };
+  if (payload.sub !== undefined && payload.sub !== userId) return letThrough("answer_for_another_user");
   const version = payload.notice_version;
-  return { deny: false, noticeVersion: typeof version === "string" && NOTICE_VERSION.test(version) ? version : undefined };
+  return typeof version === "string" && NOTICE_VERSION.test(version)
+    ? { deny: false, noticeVersion: version, log: "accepted (version recorded)" }
+    : { deny: false, noticeVersion: undefined, log: "accepted (no version to record)" };
+}
+
+function log(line) {
+  console.log(LOG_PREFIX + line);
 }
 
 exports.onExecutePostLogin = async (event, api) => {
   const settings = settingsOf(event.secrets);
-  // Every other sign-in (a renewal, another application, a version already recorded) touches nothing at all.
-  if (!redirectDecision(event, settings, false).redirect) return;
+  // Every other sign-in (a renewal, another application, a version already recorded) touches nothing but the log.
+  const first = redirectDecision(event, settings, false);
+  if (!first.redirect) {
+    log(`skipped (${first.reason})`);
+    return;
+  }
   try {
     const key = sentKey(event);
-    if (!redirectDecision(event, settings, api.cache.get(key) !== undefined).redirect) return;
+    const decision = redirectDecision(event, settings, api.cache.get(key) !== undefined);
+    if (!decision.redirect) {
+      log(`skipped (${decision.reason})`);
+      return;
+    }
     api.cache.set(key, "1", { ttl: SENT_TTL_MS });
     const token = api.redirect.encodeToken({
       secret: settings.secret,
       expiresInSeconds: TOKEN_SECONDS,
-      payload: { aud: TERMS_AUDIENCE },
+      payload: { aud: TERMS_AUDIENCE, ...continueUriOf(event) },
     });
     api.redirect.sendUserTo(settings.pageUrl, { query: { [TOKEN_FIELD]: token } });
+    log("sent to the terms page");
   } catch (error) {
     // The sign-in goes on as before 419a: AskRigor's research tools still refuse until the notice is accepted.
+    log("skipped (send_failed)");
   }
 };
 
@@ -152,10 +197,12 @@ exports.onContinuePostLogin = async (event, api) => {
     if (settings === undefined) throw new Error("not configured");
     payload = api.redirect.validateToken({ secret: settings.secret, tokenParameterName: TOKEN_FIELD });
   } catch (error) {
-    api.access.deny(UNCONFIRMED);
+    // No answer, or one that doesn't verify (another secret, an expired or altered token): nothing is recorded.
+    log("let through, nothing recorded (answer_not_verified)");
     return;
   }
   const decision = continueDecision(payload, event);
+  log(decision.log);
   if (decision.deny) {
     api.access.deny(decision.reason);
     return;
@@ -169,9 +216,10 @@ exports.termsAction = Object.freeze({
   TOKEN_FIELD,
   TOKEN_SECONDS,
   METADATA_KEY,
+  LOG_PREFIX,
   DECLINED,
-  UNCONFIRMED,
   settingsOf,
   redirectDecision,
   continueDecision,
+  continueUriOf,
 });

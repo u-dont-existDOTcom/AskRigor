@@ -728,4 +728,12 @@ export {
   type GeminiSignInRowStore,
   type GeminiSignInStoredRow,
 } from "./gemini-sign-in-rows.js";
+export {
+  InMemoryTermsPageAnswerStore,
+  PostgresTermsPageAnswerStore,
+  TERMS_PAGE_DECISIONS,
+  type TermsPageAnswerStore,
+  type TermsPageClaim,
+  type TermsPageDecision,
+} from "./terms-page-answers.js";
 export * from "./atlas-person-claims.js";

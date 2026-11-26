@@ -5,6 +5,8 @@ import {
   type FreeContributorAgreement,
   type ResearchContributorAccessService,
   type SignInNoticeStatus,
+  type TermsPageAnswerStore,
+  type TermsPageClaim,
 } from "@askrigor/evidence-repository";
 
 import { readForm } from "../atlas/participation.js";
@@ -13,6 +15,7 @@ import {
   ANSWER_POLICY,
   PAGE_POLICY,
   answerPage,
+  answeredPage,
   expiredPage,
   noticePage,
   tooManyRequestsPage,
@@ -20,26 +23,33 @@ import {
 } from "./pages.js";
 import {
   ACCOUNT_TERMS_PATH,
+  TERMS_STATE,
   TERMS_TOKEN_FIELD,
+  checkTermsVisit,
   signTermsAnswer,
-  verifyTermsVisit,
   type AccountTermsSettings,
   type TermsAnswer,
-  type TermsVisit,
+  type TermsReturn,
 } from "./tokens.js";
 
 /**
  * GET and POST /account/terms (owner answer 419a): the free-use notice right after a person's first sign-in, between
- * Auth0's post-login Action and Auth0's /continue (tokens.ts). A GET only reads; the token the Action signed is the
- * guard of every request, and a POST carries it back from the notice's own form.
+ * Auth0's post-login Action and Auth0's /continue (tokens.ts).
  *
- * - GET with a valid token: an account whose yes covers the current notice (or the owner's own free login, under the
- *   owner's standing instruction), or an active paid private account, goes straight back as accepted; any other is
- *   shown the notice, with "Accept and continue" and "Decline".
- * - POST accept: the yes is recorded as accept_free_contributor records it (the same agreement, the current version),
- *   noted as given on this page (PERSON_SIGN_IN_PAGE), unless the account needs no question; then back as accepted.
- * - POST decline: nothing is recorded; back as declined, and the Action ends the sign-in.
- * - Without a valid token: a page saying the link expired, and nothing is read or recorded.
+ * - GET only reads. With a valid token: an account whose yes covers the current notice (or the owner's own free login,
+ *   under the owner's standing instruction), or an active paid private account, goes straight back as accepted; any
+ *   other is shown the notice, with "Accept and continue" and "Decline", which post the token back with the notice
+ *   version shown.
+ * - POST uses the token once (the security review of 26 Nov 2026): the first answer claims it, by its SHA-256, until it
+ *   can no longer be used; a later POST records nothing, gets the same answer again for the same decision (a double
+ *   press) and is refused for the other, so a Decline never becomes a yes. Accept records the yes as
+ *   accept_free_contributor does, noted PERSON_SIGN_IN_PAGE, and only for the current notice: a page showing an earlier
+ *   one is shown again with the current one. Decline records nothing, and the Action ends the sign-in.
+ * - A failure never strands the sign-in, and never records a yes: a token that does not check out (a secret or issuer
+ *   that differs from the Action's, an expired or altered token) or an account store that does not answer sends the
+ *   person back with a signed "not recorded" answer, which the Action lets through; AskRigor's research tools still
+ *   refuse until the notice is accepted. A Decline is honoured whenever the token's signature is the Action's.
+ * - A request with no single token or state: a page saying the link expired, and nothing is read or recorded.
  */
 export interface AccountTermsRoutes {
   /** Handles the request when its path is the terms page's, and says so; false leaves it to the server. */
@@ -51,10 +61,12 @@ export interface AccountTermsRoutes {
 export type AccountTermsAccess = Pick<ResearchContributorAccessService, "signInNoticeStatus" | "acceptFreeContributor">;
 
 export interface AccountTermsOptions {
-  /** accountTermsSettingsFromEnv(); undefined while ASKRIGOR_AUTH0_TERMS_SECRET is unset, and the page answers 503. */
+  /** accountTermsSettingsFromEnv(); without it, or without its secret, the page answers 503. */
   settings: AccountTermsSettings | undefined;
   /** The connector's research accounts; undefined without them, and the page answers 503. */
   access: AccountTermsAccess | undefined;
+  /** The answers the page has taken (migration 0044); undefined without the research-access database: 503. */
+  answers: TermsPageAnswerStore | undefined;
   rateLimiter: TokenBucketLimiter;
   now?: () => Date;
 }
@@ -76,6 +88,12 @@ function answerWithoutAsking(status: SignInNoticeStatus): TermsAnswer | undefine
   return undefined;
 }
 
+/** A field's one value; undefined when it is missing or given more than once. */
+function single(fields: URLSearchParams, name: string): string | undefined {
+  const values = fields.getAll(name);
+  return values.length === 1 ? values[0] : undefined;
+}
+
 export function createAccountTermsRoutes(options: AccountTermsOptions): AccountTermsRoutes {
   const now = options.now ?? (() => new Date());
 
@@ -94,52 +112,77 @@ export function createAccountTermsRoutes(options: AccountTermsOptions): AccountT
     response.end(body);
   };
 
-  const goBack = async (response: ServerResponse, visit: TermsVisit, answer: TermsAnswer,
-    settings: AccountTermsSettings) => {
-    const token = await signTermsAnswer(visit, answer, settings, now());
-    write(response, 200, answerPage({ continueUrl: settings.continueUrl, token, state: visit.state }), ANSWER_POLICY);
+  const goBack = async (response: ServerResponse, back: TermsReturn, answer: TermsAnswer, secret: Uint8Array) => {
+    const token = await signTermsAnswer(back, answer, secret, now());
+    const kind = "notRecorded" in answer ? "not_recorded" : answer.accepted ? "accepted" : "declined";
+    write(response, 200, answerPage({ continueUrl: back.continueUrl, token, state: back.state, kind }), ANSWER_POLICY);
   };
 
-  /** The one token and the one state a request carries, checked; undefined for any other request. */
-  const visitOf = async (fields: URLSearchParams, settings: AccountTermsSettings) => {
-    const tokens = fields.getAll(TERMS_TOKEN_FIELD);
-    const states = fields.getAll("state");
-    if (tokens.length !== 1 || states.length !== 1) return undefined;
-    const visit = await verifyTermsVisit(tokens[0], states[0], settings, now());
-    return visit === undefined ? undefined : { visit, token: tokens[0]! };
-  };
-
-  const show = async (request: IncomingMessage, response: ServerResponse, settings: AccountTermsSettings,
-    access: AccountTermsAccess) => {
-    const checked = await visitOf(new URLSearchParams(queryOf(request.url)), settings);
-    if (checked === undefined) return write(response, 400, expiredPage());
-    const answer = answerWithoutAsking(await access.signInNoticeStatus(checked.visit.subject));
-    if (answer !== undefined) return await goBack(response, checked.visit, answer, settings);
-    write(response, 200, noticePage({ token: checked.token, state: checked.visit.state }));
-  };
-
-  const decide = async (request: IncomingMessage, response: ServerResponse, settings: AccountTermsSettings,
-    access: AccountTermsAccess) => {
-    let form: URLSearchParams;
+  /** What is recorded for the account, as an answer; nothing recorded when the store doesn't answer. */
+  const recordedAnswer = async (access: AccountTermsAccess, subject: string): Promise<TermsAnswer | "ask"> => {
     try {
-      form = await readForm(request);
+      return answerWithoutAsking(await access.signInNoticeStatus(subject)) ?? "ask";
     } catch {
-      return write(response, 400, expiredPage());
+      return { notRecorded: "account_store_unavailable" };
     }
-    const checked = await visitOf(form, settings);
-    const decisions = form.getAll("decision");
-    if (checked === undefined || decisions.length !== 1 || !["accept", "decline"].includes(decisions[0]!)) {
-      return write(response, 400, expiredPage());
+  };
+
+  const show = async (query: URLSearchParams, response: ServerResponse, settings: AccountTermsSettings,
+    secret: Uint8Array, access: AccountTermsAccess) => {
+    const token = single(query, TERMS_TOKEN_FIELD);
+    const check = await checkTermsVisit(token, single(query, "state"), { ...settings, secret }, now());
+    if (check.kind === "malformed") return write(response, 400, expiredPage());
+    if (check.kind === "unverified") return await goBack(response, check.back, { notRecorded: "link_not_verified" }, secret);
+    const answer = await recordedAnswer(access, check.visit.subject);
+    if (answer !== "ask") return await goBack(response, check.visit, answer, secret);
+    write(response, 200, noticePage({ token: token!, state: check.visit.state, noticeVersion: RESEARCH_USE_NOTICE_VERSION }));
+  };
+
+  const decide = async (form: URLSearchParams, response: ServerResponse, settings: AccountTermsSettings,
+    secret: Uint8Array, access: AccountTermsAccess, answers: TermsPageAnswerStore) => {
+    const token = single(form, TERMS_TOKEN_FIELD);
+    const decision = single(form, "decision");
+    if (decision !== "accept" && decision !== "decline") return write(response, 400, expiredPage());
+    const check = await checkTermsVisit(token, single(form, "state"), { ...settings, secret }, now());
+    if (check.kind === "malformed") return write(response, 400, expiredPage());
+    if (check.kind === "unverified") {
+      // A Decline goes back as one whenever the signature is the Action's; with a token not even signed by it, the
+      // sign-in simply doesn't go on from here.
+      if (decision === "decline") {
+        return check.signed ? await goBack(response, check.back, { accepted: false }, secret) : write(response, 400, expiredPage());
+      }
+      return await goBack(response, check.back, { notRecorded: "link_not_verified" }, secret);
     }
-    if (decisions[0] === "decline") return await goBack(response, checked.visit, { accepted: false }, settings);
-    // Read again: an account the GET would not have asked (a second press, or a yes given meanwhile in an app) is not
-    // written over, and a paid private account is never switched to free use from here.
-    const answer = answerWithoutAsking(await access.signInNoticeStatus(checked.visit.subject));
-    if (answer === undefined) {
-      await access.acceptFreeContributor(checked.visit.subject, AGREEMENT, "PERSON_SIGN_IN_PAGE");
+    const visit = check.visit;
+    // A yes counts only for the notice the person was shown, as accept_free_contributor refuses an earlier version's:
+    // the page is shown again with the current notice, and the token stays unused.
+    if (decision === "accept" && single(form, "notice_version") !== RESEARCH_USE_NOTICE_VERSION) {
+      return write(response, 200, noticePage({ token: token!, state: visit.state, noticeVersion: RESEARCH_USE_NOTICE_VERSION,
+        changed: true }));
     }
-    await goBack(response, checked.visit, answer ?? { accepted: true, noticeVersion: RESEARCH_USE_NOTICE_VERSION },
-      settings);
+    let claim: TermsPageClaim;
+    try {
+      claim = await answers.claim(visit.tokenSha256, decision, visit.usableUntil, now());
+    } catch {
+      return await goBack(response, visit, decision === "decline" ? { accepted: false }
+        : { notRecorded: "account_store_unavailable" }, secret);
+    }
+    // A token used for one answer never gives the other: a declined token never becomes a yes.
+    if (!claim.claimed && claim.decision !== decision) return write(response, 409, answeredPage());
+    if (decision === "decline") return await goBack(response, visit, { accepted: false }, secret);
+    // Accept. An account the GET would not have asked (a yes given meanwhile in an app, or by this token's first press)
+    // is not written over, and a paid private account is never switched to free use from here.
+    const answer = await recordedAnswer(access, visit.subject);
+    if (answer !== "ask") return await goBack(response, visit, answer, secret);
+    // Only the request that claimed the token records: a second press whose first press recorded nothing records
+    // nothing either.
+    if (!claim.claimed) return await goBack(response, visit, { notRecorded: "already_answered" }, secret);
+    try {
+      await access.acceptFreeContributor(visit.subject, AGREEMENT, "PERSON_SIGN_IN_PAGE");
+    } catch {
+      return await goBack(response, visit, { notRecorded: "account_store_unavailable" }, secret);
+    }
+    await goBack(response, visit, { accepted: true, noticeVersion: RESEARCH_USE_NOTICE_VERSION }, secret);
   };
 
   return {
@@ -158,16 +201,34 @@ export function createAccountTermsRoutes(options: AccountTermsOptions): AccountT
         response.end("Method not allowed");
         return true;
       }
-      const { settings, access } = options;
-      if (settings === undefined || access === undefined) {
-        write(response, 503, unavailablePage());
+      const { settings, access, answers } = options;
+      let fields: URLSearchParams;
+      if (request.method === "GET") {
+        fields = new URLSearchParams(queryOf(request.url));
+      } else {
+        try {
+          fields = await readForm(request);
+        } catch {
+          write(response, 400, expiredPage());
+          return true;
+        }
+      }
+      if (settings?.secret === undefined || access === undefined || answers === undefined) {
+        // Not set up: with the tenant known and a well-formed state, a plain way on that records nothing; never after a
+        // Decline, which must not become a sign-in.
+        const state = single(fields, "state");
+        const wayOn = settings !== undefined && state !== undefined && TERMS_STATE.test(state) &&
+          single(fields, "decision") !== "decline"
+          ? { continueUrl: settings.continueUrl, state }
+          : undefined;
+        write(response, 503, unavailablePage(wayOn));
         return true;
       }
       try {
-        if (request.method === "GET") await show(request, response, settings, access);
-        else await decide(request, response, settings, access);
+        if (request.method === "GET") await show(fields, response, settings, settings.secret, access);
+        else await decide(fields, response, settings, settings.secret, access, answers);
       } catch {
-        // The account store didn't answer, or a write failed: no answer goes back to Auth0, and the sign-in waits.
+        // Not a failure the steps above expect: no answer goes back, and the person signs in again.
         if (!response.headersSent) write(response, 503, unavailablePage());
         else response.end();
       }

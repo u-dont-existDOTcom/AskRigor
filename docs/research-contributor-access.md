@@ -133,10 +133,14 @@ annoying". Released 9 November 2026:
   (`ops/auth0/actions/terms-at-first-sign-in.js`) and Auth0's `/continue`, shows this notice word for word. Accept
   writes the record `accept_free_contributor` writes, through the same service method and agreement, with
   `notice_accepted_by` `PERSON_SIGN_IN_PAGE` (migration `0044_research_notice_sign_in_page` admits it); `inspect` shows
-  it as the person's own yes. Decline writes nothing and Auth0 ends the sign-in. The page asks nothing of an account
-  whose yes covers the current notice, of the owner's own free login (the standing instruction still records its
-  acceptance at its next research call) or of an active paid private account, which it never switches to free use;
-  it lets them through at once. `accept_free_contributor` stays for the sign-ins the page doesn't reach (token
+  it as the person's own yes, and only for the notice version the page showed (a page showing an earlier one is shown
+  again with the current one). Decline writes nothing and Auth0 ends the sign-in. Each of the Action's tokens answers
+  once: the first answer is kept by the token's SHA-256 until the token expires (`research_terms_page_answers`), so a
+  copy of the page's address records nothing and a Decline never becomes a yes. When the page can't take an answer (the
+  database, a secret or issuer that differs from the Action's, an expired or altered token) it lets the sign-in go on
+  with a signed "not recorded" answer, writing nothing. The page asks nothing of an account whose yes covers the current
+  notice, of the owner's own free login (the standing instruction still records its acceptance at its next research
+  call) or of an active paid private account, which it never switches to free use; it lets them through at once. `accept_free_contributor` stays for the sign-ins the page doesn't reach (token
   renewals, `prompt=none`, a login from before the Action) and for apps that never sign in again, and the research
   tools' refusal stays the backstop.
 

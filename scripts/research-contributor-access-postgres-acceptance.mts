@@ -30,6 +30,7 @@ import {
   PostgresResearchContributorAccessStore,
   PostgresResearchCallRecordStore,
   PostgresResearchUserCounts,
+  PostgresTermsPageAnswerStore,
   PostgresResearchDossierEraser,
   PostgresResearchDossierStore,
   RESEARCH_CALL_RECORD_RETENTION_MS,
@@ -1153,6 +1154,21 @@ async function verifyNoticeAcceptance(context: {
     "SIGN_IN_PAGE_ACCEPTANCE_NOT_SHOWN");
   assert(await person.signInNoticeStatus(pageSubject) === "covered", "SIGN_IN_PAGE_ACCEPTANCE_NOT_COVERED");
   checks.push("sign_in_page_acceptance_written_through_access_role");
+  // The security review of 26 Nov 2026: each of the Action's tokens answers once, kept by its SHA-256 through the access
+  // role, which can't change an answer; six concurrent first claims leave exactly one winner.
+  const answers = new PostgresTermsPageAnswerStore(restricted, SCHEMA);
+  const answeredAt = new Date(NOW);
+  const usableUntil = new Date(answeredAt.getTime() + 690_000);
+  assert(isDeepStrictEqual(await answers.claim("c".repeat(64), "decline", usableUntil, answeredAt), { claimed: true }),
+    "TERMS_ANSWER_NOT_CLAIMED");
+  assert(isDeepStrictEqual(await answers.claim("c".repeat(64), "accept", usableUntil, answeredAt),
+    { claimed: false, decision: "decline" }), "TERMS_DECLINE_BECAME_ANOTHER_ANSWER");
+  const raced = await Promise.all(Array.from({ length: 6 }, () =>
+    answers.claim("d".repeat(64), "accept", usableUntil, answeredAt)));
+  assert(raced.filter(({ claimed }) => claimed).length === 1, "TERMS_ANSWER_CLAIMED_TWICE");
+  await expectPermissionDenied(() => restricted.query(`UPDATE ${SCHEMA}.research_terms_page_answers SET decision = 'accept'`));
+  await admin.query(`DELETE FROM ${SCHEMA}.research_terms_page_answers`);
+  checks.push("terms_page_token_answers_once_through_access_role");
 
   // Under the notice before the current one, v5 (as the v1 to v5 loop above sets one), the owner's login accepts the
   // current one, v6 (owner answer 307b, material), by the standing instruction, recorded with its time; another
