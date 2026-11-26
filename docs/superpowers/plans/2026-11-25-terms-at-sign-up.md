@@ -1,7 +1,8 @@
 # Accepting AskRigor's terms when the account is created (owner question 419)
 
-Status: proposed on 25 November 2026; nothing is built or changed until the owner chooses 419a, b or c. Any change to
-AskRigor's sign-in at Auth0, and the server release, each need the owner's yes in chat.
+Status: proposed on 25 November 2026; the owner chose 419a in chat on 26 November, and it is built on a branch, not
+released (below, "Built (not released)"). Any change to AskRigor's sign-in at Auth0, and the server release, each need
+the owner's yes in chat.
 
 ## What happened (25 November 2026)
 
@@ -66,6 +67,82 @@ choice, and the owner's logins accepting new versions by the standing instructio
   carries the yes; the owner's logins accept by the standing instruction; declining ends the sign-in and keeps
   nothing; the page cannot be loaded without the signed token.
 
+## Built (not released)
+
+Built on 26 November 2026 on a branch; nothing is deployed and no Auth0 setting is changed.
+
+- **AskRigor's page**, `GET` and `POST /account/terms` on the research server (`apps/research-mcp/src/account-terms/`):
+  the Auth0 Action's token (HS256 under the shared secret; the tenant the connector trusts as issuer, written as its
+  hostname by `api.redirect.encodeToken`; audience `askrigor-terms`; valid ten minutes at most; a subject) and the
+  address's `state` are checked on every request. A `GET` only reads: an account whose yes covers the current notice
+  goes straight back as accepted, and any other is shown `RESEARCH_USE_NOTICE` word for word, one sentence per
+  paragraph, with the Terms and Privacy links and "Accept and continue" and "Decline", both posting the same token
+  back. Accept records the yes with `acceptFreeContributor`, the method `accept_free_contributor` calls, with the same
+  agreement and version, noted as `PERSON_SIGN_IN_PAGE`; Decline records nothing. Both answer with a page that posts a
+  new token (`iss` `askrigor-terms`, `sub`, `state`, `accepted`, `notice_version` when the yes covers the current
+  notice, valid five minutes) to `https://<tenant>/continue?state=<state>` by itself, the token only in the body.
+  Without a valid token the page says the link expired and records nothing; with the secret unset it answers 503.
+- **The record**: `NOTICE_ACCEPTED_BY` gains `PERSON_SIGN_IN_PAGE`, and migration `0044_research_notice_sign_in_page`
+  widens 0031's check for it, under the same name, and changes nothing else (tried on PostgreSQL 16: migrate twice, an
+  earlier image's migrate after it, the value written and read through the store, any other value refused, the
+  rollback's mapping). `inspect` and the Atlas show it as the person's own yes.
+- **The Auth0 Action**, `ops/auth0/actions/terms-at-first-sign-in.js`, with its secrets, how its `NOTICE_VERSION` is
+  kept in step with the server, the install steps and the rollback in `terms-at-first-sign-in.md` beside it. It
+  redirects only an interactive OpenID Connect sign-in, never a refresh-token exchange or another grant, never
+  `prompt=none`, at most once per transaction (Auth0's Action cache, by transaction ID), only for the applications in
+  its `APPLY_TO` secret, and not when `app_metadata.askrigor_notice_version` already holds the current version. On
+  return it checks the answer with `api.redirect.validateToken`, denies a declined sign-in with a plain reason, and
+  records the accepted version in `app_metadata`.
+- **Tests**: `tests/account-terms.test.ts` and `tests/auth0-terms-action.test.ts`, the second with a round trip through
+  the page in which Auth0's documented token behaviour is simulated; the migration's place and shape in
+  `tests/living-evidence-production-deployment.test.ts`. No tool's name, description or schema changed.
+
+**Environment variable**: `ASKRIGOR_AUTH0_TERMS_SECRET`, 43 or more base64url characters (for example 32 random bytes,
+`openssl rand -base64 32 | tr '+/' '-_' | tr -d '='`), the same value as the Action's `TERMS_SECRET`; never committed.
+The page also needs `ASKRIGOR_OAUTH_ENABLED=true` with `ASKRIGOR_OAUTH_ISSUER_URL`, and the research-access database.
+
+**Auth0 steps, each with the owner's yes** (`ops/auth0/actions/terms-at-first-sign-in.md` has the detail):
+
+1. Release the server with the secret set and migration 0044 run; until the Action is attached nobody reaches the page.
+   Check that mcp.askrigor.com's proxy adds no content policy of its own to `/account/terms`, whose answer page must be
+   free to post to Auth0.
+2. Create the Action (Login / Post Login) from `terms-at-first-sign-in.js`, with its four secrets: `TERMS_SECRET`,
+   `TERMS_PAGE_URL` (`https://mcp.askrigor.com/account/terms`), `NOTICE_VERSION` (`free-contributor-v6-2026-11-15`)
+   and `APPLY_TO`, naming only a dev application's client ID.
+3. Attach it to the Login flow (post-login trigger, after any other Action) and Apply.
+4. Try it through the dev application and a dev connector: the page once, Decline ending the sign-in with its reason,
+   Accept recorded and the sign-in finished, no page at the next sign-in, a token renewal untouched. Auth0's docs say
+   nothing of clients registered dynamically (ChatGPT's and Claude's), so try those before step 5.
+5. Then `APPLY_TO` `*`, for every application.
+
+**Rollback**: remove the Action from the post-login trigger and Apply; sign-ins go on as before at once. The page
+itself can stay. A server rollback to an image from before migration 0044 first maps `PERSON_SIGN_IN_PAGE` to `PERSON`
+(infra runbook, migration 0044), since such an image cannot read the value.
+
+**Choices this build made that the plan left open**:
+
+- Auth0 adds the transaction's `state` to the page's address only after the Action has run, so the Action's token
+  cannot carry it; a `state` claim, when present, must equal the address's. The binding that counts is on the way
+  back: the page's answer carries the state, and `validateToken` checks it against the transaction.
+- The page goes straight back, asking nothing, for an active paid private account (accepted, with no version, so the
+  Action records nothing and the page goes straight back at each sign-in) and for the owner's own free login, under the
+  standing instruction (the instruction records its acceptance at the next research call, as now). It never switches a
+  paid private account to free use; a second press of Accept, or a yes given meanwhile in an app, is not written over.
+- A revoked or never-enrolled account is asked; Accept enrols it in free use, as `accept_free_contributor` would.
+- The answer page's content policy has no `form-action`: Auth0's `/continue` answers with redirects to whichever app
+  is signing in, and Chromium checks each against `form-action` (Gemini's Allow page, 22 to 24 Nov). Its one script,
+  which sends the form, is allowed by its hash.
+- Gemini's link signs the person in through the same Auth0 login (`prompt=login`), so the Action covers it too.
+
+**Privacy page, a draft not published** (for the release that attaches the Action, under "Research-account identity"):
+
+> When you sign in to AskRigor from any app and your account doesn't yet hold a yes to AskRigor's current free-use
+> notice, AskRigor shows the notice before the sign-in finishes (a paid private account isn't asked). If you choose
+> Accept and continue, AskRigor records your yes on your research account, as it records a yes you give in an AI app:
+> the notice version, the time, and that you gave it on that page; Auth0 also keeps that version with your login, so
+> you aren't asked again until a new version collects or publishes more. If you choose Decline, nothing is recorded and
+> you aren't signed in.
+
 ## Sources
 
 - Auth0, "Redirect with Actions": https://auth0.com/docs/customize/actions/flows-and-triggers/login-flow/redirect-with-actions
@@ -73,3 +150,8 @@ choice, and the owner's logins accepting new versions by the standing instructio
   https://auth0.com/docs/secure/data-privacy-and-compliance/gdpr/gdpr-track-consent-with-lock
 - Auth0 Community, a declined terms page that did not stop the sign-in without `api.access.deny`:
   https://community.auth0.com/t/actions-pipeline-didnt-pause-when-redirect-user-to-custom-t-c-agreement-page/111068
+- Auth0, the post-login API object (`api.redirect.encodeToken`, `sendUserTo`, `validateToken` and its
+  `tokenParameterName`, `api.cache`, `api.access.deny`, `api.user.setAppMetadata`), read 26 Nov 2026:
+  https://auth0.com/docs/actions/reference/post-login/post-login-api-object.md
+- Auth0, the post-login event object (`event.transaction.id`, `protocol` and its values, `prompt`), read 26 Nov 2026:
+  https://auth0.com/docs/actions/reference/post-login/post-login-event-object.md
