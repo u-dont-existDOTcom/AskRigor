@@ -626,6 +626,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "PERSISTED",
   "PERSISTENCE",
   "PERSON",
+  "PERSON_SIGN_IN_PAGE",
   "PHARMACOVIGILANCE",
   "PHENOTYPE_ONLY",
   "PHOTO",

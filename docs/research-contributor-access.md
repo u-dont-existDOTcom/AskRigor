@@ -128,6 +128,17 @@ annoying". Released 9 November 2026:
   only a person's yes made one. A trigger clears the pair whenever a write moves `activated_at` without it (an image
   from before 0031, or the hold and restore scripts), so a stale way of acceptance never stays: `acceptedBy` then reads
   `null`, not recorded. `access.acceptance` is runtime-only; the published tool lists don't change.
+- **A yes on AskRigor's terms page at sign-in** (owner answer 419a, 26 November 2026; built, not yet released; plan
+  `docs/superpowers/plans/2026-11-25-terms-at-sign-up.md`). `/account/terms`, between Auth0's post-login Action
+  (`ops/auth0/actions/terms-at-first-sign-in.js`) and Auth0's `/continue`, shows this notice word for word. Accept
+  writes the record `accept_free_contributor` writes, through the same service method and agreement, with
+  `notice_accepted_by` `PERSON_SIGN_IN_PAGE` (migration `0044_research_notice_sign_in_page` admits it); `inspect` shows
+  it as the person's own yes. Decline writes nothing and Auth0 ends the sign-in. The page asks nothing of an account
+  whose yes covers the current notice, of the owner's own free login (the standing instruction still records its
+  acceptance at its next research call) or of an active paid private account, which it never switches to free use;
+  it lets them through at once. `accept_free_contributor` stays for the sign-ins the page doesn't reach (token
+  renewals, `prompt=none`, a login from before the Action) and for apps that never sign in again, and the research
+  tools' refusal stays the backstop.
 
 Version 4 (owner answer 171) kept every other sentence of v3 and made exactly
 these three changes:

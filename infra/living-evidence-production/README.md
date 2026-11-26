@@ -403,6 +403,26 @@ now names both columns), before the image that reads them serves. An earlier ima
 rollback needs no step; its writes leave the pair cleared, which reads as "not recorded", and the notice hold and
 restore scripts leave it cleared too. Undo no migration.
 
+Owner answer 419a (26 November 2026; built, not yet released; plan
+`../../docs/superpowers/plans/2026-11-25-terms-at-sign-up.md`): AskRigor's terms page at sign-in records a person's
+yes there as `PERSON_SIGN_IN_PAGE`. Migration `0044_research_notice_sign_in_page` replaces 0031's
+`research_use_accounts_notice_acceptance_check`, under the same name and only while it lacks that value, with one that
+also admits it; no column, row, trigger or grant changes, and it is safe to run again. Release: run the one-shot admin
+`migrate` before the image that writes the value serves; the access role's grant already names the column. The page,
+`/account/terms`, answers 503 until `ASKRIGOR_AUTH0_TERMS_SECRET` is in the research server's environment, the same
+value as the Auth0 Action's `TERMS_SECRET`, and is reached only once the owner attaches the Action. Image
+rollback hazard: an image from before 0044 cannot read a row holding the value, and that account's research fails on
+it. Detach the Auth0 Action first (`../../ops/auth0/actions/terms-at-first-sign-in.md`), so no new row gets it, then,
+as the migrator, before the earlier image serves:
+
+```sql
+SELECT count(*) FROM living_evidence.research_use_accounts WHERE notice_accepted_by = 'PERSON_SIGN_IN_PAGE';
+UPDATE living_evidence.research_use_accounts SET notice_accepted_by = 'PERSON'
+ WHERE notice_accepted_by = 'PERSON_SIGN_IN_PAGE';
+```
+
+The person's own yes stays theirs, at the same time; only where they gave it is lost. Undo no migration.
+
 Owner answers 279a and 280a (9 November 2026; built, not yet released; plan
 `../../docs/superpowers/plans/2026-11-09-research-steering.md`): migration `0032_research_call_record` adds the
 content-free call record (`research_call_record`, each row deleted 7 days after its call), and

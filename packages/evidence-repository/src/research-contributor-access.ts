@@ -92,13 +92,28 @@ export function researchUseNoticeCovered(
 }
 
 /**
- * How the notice an account holds was accepted: by the person, or, for the owner's own login only, by the owner's
- * standing instruction of 6 November 2026 ("can we make it so that i don't have to keep accepting the askrigor notice
- * every time you update?"). The stored value names the instruction's date.
+ * How the notice an account holds was accepted: by the person in an AI app (PERSON), by the person on AskRigor's terms
+ * page at sign-in (PERSON_SIGN_IN_PAGE, owner answer 419a, migration 0044), or, for the owner's own login only, by the
+ * owner's standing instruction of 6 November 2026 ("can we make it so that i don't have to keep accepting the askrigor
+ * notice every time you update?"). The stored value names the instruction's date.
  */
-export const NOTICE_ACCEPTED_BY = ["PERSON", "OWNER_STANDING_INSTRUCTION_2026_11_06"] as const;
+export const NOTICE_ACCEPTED_BY = ["PERSON", "PERSON_SIGN_IN_PAGE", "OWNER_STANDING_INSTRUCTION_2026_11_06"] as const;
 export type NoticeAcceptedBy = typeof NOTICE_ACCEPTED_BY[number];
 const noticeAcceptedBySchema = z.enum(NOTICE_ACCEPTED_BY);
+/** A person's own yes: given in an AI app through the connector, or on AskRigor's terms page at sign-in. */
+export type PersonNoticeAcceptance = Exclude<NoticeAcceptedBy, "OWNER_STANDING_INSTRUCTION_2026_11_06">;
+/** Checked at run time too: only the service itself ever records the owner's standing instruction. */
+const personNoticeAcceptanceSchema = z.enum(["PERSON", "PERSON_SIGN_IN_PAGE"] satisfies PersonNoticeAcceptance[]);
+
+/**
+ * What AskRigor's terms page at sign-in does for an account (owner answer 419a), read without writing anything:
+ * - covered: its yes covers the current notice (the current notice itself, or an earlier one changed since only in
+ *   wording), or it is the owner's own active free login, whose new versions the owner's standing instruction of
+ *   6 November 2026 accepts when it next researches;
+ * - paid_private: an active paid private account, which the free-use notice does not govern; the page never switches it;
+ * - ask: every other account, a never enrolled, revoked or outdated one included: the page shows the notice and asks.
+ */
+export type SignInNoticeStatus = "covered" | "paid_private" | "ask";
 
 /** A free account's yes, as inspect shows it: what was accepted, when, how, and whether it covers the current notice. */
 export interface ResearchUseNoticeAcceptance {
@@ -119,8 +134,9 @@ export interface ResearchUseNoticeAcceptance {
 // counts of what people reported and links to the forum threads AskRigor read, never their posts or names), which
 // kept version 4's (owner answer 171, 2026-10-25: free cards publish on save, with the unreviewed label, votes and
 // comments; deleting a card removes it from the Atlas unless its findings were already accepted; an accepted finding
-// stays while valid).
-export const RESEARCH_USE_NOTICE = [
+// stays while valid). Its sentences are kept in order so AskRigor's terms page at sign-in (owner answer 419a) can show
+// one per paragraph; RESEARCH_USE_NOTICE is them joined, the text every AI app is given.
+export const RESEARCH_USE_NOTICE_SENTENCES: readonly string[] = Object.freeze([
   "Free AskRigor use is reciprocal: what AskRigor learns from your research is saved for its research library.",
   "That includes deidentified structured research progress and, for each finished research answer whose findings would help other people, a findings card: the question in general terms, the main findings and how certain they are, the public studies behind them, and what public online communities reported, summarized without their posts or names: the communities, counts of what people reported, and links to the forum threads AskRigor read, never YouTube comments.",
   "A card may link a video that a person named.",
@@ -130,7 +146,8 @@ export const RESEARCH_USE_NOTICE = [
   "If you ask to delete a findings card, everything that ties it to you is removed, and the card leaves the Atlas unless AskRigor's owner has already accepted its findings; no reason is needed.",
   "An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify anyone.",
   "Paid private access saves research findings or lesson feedback only when you accept saving them for that answer, and requires an active verified entitlement.",
-].join(" ");
+]);
+export const RESEARCH_USE_NOTICE = RESEARCH_USE_NOTICE_SENTENCES.join(" ");
 
 /**
  * How many characters of an account key make its account reference (owner question, 2026-10-21: "how can i mark
@@ -554,11 +571,18 @@ export class ResearchContributorAccessService {
     );
   }
 
+  /**
+   * Records a person's yes to the current notice: the same record however it was given, with how it was given
+   * (acceptedBy): PERSON in an AI app (accept_free_contributor), PERSON_SIGN_IN_PAGE on AskRigor's terms page at sign-in
+   * (owner answer 419a).
+   */
   async acceptFreeContributor(
     subject: string,
     agreementInput: unknown,
+    acceptedBy: PersonNoticeAcceptance = "PERSON",
   ): Promise<ResearchAccessView> {
     const agreement = freeContributorAgreementSchema.parse(agreementInput);
+    const how = personNoticeAcceptanceSchema.parse(acceptedBy);
     const accountKey = this.accountKeyForSubject(subject);
     const prior = await this.store.getAccount(accountKey);
     const at = this.now();
@@ -572,10 +596,24 @@ export class ResearchContributorAccessService {
       revokedAt: null,
       createdAt: prior?.createdAt ?? at,
       updatedAt: at,
-      noticeAcceptedBy: "PERSON",
+      noticeAcceptedBy: how,
     };
     await this.store.saveAccount(record);
     return accessView("ACTIVE", "FREE_CONTRIBUTOR", at, at, noticeAcceptance(record));
+  }
+
+  /**
+   * What AskRigor's terms page at sign-in does for the account behind a verified subject (SignInNoticeStatus). Only
+   * reads: the owner's standing acceptance is recorded, as before, by the first research call that relies on it.
+   */
+  async signInNoticeStatus(subject: string): Promise<SignInNoticeStatus> {
+    const account = await this.store.getAccount(this.accountKeyForSubject(subject));
+    if (account === null || account.status !== "ACTIVE") return "ask";
+    if (account.mode === "PAID_PRIVATE") return "paid_private";
+    if (account.mode !== "FREE_CONTRIBUTOR") return "ask";
+    return researchUseNoticeCovered(account.noticeVersion) || this.ownerAccountKeys.has(account.accountKey)
+      ? "covered"
+      : "ask";
   }
 
   async activatePaidPrivate(subject: string): Promise<ResearchAccessView> {

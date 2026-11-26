@@ -206,7 +206,8 @@ export class PostgresEvidenceRepository {
   async migrate(): Promise<void> {
     // 0043 (Atlas news, stage 1) is numbered after the open branches' 0039 to 0042 (Gemini's sign-in, the write-ups,
     // Releases A and B), which may land before or after it: each migration runs on every start, in this list's order,
-    // and none of those reads the news tables.
+    // and none of those reads the news tables. 0044 (owner answer 419a) widens 0031's check for a yes given on AskRigor's
+    // terms page at sign-in, so it runs after 0031.
     const migrations = await Promise.all([
       "0001_living_evidence",
       "0002_research_frontier",
@@ -251,6 +252,7 @@ export class PostgresEvidenceRepository {
       "0041_atlas_show_saved_findings",
       "0042_atlas_person_readings",
       "0043_atlas_news_items",
+      "0044_research_notice_sign_in_page",
     ].map(async (migrationId) => ({
       migrationId,
       sql: await readFile(new URL(`../migrations/${migrationId}.sql`, import.meta.url), "utf8"),
