@@ -44,6 +44,16 @@ choice, and the owner's logins accepting new versions by the standing instructio
   `onContinuePostLogin` denies the sign-in when they declined; without that, the rest of the sign-in goes on. The
   Action asks AskRigor whether the account holds the current notice, so the page shows once and cannot loop. Whether
   the askrigor-prod tenant's plan allows redirect Actions is checked before anything is built.
+- **Checked 26 Nov 2026, 10:52 UTC (owner chose 419a in chat at 01:14 UTC):** the tenant is on Auth0's Free plan
+  (`docs/audits/2026-08-31-auth0-production-configuration.md`), and Auth0's pricing lists "Actions + Forms" on Free with
+  a cap of 5, so a post-login redirect Action is allowed. Auth0's redirect page sets the limits: a redirect "won't work
+  with ... Refresh Token exchange", and with `prompt=none` "any redirection will result in an
+  `error=interaction_required`". So the Action redirects only on an interactive sign-in, skips token renewals and silent
+  sign-ins (where the server's own `notice_not_current` refusal stays the backstop), and never redirects twice in one
+  transaction. The data the page returns to `/continue` is a token signed with a secret shared by the Action and
+  AskRigor's server, checked there with `api.redirect.validateToken` (signature, expiry, state), and POSTed so it cannot
+  be replayed from a URL. The docs say nothing about OAuth clients registered dynamically (ChatGPT's and Claude's
+  connectors), so the first test is a dev Auth0 application and a dev connector before the production tenant is touched.
 - **The record:** the page writes the account's acceptance as the person's own (notice version and time), as
   `accept_free_contributor` does today; declining keeps no account data. A wording-only version still carries the yes
   forward, and a material one asks again once.
