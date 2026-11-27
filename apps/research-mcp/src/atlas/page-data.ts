@@ -861,7 +861,7 @@ export async function markedGlanceRows(reads: AtlasPageReads, rows: readonly Atl
  * mark was switched on and not yet read is left out (Fable's recheck, change 1).
  */
 export async function markedFindings(reads: AtlasPageReads, shown: readonly ShownFinding[],
-  options: Pick<PersonClaimContext, "leaveOutUnverified" | "hideUnread"> = {}): Promise<ShownFinding[]> {
+  options: Pick<PersonClaimContext, "leaveOutUnverified" | "hideUnread"> & { now?: Date } = {}): Promise<ShownFinding[]> {
   const person = reads.personClaims;
   if (person === undefined || shown.length === 0) return [...shown];
   // The same complete raw view on every path (Codex's third review of B): the direct page's findings carry their change
@@ -888,10 +888,10 @@ export async function markedFindings(reads: AtlasPageReads, shown: readonly Show
   const unread = shown.some((finding) => personReadingState(finding, readings.get(finding.publicationNumber),
     relevantRemovalNumbers(finding, memory)) === "unread");
   const removedNames = unread ? await person.listRemovedNames() : [];
-  const now = new Date();
+  const { now = new Date(), ...rest } = options;
   return shown.flatMap((finding) => {
     const marked = applyPersonClaims(finding, { since: person.since, reading: readings.get(finding.publicationNumber),
-      removals, removedNames, now, memory, globalRemovals, ...options });
+      removals, removedNames, now, memory, globalRemovals, ...rest });
     return marked === undefined ? [] : [marked];
   });
 }
@@ -1503,7 +1503,7 @@ export function topicSectionOf(finding: ShownFinding): TopicSectionId {
 export async function loadAtlasFinding(
   source: AtlasPageSource,
   publicationNumber: string,
-  options: { participation?: { participantKey: string | null; before?: number } } = {},
+  options: { participation?: { participantKey: string | null; before?: number }; now?: Date } = {},
 ): Promise<AtlasFindingModel | undefined> {
   return await source.read(async (reads) => {
     // A finding kept for research keeps its own page (owner answers 229a and 231a).
@@ -1517,7 +1517,7 @@ export async function loadAtlasFinding(
     const related = await relatedFindings(reads, partners);
     const unmarked = shownFindingOf(publication, findings, related);
     if (unmarked === undefined) return undefined;
-    const [shown] = await markedFindings(reads, [unmarked]);
+    const [shown] = await markedFindings(reads, [unmarked], options.now === undefined ? {} : { now: options.now });
     if (shown === undefined) return undefined;
     const siblingNumbers = (await reads.listCardSiblings([publicationNumber])).map(({ siblingNumber }) => siblingNumber);
     const siblings = siblingNumbers.length === 0 ? []

@@ -845,8 +845,8 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
   const findingPage = async (source: AtlasPageSource, publicationNumber: string, session: AtlasSession | undefined,
     now: Date, extras: { status?: 200 | 403 | 422; notice?: string | null; signedOut?: boolean; error?: string | null;
       draft?: { body: string; displayName: string } | null; before?: number } = {}): Promise<RenderedAtlasPage> => {
-    const model = await loadAtlasFinding(source, publicationNumber, participation === undefined ? {}
-      : { participation: { participantKey: session?.participantKey ?? null,
+    const model = await loadAtlasFinding(source, publicationNumber, participation === undefined ? { now }
+      : { now, participation: { participantKey: session?.participantKey ?? null,
         ...(extras.before === undefined ? {} : { before: extras.before }) } });
     if (model === undefined) return checked({ status: 404, html: renderAtlasNotFound(participation === undefined ? undefined
       : await readerFor(participation, findingPath(publicationNumber), session)) });
