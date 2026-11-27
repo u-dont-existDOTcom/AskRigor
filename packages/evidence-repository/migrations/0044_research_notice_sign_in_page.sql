@@ -62,4 +62,10 @@ COMMENT ON TABLE research_terms_page_answers IS
   'Owner answer 419a: the first answer given with each Auth0 Action token on the terms page, by the token''s SHA-256, kept only until the token can no longer be used.';
 
 REVOKE ALL ON TABLE research_terms_page_answers FROM PUBLIC;
-REVOKE ALL ON TABLE research_terms_page_answers FROM askrigor_reader;
+DO $grants$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'askrigor_reader') THEN
+    REVOKE ALL ON TABLE research_terms_page_answers FROM askrigor_reader;
+  END IF;
+END
+$grants$;
