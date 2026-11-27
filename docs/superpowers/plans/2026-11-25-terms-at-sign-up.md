@@ -1,7 +1,8 @@
 # Accepting AskRigor's terms when the account is created (owner question 419)
 
 Status: proposed on 25 November 2026; the owner chose 419a in chat on 26 November, and it is built on a branch, not
-released (below, "Built (not released)"). Any change to AskRigor's sign-in at Auth0, and the server release, each need
+released (below, "Built (not released)"). Gemini's own sign-in step was built on 27 November on a branch stacked on it,
+not released (below, "Gemini's sign-in"). Any change to AskRigor's sign-in at Auth0, and the server release, each need
 the owner's yes in chat.
 
 ## What happened (25 November 2026)
@@ -59,7 +60,7 @@ choice, and the owner's logins accepting new versions by the standing instructio
   `accept_free_contributor` does today; declining keeps no account data. A wording-only version still carries the yes
   forward, and a material one asks again once.
 - **Gemini** already signs in through AskRigor's own pages (`gemini-sign-in`), where the same page can be shown
-  without Auth0.
+  without Auth0. Built 27 November 2026 (below, "Gemini's sign-in").
 - **The apps:** the research tools' refusal and inspect give the page's link instead of asking the AI to relay the
   notice; `accept_free_contributor` stays for apps that cannot open a page, since the tool list is fixed.
 - **Privacy page and data map:** when and how a yes is recorded, and that a declined sign-in keeps nothing.
@@ -113,6 +114,60 @@ Built on 26 November 2026 on a branch; nothing is deployed and no Auth0 setting 
   the page in which Auth0's documented token behaviour is simulated; the migration's place and shape in
   `tests/living-evidence-production-deployment.test.ts`. No tool's name, description or schema changed.
 
+### Gemini's sign-in (built 27 November 2026, not released)
+
+The owner, 27 November 2026: "gemini is still not working ... can you pls fix that". The server's step log for the
+owner's tries that day showed the whole sign-in succeeding and research calls reaching the server; research tools refuse
+an account whose yes doesn't cover the current notice, and Gemini can't show the notice in its chat, so an account used
+only through Gemini could never accept it (diagnosed 25 November).
+
+- **What a Gemini user sees**: Gemini's link, AskRigor's sign-in through Auth0 as before, then, for an account whose yes
+  doesn't cover the current notice, AskRigor's free-use notice on its own page: a sentence saying Gemini can't show it in
+  its chat, so AskRigor shows it here before the person chooses whether to connect Gemini; the notice word for word with
+  the Terms and Privacy links and "Accept and continue" and "Decline"; and a sentence saying either answer goes on to that
+  choice, and what Decline means. Then "Connect Google Gemini to AskRigor?" with Allow and Cancel, as before, with one
+  line above it saying what was recorded. An account whose yes covers the current notice, the owner's own free login and
+  an active paid private account see the consent page exactly as before.
+- **Accept** records the yes as `/account/terms` does, through the same code (`decideNotice` in
+  `apps/research-mcp/src/account-terms/decision.ts`): `acceptFreeContributor` with the same agreement, noted
+  `PERSON_SIGN_IN_PAGE`, only for the notice version the page showed (an Accept for another version shows the current
+  notice again, recording nothing). The consent page then says the yes is recorded.
+- **Decline** records nothing. The consent page follows all the same, saying nothing was recorded and that research tools
+  won't run for the account until the notice is accepted (connecting Gemini to AskRigor again shows it; Claude or ChatGPT
+  can too) or paid private access is active; Allow still connects Gemini, so a later yes or paid private use need no new
+  link. The research tools keep refusing as before.
+- **A step before the consent page, not on it**: each page asks one thing (the notice: Accept or Decline; the
+  connection: Allow or Cancel), so the terms page's own notice page is reused as it is (`freeUseNoticePage`), and the
+  consent page and its Allow path, fixed after the owner's tries of 22 to 24 November, stay as they were for every
+  account the step doesn't ask.
+- **The security review's three fixes, for this step**: (1) *single use*: the step's form token is an HMAC of the
+  interaction and its login session under a key of its own (derived as `notice-form` from the Gemini sign-in's secret);
+  the first POST keeps its SHA-256 with the decision in `research_terms_page_answers` until a minute past the
+  interaction's end (about eleven minutes), so a double press gets the same answer, the other answer is refused ("This
+  sign-in link was already answered") and a Decline never becomes a yes; (2) *the version shown*, as on the terms page;
+  (3) *a way through*: an account store or answers table that doesn't answer leads on to the consent page with a line
+  saying nothing was recorded, so the connection never stops on it and the research tools' refusal stays the backstop.
+  The form is checked as the consent form is: a same-site POST (or `Origin: null` with `Sec-Fetch-Site: same-origin`
+  behind production's proxy), the interaction's cookies and its token; an expired or ended link meets the existing
+  "start again from Gemini" page and records nothing.
+- **Gemini's research refusal** (only on `/mcp/gemini`) now also tells the person to remove AskRigor in Gemini's
+  settings and add it again, which shows the notice when they sign in, besides opening AskRigor in Claude or ChatGPT.
+  Already-linked accounts need this: their link was made without the step.
+- **The step log** (`ASKRIGOR_GEMINI_OAUTH_DIAGNOSTICS`, off by default) gains a `notice` step with fixed outcomes:
+  shown, shown_again, accepted, declined, not_needed, not_recorded (with the reason code) and answered_otherwise.
+- Nothing changes for ChatGPT or Claude; no tool's name, description or schema changed. Tests:
+  `tests/gemini-sign-in-notice.test.ts` (the page, Accept, Decline, the accounts not asked, the version shown, single
+  use, refused requests, store failures, the kept key, production's proxy, the step log, the server's wiring) and two in
+  `tests/gemini-sign-in-server.test.ts` (research ready on `/mcp/gemini` after Accept; refused, with the new guidance,
+  after Decline).
+- **Release needs** for this step: no new environment variable (not `ASKRIGOR_AUTH0_TERMS_SECRET`, which only the
+  Action's page uses) and no Auth0 change. The server's release with migration 0044 run and the research-access role's
+  provisioning re-run (step 1 below), so the yes and the step's answers can be written; without them nothing breaks, but
+  nothing is recorded and every Accept meets the "couldn't take an answer" line. The privacy page's Gemini sentence goes
+  out with it (in `site/privacy/index.html` on the branch); the release sets the page's effective date to its day. When
+  the Action (below) also applies to Gemini's login application, its page comes first, and this step shows only when the
+  Action let the sign-in through with nothing recorded.
+
 **Environment variable**: `ASKRIGOR_AUTH0_TERMS_SECRET`, 43 or more base64url characters (for example 32 random bytes,
 `openssl rand -base64 32 | tr '+/' '-_' | tr -d '='`), the same value as the Action's `TERMS_SECRET`; never committed.
 The page also needs `ASKRIGOR_OAUTH_ENABLED=true` with `ASKRIGOR_OAUTH_ISSUER_URL`, and the research-access database.
@@ -158,7 +213,8 @@ itself can stay. A server rollback to an image from before migration 0044 first 
 - The answer page's content policy has no `form-action`: Auth0's `/continue` answers with redirects to whichever app
   is signing in, and Chromium checks each against `form-action` (Gemini's Allow page, 22 to 24 Nov). Its one script,
   which sends the form, is allowed by its hash.
-- Gemini's link signs the person in through the same Auth0 login (`prompt=login`), so the Action covers it too.
+- Gemini's link signs the person in through the same Auth0 login (`prompt=login`), so the Action covers it too; Gemini's
+  own step (above) covers it without the Action.
 
 **Privacy page, a draft not published** (for the release that attaches the Action, under "Research-account identity"):
 
@@ -170,6 +226,16 @@ itself can stay. A server rollback to an image from before migration 0044 first 
 > you aren't signed in. So that the page's link can be used only once, AskRigor keeps a one-way fingerprint of the link
 > with your answer for about twelve minutes. If the page can't take your answer, you are signed in with nothing
 > recorded, and AskRigor's research tools ask for your yes before any research.
+
+**Privacy page, Gemini's sentences** (built 27 November, in the "Connecting Google Gemini" section of
+`site/privacy/index.html` on the branch, to go out with the server release, which sets the effective date):
+
+> If your account doesn’t yet hold a yes to AskRigor’s current free-use notice, AskRigor shows you that notice before
+> you choose, because Gemini can’t show it in its chat. If you choose Accept and continue, AskRigor records your yes on
+> your research account, as it records a yes you give in an AI app: the notice version, the time, and that you gave it
+> on that page. If you choose Decline, nothing is recorded, and you can still allow Gemini, but AskRigor’s research tools
+> won’t run for your account until the notice is accepted or paid private access is active. So that each answer counts
+> once, AskRigor keeps a one-way fingerprint of that step’s form with your answer for about eleven minutes.
 
 ## Sources
 

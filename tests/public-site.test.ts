@@ -296,6 +296,22 @@ describe("AskRigor public site", () => {
     expect(privacy.match(/only record of calls is/giu)).toHaveLength(1);
   });
 
+  // Owner answer 419a for Gemini (built 27 Nov 2026, the owner: "gemini is still not working"): what Gemini's sign-in
+  // records when it shows the free-use notice, right after the consent step's sentence. The release sets the date.
+  it("says what Gemini's sign-in records when it shows the free-use notice", async () => {
+    const privacy = await pageHtml("site/privacy/index.html");
+    const start = privacy.indexOf("<section><h2>Connecting Google Gemini</h2>");
+    const section = privacy.slice(start, privacy.indexOf("</section>", start));
+    expect(section).toContain("and then you choose whether to allow Gemini. If your account doesn’t yet hold a yes to " +
+      "AskRigor’s current free-use notice, AskRigor shows you that notice before you choose, because Gemini can’t show it " +
+      "in its chat. If you choose Accept and continue, AskRigor records your yes on your research account, as it records " +
+      "a yes you give in an AI app: the notice version, the time, and that you gave it on that page. If you choose " +
+      "Decline, nothing is recorded, and you can still allow Gemini, but AskRigor’s research tools won’t run for your " +
+      "account until the notice is accepted or paid private access is active. So that each answer counts once, AskRigor " +
+      "keeps a one-way fingerprint of that step’s form with your answer for about eleven minutes. During these steps");
+    expect(privacy.match(/one-way fingerprint/gu)).toHaveLength(1);
+  });
+
   it("describes the findings library as approved for its go-live", async () => {
     const privacy = await pageHtml("site/privacy/index.html");
     for (const fragment of [

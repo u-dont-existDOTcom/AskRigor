@@ -1,8 +1,12 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
+import { RESEARCH_USE_NOTICE_VERSION, type TermsPageAnswerStore } from "@askrigor/evidence-repository";
 import type { InteractionResults } from "oidc-provider";
 
+import { decideNotice, recordedNoticeAnswer, type AccountTermsAccess } from "../account-terms/decision.js";
+import { answeredPage } from "../account-terms/pages.js";
+import type { TermsAnswer } from "../account-terms/tokens.js";
 import { cookieHeader, readCookie, readForm, sameSitePost } from "../atlas/participation.js";
 import type { TokenBucketLimiter } from "../rate-limit.js";
 import { GEMINI_ISSUER_PATH, GEMINI_RESOURCE_PATH, GEMINI_SCOPE } from "./config.js";
@@ -20,7 +24,14 @@ import {
   LOGIN_RESULT_COOKIE,
   LOGIN_STATE_COOKIE,
 } from "./login.js";
-import { RESUME_PATH, consentPage, errorPage, moveOnPage } from "./pages.js";
+import {
+  RESUME_PATH,
+  consentPage,
+  errorPage,
+  moveOnPage,
+  noticeStepPage,
+  type ConsentNoticeNote,
+} from "./pages.js";
 import { LOGIN_SECONDS, setPageHeaders, type GeminiAuthorizationServer } from "./provider.js";
 
 /**
@@ -28,7 +39,8 @@ import { LOGIN_SECONDS, setPageHeaders, type GeminiAuthorizationServer } from ".
  *
  * - The resource metadata of /mcp/gemini, naming AskRigor's own authorization server.
  * - The authorization server's metadata at the four discovery addresses clients use.
- * - AskRigor's own steps: /oauth/gemini/interaction/<uid> (sign in, then consent), /oauth/gemini/interaction/<uid>/login
+ * - AskRigor's own steps: /oauth/gemini/interaction/<uid> (sign in, then the free-use notice when the account needs it,
+ *   then consent), /oauth/gemini/interaction/<uid>/notice (the notice's answer), /oauth/gemini/interaction/<uid>/login
  *   (the hand-off from Auth0's return) and /oauth/gemini/callback (Auth0's return).
  * - Every other path under /oauth/gemini/ goes to the library, with the prefix stripped and the original URL kept so the
  *   library computes its own addresses.
@@ -44,6 +56,33 @@ export interface GeminiSignInRoutes {
   readonly resourceMetadataUrl: URL;
 }
 
+/**
+ * AskRigor's free-use notice in Gemini's sign-in (owner answer 419a; the owner, 27 Nov 2026: "gemini is still not
+ * working"). Gemini can't show the notice in its chat, so an account used only through Gemini could never accept it, and
+ * every research call there was refused. After the person signs in and before the consent step, an account whose yes
+ * doesn't cover the current notice is shown it, with AskRigor's terms page's own page and recording
+ * (account-terms/decision.ts and pages.ts):
+ *
+ * - Accept records the yes as /account/terms does (PERSON_SIGN_IN_PAGE), only for the version shown; then the consent
+ *   step, as before.
+ * - Decline records nothing; the consent step follows all the same, so paid private use or a later yes stay possible,
+ *   and the research tools keep refusing until then.
+ * - The step's form token, an HMAC of the interaction and its login session under a key of its own, is checked like the
+ *   consent form's (same-site POST, the interaction's cookies) and answers once: its SHA-256 keeps the first answer in
+ *   research_terms_page_answers until a minute past the interaction's end, so a double press gets the same answer and
+ *   the other answer is refused (a Decline never becomes a yes).
+ * - A store that doesn't answer never stops the connection: the consent step says nothing was recorded.
+ * - An account whose yes covers the current notice, the owner's own free login and an active paid private account go
+ *   straight to the consent step, unchanged.
+ */
+export interface GeminiNoticeStep {
+  /** The connector's research accounts: whether a yes covers the current notice, and recording one. */
+  readonly access: AccountTermsAccess;
+  /** Each step's one answer, kept by its token's SHA-256 (migration 0044), as /account/terms keeps its own. */
+  readonly answers: TermsPageAnswerStore;
+  readonly now?: () => Date;
+}
+
 const DISCOVERY_ALIASES = new Set([
   `/.well-known/oauth-authorization-server${GEMINI_ISSUER_PATH}`,
   `/.well-known/openid-configuration${GEMINI_ISSUER_PATH}`,
@@ -51,13 +90,18 @@ const DISCOVERY_ALIASES = new Set([
   `${GEMINI_ISSUER_PATH}/.well-known/oauth-authorization-server`,
 ]);
 export const GEMINI_RESOURCE_METADATA_PATH = `/.well-known/oauth-protected-resource${GEMINI_RESOURCE_PATH}`;
-const INTERACTION = new RegExp(`^${GEMINI_ISSUER_PATH}/interaction/([A-Za-z0-9_-]{1,64})(/login)?$`, "u");
+const INTERACTION = new RegExp(`^${GEMINI_ISSUER_PATH}/interaction/([A-Za-z0-9_-]{1,64})(/login|/notice)?$`, "u");
 const LIBRARY_COOKIES = /^_(session|interaction|interaction_resume|state)(\.legacy)?(\.sig)?$/u;
 
 export function createGeminiSignInRoutes(
   server: GeminiAuthorizationServer,
   login: GeminiLogin,
-  options: { rateLimiter: TokenBucketLimiter; diagnostic?: (record: GeminiSignInDiagnostic) => void },
+  options: {
+    rateLimiter: TokenBucketLimiter;
+    diagnostic?: (record: GeminiSignInDiagnostic) => void;
+    /** The free-use notice before the consent step; without it the steps are as before (no notice, no notice path). */
+    notice?: GeminiNoticeStep;
+  },
 ): GeminiSignInRoutes {
   const issuer = server.settings.issuer;
   const origin = issuer.origin;
@@ -97,6 +141,22 @@ export function createGeminiSignInRoutes(
     .update(`askrigor-gemini-consent-v1\u0000${uid}\u0000${sessionUid}`, "utf8")
     .digest("base64url");
 
+  const noticeToken = (uid: string, sessionUid: string) => createHmac("sha256", server.settings.keys.noticeForm)
+    .update(`askrigor-gemini-notice-v1\u0000${uid}\u0000${sessionUid}`, "utf8")
+    .digest("base64url");
+
+  const show = (response: ServerResponse, status: number, html: string) => {
+    setPageHeaders((field, value) => response.setHeader(field, value));
+    response.writeHead(status, { "content-type": "text/html; charset=utf-8" });
+    response.end(html);
+  };
+
+  /** The consent step, with what the notice step before it recorded when it came first. */
+  const showConsent = (response: ServerResponse, uid: string, sessionUid: string, notice?: ConsentNoticeNote) => {
+    show(response, 200, consentPage({ uid, formToken: formToken(uid, sessionUid), ...(notice === undefined ? {} : { notice }) }));
+    note("consent", "shown");
+  };
+
   const interactionStep = async (request: IncomingMessage, response: ServerResponse, uid: string) => {
     pinHeaders(request);
     const details = await server.provider.interactionDetails(request, response);
@@ -114,13 +174,74 @@ export function createGeminiSignInRoutes(
       return;
     }
     if (details.prompt.name === "consent" && details.session !== undefined) {
-      setPageHeaders((field, value) => response.setHeader(field, value));
-      response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-      response.end(consentPage({ uid, formToken: formToken(uid, details.session.uid) }));
-      note("consent", "shown");
-      return;
+      const { session } = details;
+      if (options.notice === undefined) return showConsent(response, uid, session.uid);
+      // Only reads. A store that doesn't answer leads on to the consent step, saying nothing was recorded.
+      const recorded = await recordedNoticeAnswer(options.notice.access, session.accountId);
+      if (recorded === "ask") {
+        show(response, 200, noticeStepPage({ uid, formToken: noticeToken(uid, session.uid),
+          noticeVersion: RESEARCH_USE_NOTICE_VERSION }));
+        note("notice", "shown");
+        return;
+      }
+      if ("notRecorded" in recorded) {
+        note("notice", "not_recorded", { reason: recorded.notRecorded });
+        return showConsent(response, uid, session.uid, "unchecked");
+      }
+      note("notice", "not_needed");
+      return showConsent(response, uid, session.uid);
     }
     fail(response, 400, "server_error");
+  };
+
+  /**
+   * Accept or Decline on the notice (GeminiNoticeStep): checked as the consent form is, then decided as /account/terms
+   * decides (decideNotice), and answered with the consent step, or with the notice again when it changed meanwhile.
+   */
+  const noticeDecision = async (request: IncomingMessage, response: ServerResponse, uid: string, step: GeminiNoticeStep) => {
+    if (!consentPostFromThisSite(request, origin)) return fail(response, 403, "invalid_request");
+    let form: URLSearchParams;
+    try {
+      form = await readForm(request);
+    } catch {
+      return fail(response, 400, "invalid_request");
+    }
+    pinHeaders(request);
+    const details = await server.provider.interactionDetails(request, response);
+    if (details.uid !== uid || details.prompt.name !== "consent" || details.session === undefined) {
+      return fail(response, 400, "session_expired");
+    }
+    const { session } = details;
+    const token = noticeToken(uid, session.uid);
+    if (!sameToken(token, single(form, "form_token"))) return fail(response, 403, "invalid_request");
+    const decision = single(form, "decision");
+    if (decision !== "accept" && decision !== "decline") return fail(response, 400, "invalid_request");
+    const result = await decideNotice({
+      subject: session.accountId,
+      decision,
+      noticeVersionShown: single(form, "notice_version"),
+      // An HMAC under a server key, of this interaction and its login session: its SHA-256 keys the step's one answer.
+      tokenSha256: createHash("sha256").update(token, "utf8").digest("hex"),
+      // A minute past the interaction's end, after which no request reaches this step with it.
+      usableUntil: new Date((details.exp + 60) * 1_000),
+      access: step.access,
+      answers: step.answers,
+      now: step.now?.() ?? new Date(),
+    });
+    if (result.kind === "show_again") {
+      show(response, 200, noticeStepPage({ uid, formToken: token, noticeVersion: RESEARCH_USE_NOTICE_VERSION,
+        changed: true }));
+      note("notice", "shown_again");
+      return;
+    }
+    if (result.kind === "answered_otherwise") {
+      show(response, 409, answeredPage());
+      note("notice", "answered_otherwise");
+      return;
+    }
+    const answered = noticeAnswered(result.answer);
+    note("notice", answered.outcome, "notRecorded" in result.answer ? { reason: result.answer.notRecorded } : undefined);
+    showConsent(response, uid, session.uid, answered.note);
   };
 
   /**
@@ -283,6 +404,11 @@ export function createGeminiSignInRoutes(
           if (interaction[2] === "/login") {
             if (method !== "GET") return methodNotAllowed(response);
             await loginHandOff(request, response, uid);
+          } else if (interaction[2] === "/notice") {
+            // Without the notice step, its address doesn't exist.
+            if (options.notice === undefined) return notFound(response);
+            if (method !== "POST") return methodNotAllowed(response, POST_ONLY);
+            await noticeDecision(request, response, uid, options.notice);
           } else if (method === "GET") {
             await interactionStep(request, response, uid);
           } else if (method === "POST") {
@@ -297,11 +423,7 @@ export function createGeminiSignInRoutes(
         // slash, HEAD beside GET), and three review rounds found variants that skipped this dispatcher's own checks for
         // a new link and the step log (Codex, 23 Nov 2026); refusing every variant here keeps one definition of each.
         const served = libraryMethods(path);
-        if (served === undefined) {
-          response.writeHead(404, { "content-type": "application/json", "cache-control": "no-store" });
-          response.end(JSON.stringify({ error: "not_found" }));
-          return true;
-        }
+        if (served === undefined) return notFound(response);
         if (!served.has(method)) return methodNotAllowed(response, served);
         // Google's calls are logged on arrival too, so one that stalls or never finishes still leaves a line.
         if (path === "/token" || path === "/token/revocation") {
@@ -391,6 +513,27 @@ function methodNotAllowed(response: ServerResponse, allowed: ReadonlySet<string>
   response.writeHead(405, { "content-type": "application/json", allow: [...allowed].join(", "), "cache-control": "no-store" });
   response.end(JSON.stringify({ error: "method_not_allowed" }));
   return true;
+}
+
+function notFound(response: ServerResponse): true {
+  response.writeHead(404, { "content-type": "application/json", "cache-control": "no-store" });
+  response.end(JSON.stringify({ error: "not_found" }));
+  return true;
+}
+
+/** What the notice step's answer was, for the step log, and what the consent step then says of it. */
+function noticeAnswered(answer: TermsAnswer): { outcome: string; note?: ConsentNoticeNote } {
+  if ("notRecorded" in answer) return { outcome: "not_recorded", note: "not_recorded" };
+  if (!answer.accepted) return { outcome: "declined", note: "declined" };
+  // An active paid private account (it became one while the notice was open): nothing to say; the notice doesn't govern it.
+  if (answer.noticeVersion === undefined) return { outcome: "not_needed" };
+  return { outcome: "accepted", note: "accepted" };
+}
+
+/** A form field's one value; undefined when it is missing or given more than once. */
+function single(form: URLSearchParams, name: string): string | undefined {
+  const values = form.getAll(name);
+  return values.length === 1 ? values[0] : undefined;
 }
 
 function queryOf(target: string | undefined): string {

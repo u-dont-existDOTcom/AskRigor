@@ -34,6 +34,8 @@ export interface GeminiSignInKeys {
   readonly loginSeal: Buffer;
   /** HMAC key for the consent form's token. */
   readonly consentForm: Buffer;
+  /** HMAC key for the free-use notice step's form token, which also keys that step's one answer (owner answer 419a). */
+  readonly noticeForm: Buffer;
 }
 
 export const GEMINI_ISSUER_PATH = "/oauth/gemini";
@@ -51,6 +53,7 @@ export function deriveGeminiSignInKeys(secret: Uint8Array): GeminiSignInKeys {
     libraryCookie: derive("library-cookie"),
     loginSeal: derive("login-seal"),
     consentForm: derive("consent-form"),
+    noticeForm: derive("notice-form"),
   });
 }
 

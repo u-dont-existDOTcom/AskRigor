@@ -215,8 +215,9 @@ records decisions and their sources; it adds no authority to the list above.
 - `superpowers/plans/2026-11-25-terms-at-sign-up.md`: accepting the free-use notice when the account is created (owner
   question 419; 419a chosen 26 Nov): AskRigor's page `/account/terms` between Auth0's post-login Action and Auth0's
   `/continue`, a yes there recorded as `PERSON_SIGN_IN_PAGE` (migration 0044), the Action kept in
-  `../ops/auth0/actions/`, the Auth0 steps for the owner's yes, the rollback and a draft privacy sentence; built on a
-  branch, not released.
+  `../ops/auth0/actions/`, the Auth0 steps for the owner's yes, the rollback and a draft privacy sentence; and Gemini's
+  own sign-in step showing the same notice before Allow (27 Nov, the owner's "gemini is still not working"); built on
+  branches, not released.
 - `superpowers/plans/2026-11-07-next-build.md`: the build after #429: every tool result's payload in text too, except
   for ChatGPT (lesson #59); the free-use notice asked again only when it collects or publishes more, the owner's
   own login accepting by standing instruction; and issue #431's fact-check repairs (repairable audit errors, claim

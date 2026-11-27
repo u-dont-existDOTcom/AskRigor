@@ -5,6 +5,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import {
   InMemoryResearchContributorAccessStore,
+  InMemoryTermsPageAnswerStore,
   ResearchContributorAccessService,
 } from "@askrigor/evidence-repository";
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type JWK } from "jose";
@@ -50,7 +51,7 @@ afterEach(async () => {
   resourceChecks.length = 0;
 });
 
-async function start(options: { gemini: boolean }) {
+async function start(options: { gemini: boolean; notice?: boolean }) {
   const { publicKey, privateKey } = await generateKeyPair("RS256");
   const jwk: JWK = { ...(await exportJWK(publicKey)), kid: "gemini-server-test" };
   const jwks = createLocalJWKSet({ keys: [jwk] });
@@ -58,7 +59,14 @@ async function start(options: { gemini: boolean }) {
     iss: issuerUrl.href, aud: primaryResource.href, exp: Math.floor(Date.now() / 1_000) + 300,
     client_id: "chatgpt-client", scope: RESEARCH_USE_SCOPE, sub: PERSON, ...claims,
   }).setProtectedHeader({ alg: "RS256", kid: jwk.kid }).sign(privateKey);
-  const fixture = await startGeminiFixture();
+  const service = new ResearchContributorAccessService({
+    store: new InMemoryResearchContributorAccessStore(),
+    identitySecret: Buffer.alloc(32, 7),
+  });
+  // The free-use notice before Allow (owner answer 419a), on the server's own research accounts.
+  const fixture = await startGeminiFixture(options.notice === true
+    ? { notice: { access: service, answers: new InMemoryTermsPageAnswerStore() } }
+    : {});
   fixtures.push(fixture);
   const geminiSignIn: GeminiSignIn = {
     server: fixture.server,
@@ -81,19 +89,16 @@ async function start(options: { gemini: boolean }) {
       resourceUrl: claudeResource, issuerUrl, jwks, allowedClientIds: ["claude-client"], reviewerSubjects: ["owner"],
     }),
     geminiSignIn: options.gemini ? geminiSignIn : null,
-    researchContributorAccessService: new ResearchContributorAccessService({
-      store: new InMemoryResearchContributorAccessStore(),
-      identitySecret: Buffer.alloc(32, 7),
-    }),
+    researchContributorAccessService: service,
   });
   servers.push(server);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const base = new URL(`http://127.0.0.1:${(server.address() as AddressInfo).port}`);
-  return { base, fixture, signAuth0 };
+  return { base, fixture, signAuth0, service };
 }
 
-async function geminiToken(fixture: GeminiFixture): Promise<string> {
-  const { code, verifier } = await linkToCode(fixture, new Browser(fixture.baseUrl));
+async function geminiToken(fixture: GeminiFixture, notice?: "accept" | "decline"): Promise<string> {
+  const { code, verifier } = await linkToCode(fixture, new Browser(fixture.baseUrl), notice === undefined ? {} : { notice });
   const response = await tokenRequest(fixture, {
     grant_type: "authorization_code", code, redirect_uri: GOOGLE_REDIRECT, code_verifier: verifier,
     client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
@@ -174,6 +179,31 @@ describe("Gemini's sign-in on the HTTP server", () => {
     expect(shown).toContain("This connector can't show AskRigor's research notice");
     expect(shown).toContain("https://askrigor.com/add");
     expect(shown).not.toContain("Call manage_research_access");
+  });
+
+  // Owner answer 419a for Gemini (the owner, 27 Nov 2026: "gemini is still not working"): the notice on AskRigor's own
+  // page during the link, since Gemini can't show it in its chat.
+  it("lets a Gemini-only account accept the free-use notice during the link, after which research is ready on /mcp/gemini", async () => {
+    const { base, fixture, service } = await start({ gemini: true, notice: true });
+    const client = await connect(base, "/mcp/gemini", await geminiToken(fixture, "accept"));
+    const manifest = await client.callTool({ name: "get_protocol_manifest", arguments: { protocol: "hrp" } });
+    expect(manifest.structuredContent).toMatchObject({ connection: { sign_in: "accepted", research_access: "ready" } });
+    const research = await client.callTool({ name: "load_protocol", arguments: { protocol: "hrp", section: "index" } });
+    expect(research.isError).not.toBe(true);
+    expect(await service.inspect(PERSON)).toMatchObject({ acceptance: { acceptedBy: "PERSON_SIGN_IN_PAGE", current: "accepted" } });
+  });
+
+  it("completes the link after Decline, and research stays refused with Gemini's guidance to connect again", async () => {
+    const { base, fixture, service } = await start({ gemini: true, notice: true });
+    const client = await connect(base, "/mcp/gemini", await geminiToken(fixture, "decline"));
+    const refused = await client.callTool({ name: "load_protocol", arguments: { protocol: "hrp", section: "index" } });
+    expect(refused.isError).toBe(true);
+    const shown = text(refused);
+    expect(shown).toContain("Choose free contributor mode");
+    expect(shown).toContain("This connector can't show AskRigor's research notice. Tell the person to remove AskRigor " +
+      "in Gemini's settings and add it again (AskRigor shows the notice when they sign in), or to open AskRigor once in " +
+      "Claude or ChatGPT (https://askrigor.com/add), read the notice there and choose; then retry here.");
+    expect(await service.inspect(PERSON)).toMatchObject({ status: "UNENROLLED" });
   });
 
   it("refuses a Gemini token on /mcp and /mcp/claude", async () => {

@@ -143,6 +143,14 @@ annoying". Released 9 November 2026:
   call) or of an active paid private account, which it never switches to free use; it lets them through at once. `accept_free_contributor` stays for the sign-ins the page doesn't reach (token
   renewals, `prompt=none`, a login from before the Action) and for apps that never sign in again, and the research
   tools' refusal stays the backstop.
+- **A yes in Gemini's sign-in** (built 27 November 2026 for the owner's "gemini is still not working"; not yet
+  released). Gemini can't show this notice in its chat, so AskRigor's own sign-in step for Gemini shows it, after the
+  login and before "Connect Google Gemini to AskRigor?", to an account whose yes doesn't cover the current notice, and
+  decides the answer with the terms page's own code (`apps/research-mcp/src/account-terms/decision.ts`): Accept writes
+  the same record, `PERSON_SIGN_IN_PAGE`, only for the version shown; each step answers once (its form token's SHA-256
+  in `research_terms_page_answers`). Decline writes nothing, and the person can still connect Gemini; its research
+  refusal says to remove AskRigor in Gemini's settings and add it again to see the notice. Accounts the terms page asks
+  nothing of go straight to Allow.
 
 Version 4 (owner answer 171) kept every other sentence of v3 and made exactly
 these three changes:
