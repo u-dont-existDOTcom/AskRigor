@@ -22,6 +22,7 @@ import {
   type ResearchCallRecordStore,
   type ResearchDossierPublisher,
   type ResearchDossierStore,
+  type TermsPageAnswerStore,
 } from "@askrigor/evidence-repository";
 
 import {
@@ -138,6 +139,8 @@ import { announcingDossierPublisher } from "./atlas/change-signal.js";
 import { startDossierPrivacySweep } from "./atlas/dossier-review.js";
 import { createAtlasPagesHandlerFromEnv, type AtlasPagesHandler } from "./atlas/pages-http.js";
 import { atlasNewsFromEnv, type AtlasNewsOptions } from "./news/runtime.js";
+import { createAccountTermsRoutes, type AccountTermsRoutes } from "./account-terms/routes.js";
+import { accountTermsSettingsFromEnv } from "./account-terms/tokens.js";
 
 export type McpToolCatalogProfile = "standard" | "gemini";
 
@@ -276,6 +279,13 @@ export interface AskRigorHttpServerOptions {
   atlasReviewEnabled?: boolean;
   /** The public Atlas pages under /atlas (decision 171, section 4C); from the environment by default. */
   atlasPagesHandler?: AtlasPagesHandler;
+  /**
+   * AskRigor's terms page at sign-in, /account/terms (owner answer 419a); by default from ASKRIGOR_AUTH0_TERMS_SECRET,
+   * the connector's research accounts and the research-access database, answering 503 while one is missing.
+   */
+  accountTermsRoutes?: AccountTermsRoutes;
+  /** Replaces the terms page's answers (migration 0044), for tests; otherwise the research-access database's. */
+  termsPageAnswers?: TermsPageAnswerStore;
   /** Shared questions and answers (owner answer 200a); null turns them off; defaults to the server's settings. */
   sharedAnswers?: SharedAnswers | null;
 }
@@ -532,6 +542,15 @@ export function createAskRigorHttpServer(
     ...(researchAccessStore === undefined ? {} : { userCounts: researchAccessStore.userCounts() }),
     ...(oauthResourceServer === undefined ? {} : { ownerSubjects: oauthResourceServer.reviewerSubjects }),
   });
+  // Owner answer 419a: the free-use notice right after a person's first sign-in, between Auth0's post-login Action and
+  // Auth0's /continue. It records a yes on the connector's research accounts, keeps each token's one answer on the same
+  // database, and answers 503 without them or while ASKRIGOR_AUTH0_TERMS_SECRET is unset.
+  const accountTermsRoutes = options.accountTermsRoutes ?? createAccountTermsRoutes({
+    settings: accountTermsSettingsFromEnv(),
+    access: researchContributorAccessService,
+    answers: options.termsPageAnswers ?? researchAccessStore?.termsPageAnswers(),
+    rateLimiter: createTokenBucketLimiter(PUBLIC_RATE_LIMIT),
+  });
   const researchAccessRequired = oauthResourceServer !== undefined;
   const effectiveActionRoutes = researchAccessRequired
     ? actionRoutes.filter(({ publicResearch, controlledResearch }) =>
@@ -649,6 +668,15 @@ export function createAskRigorHttpServer(
         response.writeHead(503, { "content-type": "application/json", "cache-control": "no-store" });
         response.end(JSON.stringify({ status: "unavailable" }));
       }
+      return;
+    }
+
+    if (
+      await accountTermsRoutes.dispatch(request, response, {
+        pathname,
+        clientIp: resolveClientIp(request, trustedClientIpHeader),
+      })
+    ) {
       return;
     }
 

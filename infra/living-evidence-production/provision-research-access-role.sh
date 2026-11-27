@@ -71,6 +71,9 @@ GRANT INSERT, SELECT, DELETE ON TABLE living_evidence.research_menu_choices
 -- Owner answer 386b (migration 0039): Gemini's sign-in, sealed rows of AskRigor's own authorization server.
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE living_evidence.gemini_oauth_store
   TO askrigor_research_access;
+-- Owner answer 419a (migration 0044): the terms page's answers, by token SHA-256, so each sign-in token answers once.
+GRANT SELECT, INSERT, DELETE ON TABLE living_evidence.research_terms_page_answers
+  TO askrigor_research_access;
 GRANT EXECUTE ON FUNCTION living_evidence.withdraw_pending_research_contribution_proposals(
   text, timestamptz
 ) TO askrigor_research_access;

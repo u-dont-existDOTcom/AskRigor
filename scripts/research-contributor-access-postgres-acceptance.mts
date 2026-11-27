@@ -30,6 +30,7 @@ import {
   PostgresResearchContributorAccessStore,
   PostgresResearchCallRecordStore,
   PostgresResearchUserCounts,
+  PostgresTermsPageAnswerStore,
   PostgresResearchDossierEraser,
   PostgresResearchDossierStore,
   RESEARCH_CALL_RECORD_RETENTION_MS,
@@ -1141,6 +1142,33 @@ async function verifyNoticeAcceptance(context: {
   await person.acceptFreeContributor(OWNER_SUBJECT, FREE_AGREEMENT);
   const own = await row(OWNER_SUBJECT, person);
   assert(own?.notice_accepted_by === "PERSON" && own.same_time === true, "PERSON_ACCEPTANCE_NOT_RECORDED");
+  // Owner answer 419a: a yes on AskRigor's terms page at sign-in is the same record, noted PERSON_SIGN_IN_PAGE, which
+  // migration 0044 admits; the access role writes it, and inspect shows it as the person's own.
+  const pageSubject = "auth0|synthetic-postgres-terms-page";
+  assert(await person.signInNoticeStatus(pageSubject) === "ask", "SIGN_IN_PAGE_DID_NOT_ASK");
+  await person.acceptFreeContributor(pageSubject, FREE_AGREEMENT, "PERSON_SIGN_IN_PAGE");
+  const onPage = await row(pageSubject, person);
+  assert(onPage?.notice_version === RESEARCH_USE_NOTICE_VERSION && onPage.notice_accepted_by === "PERSON_SIGN_IN_PAGE" &&
+    onPage.same_time === true, "SIGN_IN_PAGE_ACCEPTANCE_NOT_RECORDED");
+  assert((await person.inspect(pageSubject)).acceptance?.acceptedBy === "PERSON_SIGN_IN_PAGE",
+    "SIGN_IN_PAGE_ACCEPTANCE_NOT_SHOWN");
+  assert(await person.signInNoticeStatus(pageSubject) === "covered", "SIGN_IN_PAGE_ACCEPTANCE_NOT_COVERED");
+  checks.push("sign_in_page_acceptance_written_through_access_role");
+  // The security review of 26 Nov 2026: each of the Action's tokens answers once, kept by its SHA-256 through the access
+  // role, which can't change an answer; six concurrent first claims leave exactly one winner.
+  const answers = new PostgresTermsPageAnswerStore(restricted, SCHEMA);
+  const answeredAt = new Date(NOW);
+  const usableUntil = new Date(answeredAt.getTime() + 690_000);
+  assert(isDeepStrictEqual(await answers.claim("c".repeat(64), "decline", usableUntil, answeredAt), { claimed: true }),
+    "TERMS_ANSWER_NOT_CLAIMED");
+  assert(isDeepStrictEqual(await answers.claim("c".repeat(64), "accept", usableUntil, answeredAt),
+    { claimed: false, decision: "decline" }), "TERMS_DECLINE_BECAME_ANOTHER_ANSWER");
+  const raced = await Promise.all(Array.from({ length: 6 }, () =>
+    answers.claim("d".repeat(64), "accept", usableUntil, answeredAt)));
+  assert(raced.filter(({ claimed }) => claimed).length === 1, "TERMS_ANSWER_CLAIMED_TWICE");
+  await expectPermissionDenied(() => restricted.query(`UPDATE ${SCHEMA}.research_terms_page_answers SET decision = 'accept'`));
+  await admin.query(`DELETE FROM ${SCHEMA}.research_terms_page_answers`);
+  checks.push("terms_page_token_answers_once_through_access_role");
 
   // Under the notice before the current one, v5 (as the v1 to v5 loop above sets one), the owner's login accepts the
   // current one, v6 (owner answer 307b, material), by the standing instruction, recorded with its time; another
@@ -4208,9 +4236,9 @@ async function migrateAsTheImageBefore0041(adminUrl: string, schema: string): Pr
   const listed = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
   const order = [...listed.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!)
     // That image (main's, with Atlas news) has neither 0041 nor this release's other new migrations, 0040 and 0042
-    // (Atlas Release B's).
+    // (Atlas Release B's), nor 0044, which came later (owner answer 419a).
     .filter((id) => id !== "0040_research_dossier_publications" && id !== "0041_atlas_show_saved_findings" &&
-      id !== "0042_atlas_person_readings");
+      id !== "0042_atlas_person_readings" && id !== "0044_research_notice_sign_in_page");
   assert(order.length > 30 && order.at(-1) === "0043_atlas_news_items", "EARLIER_IMAGE_MIGRATION_LIST");
   const pool = new Pool({ connectionString: adminUrl, max: 1 });
   const client = await pool.connect();

@@ -188,6 +188,7 @@ export {
   PostgresResearchContributorAccessStore,
   NOTICE_ACCEPTED_BY,
   RESEARCH_USE_NOTICE,
+  RESEARCH_USE_NOTICE_SENTENCES,
   RESEARCH_USE_NOTICE_CHANGES,
   RESEARCH_USE_NOTICE_VERSION,
   PAID_PRIVATE_MAP_ONLY,
@@ -219,6 +220,8 @@ export {
   type ResearchStyle,
   type ActiveResearchAccount,
   type NoticeAcceptedBy,
+  type PersonNoticeAcceptance,
+  type SignInNoticeStatus,
   type ResearchUseNoticeAcceptance,
   type ResearchUseNoticeChange,
   type ContributionPrivacyBoundary,
@@ -725,4 +728,12 @@ export {
   type GeminiSignInRowStore,
   type GeminiSignInStoredRow,
 } from "./gemini-sign-in-rows.js";
+export {
+  InMemoryTermsPageAnswerStore,
+  PostgresTermsPageAnswerStore,
+  TERMS_PAGE_DECISIONS,
+  type TermsPageAnswerStore,
+  type TermsPageClaim,
+  type TermsPageDecision,
+} from "./terms-page-answers.js";
 export * from "./atlas-person-claims.js";
