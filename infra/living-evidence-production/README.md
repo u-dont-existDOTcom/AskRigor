@@ -461,16 +461,19 @@ reports it, with one line above the final check panel's fold (`docs/final-check.
 other value, or none, turns it off, which is its rollback: nothing is stored, so nothing needs undoing. AskRigor's own
 planning call and review log `fallback_answered` or `fallback_refused` whatever the setting.
 
-Owner answers 413a and 412a, and promise P90 (24 November 2026; built, not released): `ASKRIGOR_CLAIM_ACCOUNTING`,
-`ASKRIGOR_HRP_CORE` and `ASKRIGOR_PLAN_INDIRECT` in `runtime.env`, each `off` (the default, and any other value), `trial`,
-`dev` or `on`, then recreate `research-mcp`. The first has the research menu account for the quick answer's claims; the
-second has `register_plain_answer` (or, without room for it there, `plan_research`) hand over HRP's core, with the final
-check's one note when no receipt shows it (`docs/research-contributor-access.md`, `docs/final-check.md`); the third has
-AskRigor's own plan reach for evidence one step away, so it changes nothing while `ASKRIGOR_RESEARCH_PLANNER` is off, and
-nothing for an account AskRigor does not plan for, whatever its mode. In mode `trial` a switch holds for a dev account only
-while a session's test window has it on (`manage_research_access` action `set_research_trial`), so nothing changes for
-anyone by setting it; `dev` holds for every dev account, `on` for every account. Nothing is stored by any of them, a window
-is in the process's memory alone, and setting all three to `off` (or removing them) and recreating the service is the
+Owner answers 413a, 412a and 416a, and promise P90 (24 and 27 November 2026; built, not released):
+`ASKRIGOR_CLAIM_ACCOUNTING`, `ASKRIGOR_HRP_CORE`, `ASKRIGOR_PLAN_INDIRECT` and `ASKRIGOR_CLOSING_COMPARISON` in
+`runtime.env`, each `off` (the default, and any other value), `trial`, `dev` or `on`, then recreate `research-mcp`. The
+first has the research menu account for the quick answer's claims; the second has `register_plain_answer` (or, without
+room for it there, `plan_research`) hand over HRP's core, with the final check's one note when no receipt shows it
+(`docs/research-contributor-access.md`, `docs/final-check.md`); the third has AskRigor's own plan reach for evidence one
+step away, so it changes nothing while `ASKRIGOR_RESEARCH_PLANNER` is off, and nothing for an account AskRigor does not
+plan for, whatever its mode. The fourth has the final check's closing comparison count a study read in full or as its
+abstract and show the paper's sentence a point rests on when it finds it (`docs/final-check.md`), looking each sentence
+up in the texts and under the deadline the source lines use. In mode `trial` a switch holds for a dev account only while
+a session's test window has it on (`manage_research_access` action `set_research_trial`), so nothing changes for anyone
+by setting it; `dev` holds for every dev account, `on` for every account. Nothing is stored by any of them, a window is
+in the process's memory alone, and setting all four to `off` (or removing them) and recreating the service is the
 rollback: no migration, grant or tool-list change goes with them.
 
 Optional, off by default, the owner's decision (Codex's final check): `ASKRIGOR_DOSSIER_PRIVACY_READING=on` in

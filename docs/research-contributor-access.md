@@ -581,18 +581,29 @@ step away on it and says that it is indirect. The bundle, the reply's shape and 
 combines with the claims' rule above: each combination has its own rubric version and its own key in the hour's cache, and
 the final check finds the lane of the newest kept plan under any of them.
 
-### The three switches and a test window (24 November 2026; built, switched off, not released)
+### The closing comparison counts what was read and shows the paper's sentence (owner answer 416a, 27 November 2026; built, switched off, not released)
 
-`ASKRIGOR_CLAIM_ACCOUNTING`, `ASKRIGOR_HRP_CORE` and `ASKRIGOR_PLAN_INDIRECT` are each off (the default, and any other value),
-trial, dev or on (`apps/research-mcp/src/research-trial.ts`). dev holds for every dev account, on for every account. In mode
-trial a switch holds for a dev account only while its test window has it on: the runtime-only action `set_research_trial` (the
-published tool list is unchanged) with `later_inputs.researchTrial` {claimAccounting, hrpCore, indirectEvidence, minutes} opens
-one for 1 to 120 whole minutes from now, never more than 120 minutes after it began however often it is set again; 0 minutes
-ends it, and so does a restart. Only a dev account, only its own window (`dev_account_required`), and only while one of the
-switches is in mode trial (`trial_off`). Its result says in plain words what is on and until when; `inspect` says nothing of
-it, as of a pause of the planning call. Each call goes by the window as it is when the call is made, so a test round starts
-each of its parts with `inspect` and a new registration. With every switch off every text and result is as before; only an
-error that lists the known actions or later inputs names the new ones.
+Where `ASKRIGOR_CLOSING_COMPARISON` holds for the account, `register_plain_answer`'s result adds one passage after it
+says how `plain_answer_comparison` gives each claim (`CLOSING_COMPARISON_REGISTERED` in
+`apps/research-mcp/src/closing-comparison.ts`): a point may rest on a study read here, audited, read in full or read as
+its abstract, and the note says which; for such a point the comparison may give `source_sentence`, the study's own
+sentence it rests on, copied whole and exactly, with the whole comparison sent in `later_inputs.plain_answer_comparison`;
+the note shows that sentence when AskRigor finds it in the study's text it holds, and otherwise says the AI says the
+research found the point. The final check's side is in `docs/final-check.md`. Off, the result is as before.
+
+### The switches and a test window (24 and 27 November 2026; built, switched off, not released)
+
+`ASKRIGOR_CLAIM_ACCOUNTING`, `ASKRIGOR_HRP_CORE`, `ASKRIGOR_PLAN_INDIRECT` and, since owner answer 416a (27 November 2026),
+`ASKRIGOR_CLOSING_COMPARISON` are each off (the default, and any other value), trial, dev or on
+(`apps/research-mcp/src/research-trial.ts`). dev holds for every dev account, on for every account. In mode trial a switch
+holds for a dev account only while its test window has it on: the runtime-only action `set_research_trial` (the published tool
+list is unchanged) with `later_inputs.researchTrial` {claimAccounting, hrpCore, indirectEvidence, minutes, and optionally
+closingComparison, off when left out} opens one for 1 to 120 whole minutes from now, never more than 120 minutes after it began
+however often it is set again; 0 minutes ends it, and so does a restart. Only a dev account, only its own window
+(`dev_account_required`), and only while one of the switches is in mode trial (`trial_off`). Its result says in plain words
+what is on and until when; `inspect` says nothing of it, as of a pause of the planning call. Each call goes by the window as it
+is when the call is made, so a test round starts each of its parts with `inspect` and a new registration. With every switch off
+every text and result is as before; only an error that lists the known actions or later inputs names the new ones.
 
 ### AskRigor's own planning call, on dev accounts (owner answer 298b, 13 November 2026)
 

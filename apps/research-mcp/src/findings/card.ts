@@ -437,8 +437,22 @@ export interface VerifiedWork {
 
 /** The work, in the words the answer shows: "full-text audits of 2 studies and audited comments on 3 videos". */
 export function verifiedWorkPhrase(work: VerifiedWork): string {
-  const counted = (count: number, one: string, many: string) => count === 1 ? one : many.replace("#", String(count));
-  const parts = [
+  const parts = verifiedWorkParts(work);
+  return parts.length <= 1 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
+}
+
+/** A count in words: `one` for one, otherwise `many` with the count in place of "#". */
+export const countedPhrase = (count: number, one: string, many: string): string =>
+  count === 1 ? one : many.replace("#", String(count));
+
+/**
+ * The work's parts, in the order verifiedWorkPhrase joins them: the studies' audits, the videos' comments, the checks of
+ * what the evidence does not show, the corrections and the forum threads. Owner answer 416a's closing comparison puts the
+ * studies read without an audit after the first (closing-comparison.ts).
+ */
+export function verifiedWorkParts(work: VerifiedWork): string[] {
+  const counted = countedPhrase;
+  return [
     ...(work.studies === 0 ? [] : [counted(work.studies, "a full-text audit of 1 study", "full-text audits of # studies")]),
     ...(work.videos === 0 ? [] : [counted(work.videos, "audited comments on 1 video", "audited comments on # videos")]),
     ...(work.absences === 0 ? [] : [counted(work.absences, "a check of what the evidence does not show",
@@ -448,7 +462,6 @@ export function verifiedWorkPhrase(work: VerifiedWork): string {
     ...((work.threads ?? 0) === 0 ? [] : [counted(work.threads!, "1 forum thread read in full",
       "# forum threads read in full")])
   ];
-  return parts.length <= 1 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
 }
 
 /**

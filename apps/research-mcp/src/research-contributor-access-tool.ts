@@ -141,6 +141,7 @@ import { plannedClaimKey, type MenuHistoryEntry, type ResearchPlan, type Researc
 import type { ResearchReviewer } from "./research-reviewer.js";
 import { TRIAL_OFF_NOTHING_CHANGED, researchTrialState, researchTrialText, trialOffered, type ResearchSwitchModes,
   type ResearchTrialWindows } from "./research-trial.js";
+import { CLOSING_COMPARISON_REGISTERED } from "./closing-comparison.js";
 import type { ResearchOperationExtra, ResearchOperationHandler } from "./research-operation.js";
 import {
   SHARED_ANSWER_KEPT,
@@ -209,7 +210,8 @@ export const manageResearchAccessInputSchema = z.object({
     "disconnect_gemini",
     // Owner answer 395b (21 Nov 2026, runtime only): a test round's pause of a dev account's planning call.
     "pause_research_planner",
-    // Owner answers 413a and 412a (24 Nov 2026, runtime only): a dev account's test window for three switches.
+    // Owner answers 413a and 412a (24 Nov 2026, runtime only): a dev account's test window for its switches (four since
+    // owner answer 416a).
     "set_research_trial",
   ]),
   agreement: freeContributorAgreementSchema.extend({ noticeVersion: noticeVersionSchema }).strict().optional(),
@@ -474,12 +476,14 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     .describe("With register_plain_answer and a research's first plan_research, where HRP's core is handed over: whether " +
       "it is in this result (here), comes with plan_research's, is to be loaded with load_protocol (load_it), is held " +
       "already or is not for this research."),
-  // Owner answers 413a and 412a, and P90 (runtime only): what the three switches come to on a dev account after its test
-  // window was set, and until when it runs; null once none runs. Only that call's own result carries it, as for the pause.
+  // Owner answers 413a, 412a and 416a, and P90 (runtime only): what the four switches come to on a dev account after its
+  // test window was set, and until when it runs; null once none runs. Only that call's own result carries it, as for the
+  // pause.
   researchTrial: z.object({
     claimAccounting: z.boolean(),
     hrpCore: z.boolean(),
     indirectEvidence: z.boolean(),
+    closingComparison: z.boolean(),
     until: z.iso.datetime().nullable(),
   }).strict().optional()
     .describe("With set_research_trial: whether each switch holds for this account now, and when its test window ends, " +
@@ -704,6 +708,11 @@ export interface ResearchContributorToolOptions {
    * Undefined or false: the plan is made as before.
    */
   indirectEvidence?: (accountKey: string, devAccount: boolean) => boolean;
+  /**
+   * Owner answer 416a: whether the closing comparison counts what was read and takes the paper's sentence on this
+   * account (closing-comparison.ts), which the registration's result then says. Undefined or false: it is as before.
+   */
+  closingComparison?: (accountKey: string, devAccount: boolean) => boolean;
   /** The switches' modes and the test windows (research-trial.ts), for set_research_trial; undefined: none offered. */
   researchTrial?: () => { modes: ResearchSwitchModes; windows: ResearchTrialWindows };
 }
@@ -1339,7 +1348,9 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           options.hrpCoreFor?.(accountKey, devAccount) !== true ? undefined : {
             read: options.hrpCore ?? (async () => undefined), held: parsed.hrpCoreHeld,
             shown: (result) => withToolListNotice(result, input, options.toolListVersion),
-          });
+          },
+          // Owner answer 416a: the closing comparison's later form, said before the research on an account that has it.
+          options.closingComparison?.(accountKey, devAccount) === true);
       }
       if (parsed.action === "set_research_steering") {
         // Owner answer 303a: learn mode only for a dev account, while AskRigor's own planning call is on. A test round's
@@ -1711,6 +1722,8 @@ async function registerPlainAnswer(
   // Owner answer 412a, on an account that has it: HRP's core, what the call said of holding it, and the result as the app
   // gets it (with a notice about its copy of the tools), whose size the core's room is measured by.
   hrp?: { read: () => Promise<HrpCore | undefined>; held: unknown; shown: (result: CallToolResult) => CallToolResult },
+  // Owner answer 416a, on an account that has it: the result says what can back a point and how to give its sentence.
+  closingComparison = false,
 ): Promise<CallToolResult> {
   const account = await plainAnswerAccount(service, subject, plain);
   if (account === undefined) return accessError("plain_answer_not_requested", plain === undefined ? PLAIN_ANSWER_SURFACE_UNAVAILABLE : PLAIN_ANSWER_NOT_REQUESTED);
@@ -1768,7 +1781,8 @@ async function registerPlainAnswer(
       : "Treat each claim as something to check, confirm or correct, and look beyond the claims too. ") + "Pass " +
     "this research_receipt to finalize_research with the others; there, plain_answer_comparison gives each claim, " +
     "copied exactly as listed here, with whether the research confirmed, corrected or qualified it, or did not check " +
-    "it. Claims: " + plainAnswer.claims.map((claim, index) =>
+    // Owner answer 416a: what can back a point, and its paper's sentence, said before the research where the switch holds.
+    `it. ${closingComparison ? `${CLOSING_COMPARISON_REGISTERED} ` : ""}Claims: ` + plainAnswer.claims.map((claim, index) =>
       `${index + (accounting ? 1 : 0)} ${JSON.stringify(claim)}`).join("; ") + ". " +
     // #434 (8 Nov 2026): a final check given the question in other words, after the person said "continue", found no
     // plain answer for it, and the answer ended without the comparison.
