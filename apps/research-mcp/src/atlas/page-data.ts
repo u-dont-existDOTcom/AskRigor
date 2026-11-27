@@ -1,3 +1,5 @@
+import type { AtlasTraditionRow } from "@askrigor/evidence-repository";
+import { traditionLabelsOf } from "./tradition-text.js";
 import type {
   AtlasForumSignalStudies,
   AtlasPublishedRetraction,
@@ -297,6 +299,7 @@ export interface AtlasTopicModel {
 }
 
 export interface AtlasFindingModel {
+  traditions?: AtlasTraditionRow[];
   finding: ShownFinding;
   /** The other findings the pages show from the same card, in number order. */
   siblings: ShownFinding[];
@@ -1526,7 +1529,8 @@ export async function loadAtlasFinding(
         .sort((left, right) => numberOf(left.publicationNumber) - numberOf(right.publicationNumber));
     const participation = options.participation === undefined ? null
       : await reads.readParticipation(publicationNumber, options.participation.participantKey, options.participation.before);
-    return { finding: shown, siblings, participation };
+    const traditions = traditionLabelsOf(shown, (await reads.listTraditions?.())?.labels ?? []);
+    return { finding: shown, siblings, participation, traditions };
   });
 }
 

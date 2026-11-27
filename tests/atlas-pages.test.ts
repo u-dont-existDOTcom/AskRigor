@@ -1,3 +1,4 @@
+import { InMemoryAtlasTraditions } from "@askrigor/evidence-repository";
 import { request as httpRequest } from "node:http";
 import type { AddressInfo } from "node:net";
 
@@ -34,7 +35,7 @@ import { AtlasPlacementReview } from "../apps/research-mcp/src/atlas/placement-r
 import { ATLAS_MAP_TOPIC_FINDINGS, NOT_CHECKED_LABEL, sourceIdentifierOf, loadAtlasFindings, loadAtlasHome, loadAtlasMap, loadAtlasSearch,
   loadAtlasTopics, loadAtlasTopic, searchAtlasIndex, searchTextsOf, type AtlasSearchIndex,
   type ShownFinding } from "../apps/research-mcp/src/atlas/page-data.js";
-import { AI_LABEL, ATLAS_CSS, NEEDS_CHECKING_LABEL, atlasPageProblems, clusterLayout, escapeHtml, findingPath, mapRadius, percent, sourceLink,
+import { AI_LABEL, ATLAS_CSS, NEEDS_CHECKING_LABEL, atlasPageProblems, clusterLayout, escapeHtml, findingList, findingPath, mapRadius, percent, sourceLink,
   renderAtlasMap, renderAtlasSearch, renderAtlasTopic, wrapWords } from "../apps/research-mcp/src/atlas/pages.js";
 import { STRENGTH_RULE, claimStrength } from "../apps/research-mcp/src/atlas/strength.js";
 import { atlasSearchMatch, atlasSearchQuery, atlasSearchWords, foldAtlasSearchTexts,
@@ -2558,5 +2559,149 @@ describe("findings that challenge the usual view", () => {
     expect(select.sql).toContain("AND (NOT $8::boolean OR listed.challenge_marked_at IS NOT NULL)");
     expect(select.sql).not.toContain("challenge_marked_by");
     expect(select.values).toEqual([null, null, null, null, 20, null, false, true]);
+  });
+});
+
+
+describe("Traditions through the Atlas HTTP handler", () => {
+  it.each([
+    ["unreviewed", [NOT_CHECKED_LABEL, AI_LABEL, NEEDS_CHECKING_LABEL]],
+    ["checked", ["Checked by supervisors"]],
+    ["contested", ["Contested"]],
+    ["superseded", ["Superseded"]],
+    ["lead", ["Lead"]],
+  ] as const)("keeps the shared %s status and warnings on section entries", async (kind, warnings) => {
+    const { store, shown, numbers } = await fixture();
+    let number = kind === "contested" ? shown.edited : shown.lead;
+    if (kind === "unreviewed" || kind === "checked" || kind === "superseded") {
+      const card = recordOf({ ...VELMOR_CARD, findings: [{ ...VELMOR_CARD.findings[0]!, certainty: "high" }] });
+      number = (await store.publish(8978, card)).rows[0]!.publicationNumber;
+      if (kind !== "unreviewed") {
+        const atlasNumber = await store.accept(8978, acceptPayload({ wording: card.card.findings[0]!.claim }));
+        await store.publications.decide({ cardNumber: 8978, findingNumber: 1, state: "accepted", atlasNumber,
+          decidedAt: store.tick() });
+        if (kind === "superseded") await store.record({ kind: "link", publicNumber: numbers.edited,
+          relation: "replaces", toPublicNumber: atlasNumber, disagreement: null,
+          rationale: "A newer invented finding replaces this one.", decidedWith: DECIDED_WITH });
+      }
+    }
+    const traditions = new InMemoryAtlasTraditions();
+    await traditions.setTraditions([{ item: number, labels: [{ section: "ccm", tradition: "An invented classical text",
+      modern_check: "supports", match: "tested as the tradition uses it", list: "useful", quick_answer_misses: false }] }],
+    [], "2026-11-22T12:00:00.000Z");
+    const source = new InMemoryAtlasPageSource({ publications: store.publications, canonical: store.canonical, traditions });
+    const base = await serve(pages(source));
+    const section = await text(base, "/atlas/traditions/ccm");
+    const finding = (await loadAtlasFinding(source, number))!;
+    expect(finding.finding.status.kind).toBe(kind);
+    const healthList = findingList([finding.finding]).value;
+    const detail = await text(base, `/atlas/findings/${number}`);
+    expect(section.response.status).toBe(200);
+    expect(detail.response.status).toBe(200);
+    for (const warning of warnings) {
+      expect(section.body).toContain(warning);
+      expect(healthList).toContain(warning);
+      expect(detail.body).toContain(warning);
+    }
+    const badges = healthList.match(/<p class="(?:badge[^"]*|ai-label)">[^<]*<\/p>/gu)!;
+    expect(badges.length).toBeGreaterThan(0);
+    for (const badge of badges) expect(section.body).toContain(badge);
+    expect(section.body.indexOf(`badge-${kind}`)).toBeLessThan(section.body.indexOf("Modern check: supports it"));
+    expect(atlasPageProblems(section.body)).toEqual([]);
+  });
+  it("resolves an older explicit P label before a newer inherited F label and links to the matching finding page", async () => {
+    const { store, shown, numbers } = await fixture();
+    const original = (await store.publications.inspect({ states: ["accepted", "edited"], limit: 100 }))
+      .find((row) => row.publicationNumber === shown.lowDose)!;
+    const [duplicate] = await store.publications.publish({ cardNumber: 8979, cardSha256: "e".repeat(64),
+      publishedAt: "2026-11-22T12:00:00.000Z", revive: false, findings: [{ findingNumber: 1,
+        state: "accepted", atlasNumber: numbers.lowDose, heldBecause: null, published: original.published }] });
+    const traditions = new InMemoryAtlasTraditions();
+    const inherited = { section: "ccm", tradition: "Inherited F-number wording", modern_check: "supports" as const,
+      match: "tested as the tradition uses it", list: "useful" as const, quick_answer_misses: false };
+    const explicit = { ...inherited, tradition: "Explicit older P-number wording", modern_check: "corrects" as const,
+      list: "correction" as const, quick_answer_misses: true };
+    await traditions.setTraditions([{ item: numbers.lowDose, labels: [inherited] },
+      { item: original.publicationNumber, labels: [explicit] }], [], "2026-11-22T12:00:00.000Z");
+    const source = new InMemoryAtlasPageSource({ publications: store.publications, canonical: store.canonical, traditions });
+    const { loadAtlasTradition, loadAtlasTraditions } = await import("../apps/research-mcp/src/atlas/traditions-pages.js");
+    const inheritedFinding = (await loadAtlasFinding(source, duplicate!.publicationNumber))!;
+    expect(inheritedFinding.traditions).toMatchObject([{ ...inherited, item: numbers.lowDose }]);
+    const section = (await loadAtlasTradition(source, "ccm"))!;
+    const finding = (await loadAtlasFinding(source, original.publicationNumber))!;
+    expect(section.entries).toHaveLength(1);
+    expect(section.entries[0]!.finding.publicationNumber).toBe(original.publicationNumber);
+    expect(section.entries[0]!.label).toEqual(finding.traditions![0]);
+    expect(section.entries[0]!.label).toMatchObject(explicit);
+    expect((await loadAtlasTraditions(source)).sections.find(({ key }) => key === "ccm")!.count).toBe(1);
+    const base = await serve(pages(source));
+    const sectionPage = await text(base, "/atlas/traditions/ccm");
+    const findingPage = await text(base, `/atlas/findings/${original.publicationNumber}`);
+    expect(sectionPage.body).toContain(`href="/atlas/findings/${original.publicationNumber}"`);
+    expect(sectionPage.body).not.toContain(`href="/atlas/findings/${duplicate!.publicationNumber}"`);
+    expect(sectionPage.body).not.toContain(inherited.tradition);
+    for (const body of [sectionPage.body, findingPage.body]) {
+      expect(body).toContain(explicit.tradition);
+      expect(body).toContain("Modern check: corrects it: right idea, wrong dose, form or people");
+    }
+    expect(sectionPage.body).toContain("A quick AI answer misses this");
+    expect(sectionPage.body.indexOf("Most important corrections from modern science"))
+      .toBeLessThan(sectionPage.body.indexOf(explicit.tradition));
+    expect(sectionPage.body.indexOf(explicit.tradition)).toBeLessThan(sectionPage.body.indexOf("<h2>Untested</h2>"));
+  });
+  it("keeps a P label on a second publication of one accepted F finding and applies a P override once", async () => {
+    const { store, numbers } = await fixture();
+    const traditions = new InMemoryAtlasTraditions();
+    const original = (await store.publications.inspect({ states: ["accepted", "edited"], limit: 100 }))
+      .find((row) => row.atlasNumber === numbers.lowDose)!;
+    const copy = await store.publications.publish({ cardNumber: 8974, cardSha256: "d".repeat(64),
+      publishedAt: "2026-11-22T12:00:00.000Z", revive: false, findings: [{ findingNumber: 1,
+        state: "accepted", atlasNumber: numbers.lowDose, heldBecause: null, published: original.published }] });
+    const duplicate = copy[0]!.publicationNumber;
+    const label = { section: "ccm", tradition: "An invented classical text", modern_check: "mixed" as const,
+      match: "tested only as a modern extract", list: "useful" as const, quick_answer_misses: true };
+    await traditions.setTraditions([{ item: original.publicationNumber, labels: [label] }], [], "2026-11-22T12:00:00.000Z");
+    const source = new InMemoryAtlasPageSource({ publications: store.publications, canonical: store.canonical, traditions });
+    const { loadAtlasTradition } = await import("../apps/research-mcp/src/atlas/traditions-pages.js");
+    const section = (await loadAtlasTradition(source, "ccm"))!;
+    expect(section.entries).toHaveLength(1);
+    expect(section.entries[0]!.finding.publicationNumber).toBe(original.publicationNumber);
+    await traditions.setTraditions([{ item: numbers.lowDose, labels: [label] },
+      { item: duplicate, labels: [{ ...label, tradition: "P-number wording" }] }], undefined, "2026-11-22T12:00:00.000Z");
+    const { loadAtlasFinding } = await import("../apps/research-mcp/src/atlas/page-data.js");
+    const finding = (await loadAtlasFinding(source, duplicate))!;
+    expect(finding.traditions).toHaveLength(1);
+    expect(finding.traditions![0]!.tradition).toBe("P-number wording");
+  });
+  it("serves the section index, every section and the full finding with accepted F labels, while hiding private items", async () => {
+    const { store, shown, hidden, numbers } = await fixture();
+    const traditions = new InMemoryAtlasTraditions();
+    const label = { section: "ccm", tradition: "An invented classical text", modern_check: "mixed" as const,
+      match: "tested only as a modern extract", list: "useful" as const, quick_answer_misses: true };
+    await traditions.setTraditions([
+      { item: numbers.lowDose, labels: [label] },
+      { item: hidden.rejected, labels: [label] },
+      { item: "P-9898", labels: [label] },
+    ], [], "2026-11-22T12:00:00.000Z");
+    const source = new InMemoryAtlasPageSource({ publications: store.publications, canonical: store.canonical, traditions });
+    const base = await serve(pages(source));
+    const index = await text(base, "/atlas/traditions");
+    expect(index.response.status).toBe(200);
+    expect(index.body).toContain('CCM: classical Chinese medicine</a>: <span class="meta">1 finding</span>');
+    for (const key of ["tibetan-medicine", "ayurveda-and-siddha", "tcm", "ccm"]) {
+      const { response, body } = await text(base, `/atlas/traditions/${key}`);
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-security-policy")).toBe(CSP);
+      expect(atlasPageProblems(body)).toEqual([]);
+    }
+    const ccm = await text(base, "/atlas/traditions/ccm");
+    expect(ccm.body).toContain("An invented classical text");
+    const number = (await store.publications.inspect({ states: ["accepted", "edited"], limit: 100 }))
+      .find((row) => row.atlasNumber === numbers.lowDose)!.publicationNumber;
+    const finding = await text(base, `/atlas/findings/${number}`);
+    expect(finding.body).toContain("An invented classical text");
+    expect(finding.body).toContain("Modern check: mixed; tested only as a modern extract");
+    expect((await text(base, "/atlas/traditions/unknown")).response.status).toBe(404);
+    expect((await text(base, "/atlas/traditions/ccm/extra")).response.status).toBe(404);
   });
 });

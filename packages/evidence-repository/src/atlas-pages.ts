@@ -1,3 +1,4 @@
+import { ATLAS_TRADITIONS_PAGE_SQL, type AtlasTraditionStore, type AtlasTraditions } from "./atlas-traditions.js";
 import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
 
@@ -244,6 +245,8 @@ export interface AtlasPageReads {
   listHomePicks(): Promise<AtlasPageHomePick[]>;
   /** Where each item sits in the categories (owner answer 229a), by item number. */
   listPlacements(): Promise<AtlasPagePlacement[]>;
+  /** Public tradition labels, in this same snapshot. */
+  listTraditions?(): Promise<AtlasTraditions>;
   /** A published report (owner answer 229a), with the signed-in viewer's own answer when a key is given; else null. */
   readReport(publicId: string, viewerKey: string | null): Promise<AtlasPageReport | null>;
   /** Every published report, newest first. */
@@ -814,6 +817,10 @@ function postgresReads(client: PoolClient): AtlasPageReads {
       return (await client.query<AtlasGlanceRowRecord>(ATLAS_GLANCE_PAGE_SQL)).rows.map(atlasGlanceRowOf);
     },
 
+    async listTraditions() {
+      return (await client.query<{ traditions: AtlasTraditions }>(ATLAS_TRADITIONS_PAGE_SQL)).rows[0]!.traditions;
+    },
+
     async listPlacements() {
       return (await client.query<{ item_number: string; category_key: string; subcategory_key: string }>(
         "SELECT item_number, category_key, subcategory_key FROM atlas_placements ORDER BY item_number")).rows
@@ -907,6 +914,7 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
     participation?: InMemoryAtlasParticipation;
     /** Where items sit in the categories (owner answer 229a); none without it. */
     placements?: InMemoryAtlasPlacements;
+    traditions?: AtlasTraditionStore;
     /** People's reports (owner answer 229a); none without it. */
     reports?: InMemoryAtlasReports;
     /** The rows shown at a glance on the owner's yes; none without it. */
@@ -1079,6 +1087,8 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
       listOwnReports: async (participantKey) => await this.stores.reports?.ownReports(participantKey) ?? [],
 
       listGlanceRows: async () => this.stores.glance?.shownRows() ?? [],
+
+      listTraditions: async () => await this.stores.traditions?.listTraditions() ?? { labels: [], disagreements: [] },
 
       listPlacements: async () => (await this.stores.placements?.listPlacements() ?? [])
         .map(({ itemNumber, categoryKey, subcategoryKey }) => ({ itemNumber, categoryKey, subcategoryKey })),

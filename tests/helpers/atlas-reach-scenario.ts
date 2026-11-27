@@ -70,6 +70,9 @@ const FREE = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERS
 const count = (text: string, part: string) => text.split(part).length - 1;
 const digestOf = (text: string) => {
   // The test's sentence goes with the space after it, as a finding's status gives it (atlas/pages.ts, quickAnswerWords).
+  // Owner answer 403 adds this exact navigation line; the historical fixture still guards finding reach and words.
+  // Keep the recorded main bytes intact, and exclude only this separately tested, newly approved tab.
+  text = text.replaceAll('<li><a href="/atlas/traditions">Traditions</a></li>\n', "");
   let reduced = text.replaceAll(`${REACH_TEST_SENTENCE} `, "").replaceAll(REACH_TEST_SENTENCE, "");
   for (const sentence of REACH_HOME_SENTENCES) reduced = reduced.replaceAll(sentence, "[routes]");
   return createHash("sha256").update(reduced).digest("hex");

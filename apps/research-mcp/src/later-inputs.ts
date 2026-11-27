@@ -1,3 +1,4 @@
+import { traditionChangesSchema, traditionDisagreementsSchema } from "./atlas/traditions-review.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
@@ -299,6 +300,16 @@ const LATER_INPUT_SHAPES = Object.freeze({
         `${PLANNER_PAUSE_MAX_MINUTES}, to pause AskRigor's own planning call; 0 ends the pause.`),
   },
   review_research_contribution: {
+    traditions: traditionChangesSchema.optional().describe("With label_traditions: [{item, labels}], up to 200 P or F " +
+      "numbers. Each labels list replaces that item’s labels; [] removes them. A label has section, tradition (160 " +
+      "characters), optional region (80) and preparation (120), modern_check, match (120), list and " +
+      "quick_answer_misses. list_traditions gives the section keys. For blessed or religious preparations, give the " +
+      "tradition’s own account respectfully. Check only what studies can test: contents, including contaminants, and " +
+      "measurable health claims. Say plainly that a blessing’s spiritual effect is outside what studies can test. " +
+      "Set this wording in review."),
+    tradition_disagreements: traditionDisagreementsSchema.optional().describe("With label_traditions: replace the " +
+      "whole list of TCM/CCM disagreements with [{tcm_item, ccm_item, line}]. The line is under 200 characters; [] " +
+      "removes all disagreements. Omit to keep them."),
     sharedAnswerId: sharedAnswerIdSchema.optional()
       .describe("With read_shared_answer or delete_shared_answer: the ID list_shared_answers gave."),
     // Owner answers 229a and 231a: findings kept for AskRigor's research only.

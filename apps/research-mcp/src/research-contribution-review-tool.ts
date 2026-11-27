@@ -1,3 +1,4 @@
+import { atlasTraditionsSchema } from "./atlas/traditions-review.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
   RELATED_PROPOSAL_KEY_KINDS,
@@ -78,6 +79,14 @@ export const researchContributionReviewInputSchema = z.object({
       "unpublish one."),
   ...atlasReviewInputShape,
 }).strict().superRefine((value, context) => {
+  const traditions = value as { traditions?: unknown; tradition_disagreements?: unknown };
+  const hasTraditions = traditions.traditions !== undefined || traditions.tradition_disagreements !== undefined;
+  if ((value.action === "label_traditions") !== hasTraditions) {
+    context.addIssue({ code: "custom", message: value.action === "label_traditions"
+      ? "label_traditions needs later_inputs.traditions or tradition_disagreements"
+      : `${value.action} does not take tradition labels or disagreements` });
+  }
+
   // Atlas news, stage 1: each news input only with the action that takes it, and nothing else with a news action.
   const news = value as { news_day?: unknown; news_number?: unknown; news_date?: unknown };
   const newsTakes = { news_day: ["publish_news_day"], news_number: ["withdraw_news_item", "list_news_items"],
@@ -347,6 +356,7 @@ export const researchContributionReviewRuntimeOutputSchema = researchContributio
   kept: atlasKeptSchema.optional(),
   // Owner answer 229a: place_items and list_unplaced, runtime-only (owner answer 189a).
   placements: atlasPlacementsSchema.optional(),
+  traditions: atlasTraditionsSchema.optional(),
   // Owner answer 229a: list_reports, check_report and decide_report, runtime-only (owner answer 189a).
   reports: atlasReportsSchema.optional(),
   // The owner, 3 Nov: a problem's rows at a glance, runtime-only.
@@ -368,7 +378,7 @@ export const researchContributionReviewRuntimeOutputSchema = researchContributio
   }).strict().optional(),
 }).strict();
 
-const researchContributionReviewRuntimeInputSchema = researchContributionReviewInputSchema.safeExtend(
+export const researchContributionReviewRuntimeInputSchema = researchContributionReviewInputSchema.safeExtend(
   laterInputShape("review_research_contribution"));
 
 export interface ResearchContributionReviewToolOptions {
@@ -712,6 +722,7 @@ function atlasToolResult(result: AtlasReviewResult): CallToolResult {
     ...(result.participation === undefined ? {} : { participation: result.participation }),
     ...(result.kept === undefined ? {} : { kept: result.kept }),
     ...(result.placements === undefined ? {} : { placements: result.placements }),
+    ...(result.traditions === undefined ? {} : { traditions: result.traditions }),
     ...(result.reports === undefined ? {} : { reports: result.reports }),
     ...(result.glance === undefined ? {} : { glance: result.glance }),
     ...(result.challenges === undefined ? {} : { challenges: result.challenges }),

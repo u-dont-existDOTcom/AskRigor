@@ -1,3 +1,4 @@
+import { loadAtlasTraditions, loadAtlasTradition, renderAtlasTraditions, renderAtlasTradition } from "./traditions-pages.js";
 import { timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
@@ -254,6 +255,7 @@ const PUBLICATION_ROUTE = /^\/atlas\/findings\/(P-[1-9][0-9]{3,11})$/u;
 const TOPIC_ROUTE = /^\/atlas\/topics\/([a-z0-9][a-z0-9._-]{0,199})$/u;
 // AskRigor#477 stage 2: a research dossier's page, by its public number.
 const DOSSIER_ROUTE = /^\/atlas\/dossiers\/(D-[1-9][0-9]{3,11})$/u;
+const TRADITION_ROUTE = /^\/atlas\/traditions\/([a-z][a-z0-9-]{0,59})$/u;
 const SUBCATEGORY_ROUTE = /^\/atlas\/health\/([a-z][a-z0-9-]{0,59})$/u;
 const FINDING_FORM_ROUTE = /^\/atlas\/findings\/(P-[1-9][0-9]{3,11})\/(vote|comments)$/u;
 const COMMENT_FORM_ROUTE = /^\/atlas\/comments\/(C-[1-9][0-9]{3,11})\/(delete|report)$/u;
@@ -271,6 +273,8 @@ export type AtlasRoute =
   // after: AskRigor#477 stage 2, while dossiers show, the topics after this label and key (?after=&after_label=).
   | { kind: "topics"; after?: { label: string; key: string } }
   | { kind: "health" }
+  | { kind: "traditions" }
+  | { kind: "tradition"; sectionKey: string }
   | { kind: "subcategory"; subcategoryKey: string }
   | { kind: "map" }
   | { kind: "comment-maps" }
@@ -335,6 +339,9 @@ export function atlasRouteOf(pathname: string, participation = false): AtlasRout
   if (pathname === "/atlas/findings") return { kind: "findings" };
   if (pathname === CHALLENGES_PATH) return { kind: "challenges" };
   if (pathname === "/atlas/topics") return { kind: "topics" };
+  if (pathname === "/atlas/traditions") return { kind: "traditions" };
+  const tradition = TRADITION_ROUTE.exec(pathname);
+  if (tradition !== null) return { kind: "tradition", sectionKey: tradition[1]! };
   if (pathname === "/atlas/health") return { kind: "health" };
   if (pathname === "/atlas/map") return { kind: "map" };
   if (pathname === COMMENT_MAPS_PATH) return { kind: "comment-maps" };
@@ -890,7 +897,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     });
 
   const render = async (route: Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" | "challenges" |
-    "topics" | "health" | "subcategory" | "map" | "comment-maps" | "report" | "dossier" }>, source: AtlasPageSource,
+    "topics" | "health" | "traditions" | "tradition" | "subcategory" | "map" | "comment-maps" | "report" | "dossier" }>, source: AtlasPageSource,
   reader?: AtlasPageReader): Promise<RenderedAtlasPage> => {
     switch (route.kind) {
       case "comment-maps":
@@ -922,6 +929,13 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           return checked({ status: 200, html: fitted });
         }
         return checked({ status: 200, html: renderAtlasTopics(model, reader) });
+      }
+      case "traditions":
+        return checked({ status: 200, html: renderAtlasTraditions(await loadAtlasTraditions(source), reader) });
+      case "tradition": {
+        const model = await loadAtlasTradition(source, route.sectionKey);
+        return checked(model === undefined ? { status: 404, html: renderAtlasNotFound(reader) }
+          : { status: 200, html: renderAtlasTradition(model, reader) });
       }
       case "health":
         return checked({ status: 200, html: renderAtlasHealth(await loadAtlasHealth(source), reader) });
@@ -1664,7 +1678,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           return true;
         }
         let pageRoute = route as Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" |
-          "challenges" | "topics" | "health" | "subcategory" | "map" | "comment-maps" | "report" | "dossier" }>;
+          "challenges" | "topics" | "health" | "traditions" | "tradition" | "subcategory" | "map" | "comment-maps" | "report" | "dossier" }>;
         let cacheKey = pathname;
         if (pageRoute.kind === "findings") {
           const query = queryOf(request);

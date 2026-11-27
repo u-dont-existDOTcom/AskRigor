@@ -1,3 +1,4 @@
+import type { AtlasTraditionStore } from "@askrigor/evidence-repository";
 import type {
   AtlasModerationStore,
   AtlasParticipationStore,
@@ -187,5 +188,13 @@ export function announcingDossierReview(
     admitAfterPrivacy: (input) => announcing(signal, () => store.admitAfterPrivacy(input)),
     admissionPending: (limit) => store.admissionPending(limit),
     reviseImportance: (input) => announcing(signal, () => store.reviseImportance(input)),
+  };
+}
+
+/** Tradition edits invalidate the same page cache as placements. */
+export function announcingTraditionStore(store: AtlasTraditionStore, signal: AtlasChangeSignal = atlasChanges): AtlasTraditionStore {
+  return {
+    setTraditions: (changes, disagreements, at) => announcing(signal, () => store.setTraditions(changes, disagreements, at)),
+    listTraditions: () => store.listTraditions(),
   };
 }
