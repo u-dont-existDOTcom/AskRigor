@@ -2313,7 +2313,9 @@ export function createResearchAccessGuard(
         mapped.code !== "research_access_required"
           ? mapped.message
           : options.noticeElsewhere === true
-            ? `${mapped.message} This connector can't show AskRigor's research notice. Tell the person to open AskRigor ` +
+            // Gemini's sign-in shows the notice on AskRigor's own page (owner answer 419a), so connecting again reaches it.
+            ? `${mapped.message} This connector can't show AskRigor's research notice. Tell the person to remove AskRigor ` +
+              "in Gemini's settings and add it again (AskRigor shows the notice when they sign in), or to open AskRigor " +
               "once in Claude or ChatGPT (https://askrigor.com/add), read the notice there and choose; then retry here."
             : `${mapped.message} Call manage_research_access with action inspect, show the user the notice it returns, and let them choose.`,
       );

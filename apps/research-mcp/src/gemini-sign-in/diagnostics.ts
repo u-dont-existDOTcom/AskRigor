@@ -17,6 +17,8 @@ import { googleConnectorIdOf, isGoogleRedirect } from "./google-client.js";
  */
 export type GeminiSignInStage =
   | "login"
+  /** The free-use notice before the consent step (owner answer 419a): shown, not needed, or how it was answered. */
+  | "notice"
   | "consent"
   | "callback"
   | "library"

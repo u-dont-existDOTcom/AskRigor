@@ -284,7 +284,10 @@ export interface AskRigorHttpServerOptions {
    * the connector's research accounts and the research-access database, answering 503 while one is missing.
    */
   accountTermsRoutes?: AccountTermsRoutes;
-  /** Replaces the terms page's answers (migration 0044), for tests; otherwise the research-access database's. */
+  /**
+   * Replaces the answers the free-use notice takes at sign-in (migration 0044), on the terms page and in Gemini's sign-in,
+   * for tests; otherwise the research-access database's.
+   */
   termsPageAnswers?: TermsPageAnswerStore;
   /** Shared questions and answers (owner answer 200a); null turns them off; defaults to the server's settings. */
   sharedAnswers?: SharedAnswers | null;
@@ -486,12 +489,6 @@ export function createAskRigorHttpServer(
       });
   // Owner answer 280a: the content-free call record, on the research-access database and pool.
   const researchCallRecord = options.researchCallRecord ?? researchAccessStore?.callRecordStore();
-  // Owner answer 386b: AskRigor's own authorization server for Google's Gemini app, on the same database and pool. It
-  // exists only beside the primary OAuth resource (its settings refuse to load without it).
-  const geminiSignIn = options.geminiSignIn === null
-    ? undefined
-    : options.geminiSignIn ?? geminiSignInFromEnv(researchAccessStore?.geminiSignInRows());
-  const geminiLinks = geminiSignIn?.links;
   // AskRigor#477 stage 1 (owner answer 329a): research dossiers, on the research-access database and pool, once enabled.
   const researchDossiers = options.researchDossiers ??
     (researchDossiersEnabledFromEnv() ? researchAccessStore?.dossierStore() : undefined);
@@ -512,6 +509,20 @@ export function createAskRigorHttpServer(
           // owner's standing instruction of 6 November 2026; no other account does.
           ...(oauthResourceServer === undefined ? {} : { ownerSubjects: oauthResourceServer.reviewerSubjects }),
         }));
+  // The answers the free-use notice takes at sign-in, each token once (owner answer 419a, migration 0044): AskRigor's
+  // terms page and Gemini's sign-in keep them in the same table.
+  const termsPageAnswers = options.termsPageAnswers ?? researchAccessStore?.termsPageAnswers();
+  // Owner answer 386b: AskRigor's own authorization server for Google's Gemini app, on the same database and pool. It
+  // exists only beside the primary OAuth resource (its settings refuse to load without it). Gemini can't show the
+  // free-use notice in its chat, so its sign-in shows it on AskRigor's own page to an account whose yes doesn't cover
+  // the current notice, recording a yes as the terms page does (owner answer 419a; the owner, 27 Nov 2026).
+  const geminiSignIn = options.geminiSignIn === null
+    ? undefined
+    : options.geminiSignIn ?? geminiSignInFromEnv(researchAccessStore?.geminiSignInRows(), process.env,
+      researchContributorAccessService === undefined || termsPageAnswers === undefined
+        ? {}
+        : { notice: { access: researchContributorAccessService, answers: termsPageAnswers } });
+  const geminiLinks = geminiSignIn?.links;
   const researchContributionReviewConfig =
     options.researchContributionReviewService === undefined
       ? researchContributionReviewConfigFromEnv()
@@ -548,7 +559,7 @@ export function createAskRigorHttpServer(
   const accountTermsRoutes = options.accountTermsRoutes ?? createAccountTermsRoutes({
     settings: accountTermsSettingsFromEnv(),
     access: researchContributorAccessService,
-    answers: options.termsPageAnswers ?? researchAccessStore?.termsPageAnswers(),
+    answers: termsPageAnswers,
     rateLimiter: createTokenBucketLimiter(PUBLIC_RATE_LIMIT),
   });
   const researchAccessRequired = oauthResourceServer !== undefined;

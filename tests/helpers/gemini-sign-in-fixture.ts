@@ -14,6 +14,7 @@ import {
 } from "../../apps/research-mcp/src/gemini-sign-in/provider.js";
 import {
   createGeminiSignInRoutes,
+  type GeminiNoticeStep,
   type GeminiSignInDiagnostic,
   type GeminiSignInRoutes,
 } from "../../apps/research-mcp/src/gemini-sign-in/routes.js";
@@ -89,6 +90,8 @@ export async function startGeminiFixture(options: {
   diagnostic?: (record: GeminiSignInDiagnostic) => void;
   /** The sign-in paths' per-address budget (default: high enough never to refuse). */
   rateLimitCapacity?: number;
+  /** The free-use notice before the consent step (owner answer 419a); off when not given, as before. */
+  notice?: GeminiNoticeStep;
 } = {}): Promise<GeminiFixture> {
   const googleKeys = await generateKeyPair("RS256", { extractable: true });
   const stranger = await generateKeyPair("RS256", { extractable: true });
@@ -192,6 +195,7 @@ export async function startGeminiFixture(options: {
       idleTtlMs: 60_000,
     }),
     ...(options.diagnostic === undefined ? {} : { diagnostic: options.diagnostic }),
+    ...(options.notice === undefined ? {} : { notice: options.notice }),
   });
 
   const http: Server = createServer(async (request: IncomingMessage, response: ServerResponse) => {
@@ -374,9 +378,13 @@ export function movesOnTo(html: string): string | undefined {
   return /<meta http-equiv="refresh" content="0;url=([^"]+)">/u.exec(html)?.[1];
 }
 
-/** Runs the whole link in a browser up to Google's redirect; returns the code and the PKCE verifier. */
+/**
+ * Runs the whole link in a browser up to Google's redirect; returns the code and the PKCE verifier. notice: the answer
+ * to give the free-use notice when the link shows it; a link that shows it without one fails.
+ */
 export async function linkToCode(fixture: GeminiFixture, browser: Browser,
-  options: { scope?: string; resource?: string | null } = {}): Promise<{ code: string; verifier: string; location: URL }> {
+  options: { scope?: string; resource?: string | null; notice?: "accept" | "decline" } = {}):
+  Promise<{ code: string; verifier: string; location: URL }> {
   const { verifier, challenge } = pkce();
   let response = await browser.request(authorizeUrl({
     response_type: "code",
@@ -399,6 +407,12 @@ export async function linkToCode(fixture: GeminiFixture, browser: Browser,
       const token = /name="form_token" value="([^"]+)"/u.exec(html)?.[1];
       const action = /<form method="post" action="([^"]+)"/u.exec(html)?.[1];
       if (token === undefined || action === undefined) throw new Error(`unexpected page: ${html.slice(0, 200)}`);
+      const version = /name="notice_version" value="([^"]+)"/u.exec(html)?.[1];
+      if (version !== undefined) {
+        if (options.notice === undefined) throw new Error("unexpected free-use notice");
+        response = await browser.submit(action, { form_token: token, notice_version: version, decision: options.notice });
+        continue;
+      }
       response = await browser.submit(action, { form_token: token, decision: "allow" });
       continue;
     }
