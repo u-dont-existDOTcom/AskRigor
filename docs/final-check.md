@@ -198,6 +198,52 @@ older description of the note's figure replacement and of a first-turn correctio
 research began is not compared, and the registration's result no longer says it was registered before research: the
 server keeps no record of the research, so only the final check can tell, by the receipts' signed order.
 
+Owner answer 416a (24 November 2026, "both changes"; built behind `ASKRIGOR_CLOSING_COMPARISON`, off, not released) changes
+the note in two ways and adds no blocking rule, step or required field (`apps/research-mcp/src/closing-comparison.ts`). The
+owner's saved answers showed two faults: a "confirmed" whose only proof was the answer's own sentence (a magnesium note
+said a full-text audit confirmed that acute kidney injury slows magnesium clearance, and that paper never mentions acute
+kidney injury), and "did not check" said of points the research had read about (11 of 47 points in ten saved answers, 5 to
+8 of them looked up in abstracts, partly read papers, reports or web pages). Where the switch holds for the account:
+
+- **What was read counts, and the note says how.** A change may also rest on a paper whose verified receipts show it was
+  read in full without a method audit (a `full_text_read` receipt, of AskRigor's copy or the AI's), or read as its
+  abstract (a `pubmed_record` receipt of a record that had one), named by its DOI, PMID or PMCID: "from the abstract of 1
+  study", "from the full text of 1 study, methods not audited". Each paper counts once, at the deepest reading its receipts
+  show, whichever of its identifiers the entry gives. A report, a web page, a search's listing, a lead and a record
+  without an abstract still count for nothing, and the step naming such a source says so; comments, forum threads and the
+  sentences AskRigor checks (nothing found, a correction) back a change as before. Parts that hold a comma of their own
+  are set apart with semicolons ("from a full-text audit of 1 study; the full text of 1 study, methods not audited; and the
+  abstract of 1 study").
+- **The paper's sentence.** Each entry of the comparison's later form may give `source_sentence`, the study's own sentence
+  the point rests on, copied whole and exactly in the paper's language, at the top level or in
+  `later_inputs.plain_answer_comparison` (given in both, the later one is used, with a note). Once the check passes, it is
+  looked up in the text AskRigor holds for each of the point's papers, in the order given: the full text a receipt's
+  handle still holds, otherwise the PubMed abstract, with the source lines' exact matcher (owner answer 237a: spacing,
+  case, Unicode form, quotation marks, dashes, emphasis and a word a PDF broke across lines set aside and nothing else,
+  only as one or more whole sentences, in any language, with no model), under the source lines' deadline and cache.
+  Found in a text AskRigor fetched, the note shows it after the answer's sentence ("In the study's abstract, AskRigor
+  found: “…”", the paper named when the point rests on more than one) and keeps "This research confirmed that"; a note
+  showing one ends "AskRigor checked only that each sentence it quotes from a paper is in that paper, not that it proves
+  the point." A change resting on a paper with no sentence, one not found, one not looked up (its full text no longer
+  held, its abstract unreadable just then or not in time, no text, or too short to mean much) or one found only in a copy
+  the AI supplied (shown as that copy's, as a source line found there gets no tick) reads "The AI says this research
+  confirmed that" (corrected, qualified). A change resting on no paper reads as before.
+- **Notes only.** A point resting on a study with no sentence, a sentence not found or not looked up, one found only in the
+  AI's copy, and one given for a point no study backs are notes for the AI, given only while the account's note is on. A
+  sentence that doesn't parse (over 600 characters) is dropped alone, with a note, and the comparison stands; a later form
+  that doesn't parse beside a usable top-level comparison gives way to it, as the other inputs the check only reads do, so
+  no comparison is lost to it. Nothing here is stored or signed, and the finalization receipt is the same with or without
+  a sentence.
+
+The registration's result says, where the switch holds, that a point may rest on a study audited, read in full or read
+as its abstract, and how to give its sentence. The published `plain_answer_comparison` still names only audited studies
+in `sources` and has no `source_sentence` (`docs/tool-list-changes-waiting.md`); no app needs a refresh. Off, every text and
+result is as before, which `tests/closing-comparison-off.test.ts` checks against results recorded before the switch.
+Limits: whether the sentence backs the point is meaning, which the match doesn't judge (the meaning judge's job 2 reads
+whether a change's sources back it, where it runs); a whole sentence can still be quoted out of its paragraph's context;
+a full text is held for an hour after its last read, so a later check finds only what the abstract holds; and the note
+is longer.
+
 
 Owner answer 237a (4 November 2026) adds one optional field and no blocking rule. `source_lines`, a later input of
 `finalize_research`, gives for each key claim the key source's id, the claim, the paper's sentence and its own
