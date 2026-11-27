@@ -1,0 +1,639 @@
+{
+  "audited": {
+    "contract": "2026-10-07",
+    "status": "ready_with_limits",
+    "checked_answer": "[Audited trial](https://doi.org/10.1000/mag-audited) was audited in full.\n\nIn acute kidney injury, the kidneys clear magnesium more slowly than usual. Checking magnesium every day is reasonable while kidney function is falling. Magnesium rose in a minority of patients during the first week. High magnesium was uncommon without magnesium-containing drugs.\n\nI did not search firsthand reports or community discussions for this answer: Synthetic fixture isolates the closing comparison.\n\nHow each study was read: full text read, methods audited by AskRigor.",
+    "next_steps": [],
+    "next_step_kinds": [],
+    "round": {
+      "number": 1,
+      "limit": 10
+    },
+    "limits": [
+      "I did not search firsthand reports or community discussions for this answer: Synthetic fixture isolates the closing comparison."
+    ],
+    "caveats": [
+      "I did not search firsthand reports or community discussions for this answer: Synthetic fixture isolates the closing comparison."
+    ],
+    "must_report": [],
+    "check_line": "Checked with AskRigor's final check, with the limits it found.",
+    "receipts_verified": 2,
+    "receipts_rejected": [],
+    "community": {
+      "decision": "not_relevant",
+      "surveys": 0,
+      "discovery_rounds": 0,
+      "saturated": false,
+      "depth": "deep",
+      "first_pass_complete": false,
+      "open_leads": [],
+      "audited_videos": [],
+      "material_videos": [],
+      "principal_communities": [],
+      "communities_searched": []
+    },
+    "sources": {
+      "validated": [
+        "10.1000/mag-audited"
+      ],
+      "lead_only": []
+    },
+    "answer_checked": true,
+    "findings_card": {
+      "status": "absent",
+      "problems": []
+    },
+    "plain_answer": {
+      "status": "registered",
+      "claims": 2
+    },
+    "plain_answer_note": "Without AskRigor, a quick answer would have said: “Acute kidney injury slows magnesium clearance.” This research confirmed that, from a full-text audit of 1 study: “In acute kidney injury, the kidneys clear magnesium more slowly than usual.” It did not check one other point of the quick answer: “Magnesium levels should be checked daily in acute kidney injury.”",
+    "carried": {
+      "v": 2,
+      "issued_at": "2026-11-27T12:00:00.000Z",
+      "observations": [],
+      "retracted": [],
+      "rejected": [],
+      "named_communities": [],
+      "current_turn_named_communities": [],
+      "last_status": "ready_with_limits",
+      "turn": "(the turn's random id)",
+      "first_turn": true
+    },
+    "finalization_receipt": "rr1~finalization~answer=bbfe2cc892c1b1082428b79e63bc692d2fa7bd764b369a0e2884b8b07962b6f5,community=not_relevant,coverage=none,depth=deep,leads=0,limits=1,open_leads=0,receipts=1,status=ready_with_limits,target=2b1ada494319,unverified=0,validated=1,videos=0~1795780800~4RBskkQ4UEKq0PAkt6eQRA",
+    "source_reading": [
+      {
+        "source": "10.1000/mag-audited",
+        "name": "\"Audited trial\" (10.1000/mag-audited)",
+        "reading": "full_text_audited",
+        "shown": true
+      }
+    ],
+    "reading_summary": {
+      "audited": 1,
+      "audited_from_ai_copies": 0,
+      "full_text": 0,
+      "full_text_from_ai_copies": 0,
+      "part_text": 0,
+      "abstract_only": 0,
+      "record_only": 0,
+      "listed_not_read": 0,
+      "sentence": "AskRigor read 1 study in full and checked its methods."
+    }
+  },
+  "abstract": {
+    "contract": "2026-10-07",
+    "status": "ready_with_limits",
+    "notes": [
+      "Try acquire_open_full_text for 39000001 (DOI 10.1000/mag-abstract) before treating it as lead_only; pass the research_receipt it returns. A lead receipt needs the public-copy search recorded: search for the exact DOI and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.",
+      "plain_answer_comparison[0].sources lists 39000001, which no full-text method audit or comment audit passed here covers and no community_searches threads_read declares: list studies audited in full text here (DOI, PMID or PMCID), videos whose comments were read here (video ID) and forum threads read here (the link threads_read gives), or leave sources out.",
+      "plain_answer_comparison[0] is qualified with nothing behind it that a quick answer could not have: give in sources a study audited in full text here, a video whose comments were read here or, for a claim about what people report, a forum thread read here (the link community_searches threads_read gives), or quote as answer_quote a sentence that absence_claims also declares. Until then, the note says the research claims to have checked this claim but did not show what backs it."
+    ],
+    "checked_answer": "[Abstract study](https://pubmed.ncbi.nlm.nih.gov/39000001/) was read as an abstract.\n\nIn acute kidney injury, the kidneys clear magnesium more slowly than usual. Checking magnesium every day is reasonable while kidney function is falling. Magnesium rose in a minority of patients during the first week. High magnesium was uncommon without magnesium-containing drugs.\n\nI did not search firsthand reports or community discussions for this answer: Synthetic fixture isolates the closing comparison.\n\nHow each study was read: abstract only.",
+    "next_steps": [],
+    "next_step_kinds": [],
+    "round": {
+      "number": 1,
+      "limit": 10
+    },
+    "limits": [
+      "I did not search firsthand reports or community discussions for this answer: Synthetic fixture isolates the closing comparison.",
+      "Only the abstract of \"Abstract study\" (39000001) was read for this answer; its methods were not audited."
+    ],
+    "caveats": [
+      "I did not search firsthand reports or community discussions for this answer: Synthetic fixture isolates the closing comparison."
+    ],
+    "must_report": [],
+    "check_line": "Checked with AskRigor's final check, with the limits it found.",
+    "receipts_verified": 2,
+    "receipts_rejected": [],
+    "community": {
+      "decision": "not_relevant",
+      "surveys": 0,
+      "discovery_rounds": 0,
+      "saturated": false,
+      "depth": "deep",
+      "first_pass_complete": false,
+      "open_leads": [],
+      "audited_videos": [],
+      "material_videos": [],
+      "principal_communities": [],
+      "communities_searched": []
+    },
+    "sources": {
+      "validated": [],
+      "lead_only": []
+    },
+    "answer_checked": true,
+    "findings_card": {
+      "status": "absent",
+      "problems": []
+    },
+    "plain_answer": {
+      "status": "registered",
+      "claims": 2
+    },
+    "plain_answer_note": "Without AskRigor, a quick answer would have said: “Magnesium levels should be checked daily in acute kidney injury.” This research did not check that. It says it checked one more point, but did not show what backs it: “Acute kidney injury slows magnesium clearance.”",
+    "carried": {
+      "v": 2,
+      "issued_at": "2026-11-27T12:00:00.000Z",
+      "observations": [],
+      "retracted": [],
+      "rejected": [],
+      "named_communities": [],
+      "current_turn_named_communities": [],
+      "last_status": "ready_with_limits",
+      "turn": "(the turn's random id)",
+      "first_turn": true,
+      "turn_notes": [
+        "0aef1296950c",
+        "bf829d4eaf88",
+        "1410fa52c54d"
+      ]
+    },
+    "finalization_receipt": "rr1~finalization~answer=25dbe422f29021a4a745e9f99272cf3eef398e6b92bcc8903295b81109acdc62,community=not_relevant,coverage=none,depth=deep,leads=0,limits=2,open_leads=0,receipts=1,status=ready_with_limits,target=2b1ada494319,unverified=0,validated=0,videos=0~1795780800~S6p0F2_MEUqtjOa0F-X1Jg",
+    "source_reading": [
+      {
+        "source": "39000001",
+        "name": "\"Abstract study\" (39000001)",
+        "reading": "abstract_only",
+        "shown": true
+      }
+    ],
+    "reading_summary": {
+      "audited": 0,
+      "audited_from_ai_copies": 0,
+      "full_text": 0,
+      "full_text_from_ai_copies": 0,
+      "part_text": 0,
+      "abstract_only": 1,
+      "record_only": 0,
+      "listed_not_read": 0,
+      "sentence": "AskRigor read 1 study only as an abstract."
+    }
+  },
+  "full text": {
+    "contract": "2026-10-07",
+    "status": "ready_with_limits",
+    "notes": [
+      "Try acquire_open_full_text for 10.1000/mag-full-read before treating it as lead_only; pass the research_receipt it returns. A lead receipt needs the public-copy search recorded: search for the exact DOI and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.",
+      "plain_answer_comparison[0].sources lists 10.1000/mag-full-read, which no full-text method audit or comment audit passed here covers and no community_searches threads_read declares: list studies audited in full text here (DOI, PMID or PMCID), videos whose comments were read here (video ID) and forum threads read here (the link threads_read gives), or leave sources out.",
+      "plain_answer_comparison[0] is qualified with nothing behind it that a quick answer could not have: give in sources a study audited in full text here, a video whose comments were read here or, for a claim about what people report, a forum thread read here (the link community_searches threads_read gives), or quote as answer_quote a sentence that absence_claims also declares. Until then, the note says the research claims to have checked this claim but did not show what backs it."
+    ],
+    "checked_answer": "[Full-text cohort](https://doi.org/10.1000/mag-full-read) was read in full.\n\nIn acute kidney injury, the kidneys clear magnesium more slowly than usual. Checking magnesium every day is reasonable while kidney function is falling. Magnesium rose in a minority of patients during the first week. High magnesium was uncommon without magnesium-containing drugs.\n\nI did not search firsthand reports or community discussions for this answer: Synthetic fixture isolates the closing comparison.\n\nHow each study was read: full text read.",
+    "next_steps": [],
+    "next_step_kinds": [],
+    "round": {
+      "number": 1,
+      "limit": 10
+    },
+    "limits": [
+      "I did not search firsthand reports or community discussions for this answer: Synthetic fixture isolates the closing comparison."
+    ],
+    "caveats": [
+      "I did not search firsthand reports or community discussions for this answer: Synthetic fixture isolates the closing comparison."
+    ],
+    "must_report": [],
+    "check_line": "Checked with AskRigor's final check, with the limits it found.",
+    "receipts_verified": 2,
+    "receipts_rejected": [],
+    "community": {
+      "decision": "not_relevant",
+      "surveys": 0,
+      "discovery_rounds": 0,
+      "saturated": false,
+      "depth": "deep",
+      "first_pass_complete": false,
+      "open_leads": [],
+      "audited_videos": [],
+      "material_videos": [],
+      "principal_communities": [],
+      "communities_searched": []
+    },
+    "sources": {
+      "validated": [],
+      "lead_only": []
+    },
+    "answer_checked": true,
+    "findings_card": {
+      "status": "absent",
+      "problems": []
+    },
+    "plain_answer": {
+      "status": "registered",
+      "claims": 2
+    },
+    "plain_answer_note": "Without AskRigor, a quick answer would have said: “Magnesium levels should be checked daily in acute kidney injury.” This research did not check that. It says it checked one more point, but did not show what backs it: “Acute kidney injury slows magnesium clearance.”",
+    "carried": {
+      "v": 2,
+      "issued_at": "2026-11-27T12:00:00.000Z",
+      "observations": [],
+      "retracted": [],
+      "rejected": [],
+      "named_communities": [],
+      "current_turn_named_communities": [],
+      "last_status": "ready_with_limits",
+      "turn": "(the turn's random id)",
+      "first_turn": true,
+      "turn_notes": [
+        "1a9ffc54786d",
+        "c5bc715ae46e",
+        "1410fa52c54d"
+      ]
+    },
+    "finalization_receipt": "rr1~finalization~answer=7278f332cd89acbd7d5f9569623754b9210ff11bdc731219072977bfaae0933d,community=not_relevant,coverage=none,depth=deep,leads=0,limits=1,open_leads=0,receipts=1,status=ready_with_limits,target=2b1ada494319,unverified=0,validated=0,videos=0~1795780800~i_Xs_hMSe4NlEZMgWcv6lQ",
+    "source_reading": [
+      {
+        "source": "10.1000/mag-full-read",
+        "name": "\"Full-text cohort\" (10.1000/mag-full-read)",
+        "reading": "full_text_read",
+        "shown": true
+      }
+    ],
+    "reading_summary": {
+      "audited": 0,
+      "audited_from_ai_copies": 0,
+      "full_text": 1,
+      "full_text_from_ai_copies": 0,
+      "part_text": 0,
+      "abstract_only": 0,
+      "record_only": 0,
+      "listed_not_read": 0,
+      "sentence": "AskRigor read 1 study in full."
+    }
+  },
+  "every reading": {
+    "contract": "2026-10-07",
+    "status": "ready_with_limits",
+    "notes": [
+      "Try acquire_open_full_text for 10.1000/mag-full-read before treating it as lead_only; pass the research_receipt it returns. A lead receipt needs the public-copy search recorded: search for the exact DOI and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.",
+      "Try acquire_open_full_text for 39000001 (DOI 10.1000/mag-abstract) before treating it as lead_only; pass the research_receipt it returns. A lead receipt needs the public-copy search recorded: search for the exact DOI and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.",
+      "plain_answer_comparison[0].sources lists 10.1000/mag-full-read, 39000001, which no full-text method audit or comment audit passed here covers and no community_searches threads_read declares: list studies audited in full text here (DOI, PMID or PMCID), videos whose comments were read here (video ID) and forum threads read here (the link threads_read gives), or leave sources out.",
+      "plain_answer_comparison[1].sources lists 10.1000/mag-abstract, which no full-text method audit or comment audit passed here covers and no community_searches threads_read declares: list studies audited in full text here (DOI, PMID or PMCID), videos whose comments were read here (video ID) and forum threads read here (the link threads_read gives), or leave sources out.",
+      "plain_answer_comparison[1] is confirmed with nothing behind it that a quick answer could not have: give in sources a study audited in full text here, a video whose comments were read here or, for a claim about what people report, a forum thread read here (the link community_searches threads_read gives), or quote as answer_quote a sentence that absence_claims also declares. Until then, the note says the research claims to have checked this claim but did not show what backs it."
+    ],
+    "checked_answer": "[Audited trial](https://doi.org/10.1000/mag-audited) was audited in full.\n\n[Full-text cohort](https://doi.org/10.1000/mag-full-read) was read in full.\n\n[Abstract study](https://pubmed.ncbi.nlm.nih.gov/39000001/) was read as an abstract.\n\nIn acute kidney injury, the kidneys clear magnesium more slowly than usual. Checking magnesium every day is reasonable while kidney function is falling. Magnesium rose in a minority of patients during the first week. High magnesium was uncommon without magnesium-containing drugs.\n\nI did not search firsthand reports or community discussions for this answer: Synthetic fixture isolates the closing comparison.\n\nHow each study was read: full text read, methods audited by AskRigor; full text read; abstract only.",
+    "next_steps": [],
+    "next_step_kinds": [],
+    "round": {
+      "number": 1,
+      "limit": 10
+    },
+    "limits": [
+      "I did not search firsthand reports or community discussions for this answer: Synthetic fixture isolates the closing comparison.",
+      "Only the abstract of \"Abstract study\" (39000001) was read for this answer; its methods were not audited."
+    ],
+    "caveats": [
+      "I did not search firsthand reports or community discussions for this answer: Synthetic fixture isolates the closing comparison."
+    ],
+    "must_report": [],
+    "check_line": "Checked with AskRigor's final check, with the limits it found.",
+    "receipts_verified": 4,
+    "receipts_rejected": [],
+    "community": {
+      "decision": "not_relevant",
+      "surveys": 0,
+      "discovery_rounds": 0,
+      "saturated": false,
+      "depth": "deep",
+      "first_pass_complete": false,
+      "open_leads": [],
+      "audited_videos": [],
+      "material_videos": [],
+      "principal_communities": [],
+      "communities_searched": []
+    },
+    "sources": {
+      "validated": [
+        "10.1000/mag-audited"
+      ],
+      "lead_only": []
+    },
+    "answer_checked": true,
+    "findings_card": {
+      "status": "absent",
+      "problems": []
+    },
+    "plain_answer": {
+      "status": "registered",
+      "claims": 2
+    },
+    "plain_answer_note": "Without AskRigor, a quick answer would have said: “Acute kidney injury slows magnesium clearance.” This research corrected that, from a full-text audit of 1 study: “In acute kidney injury, the kidneys clear magnesium more slowly than usual.” It says it checked one more point too, but did not show what backs it: “Magnesium levels should be checked daily in acute kidney injury.”",
+    "carried": {
+      "v": 2,
+      "issued_at": "2026-11-27T12:00:00.000Z",
+      "observations": [],
+      "retracted": [],
+      "rejected": [],
+      "named_communities": [],
+      "current_turn_named_communities": [],
+      "last_status": "ready_with_limits",
+      "turn": "(the turn's random id)",
+      "first_turn": true,
+      "turn_notes": [
+        "1a9ffc54786d",
+        "0aef1296950c",
+        "6d405c43db63",
+        "e1fb747fd5f2",
+        "89ae5a626901"
+      ]
+    },
+    "finalization_receipt": "rr1~finalization~answer=422026c7f7795fcf8a729c3a340813194ca583c426fa6af5ef693df91dca30e7,community=not_relevant,coverage=none,depth=deep,leads=0,limits=2,open_leads=0,receipts=3,status=ready_with_limits,target=2b1ada494319,unverified=0,validated=1,videos=0~1795780800~VOj9kGLsLiOKxwk8m8Q_Og",
+    "source_reading": [
+      {
+        "source": "10.1000/mag-audited",
+        "name": "\"Audited trial\" (10.1000/mag-audited)",
+        "reading": "full_text_audited",
+        "shown": true
+      },
+      {
+        "source": "10.1000/mag-full-read",
+        "name": "\"Full-text cohort\" (10.1000/mag-full-read)",
+        "reading": "full_text_read",
+        "shown": true
+      },
+      {
+        "source": "39000001",
+        "name": "\"Abstract study\" (39000001)",
+        "reading": "abstract_only",
+        "shown": true
+      }
+    ],
+    "reading_summary": {
+      "audited": 1,
+      "audited_from_ai_copies": 0,
+      "full_text": 1,
+      "full_text_from_ai_copies": 0,
+      "part_text": 0,
+      "abstract_only": 1,
+      "record_only": 0,
+      "listed_not_read": 0,
+      "sentence": "AskRigor read 1 study in full and checked its methods, 1 more in full, and 1 more only as an abstract."
+    }
+  },
+  "report page": {
+    "contract": "2026-10-07",
+    "status": "ready_with_limits",
+    "notes": [
+      "plain_answer_comparison[0].sources lists https://example.org/kidney-report, which no full-text method audit or comment audit passed here covers and no community_searches threads_read declares: list studies audited in full text here (DOI, PMID or PMCID), videos whose comments were read here (video ID) and forum threads read here (the link threads_read gives), or leave sources out.",
+      "plain_answer_comparison[0] is confirmed with nothing behind it that a quick answer could not have: give in sources a study audited in full text here, a video whose comments were read here or, for a claim about what people report, a forum thread read here (the link community_searches threads_read gives), or quote as answer_quote a sentence that absence_claims also declares. Until then, the note says the research claims to have checked this claim but did not show what backs it."
+    ],
+    "checked_answer": "[Audited trial](https://doi.org/10.1000/mag-audited) was audited in full.\n\nIn acute kidney injury, the kidneys clear magnesium more slowly than usual. Checking magnesium every day is reasonable while kidney function is falling. Magnesium rose in a minority of patients during the first week. High magnesium was uncommon without magnesium-containing drugs.\n\nI did not search firsthand reports or community discussions for this answer: Synthetic fixture isolates the closing comparison.\n\nHow each study was read: full text read, methods audited by AskRigor.",
+    "next_steps": [],
+    "next_step_kinds": [],
+    "round": {
+      "number": 1,
+      "limit": 10
+    },
+    "limits": [
+      "I did not search firsthand reports or community discussions for this answer: Synthetic fixture isolates the closing comparison."
+    ],
+    "caveats": [
+      "I did not search firsthand reports or community discussions for this answer: Synthetic fixture isolates the closing comparison."
+    ],
+    "must_report": [],
+    "check_line": "Checked with AskRigor's final check, with the limits it found.",
+    "receipts_verified": 2,
+    "receipts_rejected": [],
+    "community": {
+      "decision": "not_relevant",
+      "surveys": 0,
+      "discovery_rounds": 0,
+      "saturated": false,
+      "depth": "deep",
+      "first_pass_complete": false,
+      "open_leads": [],
+      "audited_videos": [],
+      "material_videos": [],
+      "principal_communities": [],
+      "communities_searched": []
+    },
+    "sources": {
+      "validated": [
+        "10.1000/mag-audited"
+      ],
+      "lead_only": []
+    },
+    "answer_checked": true,
+    "findings_card": {
+      "status": "absent",
+      "problems": []
+    },
+    "plain_answer": {
+      "status": "registered",
+      "claims": 2
+    },
+    "plain_answer_note": "Without AskRigor, a quick answer would have said: “Magnesium levels should be checked daily in acute kidney injury.” This research did not check that. It says it checked one more point, but did not show what backs it: “Acute kidney injury slows magnesium clearance.”",
+    "carried": {
+      "v": 2,
+      "issued_at": "2026-11-27T12:00:00.000Z",
+      "observations": [],
+      "retracted": [],
+      "rejected": [],
+      "named_communities": [],
+      "current_turn_named_communities": [],
+      "last_status": "ready_with_limits",
+      "turn": "(the turn's random id)",
+      "first_turn": true,
+      "turn_notes": [
+        "ab453d0459b0",
+        "4f9c8776e5e1"
+      ]
+    },
+    "finalization_receipt": "rr1~finalization~answer=bbfe2cc892c1b1082428b79e63bc692d2fa7bd764b369a0e2884b8b07962b6f5,community=not_relevant,coverage=none,depth=deep,leads=0,limits=1,open_leads=0,receipts=1,status=ready_with_limits,target=2b1ada494319,unverified=0,validated=1,videos=0~1795780800~4RBskkQ4UEKq0PAkt6eQRA",
+    "source_reading": [
+      {
+        "source": "10.1000/mag-audited",
+        "name": "\"Audited trial\" (10.1000/mag-audited)",
+        "reading": "full_text_audited",
+        "shown": true
+      }
+    ],
+    "reading_summary": {
+      "audited": 1,
+      "audited_from_ai_copies": 0,
+      "full_text": 0,
+      "full_text_from_ai_copies": 0,
+      "part_text": 0,
+      "abstract_only": 0,
+      "record_only": 0,
+      "listed_not_read": 0,
+      "sentence": "AskRigor read 1 study in full and checked its methods."
+    }
+  },
+  "sentence in later_inputs": {
+    "contract": "2026-10-07",
+    "status": "not_ready",
+    "notes": [
+      "later_inputs.plain_answer_comparison: dropped. plain_answer_comparison is a published top-level input of finalize_research; give \"plain_answer_comparison\" at the top level.",
+      "If this chat's AskRigor tool has no such field, its tool list is outdated: tell the user, in their language, that AskRigor has been updated since this app loaded its tools, and that refreshing AskRigor in the app's settings and starting a new chat loads the current list. If it has the field, its tool list is current: give the field, and say nothing to the user about refreshing."
+    ],
+    "next_steps": [
+      "Give plain_answer_comparison: for each of the 2 claims of the plain answer registered before this research, copied exactly as manage_research_access listed it, whether the research confirmed, corrected or qualified it, or did not check it (outcome); a confirmation, correction or qualification also gives the answer's sentence stating it (answer_quote) and what backs it (sources). The answer then ends with the note comparing the two, which the panel also shows."
+    ],
+    "next_step_kinds": [
+      "declaration"
+    ],
+    "unchecked_line": "AskRigor's final check has not passed: some of its statements were not checked.",
+    "round": {
+      "number": 1,
+      "limit": 10
+    },
+    "limits": [
+      "I did not search firsthand reports or community discussions for this answer: Synthetic fixture isolates the closing comparison."
+    ],
+    "caveats": [
+      "I did not search firsthand reports or community discussions for this answer: Synthetic fixture isolates the closing comparison."
+    ],
+    "must_report": [],
+    "receipts_verified": 2,
+    "receipts_rejected": [],
+    "community": {
+      "decision": "not_relevant",
+      "surveys": 0,
+      "discovery_rounds": 0,
+      "saturated": false,
+      "depth": "deep",
+      "first_pass_complete": false,
+      "open_leads": [],
+      "audited_videos": [],
+      "material_videos": [],
+      "principal_communities": [],
+      "communities_searched": []
+    },
+    "sources": {
+      "validated": [
+        "10.1000/mag-audited"
+      ],
+      "lead_only": []
+    },
+    "answer_checked": true,
+    "findings_card": {
+      "status": "absent",
+      "problems": []
+    },
+    "plain_answer": {
+      "status": "registered",
+      "claims": 2
+    },
+    "carried": {
+      "v": 2,
+      "issued_at": "2026-11-27T12:00:00.000Z",
+      "observations": [],
+      "retracted": [],
+      "rejected": [],
+      "named_communities": [],
+      "current_turn_named_communities": [],
+      "last_status": "not_ready",
+      "open_kinds": [
+        "declaration"
+      ],
+      "turn": "(the turn's random id)",
+      "first_turn": true
+    },
+    "source_reading": [
+      {
+        "source": "10.1000/mag-audited",
+        "name": "\"Audited trial\" (10.1000/mag-audited)",
+        "reading": "full_text_audited",
+        "shown": true
+      }
+    ],
+    "reading_summary": {
+      "audited": 1,
+      "audited_from_ai_copies": 0,
+      "full_text": 0,
+      "full_text_from_ai_copies": 0,
+      "part_text": 0,
+      "abstract_only": 0,
+      "record_only": 0,
+      "listed_not_read": 0,
+      "sentence": "AskRigor read 1 study in full and checked its methods."
+    }
+  },
+  "sentence at the top level": {
+    "contract": "2026-10-07",
+    "status": "ready_with_limits",
+    "notes": [
+      "plain_answer_comparison[0].source_sentence: dropped an unknown field."
+    ],
+    "checked_answer": "[Audited trial](https://doi.org/10.1000/mag-audited) was audited in full.\n\nIn acute kidney injury, the kidneys clear magnesium more slowly than usual. Checking magnesium every day is reasonable while kidney function is falling. Magnesium rose in a minority of patients during the first week. High magnesium was uncommon without magnesium-containing drugs.\n\nI did not search firsthand reports or community discussions for this answer: Synthetic fixture isolates the closing comparison.\n\nHow each study was read: full text read, methods audited by AskRigor.",
+    "next_steps": [],
+    "next_step_kinds": [],
+    "round": {
+      "number": 1,
+      "limit": 10
+    },
+    "limits": [
+      "I did not search firsthand reports or community discussions for this answer: Synthetic fixture isolates the closing comparison."
+    ],
+    "caveats": [
+      "I did not search firsthand reports or community discussions for this answer: Synthetic fixture isolates the closing comparison."
+    ],
+    "must_report": [],
+    "check_line": "Checked with AskRigor's final check, with the limits it found.",
+    "receipts_verified": 2,
+    "receipts_rejected": [],
+    "community": {
+      "decision": "not_relevant",
+      "surveys": 0,
+      "discovery_rounds": 0,
+      "saturated": false,
+      "depth": "deep",
+      "first_pass_complete": false,
+      "open_leads": [],
+      "audited_videos": [],
+      "material_videos": [],
+      "principal_communities": [],
+      "communities_searched": []
+    },
+    "sources": {
+      "validated": [
+        "10.1000/mag-audited"
+      ],
+      "lead_only": []
+    },
+    "answer_checked": true,
+    "findings_card": {
+      "status": "absent",
+      "problems": []
+    },
+    "plain_answer": {
+      "status": "registered",
+      "claims": 2
+    },
+    "plain_answer_note": "Without AskRigor, a quick answer would have said: “Acute kidney injury slows magnesium clearance.” This research confirmed that, from a full-text audit of 1 study: “In acute kidney injury, the kidneys clear magnesium more slowly than usual.” It did not check one other point of the quick answer: “Magnesium levels should be checked daily in acute kidney injury.”",
+    "carried": {
+      "v": 2,
+      "issued_at": "2026-11-27T12:00:00.000Z",
+      "observations": [],
+      "retracted": [],
+      "rejected": [],
+      "named_communities": [],
+      "current_turn_named_communities": [],
+      "last_status": "ready_with_limits",
+      "turn": "(the turn's random id)",
+      "first_turn": true
+    },
+    "finalization_receipt": "rr1~finalization~answer=bbfe2cc892c1b1082428b79e63bc692d2fa7bd764b369a0e2884b8b07962b6f5,community=not_relevant,coverage=none,depth=deep,leads=0,limits=1,open_leads=0,receipts=1,status=ready_with_limits,target=2b1ada494319,unverified=0,validated=1,videos=0~1795780800~4RBskkQ4UEKq0PAkt6eQRA",
+    "source_reading": [
+      {
+        "source": "10.1000/mag-audited",
+        "name": "\"Audited trial\" (10.1000/mag-audited)",
+        "reading": "full_text_audited",
+        "shown": true
+      }
+    ],
+    "reading_summary": {
+      "audited": 1,
+      "audited_from_ai_copies": 0,
+      "full_text": 0,
+      "full_text_from_ai_copies": 0,
+      "part_text": 0,
+      "abstract_only": 0,
+      "record_only": 0,
+      "listed_not_read": 0,
+      "sentence": "AskRigor read 1 study in full and checked its methods."
+    }
+  }
+}
