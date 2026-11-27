@@ -26,6 +26,11 @@ import {
   type SourceReadingQuote
 } from "./source-reading.js";
 import { readingSummarySchema, researchReadingSummary, searchRecords } from "./reading-summary.js";
+import {
+  comparisonSentenceNote, comparisonSentenceSchema, comparisonVerb, comparisonWorkParts, joinedParts, ownTextSentence,
+  sentenceInSuppliedCopyNote, sentenceMissingNote, sentenceWithoutStudyNote, SHOWN_SENTENCES_SAY, shownSentenceLine,
+  type ComparisonReadings, type ComparisonSentenceLookup, type ComparisonSentenceRequest, type ShownSentence
+} from "./closing-comparison.js";
 
 import { z } from "zod";
 import { droppedInputNotes, inputPath, salvageFinalizeInput } from "./salvage-finalize-input.js";
@@ -1044,10 +1049,29 @@ export const finalizeResearchInputSchema = z.object({
     .describe("Your model's name as your app reports it; kept, unverified, with a saved findings card.")
 }).strict();
 
-// Later fields have one declaration, in later-inputs.ts. The runtime parser sees them after the envelope is
-// merged; the top-level schema used by tools/list is unchanged. The findings ledger's are fields only for a call the
-// ledger is active for (Codex's sixth review of 17 Nov 2026, finding 3); for any other they are unknown, as before it.
-export function finalizeResearchRuntimeInputSchema({ findingsLedger = false }: { findingsLedger?: boolean } = {}) {
+/**
+ * Owner answer 416a (24 Nov 2026), while its switch holds for the account (closing-comparison.ts): the comparison's later
+ * form, whose entries may also give the paper's sentence a point rests on. It is the published field with that one field
+ * added, so the two cannot differ otherwise. A later input of finalize_research only for a call the switch holds for; for
+ * any other it is a published input given in the wrong place, as before the switch. It is declared here, beside the field
+ * it extends, since later-inputs.ts can't read this file.
+ */
+export const CLOSING_COMPARISON_LATER_INPUTS = Object.freeze({
+  plain_answer_comparison: z.array(finalizeResearchInputSchema.shape.plain_answer_comparison.unwrap().element
+    .extend({ source_sentence: comparisonSentenceSchema.optional() })).max(PLAIN_ANSWER_LIMITS.claims).optional()
+    .describe("plain_answer_comparison's newer form, given here or at the top level (given in both, this one is used): " +
+      "as the published input, and, for a point resting on a study read here (audited, read in full, or read as its " +
+      "abstract), source_sentence: the study's own sentence the point rests on, copied whole and exactly in the " +
+      "paper's language. The note shows that sentence when AskRigor finds it in the study's text it holds, and " +
+      "otherwise says the AI says the research confirmed, corrected or qualified the point.")
+} satisfies z.ZodRawShape);
+
+// Later fields have one declaration, in later-inputs.ts, but for the comparison's later form above. The runtime parser
+// sees them after the envelope is merged; the top-level schema used by tools/list is unchanged. The findings ledger's are
+// fields only for a call the ledger is active for (Codex's sixth review of 17 Nov 2026, finding 3), and the comparison's
+// later form only for a call owner answer 416a's switch holds for; for any other they are as before them.
+export function finalizeResearchRuntimeInputSchema({ findingsLedger = false, closingComparison = false }:
+  { findingsLedger?: boolean; closingComparison?: boolean } = {}) {
   const later = laterInputShape("finalize_research");
   const schema = finalizeResearchInputSchema.extend({
     ...later,
@@ -1061,8 +1085,11 @@ export function finalizeResearchRuntimeInputSchema({ findingsLedger = false }: {
       "Optional legacy renderings of answer guidance. Limits may be reworded or translated directly; missing " +
       "or changed limit sentences do not create steps.")
   });
+  // The checked input's type has the later form's optional field, which no call the switch doesn't hold for can give.
+  const laterComparison = schema.extend(CLOSING_COMPARISON_LATER_INPUTS);
+  const compared = closingComparison ? laterComparison : schema as unknown as typeof laterComparison;
   // Read from the raw call (findings-ledger.ts): accepted as given, and never part of the checked input's type.
-  return findingsLedger ? schema.extend(FINDINGS_LEDGER_LATER_INPUTS) as unknown as typeof schema : schema;
+  return findingsLedger ? compared.extend(FINDINGS_LEDGER_LATER_INPUTS) as unknown as typeof compared : compared;
 }
 export type FinalizeResearchInput = z.output<ReturnType<typeof finalizeResearchRuntimeInputSchema>>;
 
@@ -1192,9 +1219,11 @@ export function normalizeFinalizeResearchInput(rawInput: unknown): unknown {
 /**
  * `findingsLedger`: whether the findings ledger is active for this call, so that later_inputs.findings_ledger and
  * later_inputs.finding_responses are inputs of it; otherwise they are unknown inputs, as before the ledger (Codex's sixth
- * review of 17 Nov 2026, finding 3).
+ * review of 17 Nov 2026, finding 3). `closingComparison`: whether owner answer 416a's switch holds for this call, so that
+ * plain_answer_comparison takes its later form, at the top level or in later_inputs; otherwise it is as before the switch.
  */
-export function parseFinalizeResearchInput(rawInput: unknown, { findingsLedger = false }: { findingsLedger?: boolean } = {}):
+export function parseFinalizeResearchInput(rawInput: unknown,
+  { findingsLedger = false, closingComparison = false }: { findingsLedger?: boolean; closingComparison?: boolean } = {}):
   z.ZodSafeParseResult<FinalizeResearchInput> & {
   notes: string[]; droppedFindingsCard: boolean; droppedCard?: unknown;
   /** The study map as checked (owner answer 249a): each item at its place as given. */
@@ -1203,16 +1232,22 @@ export function parseFinalizeResearchInput(rawInput: unknown, { findingsLedger =
   leadPlaces?: number[];
 } {
   const topLevel = new Set([...Object.keys(finalizeResearchInputSchema.shape), "later_inputs"]);
-  // The usable later inputs are kept, each bad key dropped alone, and a key in both places takes its later form.
+  // The usable later inputs are kept, each bad key dropped alone, and a key in both places takes its later form. Owner
+  // answer 416a: the comparison is only read, so a later form that doesn't parse beside a top-level one that does gives
+  // way to it, as the other inputs the check only reads do: before the switch the later one was set aside, and a usable
+  // comparison must never be lost to it, as that would hold the answer back.
   const { input, problems } = mergeLaterInputs("finalize_research", rawInput, topLevel,
-    finalizeResearchLaterShape(findingsLedger), { keepUsable: true, fallback: TOP_LEVEL_FALLBACK_INPUTS });
+    closingComparison ? { ...finalizeResearchLaterShape(findingsLedger), ...CLOSING_COMPARISON_LATER_INPUTS }
+      : finalizeResearchLaterShape(findingsLedger), { keepUsable: true,
+      fallback: closingComparison ? new Set([...TOP_LEVEL_FALLBACK_INPUTS, "plain_answer_comparison"])
+        : TOP_LEVEL_FALLBACK_INPUTS });
   const notes = problems.map(({ path, message, kind }) =>
     kind === "dropped" ? `${inputPath(path)}: dropped. ${message}` : `${inputPath(path)}: ${message}`);
   // The test marker, read from the raw call on its own: a value other than "off", or later_inputs sent as text, is read
   // as off, which a note says (the recheck of 5 Nov 2026).
   const marker = findingsSaveMarker(rawInput).note;
   if (marker !== undefined) notes.push(marker);
-  const runtime = finalizeResearchRuntimeInputSchema({ findingsLedger });
+  const runtime = finalizeResearchRuntimeInputSchema({ findingsLedger, closingComparison });
   const object = input !== null && typeof input === "object" && !Array.isArray(input);
   const essential = object ? ["answer_draft", "research_target"].flatMap((key) => {
     const field = key as "answer_draft" | "research_target";
@@ -1927,6 +1962,16 @@ export interface FinalizeResearchOptions {
   // binding its plain-answer receipts sign (plainAnswerAccountBinding). Other callers' receipts count for nothing.
   plainAnswer?: { note: boolean; account: string };
   /**
+   * Owner answer 416a (24 Nov 2026), while its switch holds for the account (ASKRIGOR_CLOSING_COMPARISON,
+   * closing-comparison.ts): the closing comparison also counts a paper its receipts show was read in full without a
+   * method audit, or read as its abstract, and says how; takes the comparison's later form, whose entries may give the
+   * paper's sentence (source_sentence); and says "the AI says" of a point resting on a paper whose sentence AskRigor did
+   * not find in a text it fetched. Without it, every result is as it was. It changes nothing the check stops.
+   */
+  closingComparison?: boolean;
+  /** Each comparison sentence as looked up after this check's earlier pass (owner answer 416a), by its entry. */
+  comparisonSentenceLookups?: readonly ComparisonSentenceLookup[];
+  /**
    * Owner answer 412a, option c (24 Nov 2026), while its switch holds for the account: one note when no receipt shows
    * HRP's core was given in this research (hrpCoreShown). `account` is the binding its plain-answer receipts sign. It
    * changes nothing else the check finds, stops or holds.
@@ -1998,7 +2043,7 @@ export function finalizeResearch(
   // Promise P69: with the switch off, safety_limits is taken out before anything reads the call, so no note of any kind
   // (a duplicate, a bad value) can come from it (Codex's recheck of 21 Nov 2026).
   const parsed = parseFinalizeResearchInput(options.safetyLimits === true ? rawInput : withoutSafetyLimits(rawInput),
-    { findingsLedger: options.findingsLedger !== undefined });
+    { findingsLedger: options.findingsLedger !== undefined, closingComparison: options.closingComparison === true });
   if (!parsed.success) return invalidFinalizeResearchInput(parsed.error, options, parsed.notes);
   const input = parsed.data;
   // A test run's call, marked findings_save "off", read from the raw call on its own: it offers no save and files no
@@ -4339,6 +4384,8 @@ export function finalizeResearch(
   // The comparison entries the note shows with what backs them, by their place in plain_answer_comparison, which the
   // meaning judge reads (owner answer 221); an entry the note gives as not checked is not its question.
   const creditedComparison = new Set<number>();
+  // Owner answer 416a: the papers' sentences the comparison gives, looked up once the check passes, where the switch holds.
+  const comparisonSentenceRequests: ComparisonSentenceRequest[] = [];
   if (draft === undefined) {
     requireDeclaration(
       rule`Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final check reads it.`
@@ -4542,6 +4589,51 @@ export function finalizeResearch(
           for (const thread of search.threads_read) threadsRead.set(comparableUrl(thread.url), { ...thread,
             readHere: forumReadUrls.has(forumThreadDigest(thread.url)) });
         }
+        // Owner answer 416a, where its switch holds: the entry's studies read here, each paper once, at the deepest
+        // reading its verified receipts show (an audit; a full text read to its end; an abstract, by a PubMed record that
+        // had one), in the order the entry gives them, with the texts those receipts name to look its sentence up in.
+        // Only a DOI, PMID or PMCID names a paper: a report or a web page counts for nothing, as before.
+        const closing = options.closingComparison === true;
+        const comparisonPapers = (sources: readonly string[]) => {
+          const deepest = new Map<string, "audit" | "full" | "abstract">();
+          const counted = new Set<string>();
+          const paperList: ComparisonSentenceRequest["papers"][number][] = [];
+          for (const source of sources) {
+            const id = normalizeIdentifier(source);
+            if (!isDoi(id) && !isPmid(id) && !isPmcid(id)) continue;
+            const receipts = paperReceipts(sourceLinks(source));
+            const shown = receiptReadings(receipts, false);
+            const depth = auditedStudy(source) ? "audit" as const
+              : shown.has("full_text_read") || shown.has("search_copy_read") ? "full" as const
+              : shown.has("abstract_only") ? "abstract" as const : undefined;
+            if (depth === undefined) continue;
+            counted.add(source);
+            const key = paperKey(source);
+            const before = deepest.get(key);
+            if (before === undefined || before === "abstract" || (before === "full" && depth === "audit")) {
+              deepest.set(key, depth);
+            }
+            if (before !== undefined) continue;
+            paperList.push({ source,
+              handles: [...new Set(receipts.flatMap(({ kind, claims }) =>
+                SOURCE_TEXT_KINDS.has(kind) && text(claims.handle) !== "" ? [text(claims.handle)] : []))],
+              pmids: [...new Set([...(isPmid(id) ? [id] : []),
+                ...receipts.flatMap(({ claims }) => text(claims.pmid) === "" ? [] : [text(claims.pmid)])])] });
+          }
+          const depths = [...deepest.values()];
+          const read: ComparisonReadings = { fullTexts: depths.filter((depth) => depth === "full").length,
+            abstracts: depths.filter((depth) => depth === "abstract").length };
+          return { counted, read, papers: paperList };
+        };
+        // How the note names one of a point's papers: by the answer's label and its identifier, as a limit does.
+        const paperName = (source: string): string => {
+          const key = input.key_sources.find(({ id }) => normalizeIdentifier(id) === normalizeIdentifier(source));
+          const label = key?.answer_marker;
+          const id = key?.id ?? normalizeIdentifier(source);
+          return label === undefined || label.toLowerCase() === id.toLowerCase() ? id : `"${label}" (${id})`;
+        };
+        // The entries resting on a study that give no sentence, for one note.
+        const withoutSentence: number[] = [];
         for (const [index, entry] of comparison.entries()) {
           const at = `plain_answer_comparison[${index}]`;
           const number = registered.indexOf(plainAnswerClaimDigest(entry.claim));
@@ -4565,13 +4657,21 @@ export function finalizeResearch(
             const thread = threadsRead.get(key);
             return thread === undefined ? [] : [[key, thread] as const];
           })).values()];
-          const unbacked = sources.filter((source) => !auditedStudy(source) && !commentVideos.has(source) &&
-            !threadsRead.has(comparableUrl(source)));
+          // Owner answer 416a: where its switch holds, a study read here without an audit backs a point too.
+          const studies = closing ? comparisonPapers(sources) : undefined;
+          const unbacked = sources.filter((source) => !auditedStudy(source) && studies?.counted.has(source) !== true &&
+            !commentVideos.has(source) && !threadsRead.has(comparableUrl(source)));
           if (unbacked.length > 0) {
-            addStep("declaration", joinRules(joinRules(rule`${at}.sources lists ${unbacked.join(", ")}, which no full-text method audit or comment `, "audit passed here covers and no community_searches threads_read declares: list studies audited in full text here (DOI, PMID or PMCID), videos whose "), "comments were read here (video ID) and forum threads read here (the link threads_read gives), or leave sources out."));
+            addStep("declaration", closing
+              ? joinRules(rule`${at}.sources lists ${unbacked.join(", ")}, which no reading, comment audit or `,
+                "forum read passed here covers: list studies read here (DOI, PMID or PMCID: audited in full text, read in ",
+                "full, or read as an abstract in their PubMed record), videos whose comments were read here (video ID) and ",
+                "forum threads read here (the link threads_read gives), or leave sources out. A report or web page doesn't count.")
+              : joinRules(joinRules(rule`${at}.sources lists ${unbacked.join(", ")}, which no full-text method audit or comment `, "audit passed here covers and no community_searches threads_read declares: list studies audited in full text here (DOI, PMID or PMCID), videos whose "), "comments were read here (video ID) and forum threads read here (the link threads_read gives), or leave sources out."));
           }
           const work = verifiedWork(sources, entry.answer_quote);
-          const backed = basesOf(work).length > 0 || threads.length > 0;
+          const backed = basesOf(work).length > 0 || threads.length > 0 ||
+            (studies !== undefined && studies.read.fullTexts + studies.read.abstracts > 0);
           // Owner answer 210b: a claim that cannot be shown as declared goes in the note as not checked, with the step
           // that would show it, and the note stays. Only a claim left out holds the note back, as no text of it is kept.
           let shown = true;
@@ -4591,19 +4691,50 @@ export function finalizeResearch(
             // first-turn correction as the research's (l32-negative-controls). A first-turn plain answer was never
             // shown, so its correction is not one the corrections field declares, and the step doesn't ask for that.
             if (!backed) {
-              notShown(joinRules(joinRules(joinRules(rule`${at} is ${entry.outcome} with nothing behind it that a quick answer could not have: give `, "in sources a study audited in full text here, a video whose comments were read here or, for a claim about "), "what people report, a forum thread read here (the link community_searches threads_read gives), or quote as "), firstTurn
+              notShown(joinRules(joinRules(joinRules(rule`${at} is ${entry.outcome} with nothing behind it that a quick answer could not have: give `, closing
+                ? "in sources a study read here (audited in full text, read in full, or read as an abstract in its PubMed record), a video whose comments were read here or, for a claim about "
+                : "in sources a study audited in full text here, a video whose comments were read here or, for a claim about "), "what people report, a forum thread read here (the link community_searches threads_read gives), or quote as "), firstTurn
                 ? "answer_quote a sentence that absence_claims also declares."
                 : "answer_quote a sentence that absence_claims or corrections (with by_user false) also declare."));
             }
           }
           if (shown) creditedComparison.add(index);
+          // Owner answer 416a: the paper's sentence the entry gives, as looked up after this check's earlier pass; shown in
+          // the note only when found. Each one not shown is a note for the AI, as is a point resting on a study with none;
+          // with the account's note off, nothing shows a sentence, so none is asked about.
+          let sentence: ShownSentence | undefined;
+          const given = closing ? entry.source_sentence : undefined;
+          const tell = (note: string, lookedUp: boolean): void => {
+            if (noteOn && !notes.includes(note)) notes.push(lookedUp ? checkedBy("passing", note) : note);
+          };
+          if (studies !== undefined && shown) {
+            const lookup = options.comparisonSentenceLookups?.find((looked) => looked.entry === index);
+            if (studies.papers.length === 0) {
+              if (given !== undefined) tell(sentenceWithoutStudyNote(at), false);
+            } else if (given === undefined) {
+              withoutSentence.push(index);
+            } else if (lookup?.outcome === "found" && lookup.text !== undefined) {
+              sentence = { sentence: given, text: lookup.text, paper: paperName(lookup.source ?? studies.papers[0]!.source) };
+              if (!ownTextSentence(sentence)) tell(sentenceInSuppliedCopyNote(at, entry.outcome), true);
+            } else if (lookup !== undefined) {
+              tell(inputNote(comparisonSentenceNote(at, entry.outcome, lookup,
+                joinNames(studies.papers.map(({ source }) => paperName(source))))), true);
+            }
+          }
           found.set(number, !shown ? { claim: entry.claim, outcome: "not_checked", saidChecked: true } : {
             claim: entry.claim, outcome: entry.outcome,
             ...(entry.answer_quote === undefined ? {} : { quote: entry.answer_quote }),
             ...(basesOf(work).length > 0 ? { work: countWork([work]) } : {}),
-            ...(threads.length > 0 ? { threads } : {})
+            ...(threads.length > 0 ? { threads } : {}),
+            ...(studies === undefined ? {} : { read: studies.read, papers: studies.papers.length,
+              ...(sentence === undefined ? {} : { sentence }) })
           });
+          // A point resting on a study whose sentence can be looked up once this check passes (owner answer 416a).
+          if (studies !== undefined && shown && given !== undefined && studies.papers.length > 0) {
+            comparisonSentenceRequests.push({ entry: index, sentence: given, papers: studies.papers });
+          }
         }
+        if (noteOn && withoutSentence.length > 0) notes.push(inputNote(sentenceMissingNote(withoutSentence)));
         const left = registered.flatMap((_, number) => entryFor.has(number) ? [] : [number + plainAnswer.first]);
         if (left.length > 0) {
           const leftOut = joinRules(joinRules(joinRules(rule`plain_answer_comparison leaves out ${left.length === 1 ? rule`claim` : rule`claims`} `, rule`${joinNames(left.map(String))} of the plain answer registered before this research, as `), "manage_research_access numbered them: give each, copied exactly, with whether the research confirmed, "), "corrected or qualified it, or did not check it.");
@@ -5079,7 +5210,7 @@ export function finalizeResearch(
         : { status: "note_off", claims: plainAnswer.claims.length, reason: plainAnswerReason("note_off", lastCheck) };
     // The account's setting removes the note only: the plain answer is still compared with the answer.
     if (passed && note && compared !== undefined) {
-      output.plain_answer_note = plainAnswerNote(compared, draft!) +
+      output.plain_answer_note = plainAnswerNote(compared, draft!, options.closingComparison === true) +
         researchTimeSentence(verified, options.now?.() ?? new Date());
     }
   }
@@ -5255,6 +5386,11 @@ export function finalizeResearch(
   }
   if (passed && backingLines.length > 0 && options.backingLookups === undefined) {
     BACKING_REQUESTS.set(parsedOutput, { lines: backingLines, requests: backingRequests });
+  }
+  // Owner answer 416a: a passing check whose note is written asks for the comparison's sentences to be looked up.
+  if (passed && output.plain_answer_note !== undefined && comparisonSentenceRequests.length > 0 &&
+      options.comparisonSentenceLookups === undefined) {
+    COMPARISON_SENTENCE_REQUESTS.set(parsedOutput, comparisonSentenceRequests);
   }
   if (options.newsCard !== undefined) NEWS_DOI_VERIFIED.set(parsedOutput, newsDoiVerified);
   // The 23 Nov 2026 news audit: a passing check whose card's DOI only lacks a paper read, after the full-text tool
@@ -5436,6 +5572,18 @@ const SOURCE_LINE_REQUESTS = new WeakMap<FinalizeResearchOutput, SourceLineReque
 /** Where this result's source lines may be looked up: a passing check whose lines haven't been yet. */
 export function sourceLineRequestsOf(result: FinalizeResearchOutput): readonly SourceLineRequest[] | undefined {
   return SOURCE_LINE_REQUESTS.get(result);
+}
+
+// The comparison's sentences a passing check asks to have looked up, by the result it returned (owner answer 416a).
+const COMPARISON_SENTENCE_REQUESTS = new WeakMap<FinalizeResearchOutput, ComparisonSentenceRequest[]>();
+
+/**
+ * The papers' sentences this result's closing comparison gives, to look up where owner answer 416a's switch holds: a
+ * passing check whose note is written and whose sentences haven't been looked up yet. Undefined otherwise.
+ */
+export function comparisonSentenceRequestsOf(result: FinalizeResearchOutput):
+  readonly ComparisonSentenceRequest[] | undefined {
+  return COMPARISON_SENTENCE_REQUESTS.get(result);
 }
 
 // What a passing check asks to have looked up of its study map, by the result it returned (owner answer 249a).
@@ -6032,6 +6180,13 @@ interface ComparedClaim {
    * note counts it as not checked and says the research claims to have checked it (owner answer 413a).
    */
   saidChecked?: true;
+  /**
+   * Owner answer 416a, where its switch holds: the studies behind it read without an audit, how many papers back it in
+   * all (audited or not), and the paper's sentence AskRigor found, which the note shows.
+   */
+  read?: ComparisonReadings;
+  papers?: number;
+  sentence?: ShownSentence;
 }
 
 type RegisteredPlainAnswer =
@@ -6236,8 +6391,14 @@ function quotations(claims: readonly string[]): string {
  * quick answer would have said: “X.” This research corrected that, from full-text audits of 2 studies: “Y.”" The rest
  * close the note in one line each: the claims it did not check, then those it says it checked but did not show what
  * backs.
+ *
+ * Owner answer 416a (24 Nov 2026), where its switch holds (`closing`, closing-comparison.ts): what backs a change also
+ * counts the studies read without an audit, saying how ("from the abstract of 1 study", "from the full text of 1 study,
+ * methods not audited"); a change resting on a study is the research's only with the paper's sentence AskRigor found in
+ * a text it fetched, which the note then shows ("In the study's abstract, AskRigor found: “Z.”"), and otherwise "The AI
+ * says this research confirmed that"; and a note that shows a sentence ends by saying what finding one shows.
  */
-function plainAnswerNote(compared: readonly ComparedClaim[], draft: string): string {
+function plainAnswerNote(compared: readonly ComparedClaim[], draft: string, closing = false): string {
   const numbers = extractUnsignedNumbers(displayedProse(draft).map(visibleText).join("\n"));
   // Array.prototype.sort is stable, so claims with one outcome keep the order registered.
   const checked = compared.filter(({ outcome }) => outcome !== "not_checked")
@@ -6245,15 +6406,24 @@ function plainAnswerNote(compared: readonly ComparedClaim[], draft: string): str
   const unchecked = compared.filter(({ outcome, saidChecked }) => outcome === "not_checked" && saidChecked !== true)
     .map(({ claim }) => claim);
   const unbacked = compared.filter(({ saidChecked }) => saidChecked === true).map(({ claim }) => claim);
-  const lines = checked.map(({ claim, outcome, quote, work, threads }, index) => {
+  const lines = checked.map(({ claim, outcome, quote, work, threads, read, papers, sentence }, index) => {
     const lead = index === 0 ? "Without AskRigor, a quick answer would have" : "It would also have";
     // Each reaches a passing note only with its checked quote. A confirmed or qualified claim whose figures the
     // checked draft does not show says so, rather than seeming to confirm them (31 Oct).
-    const bases = [...(work === undefined ? [] : [verifiedWorkPhrase(work)]), ...(threads === undefined ? [] : [readThreadsPhrase(threads)])];
-    const from = bases.length === 0 ? "" : `, from ${bases.join(" and ")}`;
     const figuresUnchecked = outcome !== "corrected" &&
       extractUnsignedNumbers(claim).some((value) => !includesAbsoluteNumber(numbers, value));
-    return `${lead} said: ${quotation(claim)} This research ${outcome} that${from}${figuresUnchecked ? ", but not its figures" : ""}: ${quotation(quote!)}`;
+    if (!closing) {
+      const bases = [...(work === undefined ? [] : [verifiedWorkPhrase(work)]), ...(threads === undefined ? [] : [readThreadsPhrase(threads)])];
+      const from = bases.length === 0 ? "" : `, from ${bases.join(" and ")}`;
+      return `${lead} said: ${quotation(claim)} This research ${outcome} that${from}${figuresUnchecked ? ", but not its figures" : ""}: ${quotation(quote!)}`;
+    }
+    const parts = [...comparisonWorkParts(work ?? NO_VERIFIED_WORK, read ?? { fullTexts: 0, abstracts: 0 }),
+      ...(threads === undefined ? [] : [readThreadsPhrase(threads)])];
+    const from = parts.length === 0 ? "" : `, from ${joinedParts(parts)}`;
+    const onPaper = (papers ?? 0) > 0;
+    const shown = sentence === undefined ? "" : ` ${shownSentenceLine(sentence, papers === 1, quotation)}`;
+    return `${lead} said: ${quotation(claim)} ${comparisonVerb(outcome, onPaper, ownTextSentence(sentence))}${from}` +
+      `${figuresUnchecked ? ", but not its figures" : ""}: ${quotation(quote!)}${shown}`;
   });
   const opening = "Without AskRigor, a quick answer would have said:";
   if (unchecked.length > 0) {
@@ -6271,8 +6441,13 @@ function plainAnswerNote(compared: readonly ComparedClaim[], draft: string): str
       : `It says it checked ${unbacked.length === 1 ? "one more point" : `${unbacked.length} more points`}` +
         `${checked.length > 0 ? " too" : ""}, but did not show what backs ${them}: ${quotations(unbacked)}`);
   }
+  // Owner answer 416a: a sentence found shows that its words are in the paper, never that they prove the point.
+  if (closing && checked.some(({ sentence }) => sentence !== undefined)) lines.push(SHOWN_SENTENCES_SAY);
   return lines.join(" ");
 }
+
+/** No work of the kinds a findings card counts, for a point whose note names only other readings (owner answer 416a). */
+const NO_VERIFIED_WORK: VerifiedWork = { studies: 0, videos: 0, absences: 0, corrections: 0 };
 
 // Bounded and closed to brackets and parentheses, so a long draft is read in linear time.
 const MARKDOWN_LINK = /\[[^[\]\n]{0,500}\]\(([^\s()[\]]{1,2048})\)/gu;

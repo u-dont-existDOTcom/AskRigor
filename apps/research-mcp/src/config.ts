@@ -446,6 +446,15 @@ export function planIndirectModeFromEnv(value = process.env.ASKRIGOR_PLAN_INDIRE
 }
 
 /**
+ * Owner answer 416a: ASKRIGOR_CLOSING_COMPARISON, off (the default, and any other value), trial, dev or on
+ * (research-trial.ts). Where it holds, the closing comparison with the quick answer counts what was read of each study
+ * and says how, and shows the paper's sentence AskRigor finds, or says the AI says it (closing-comparison.ts).
+ */
+export function closingComparisonModeFromEnv(value = process.env.ASKRIGOR_CLOSING_COMPARISON): ResearchSwitchMode {
+  return researchSwitchMode(value);
+}
+
+/**
  * Whether the owner's findings actions for the Atlas are open on review_research_contribution (Atlas phase 2 design,
  * section 3): ASKRIGOR_ATLAS_REVIEW set to "enabled". It stays closed until the release has applied migration 0017,
  * granted the review role its functions, bound the promotion timer to the deployed image and checked the catalog;

@@ -76,9 +76,12 @@ export const QUOTES = {
 type Paper = keyof typeof KEY_SOURCES;
 export type Comparison = NonNullable<FinalizeResearchInput["plain_answer_comparison"]>;
 
-/** A call whose research read the papers given, with the comparison given, and the quotes in its draft. */
+/**
+ * A call whose research read the papers given, with the comparison given, and the quotes in its draft; `check`, the
+ * options its fixture readings are read with (a call through the connector passes receipts signed at the real time).
+ */
 export function comparisonCall(papers: readonly Paper[], comparison: Comparison | undefined,
-  overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  overrides: Record<string, unknown> = {}, check: FinalizeResearchOptions = OPTIONS): Record<string, unknown> {
   const call = withCommunitySkip({
     receipts: [RECEIPTS.plain, ...papers.map((paper) => RECEIPTS[paper])],
     research_target: TARGET, research_depth: "deep", treatment_choice: "not_compared",
@@ -92,7 +95,7 @@ export function comparisonCall(papers: readonly Paper[], comparison: Comparison 
     answer_draft: `${papers.map((paper) => LINKS[paper]).join("\n\n")}\n\n${Object.values(QUOTES).join(" ")}`,
     ...(comparison === undefined ? {} : { plain_answer_comparison: comparison }),
   } as FinalizeResearchInput);
-  return withSourceReading({ ...call, ...overrides }, { check: OPTIONS });
+  return withSourceReading({ ...call, ...overrides }, { check });
 }
 
 /** The check's options for this account, with its note on, at a fixed time. */

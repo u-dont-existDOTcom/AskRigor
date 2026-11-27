@@ -128,6 +128,7 @@ import {
   PUBLIC_TOOL_LIMITS,
   atlasReviewEnabledFromEnv,
   claimAccountingModeFromEnv,
+  closingComparisonModeFromEnv,
   crossrefConfigFromEnv,
   devAccountKeysFromEnv,
   dossierPrivacyReadingFromEnv,
@@ -339,11 +340,13 @@ import {
   sourceLineRequestsOf,
   studyMapRequestsOf,
   backingRequestsOf,
+  comparisonSentenceRequestsOf,
   settleFindingsLedger,
   shortLookupDeclared,
   type FinalizeResearchOptions,
   type FinalizeResearchOutput
 } from "./research-finalization-gate.js";
+import { lateComparisonSentences, lookUpComparisonSentences } from "./closing-comparison.js";
 import {
   DOSSIER_PRIVACY_READING_LIMITS,
   type DossierPrivacyReader,
@@ -2249,7 +2252,9 @@ function defineResearchOperations(
       hrpCoreReceipt: protocolCoreReceipt,
       // Promise P90: AskRigor's own plan reaches for evidence one step away, on an account that has it.
       indirectEvidence: (accountKey, devAccount) => switchHoldsFor(options, "indirectEvidence", accountKey, devAccount),
-      // Owner answers 413a and 412a, and P90: a dev account's test window for the three switches.
+      // Owner answer 416a: the registration says what can back a point of the closing comparison, on an account that has it.
+      closingComparison: (accountKey, devAccount) => switchHoldsFor(options, "closingComparison", accountKey, devAccount),
+      // Owner answers 413a, 412a and 416a, and P90: a dev account's test window for the four switches.
       researchTrial: () => ({ modes: researchSwitchModes(), windows: options.researchTrialWindows ?? researchTrialWindows }),
       ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
@@ -2848,6 +2853,10 @@ function defineResearchOperations(
             plainAnswerRequested(researcher.mode)
           ? { plainAnswer: { note: researcher.plainAnswerNote, account: plainAnswerAccountBinding(secret, researcher.accountKey) } }
           : {}),
+        // Owner answer 416a: the closing comparison counts what was read and takes the paper's sentence, while its switch
+        // holds for the account. Off, the check is as before it, and nothing below looks a sentence up.
+        ...(researcher !== undefined && switchHoldsFor(options, "closingComparison", researcher.accountKey, devResearcher)
+          ? { closingComparison: true } : {}),
         ...(coreChecked && await lightLookUp !== true
           ? { hrpCore: { account: plainAnswerAccountBinding(secret!, researcher!.accountKey) } }
           : {}),
@@ -2899,7 +2908,11 @@ function defineResearchOperations(
       const backing = backingRequestsOf(result);
       const mapRequests = studyMapRequestsOf(result);
       const news = newsRequestsOf(result);
-      if (lookups !== undefined || backing !== undefined || mapRequests !== undefined || news !== undefined) {
+      // Owner answer 416a: where its switch holds, the closing comparison's papers' sentences, looked up in the same texts
+      // and under the same deadline; one not looked up in time is said in a note, and the check stands as it is.
+      const sentences = comparisonSentenceRequestsOf(result);
+      if (lookups !== undefined || backing !== undefined || mapRequests !== undefined || news !== undefined ||
+          sentences !== undefined) {
         const lineTexts = options.sourceLineTexts ?? AskRigorSourceLineTexts;
         const mapTexts = options.studyMapTexts ?? AskRigorStudyMapTexts;
         // One paper's text is read once when both look in the same texts.
@@ -2927,7 +2940,11 @@ function defineResearchOperations(
         const newsLooking = news === undefined || news.requests.length === 0 ? undefined : withinDeadline(
           lookUpSourceLines(news.lines, news.requests, lineTexts, newsCache, "news").catch(() => newsLate),
           SOURCE_LINE_DEADLINE_MILLISECONDS, newsLate);
-        const [looked, studyMapLookup, newsLooked] = await Promise.all([
+        const sentencesLate = sentences === undefined ? [] : lateComparisonSentences(sentences);
+        const sentencesLooking = sentences === undefined ? undefined : withinDeadline(
+          lookUpComparisonSentences(sentences, lineTexts, lineCache).catch(() => sentencesLate),
+          SOURCE_LINE_DEADLINE_MILLISECONDS, sentencesLate);
+        const [looked, studyMapLookup, newsLooked, sentencesLooked] = await Promise.all([
           looking,
           // The map keeps its own deadline; this one only guards against a lookup that never settles.
           mapRequests === undefined ? undefined : withinDeadline(
@@ -2936,10 +2953,12 @@ function defineResearchOperations(
               .catch(() => lateStudyMapLookup(mapRequests.map)),
             SOURCE_LINE_DEADLINE_MILLISECONDS + STUDY_MAP_GUARD_MILLISECONDS, lateStudyMapLookup(mapRequests.map)),
           newsLooking,
+          sentencesLooking,
         ]);
         const fromLines = lookups?.length ?? 0;
         const withLines: FinalizeResearchOptions = {
           ...gateOptions,
+          ...(sentences === undefined ? {} : { comparisonSentenceLookups: sentencesLooked ?? sentencesLate }),
           ...(lookups === undefined ? {} : { sourceLineLookups: (looked ?? late).slice(0, fromLines) }),
           // Owner answer 249a: the study map's lookup stands whether or not the backing lines' lookups can be signed.
           ...(studyMapLookup === undefined ? {} : { studyMapLookup })
@@ -3481,10 +3500,13 @@ function findingsLedgerFor(options: RegisterToolsOptions, devAccount: () => bool
     ((options.findingsLedgerAccounts ?? findingsLedgerAccountsFromEnv()) === "all" || devAccount());
 }
 
-/** The modes of the three switches of 24 November 2026, as the server is set (owner answers 413a and 412a, and P90). */
+/**
+ * The modes of the three switches of 24 November 2026 and owner answer 416a's of 27 November, as the server is set (owner
+ * answers 413a, 412a and 416a, and P90).
+ */
 function researchSwitchModes(): ResearchSwitchModes {
   return { claimAccounting: claimAccountingModeFromEnv(), hrpCore: hrpCoreModeFromEnv(),
-    indirectEvidence: planIndirectModeFromEnv() };
+    indirectEvidence: planIndirectModeFromEnv(), closingComparison: closingComparisonModeFromEnv() };
 }
 
 /** Whether one of them holds for an account: its mode, and for a dev account its test window (research-trial.ts). */

@@ -3,18 +3,21 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 
 /**
- * Three changes to research, each behind a switch of its own (config.ts) and each tried on the owner's account before a
- * release (24 November 2026): the menu accounts for the plain answer's claims (owner answer 413a, claim-accounting.ts),
- * HRP's core handed over when the plain answer is registered (owner answer 412a, hrp-core.ts), and AskRigor's own plan
- * reaching for evidence one step away (promise P90, research-planner.ts). A switch is off, the default and any other
- * value; trial, for a dev account only while its test window has it on; dev, for every dev account; or on, for every
- * account (the third changes only a plan AskRigor makes itself, which it makes for dev accounts alone).
+ * Four changes to research, each behind a switch of its own (config.ts) and each tried on the owner's account before a
+ * release: the menu accounts for the plain answer's claims (owner answer 413a, claim-accounting.ts), HRP's core handed
+ * over when the plain answer is registered (owner answer 412a, hrp-core.ts), and AskRigor's own plan reaching for
+ * evidence one step away (promise P90, research-planner.ts), all of 24 November 2026; and the closing comparison
+ * counting what was read and showing the paper's sentence (owner answer 416a, closing-comparison.ts), of 27 November. A
+ * switch is off, the default and any other value; trial, for a dev account only while its test window has it on; dev,
+ * for every dev account; or on, for every account (the third changes only a plan AskRigor makes itself, which it makes
+ * for dev accounts alone).
  *
  * The window is a test round's: the same question asked with the change and without it on one account, in whichever
  * order, with no other account and no setting changed. Like a pause of the planning call (owner answer 395b,
  * research-planner.ts), it is set through manage_research_access, ends by itself, is in this process's memory only, and
  * inspect says nothing of it, so the person's AI is not told of a test. It names its account by digest, never the key,
- * and holds three yes-or-no settings and two times; nothing of a question, and it is neither stored nor logged.
+ * and holds four yes-or-no settings and two times; nothing of a question, and it is neither stored nor logged. The
+ * fourth setting may be left out, as a window set before it was had none, and is then off.
  */
 export const RESEARCH_SWITCH_MODES = ["off", "trial", "dev", "on"] as const;
 export type ResearchSwitchMode = (typeof RESEARCH_SWITCH_MODES)[number];
@@ -33,6 +36,7 @@ export const RESEARCH_TRIAL_SWITCHES = Object.freeze({
   claimAccounting: "the menu's accounting of the quick answer's claims",
   hrpCore: "HRP's core with the registration of the quick answer",
   indirectEvidence: "AskRigor's own plan reaching for evidence one step away",
+  closingComparison: "the closing comparison's count of what was read and the paper's sentence",
 });
 export type ResearchTrialSwitch = keyof typeof RESEARCH_TRIAL_SWITCHES;
 export type ResearchSwitchModes = Readonly<Record<ResearchTrialSwitch, ResearchSwitchMode>>;
@@ -48,6 +52,8 @@ export const researchTrialInputSchema = z.object({
   claimAccounting: z.boolean(),
   hrpCore: z.boolean(),
   indirectEvidence: z.boolean(),
+  // Owner answer 416a: optional, so a window set as before it, with three settings, still opens; left out, it is off.
+  closingComparison: z.boolean().optional(),
   minutes: z.number().int().min(0).max(RESEARCH_TRIAL_MAX_MINUTES),
 }).strict();
 export type ResearchTrialInput = z.output<typeof researchTrialInputSchema>;
@@ -89,7 +95,8 @@ export function createResearchTrialWindows(now: () => number = Date.now): Resear
       }
       const started = kept?.started ?? at;
       const until = Math.min(at + minutes * 60_000, started + RESEARCH_TRIAL_MAX_MINUTES * 60_000);
-      const window = { ...eachSwitch((name) => settings[name]), until, started };
+      // A setting left out is off (closingComparison, which a window set as before owner answer 416a doesn't give).
+      const window = { ...eachSwitch((name) => settings[name] === true), until, started };
       windows.set(account, window);
       // It leaves memory when it ends, also when no later call comes to find it over.
       const forget = setTimeout(() => {
@@ -147,5 +154,5 @@ export function researchTrialState(modes: ResearchSwitchModes, window: ResearchT
 }
 
 /** Why nothing was changed while no switch is in mode trial. */
-export const TRIAL_OFF_NOTHING_CHANGED = "None of AskRigor's three research switches is in trial mode on this server, " +
+export const TRIAL_OFF_NOTHING_CHANGED = "None of AskRigor's four research switches is in trial mode on this server, " +
   "so a test window would change nothing; nothing was changed.";
