@@ -412,6 +412,24 @@ describe("Gemini's sign-in: AskRigor's free-use notice before Allow (owner answe
     expect(store.allAccounts()).toEqual([]);
   });
 
+  it("takes no answer once the step's ten minutes are over: the link has expired, and nothing is recorded", async () => {
+    const { store, answers, browser } = await start();
+    const notice = await begin(browser);
+    // Eleven minutes on: the sign-in step and its login session have expired (only Date moves; timers stay real).
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + 11 * 60_000 });
+    try {
+      for (const decision of ["accept", "decline"]) {
+        const late = await answer(browser, notice.html, decision);
+        expect(late.response.status, decision).toBe(400);
+        expect(late.html).toContain("This sign-in took too long or was opened in another browser. Start again from Gemini.");
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(store.allAccounts()).toEqual([]);
+    expect(answers.size).toBe(0);
+  });
+
   it("never stops the connection when a store doesn't answer, and records nothing", async () => {
     const records: GeminiSignInDiagnostic[] = [];
     const failing = async () => { throw new Error("synthetic store failure"); };

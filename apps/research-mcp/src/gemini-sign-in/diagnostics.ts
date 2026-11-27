@@ -15,9 +15,13 @@ import { googleConnectorIdOf, isGoogleRedirect } from "./google-client.js";
  * library or this server writes word for word (anything else is "unlisted"), a coarse time bucket. Never an id, code,
  * token, client id, address, header value, state, account or any other value a request carries.
  */
+/**
+ * A step of the sign-in. "notice": the free-use notice before the consent step (owner answer 419a): shown, not needed,
+ * or how it was answered. No comment goes inside the union: the debug report's vocabulary reads it as one literal union
+ * (scripts/generate-check-report-vocabulary.mts).
+ */
 export type GeminiSignInStage =
   | "login"
-  /** The free-use notice before the consent step (owner answer 419a): shown, not needed, or how it was answered. */
   | "notice"
   | "consent"
   | "callback"
