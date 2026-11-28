@@ -302,9 +302,9 @@ describe("AskRigor public site", () => {
       "an error, and of calls that take more than 10 seconds even when they succeed.");
     expect(privacy).toContain("For a failed call from an account that has turned on “keep my failed searches”, it " +
       "also keeps the words the AI put in the search, because a fault can depend on them; they can include parts of " +
-      "your question, health details included. You can turn it on when you accept AskRigor's notice, and on or off at " +
-      "any time on your Atlas account page. Email addresses, phone numbers and similar details are taken out of " +
-      "them first. For other failed calls it keeps only the search's shape: which fields were filled, how many words, " +
+      "your question, health details included. Email addresses, phone numbers and similar details are taken out of " +
+      "them first. You can turn it on when you accept AskRigor's notice, and on or off at any time on your Atlas " +
+      "account page. For other failed calls it keeps only the search's shape: which fields were filled, how many words, " +
       "and which filters. It keeps no search words for YouTube searches, or for a search whose destination AskRigor can't tell.");
     expect(privacy).toContain("Only AskRigor's maintainers can read the error log, only to find and fix faults, and " +
       "AskRigor deletes each entry, and any copy it controls, within 30 days.");
