@@ -43,6 +43,7 @@ import {
 
 import { RESEARCH_USE_NOTICE_CHANGES, type ResearchUseNoticeChange } from "./research-use-notice-changes.js";
 import { PostgresResearchCallRecordStore } from "./research-call-record.js";
+import { PostgresResearchErrorLogStore } from "./research-error-log.js";
 import { PostgresResearchUserCounts } from "./research-user-counts.js";
 import { PostgresResearchDossierStore } from "./research-dossiers.js";
 import { PostgresGeminiSignInRowStore } from "./gemini-sign-in-rows.js";
@@ -300,6 +301,7 @@ export interface ResearchUseAccountRecord {
    * revokeAccount never change it; setFindingsSave does. The connector permits only dev accounts to change it.
    */
   findingsSave?: boolean;
+  keepFailedSearches?: boolean;
   /**
    * How a free account's notice was accepted (NOTICE_ACCEPTED_BY), at activatedAt; null when not recorded or not a free
    * account. saveAccount writes it with the notice; an image from before migration 0031 leaves it unrecorded.
@@ -418,6 +420,9 @@ export interface ResearchContributorAccessStore {
   setDetailedLessonReports(accountKey: string, enabled: boolean): Promise<boolean>;
   /** Sets the account's findings-card saving; false when the account has no row. */
   setFindingsSave(accountKey: string, enabled: boolean): Promise<boolean>;
+  /** Undefined preference takes the server's default. Null means there is no research account. */
+  failedSearchPreference(accountKey: string): Promise<{ enabled?: boolean } | null>;
+  setKeepFailedSearches(accountKey: string, enabled: boolean): Promise<boolean>;
   /**
    * Changes only the parts of the account's research style the change names, in one write, and returns the style as
    * stored after it; undefined when the account has no row (the review of 12 Nov 2026: two chats each changing one
@@ -845,6 +850,14 @@ export class ResearchContributorAccessService {
    * for an enrolled account whatever notice it accepted (the review of 5 November 2026, finding 5): a dev account still
    * on an earlier notice switches its saving off before it accepts the new one, so a regression run never publishes.
    */
+  failedSearchPreference(accountKey: string): Promise<{ enabled?: boolean } | null> {
+    return this.store.failedSearchPreference(accountKey);
+  }
+
+  setKeepFailedSearches(accountKey: string, enabled: boolean): Promise<boolean> {
+    return this.store.setKeepFailedSearches(accountKey, enabled);
+  }
+
   async setFindingsSave(subject: string, enabled: boolean): Promise<boolean> {
     if (enabled) await this.requireActive(subject);
     else await this.enrolledAccount(subject);
@@ -1028,6 +1041,18 @@ implements ResearchContributorAccessStore {
     return true;
   }
 
+  async failedSearchPreference(accountKey: string): Promise<{ enabled?: boolean } | null> {
+    const account = this.accounts.get(accountKey);
+    return account === undefined ? null : { enabled: account.keepFailedSearches };
+  }
+
+  async setKeepFailedSearches(accountKey: string, enabled: boolean): Promise<boolean> {
+    const account = this.accounts.get(accountKey);
+    if (account === undefined) return false;
+    this.accounts.set(accountKey, { ...account, keepFailedSearches: enabled });
+    return true;
+  }
+
   async setFindingsSave(accountKey: string, enabled: boolean): Promise<boolean> {
     const account = this.accounts.get(accountKey);
     if (account === undefined) return false;
@@ -1077,6 +1102,7 @@ implements ResearchContributorAccessStore {
       plainAnswerNote: _ignoredNote,
       detailedLessonReports: _ignoredReports,
       findingsSave: _ignoredFindingsSave,
+      keepFailedSearches: _ignoredKeepFailedSearches,
       researchSteering: _ignoredSteering,
       ...saved
     } = structuredClone(record);
@@ -1086,6 +1112,7 @@ implements ResearchContributorAccessStore {
       ...(prior?.plainAnswerNote === undefined ? {} : { plainAnswerNote: prior.plainAnswerNote }),
       ...(prior?.detailedLessonReports === undefined ? {} : { detailedLessonReports: prior.detailedLessonReports }),
       ...(prior?.findingsSave === undefined ? {} : { findingsSave: prior.findingsSave }),
+      ...(prior?.keepFailedSearches === undefined ? {} : { keepFailedSearches: prior.keepFailedSearches }),
       ...(prior?.researchSteering === undefined ? {} : { researchSteering: { ...prior.researchSteering } }),
     };
   }
@@ -1224,6 +1251,10 @@ implements ResearchContributorAccessStore {
     return new PostgresResearchCallRecordStore(this.pool, this.schema);
   }
 
+  errorLogStore(): PostgresResearchErrorLogStore {
+    return new PostgresResearchErrorLogStore(this.pool, this.schema);
+  }
+
   /** AskRigor#477 stage 1 (owner answer 329a): the private research dossiers, on this store's pool and schema. */
   dossierStore(): PostgresResearchDossierStore {
     return new PostgresResearchDossierStore(this.pool, this.schema);
@@ -1279,6 +1310,22 @@ implements ResearchContributorAccessStore {
       `UPDATE ${this.schema}.research_use_accounts
           SET detailed_lesson_reports = $2
         WHERE account_key = $1`,
+      [accountKey, enabled],
+    );
+    return result.rowCount !== 0;
+  }
+
+  async failedSearchPreference(accountKey: string): Promise<{ enabled?: boolean } | null> {
+    const result = await this.pool.query<{ keep_failed_searches: boolean | null }>(
+      `SELECT keep_failed_searches FROM ${this.schema}.research_use_accounts WHERE account_key = $1`, [accountKey],
+    );
+    const row = result.rows[0];
+    return row === undefined ? null : { enabled: row.keep_failed_searches ?? undefined };
+  }
+
+  async setKeepFailedSearches(accountKey: string, enabled: boolean): Promise<boolean> {
+    const result = await this.pool.query(
+      `UPDATE ${this.schema}.research_use_accounts SET keep_failed_searches = $2 WHERE account_key = $1`,
       [accountKey, enabled],
     );
     return result.rowCount !== 0;
