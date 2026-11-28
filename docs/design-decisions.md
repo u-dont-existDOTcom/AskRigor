@@ -448,6 +448,9 @@ Not done: leading with "free". · Decided: 5 Nov 2026 (the owner).
 Why: free ChatGPT can't add an app by its address while Claude's free plan can add one custom connector, and one piece of research makes dozens of tool calls.\
 Decided: 5 Nov 2026 (owner answer 258a; the owner on "Always allow").
 
+**"Add AskRigor" also gives Gemini's connection steps.**\
+Gemini uses its own address, and people can accept the free-use notice during sign-in. The owner requested this in Inbox on 27 Nov 2026.
+
 **Money for AskRigor is support for its development, through GitHub Sponsors, a Stripe payment link and a Bitcoin address, not a donation.**\
 Why: it goes to Mayan Roots LLC, which builds AskRigor, and isn't tax-deductible.\
 Not done: calling it a donation; CoinPayments for any coin, which needs the owner's own merchant account first. · Decided: 6 Nov 2026 (owner answer 264a); the Bitcoin address, 6 Nov (the owner).
