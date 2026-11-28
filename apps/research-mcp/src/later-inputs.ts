@@ -300,7 +300,8 @@ const LATER_INPUT_SHAPES = Object.freeze({
     pauseMinutes: z.number().int().min(0).max(PLANNER_PAUSE_MAX_MINUTES).optional()
       .describe(`With pause_research_planner, on a dev account for a test round only: whole minutes from now, at most ` +
         `${PLANNER_PAUSE_MAX_MINUTES}, to pause AskRigor's own planning call; 0 ends the pause.`),
-    // A dev account's test window for the changes behind switches.
+    // Owner answers 413a and 412a, and P90 (24 Nov 2026), and the full-protocol line (28 Nov 2026): a dev account's test
+    // window for the changes behind switches.
     researchTrial: researchTrialInputSchema.optional()
       .describe("With set_research_trial, on a dev account for a test round only: claimAccounting, hrpCore and " +
         "indirectEvidence, each true or false, plus optional fullProtocol (defaults to false), for minutes whole " +

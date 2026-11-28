@@ -445,7 +445,11 @@ export function planIndirectModeFromEnv(value = process.env.ASKRIGOR_PLAN_INDIRE
   return researchSwitchMode(value);
 }
 
-/** Whether AskRigor's runtime results carry the full-protocol line (off by default). */
+/**
+ * The owner's request of 27 November 2026 (full-protocol.ts): ASKRIGOR_FULL_PROTOCOL, off (the default, and any other
+ * value), trial, dev or on (research-trial.ts). Where it holds, an active account's inspect, and on /mcp/gemini every
+ * successful result but load_protocol's, carry the full-protocol line.
+ */
 export function fullProtocolModeFromEnv(value = process.env.ASKRIGOR_FULL_PROTOCOL): ResearchSwitchMode {
   return researchSwitchMode(value);
 }

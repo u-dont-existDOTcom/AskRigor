@@ -210,7 +210,8 @@ export const manageResearchAccessInputSchema = z.object({
     "disconnect_gemini",
     // Owner answer 395b (21 Nov 2026, runtime only): a test round's pause of a dev account's planning call.
     "pause_research_planner",
-    // Runtime only: a dev account's test window for research switches.
+    // Owner answers 413a and 412a (24 Nov 2026, runtime only), and the full-protocol line (28 Nov 2026): a dev account's
+    // test window for the research switches.
     "set_research_trial",
   ]),
   agreement: freeContributorAgreementSchema.extend({ noticeVersion: noticeVersionSchema }).strict().optional(),
@@ -475,7 +476,9 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     .describe("With register_plain_answer and a research's first plan_research, where HRP's core is handed over: whether " +
       "it is in this result (here), comes with plan_research's, is to be loaded with load_protocol (load_it), is held " +
       "already or is not for this research."),
-  // Runtime only: the dev account's switch states and expiry after setting a test window. Only that call shows them.
+  // Owner answers 413a and 412a, P90 and the full-protocol line (runtime only): what the switches come to on a dev account
+  // after its test window was set, and until when it runs; null once none runs. Only that call's own result carries it,
+  // as for the pause.
   researchTrial: z.object({
     claimAccounting: z.boolean(),
     hrpCore: z.boolean(),
@@ -485,6 +488,7 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
   }).strict().optional()
     .describe("With set_research_trial: whether each switch holds for this account now, and when its test window ends, " +
       "in UTC; null when none runs."),
+  // The full-protocol line (28 Nov 2026; runtime only): inspect carries it, so a test round can tell its runs apart.
   full_protocol_line: z.literal(true).optional(),
   // Owner answer 412a (24 Nov 2026; runtime only): HRP's core, the bytes load_protocol serves for section "core". The last
   // field, its text the last of it, so that what an app cuts short is the text's end, which ends_with shows.
@@ -1420,7 +1424,9 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
             plannerPausedUntil: until === undefined ? null : new Date(until).toISOString() }),
         };
       }
-      // A test round sets research switches for a dev account for at most two hours, so it can repeat a question.
+      // Owner answers 413a and 412a, and P90 (24 Nov 2026), and the full-protocol line (28 Nov 2026): a test round turns
+      // one of the changes on or off for a dev account, for at most two hours, so the same question can be asked with it
+      // and without it; it ends by itself.
       if (parsed.action === "set_research_trial") {
         const accountKey = options.service.accountKeyForSubject(auth.subject);
         if (!isDevAccount(accountKey, options.devAccountKeys?.() ?? new Set())) {

@@ -2256,7 +2256,7 @@ function defineResearchOperations(
       hrpCoreReceipt: protocolCoreReceipt,
       // Promise P90: AskRigor's own plan reaches for evidence one step away, on an account that has it.
       indirectEvidence: (accountKey, devAccount) => switchHoldsFor(options, "indirectEvidence", accountKey, devAccount),
-      // A dev account's test window for the research switches.
+      // Owner answers 413a and 412a, P90 and the full-protocol line: a dev account's test window for the research switches.
       researchTrial: () => ({ modes: researchSwitchModes(), windows: options.researchTrialWindows ?? researchTrialWindows }),
       ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
@@ -3503,7 +3503,10 @@ function findingsLedgerFor(options: RegisterToolsOptions, devAccount: () => bool
     ((options.findingsLedgerAccounts ?? findingsLedgerAccountsFromEnv()) === "all" || devAccount());
 }
 
-/** The modes of the research switches, as the server is set. */
+/**
+ * The modes of the research switches, as the server is set: the three of 24 November 2026 (owner answers 413a and 412a,
+ * and P90) and the full-protocol line of 28 November 2026.
+ */
 function researchSwitchModes(): ResearchSwitchModes {
   return { claimAccounting: claimAccountingModeFromEnv(), hrpCore: hrpCoreModeFromEnv(),
     indirectEvidence: planIndirectModeFromEnv(), fullProtocol: fullProtocolModeFromEnv() };

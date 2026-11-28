@@ -3,12 +3,14 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 
 /**
- * Changes to research, each behind a switch of its own (config.ts) and tried on the owner's account before release:
- * the menu accounts for the plain answer's claims (owner answer 413a, claim-accounting.ts),
- * HRP's core handed over when the plain answer is registered (owner answer 412a, hrp-core.ts), and AskRigor's own plan
- * reaching for evidence one step away (promise P90, research-planner.ts), plus the full-protocol line (full-protocol.ts).
- * A switch is off by default, trial for a dev account while its window has it on, dev for every dev account, or on
- * for every account. The indirect-evidence switch affects AskRigor's own planner, which runs for dev accounts alone.
+ * Changes to research, each behind a switch of its own (config.ts) and each tried on the owner's account before a release
+ * (24 November 2026): the menu accounts for the plain answer's claims (owner answer 413a, claim-accounting.ts), HRP's core
+ * handed over when the plain answer is registered (owner answer 412a, hrp-core.ts), and AskRigor's own plan reaching for
+ * evidence one step away (promise P90, research-planner.ts); and since 28 November 2026 the full-protocol line, the
+ * owner's "follow every step of AskRigor protocol precisely" said by AskRigor itself (the owner, 27 November 2026;
+ * full-protocol.ts). A switch is off by default, trial for a dev account while its window has it on, dev for every dev
+ * account, or on for every account. The indirect-evidence switch affects AskRigor's own planner, which runs for dev
+ * accounts alone.
  *
  * The window is a test round's: the same question asked with the change and without it on one account, in whichever
  * order, with no other account and no setting changed. Like a pause of the planning call (owner answer 395b,
