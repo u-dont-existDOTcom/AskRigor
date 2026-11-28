@@ -460,3 +460,11 @@ Decided: 5 Nov 2026 (the owner); comments open with the Atlas, email until then.
 **Site and Atlas pages run no scripts and no inline styles, under a strict content security policy.**\
 Why: not recorded.\
 Decided: by 25 Oct 2026 (the Atlas pages' security headers); topic maps drawn without scripts, 26 Oct (183b).
+
+## Research tool error log
+
+**Keep a 30-day diagnostic log for failed MCP research calls and calls that take more than 10 seconds. Keep search words only for failed searches when the account has opted in.**
+
+A row records the time, duration, tool, known app and format-checked public paper identifiers. A failed call adds fixed error and location categories and the shape of filled argument fields. The existing developer-account list starts with the switch on. Other accounts start off, and a saved account preference takes priority. Retained search words go through redaction and the privacy screen. Slow successes keep metadata only, including when a fallback succeeded. The tool catalog stays the same.
+
+The log excludes accounts, user/session/request IDs, network addresses, credentials, tokens, headers, URLs, tool results, answers, source text and raw errors. YouTube-capable and unknown destinations keep shape only. · Decided 27–28 Nov 2026, owner answers 432 1b 2a 3a and 433a.

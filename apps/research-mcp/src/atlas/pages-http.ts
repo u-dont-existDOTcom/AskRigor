@@ -1,3 +1,4 @@
+import { keepFailedSearches } from "../failed-search-preference.js";
 import { timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
@@ -294,6 +295,7 @@ export type AtlasRoute =
   | { kind: "delete-comment"; publicId: string }
   | { kind: "report-comment"; publicId: string }
   | { kind: "rename" }
+  | { kind: "keep-failed-searches" }
   | { kind: "forget" }
   | { kind: "account" }
   | { kind: "own-comments" }
@@ -309,9 +311,9 @@ export type AtlasRoute =
   | { kind: "person-claim"; publicationNumber: string };
 
 type FormRoute = Extract<AtlasRoute, { kind: "sign-out" | "sign-out-everywhere" | "vote" | "comment" |
-  "delete-comment" | "report-comment" | "rename" | "forget" | "report-answer" | "take-down-report" }>;
+  "delete-comment" | "report-comment" | "rename" | "forget" | "keep-failed-searches" | "report-answer" | "take-down-report" }>;
 const FORM_KINDS: ReadonlySet<string> = new Set(["sign-out", "sign-out-everywhere", "vote", "comment", "delete-comment",
-  "report-comment", "rename", "forget", "report-answer", "take-down-report"]);
+  "report-comment", "rename", "forget", "keep-failed-searches", "report-answer", "take-down-report"]);
 const SIGN_IN_KINDS: ReadonlySet<string> = new Set(["sign-in", "callback"]);
 
 /** Whether a path is the Atlas's: /atlas or below it. */
@@ -359,6 +361,7 @@ export function atlasRouteOf(pathname: string, participation = false): AtlasRout
   if (pathname === "/atlas/auth/callback") return { kind: "callback" };
   if (pathname === "/atlas/auth/logout") return { kind: "sign-out" };
   if (pathname === "/atlas/auth/logout-everywhere") return { kind: "sign-out-everywhere" };
+  if (pathname === "/atlas/account/keep-failed-searches") return { kind: "keep-failed-searches" };
   if (pathname === "/atlas/account/name") return { kind: "rename" };
   if (pathname === "/atlas/account/delete") return { kind: "forget" };
   if (pathname === ACCOUNT_PATH) return { kind: "account" };
@@ -535,6 +538,10 @@ export interface AtlasParticipationRuntime {
   limiters?: Partial<Record<keyof typeof ATLAS_PARTICIPATION_LIMITS, TokenBucketLimiter>>;
   /** What the account page lists the signed-in reader's AskRigor features with; without it, it lists none. */
   features?: AtlasFeaturesRuntime;
+  failedSearches?: {
+    read(accountKey: string): Promise<boolean | undefined>;
+    write(accountKey: string, enabled: boolean): Promise<boolean>;
+  };
   /** The owner's private page; without it, no one is the owner, and the page answers every signed-in reader 404. */
   owner?: AtlasOwnerRuntime;
 }
@@ -639,6 +646,7 @@ const NOTICES: Readonly<Record<string, string>> = {
   deleted: "Your comment is deleted.",
   reported: "Thank you: the comment is reported to AskRigor's owner.",
   renamed: "Your display name is saved.",
+  "failed-searches-saved": "Your failed-search preference is saved.",
   forgotten: "Everything you held in the Atlas is deleted: your votes, your comments and your reports.",
   answered: "Your answer is saved.",
   "answer-cleared": "Your answer is taken back.",
@@ -1178,11 +1186,14 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     // The signed-in reader's AskRigor features, read for their own account only; a reader who is not signed in gets none.
     const features = session === undefined || runtime.features === undefined ? null
       : await loadAtlasAccountFeatures(runtime.features, session.accountKey, now);
+    const preference = typeof session?.accountKey !== "string" ? undefined
+      : await runtime.failedSearches?.read(session.accountKey).catch(() => undefined);
     const page = checked({ status: 200, html: renderAtlasAccount({
       reader,
       tokens: session === undefined ? null : { name: token("name"), signOut: token("sign-out"),
         signOutEverywhere: token("sign-out-everywhere"), forget: token("forget") },
       features,
+      failedSearches: preference === undefined ? undefined : { enabled: preference, csrf: token("keep-failed-searches") },
     }) });
     write(response, page.status, HTML, page.html, { "cache-control": PRIVATE, vary: "Cookie" }, clear);
   };
@@ -1355,7 +1366,8 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     }
     const { session, clear } = await currentSession(request, runtime, now);
     // A vote withdrawn from the reader's own page goes back there; every other vote and comment to its finding.
-    const back = route.kind === "vote" && route.publicationNumber !== undefined &&
+    const back = route.kind === "keep-failed-searches" ? ACCOUNT_PATH
+      : route.kind === "vote" && route.publicationNumber !== undefined &&
         safeReturnPath(form.get("return")) === OWN_COMMENTS_PATH ? OWN_COMMENTS_PATH
       : route.kind === "vote" || route.kind === "comment" ? findingPath(route.publicationNumber)
         : route.kind === "report-answer" ? reportPath(route.publicId)
@@ -1399,7 +1411,8 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         : route.kind === "delete-comment" ? `delete:${route.publicId}`
           : route.kind === "report-answer" ? `answer:${route.publicId}`
             : route.kind === "take-down-report" ? `take-down:${route.publicId}`
-          : route.kind === "rename" ? "name" : route.kind === "forget" ? "forget"
+          : route.kind === "keep-failed-searches" ? "keep-failed-searches"
+            : route.kind === "rename" ? "name" : route.kind === "forget" ? "forget"
             : route.kind === "sign-out-everywhere" ? "sign-out-everywhere" : "sign-out";
     if (!validCsrfToken(settings, session, purpose, form.get("csrf"))) return expired();
     const key = session.participantKey;
@@ -1472,6 +1485,19 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
             return;
           }
           return done("deleted", "comments");
+        }
+        case "keep-failed-searches": {
+          const choice = form.get("keep");
+          if (choice !== "on" && choice !== "off") {
+            await message(response, 400, "Preference not saved", "Choose on or off.", back);
+            return;
+          }
+          if (session.accountKey === null || runtime.failedSearches === undefined ||
+              !await runtime.failedSearches.write(session.accountKey, choice === "on")) {
+            await message(response, 404, "Preference not saved", "A research account is needed to change this setting.", back);
+            return;
+          }
+          return done("failed-searches-saved", "keep-failed-searches");
         }
         case "rename": {
           const named = normalizedDisplayName(form.get("displayName"));
@@ -1748,7 +1774,8 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
 /** What the research server shares with the pages, so they read as its connector does. */
 export interface AtlasPagesSharedParts {
   /** The connector's research access service; without it the pages make their own, on the same access role. */
-  researchAccess?: AtlasFeaturesRuntime["research"];
+  researchAccess?: AtlasFeaturesRuntime["research"] &
+    Partial<Pick<ResearchContributorAccessService, "failedSearchPreference" | "setKeepFailedSearches">>;
   /** The research-access database's two aggregates for the public user count, on the connector's pool. */
   userCounts?: ResearchUserCountsSource;
   /** The subjects the connector's owner review admits (ASKRIGOR_OAUTH_ALLOWED_SUBJECT). */
@@ -1797,6 +1824,15 @@ export function atlasParticipationFromEnv(env: NodeJS.ProcessEnv = process.env, 
         return [];
       }
     }));
+    const research = shared.researchAccess ?? new ResearchContributorAccessService({
+      store: new PostgresResearchContributorAccessStore({
+        connectionString: access.connectionString,
+        schema: access.schema,
+        ssl: access.ssl,
+      }),
+      identitySecret: access.identitySecret,
+      ...(shared.ownerSubjects === undefined ? {} : { ownerSubjects: shared.ownerSubjects }),
+    });
     return {
       settings,
       ...(owner === undefined ? {} : { owner }),
@@ -1812,16 +1848,15 @@ export function atlasParticipationFromEnv(env: NodeJS.ProcessEnv = process.env, 
         ssl: access.ssl,
       }),
       signIn: { issuerUrl: issuer, clientId, clientSecret, jwks: createRemoteJWKSet(jwks) },
+      ...(research.failedSearchPreference === undefined || research.setKeepFailedSearches === undefined ? {} : {
+        failedSearches: {
+          read: (accountKey: string) => keepFailedSearches({ failedSearchPreference: research.failedSearchPreference!.bind(research) },
+            accountKey, env),
+          write: research.setKeepFailedSearches.bind(research),
+        },
+      }),
       features: {
-        research: shared.researchAccess ?? new ResearchContributorAccessService({
-          store: new PostgresResearchContributorAccessStore({
-            connectionString: access.connectionString,
-            schema: access.schema,
-            ssl: access.ssl,
-          }),
-          identitySecret: access.identitySecret,
-          ...(shared.ownerSubjects === undefined ? {} : { ownerSubjects: shared.ownerSubjects }),
-        }),
+        research,
         server: atlasServerFeaturesFromEnv(env),
         ownerAccountKeys,
         devAccountKeys: () => devAccountKeysFromEnv(env.ASKRIGOR_DEV_ACCOUNT_KEYS),

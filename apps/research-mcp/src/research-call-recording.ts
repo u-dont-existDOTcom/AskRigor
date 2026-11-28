@@ -24,11 +24,13 @@ export function researchCallRecordingOptions(
   };
 }
 
+export const RESEARCH_CALL_RECORD_SWEEP_INTERVAL_MS = 60 * 60 * 1_000;
+
 /** A process-local hourly sweep, stopped by the HTTP server at close and never keeping the process alive. */
-export function startResearchCallRecordSweep(store: ResearchCallRecordStore): NodeJS.Timeout {
+export function startResearchCallRecordSweep(store: Pick<ResearchCallRecordStore, "sweep">): NodeJS.Timeout {
   const timer = setInterval(() => {
     void Promise.resolve().then(() => store.sweep(new Date())).catch(() => undefined);
-  }, 60 * 60 * 1_000);
+  }, RESEARCH_CALL_RECORD_SWEEP_INTERVAL_MS);
   timer.unref();
   return timer;
 }
