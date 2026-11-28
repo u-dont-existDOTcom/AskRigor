@@ -80,7 +80,7 @@ describe("AskRigor public site", () => {
     expect(privacy).toContain("screened, de-identified population-level research target");
     expect(privacy).toContain("performs low-level public-source retrieval and automated Gemini scouting");
     expect(privacy).toContain("Signed state and work receipts");
-    expect(privacy).toContain("Requests and responses are not written to application logs");
+    expect(privacy).toContain("Full requests and responses are not written to application logs");
     expect(privacy).toContain("Direct MCP continuation remains client-carried and stateless");
     expect(privacy).toContain("encrypted single-host checkpoint");
     expect(privacy).toContain("72 hours without use");
@@ -140,7 +140,7 @@ describe("AskRigor public site", () => {
     ]) expect(html).toContain(fragment);
 
     expect(html).toContain(
-      "The application does not emit or store request-body logs, response-body logs, candidate-content logs, or a dedicated application access log.",
+      "The application does not log full requests or responses, candidate content, or every call.",
     );
     expect(html).toContain(
       "Only four aggregate budget data values are retained in that ledger: UTC month, fixed monthly limit, charged nano-USD total, and update time.",
@@ -271,7 +271,7 @@ describe("AskRigor public site", () => {
       "ARL-####",
       "request earlier deletion",
       "OpenAI, GitHub, ChatGPT, and infrastructure providers",
-      "does not emit or store request-body logs, response-body logs, candidate-content logs",
+      "does not log full requests or responses, candidate content, or every call",
     ]) expect(html).toContain(fragment);
 
     expect(html).not.toContain("AskRigor-lessons");
@@ -290,10 +290,26 @@ describe("AskRigor public site", () => {
       "and at each research call that carries a Gemini sign-in, it writes the time and fixed words, counts and status codes " +
       "only (the step and how it ended, which parts of the request came and of what kind, coarse time ranges, the type of " +
       "call, and the reason for a failure in words set in advance), never an identifier, code, token, web address, header " +
-      "value, account, tool name, or anything you ask or are answered. Apart from that log, the only record of calls is the " +
-      "content-free call record described under “Your call record”, and only for signed-in research accounts. The optional " +
-      "lesson path");
+      "value, account, tool name, or anything you ask or are answered. Apart from that log and the error log, which " +
+      "covers calls whether or not you are signed in, the only record of calls is the content-free call record described " +
+      "under “Your call record”, kept only for signed-in research accounts. The optional lesson path");
     expect(privacy.match(/only record of calls is/giu)).toHaveLength(1);
+  });
+
+  it("discloses the approved error-log opt-in, destination limits and deletion period", async () => {
+    const privacy = await pageHtml("site/privacy/index.html");
+    expect(privacy).toContain("To find and fix faults, AskRigor keeps an error log of research tool calls that end in " +
+      "an error, and of calls that take more than 10 seconds even when they succeed.");
+    expect(privacy).toContain("For a failed call from an account that has turned on “keep my failed searches”, it " +
+      "also keeps the words the AI put in the search, because a fault can depend on them; they can include parts of " +
+      "your question, health details included. Email addresses, phone numbers and similar details are taken out of " +
+      "them first. You can turn it on when you accept AskRigor's notice, and on or off at any time on your Atlas " +
+      "account page. For other failed calls it keeps only the search's shape: which fields were filled, how many words, " +
+      "and which filters. It keeps no search words for YouTube searches, or for a search whose destination AskRigor can't tell.");
+    expect(privacy).toContain("Only AskRigor's maintainers can read the error log, only to find and fix faults, and " +
+      "AskRigor deletes each entry, and any copy it controls, within 30 days.");
+    expect(privacy).toContain('To ask about an error-log entry, or to have it deleted sooner, email ' +
+      '<a href="mailto:joel@askrigor.com">joel@askrigor.com</a> with the approximate time, the AI app and the tool');
   });
 
   // Owner answer 419a for Gemini (built 27 Nov 2026, the owner: "gemini is still not working"): what Gemini's sign-in

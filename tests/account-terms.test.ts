@@ -181,7 +181,7 @@ function expectExpired(page: { response: Response; body: string }) {
 }
 
 describe("AskRigor's terms page at sign-in (owner answer 419a)", () => {
-  it("shows the current free-use notice word for word, with the terms and privacy links and two buttons", async () => {
+  it("shows the current notice word for word and one unticked failed-search checkbox before the buttons", async () => {
     const { base, store, answers } = await start();
     const token = await actionToken();
     const page = await visit(base, { session_token: token, state: STATE });
@@ -205,7 +205,10 @@ describe("AskRigor's terms page at sign-in (owner answer 419a)", () => {
     expect(page.body).toContain('<form method="post" action="/account/terms">');
     expect(page.body).toContain(`<input type="hidden" name="session_token" value="${token}">`);
     expect(page.body).toContain(`<input type="hidden" name="state" value="${STATE}">`);
-    expect(page.body).toContain(`<input type="hidden" name="notice_version" value="${RESEARCH_USE_NOTICE_VERSION}">`);
+    expect(page.body).toContain(`<input type="hidden" name="notice_version" value="${RESEARCH_USE_NOTICE_VERSION}">\n` +
+      '<label><input type="checkbox" name="keep_failed_searches" value="true"> ' +
+      'Help fix AskRigor: keep my failed searches for 30 days</label>\n<div class="buttons">');
+    expect(page.body.match(/type="checkbox"/gu)).toHaveLength(1);
     expect(page.body).toContain('<button class="accept" type="submit" name="decision" value="accept">Accept and continue</button>');
     expect(page.body).toContain('<button type="submit" name="decision" value="decline">Decline</button>');
     expect(page.body.match(/<button/gu)).toHaveLength(2);
@@ -377,6 +380,7 @@ describe("AskRigor's terms page at sign-in (owner answer 419a)", () => {
       current: "accepted" } });
     expect(noticeAcceptanceSentence(view.acceptance)).toBe("");
     await expect(service.requireActive(PERSON)).resolves.toBe("FREE_CONTRIBUTOR");
+    await expect(service.failedSearchPreference(service.accountKeyForSubject(PERSON))).resolves.toEqual({ enabled: undefined });
     // The token is used: its SHA-256 is kept with the answer, and nothing that names the person.
     expect(answers.size).toBe(1);
     // Back to Auth0's /continue by itself: the state in the address, the signed answer only in the body.
@@ -399,6 +403,34 @@ describe("AskRigor's terms page at sign-in (owner answer 419a)", () => {
     // A plain link goes on too, for a browser or proxy that stops the form; the answer is already recorded.
     expect(answer.wayOn?.href).toBe(answer.action.href);
     expect(page.body).toContain("your answer is already recorded.");
+  });
+
+  it.each([undefined, false, true])("accepting with the box unticked keeps a preference of %s", async (enabled) => {
+    const { base, store, service } = await start();
+    const earlier = accountOf(service, PERSON, { noticeVersion: V5 as never });
+    await store.saveAccount(earlier);
+    if (enabled !== undefined) await service.setKeepFailedSearches(earlier.accountKey, enabled);
+    expect((await answerOf((await accept(base, await actionToken())).body)).payload).toMatchObject({ accepted: true });
+    await expect(service.failedSearchPreference(earlier.accountKey)).resolves.toEqual({ enabled });
+  });
+
+  it("accepts with the checkbox ticked and turns on the account preference", async () => {
+    const { base, service } = await start();
+    const token = await actionToken();
+    const page = await post(base, { session_token: token, state: STATE, notice_version: RESEARCH_USE_NOTICE_VERSION,
+      decision: "accept", keep_failed_searches: "true" });
+    expect((await answerOf(page.body)).payload).toMatchObject({ accepted: true });
+    await expect(service.failedSearchPreference(service.accountKeyForSubject(PERSON))).resolves.toEqual({ enabled: true });
+  });
+
+  it("requires one exact checkbox value to opt in", async () => {
+    const { base, service } = await start();
+    const body = new URLSearchParams({ session_token: await actionToken(), state: STATE,
+      notice_version: RESEARCH_USE_NOTICE_VERSION, decision: "accept", keep_failed_searches: "true" });
+    body.append("keep_failed_searches", "true");
+    const response = await fetch(new URL("/account/terms", base), { method: "POST", body });
+    expect((await answerOf(await response.text())).payload).toMatchObject({ accepted: true });
+    await expect(service.failedSearchPreference(service.accountKeyForSubject(PERSON))).resolves.toEqual({ enabled: undefined });
   });
 
   it("records a yes only for the notice shown: a page showing an earlier version is shown again with the current one", async () => {
@@ -442,7 +474,9 @@ describe("AskRigor's terms page at sign-in (owner answer 419a)", () => {
     await accept(base, accepted);
     const first = store.allAccounts();
     clock.now = new Date(NOW.getTime() + 20_000);
-    expect((await answerOf((await accept(base, accepted)).body)).payload).toMatchObject({ sub: other, accepted: true,
+    const replayed = await post(base, { session_token: accepted, state: STATE,
+      notice_version: RESEARCH_USE_NOTICE_VERSION, decision: "accept", keep_failed_searches: "true" });
+    expect((await answerOf(replayed.body)).payload).toMatchObject({ sub: other, accepted: true,
       notice_version: RESEARCH_USE_NOTICE_VERSION });
     expect(store.allAccounts()).toEqual(first);
     // Accept, then Decline: refused too, and the yes stays as given.
@@ -493,7 +527,8 @@ describe("AskRigor's terms page at sign-in (owner answer 419a)", () => {
 
   it("records nothing on Decline and goes back declined, with no way on, for a new account and one under an earlier notice", async () => {
     const { base, store, service } = await start();
-    const page = await decline(base, await actionToken());
+    const page = await post(base, { session_token: await actionToken(), state: STATE,
+      notice_version: RESEARCH_USE_NOTICE_VERSION, decision: "decline", keep_failed_searches: "true" });
     expect(page.response.status).toBe(200);
     expect(store.allAccounts()).toEqual([]);
     const answer = await answerOf(page.body);
@@ -518,6 +553,7 @@ describe("AskRigor's terms page at sign-in (owner answer 419a)", () => {
     expect(page.response.status).toBe(200);
     expect(page.response.headers.get("content-security-policy")).toBe(ANSWER_POLICY);
     expect(page.body).not.toContain("Accept and continue");
+    expect(page.body).not.toContain("keep_failed_searches");
     expect((await answerOf(page.body)).payload).toEqual({ iss: TERMS_TOKEN_AUDIENCE, sub: PERSON, state: STATE,
       accepted: true, notice_version: RESEARCH_USE_NOTICE_VERSION, iat: SECONDS, exp: SECONDS + 300 });
     expect(store.allAccounts()).toEqual([covered]);

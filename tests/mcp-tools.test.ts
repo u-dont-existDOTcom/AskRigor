@@ -93,7 +93,6 @@ const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
     "scout_gemini_youtube_candidates",
     "extract_youtube_video_claims",
     "finalize_research",
-    "submit_lesson_candidate",
     "save_research_findings",
     "read_forum_thread",
     "search_reddit_threads",
@@ -3568,9 +3567,8 @@ describe("AskRigor Streamable HTTP server", () => {
     }
   });
 
-  it("shows running versions in the handshake and manifest result, with a fixed tool description", async () => {
-    // Owner, 2026-10-03: "make sure the version number is in the plugin info panel so i don't have to ask it what
-    // version it is". The build is read when the server starts, so it is set first.
+  it("uses AskRigor as the display title and reports running versions in version metadata", async () => {
+    // The build is read when the server starts, so it is set first.
     const [hrp, universal] = await Promise.all([getProtocolManifest("hrp"), getProtocolManifest("universal")]);
     const versions = `HRP ${hrp.version}, Universal ${universal.version}, build 5640e6d2cfef`;
     vi.stubEnv("ASKRIGOR_BUILD_COMMIT", "5640e6d2cfef");
@@ -3581,7 +3579,7 @@ describe("AskRigor Streamable HTTP server", () => {
           await client.connect(new StreamableHTTPClientTransport(new URL("/mcp", baseUrl)));
           expect(client.getServerVersion()).toMatchObject({
             name: "askrigor-research",
-            title: `AskRigor (${versions})`,
+            title: "AskRigor",
             version: `0.1.0+hrp.${hrp.version}.universal.${universal.version}.build.5640e6d2cfef`,
           });
           const { tools } = await client.listTools();
@@ -3697,13 +3695,22 @@ describe("AskRigor Streamable HTTP server", () => {
         });
 
         expect(tools.map(({ name }) => name)).toEqual(GEMINI_TOOL_NAMES);
-        expect(client.getServerVersion()?.name).toBe("askrigor_research");
+        const [hrp, universal] = await Promise.all([getProtocolManifest("hrp"), getProtocolManifest("universal")]);
+        expect(client.getServerVersion()).toMatchObject({
+          name: "askrigor_research",
+          title: "AskRigor",
+          version: expect.stringContaining(`0.1.0+hrp.${hrp.version}.universal.${universal.version}.build.`),
+        });
         expect(tools.every((tool) => !("outputSchema" in tool))).toBe(true);
         expect(tools.every((tool) => !("execution" in tool))).toBe(true);
         expect(unsupportedGeminiSchemaKeys(tools)).toEqual([]);
         const catalogBytes = Buffer.byteLength(JSON.stringify({ tools }), "utf8");
         console.info(`Gemini compact catalog bytes: ${catalogBytes}`);
-        expect(catalogBytes).toBeLessThan(25_000);
+        expect(catalogBytes).toBeLessThan(24_500);
+        expect(tools.find(({ name }) => name === "submit_lesson_candidate")).toMatchObject({
+          description: expect.stringContaining("submit only after the user agrees"),
+          annotations: MUTATING_ANNOTATIONS,
+        });
         const searchSchema = tools.find(({ name }) => name === "search_youtube")!.inputSchema;
         expect(searchSchema.properties).toHaveProperty("product_identity");
         const identity = searchSchema.properties!.product_identity as { properties: Record<string, { items?: { description?: string }; description?: string }> };

@@ -4,7 +4,9 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { RESEARCH_USE_NOTICE_VERSION, type TermsPageAnswerStore } from "@askrigor/evidence-repository";
 import type { InteractionResults } from "oidc-provider";
 
-import { decideNotice, recordedNoticeAnswer, type AccountTermsAccess } from "../account-terms/decision.js";
+import {
+  decideNotice, keepFailedSearchesFromNoticeForm, recordedNoticeAnswer, type AccountTermsAccess,
+} from "../account-terms/decision.js";
 import { answeredPage } from "../account-terms/pages.js";
 import type { TermsAnswer } from "../account-terms/tokens.js";
 import { cookieHeader, readCookie, readForm, sameSitePost } from "../atlas/participation.js";
@@ -220,6 +222,7 @@ export function createGeminiSignInRoutes(
       subject: session.accountId,
       decision,
       noticeVersionShown: single(form, "notice_version"),
+      keepFailedSearches: keepFailedSearchesFromNoticeForm(form),
       // An HMAC under a server key, of this interaction and its login session: its SHA-256 keys the step's one answer.
       tokenSha256: createHash("sha256").update(token, "utf8").digest("hex"),
       // A minute past the interaction's end, after which no request reaches this step with it.

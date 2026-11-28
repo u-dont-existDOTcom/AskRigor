@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { RESEARCH_USE_NOTICE_SENTENCES } from "@askrigor/evidence-repository";
 
 import { escapeHtml } from "../atlas/page-guard.js";
+import { FAILED_SEARCHES_OPT_IN_LABEL, KEEP_FAILED_SEARCHES_FIELD } from "./decision.js";
 import { ACCOUNT_TERMS_PATH, TERMS_STATE, TERMS_TOKEN_FIELD } from "./tokens.js";
 
 /**
@@ -100,8 +101,8 @@ const ACTION = /^\/[A-Za-z0-9_-]{1,64}(?:\/[A-Za-z0-9_-]{1,64}){0,5}$/u;
 
 /**
  * The free-use notice's page wherever AskRigor shows it while a person signs in: the current notice, word for word, one
- * sentence per paragraph, the Terms and Privacy links, and "Accept and continue" and "Decline", which post to `action`
- * (a path on this server) with the step's own fields and the notice version shown. lead and after: the step's own plain
+ * sentence per paragraph, the Terms and Privacy links, the failed-search opt-in and the two buttons. They post to
+ * `action` (a path on this server) with the step's own fields and the notice version shown. lead and after: the step's own plain
  * sentences, above the notice and below the buttons (Gemini's sign-in says why it shows the notice there, and what
  * Decline does). Every value is escaped; a field's name, the action and the version are checked first.
  */
@@ -114,7 +115,8 @@ export function freeUseNoticePage(input: {
   after?: string;
 }): string {
   if (!ACTION.test(input.action) || !NOTICE_VERSION.test(input.noticeVersion) ||
-    input.fields.some(([name]) => !FIELD_NAME.test(name) || name === "notice_version" || name === "decision")) {
+    input.fields.some(([name]) => !FIELD_NAME.test(name) || name === "notice_version" || name === "decision" ||
+      name === KEEP_FAILED_SEARCHES_FIELD)) {
     throw new Error("ACCOUNT_TERMS_PAGE_INPUT_INVALID");
   }
   const notice = RESEARCH_USE_NOTICE_SENTENCES.map((sentence) => `<p>${escapeHtml(sentence)}</p>`).join("\n");
@@ -126,6 +128,7 @@ ${input.lead === undefined ? "" : `<p class="lead">${escapeHtml(input.lead)}</p>
 <a href="${SITE}/privacy" target="_blank" rel="noopener noreferrer">Privacy</a></p>
 <form method="post" action="${input.action}">
 ${fields}<input type="hidden" name="notice_version" value="${input.noticeVersion}">
+<label><input type="checkbox" name="${KEEP_FAILED_SEARCHES_FIELD}" value="true"> ${FAILED_SEARCHES_OPT_IN_LABEL}</label>
 <div class="buttons"><button class="accept" type="submit" name="decision" value="accept">Accept and continue</button>
 <button type="submit" name="decision" value="decline">Decline</button></div>
 </form>${input.after === undefined ? "" : `\n<p class="after">${escapeHtml(input.after)}</p>`}`);
