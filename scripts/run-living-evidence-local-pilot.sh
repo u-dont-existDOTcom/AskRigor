@@ -19,7 +19,7 @@ umask 077
 container_id="$(docker compose --project-name "$project_name" --file "$compose_file" ps --quiet postgres)"
 docker compose --project-name "$project_name" --file "$compose_file" exec --no-TTY postgres \
   pg_dump --username askrigor_pilot --dbname askrigor_living_evidence \
-  --schema living_evidence --format custom --no-owner --no-privileges \
+  --schema living_evidence --exclude-table-data=living_evidence.research_error_log --format custom --no-owner --no-privileges \
   --file /tmp/living-evidence-pilot.dump
 docker cp "$container_id:/tmp/living-evidence-pilot.dump" \
   "$ASKRIGOR_LIVING_EVIDENCE_OUTPUT/living-evidence-pilot.dump"

@@ -73,6 +73,19 @@ describe("public-site deployment packet", () => {
     expect(caddy).not.toContain("preload");
   });
 
+  it("permanently redirects the support aliases without matching other paths", () => {
+    const aliases = caddy.match(/^\s*@support_aliases path ([^\n]+)$/mu)?.[1].split(/\s+/u);
+    expect(aliases).toEqual([
+      "/donate", "/donate/", "/donations", "/donations/",
+      "/donation", "/donation/", "/sponsor", "/sponsor/"
+    ]);
+    // The explicit * matcher: Caddy 2.11.4 adapts "redir /support permanent" to a 302 to "permanent" that matches only
+    // /support, so the aliases answered an empty 200; caddy validate passes it. No redir in the file has that shape.
+    expect(caddy).toContain("\thandle @support_aliases {\n\t\tredir * /support permanent\n\t}");
+    expect(caddy).not.toMatch(/^\s*redir \/\S*\s+(?:permanent|temporary|html|\d{3})\s*$/mu);
+    expect(caddy.indexOf("handle @support_aliases {")).toBeLessThan(caddy.lastIndexOf("handle {"));
+  });
+
   it("proxies /atlas to the research server with the pages' own headers, before the final 404", () => {
     const atlas = atlasHandle(caddy);
     const rest = caddy.replace(atlas, "");

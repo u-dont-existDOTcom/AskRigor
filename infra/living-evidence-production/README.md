@@ -1540,3 +1540,17 @@ machine JSON.
 - This first production phase adds no automatic off-host backup. Treat host
   loss as a declared durability limitation until a reviewed encrypted backup,
   restore, retention, and deletion design is activated.
+
+### Research error log (owner answers 432 and 433a)
+
+Run migration `0045_research_error_log` before starting the image that writes the log. Run the research-access role provisioner after migration. The runtime can insert rows and delete expired rows using the timestamp, and it can update the account preference. The maintainer's read capability uses a separate restricted login that inherits the `askrigor_error_log_reader` group role. If the role did not exist at migration time, create the NOLOGIN role and grant it schema USAGE and SELECT on `living_evidence.research_error_log` using the database administrator. Reserve membership for maintainers.
+
+The Atlas account page offers **Keep my failed searches**. The existing `ASKRIGOR_DEV_ACCOUNT_KEYS` starts those accounts on. `ASKRIGOR_KEEP_FAILED_SEARCHES_DEFAULT` is off by default and accepts `enabled`. Explicit account preferences take priority. Release the approved privacy wording with the writer and set the effective date at release.
+
+Set `ASKRIGOR_ERROR_LOG_READER_DATABASE_URL` in the maintainer's host-side environment. Pass the reader two UTC timestamps.
+
+```sh
+./node_modules/.bin/tsx scripts/read-research-error-log.mts 2026-11-28T00:00:00Z 2026-11-29T00:00:00Z
+```
+
+The script returns counts per UTC day, tool, error kind, source, app and outcome, plus the entries in the window. It uses a read-only snapshot and excludes expired rows. Use the terminal output for diagnosis and avoid capturing it in shared logs, reports or backups. Verify every configured logical database backup adds `--exclude-table-data=living_evidence.research_error_log` and check that volume snapshots and database statement logging exclude row payloads. The table is unlogged so WAL and PostgreSQL physical backups omit its contents. If rolling back to an image without the sweep, stop the writer and empty `living_evidence.research_error_log` using the database administrator. Keep the nullable account preference column. Verify expiry and role isolation before accepting the release.

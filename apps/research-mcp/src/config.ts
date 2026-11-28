@@ -524,6 +524,11 @@ export function devAccountKeysFromEnv(
     .map((key) => key.slice(0, DEV_ACCOUNT_REFERENCE_CHARACTERS)));
 }
 
+/** The initial preference for accounts outside the existing developer-account list. */
+export function keepFailedSearchesDefaultFromEnv(value = process.env.ASKRIGOR_KEEP_FAILED_SEARCHES_DEFAULT): boolean {
+  return value?.trim() === "enabled";
+}
+
 // RESEARCH_ACCOUNT_REFERENCE_CHARACTERS in @askrigor/evidence-repository; a test holds the two equal.
 export const DEV_ACCOUNT_REFERENCE_CHARACTERS = 12;
 

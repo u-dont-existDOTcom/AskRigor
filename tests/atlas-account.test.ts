@@ -6,7 +6,7 @@ import {
   ATLAS_LOGIN_COOKIE, ATLAS_SESSION_COOKIE, csrfToken, openSession, participantKeyFor,
 } from "../apps/research-mcp/src/atlas/participation.js";
 import {
-  CLIENT_ID, ISSUER, SUBJECT, closeAtlasServers, cookiePart, expectPageHeaders, fixture, tokenFor,
+  CLIENT_ID, ISSUER, SUBJECT, OTHER_SUBJECT, closeAtlasServers, cookiePart, expectPageHeaders, fixture, tokenFor,
 } from "./helpers/atlas-participation-fixture.js";
 
 afterEach(closeAtlasServers);
@@ -286,4 +286,27 @@ describe("the Atlas's refusals cost nothing more", () => {
     expect(header(body)).not.toContain("Sign in");
     expect(response.headers.get("cache-control")).toContain("private");
   });
+});
+
+it("sets the failed-search switch for the signed-in research account with its own CSRF token", async () => {
+  const preferences = new Map<string, boolean>();
+  const f = await fixture({ failedSearches: {
+    async read(accountKey) { return preferences.get(accountKey) ?? false; },
+    async write(accountKey, enabled) { preferences.set(accountKey, enabled); return true; },
+  } });
+  const path = "/atlas/account/keep-failed-searches";
+  expect((await f.get("/atlas/account")).body).not.toContain(path);
+  const cookie = await f.signIn();
+  const other = await f.signIn(OTHER_SUBJECT);
+  const before = await f.get("/atlas/account", cookie);
+  expect(before.response.status).toBe(200);
+  const csrf = tokenFor(before.body, path);
+  expect(before.body).toContain('<option value="off" selected>Off</option>');
+  expect((await f.post(path, { csrf, keep: "on" }, { cookie: other })).status).toBe(403);
+  expect(preferences.size).toBe(0);
+  const saved = await f.post(path, { csrf, keep: "on" }, { cookie });
+  expect(saved.status).toBe(303);
+  expect(saved.headers.get("location")).toBe("/atlas/account?done=failed-searches-saved#keep-failed-searches");
+  expect((await f.get("/atlas/account", cookie)).body).toContain('<option value="on" selected>On</option>');
+  expect((await f.get("/atlas/account", other)).body).toContain('<option value="off" selected>Off</option>');
 });

@@ -349,7 +349,7 @@ ${frame.body}
 <nav aria-label="Footer navigation"><ul class="nav-list">
 <li><a href="${CANONICAL_ORIGIN}/privacy">Privacy</a></li>
 <li><a href="${CANONICAL_ORIGIN}/terms">Terms</a></li>
-<li><a href="${CANONICAL_ORIGIN}/support">Support</a></li>
+<li><a href="${CANONICAL_ORIGIN}/support">Support AskRigor</a></li>
 </ul></nav>
 </div></footer>
 </body>
@@ -1600,6 +1600,7 @@ export interface AtlasAccountView {
   tokens: null | { name: string; signOut: string; signOutEverywhere: string; forget: string };
   /** The signed-in reader's AskRigor features, or why they are not shown; null or absent shows no section. */
   features?: AtlasAccountFeatures | null;
+  failedSearches?: { enabled: boolean; csrf: string };
 }
 
 /**
@@ -1660,6 +1661,17 @@ from your account, never your email address. Votes are shown only as totals; com
 of which pages you read. See the <a href="${CANONICAL_ORIGIN}/privacy">privacy page</a>.</p>
 <p>You can withdraw votes and delete comments on your votes and comments page, or delete them all, with your reports,
 using the form below.</p>
+${view.failedSearches === undefined ? "" : html`<form method="post" action="/atlas/account/keep-failed-searches">
+${hiddenFields(view.failedSearches.csrf, ACCOUNT_PATH)}
+<h2 id="keep-failed-searches">Research privacy</h2>
+<p>Allow AskRigor to keep search words from failed calls for up to 30 days to diagnose faults. Search words can include health details.</p>
+<label for="keep-failed-searches-choice">Keep my failed searches</label>
+<select name="keep" id="keep-failed-searches-choice">
+${view.failedSearches.enabled ? html`<option value="on" selected>On</option><option value="off">Off</option>`
+    : html`<option value="on">On</option><option value="off" selected>Off</option>`}
+</select>
+<button type="submit" class="quiet">Save preference</button>
+</form>`}
 <div class="account">
 <form method="post" action="/atlas/auth/logout">
 ${hiddenFields(tokens.signOut, ACCOUNT_PATH)}

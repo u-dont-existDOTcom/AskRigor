@@ -435,6 +435,9 @@ Not done: patches tool by tool; guessing the app from anything else; changing th
 Why: Gemini names its connector by a Client ID Metadata Document that authenticates with `private_key_jwt` against keys on www.gstatic.com, which Auth0 refuses on every plan (20 Nov 2026). Built on panva's `oidc-provider` (exact version) rather than hand-built protocol code; tokens are opaque and stored only as HMACs, the subject only encrypted; refresh tokens are not rotated (Google's guide asks so, and every refresh needs Google's single-use signed assertion), a link lasts 180 days at most, and `disconnect_gemini` ends a person's links from any app. Design: `docs/superpowers/plans/2026-11-21-gemini-sign-in-design.md`, red-teamed by Codex.\
 Not done: Gemini on `/mcp` (it can't be told from ChatGPT before sign-in); a registration endpoint; showing AskRigor's research notice inside Gemini, whose compact tool list has no `manage_research_access` (the notice is accepted once in Claude or ChatGPT). · Decided: 20 Nov 2026 (owner answer 386b); built 21 Nov, not yet released.
 
+**The MCP display title is AskRigor. Gemini offers the same consented report submission as the other connectors.**\
+The handshake's version field carries the running versions. Gemini's compact catalog includes `submit_lesson_candidate` and uses the shared research-access and report checks. · Decided: the owner's 27 Nov Inbox request and answer 432 2a.
+
 **New work targets the ChatGPT app, the Claude connector and the Codex plugin, not Custom GPTs.**\
 Why: the owner, 17 Oct: "GPTs are on the way out, so it doesn't make sense to build a new feature for custom GPT if it doesn't work for plugins".\
 Decided: 27 Sep 2026; 17 Oct (the owner).
@@ -465,9 +468,14 @@ Not done: leading with "free". · Decided: 5 Nov 2026 (the owner).
 Why: free ChatGPT can't add an app by its address while Claude's free plan can add one custom connector, and one piece of research makes dozens of tool calls.\
 Decided: 5 Nov 2026 (owner answer 258a; the owner on "Always allow").
 
+**"Add AskRigor" also gives Gemini's connection steps.**\
+Gemini uses its own address, and people can accept the free-use notice during sign-in. The owner requested this in Inbox on 27 Nov 2026.
+
 **Money for AskRigor is support for its development, through GitHub Sponsors, a Stripe payment link and a Bitcoin address, not a donation.**\
 Why: it goes to Mayan Roots LLC, which builds AskRigor, and isn't tax-deductible.\
 Not done: calling it a donation; CoinPayments for any coin, which needs the owner's own merchant account first. · Decided: 6 Nov 2026 (owner answer 264a); the Bitcoin address, 6 Nov (the owner).
+
+The home page and site and Atlas footers link to the page as "Support AskRigor." The addresses `/donate`, `/donations`, `/donation`, and `/sponsor` redirect to `/support` so people can find it by the names they try. · Owner follow-up, 27 Nov 2026.
 
 **Bigger research jobs: people ask for a quote by email from the Support page, the owner quotes each job by hand, and nothing is charged unless the quote is accepted.**\
 Why: the owner, 7 Nov: "just a request form for now then and i'll do custom quotes by hand". Site pages run no scripts or forms, so the request is an email with four questions filled in, and the site stores nothing. A quote says how the job will be done, which AI services will read the question and whether anything from it may be published.\
@@ -480,3 +488,15 @@ Decided: 5 Nov 2026 (the owner); comments open with the Atlas, email until then.
 **Site and Atlas pages run no scripts and no inline styles, under a strict content security policy.**\
 Why: not recorded.\
 Decided: by 25 Oct 2026 (the Atlas pages' security headers); topic maps drawn without scripts, 26 Oct (183b).
+
+## Research tool error log
+
+**Keep a 30-day diagnostic log for failed MCP research calls and calls that take more than 10 seconds. Keep search words only for failed searches when the account has opted in.**
+
+A row records the time, duration, tool, known app and format-checked public paper identifiers. A failed call adds fixed error and location categories and the shape of filled argument fields. The existing developer-account list starts with the switch on. Other accounts start off, and a saved account preference takes priority. Retained search words go through redaction and the privacy screen. Slow successes keep metadata only, including when a fallback succeeded. The tool catalog stays the same.
+
+The log excludes accounts, user/session/request IDs, network addresses, credentials, tokens, headers, URLs, tool results, answers, source text and raw errors. YouTube-capable and unknown destinations keep shape only. · Decided 27–28 Nov 2026, owner answers 432 1b 2a 3a and 433a.
+
+**Offer one unticked checkbox for the 30-day failed-search log when a person accepts AskRigor's notice.**
+
+The notice page asks “Help fix AskRigor: keep my failed searches for 30 days”. ChatGPT and Claude ask the same question when showing the notice and send `later_inputs.keepFailedSearches: true` only after an explicit yes to that question. Accepting with the box unticked or without a yes in chat preserves the account's saved preference or default. The developer-account default stays on. Anyone with a research account can change the setting on their Atlas account page. · Decided 28 Nov 2026, owner answer 434a.

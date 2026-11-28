@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { FULL_PROTOCOL_GEMINI } from "../apps/research-mcp/src/full-protocol.js";
 import type { GeminiSignIn } from "../apps/research-mcp/src/gemini-sign-in/index.js";
+import * as lessonRuntime from "../apps/research-mcp/src/lessons/runtime.js";
 import {
   countGeminiLinks,
   disconnectGeminiLinks,
@@ -214,6 +215,44 @@ describe("Gemini's sign-in on the HTTP server", () => {
       "in Gemini's settings and add it again (AskRigor shows the notice when they sign in), or to open AskRigor once in " +
       "Claude or ChatGPT (https://askrigor.com/add), read the notice there and choose; then retry here.");
     expect(await service.inspect(PERSON)).toMatchObject({ status: "UNENROLLED" });
+  });
+
+  it("uses the shared lesson submission only after Gemini sign-in and research access", async () => {
+    const receipt = { status: "submitted", retryable: false, candidate_id: "ARL-0042", occurrence_count: 1 } as const;
+    const submit = vi.spyOn(lessonRuntime, "submitConnectorLessonCandidate").mockResolvedValue(receipt);
+    const { base, fixture } = await start({ gemini: true, notice: true });
+    const candidate = {
+      category: "missing_sources",
+      general_lesson: "When a search fails, AskRigor should explain which sources were unavailable.",
+      expected_behavior: "Report the source access failure before drawing a conclusion from the search.",
+      failure_reason: "The reply described a failed source search as an empty result.",
+      synthetic_regression_example: "Invent an unavailable source and verify that the reply reports the access failure.",
+      evidence_basis: "tool_receipt_conflict",
+      consent_scope: "once",
+      existing_rules: { none: "The example supplies no covering rule." },
+      observed_behavior: "The source search returned an access error, which the tool reported as no results.",
+      part_to_change: { kind: "tool", name: "search_pubmed" },
+    };
+    const report = (client: Client) => client.callTool({ name: "submit_lesson_candidate", arguments: candidate });
+
+    try {
+      const anonymous = await report(await connect(base, "/mcp/gemini"));
+      expect(anonymous.isError).toBe(true);
+      expect(JSON.stringify(anonymous)).toContain(GEMINI_METADATA);
+
+      const declined = await report(await connect(base, "/mcp/gemini", await geminiToken(fixture, "decline")));
+      expect(declined.isError).toBe(true);
+      expect(text(declined)).toContain("Choose free contributor mode");
+      expect(submit).not.toHaveBeenCalled();
+
+      const accepted = await report(await connect(base, "/mcp/gemini", await geminiToken(fixture, "accept")));
+      expect(accepted.isError).not.toBe(true);
+      expect(accepted.structuredContent).toEqual(receipt);
+      expect(text(accepted)).toContain("Lesson saved for review");
+      expect(submit).toHaveBeenCalledExactlyOnceWith(candidate, { detailedReports: false });
+    } finally {
+      submit.mockRestore();
+    }
   });
 
   it("refuses a Gemini token on /mcp and /mcp/claude", async () => {

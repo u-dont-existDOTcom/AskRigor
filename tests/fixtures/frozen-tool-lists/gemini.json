@@ -107,19 +107,17 @@
       "properties": {
         "query": {
           "type": "string",
-          "description": "PubMed search query. Length: 1–5000."
+          "description": "PubMed search query."
         },
         "date_range": {
           "description": "Inclusive publication-date range in YYYY-MM-DD.",
           "type": "object",
           "properties": {
             "start": {
-              "type": "string",
-              "description": "Pattern: ^\\d{4}-\\d{2}-\\d{2}$."
+              "type": "string"
             },
             "end": {
-              "type": "string",
-              "description": "Pattern: ^\\d{4}-\\d{2}-\\d{2}$."
+              "type": "string"
             }
           },
           "required": [
@@ -132,7 +130,7 @@
           "type": "integer"
         },
         "cursor": {
-          "description": "Opaque cursor returned by a previous PubMed. Length: 1–4096.",
+          "description": "Opaque cursor returned by a previous PubMed.",
           "type": "string"
         }
       },
@@ -175,19 +173,17 @@
       "properties": {
         "query": {
           "type": "string",
-          "description": "Europe PMC search query. Length: 1–5000."
+          "description": "Europe PMC search query."
         },
         "date_range": {
           "description": "Inclusive publication-date range in YYYY-MM-DD.",
           "type": "object",
           "properties": {
             "start": {
-              "type": "string",
-              "description": "Pattern: ^\\d{4}-\\d{2}-\\d{2}$."
+              "type": "string"
             },
             "end": {
-              "type": "string",
-              "description": "Pattern: ^\\d{4}-\\d{2}-\\d{2}$."
+              "type": "string"
             }
           },
           "required": [
@@ -200,7 +196,7 @@
           "type": "integer"
         },
         "cursor": {
-          "description": "Opaque Europe PMC cursor returned by a previous. Length: 1–4096.",
+          "description": "Opaque Europe PMC cursor returned by a previous.",
           "type": "string"
         }
       },
@@ -221,16 +217,13 @@
       "type": "object",
       "properties": {
         "doi": {
-          "type": "string",
-          "description": "Length: ≤2048. Pattern: ^(?:[Hh][Tt][Tt][Pp][Ss]?:\\/\\/(?:[Dd][Xx]\\.)?[Dd][Oo][Ii]\\.[Oo][Rr][Gg]\\/)?10\\.\\d{4,9}\\/[!#$%&'*+\\-._;()/:A-Za-z0-9]+$."
+          "type": "string"
         },
         "pmcid": {
-          "type": "string",
-          "description": "Pattern: ^[Pp][Mm][Cc][1-9]\\d{0,15}$."
+          "type": "string"
         },
         "pmid": {
-          "type": "string",
-          "description": "Pattern: ^[1-9]\\d{0,15}$."
+          "type": "string"
         },
         "candidate_urls": {
           "type": "array",
@@ -239,8 +232,7 @@
             "properties": {
               "url": {
                 "type": "string",
-                "format": "uri",
-                "description": "Length: ≤4000."
+                "format": "uri"
               },
               "declared_class": {
                 "type": "string",
@@ -256,8 +248,7 @@
             "required": [
               "url"
             ]
-          },
-          "description": "Items: 1–5."
+          }
         },
         "candidate_texts": {
           "type": "array",
@@ -267,11 +258,11 @@
               "url": {
                 "type": "string",
                 "format": "uri",
-                "description": "Records the public HTTPS page represented by the. Length: ≤4000."
+                "description": "Records the public HTTPS page represented by the."
               },
               "text": {
                 "type": "string",
-                "description": "Accepts the page text returned by the client's. Length: 2000–400000."
+                "description": "Accepts the page text returned by the client's."
               },
               "retrieved_via": {
                 "type": "string",
@@ -284,7 +275,7 @@
               "retrieved_via"
             ]
           },
-          "description": "Accepts up to two AI-supplied public-page. Items: 1–2."
+          "description": "Accepts up to two AI-supplied public-page."
         },
         "public_copy_search": {
           "type": "object",
@@ -292,10 +283,8 @@
             "queries": {
               "type": "array",
               "items": {
-                "type": "string",
-                "description": "Length: 3–400."
-              },
-              "description": "Items: 2–12."
+                "type": "string"
+              }
             }
           },
           "required": [
@@ -338,74 +327,58 @@
       "type": "object",
       "properties": {
         "document_handle": {
-          "type": "string",
-          "description": "Pattern: ^aft1_[A-Za-z0-9_-]{32}$."
+          "type": "string"
         },
         "audit": {
           "type": "object",
           "properties": {
             "source_primary_identifier": {
-              "type": "string",
-              "description": "Length: 1–2048."
+              "type": "string"
             },
             "source_content_sha256": {
-              "type": "string",
-              "description": "Pattern: ^[a-f0-9]{64}$."
+              "type": "string"
             },
             "design_label": {
-              "type": "string",
-              "description": "Length: 1–200."
+              "type": "string"
             },
             "design_capability_statement": {
-              "type": "string",
-              "description": "Length: 1–2000."
+              "type": "string"
             },
             "population_and_stage": {
-              "type": "string",
-              "description": "Length: 1–1000."
+              "type": "string"
             },
             "intervention_program": {
               "type": "object",
               "properties": {
                 "name": {
-                  "type": "string",
-                  "description": "Length: 1–500."
+                  "type": "string"
                 },
                 "components": {
                   "type": "array",
                   "items": {
-                    "type": "string",
-                    "description": "Length: 1–500."
-                  },
-                  "description": "Items: 1–30."
+                    "type": "string"
+                  }
                 },
                 "dose_or_intensity": {
-                  "type": "string",
-                  "description": "Length: 1–500."
+                  "type": "string"
                 },
                 "frequency": {
-                  "type": "string",
-                  "description": "Length: 1–500."
+                  "type": "string"
                 },
                 "duration": {
-                  "type": "string",
-                  "description": "Length: 1–500."
+                  "type": "string"
                 },
                 "supervision": {
-                  "type": "string",
-                  "description": "Length: 1–500."
+                  "type": "string"
                 },
                 "adherence": {
-                  "type": "string",
-                  "description": "Length: 1–500."
+                  "type": "string"
                 },
                 "co_interventions": {
                   "type": "array",
                   "items": {
-                    "type": "string",
-                    "description": "Length: 1–500."
-                  },
-                  "description": "Items: ≤30."
+                    "type": "string"
+                  }
                 },
                 "care_stage": {
                   "type": "string",
@@ -435,44 +408,34 @@
               "type": "object",
               "properties": {
                 "name": {
-                  "type": "string",
-                  "description": "Length: 1–500."
+                  "type": "string"
                 },
                 "components": {
                   "type": "array",
                   "items": {
-                    "type": "string",
-                    "description": "Length: 1–500."
-                  },
-                  "description": "Items: 1–30."
+                    "type": "string"
+                  }
                 },
                 "dose_or_intensity": {
-                  "type": "string",
-                  "description": "Length: 1–500."
+                  "type": "string"
                 },
                 "frequency": {
-                  "type": "string",
-                  "description": "Length: 1–500."
+                  "type": "string"
                 },
                 "duration": {
-                  "type": "string",
-                  "description": "Length: 1–500."
+                  "type": "string"
                 },
                 "supervision": {
-                  "type": "string",
-                  "description": "Length: 1–500."
+                  "type": "string"
                 },
                 "adherence": {
-                  "type": "string",
-                  "description": "Length: 1–500."
+                  "type": "string"
                 },
                 "co_interventions": {
                   "type": "array",
                   "items": {
-                    "type": "string",
-                    "description": "Length: 1–500."
-                  },
-                  "description": "Items: ≤30."
+                    "type": "string"
+                  }
                 },
                 "care_stage": {
                   "type": "string",
@@ -499,8 +462,7 @@
               ]
             },
             "outcome_and_horizon": {
-              "type": "string",
-              "description": "Length: 1–1000."
+              "type": "string"
             },
             "domain_findings": {
               "type": "array",
@@ -535,24 +497,19 @@
                     ]
                   },
                   "plain_language_finding": {
-                    "type": "string",
-                    "description": "Length: 1–2000."
+                    "type": "string"
                   },
                   "evidence_block_ids": {
                     "type": "array",
                     "items": {
-                      "type": "string",
-                      "description": "Pattern: ^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$."
-                    },
-                    "description": "Items: ≤100."
+                      "type": "string"
+                    }
                   },
                   "unresolved_fields": {
                     "type": "array",
                     "items": {
-                      "type": "string",
-                      "description": "Length: 1–500."
-                    },
-                    "description": "Items: ≤30."
+                      "type": "string"
+                    }
                   }
                 },
                 "required": [
@@ -571,8 +528,7 @@
                 "type": "object",
                 "properties": {
                   "claim": {
-                    "type": "string",
-                    "description": "Length: 1–2000."
+                    "type": "string"
                   },
                   "capability": {
                     "type": "string",
@@ -583,16 +539,13 @@
                     ]
                   },
                   "reason": {
-                    "type": "string",
-                    "description": "Length: 1–2000."
+                    "type": "string"
                   },
                   "evidence_block_ids": {
                     "type": "array",
                     "items": {
-                      "type": "string",
-                      "description": "Pattern: ^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$."
-                    },
-                    "description": "Items: ≤100."
+                      "type": "string"
+                    }
                   }
                 },
                 "required": [
@@ -601,8 +554,7 @@
                   "reason",
                   "evidence_block_ids"
                 ]
-              },
-              "description": "Items: 2–50."
+              }
             }
           },
           "required": [
@@ -620,8 +572,7 @@
         },
         "repository_analysis_version_id": {
           "type": "string",
-          "format": "uuid",
-          "description": "Pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$."
+          "format": "uuid"
         }
       },
       "required": [
@@ -641,19 +592,16 @@
       "type": "object",
       "properties": {
         "document_handle": {
-          "type": "string",
-          "description": "Pattern: ^aft1_[A-Za-z0-9_-]{32}$."
+          "type": "string"
         },
         "audit": {
           "type": "object",
           "properties": {
             "source_primary_identifier": {
-              "type": "string",
-              "description": "Length: 1–2048."
+              "type": "string"
             },
             "source_content_sha256": {
-              "type": "string",
-              "description": "Pattern: ^[a-f0-9]{64}$."
+              "type": "string"
             },
             "review_type": {
               "type": "string",
@@ -668,8 +616,7 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "format": "date",
-                  "description": "Pattern: ^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$."
+                  "format": "date"
                 },
                 {
                   "type": "string"
@@ -679,10 +626,8 @@
             "included_source_families": {
               "type": "array",
               "items": {
-                "type": "string",
-                "description": "Length: 1–500."
-              },
-              "description": "Items: 1–50."
+                "type": "string"
+              }
             },
             "program_fingerprints": {
               "type": "array",
@@ -690,48 +635,37 @@
                 "type": "object",
                 "properties": {
                   "label": {
-                    "type": "string",
-                    "description": "Length: 1–500."
+                    "type": "string"
                   },
                   "components": {
                     "type": "array",
                     "items": {
-                      "type": "string",
-                      "description": "Length: 1–500."
-                    },
-                    "description": "Items: 1–30."
+                      "type": "string"
+                    }
                   },
                   "dose_or_intensity": {
-                    "type": "string",
-                    "description": "Length: 1–500."
+                    "type": "string"
                   },
                   "frequency": {
-                    "type": "string",
-                    "description": "Length: 1–500."
+                    "type": "string"
                   },
                   "duration": {
-                    "type": "string",
-                    "description": "Length: 1–500."
+                    "type": "string"
                   },
                   "supervision": {
-                    "type": "string",
-                    "description": "Length: 1–500."
+                    "type": "string"
                   },
                   "co_interventions": {
                     "type": "array",
                     "items": {
-                      "type": "string",
-                      "description": "Length: 1–500."
-                    },
-                    "description": "Items: ≤30."
+                      "type": "string"
+                    }
                   },
                   "population_or_stage": {
-                    "type": "string",
-                    "description": "Length: 1–500."
+                    "type": "string"
                   },
                   "outcome_and_horizon": {
-                    "type": "string",
-                    "description": "Length: 1–500."
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -745,8 +679,7 @@
                   "population_or_stage",
                   "outcome_and_horizon"
                 ]
-              },
-              "description": "Items: 1–100."
+              }
             },
             "domain_findings": {
               "type": "array",
@@ -780,24 +713,19 @@
                     ]
                   },
                   "plain_language_finding": {
-                    "type": "string",
-                    "description": "Length: 1–2000."
+                    "type": "string"
                   },
                   "evidence_block_ids": {
                     "type": "array",
                     "items": {
-                      "type": "string",
-                      "description": "Pattern: ^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$."
-                    },
-                    "description": "Items: ≤100."
+                      "type": "string"
+                    }
                   },
                   "unresolved_fields": {
                     "type": "array",
                     "items": {
-                      "type": "string",
-                      "description": "Length: 1–500."
-                    },
-                    "description": "Items: ≤30."
+                      "type": "string"
+                    }
                   }
                 },
                 "required": [
@@ -816,8 +744,7 @@
                 "type": "object",
                 "properties": {
                   "claim": {
-                    "type": "string",
-                    "description": "Length: 1–2000."
+                    "type": "string"
                   },
                   "capability": {
                     "type": "string",
@@ -828,16 +755,13 @@
                     ]
                   },
                   "reason": {
-                    "type": "string",
-                    "description": "Length: 1–2000."
+                    "type": "string"
                   },
                   "evidence_block_ids": {
                     "type": "array",
                     "items": {
-                      "type": "string",
-                      "description": "Pattern: ^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$."
-                    },
-                    "description": "Items: ≤100."
+                      "type": "string"
+                    }
                   }
                 },
                 "required": [
@@ -846,8 +770,7 @@
                   "reason",
                   "evidence_block_ids"
                 ]
-              },
-              "description": "Items: 2–50."
+              }
             }
           },
           "required": [
@@ -981,10 +904,10 @@
                 "type": "string",
                 "description": "Length: 1–500."
               },
-              "description": "Lists label names and documented aliases/scripts. Items: 1–6."
+              "description": "Label names, documented aliases/scripts. Items: 1–6."
             },
             "maker_names": {
-              "description": "Lists maker/brand names distinguishing variants. Default: []. Items: ≤6.",
+              "description": "Brands/makers distinguishing variants. Default: []. Items: ≤6.",
               "type": "array",
               "items": {
                 "type": "string",
@@ -992,7 +915,7 @@
               }
             },
             "other_variant_names": {
-              "description": "Lists sibling products and other makers' variants. Default: []. Items: ≤12.",
+              "description": "Sibling and other makers' variants. Default: []. Items: ≤12.",
               "type": "array",
               "items": {
                 "type": "string",
@@ -1003,18 +926,18 @@
           "required": [
             "names"
           ],
-          "description": "Records exact product matching of provider text."
+          "description": "Match product in provider text."
         },
         "query": {
           "type": "string",
-          "description": "YouTube video search query. Length: 1–5000."
+          "description": "YouTube video search query."
         },
         "page_size": {
           "description": "Requested video results per page; allowed range. Range: 1–50.",
           "type": "integer"
         },
         "cursor": {
-          "description": "Opaque YouTube page token returned by a previous. Length: 1–4096.",
+          "description": "Opaque YouTube page token returned by a previous.",
           "type": "string"
         }
       },
@@ -1086,19 +1009,19 @@
       "properties": {
         "video_id_or_url": {
           "type": "string",
-          "description": "Supported YouTube video ID, youtu.be URL. Length: 1–2048."
+          "description": "Supported YouTube video ID, youtu.be URL."
         },
         "include_replies": {
           "description": "Fetch every independently paginated API-visible. Default: true.",
           "type": "boolean"
         },
         "cursor": {
-          "description": "Opaque YouTube commentThreads page token at. Length: 1–4096.",
+          "description": "Opaque YouTube commentThreads page token at.",
           "type": "string"
         },
         "query": {
           "type": "string",
-          "description": "Nonempty YouTube comment-thread searchTerms query. Length: 1–5000."
+          "description": "Nonempty YouTube comment-thread searchTerms query."
         }
       },
       "required": [
@@ -1127,10 +1050,10 @@
                 "type": "string",
                 "description": "Length: 1–500."
               },
-              "description": "Lists label names and documented aliases/scripts. Items: 1–6."
+              "description": "Label names, documented aliases/scripts. Items: 1–6."
             },
             "maker_names": {
-              "description": "Lists maker/brand names distinguishing variants. Default: []. Items: ≤6.",
+              "description": "Brands/makers distinguishing variants. Default: []. Items: ≤6.",
               "type": "array",
               "items": {
                 "type": "string",
@@ -1138,7 +1061,7 @@
               }
             },
             "other_variant_names": {
-              "description": "Lists sibling products and other makers' variants. Default: []. Items: ≤12.",
+              "description": "Sibling and other makers' variants. Default: []. Items: ≤12.",
               "type": "array",
               "items": {
                 "type": "string",
@@ -1149,11 +1072,10 @@
           "required": [
             "names"
           ],
-          "description": "Records exact product matching of provider text."
+          "description": "Match product in provider text."
         },
         "research_question": {
-          "type": "string",
-          "description": "Length: 1–5000."
+          "type": "string"
         },
         "searches": {
           "type": "array",
@@ -1172,16 +1094,14 @@
                 ]
               },
               "query": {
-                "type": "string",
-                "description": "Length: 1–5000."
+                "type": "string"
               }
             },
             "required": [
               "direction",
               "query"
             ]
-          },
-          "description": "Items: 1–6."
+          }
         },
         "max_videos": {
           "type": "integer",
@@ -1218,10 +1138,10 @@
                 "type": "string",
                 "description": "Length: 1–500."
               },
-              "description": "Lists label names and documented aliases/scripts. Items: 1–6."
+              "description": "Label names, documented aliases/scripts. Items: 1–6."
             },
             "maker_names": {
-              "description": "Lists maker/brand names distinguishing variants. Default: []. Items: ≤6.",
+              "description": "Brands/makers distinguishing variants. Default: []. Items: ≤6.",
               "type": "array",
               "items": {
                 "type": "string",
@@ -1229,7 +1149,7 @@
               }
             },
             "other_variant_names": {
-              "description": "Lists sibling products and other makers' variants. Default: []. Items: ≤12.",
+              "description": "Sibling and other makers' variants. Default: []. Items: ≤12.",
               "type": "array",
               "items": {
                 "type": "string",
@@ -1240,11 +1160,10 @@
           "required": [
             "names"
           ],
-          "description": "Records exact product matching of provider text."
+          "description": "Match product in provider text."
         },
         "research_question": {
-          "type": "string",
-          "description": "Length: 1–5000."
+          "type": "string"
         },
         "searches": {
           "type": "array",
@@ -1263,20 +1182,17 @@
                 ]
               },
               "query": {
-                "type": "string",
-                "description": "Length: 1–5000."
+                "type": "string"
               },
               "cursor": {
-                "type": "string",
-                "description": "Length: 1–4096."
+                "type": "string"
               }
             },
             "required": [
               "direction",
               "query"
             ]
-          },
-          "description": "Items: 1–6."
+          }
         },
         "results_per_search": {
           "type": "integer",
@@ -1309,10 +1225,10 @@
                 "type": "string",
                 "description": "Length: 1–500."
               },
-              "description": "Lists label names and documented aliases/scripts. Items: 1–6."
+              "description": "Label names, documented aliases/scripts. Items: 1–6."
             },
             "maker_names": {
-              "description": "Lists maker/brand names distinguishing variants. Default: []. Items: ≤6.",
+              "description": "Brands/makers distinguishing variants. Default: []. Items: ≤6.",
               "type": "array",
               "items": {
                 "type": "string",
@@ -1320,7 +1236,7 @@
               }
             },
             "other_variant_names": {
-              "description": "Lists sibling products and other makers' variants. Default: []. Items: ≤12.",
+              "description": "Sibling and other makers' variants. Default: []. Items: ≤12.",
               "type": "array",
               "items": {
                 "type": "string",
@@ -1331,15 +1247,13 @@
           "required": [
             "names"
           ],
-          "description": "Records exact product matching of provider text."
+          "description": "Match product in provider text."
         },
         "video_id_or_url": {
-          "type": "string",
-          "description": "Length: 1–2048."
+          "type": "string"
         },
         "continuation_token": {
-          "type": "string",
-          "description": "Length: 1–65536."
+          "type": "string"
         },
         "analysis_limit": {
           "description": "Analysis sample limit for a complete corpus. Default: 500. Range: 1–500.",
@@ -1360,17 +1274,17 @@
       "type": "object",
       "properties": {
         "frontier_id": {
-          "description": "Exact stored research-frontier UUID. Pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$.",
+          "description": "Exact stored research-frontier UUID.",
           "type": "string",
           "format": "uuid"
         },
         "question_id": {
-          "description": "Exact stored structured-question UUID. Pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$.",
+          "description": "Exact stored structured-question UUID.",
           "type": "string",
           "format": "uuid"
         },
         "topic_key": {
-          "description": "Exact canonical formal-research topic key. Pattern: ^[a-z0-9][a-z0-9._-]{0,199}$.",
+          "description": "Exact canonical formal-research topic key.",
           "type": "string"
         },
         "include_history": {
@@ -1385,6 +1299,275 @@
     "annotations": {
       "readOnlyHint": true,
       "destructiveHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "submit_lesson_candidate",
+    "description": "Report an AskRigor bug, preference, or feature request. Show the de-identified report first and submit only after the user agrees. Send one report per incident.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string",
+          "description": "Lesson category: missing_sources, conflicting_claims, incomplete_research, evidence_weighting, community_corpus, tool_semantics, protocol_execution, privacy_or_safety, usability, other, or another value an AskRigor result names."
+        },
+        "general_lesson": {
+          "type": "string",
+          "description": "When [situation], AskRigor should [behavior] because [reason]."
+        },
+        "expected_behavior": {
+          "type": "string",
+          "description": "Expected result at the first failing step."
+        },
+        "failure_reason": {
+          "type": "string"
+        },
+        "synthetic_regression_example": {
+          "type": "string",
+          "description": "Invent a reproduction and its expected result."
+        },
+        "evidence_basis": {
+          "type": "string",
+          "enum": [
+            "assistant_self_check",
+            "tool_receipt_conflict",
+            "source_recheck",
+            "instruction_mismatch"
+          ]
+        },
+        "askrigor_version": {
+          "type": "string"
+        },
+        "protocol_identities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              },
+              "sha256": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "version"
+            ]
+          }
+        },
+        "consent_scope": {
+          "type": "string",
+          "enum": [
+            "once",
+            "conversation"
+          ],
+          "description": "Use \"conversation\" only with consent for the whole chat."
+        },
+        "existing_rules": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "rules": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "not_loaded",
+                          "loaded_not_applied",
+                          "applied_but_insufficient",
+                          "not_triggered",
+                          "unknown"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "status",
+                      "reason"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "rules"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "none": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "none"
+              ]
+            }
+          ],
+          "description": "Name exact current HRP or Universal rules and their status, or explain the missing rule in none."
+        },
+        "observed_behavior": {
+          "type": "string",
+          "description": "First observed failing step, without personal details."
+        },
+        "part_to_change": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "tool",
+                "protocol_rule",
+                "final_check"
+              ]
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "name"
+          ],
+          "description": "Name the specific tool, protocol rule, or check."
+        },
+        "related_issue": {
+          "description": "Public AskRigor issue number, if the user filed one. Range: 1–1000000.",
+          "type": "integer"
+        },
+        "detailed_report": {
+          "description": "Only if enabled in the account's AskRigor settings. Show it before asking for consent.",
+          "type": "object",
+          "properties": {
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "observed": {
+              "type": "string"
+            },
+            "expected": {
+              "type": "string"
+            },
+            "causes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "cause": {
+                    "type": "string"
+                  },
+                  "confidence": {
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high"
+                    ]
+                  }
+                },
+                "required": [
+                  "cause",
+                  "confidence"
+                ]
+              }
+            },
+            "parts_to_change": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "proposed_change": {
+              "type": "string"
+            },
+            "test_cases": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "case": {
+                    "type": "string"
+                  },
+                  "negative_control": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "case",
+                  "negative_control"
+                ]
+              }
+            },
+            "uncertain": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "steps",
+            "observed",
+            "expected",
+            "causes",
+            "parts_to_change",
+            "proposed_change",
+            "test_cases",
+            "uncertain"
+          ]
+        },
+        "check_report_token": {
+          "description": "Exact token from a stopped final check, after consent.",
+          "type": "string"
+        },
+        "preventing_rule": {
+          "description": "For a correction, the exact HRP or Universal rule shown to the user, or no_rule with missing_rule.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "missing_rule": {
+          "description": "With no_rule, give the one-line missing rule shown to the user.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "category",
+        "general_lesson",
+        "expected_behavior",
+        "failure_reason",
+        "synthetic_regression_example",
+        "evidence_basis",
+        "consent_scope",
+        "existing_rules",
+        "observed_behavior",
+        "part_to_change"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
       "openWorldHint": false
     }
   }

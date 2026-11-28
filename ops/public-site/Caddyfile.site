@@ -34,6 +34,13 @@ askrigor.com {
 		file_server
 	}
 
+	# The addresses people try for the Support page (the owner, 27 Nov 2026). The * is the matcher: Caddy reads a first
+	# argument that starts with / as a path matcher, and without it these addresses would answer with an empty page.
+	@support_aliases path /donate /donate/ /donations /donations/ /donation /donation/ /sponsor /sponsor/
+	handle @support_aliases {
+		redir * /support permanent
+	}
+
 	handle /add {
 		rewrite * /add/index.html
 		file_server

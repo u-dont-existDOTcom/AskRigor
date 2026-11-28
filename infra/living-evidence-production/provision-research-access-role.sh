@@ -65,6 +65,16 @@ GRANT SELECT, INSERT ON TABLE living_evidence.research_contribution_proposals
   TO askrigor_research_access;
 GRANT INSERT, SELECT, DELETE ON TABLE living_evidence.research_call_record
   TO askrigor_research_access;
+-- Owner answers 432 and 433a. The runtime has no select privilege on search words.
+DO \$error_log_grants\$
+BEGIN
+  IF to_regclass('living_evidence.research_error_log') IS NOT NULL THEN
+    GRANT INSERT, DELETE ON TABLE living_evidence.research_error_log TO askrigor_research_access;
+    GRANT SELECT (received_at) ON TABLE living_evidence.research_error_log TO askrigor_research_access;
+    GRANT UPDATE (keep_failed_searches) ON TABLE living_evidence.research_use_accounts TO askrigor_research_access;
+  END IF;
+END
+\$error_log_grants\$;
 -- Owner answer 303a (migration 0035): a dev account's own menu choices, while its learn mode is on.
 GRANT INSERT, SELECT, DELETE ON TABLE living_evidence.research_menu_choices
   TO askrigor_research_access;

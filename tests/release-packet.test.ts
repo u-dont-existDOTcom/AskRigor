@@ -534,7 +534,7 @@ describe("AskRigor public-review packet", () => {
     ]);
 
     expect(privacyMap).toContain(
-      "The application does not emit or store request-body logs, response-body logs, candidate-content logs, or a dedicated application access log.",
+      "The application does not log full requests or responses, candidate content, or every call.",
     );
     expect(privacyMap).toContain(
       "the separately described disabled-by-default MCP connector diagnostic may temporarily emit only its bounded non-content classifications.",
