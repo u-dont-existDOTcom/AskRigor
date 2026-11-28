@@ -34,6 +34,11 @@ askrigor.com {
 		file_server
 	}
 
+	@support_aliases path /donate /donate/ /donations /donations/ /donation /donation/ /sponsor /sponsor/
+	handle @support_aliases {
+		redir /support permanent
+	}
+
 	handle /add {
 		rewrite * /add/index.html
 		file_server

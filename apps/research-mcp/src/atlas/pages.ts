@@ -349,7 +349,7 @@ ${frame.body}
 <nav aria-label="Footer navigation"><ul class="nav-list">
 <li><a href="${CANONICAL_ORIGIN}/privacy">Privacy</a></li>
 <li><a href="${CANONICAL_ORIGIN}/terms">Terms</a></li>
-<li><a href="${CANONICAL_ORIGIN}/support">Support</a></li>
+<li><a href="${CANONICAL_ORIGIN}/support">Support AskRigor</a></li>
 </ul></nav>
 </div></footer>
 </body>

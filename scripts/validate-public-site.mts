@@ -18,6 +18,7 @@ const pageRequirements = [
       "does not treat or prescribe",
       "not a substitute for professional advice",
       "provider data may be incomplete, delayed, or unavailable",
+      '<p><a href="/support">Support AskRigor</a></p>',
       // The public user count (user-counts.ts): the research server's image, and its text page in the footer.
       '<p class="user-count"><img src="/atlas/users.svg" alt="How many people use AskRigor',
       '<li><a href="/atlas/users">User count</a></li>'
@@ -192,7 +193,7 @@ const commonFragments = [
   "AskRigor is a product operated by Mayan Roots LLC.",
   'href="/privacy"',
   'href="/terms"',
-  'href="/support"',
+  '<li><a href="/support">Support</a></li>',
   'class="skip-link" href="#content"',
   'rel="icon" href="/assets/askrigor-mark.svg" type="image/svg+xml"',
   'class="brand-mark" src="/assets/askrigor-mark.svg"',
@@ -279,7 +280,9 @@ function validateHtml(path: string, html: string, requirement: (typeof pageRequi
   if (countMatches(html, /<h1\b/gi) !== 1) add("must contain exactly one h1 element");
   if (!/<main\b[^>]*\bid="content"/i.test(html)) add('must provide main id="content" for the skip link');
   if (!html.includes("<header")) add("must include a shared header");
-  if (!html.includes("<footer")) add("must include a shared footer");
+  const footer = /<footer\b[^>]*>([\s\S]*?)<\/footer>/iu.exec(html)?.[1];
+  if (footer === undefined) add("must include a shared footer");
+  else if (!footer.includes('<a href="/support">Support AskRigor</a>')) add("must link to Support AskRigor in the footer");
 
   for (const fragment of commonFragments) {
     if (!html.includes(fragment)) add(`is missing required content: ${fragment}`);

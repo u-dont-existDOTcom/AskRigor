@@ -52,7 +52,8 @@ describe("AskRigor public site", () => {
     // item on the eight other pages add 20.
     // 128 since the 21 Nov 2026 release record: the roadmap's "What's new" links the user count page and the privacy notice.
     // 131 since release b's record: its roadmap lines link the privacy notice, the terms and the How to research page.
-    expect(result.internalLinks).toBe(131);
+    // The homepage adds a Support AskRigor link in the introduction as well as the footer link.
+    expect(result.internalLinks).toBe(132);
   });
 
   it("puts the approved cautions on the How to research page, linked from every page's menu (owner answer 365 1a)", async () => {
