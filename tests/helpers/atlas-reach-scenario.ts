@@ -72,6 +72,8 @@ const digestOf = (text: string) => {
   // The test's sentence goes with the space after it, as a finding's status gives it (atlas/pages.ts, quickAnswerWords).
   let reduced = text.replaceAll(`${REACH_TEST_SENTENCE} `, "").replaceAll(REACH_TEST_SENTENCE, "");
   for (const sentence of REACH_HOME_SENTENCES) reduced = reduced.replaceAll(sentence, "[routes]");
+  // The footer's support link now reads "Support AskRigor", where main's read "Support": the only other change.
+  reduced = reduced.replaceAll(">Support AskRigor</a>", ">Support</a>");
   return createHash("sha256").update(reduced).digest("hex");
 };
 
