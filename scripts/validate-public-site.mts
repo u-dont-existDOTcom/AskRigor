@@ -91,6 +91,7 @@ const pageRequirements = [
       // Claude's connector signs in through its own route; ChatGPT's is /mcp (the review of 12 Nov 2026).
       "paste this address: <code>https://mcp.askrigor.com/mcp/claude</code>",
       "use ChatGPT's address, <code>https://mcp.askrigor.com/mcp</code>",
+      "<code>https://mcp.askrigor.com/mcp/gemini</code>",
       "Add custom connector",
       "coming to ChatGPT's app directory",
       "doesn't diagnose, treat or prescribe"

@@ -497,7 +497,7 @@ describe("consequential lesson Action", () => {
 
   // Owner decision (2026-09-30): lessons are saved from the connector too, not only
   // from the GPT. The connector tool has no research Action path (the GPT keeps its
-  // own lesson Action) and stays out of the Gemini catalog.
+  // own lesson Action). Gemini publishes the same operation (owner answer 432 2a).
   it("adds the lesson operation to the MCP inventory, without a research Action path", async () => {
     for (const profile of ["standard", "gemini"] as const) {
       const server = createAskRigorServer(profile);
@@ -508,10 +508,10 @@ describe("consequential lesson Action", () => {
         const names = (await client.listTools()).tools.map(({ name }) => name);
         if (profile === "standard") {
           expect(names).toHaveLength(35);
-          expect(names).toContain("submit_lesson_candidate");
         } else {
-          expect(names).not.toContain("submit_lesson_candidate");
+          expect(names).toHaveLength(23);
         }
+        expect(names).toContain("submit_lesson_candidate");
       } finally {
         await Promise.all([client.close(), server.close()]);
       }

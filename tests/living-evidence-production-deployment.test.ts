@@ -591,7 +591,7 @@ describe("production living-evidence deployment", () => {
       '"0036_research_use_notice_v6",\n      "0037_research_dossiers",\n      ' +
       '"0038_research_proposal_idempotency_index",\n      "0039_gemini_oauth_store",\n      "0040_research_dossier_publications",\n      ' +
       '"0041_atlas_show_saved_findings",\n      "0042_atlas_person_readings",\n      "0043_atlas_news_items",\n      ' +
-      '"0044_research_notice_sign_in_page",\n    ]');
+      '"0044_research_notice_sign_in_page",\n      "0045_research_error_log",\n    ]');
     // append_only_guard on exactly the eight canonical tables; the two private review tables are not among them.
     const guarded = migration.slice(migration.indexOf("FOREACH table_name IN ARRAY ARRAY["));
     expect([...guarded.slice(0, guarded.indexOf("] LOOP")).matchAll(/'([a-z_]+)'/gu)].map(([, table]) => table))
@@ -972,14 +972,14 @@ describe("production living-evidence deployment", () => {
     // public Atlas (stage 2), 0041, how a publication reached the pages (Codex's review of 17 Nov 2026, finding 4), 0042,
     // the person-claim readings (Atlas Release B), 0043, Atlas news in shadow (owner answer 397a), and last 0044, a yes
     // given on the terms page at sign-in (owner answer 419a).
-    expect(order.slice(-24)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
+    expect(order.slice(-25)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
       "0023_research_findings_save_switch", "0024_atlas_kept_for_research", "0025_atlas_placements", "0026_atlas_reports",
       "0027_atlas_glance_rows", "0028_research_use_notice_v5", "0029_atlas_research_behind", "0030_atlas_challenges",
       "0031_research_notice_acceptance", "0032_research_call_record",
       "0033_research_steering", "0034_research_call_record_plan_next", "0035_research_menu_learning",
       "0036_research_use_notice_v6", "0037_research_dossiers", "0038_research_proposal_idempotency_index",
       "0039_gemini_oauth_store", "0040_research_dossier_publications", "0041_atlas_show_saved_findings",
-      "0042_atlas_person_readings", "0043_atlas_news_items", "0044_research_notice_sign_in_page"]);
+      "0042_atlas_person_readings", "0043_atlas_news_items", "0044_research_notice_sign_in_page", "0045_research_error_log"]);
     // One table and its sequence, safe to run again; the reason lists replaced on every run.
     expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS atlas_publication_number_seq AS bigint START WITH 1001");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS atlas_publications (");
@@ -1157,10 +1157,10 @@ describe("production living-evidence deployment", () => {
     // 0042, 0043 and 0044 follow it.
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
-    expect(order.slice(-11)).toEqual(["0034_research_call_record_plan_next", "0035_research_menu_learning",
+    expect(order.slice(-12)).toEqual(["0034_research_call_record_plan_next", "0035_research_menu_learning",
       "0036_research_use_notice_v6", "0037_research_dossiers", "0038_research_proposal_idempotency_index",
       "0039_gemini_oauth_store", "0040_research_dossier_publications", "0041_atlas_show_saved_findings",
-      "0042_atlas_person_readings", "0043_atlas_news_items", "0044_research_notice_sign_in_page"]);
+      "0042_atlas_person_readings", "0043_atlas_news_items", "0044_research_notice_sign_in_page", "0045_research_error_log"]);
     // Safe to run again: the columns, the table and the index come once, and every check is added by its name only
     // when it is missing.
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS learn_menu_choices boolean NOT NULL DEFAULT false");
@@ -1217,9 +1217,9 @@ describe("production living-evidence deployment", () => {
     const runbook = await read("infra/living-evidence-production/README.md");
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
-    expect(order.slice(-8)).toEqual(["0037_research_dossiers", "0038_research_proposal_idempotency_index",
+    expect(order.slice(-9)).toEqual(["0037_research_dossiers", "0038_research_proposal_idempotency_index",
       "0039_gemini_oauth_store", "0040_research_dossier_publications", "0041_atlas_show_saved_findings",
-      "0042_atlas_person_readings", "0043_atlas_news_items", "0044_research_notice_sign_in_page"]);
+      "0042_atlas_person_readings", "0043_atlas_news_items", "0044_research_notice_sign_in_page", "0045_research_error_log"]);
     // Additive: new objects only, each made once; nothing existing is dropped or altered but one trigger it owns.
     expect(migration).not.toMatch(/DROP (?!TRIGGER IF EXISTS)|ALTER TABLE|CREATE TABLE (?!IF NOT EXISTS)/u);
     expect([...migration.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)/gu)].map(([, name]) => name)).toEqual([
@@ -1324,9 +1324,9 @@ describe("production living-evidence deployment", () => {
     const runbook = await read("infra/living-evidence-production/README.md");
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
-    expect(order.slice(-7)).toEqual(["0038_research_proposal_idempotency_index", "0039_gemini_oauth_store",
+    expect(order.slice(-8)).toEqual(["0038_research_proposal_idempotency_index", "0039_gemini_oauth_store",
       "0040_research_dossier_publications", "0041_atlas_show_saved_findings", "0042_atlas_person_readings",
-      "0043_atlas_news_items", "0044_research_notice_sign_in_page"]);
+      "0043_atlas_news_items", "0044_research_notice_sign_in_page", "0045_research_error_log"]);
     // One index, made once; no table, row, constraint, trigger, function or grant, and not CONCURRENTLY, which migrate()'s
     // single transaction cannot run.
     const statements = migration.replace(/--[^\n]*\n/gu, "").split(";").map((part) => part.trim()).filter(Boolean);
@@ -1361,9 +1361,9 @@ describe("production living-evidence deployment", () => {
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
     // Right after 0038; 0043 (Atlas news, owner answer 397a) was released with it and comes after the next release's
     // 0040 to 0042, which are numbered before it; only 0044 (owner answer 419a) follows.
-    expect(order.slice(-7)).toEqual(["0038_research_proposal_idempotency_index", "0039_gemini_oauth_store",
+    expect(order.slice(-8)).toEqual(["0038_research_proposal_idempotency_index", "0039_gemini_oauth_store",
       "0040_research_dossier_publications", "0041_atlas_show_saved_findings", "0042_atlas_person_readings",
-      "0043_atlas_news_items", "0044_research_notice_sign_in_page"]);
+      "0043_atlas_news_items", "0044_research_notice_sign_in_page", "0045_research_error_log"]);
     // One new table and its indexes, each made once; nothing existing is dropped or altered.
     expect([...migration.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)/gu)].map(([, name]) => name)).toEqual(["gemini_oauth_store"]);
     expect([...migration.matchAll(/CREATE INDEX IF NOT EXISTS (\w+)/gu)]).toHaveLength(4);
@@ -1394,7 +1394,7 @@ describe("production living-evidence deployment", () => {
     const provision = await read("infra/living-evidence-production/provision-research-access-role.sh");
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
-    expect(order.at(-1)).toBe("0044_research_notice_sign_in_page");
+    expect(order.at(-2)).toBe("0044_research_notice_sign_in_page");
     expect(order.indexOf("0044_research_notice_sign_in_page")).toBeGreaterThan(order.indexOf("0031_research_notice_acceptance"));
     // 0031 is released: byte for byte as main has it, so an earlier image's migrate still passes this database, and its
     // check is added only when missing, so it never undoes this one.
@@ -1459,8 +1459,8 @@ describe("migration 0041", () => {
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
     // After every released migration; only 0042, Atlas Release B, 0043, Atlas news, and 0044, a yes given on the terms
     // page at sign-in (neither of which reads an Atlas publication), follow it.
-    expect(order.slice(-4)).toEqual(["0041_atlas_show_saved_findings", "0042_atlas_person_readings",
-      "0043_atlas_news_items", "0044_research_notice_sign_in_page"]);
+    expect(order.slice(-5)).toEqual(["0041_atlas_show_saved_findings", "0042_atlas_person_readings",
+      "0043_atlas_news_items", "0044_research_notice_sign_in_page", "0045_research_error_log"]);
     // 0021 is released: byte for byte as main has it, so an earlier image's migrate still passes this database.
     expect(createHash("sha256").update(original).digest("hex"))
       .toBe("f52a42ebd1a31f2adcef2ee267ab1a611e24d26afe44a3d9b04e2e7198d08443");

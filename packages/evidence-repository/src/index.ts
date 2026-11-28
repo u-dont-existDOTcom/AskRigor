@@ -737,3 +737,5 @@ export {
   type TermsPageDecision,
 } from "./terms-page-answers.js";
 export * from "./atlas-person-claims.js";
+
+export * from "./research-error-log.js";

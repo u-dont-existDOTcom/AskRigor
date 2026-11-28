@@ -252,8 +252,10 @@ const LATER_INPUT_SHAPES = Object.freeze({
       .describe("off: hold nothing from this audit for AskRigor's review inbox, as a test run does. It changes " +
         "nothing else.")
   },
-  // Owner answer 200a: the person's confirmed, de-identified copy, and the code that deletes it.
   manage_research_access: {
+    // Owner answer 434a: true only on an explicit yes to the question shown with the notice.
+    keepFailedSearches: z.boolean().optional(),
+    // Owner answer 200a: the person's confirmed, de-identified copy, and the code that deletes it.
     sharedAnswer: sharedAnswerInputSchema.optional()
       .describe("With share_answer: the de-identified copy the person saw and confirmed."),
     shareCode: shareCodeSchema.optional()
@@ -625,6 +627,9 @@ export function withLaterInputs(
     runtimeSchema,
     execute: async (raw, extra) => {
       if (runtime.handler === "merges") return execute(raw, extra);
+      if (tool === "manage_research_access" && Object.hasOwn(raw, "keepFailedSearches")) {
+        return inputError(["keepFailedSearches: give this input only in later_inputs."]);
+      }
       const { input, problems } = mergeLaterInputs(tool, raw, topLevel, laterShape);
       if (problems.length > 0) {
         return inputError(problems.map(({ path, message }) => `${issuePath(path)}: ${message}`));
