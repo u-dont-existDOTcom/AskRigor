@@ -455,6 +455,8 @@ Gemini uses its own address, and people can accept the free-use notice during si
 Why: it goes to Mayan Roots LLC, which builds AskRigor, and isn't tax-deductible.\
 Not done: calling it a donation; CoinPayments for any coin, which needs the owner's own merchant account first. · Decided: 6 Nov 2026 (owner answer 264a); the Bitcoin address, 6 Nov (the owner).
 
+The home page and site and Atlas footers link to the page as "Support AskRigor." The addresses `/donate`, `/donations`, `/donation`, and `/sponsor` redirect to `/support` so people can find it by the names they try. · Owner follow-up, 27 Nov 2026.
+
 **Bigger research jobs: people ask for a quote by email from the Support page, the owner quotes each job by hand, and nothing is charged unless the quote is accepted.**\
 Why: the owner, 7 Nov: "just a request form for now then and i'll do custom quotes by hand". Site pages run no scripts or forms, so the request is an email with four questions filled in, and the site stores nothing. A quote says how the job will be done, which AI services will read the question and whether anything from it may be published.\
 Not done, for now: automatic prices, and paid alerts, which people can set up as an alert job on their own AI with AskRigor (the owner: "prob no point on that, idk"). · Decided: 7 Nov 2026 (the owner).

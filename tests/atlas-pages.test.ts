@@ -35,7 +35,7 @@ import { ATLAS_MAP_TOPIC_FINDINGS, NOT_CHECKED_LABEL, sourceIdentifierOf, loadAt
   loadAtlasTopics, loadAtlasTopic, searchAtlasIndex, searchTextsOf, type AtlasSearchIndex,
   type ShownFinding } from "../apps/research-mcp/src/atlas/page-data.js";
 import { AI_LABEL, ATLAS_CSS, NEEDS_CHECKING_LABEL, atlasPageProblems, clusterLayout, escapeHtml, findingPath, mapRadius, percent, sourceLink,
-  renderAtlasMap, renderAtlasSearch, renderAtlasTopic, wrapWords } from "../apps/research-mcp/src/atlas/pages.js";
+  renderAtlasMap, renderAtlasNotFound, renderAtlasSearch, renderAtlasTopic, wrapWords } from "../apps/research-mcp/src/atlas/pages.js";
 import { STRENGTH_RULE, claimStrength } from "../apps/research-mcp/src/atlas/strength.js";
 import { atlasSearchMatch, atlasSearchQuery, atlasSearchWords, foldAtlasSearchTexts,
   type AtlasSearchText } from "../apps/research-mcp/src/atlas/search.js";
@@ -388,6 +388,12 @@ function expectPageHeaders(response: Response) {
 }
 
 // Rendering ---------------------------------------------------------------------------------------------------------
+
+it("links to Support AskRigor in the shared Atlas footer", () => {
+  const html = renderAtlasNotFound();
+  const footer = /<footer\b[^>]*>([\s\S]*?)<\/footer>/u.exec(html)?.[1];
+  expect(footer).toContain('<a href="https://askrigor.com/support">Support AskRigor</a>');
+});
 
 describe("the finding pages", () => {
   it("show an unreviewed finding with the exact label, its numbers worked out and its sources as built links", async () => {
