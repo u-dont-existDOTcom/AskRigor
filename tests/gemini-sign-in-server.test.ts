@@ -8,20 +8,24 @@ import {
   InMemoryTermsPageAnswerStore,
   ResearchContributorAccessService,
 } from "@askrigor/evidence-repository";
+import { searchPubmed } from "@askrigor/sources";
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type JWK } from "jose";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { FULL_PROTOCOL_GEMINI } from "../apps/research-mcp/src/full-protocol.js";
 import type { GeminiSignIn } from "../apps/research-mcp/src/gemini-sign-in/index.js";
 import * as lessonRuntime from "../apps/research-mcp/src/lessons/runtime.js";
 import {
   countGeminiLinks,
   disconnectGeminiLinks,
 } from "../apps/research-mcp/src/gemini-sign-in/resource.js";
+import { submitConnectorLessonCandidate } from "../apps/research-mcp/src/lessons/runtime.js";
 import {
   RESEARCH_USE_SCOPE,
   createJwtOAuthResourceServer,
 } from "../apps/research-mcp/src/oauth-resource-server.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
+import { lessonDiagnostics } from "./fixtures/lesson-diagnostics.js";
 import {
   Browser,
   GOOGLE_REDIRECT,
@@ -32,6 +36,9 @@ import {
   tokenRequest,
   type GeminiFixture,
 } from "./helpers/gemini-sign-in-fixture.js";
+
+vi.mock("../apps/research-mcp/src/lessons/runtime.js", { spy: true });
+vi.mock("@askrigor/sources", { spy: true });
 
 // /mcp/gemini with AskRigor's own authorization server (owner answer 386b): Gemini's tokens work there and only there,
 // a refused token gets a transport 401 naming the Gemini resource metadata, /mcp and /mcp/claude are unchanged.
@@ -50,6 +57,9 @@ afterEach(async () => {
   await Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve) => server.close(() => resolve()))));
   await Promise.all(fixtures.splice(0).map((fixture) => fixture.close()));
   resourceChecks.length = 0;
+  vi.unstubAllEnvs();
+  vi.mocked(searchPubmed).mockReset();
+  vi.mocked(submitConnectorLessonCandidate).mockReset();
 });
 
 async function start(options: { gemini: boolean; notice?: boolean }) {
@@ -274,5 +284,98 @@ describe("Gemini's sign-in on the HTTP server", () => {
     expect((await fetch(new URL("/mcp/gemini", base), initialize(token))).status).toBe(401);
     const again = await client.callTool({ name: "manage_research_access", arguments: { action: "disconnect_gemini" } });
     expect(text(again)).toContain("no Gemini link to end");
+  });
+});
+
+describe("the full-protocol line on /mcp/gemini", () => {
+  it("appends one block to successful results and preserves the original result bytes", async () => {
+    vi.stubEnv("ASKRIGOR_FULL_PROTOCOL", undefined);
+    vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", undefined);
+    vi.stubEnv("ASKRIGOR_HRP_CORE", "off");
+    vi.mocked(submitConnectorLessonCandidate).mockResolvedValue({
+      status: "submitted", candidate_id: "ARL-0042", occurrence_count: 1, retryable: false,
+    });
+    const query = "synthetic search query";
+    vi.mocked(searchPubmed).mockResolvedValue({
+      provider: "pubmed", record_type: "pubmed_search_result", retrieved_at: "2026-11-28T00:00:00.000Z",
+      query: { query }, source_identity: {}, pagination: { exhausted: true, returned: 0 }, access_status: "complete",
+      limitations: [], raw_metadata: { total_count: 0 }, data: [],
+    });
+    const { base, fixture, signAuth0, service } = await start({ gemini: true, notice: true });
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", service.accountKeyForSubject(PERSON));
+    const gemini = await connect(base, "/mcp/gemini", await geminiToken(fixture, "accept"));
+    const manifest = { name: "get_protocol_manifest", arguments: { protocol: "hrp" } };
+    const search = { name: "search_pubmed", arguments: { query } };
+    // Call the registered handler directly, independent of the separate Gemini catalog change.
+    const lesson = { name: "submit_lesson_candidate", arguments: {
+      ...lessonDiagnostics, category: "missing_sources",
+      general_lesson: "When material factual claims are made, AskRigor should attach traceable sources.",
+      expected_behavior: "Cite each material claim near the sentence it supports and expose any source-access boundary.",
+      failure_reason: "The answer asserted a conclusion without giving the user a way to inspect its evidence.",
+      synthetic_regression_example: "A response ranks two interventions and provides no citations for either ranking.",
+      evidence_basis: "assistant_self_check", consent_scope: "once",
+    } };
+    const successful = [manifest, search, lesson];
+    const baseline = [];
+    for (const request of successful) {
+      const result = await gemini.callTool(request);
+      expect(result.isError, text(result)).not.toBe(true);
+      baseline.push(result);
+    }
+    expect(searchPubmed).toHaveBeenCalledWith(expect.objectContaining({ query }), expect.any(Object));
+    expect(baseline[1]?.structuredContent).toMatchObject({ access_status: "complete" });
+    expect(baseline[2]?.structuredContent).toMatchObject({ status: "submitted" });
+
+    for (const mode of ["off", "bogus", "trial"]) {
+      vi.stubEnv("ASKRIGOR_FULL_PROTOCOL", mode);
+      for (const [index, request] of successful.entries()) {
+        expect(JSON.stringify(await gemini.callTool(request)), `${mode} ${request.name}`).toBe(JSON.stringify(baseline[index]));
+      }
+    }
+
+    const anonymous = await connect(base, "/mcp/gemini");
+    const waiting = await connect(base, "/mcp/gemini", await signAuth0({ sub: "auth0|waiting" }));
+    const primary = await connect(base, "/mcp", await signAuth0({}));
+    const claude = await connect(base, "/mcp/claude", await signAuth0({ aud: claudeResource.href, client_id: "claude-client" }));
+    const untouched = [
+      [gemini, { name: "load_protocol", arguments: { protocol: "hrp", section: "index" } }],
+      [waiting, search], [anonymous, manifest], [primary, manifest], [claude, manifest],
+    ] as const;
+    vi.stubEnv("ASKRIGOR_FULL_PROTOCOL", "off");
+    const before = [];
+    for (const [client, request] of untouched) before.push(await client.callTool(request));
+    expect(before[0]?.isError).not.toBe(true);
+    expect(before[1]?.isError).toBe(true);
+    expect(before[2]?.isError).not.toBe(true);
+
+    vi.stubEnv("ASKRIGOR_FULL_PROTOCOL", "on");
+    for (const [index, request] of successful.entries()) {
+      const result = await gemini.callTool(request);
+      expect(result.content, request.name).toBeInstanceOf(Array);
+      const blocks = result.content as unknown[];
+      expect(blocks.at(-1)).toEqual({ type: "text", text: FULL_PROTOCOL_GEMINI });
+      expect(JSON.stringify({ ...result, content: blocks.slice(0, -1) })).toBe(JSON.stringify(baseline[index]));
+    }
+    for (const [index, [client, request]] of untouched.entries()) {
+      expect(JSON.stringify(await client.callTool(request)), request.name).toBe(JSON.stringify(before[index]));
+    }
+
+    const geminiLine = { type: "text", text: FULL_PROTOCOL_GEMINI };
+    const manifestLast = async () => ((await gemini.callTool(manifest)).content as unknown[]).at(-1);
+    vi.stubEnv("ASKRIGOR_FULL_PROTOCOL", "dev");
+    expect(await manifestLast()).toEqual(geminiLine);
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", "");
+    expect(await manifestLast()).not.toEqual(geminiLine);
+    vi.stubEnv("ASKRIGOR_FULL_PROTOCOL", "trial");
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", service.accountKeyForSubject(PERSON));
+    const setWindow = (minutes: number) => primary.callTool({ name: "manage_research_access", arguments: {
+      action: "set_research_trial", later_inputs: { researchTrial: {
+        claimAccounting: false, hrpCore: false, indirectEvidence: false, fullProtocol: true, minutes,
+      } },
+    } });
+    expect((await setWindow(1)).structuredContent).toMatchObject({ researchTrial: { fullProtocol: true } });
+    expect(await manifestLast()).toEqual(geminiLine);
+    expect((await setWindow(0)).structuredContent).toMatchObject({ researchTrial: { fullProtocol: false } });
+    expect(await manifestLast()).not.toEqual(geminiLine);
   });
 });

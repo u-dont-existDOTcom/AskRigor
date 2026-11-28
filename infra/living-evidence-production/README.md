@@ -487,6 +487,24 @@ reports it, with one line above the final check panel's fold (`docs/final-check.
 other value, or none, turns it off, which is its rollback: nothing is stored, so nothing needs undoing. AskRigor's own
 planning call and review log `fallback_answered` or `fallback_refused` whatever the setting.
 
+Owner answers 413a and 412a, and promise P90 (24 November 2026; built, not released): `ASKRIGOR_CLAIM_ACCOUNTING`,
+`ASKRIGOR_HRP_CORE` and `ASKRIGOR_PLAN_INDIRECT` in `runtime.env`, each `off` (the default, and any other value), `trial`,
+`dev` or `on`, then recreate `research-mcp`. The first has the research menu account for the quick answer's claims; the
+second has `register_plain_answer` (or, without room for it there, `plan_research`) hand over HRP's core, with the final
+check's one note when no receipt shows it (`docs/research-contributor-access.md`, `docs/final-check.md`); the third has
+AskRigor's own plan reach for evidence one step away, so it changes nothing while `ASKRIGOR_RESEARCH_PLANNER` is off, and
+nothing for an account AskRigor does not plan for, whatever its mode. In mode `trial` a switch holds for a dev account only
+while a session's test window has it on (`manage_research_access` action `set_research_trial`), so nothing changes for
+anyone by setting it; `dev` holds for every dev account, `on` for every account. Nothing is stored by any of them, a window
+is in the process's memory alone, and setting them to `off` (or removing them) and recreating the service is the
+rollback: no migration, grant or tool-list change goes with them.
+
+`ASKRIGOR_FULL_PROTOCOL` in `runtime.env` uses the same four modes and defaults to `off`. It adds the full-protocol
+instruction to active accounts' `inspect` results and to successful signed-in calls on `/mcp/gemini` other than
+`load_protocol`. In `trial` mode, `later_inputs.researchTrial.fullProtocol` enables it for one dev account's window.
+Recreate `research-mcp` after changing the setting. For rollback, set it to `off` or remove it and recreate the service.
+The instruction adds no stored data. Each rollout stage requires the owner's approval because answers may take longer.
+
 Optional, off by default, the owner's decision (Codex's final check): `ASKRIGOR_DOSSIER_PRIVACY_READING=on` in
 `runtime.env` has every dossier read for personal details before it is stored
 (`apps/research-mcp/src/findings/dossier-privacy-reading.ts`), on the research planner's own Claude API path: its key

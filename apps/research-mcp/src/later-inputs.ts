@@ -24,8 +24,9 @@ import { newsDateInputSchema, newsNumberInputSchema } from "./news/inputs.js";
 import { dossierFindingInputSchema, dossierImportanceInputSchema, dossierLivingPersonInputSchema, dossierNumberInputSchema,
   dossierOverrideConflictsInputSchema, dossierStateInputSchema, dossierVersionInputSchema } from "./atlas/dossier-review.js";
 import { claimCoverageSchema } from "./claim-coverage.js";
-import { ASKED_LIMIT, PLANNER_PAUSE_MAX_MINUTES, framingSchema, researchMenuSchema, researchSteeringInputSchema }
+import { ASKED_LIMIT, PLANNER_PAUSE_MAX_MINUTES, claimsResearchMenuSchema, framingSchema, researchSteeringInputSchema }
   from "./research-steering.js";
+import { RESEARCH_TRIAL_MAX_MINUTES, researchTrialInputSchema } from "./research-trial.js";
 
 /**
  * list_calls' page: the calls received before a time, as a previous listing's next_before gave it (the review of 12 Nov
@@ -269,7 +270,9 @@ const LATER_INPUT_SHAPES = Object.freeze({
     framing: framingSchema.optional()
       .describe("With register_plain_answer: the question the person most likely means, premises that look inverted " +
         "or unclear, and questions that could redirect the research."),
-    researchMenu: researchMenuSchema.optional()
+    // Owner answer 413a: with the fields that account for the plain answer's claims, which reach this schema only on an
+    // account that has them (readResearchMenu).
+    researchMenu: claimsResearchMenuSchema.optional()
       .describe("With plan_research, after a quick screen: the research target, the next tasks with their kind and " +
         "what each could change, and the person's allocation once given."),
     // Owner answer 298b (13 Nov 2026): the person's own words, for AskRigor's own planning call on a dev account. Read
@@ -299,6 +302,17 @@ const LATER_INPUT_SHAPES = Object.freeze({
     pauseMinutes: z.number().int().min(0).max(PLANNER_PAUSE_MAX_MINUTES).optional()
       .describe(`With pause_research_planner, on a dev account for a test round only: whole minutes from now, at most ` +
         `${PLANNER_PAUSE_MAX_MINUTES}, to pause AskRigor's own planning call; 0 ends the pause.`),
+    // Owner answers 413a and 412a, and P90 (24 Nov 2026), and the full-protocol line (28 Nov 2026): a dev account's test
+    // window for the changes behind switches.
+    researchTrial: researchTrialInputSchema.optional()
+      .describe("With set_research_trial, on a dev account for a test round only: claimAccounting, hrpCore and " +
+        "indirectEvidence, each true or false, plus optional fullProtocol (defaults to false), for minutes whole " +
+        `minutes from now, at most ${RESEARCH_TRIAL_MAX_MINUTES}; 0 ends the window.`),
+    // Owner answer 412a (24 Nov 2026): the AI says it holds HRP's core in this conversation, so it is not sent again. Any
+    // value is accepted: one that is not the core's digest says nothing, and never refuses a registration (holdsHrpCore).
+    hrpCoreHeld: z.unknown().optional()
+      .describe("With register_plain_answer, when an earlier result of this conversation gave HRP's core: the first 16 " +
+        "characters of its scope_sha256, as that result gave them, so the core is not sent again."),
   },
   review_research_contribution: {
     sharedAnswerId: sharedAnswerIdSchema.optional()

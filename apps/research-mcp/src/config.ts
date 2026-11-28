@@ -1,3 +1,5 @@
+import { researchSwitchMode, type ResearchSwitchMode } from "./research-trial.js";
+
 export const SERVICE_NAME = "askrigor-research";
 export const GEMINI_COMPATIBLE_SERVICE_NAME = "askrigor_research";
 export const SERVICE_VERSION = "0.1.0";
@@ -416,6 +418,40 @@ export function safetyLimitsFromEnv(
   value = process.env.ASKRIGOR_SAFETY_LIMITS
 ): boolean {
   return value?.trim() === "on";
+}
+
+/**
+ * Owner answer 413a, its research half: ASKRIGOR_CLAIM_ACCOUNTING, off (the default, and any other value), trial, dev or
+ * on (research-trial.ts). Where it holds, the research menu accounts for the plain answer's claims (claim-accounting.ts).
+ */
+export function claimAccountingModeFromEnv(value = process.env.ASKRIGOR_CLAIM_ACCOUNTING): ResearchSwitchMode {
+  return researchSwitchMode(value);
+}
+
+/**
+ * Owner answer 412a: ASKRIGOR_HRP_CORE, off (the default, and any other value), trial, dev or on (research-trial.ts).
+ * Where it holds, registering the plain answer hands over HRP's core (hrp-core.ts).
+ */
+export function hrpCoreModeFromEnv(value = process.env.ASKRIGOR_HRP_CORE): ResearchSwitchMode {
+  return researchSwitchMode(value);
+}
+
+/**
+ * Promise P90: ASKRIGOR_PLAN_INDIRECT, off (the default, and any other value), trial, dev or on (research-trial.ts). Where
+ * it holds, AskRigor's own plan reaches for evidence one step away where it found little direct evidence
+ * (research-planner.ts, INDIRECT_RUBRIC_CHANGES); it plans for dev accounts alone, whatever the mode.
+ */
+export function planIndirectModeFromEnv(value = process.env.ASKRIGOR_PLAN_INDIRECT): ResearchSwitchMode {
+  return researchSwitchMode(value);
+}
+
+/**
+ * The owner's request of 27 November 2026 (full-protocol.ts): ASKRIGOR_FULL_PROTOCOL, off (the default, and any other
+ * value), trial, dev or on (research-trial.ts). Where it holds, an active account's inspect, and on /mcp/gemini every
+ * successful result but load_protocol's, carry the full-protocol line.
+ */
+export function fullProtocolModeFromEnv(value = process.env.ASKRIGOR_FULL_PROTOCOL): ResearchSwitchMode {
+  return researchSwitchMode(value);
 }
 
 /**

@@ -14,6 +14,7 @@ import { askrigorBuildCommitFromEnv } from "./config.js";
 import type { RunningVersions } from "./version.js";
 import { createHash } from "node:crypto";
 import { COMPLETE_CHECKS_TIP, repeatPassNote, SOURCE_LINE_SHAPE_NOTE } from "./final-check-messages.js";
+import { HRP_CORE_CLAIM, HRP_CORE_NOT_SHOWN } from "./hrp-core.js";
 import { significanceLanguageNotes, significanceMentions } from "./significance-language-lint.js";
 import { communityLeadVideo, leadKey, leadPhrase, readCommunityLeads } from "./community-leads.js";
 import { ABSENCE_SWEEP_RULES, nameFormInQuery, sameName } from "./absence-searches.js";
@@ -1926,6 +1927,12 @@ export interface FinalizeResearchOptions {
   // is compared with the answer, and the note doing so is written unless the account turned it off. `account` is the
   // binding its plain-answer receipts sign (plainAnswerAccountBinding). Other callers' receipts count for nothing.
   plainAnswer?: { note: boolean; account: string };
+  /**
+   * Owner answer 412a, option c (24 Nov 2026), while its switch holds for the account: one note when no receipt shows
+   * HRP's core was given in this research (hrpCoreShown). `account` is the binding its plain-answer receipts sign. It
+   * changes nothing else the check finds, stops or holds.
+   */
+  hrpCore?: { account: string };
   // This research's map on the connector (owner answer 143a, 2026-10-21). "offer": a paid private account, whose save
   // offer also asks, in the same sentence, to file the map, so one yes saves the card and files it; the finalization
   // receipt then signs the offer and this account. "remind": a free contributor account, whose map is filed without
@@ -4600,7 +4607,7 @@ export function finalizeResearch(
             ...(threads.length > 0 ? { threads } : {})
           });
         }
-        const left = registered.flatMap((_, number) => entryFor.has(number) ? [] : [number]);
+        const left = registered.flatMap((_, number) => entryFor.has(number) ? [] : [number + plainAnswer.first]);
         if (left.length > 0) {
           const leftOut = joinRules(joinRules(joinRules(rule`plain_answer_comparison leaves out ${left.length === 1 ? rule`claim` : rule`claims`} `, rule`${joinNames(left.map(String))} of the plain answer registered before this research, as `), "manage_research_access numbered them: give each, copied exactly, with whether the research confirmed, "), "corrected or qualified it, or did not check it.");
           if (noteOn) addBlockingStep("plain_answer_comparison", "declaration", leftOut);
@@ -4944,12 +4951,18 @@ export function finalizeResearch(
     if (at >= 0) caveats.splice(at, 1);
     mapOffered = false;
   }
+  // Owner answer 412a, option c: research with no receipt of HRP's core. A note about the call, never a step or a limit.
+  if (options.hrpCore !== undefined && verified.some(({ kind }) => !NOT_RESEARCH_KINDS.has(kind)) &&
+      !hrpCoreShown(verified, options.hrpCore.account)) {
+    notes.push(checkedBy("call", HRP_CORE_NOT_SHOWN));
+  }
   // Stage 1 of enforcing HRP (design-v2 of 17 Nov 2026): every problem found, admitted as a step or given as a note,
   // for the ledger, which is built once every note is given (settleFindingsLedger). It records; it changes nothing.
   const ledgerSource: FindingsLedgerSource | undefined = options.findingsLedger === undefined ? undefined : (() => {
     const admitted = new Set(observedSteps.map(({ text }) => text));
     const observed: ObservedFinding[] = [...observedSteps, ...notes.filter((note) => !admitted.has(note))
-      .map((note) => ({ text: note, ...(repeatedNotes.has(note) ? { call: true } : {}),
+      .map((note) => ({ text: note,
+        ...(repeatedNotes.has(note) || noteCheckers.get(note) === "call" ? { call: true } : {}),
         ...(noteCheckers.has(note) ? { checker: noteCheckers.get(note)! } : {}),
         ...(notRunNotes.has(note) ? { notRun: true as const } : {}),
         ...(noteItems.has(note) ? { items: [...noteItems.get(note)!] } : {}),
@@ -5171,8 +5184,9 @@ export function finalizeResearch(
     output.finalization_receipt = issueResearchReceipt("finalization", {
       status,
       community: input.community_evidence,
-      // Research receipts, which a saved card's stamp counts; a plain answer or a filed map is not research.
-      receipts: verified.filter(({ kind }) => kind !== "plain_answer" && kind !== "research_map").length,
+      // Research receipts, which a saved card's stamp counts; a plain answer, a filed map or HRP's core is not research.
+      receipts: verified.filter(({ kind }) => kind !== "plain_answer" && kind !== "research_map" &&
+        kind !== "protocol_core").length,
       videos: materialVideos.length,
       depth: input.research_depth,
       target: targetDigest,
@@ -6034,7 +6048,9 @@ interface ComparedClaim {
 }
 
 type RegisteredPlainAnswer =
-  | { status: "registered"; claims: string[] }
+  // first: the number manage_research_access gave the first claim, 1 on an account whose claims the menu accounts for
+  // (owner answer 413a), as its receipt signs, and 0 otherwise.
+  | { status: "registered"; claims: string[]; first: 0 | 1 }
   | { status: "no_receipt" | "other_account" | "other_target" | "after_research" };
 
 /**
@@ -6054,13 +6070,14 @@ function registeredPlainAnswer(
   const forTarget = own.filter(({ claims }) => text(claims.target) === target && list(claims.claims).length > 0);
   if (forTarget.length === 0) return { status: "other_target" };
   // Research began with the earliest receipt passed here, whatever it was made for: a plain answer written after it,
-  // even for a later question, could draw on that research.
-  const began = Math.min(...verified.filter(({ kind }) => kind !== "plain_answer" && kind !== "finalization")
-    .map(receiptOrder));
+  // even for a later question, could draw on that research. HRP's core is loaded, as inspect asks, before it.
+  const began = Math.min(...verified.filter(({ kind }) => kind !== "plain_answer" && kind !== "finalization" &&
+    kind !== "protocol_core").map(receiptOrder));
   const latest = forTarget.filter((receipt) => receiptOrder(receipt) < began)
     .sort((left, right) => receiptOrder(left) - receiptOrder(right) || left.index - right.index)
     .at(-1);
-  return latest === undefined ? { status: "after_research" } : { status: "registered", claims: list(latest.claims.claims) };
+  return latest === undefined ? { status: "after_research" } : { status: "registered",
+    claims: list(latest.claims.claims), first: text(latest.claims.first) === "1" ? 1 : 0 };
 }
 
 /**
@@ -6097,8 +6114,18 @@ export function shortLookupDeclared(input: FinalizeResearchInput): boolean {
 }
 
 // Receipts that are no part of the research a map maps (owner answer 143a): a plain answer written before it, a final
-// check of it and a map filed after it.
-const NOT_RESEARCH_KINDS: ReadonlySet<ResearchReceiptKind> = new Set(["plain_answer", "finalization", "research_map"]);
+// check of it, a map filed after it, and HRP's core loaded for it (owner answer 412a).
+const NOT_RESEARCH_KINDS: ReadonlySet<ResearchReceiptKind> = new Set(["plain_answer", "finalization", "research_map",
+  "protocol_core"]);
+
+/**
+ * Whether a receipt passed here shows that HRP's core was given in this research (owner answer 412a, option c): this
+ * account's plain answer, whose registration handed it over, or load_protocol's own receipt for it.
+ */
+function hrpCoreShown(verified: readonly VerifiedReceipt[], account: string): boolean {
+  return verified.some(({ kind, claims }) => HRP_CORE_CLAIM.test(text(claims.hrp)) &&
+    (kind === "protocol_core" || (kind === "plain_answer" && text(claims.acct) === account)));
+}
 
 // What filing this research's map asks of the model, in the words of the tool that files it.
 const RESEARCH_MAP_FILING = "submit_research_contribution, a RESEARCH_FRONTIER proposal of its searches, the studies " +

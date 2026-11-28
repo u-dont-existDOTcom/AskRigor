@@ -159,8 +159,9 @@ export function researchReadingSummary(
   return { ...counts, sentence: readingSummarySentence(counts) };
 }
 
-// A plain answer registered before research, a filed research map and a finalization receipt are not research.
-const NOT_RESEARCH: ReadonlySet<string> = new Set(["plain_answer", "research_map", "finalization"]);
+// A plain answer registered before research, a filed research map, a finalization receipt and HRP's core loaded are not
+// research.
+const NOT_RESEARCH: ReadonlySet<string> = new Set(["plain_answer", "research_map", "finalization", "protocol_core"]);
 
 /**
  * The records a literature search's receipt names, each as its identifiers, or undefined when the receipt doesn't

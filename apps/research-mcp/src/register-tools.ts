@@ -26,6 +26,11 @@ import {
 import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./meaning-judge.js";
 import { researchPlannerFromEnv, type ResearchPlanner } from "./research-planner.js";
 import type { ResearchLane } from "./research-steering.js";
+import { FULL_PROTOCOL_GEMINI } from "./full-protocol.js";
+import { researchTrialWindows, switchHolds, type ResearchSwitchModes, type ResearchTrialSwitch, type ResearchTrialWindows }
+  from "./research-trial.js";
+import { HRP_CORE_CLAIM, HRP_CORE_COMES_WITH_PLAN, HRP_CORE_HELD_ALREADY, hrpCoreDigest, hrpCoreReceiptUse, type HrpCore }
+  from "./hrp-core.js";
 import {
   answerReviewNote, researchReviewerFromEnv, type ResearchReviewer, type ResearchReviewerCall,
 } from "./research-reviewer.js";
@@ -125,13 +130,17 @@ import {
   MCP_RESULT_MAX_BYTES,
   PUBLIC_TOOL_LIMITS,
   atlasReviewEnabledFromEnv,
+  claimAccountingModeFromEnv,
   crossrefConfigFromEnv,
   devAccountKeysFromEnv,
   dossierPrivacyReadingFromEnv,
   safetyLimitsFromEnv,
   findingsLibraryEnabledFromEnv,
+  fullProtocolModeFromEnv,
+  hrpCoreModeFromEnv,
   ncbiConfigFromEnv,
   optionalLivingEvidenceReuseConfigFromEnv,
+  planIndirectModeFromEnv,
   askrigorBuildCommitFromEnv,
   SERVICE_VERSION
 } from "./config.js";
@@ -490,6 +499,48 @@ function protocolParts(
     parts: parts.filter((part, index) => !parts.some((other, otherIndex) => otherIndex !== index && inside(part, other) &&
       (!inside(other, part) || otherIndex < index)))
   };
+}
+
+/** Whether a request for several parts names the core whole. */
+const namesProtocolCore = (request: string): boolean =>
+  request.split(",").some((name) => name.trim() === PROTOCOL_CORE_SECTION);
+
+/** Each part's exact canonical bytes, in the order asked, a blank line between two parts. */
+function joinedProtocolParts(text: string, parts: readonly ProtocolPart[]): Buffer {
+  const bytes = Buffer.from(text, "utf8");
+  return Buffer.concat(parts.flatMap(({ byte_start, byte_end_exclusive }, index) => [
+    ...(index === 0 ? [] : [PROTOCOL_PART_SEPARATOR]),
+    bytes.subarray(byte_start, byte_end_exclusive)
+  ]));
+}
+
+/** A protocol's core, the bytes load_protocol serves for section "core", with their SHA-256 and the core's section names. */
+function protocolCore({ manifest, sections, text }: Awaited<ReturnType<typeof loadProtocolSectionSnapshot>>):
+  { bytes: Buffer; sha256: string; names: string[] } | undefined {
+  const core = protocolParts(manifest.name, text, sections, PROTOCOL_CORE_SECTION);
+  if (core === undefined || !("parts" in core)) return undefined;
+  const bytes = joinedProtocolParts(text, core.parts);
+  return { bytes, sha256: protocolTextPage(bytes, 1).scope_sha256, names: core.parts.map(({ label }) => label) };
+}
+
+/**
+ * HRP's core for the registration of the plain answer (owner answer 412a, hrp-core.ts). Undefined when the protocol cannot
+ * be read, which load_protocol then says.
+ */
+export async function currentHrpCore(): Promise<HrpCore | undefined> {
+  try {
+    const snapshot = await loadProtocolSectionSnapshot("hrp");
+    const core = protocolCore(snapshot);
+    return core === undefined ? undefined : {
+      version: snapshot.manifest.version,
+      sha256: core.sha256,
+      sections: core.names,
+      furtherSections: snapshot.sections.filter((section) => section.runtime && !section.core).map(({ name }) => name),
+      text: core.bytes.toString("utf8"),
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 /** "Rule in section A, Case in section B", for load_protocol's name matches. */
@@ -1060,6 +1111,8 @@ export interface RegisterToolsOptions {
    */
   findingsLedgerAccounts?: FindingsLedgerAccounts;
   findingsLedgerMemory?: FindingsLedgerMemory;
+  /** Owner answers 413a and 412a: the process's test windows (research-trial.ts), unless replaced for tests. */
+  researchTrialWindows?: ResearchTrialWindows;
   /** Shared questions and answers (owner answer 200a); null turns them off; defaults to the server's settings. */
   sharedAnswers?: SharedAnswers | null;
   /** How long finalize_research waits for a findings save; replaced for tests. */
@@ -1280,7 +1333,7 @@ function defineResearchOperations(
       },
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async ({ protocol, section, page }) => {
+    async ({ protocol, section, page }, extra) => {
       try {
         const snapshot = await loadProtocolSectionSnapshot(protocol);
         const { manifest, sections } = snapshot;
@@ -1322,11 +1375,7 @@ function defineResearchOperations(
         const several = section === undefined ? undefined : protocolParts(manifest.name, snapshot.text, sections, section);
         if (several !== undefined) {
           if (!("parts" in several)) return protocolRequestError(protocol, several.code, several.message);
-          // Each part's exact canonical bytes, in the order asked, a blank line between two parts.
-          const joined = Buffer.concat(several.parts.flatMap(({ byte_start, byte_end_exclusive }, index) => [
-            ...(index === 0 ? [] : [PROTOCOL_PART_SEPARATOR]),
-            bytes.subarray(byte_start, byte_end_exclusive)
-          ]));
+          const joined = joinedProtocolParts(snapshot.text, several.parts);
           const pageCount = protocolTextPage(joined, 1).page_count;
           if ((page ?? 1) > pageCount) {
             return protocolRequestError(
@@ -1336,7 +1385,7 @@ function defineResearchOperations(
             );
           }
           const textPage = protocolTextPage(joined, page ?? 1);
-          return successfulToolResult(
+          return withHrpCoreReceipt(successfulToolResult(
             `Loaded ${manifest.name} ${several.parts.map(({ label }) => label).join(", ")}, page ${textPage.page} of ` +
               `${textPage.page_count} (exact canonical bytes of each, in this order, a blank line between two).` +
               (textPage.complete ? "" : ` Call load_protocol again with the same section and page ${textPage.page + 1} to continue.`),
@@ -1354,7 +1403,8 @@ function defineResearchOperations(
               scope_sha256: textPage.scope_sha256,
               text: textPage.text
             }
-          );
+          ), protocol === "hrp" && textPage.complete && namesProtocolCore(section!) && hrpCoreReceiptsFor(options, extra)
+            ? protocolCore(snapshot)?.sha256 : undefined);
         }
         const target = section === undefined
           ? undefined
@@ -2197,6 +2247,17 @@ function defineResearchOperations(
       ...(options.researchDossierPublisher === undefined ? {} : { publicDossiers: true }),
       // Enforcing HRP, stage 1: plan_research says what can stop an answer while the findings ledger is on for the account.
       findingsLedger: (devAccount) => findingsLedgerFor(options, () => devAccount),
+      // Owner answer 413a: the menu accounts for the plain answer's claims, on an account that has it.
+      claimAccounting: (accountKey, devAccount) => switchHoldsFor(options, "claimAccounting", accountKey, devAccount),
+      // Owner answer 412a: registering the plain answer hands over HRP's core, on an account that has it.
+      hrpCore: currentHrpCore,
+      hrpCoreFor: (accountKey, devAccount) => switchHoldsFor(options, "hrpCore", accountKey, devAccount),
+      fullProtocolFor: (accountKey, devAccount) => switchHoldsFor(options, "fullProtocol", accountKey, devAccount),
+      hrpCoreReceipt: protocolCoreReceipt,
+      // Promise P90: AskRigor's own plan reaches for evidence one step away, on an account that has it.
+      indirectEvidence: (accountKey, devAccount) => switchHoldsFor(options, "indirectEvidence", accountKey, devAccount),
+      // Owner answers 413a and 412a, P90 and the full-protocol line: a dev account's test window for the research switches.
+      researchTrial: () => ({ modes: researchSwitchModes(), windows: options.researchTrialWindows ?? researchTrialWindows }),
       ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
       ...(sharing === undefined ? {} : { sharedAnswers: { ...sharing, versions: async () =>
@@ -2217,9 +2278,15 @@ function defineResearchOperations(
             if (secret === undefined) return undefined;
             const verified = verifyResearchReceipt(receipt, { secret });
             if (!verified.ok || verified.kind !== "plain_answer") return undefined;
-            const { acct, target } = verified.claims;
+            const { acct, target, claims, first, hrp, core } = verified.claims;
             return acct === plainAnswerAccountBinding(secret, accountKey) && typeof target === "string"
-              ? { target, issuedAt: verified.issued_at }
+              // Owner answer 413a: the claims' digests too, in the order registered, when they were registered to be
+              // accounted for on the menu (first: counted from 1, as the registration's result listed them). Owner answer
+              // 412a: and what the registration said of HRP's core.
+              ? { target, issuedAt: verified.issued_at,
+                ...(first === "1" && Array.isArray(claims) ? { claims } : {}),
+                ...(typeof hrp === "string" && HRP_CORE_CLAIM.test(hrp) ? { hrpCore: "handed" as const }
+                  : core === HRP_CORE_COMES_WITH_PLAN || core === HRP_CORE_HELD_ALREADY ? { hrpCore: core } : {}) }
               : undefined;
           },
         },
@@ -2747,19 +2814,27 @@ function defineResearchOperations(
       const reviewer = !callerReads && researcher !== undefined && checkedInput !== undefined && draft !== undefined &&
         draft.trim() !== "" && isDevAccount(researcher.accountKey, devAccountKeysFromEnv())
         ? configuredReviewer(options) : undefined;
+      // Owner answer 412a, option c: one note when no receipt shows HRP's core, while its switch holds for the account;
+      // never for a light look-up (the review of 24 Nov 2026, F1), which gets no core at its registration. Only a dev
+      // account's research, the only kind AskRigor plans, can be one.
+      const devResearcher = researcher !== undefined && isDevAccount(researcher.accountKey, devAccountKeysFromEnv());
+      const coreChecked = researcher !== undefined && secret !== undefined &&
+        switchHoldsFor(options, "hrpCore", researcher.accountKey, devResearcher);
+      const laneAsked = reviewer?.enabled === true || (coreChecked && devResearcher && checkedInput !== undefined);
       // The person's words, read from the raw call as register_plain_answer reads its own; absent or unusable, the
       // review reads the research target alone.
-      const asked = reviewer?.enabled === true ? finalCheckAsked(input) : undefined;
+      const asked = laneAsked ? finalCheckAsked(input) : undefined;
       // Owner answer 302: a light look-up's draft is not reviewed, and the review counts nothing for it. The lane is
       // the one AskRigor's own plan gave this account's same words or research target (plannedLane), which can
       // neither fail the check nor hold it up: no lane, a throw or a rejection, and the draft is reviewed as before.
       const reviewed = (lane: ResearchLane | undefined) => lane === "light" ? LIGHT_LANE_NOT_REVIEWED
         : reviewer!.review({ asked, researchTarget: checkedInput!.research_target, answer: draft! },
           researcher!.accountKey);
+      const lane = !laneAsked ? undefined
+        : plannedLane(options, asked, researcher!.accountKey, checkedInput!.research_target);
       const reviewing = reviewer?.enabled !== true ? undefined
-        : plannedLane(options, asked, researcher!.accountKey, checkedInput!.research_target)
-          .then(reviewed, () => reviewed(undefined))
-          .catch(() => REVIEW_FAILED);
+        : lane!.then(reviewed, () => reviewed(undefined)).catch(() => REVIEW_FAILED);
+      const lightLookUp = coreChecked && lane !== undefined ? lane.then((found) => found === "light", () => false) : undefined;
       const finalizeOptions = {
         secret,
         protocolNames: await protocolNames(),
@@ -2779,6 +2854,9 @@ function defineResearchOperations(
         ...(researcher !== undefined && secret !== undefined && options.mcpSurface !== "/mcp/gemini" &&
             plainAnswerRequested(researcher.mode)
           ? { plainAnswer: { note: researcher.plainAnswerNote, account: plainAnswerAccountBinding(secret, researcher.accountKey) } }
+          : {}),
+        ...(coreChecked && await lightLookUp !== true
+          ? { hrpCore: { account: plainAnswerAccountBinding(secret!, researcher!.accountKey) } }
           : {}),
         // Owner answer 143a: this research's map, on the MCP connector. A paid private answer's save offer also asks,
         // in the same sentence, to file it; a free contributor's final check reminds the model to file it.
@@ -3423,6 +3501,56 @@ export function dossierConflictReaderOf(options: Pick<RegisterToolsOptions, "res
 function findingsLedgerFor(options: RegisterToolsOptions, devAccount: () => boolean): boolean {
   return (options.findingsLedger ?? findingsLedgerEnabledFromEnv()) &&
     ((options.findingsLedgerAccounts ?? findingsLedgerAccountsFromEnv()) === "all" || devAccount());
+}
+
+/**
+ * The modes of the research switches, as the server is set: the three of 24 November 2026 (owner answers 413a and 412a,
+ * and P90) and the full-protocol line of 28 November 2026.
+ */
+function researchSwitchModes(): ResearchSwitchModes {
+  return { claimAccounting: claimAccountingModeFromEnv(), hrpCore: hrpCoreModeFromEnv(),
+    indirectEvidence: planIndirectModeFromEnv(), fullProtocol: fullProtocolModeFromEnv() };
+}
+
+/** Whether one of them holds for an account: its mode, and for a dev account its test window (research-trial.ts). */
+function switchHoldsFor(options: RegisterToolsOptions, name: ResearchTrialSwitch, accountKey: string, devAccount: boolean):
+  boolean {
+  return switchHolds(researchSwitchModes()[name], devAccount,
+    (options.researchTrialWindows ?? researchTrialWindows).window(accountKey)?.[name] === true);
+}
+
+/**
+ * Owner answer 412a, option c: whether load_protocol gives a receipt for HRP's core to this call: while the switch holds
+ * for its account, and, for a call with no account to ask about, whenever the switch is not off.
+ */
+function hrpCoreReceiptsFor(options: RegisterToolsOptions, extra: ResearchOperationExtra | undefined): boolean {
+  if (hrpCoreModeFromEnv() === "off") return false;
+  const accountKey = callAccountKey(extra, options.researchContributorAccessService);
+  return accountKey === undefined ||
+    switchHoldsFor(options, "hrpCore", accountKey, isDevAccount(accountKey, devAccountKeysFromEnv()));
+}
+
+/**
+ * load_protocol's result for HRP's core with the receipt that shows it was loaded, in its text alone: the tool's published
+ * result stays as it is. Without a digest, or where this server cannot sign receipts, the result as it was.
+ */
+function withHrpCoreReceipt(result: CallToolResult, sha256: string | undefined): CallToolResult {
+  if (sha256 === undefined) return result;
+  const receipt = protocolCoreReceipt({ sha256 });
+  return receipt === undefined ? result : { ...result, content: [...result.content,
+    { type: "text", text: `research_receipt: ${receipt} ${hrpCoreReceiptUse({ sha256 })}` }] };
+}
+
+/** The receipt that HRP's core was given, as load_protocol and a plan_research result that carries it give it. */
+function protocolCoreReceipt(core: Pick<HrpCore, "sha256">): string | undefined {
+  return researchReceipt("protocol_core", { hrp: hrpCoreDigest(core) });
+}
+
+/** The pseudonymous key of the account a call is signed in as, read from the call alone; undefined for any other call. */
+function callAccountKey(extra: ResearchOperationExtra | undefined, service: ResearchContributorAccessService | undefined):
+  string | undefined {
+  const auth = authorizedSubject(extra, undefined);
+  return "error" in auth || service === undefined ? undefined : service.accountKeyForSubject(auth.subject);
 }
 
 /**
@@ -4948,8 +5076,23 @@ export function registerTools(
     const recording = options.researchCallRecord === undefined || options.researchContributorAccessService === undefined
       ? undefined : researchCallRecordingOptions(options.researchCallRecord,
         options.researchContributorAccessService, options.mcpSurface ?? "/mcp");
-    register(operation.name, operation.mcpConfig, forTextClients(operation.name, operation.execute, recording));
+    const execute = forTextClients(operation.name, operation.execute, recording);
+    register(operation.name, operation.mcpConfig, options.mcpSurface === "/mcp/gemini" && operation.name !== "load_protocol"
+      ? withGeminiFullProtocol(execute, options)
+      : execute);
   }
+}
+
+/** Append after forTextClients, so any text copy of structured content stays where it was. */
+function withGeminiFullProtocol(execute: ResearchOperationHandler, options: RegisterToolsOptions): ResearchOperationHandler {
+  return async (input, extra) => {
+    const result = await execute(input, extra);
+    if (result.isError === true || fullProtocolModeFromEnv() === "off") return result;
+    const accountKey = callAccountKey(extra, options.researchContributorAccessService);
+    if (accountKey === undefined ||
+        !switchHoldsFor(options, "fullProtocol", accountKey, isDevAccount(accountKey, devAccountKeysFromEnv()))) return result;
+    return { ...result, content: [...result.content, { type: "text", text: FULL_PROTOCOL_GEMINI }] };
+  };
 }
 
 function collectResearchOperations(
@@ -5014,6 +5157,12 @@ function collectResearchOperations(
           devAccount: async (extra) => {
             const researcher = await researchUseAccount(extra, options.researchContributorAccessService);
             return researcher !== undefined && isDevAccount(researcher.accountKey, devAccountKeysFromEnv());
+          },
+          // Owner answer 413a: the claims' fields are part of a menu only on an account whose claims it accounts for.
+          claimAccounting: (extra) => {
+            const accountKey = callAccountKey(extra, options.researchContributorAccessService);
+            return accountKey !== undefined &&
+              switchHoldsFor(options, "claimAccounting", accountKey, isDevAccount(accountKey, devAccountKeysFromEnv()));
           } })
         // 13 Nov 2026: a study audit refused for its input says so in its structured content too, when it can.
         : name === STUDY_AUDIT_TOOL ? withStudyAuditInputRefusal(evolving.execute)
