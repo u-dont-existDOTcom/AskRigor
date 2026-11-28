@@ -110,9 +110,11 @@
   P-1233 shows a mark ("Unverified claim of a conflict of interest", on "The university that ran it owns the brand.") and
   is not kept out of search engines. The code does this on purpose since release b (19 Nov, unchanged here): only an
   unread finding, a waiting sentence or an unverified claim about a person makes a page noindex; a claim about an
-  organization keeps its mark and stays indexable (the page is in the sitemap). The kit's check, from release b, asks
-  noindex for any mark; releases J's and I's acceptances never met such a page among the twelve they read. Not this
-  release's change; the live service is not worse; not rolled back. The release's own checks passed (RELEASE_KL_PUBLIC_OK,
+  organization keeps its mark and stays indexable (the page is in the sitemap; it is a reviewed finding, "Checked by
+  supervisors", so indexed under 224a). The kit's check, from release b, asks noindex for any mark: the acceptance
+  check's own over-strict expectation, to fix in the next kit; release J's and I's acceptances never met such a page
+  among the twelve they read. The coordinator accepted it as not this release's; the live service is not worse; not
+  rolled back. The release's own checks passed (RELEASE_KL_PUBLIC_OK,
   ACCEPTANCE_HOST_OK: the five settings off in the service, the log unlogged, the reader role without login or member,
   no row older than 720 hours).
 - **After:** the readers (the five new settings not set, `ASKRIGOR_ATLAS_REVIEW` enabled as before, the error log empty
