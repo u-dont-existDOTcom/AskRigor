@@ -609,9 +609,11 @@ the final check finds the lane of the newest kept plan under any of them.
 The owner, Inbox, 27 November 2026: "maybe even "follow every step of AskRigor protocol precisely" would work best ... is
 there any way AskRigor can inject that in". Where `ASKRIGOR_FULL_PROTOCOL` holds, an active account's `inspect` starts
 with AskRigor's own sentence to follow every step of the AskRigor protocol precisely (`apps/research-mcp/src/full-protocol.ts`),
-after any tool-list notice, and `next_step` starts with it too. It says when to load HRP's core (after the plain answer is
-registered and before the first search; with the core hand-over on, as the registration's result gives it), to load
-further sections only as the question needs them, and to give urgent action first. `full_protocol_line: true` marks such
+after any tool-list notice, and `next_step` starts with it too. It puts any urgent action first, before further calls, and
+says when to load HRP: after the plain answer is registered and before the first search, its index and then its core,
+whichever the conversation lacks, or, with the core hand-over on, the core as the registration's result directs and the
+index before any separate load of the core; further sections only as the question needs them; and only what a result says
+when it says the question needs less. `full_protocol_line: true` marks such
 an inspect result for test rounds. On `/mcp/gemini`, which has no `inspect`, every successful result but `load_protocol`'s
 ends with a shorter text block naming the `load_protocol` calls, for a signed-in account the switch holds for; the rest of
 the result, its structured content included, is unchanged. No tool description, schema, server instruction, skill or
