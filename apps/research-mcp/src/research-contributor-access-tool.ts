@@ -972,9 +972,11 @@ export function withResearchMenuReading(execute: ResearchOperationHandler, optio
     if (input.action !== "plan_research" || later === null || typeof later !== "object" || Array.isArray(later)) {
       return await execute(input, extra);
     }
-    // A receipt on its own requests the server's menu. A complete or flat menu still goes through the usual reader.
+    // Owner answer 435a: on a dev account, a receipt on its own requests the server's menu. Any other account's call,
+    // like a complete or flat menu, still goes through the usual reader, so its result is the one it got before.
     if (Object.hasOwn(later, "plain_answer_receipt") &&
-        Object.keys(later).every((key) => key === "plain_answer_receipt" || key === "findings_save")) {
+        Object.keys(later).every((key) => key === "plain_answer_receipt" || key === "findings_save") &&
+        await (options.devAccount?.(extra) ?? Promise.resolve(false)).catch(() => false)) {
       return await execute(input, extra);
     }
     const reading = readResearchMenu(later as Record<string, unknown>);

@@ -1544,6 +1544,22 @@ describe("background research planning (owner answer 435a)", () => {
     expect(fallback.structuredContent).not.toHaveProperty("research_plan");
     expect(plan).toHaveBeenCalledTimes(2);
   });
+
+  it("leaves an account without the planner as it was, a plan_research call with a receipt alone too", async () => {
+    const plan = vi.fn(async () => planned());
+    const { call } = await tool({ enabled: true, plan }, ["auth0|dev"]);
+    const registered = await call(registration, "auth0|person");
+    expect(plan).not.toHaveBeenCalled();
+    expect(registered.structuredContent).toHaveProperty("menu_outline");
+    expect(words(registered)).not.toContain("get_research_plan");
+    // The usual reader's refusal, with the receipt in its example: what this call got before owner answer 435a.
+    const receipt = receiptOf(registered);
+    const alone = await call({ action: "plan_research", later_inputs: { plain_answer_receipt: receipt } }, "auth0|person");
+    expect(alone.isError).toBe(true);
+    expect(alone.structuredContent).toMatchObject({ ok: false, error: { code: "invalid_request" },
+      corrected_later_inputs: { researchMenu: { plain_answer_receipt: receipt } } });
+    expect(words(alone)).not.toContain("AskRigor's research plan is unavailable");
+  });
 });
 
 // Owner answer 399b (21 Nov 2026): a balanced first menu goes on whatever its length, so the mark no longer makes

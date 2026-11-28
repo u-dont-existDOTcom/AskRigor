@@ -553,8 +553,9 @@ owner's ChatGPT runs had left that judgment to the person's AI, and it went wron
   and the reply puts it to the person with the menu; none goes on, and the answer opens with how the question was
   read. When the reading found differs from the plain answer's, the AI says so in one line, and registers again
   only when the research target itself names the wrong thing (the underlying plan is kept for an hour for the same
-  words). A `plan_research` call with `later_inputs.plain_answer_receipt` in place of `researchMenu` waits for the
-  same menu and applies the same checks. Both follow-up calls use the registration's original outer deadline.
+  words). On a dev account, a `plan_research` call with `later_inputs.plain_answer_receipt` in place of
+  `researchMenu` waits for the same menu and applies the same checks; any other account's goes through the menu
+  reader as before. Both follow-up calls use the registration's original outer deadline.
 - **The order of its tasks.** By how directly each could answer what the person asked, not by which source is best
   known: for harm or benefit in people, studies in people that compare come first, then series that give doses and
   counts, then what else could cause the same thing, and animal and cell studies after them; for what a
