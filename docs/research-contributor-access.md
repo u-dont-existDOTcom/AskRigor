@@ -544,7 +544,8 @@ owner's ChatGPT runs had left that judgment to the person's AI, and it went wron
   for it next time.
   `asked` goes only with `register_plain_answer`; on any other account it is not used.
 - **What comes back.** On a dev account with the planner on, `register_plain_answer` starts the plan and returns
-  the signed receipt at once. The AI loads its protocol sections and calls `get_research_plan` with
+  the signed receipt at once. The AI loads its protocol sections, with no screen or menu of its own yet, and in the
+  same turn, before asking the person anything, calls `get_research_plan`, which waits for the plan, with
   `later_inputs.plain_answer_receipt` set to the registration's `research_receipt` (owner answer 435a, 28 November
   2026). The follow-up returns the original planning result. Its first text and `next_step` say not to screen, give what the
   question is about (`research_plan.about`), and hand over the menu ready to send: `planned_later_inputs`, a

@@ -1830,9 +1830,14 @@ function keepResearchPlan(service: ResearchContributorAccessService, accountKey:
   return entry.ready;
 }
 
-const PLAN_PENDING = `The research plan is being built. ${URGENT_FIRST} Load the protocol sections you need now. ` +
-  "Then call manage_research_access with action get_research_plan and later_inputs.plain_answer_receipt set to " +
-  "this result's research_receipt.";
+// The review of 435a's build (Claude, with Fable's red-team): who builds the plan; that the AI's own screen and menu
+// wait for it, as they did when the registration carried it; and that it is fetched in this turn, before any question
+// to the person (a plan is dropped 125 seconds after the registration), by a call that itself waits, so the AI
+// neither polls nor ends its turn to wait.
+const PLAN_PENDING = `AskRigor is building the research plan. ${URGENT_FIRST} Load the protocol sections you need now, ` +
+  "but do not screen or write a menu of your own yet. Then, in this same turn and before asking the person " +
+  "anything, call manage_research_access with action get_research_plan and later_inputs.plain_answer_receipt set " +
+  "to this result's research_receipt: it waits for the plan and returns your next step.";
 const PLAN_FALLBACK_LINE =
   "Tell the person in one line that the plan will take a few minutes more: you are taking a first look yourself.";
 const FILL_MENU_OUTLINE = "Fill in menu_outline for your plan_research call.";

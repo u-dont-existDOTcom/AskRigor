@@ -1431,8 +1431,12 @@ describe("background research planning (owner answer 435a)", () => {
     expect(plan).toHaveBeenCalledTimes(1);
     const receipt = receiptOf(pending);
     expect(pending.structuredContent).toMatchObject({ ok: true, research_receipt: expect.any(String),
-      plainAnswer: { requested: true, claims: 1 }, next_step: expect.stringContaining(
-        "Load the protocol sections you need now. Then call manage_research_access with action get_research_plan") });
+      plainAnswer: { requested: true, claims: 1 }, next_step: expect.stringContaining("Load the protocol sections you " +
+        "need now, but do not screen or write a menu of your own yet. Then, in this same turn and before asking the " +
+        "person anything, call manage_research_access with action get_research_plan and " +
+        "later_inputs.plain_answer_receipt set to this result's research_receipt: it waits for the plan and returns " +
+        "your next step.") });
+    expect(pending.structuredContent!.next_step).toMatch(/^AskRigor is building the research plan\. If the question is/u);
     expect(pending.content[0]).toEqual({ type: "text", text: pending.structuredContent!.next_step });
     expect(pending.structuredContent).not.toHaveProperty("research_plan");
     expect(pending.structuredContent).not.toHaveProperty("menu_outline");
