@@ -415,6 +415,9 @@ Not done: patches tool by tool; guessing the app from anything else; changing th
 Why: Gemini names its connector by a Client ID Metadata Document that authenticates with `private_key_jwt` against keys on www.gstatic.com, which Auth0 refuses on every plan (20 Nov 2026). Built on panva's `oidc-provider` (exact version) rather than hand-built protocol code; tokens are opaque and stored only as HMACs, the subject only encrypted; refresh tokens are not rotated (Google's guide asks so, and every refresh needs Google's single-use signed assertion), a link lasts 180 days at most, and `disconnect_gemini` ends a person's links from any app. Design: `docs/superpowers/plans/2026-11-21-gemini-sign-in-design.md`, red-teamed by Codex.\
 Not done: Gemini on `/mcp` (it can't be told from ChatGPT before sign-in); a registration endpoint; showing AskRigor's research notice inside Gemini, whose compact tool list has no `manage_research_access` (the notice is accepted once in Claude or ChatGPT). · Decided: 20 Nov 2026 (owner answer 386b); built 21 Nov, not yet released.
 
+**The MCP display title is AskRigor. Gemini offers the same consented report submission as the other connectors.**\
+The handshake's version field carries the running versions. Gemini's compact catalog includes `submit_lesson_candidate` and uses the shared research-access and report checks. · Decided: the owner's 27 Nov Inbox request and answer 432 2a.
+
 **New work targets the ChatGPT app, the Claude connector and the Codex plugin, not Custom GPTs.**\
 Why: the owner, 17 Oct: "GPTs are on the way out, so it doesn't make sense to build a new feature for custom GPT if it doesn't work for plugins".\
 Decided: 27 Sep 2026; 17 Oct (the owner).

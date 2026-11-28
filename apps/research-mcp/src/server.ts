@@ -88,7 +88,6 @@ import {
   type RunningVersions,
   VERSION_PATH,
   runningVersionsOf,
-  runningVersionsText,
   versionPayload,
 } from "./version.js";
 import { installGeminiCompatibleToolCatalog } from "./gemini-tool-catalog.js";
@@ -173,7 +172,7 @@ export interface AskRigorMcpServerOptions {
   sharedAnswers?: SharedAnswers | null;
   /** The endpoint this server answers on; saved findings cards record it. */
   mcpSurface?: McpSurface;
-  /** The versions this server runs: its title and version, and the manifest tool's result. */
+  /** The versions this server runs, for MCP version metadata and the manifest result. */
   runningVersions?: RunningVersions;
   /** This surface's tool list version (toolListVersionOf), which a call's tool_list_version is compared with. */
   toolListVersion?: string;
@@ -191,10 +190,9 @@ export function createAskRigorServer(
   const server = new McpServer(
     {
       name: profile === "gemini" ? GEMINI_COMPATIBLE_SERVICE_NAME : SERVICE_NAME,
-      // Where a client shows the server's name and version, they carry the
-      // protocol versions; the build metadata keeps the version valid semver.
+      // Protocol and build identifiers belong in the semver version field.
       version: running === undefined ? SERVICE_VERSION : `${SERVICE_VERSION}+${semverBuildMetadata(running)}`,
-      ...(running === undefined ? {} : { title: `AskRigor (${runningVersionsText(running)})` })
+      ...(running === undefined ? {} : { title: "AskRigor" })
     },
     { instructions: SERVER_INSTRUCTIONS }
   );
