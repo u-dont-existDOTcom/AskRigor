@@ -1,16 +1,17 @@
 import { receiptText } from "../research-receipts.js";
-import type { SourceLineLookup } from "../source-lines.js";
 import type { NewsCard } from "./card.js";
+import type { NewsLineLookup } from "./web-page.js";
 
 /**
  * Atlas news, stage 1 (design v4, section 3.3): the news card's own claims in the finalization receipt, beside the
  * findings card's and under their own condition. `news`: the card's digest; `nl`: what each backing line's lookup found
- * and where, in its order (`<line>:<f|n|u>:<text kind>`, as `bl` gives a findings card's); `ns`: the section of each
- * quote found (`<line>:<section>`); `nr`: how each of the card's sources was read (`<place>:<reading>:<figures>`, as `rd`
- * gives a findings card's); `np`, only when it was read so: the PMID of the PubMed record AskRigor read itself for the
- * card's DOI, whose title and abstract its lines quoting that paper were looked up in, after the full-text tool admitted
- * no copy (the 23 Nov 2026 news audit). The day call and the shadow readers read them; the server stages a card only
- * with them.
+ * and where, in its order (`<line>:<f|n|u>:<text kind>`, as `bl` gives a findings card's; the kind `web_page` is a news
+ * card's alone, a page its check read that read the same again, never a paper's text: the day call counts it so); `ns`:
+ * the section of each quote found (`<line>:<section>`); `nr`: how each of the card's sources was read
+ * (`<place>:<reading>:<figures>`, as `rd` gives a findings card's); `np`, only when it was read so: the PMID of the
+ * PubMed record AskRigor read itself for the card's DOI, whose title and abstract its lines quoting that paper were
+ * looked up in, after the full-text tool admitted no copy (the 23 Nov 2026 news audit). The day call and the shadow
+ * readers read them; the server stages a card only with them.
  */
 
 const OUTCOME_CODES = { found: "f", not_found: "n", not_checked: "u" } as const;
@@ -27,7 +28,7 @@ export interface NewsClaims {
 
 export function signedNewsClaims(
   checked: { card: NewsCard; digest: string },
-  lookups: readonly SourceLineLookup[],
+  lookups: readonly NewsLineLookup[],
   readingOf: (source: string) => { read: string; figures?: string | undefined } | undefined,
   pubmedRecord?: string,
 ): NewsClaims {

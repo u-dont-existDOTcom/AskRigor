@@ -234,3 +234,42 @@ The news lane's audits of 22 and 23 Nov (owner-pages `askrigor/news-check-runs/2
 
 The news check's own instructions (outside this repository) still say 12 words and a numeric comparison; the news lane
 changes them with this release.
+
+## The 24 Nov 2026 audit: official pages (third pull request)
+
+The audit of 24 Nov (owner-pages `askrigor/news-check-runs/2026-11-24-audit.md`, "Official pages") found that an official
+notice's card could never be stored: every quote from gov.uk, medicines.org.uk or fda.gov was signed `u:none`, since the
+lookup reads only full-text handles and PubMed abstracts (`news/web-page.ts` now does this part):
+
+- **The receipt signs the page's text.** The audit and the fix's brief took `forum_thread_read`'s `w` for the page's hash;
+  it is a digest of the page's link, and nothing in the receipt was of its text. The receipt now signs `tx`, 32 hex
+  characters of the SHA-256 of the text `read_forum_thread` returned. A page read before this release has none, and its
+  lines stay unchecked, as before.
+- **The gate names the page** for the news card's lines alone: a key source that is a web address, names no paper (a DOI,
+  PMID or PMCID) and is named by no paper's receipt, read here by the page reader (its address compared as a thread's
+  link is), with every digest its reads signed.
+- **The server reads it again** with the tool's own reader, at most three pages a check (the pages of the official action,
+  How much and who paid first), each waited for seven seconds, all at once and apart from the papers' lines (raced, not
+  aborted: a request already sent may finish); only for a dev
+  account's call marked `findings_save` "off", the only call whose card can be staged. The same text: the quote is looked
+  up in it by the news matching, as `web_page`. Another text: unchecked, `text_changed`. Unreadable or late: unchecked,
+  `text_unavailable`. Not in a page the reader cut at its size limit: unchecked, not missing, and the sentence the cut
+  falls in is never found.
+- **The day call limits it** (`newsItemReasons`): `web_page` backs an official action; on a card whose design is
+  `official_notice` it also backs How much and who paid, from the site (the whole host, less a www) its action was found
+  on; on any other card, or from another site, neither; and when How much quotes anything but the notice, one line must be
+  found in a paper, so the notice's figures never stand in for a paper's. Nothing else reads `nl`: staging compares its
+  length, `list_news_items` returns it, and the news check's programs (`news.py`, `digest.py`) don't read it.
+- **Replayed on 24 Nov** (locally, with the live pages, not committed): all five pages the two cards quote read the same
+  as the 22 and 24 Nov runs had read them; of N-1001's 6 and N-1013's 7 lines from pages, 12 are found, both official
+  actions among them, in 2.0 and 3.6 seconds, and the same after the review's fixes. The one not found follows a heading
+  with no full stop. With 22 Nov's other lookups, N-1001 would still be kept back for How much: its paper's sentence
+  wasn't found in the paper.
+- **A second model's review (Fable, 24 Nov)** found nothing that makes a receipt lie; its findings applied here are F1 and
+  F7 (an address that names a paper has no page; the notice's site is its whole host) and F5 (a heading's word inside a
+  sentence splits none). Accepted limit (F1): a journal's own article page whose address holds no identifier can't be told
+  from another site's, so a paper's card wrongly declared an official notice could take its action and figures from it;
+  the meaning reading stands behind that.
+
+No migration, no tool-list change. The news lane's reading rules ("AskRigor's server looks each sentence up word for word
+in that source") hold for an official page's sentences from this release on.

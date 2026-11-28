@@ -22,6 +22,7 @@ import {
   type ResearchCallRecordStore,
   type ResearchDossierPublisher,
   type ResearchDossierStore,
+  type TermsPageAnswerStore,
 } from "@askrigor/evidence-repository";
 
 import {
@@ -138,6 +139,8 @@ import { announcingDossierPublisher } from "./atlas/change-signal.js";
 import { startDossierPrivacySweep } from "./atlas/dossier-review.js";
 import { createAtlasPagesHandlerFromEnv, type AtlasPagesHandler } from "./atlas/pages-http.js";
 import { atlasNewsFromEnv, type AtlasNewsOptions } from "./news/runtime.js";
+import { createAccountTermsRoutes, type AccountTermsRoutes } from "./account-terms/routes.js";
+import { accountTermsSettingsFromEnv } from "./account-terms/tokens.js";
 
 export type McpToolCatalogProfile = "standard" | "gemini";
 
@@ -276,6 +279,16 @@ export interface AskRigorHttpServerOptions {
   atlasReviewEnabled?: boolean;
   /** The public Atlas pages under /atlas (decision 171, section 4C); from the environment by default. */
   atlasPagesHandler?: AtlasPagesHandler;
+  /**
+   * AskRigor's terms page at sign-in, /account/terms (owner answer 419a); by default from ASKRIGOR_AUTH0_TERMS_SECRET,
+   * the connector's research accounts and the research-access database, answering 503 while one is missing.
+   */
+  accountTermsRoutes?: AccountTermsRoutes;
+  /**
+   * Replaces the answers the free-use notice takes at sign-in (migration 0044), on the terms page and in Gemini's sign-in,
+   * for tests; otherwise the research-access database's.
+   */
+  termsPageAnswers?: TermsPageAnswerStore;
   /** Shared questions and answers (owner answer 200a); null turns them off; defaults to the server's settings. */
   sharedAnswers?: SharedAnswers | null;
 }
@@ -476,12 +489,6 @@ export function createAskRigorHttpServer(
       });
   // Owner answer 280a: the content-free call record, on the research-access database and pool.
   const researchCallRecord = options.researchCallRecord ?? researchAccessStore?.callRecordStore();
-  // Owner answer 386b: AskRigor's own authorization server for Google's Gemini app, on the same database and pool. It
-  // exists only beside the primary OAuth resource (its settings refuse to load without it).
-  const geminiSignIn = options.geminiSignIn === null
-    ? undefined
-    : options.geminiSignIn ?? geminiSignInFromEnv(researchAccessStore?.geminiSignInRows());
-  const geminiLinks = geminiSignIn?.links;
   // AskRigor#477 stage 1 (owner answer 329a): research dossiers, on the research-access database and pool, once enabled.
   const researchDossiers = options.researchDossiers ??
     (researchDossiersEnabledFromEnv() ? researchAccessStore?.dossierStore() : undefined);
@@ -502,6 +509,20 @@ export function createAskRigorHttpServer(
           // owner's standing instruction of 6 November 2026; no other account does.
           ...(oauthResourceServer === undefined ? {} : { ownerSubjects: oauthResourceServer.reviewerSubjects }),
         }));
+  // The answers the free-use notice takes at sign-in, each token once (owner answer 419a, migration 0044): AskRigor's
+  // terms page and Gemini's sign-in keep them in the same table.
+  const termsPageAnswers = options.termsPageAnswers ?? researchAccessStore?.termsPageAnswers();
+  // Owner answer 386b: AskRigor's own authorization server for Google's Gemini app, on the same database and pool. It
+  // exists only beside the primary OAuth resource (its settings refuse to load without it). Gemini can't show the
+  // free-use notice in its chat, so its sign-in shows it on AskRigor's own page to an account whose yes doesn't cover
+  // the current notice, recording a yes as the terms page does (owner answer 419a; the owner, 27 Nov 2026).
+  const geminiSignIn = options.geminiSignIn === null
+    ? undefined
+    : options.geminiSignIn ?? geminiSignInFromEnv(researchAccessStore?.geminiSignInRows(), process.env,
+      researchContributorAccessService === undefined || termsPageAnswers === undefined
+        ? {}
+        : { notice: { access: researchContributorAccessService, answers: termsPageAnswers } });
+  const geminiLinks = geminiSignIn?.links;
   const researchContributionReviewConfig =
     options.researchContributionReviewService === undefined
       ? researchContributionReviewConfigFromEnv()
@@ -531,6 +552,15 @@ export function createAskRigorHttpServer(
     // The public user count's two aggregates, on the research-access pool (ASKRIGOR_PUBLIC_USER_COUNTS; off by default).
     ...(researchAccessStore === undefined ? {} : { userCounts: researchAccessStore.userCounts() }),
     ...(oauthResourceServer === undefined ? {} : { ownerSubjects: oauthResourceServer.reviewerSubjects }),
+  });
+  // Owner answer 419a: the free-use notice right after a person's first sign-in, between Auth0's post-login Action and
+  // Auth0's /continue. It records a yes on the connector's research accounts, keeps each token's one answer on the same
+  // database, and answers 503 without them or while ASKRIGOR_AUTH0_TERMS_SECRET is unset.
+  const accountTermsRoutes = options.accountTermsRoutes ?? createAccountTermsRoutes({
+    settings: accountTermsSettingsFromEnv(),
+    access: researchContributorAccessService,
+    answers: termsPageAnswers,
+    rateLimiter: createTokenBucketLimiter(PUBLIC_RATE_LIMIT),
   });
   const researchAccessRequired = oauthResourceServer !== undefined;
   const effectiveActionRoutes = researchAccessRequired
@@ -649,6 +679,15 @@ export function createAskRigorHttpServer(
         response.writeHead(503, { "content-type": "application/json", "cache-control": "no-store" });
         response.end(JSON.stringify({ status: "unavailable" }));
       }
+      return;
+    }
+
+    if (
+      await accountTermsRoutes.dispatch(request, response, {
+        pathname,
+        clientIp: resolveClientIp(request, trustedClientIpHeader),
+      })
+    ) {
       return;
     }
 

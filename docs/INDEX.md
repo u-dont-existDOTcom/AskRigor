@@ -155,7 +155,29 @@ records decisions and their sources; it adds no authority to the list above.
   "none" comparison, the news quote rules, the PubMed fallback, the expiry reasons), after five rounds of Codex's review;
   no setting, site or migration change; build, stages A to C, one acceptance, the plugin receipt and rollback; live 23 Nov
   2026, 22:04:32 UTC.
+- `audits/2026-11-24-quick-answer-note-gemini-step-log-production-release.md`: #519 and #516 (with #518's records), the
+  owner's "Yes, release both" (24 Nov 2026, 13:19:44 UTC; 413a and 411b): the quick-answer note leads with what the research
+  changed and closes with the rest; the Gemini step log after Allow (fixed names only) and the sign-in's exact addresses; the
+  refresh notice names each app's steps; no setting, site or migration change; build, stages A to C (stage C stopped once at a
+  laptop connection and ran again on the coordinator's word), one acceptance, the plugin receipt and rollback; live 24 Nov
+  2026, 14:07:54 UTC.
+- `audits/2026-11-25-server-fixes-gemini-allow-page-production-release.md`: #521 and #523 (with #522's records), then
+  the site update #524; the owner's 417a (24 Nov 2026, 21:22:33 UTC), "Yes, include it" for #523 (21:44:36 UTC) and
+  "417a with the Gemini fix" (25 Nov 2026, 01:20:53 UTC): a failed Europe PMC search answered from PubMed; a news card's
+  quotes looked up in the official page it read; jit off on the evidence repository's connections, with a catalog
+  failure's class in the log; one sentence read as a list of one; Gemini's Allow and Cancel go on from a page, not a
+  redirect; no setting or migration change; build (the first stopped on the kit's own probe, which was fixed), stages A
+  to C, one acceptance, the plugin receipt, the Claude connector probe and rollback; the site release (the privacy
+  notice effective November 25, 2026, with the Gemini step log's sentence; the roadmap's 23 and 24 November sections)
+  and a second acceptance; live 25 Nov 2026, 01:37:49 UTC (the site at 01:48:30).
+- `audits/2026-11-27-owner-answer-429a-production-release.md`: #529, #526, #531 and #532 (with #524's and #525's), the
+  owner's 429a (27 Nov 2026, 20:25:36 UTC): Gemini's own sign-in shows AskRigor's free-use notice to an account whose yes
+  doesn't cover it (Accept records it, noted PERSON_SIGN_IN_PAGE; Decline records nothing); 419a's /account/terms page
+  (503: its secret unset, its Auth0 Action not installed); migration 0044 and the access role's grant; the Atlas clock
+  test fix; then the site update (the privacy notice effective November 27, 2026; the roadmap's 25 November, 15 November
+  and 27 November 2026 sections).
 - `audits/2026-11-15-caller-readings-production-release.md`: #469, owner answer 310a: a `finalize_research` call marked `later_inputs.ai_readings` `caller` gets every rule check and no AI reading from the server, on any account (no review of the draft, no second reading, no meaning judge); the result, the receipt and the check line say who made the readings, and such a call saves no findings card (question 311); live since 14:14 UTC on 15 Nov 2026 after waiting for research in progress to end; one marked check on the owner's dev account passed in 0.9 seconds with the review's count unchanged; in production only the review of the draft is switched on among the check's three AI readings.
+- `audits/2026-11-15-caller-cards-and-go-ahead-production-release.md`: #473, released on the owner's "release 473": owner answer 311a (a card from a check whose AI readings the app made is saved like any card, and each of its findings' Atlas pages says "AskRigor's server checked the sources. The app that ran the research made the AI readings.") and AskRigor#467 (the person's go-ahead in their own words answers the research's first menu); live since 22:52:55 UTC on 15 Nov 2026; a live plan_research with person_go_ahead all went on without asking; rollback hazard: the build before cannot read rows that hold ai_readings.
 - `audits/2026-11-14-learn-mode-production-release.md`: #461, owner answer 303a: learn mode for a dev account's own menu choices (a switch, off by default; while on, the newest 20 choices with the person's reasons, read by AskRigor's planning call; off deletes them); the plan's lane in the call record; no step-aside on a plan made without a web search; migration 0035 and the access role's grants; live 14 Nov 2026, 10:15:55 UTC.
 - `audits/2026-11-09-owner-answer-281-production-release.md`: #433, research the person can steer (stage 1), the content-free call record, how a free account's notice was accepted, words that are not sizes and people's reports first, with the privacy notice of November 9 released first (owner answer 281, 9 Nov 2026).
 - `audits/2026-11-06-owner-answer-273a-production-release.md`: release of #422, how much of each study was read, closing questions and the findings that challenge the usual view, with the site update of 267b (owner answer 273a, 6 Nov 2026).
@@ -196,6 +218,12 @@ records decisions and their sources; it adds no authority to the list above.
 - `audits/2026-10-30-owner-regressions-judgment.md`: the owner regressions on #381's build `9e35397b`, #384's baseline
   (85 cases: 48 pass, 32 in part, 1 fails, 4 not judged; the 11 low-calorie runs apart: 5, 4 and 2 fail); question
   193's signals: 2 of 105 checks pass by their second call, 5 never pass, 121 calls fail on format.
+- `superpowers/plans/2026-11-25-terms-at-sign-up.md`: accepting the free-use notice when the account is created (owner
+  question 419; 419a chosen 26 Nov): AskRigor's page `/account/terms` between Auth0's post-login Action and Auth0's
+  `/continue`, a yes there recorded as `PERSON_SIGN_IN_PAGE` (migration 0044), the Action kept in
+  `../ops/auth0/actions/`, the Auth0 steps for the owner's yes, the rollback and a draft privacy sentence; and Gemini's
+  own sign-in step showing the same notice before Allow (27 Nov, the owner's "gemini is still not working"); built on
+  branches, not released.
 - `superpowers/plans/2026-11-07-next-build.md`: the build after #429: every tool result's payload in text too, except
   for ChatGPT (lesson #59); the free-use notice asked again only when it collects or publishes more, the owner's
   own login accepting by standing instruction; and issue #431's fact-check repairs (repairable audit errors, claim

@@ -56,14 +56,21 @@ import { RESEARCH_RECEIPT_MAX_CHARACTERS } from "./research-receipts.js";
 
 export const FRAMING_LIMITS = Object.freeze({ question: 500, item: 300, items: 3 });
 
+/**
+ * One text where a list is asked for is a list of one, and a blank one an empty list. In the measurement of 24 Nov 2026,
+ * 65 of 176 first registrations (42 of 140 on Opus, 23 of 36 on Sonnet) gave premise_doubts as a sentence, were refused
+ * for it and cost a second call. The published shape stays a list.
+ */
+const framingTexts = z.preprocess((value) => typeof value !== "string" ? value : value.trim() === "" ? [] : [value],
+  z.array(z.string().trim().min(1).max(FRAMING_LIMITS.item)).max(FRAMING_LIMITS.items));
+
 export const framingSchema = z.object({
   likely_question: z.string().trim().min(1).max(FRAMING_LIMITS.question)
     .describe("The question the person most likely means, as one sentence in their language."),
-  premise_doubts: z.array(z.string().trim().min(1).max(FRAMING_LIMITS.item)).max(FRAMING_LIMITS.items).optional()
+  premise_doubts: framingTexts.optional()
     .describe("Up to three things in the question that look inverted, unclear or mistaken, such as a ratio asked " +
       "the wrong way round; none when nothing does."),
-  redirecting_questions: z.array(z.string().trim().min(1).max(FRAMING_LIMITS.item)).max(FRAMING_LIMITS.items)
-    .optional()
+  redirecting_questions: framingTexts.optional()
     .describe("Up to three questions for the person whose answers could change what to research; none when the " +
       "question is clear."),
 }).strict();

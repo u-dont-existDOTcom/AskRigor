@@ -88,9 +88,19 @@ export const INLINE_SECTION_HEADINGS: readonly string[] = [...new Set([
 ])].sort((a, b) => b.length - a.length);
 export const FULL_TEXT_BODY_MIN_CHARACTERS = 6_000;
 export function normalizedHeading(value: string): string {
-  return value.normalize("NFKC").toLowerCase().trim()
-    .replace(/^(?:\d+(?:\.\d+)*[.)]?|[ivx]+[.)])\s+/u, "")
-    .replace(/[:.\s]+$/u, "");
+  return withoutClosingMarks(value.normalize("NFKC").toLowerCase().trim()
+    .replace(/^(?:\d+(?:\.\d+)*[.)]?|[ivx]+[.)])\s+/u, ""));
+}
+/**
+ * A heading without the colons, full stops and white space at its end: what replacing /[:.\s]+$/u with nothing gives,
+ * read once from the end. That pattern started over at every character of a run inside a line, so a line with 60,000
+ * full stops in it took 3 seconds (CodeQL, on pull request 521; timed on 24 Nov 2026), and every line of a full text or
+ * of a news card's web page is read so.
+ */
+function withoutClosingMarks(text: string): string {
+  let end = text.length;
+  while (end > 0 && /[:.\s]/u.test(text.charAt(end - 1))) end -= 1;
+  return text.slice(0, end);
 }
 type SectionKind = "methods" | "results" | "discussion" | "abstract" | "references";
 export function sectionKinds(value: string): SectionKind[] {

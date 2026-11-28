@@ -377,6 +377,36 @@ describe("the framing given with the plain answer (owner answer 279a)", () => {
       .store.getAccount(service.accountKeyForSubject("auth0|person")));
     expect(stored).not.toContain("lowering");
   });
+
+  // 24 Nov 2026: 65 of 176 first registrations in a measurement gave premise_doubts as a sentence, not a list, and were
+  // refused for it.
+  it("reads one sentence given where a list is asked for as a list of one, and a blank one as none", async () => {
+    const { service, connect } = await start();
+    await service.acceptFreeContributor("auth0|person", agreement);
+    const manage = await connect("/mcp/claude", "auth0|person");
+    const register = (fields: object) => manage({ action: "register_plain_answer", plainAnswer: PLAIN, later_inputs: {
+      framing: { likely_question: framing.likely_question, ...fields } } });
+    const ending = (result: { content: { text: string }[] }) => result.content[0]!.text;
+    const listed = await register({ premise_doubts: framing.premise_doubts, redirecting_questions: ["Did you mean lowering it?"] });
+    const sentence = await register({ premise_doubts: framing.premise_doubts[0], redirecting_questions: "Did you mean lowering it?" });
+    expect(sentence.isError).not.toBe(true);
+    const given = { likely_question: framing.likely_question, premise_doubts: framing.premise_doubts,
+      redirecting_questions: ["Did you mean lowering it?"] };
+    for (const result of [listed, sentence]) {
+      expect(ending(result).endsWith(framingGuidance(DEFAULT_RESEARCH_STEERING, given))).toBe(true);
+    }
+    // A blank text is no doubt and no question, so nothing is asked.
+    const blank = await register({ premise_doubts: " ", redirecting_questions: "" });
+    expect(blank.isError).not.toBe(true);
+    expect(ending(blank).endsWith(framingGuidance(DEFAULT_RESEARCH_STEERING, { likely_question: framing.likely_question })))
+      .toBe(true);
+    // Anything else is still refused, with the field named.
+    for (const premise_doubts of [7, [""], "x".repeat(301), ["a", "b", "c", "d"]]) {
+      const refused = await register({ premise_doubts });
+      expect(refused.isError, JSON.stringify(premise_doubts).slice(0, 40)).toBe(true);
+      expect(text(refused)).toContain("later_inputs.framing.premise_doubts");
+    }
+  });
 });
 
 const TASKS: ResearchMenuInput["tasks"] = [

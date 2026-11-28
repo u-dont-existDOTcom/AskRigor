@@ -128,6 +128,29 @@ annoying". Released 9 November 2026:
   only a person's yes made one. A trigger clears the pair whenever a write moves `activated_at` without it (an image
   from before 0031, or the hold and restore scripts), so a stale way of acceptance never stays: `acceptedBy` then reads
   `null`, not recorded. `access.acceptance` is runtime-only; the published tool lists don't change.
+- **A yes on AskRigor's terms page at sign-in** (owner answer 419a, 26 November 2026; built, not yet released; plan
+  `docs/superpowers/plans/2026-11-25-terms-at-sign-up.md`). `/account/terms`, between Auth0's post-login Action
+  (`ops/auth0/actions/terms-at-first-sign-in.js`) and Auth0's `/continue`, shows this notice word for word. Accept
+  writes the record `accept_free_contributor` writes, through the same service method and agreement, with
+  `notice_accepted_by` `PERSON_SIGN_IN_PAGE` (migration `0044_research_notice_sign_in_page` admits it); `inspect` shows
+  it as the person's own yes, and only for the notice version the page showed (a page showing an earlier one is shown
+  again with the current one). Decline writes nothing and Auth0 ends the sign-in. Each of the Action's tokens answers
+  once: the first answer is kept by the token's SHA-256 until the token expires (`research_terms_page_answers`), so a
+  copy of the page's address records nothing and a Decline never becomes a yes. When the page can't take an answer (the
+  database, a secret or issuer that differs from the Action's, an expired or altered token) it lets the sign-in go on
+  with a signed "not recorded" answer, writing nothing. The page asks nothing of an account whose yes covers the current
+  notice, of the owner's own free login (the standing instruction still records its acceptance at its next research
+  call) or of an active paid private account, which it never switches to free use; it lets them through at once. `accept_free_contributor` stays for the sign-ins the page doesn't reach (token
+  renewals, `prompt=none`, a login from before the Action) and for apps that never sign in again, and the research
+  tools' refusal stays the backstop.
+- **A yes in Gemini's sign-in** (built 27 November 2026 for the owner's "gemini is still not working"; not yet
+  released). Gemini can't show this notice in its chat, so AskRigor's own sign-in step for Gemini shows it, after the
+  login and before "Connect Google Gemini to AskRigor?", to an account whose yes doesn't cover the current notice, and
+  decides the answer with the terms page's own code (`apps/research-mcp/src/account-terms/decision.ts`): Accept writes
+  the same record, `PERSON_SIGN_IN_PAGE`, only for the version shown; each step answers once (its form token's SHA-256
+  in `research_terms_page_answers`). Decline writes nothing, and the person can still connect Gemini; its research
+  refusal says to remove AskRigor in Gemini's settings and add it again to see the notice. Accounts the terms page asks
+  nothing of go straight to Allow.
 
 Version 4 (owner answer 171) kept every other sentence of v3 and made exactly
 these three changes:

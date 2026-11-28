@@ -208,7 +208,7 @@ describe("AskRigor public site", () => {
     expect(privacy.split(named)).toHaveLength(2);
     expect(privacy).not.toContain("answer's research question");
     expect(privacy).not.toContain("owner's review");
-    expect(privacy).toContain("Effective November 21, 2026");
+    expect(privacy).toContain("Effective November 27, 2026");
     expect(privacy).toContain("public forum websites (the page’s link), Reddit (a thread’s link or deidentified search words");
   });
 
@@ -240,7 +240,7 @@ describe("AskRigor public site", () => {
     expect(privacy).toContain("To find claims about people, AskRigor sends each finding’s text, the sentences it quotes " +
       "from its sources and any taken-off claims about the names in it to an AI model from Anthropic, on AskRigor’s own " +
       "account.");
-    expect(privacy).toContain("Effective November 21, 2026");
+    expect(privacy).toContain("Effective November 27, 2026");
     // After the exclusions it relies on, and before the paid private sentence, which it does not change.
     expect(section.indexOf("private research dossier")).toBeGreaterThan(section.indexOf("It excludes raw chat"));
     expect(section.indexOf("private research dossier")).toBeLessThan(section.indexOf("Paid private mode submits"));
@@ -249,7 +249,7 @@ describe("AskRigor public site", () => {
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "Effective November 21, 2026",
+      "Effective November 27, 2026",
       "AskRigor may also read a study from its operator's own study library: for the operator's own research, and for a free or paying account only while the same study is publicly available elsewhere. The library receives only the study's DOI, with no question, health detail, or account information.",
       "Optional lesson feedback",
       "separate consent",
@@ -279,6 +279,37 @@ describe("AskRigor public site", () => {
     expect(html).not.toContain("deletion-eligible 90 days after terminal review");
     // Production's lesson path makes no OpenAI call (owner-approved wording, 2026-09-30).
     expect(html).not.toContain("fixed OpenAI privacy check");
+  });
+
+  // Owner answer 417a (24 Nov 2026): the Gemini sign-in's step log, the owner's sentence word for word, and the next
+  // sentence, which begins where "that log" has been named.
+  it("says what the Gemini sign-in's step log writes, and what else records calls", async () => {
+    const privacy = await pageHtml("site/privacy/index.html");
+    expect(privacy).toContain("payload, comment text, user identifier, or credential. While the cause of a failing Gemini " +
+      "connection is being found, a second log, off by default, is on for Gemini’s sign-in: at each step of a connection, " +
+      "and at each research call that carries a Gemini sign-in, it writes the time and fixed words, counts and status codes " +
+      "only (the step and how it ended, which parts of the request came and of what kind, coarse time ranges, the type of " +
+      "call, and the reason for a failure in words set in advance), never an identifier, code, token, web address, header " +
+      "value, account, tool name, or anything you ask or are answered. Apart from that log, the only record of calls is the " +
+      "content-free call record described under “Your call record”, and only for signed-in research accounts. The optional " +
+      "lesson path");
+    expect(privacy.match(/only record of calls is/giu)).toHaveLength(1);
+  });
+
+  // Owner answer 419a for Gemini (built 27 Nov 2026, the owner: "gemini is still not working"): what Gemini's sign-in
+  // records when it shows the free-use notice, right after the consent step's sentence. The release sets the date.
+  it("says what Gemini's sign-in records when it shows the free-use notice", async () => {
+    const privacy = await pageHtml("site/privacy/index.html");
+    const start = privacy.indexOf("<section><h2>Connecting Google Gemini</h2>");
+    const section = privacy.slice(start, privacy.indexOf("</section>", start));
+    expect(section).toContain("and then you choose whether to allow Gemini. If your account doesn’t yet hold a yes to " +
+      "AskRigor’s current free-use notice, AskRigor shows you that notice before you choose, because Gemini can’t show it " +
+      "in its chat. If you choose Accept and continue, AskRigor records your yes on your research account, as it records " +
+      "a yes you give in an AI app: the notice version, the time, and that you gave it on that page. If you choose " +
+      "Decline, nothing is recorded, and you can still allow Gemini, but AskRigor’s research tools won’t run for your " +
+      "account until the notice is accepted or paid private access is active. So that each answer counts once, AskRigor " +
+      "keeps a one-way fingerprint of that step’s form with your answer for about eleven minutes. During these steps");
+    expect(privacy.match(/one-way fingerprint/gu)).toHaveLength(1);
   });
 
   it("describes the findings library as approved for its go-live", async () => {
@@ -313,7 +344,7 @@ describe("AskRigor public site", () => {
         "needed. Deletion removes the card and everything that ties it to you; findings from the card that " +
         "AskRigor’s owner has already accepted are written without you, so they stay while they are valid, as " +
         "described above.",
-      "Effective November 21, 2026",
+      "Effective November 27, 2026",
     ]) expect(privacy).toContain(fragment);
     const terms = await pageHtml("site/terms/index.html");
     for (const fragment of [

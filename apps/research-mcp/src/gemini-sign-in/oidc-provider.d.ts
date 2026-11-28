@@ -72,6 +72,8 @@ declare module "oidc-provider" {
     readonly session?: { readonly accountId: string; readonly uid: string };
     readonly grantId?: string;
     readonly exp: number;
+    /** The library's own next step once the interaction is finished. */
+    readonly returnTo: string;
   }
 
   export interface InteractionResults {
@@ -122,6 +124,13 @@ declare module "oidc-provider" {
     callback(): (request: IncomingMessage, response: ServerResponse) => Promise<void>;
     use(middleware: (ctx: KoaContextWithOIDC, next: () => Promise<void>) => Promise<void>): this;
     interactionDetails(request: IncomingMessage, response: ServerResponse): Promise<InteractionDetails>;
+    /** Keeps the result and gives the address that goes on; interactionFinished redirects to it. */
+    interactionResult(
+      request: IncomingMessage,
+      response: ServerResponse,
+      result: InteractionResults,
+      options?: { mergeWithLastSubmission?: boolean },
+    ): Promise<string>;
     interactionFinished(
       request: IncomingMessage,
       response: ServerResponse,

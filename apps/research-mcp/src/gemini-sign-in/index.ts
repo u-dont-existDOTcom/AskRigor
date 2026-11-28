@@ -8,9 +8,15 @@ import { geminiSignInNote, mcpMethodOf } from "./diagnostics.js";
 import { GeminiLogin } from "./login.js";
 import { createGeminiAuthorizationServer, type GeminiAuthorizationServer } from "./provider.js";
 import { countGeminiLinks, disconnectGeminiLinks } from "./resource.js";
-import { createGeminiSignInRoutes, type GeminiSignInDiagnostic, type GeminiSignInRoutes } from "./routes.js";
+import {
+  createGeminiSignInRoutes,
+  type GeminiNoticeStep,
+  type GeminiSignInDiagnostic,
+  type GeminiSignInRoutes,
+} from "./routes.js";
 
 export { attachGeminiSurfaceIdentity, writeGeminiChallenge } from "./resource.js";
+export type { GeminiNoticeStep } from "./routes.js";
 
 /** Gemini's sign-in as the HTTP server uses it (owner answer 386b). */
 export interface GeminiSignIn {
@@ -42,7 +48,12 @@ const SWEEP_MS = 60 * 60 * 1_000;
 export function createGeminiSignIn(
   settings: GeminiSignInSettings,
   rows: GeminiSignInRowStore,
-  options: { fetch?: typeof fetch; log?: (line: string) => void } = {},
+  options: {
+    fetch?: typeof fetch;
+    log?: (line: string) => void;
+    /** AskRigor's free-use notice before the consent step (owner answer 419a); without it, no notice is shown. */
+    notice?: GeminiNoticeStep;
+  } = {},
 ): GeminiSignIn {
   const log = options.log ?? ((line: string) => console.log(line));
   // Off by default. When on, only fixed names are written (diagnostics.ts): no id, token, address or header value.
@@ -55,6 +66,7 @@ export function createGeminiSignIn(
   const routes = createGeminiSignInRoutes(server, login, {
     rateLimiter: createTokenBucketLimiter(GEMINI_SIGN_IN_RATE_LIMIT),
     ...(diagnostic === undefined ? {} : { diagnostic }),
+    ...(options.notice === undefined ? {} : { notice: options.notice }),
   });
   const note = geminiSignInNote(diagnostic);
   const sweep = setInterval(() => {
@@ -81,14 +93,16 @@ export function createGeminiSignIn(
 
 /**
  * Gemini's sign-in from the environment, or undefined while ASKRIGOR_GEMINI_OAUTH is not "enabled". When it is, OAuth
- * and the research-access database must be configured, or the server refuses to start rather than run half of it.
+ * and the research-access database must be configured, or the server refuses to start rather than run half of it. The
+ * free-use notice step comes from the server's own research accounts and the terms page's answers on that database.
  */
 export function geminiSignInFromEnv(
   rows: GeminiSignInRowStore | undefined,
   env: NodeJS.ProcessEnv = process.env,
+  options: { notice?: GeminiNoticeStep } = {},
 ): GeminiSignIn | undefined {
   const settings = geminiSignInSettingsFromEnv(env);
   if (settings === undefined) return undefined;
   if (rows === undefined) throw new Error("ASKRIGOR_GEMINI_OAUTH_NEEDS_RESEARCH_ACCESS_DATABASE");
-  return createGeminiSignIn(settings, rows);
+  return createGeminiSignIn(settings, rows, options.notice === undefined ? {} : { notice: options.notice });
 }

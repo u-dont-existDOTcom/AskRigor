@@ -83,7 +83,9 @@ describe("each notice version declares whether it is material", () => {
     });
     expect(RESEARCH_USE_NOTICE_CHANGES.at(-2)).toMatchObject({ version: V5, material: true });
     expect(Object.isFrozen(RESEARCH_USE_NOTICE_CHANGES)).toBe(true);
-    expect(NOTICE_ACCEPTED_BY).toEqual(["PERSON", STANDING]);
+    // A person's yes in an AI app, a person's yes on AskRigor's terms page at sign-in (owner answer 419a, migration
+    // 0044), and the owner's standing instruction.
+    expect(NOTICE_ACCEPTED_BY).toEqual(["PERSON", "PERSON_SIGN_IN_PAGE", STANDING]);
   });
 
   it("covers a yes only when no version after it is material", () => {
