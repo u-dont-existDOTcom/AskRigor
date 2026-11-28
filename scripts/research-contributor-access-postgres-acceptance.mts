@@ -29,11 +29,13 @@ import {
   PostgresHeldYouTubeFindingsStore,
   PostgresResearchContributorAccessStore,
   PostgresResearchCallRecordStore,
+  PostgresResearchErrorLogStore,
   PostgresResearchUserCounts,
   PostgresTermsPageAnswerStore,
   PostgresResearchDossierEraser,
   PostgresResearchDossierStore,
   RESEARCH_CALL_RECORD_RETENTION_MS,
+  RESEARCH_ERROR_LOG_RETENTION_MS,
   PostgresResearchContributionPromotionRunner,
   PostgresResearchContributionReviewStore,
   RESEARCH_MAP_CONSENT,
@@ -493,6 +495,7 @@ async function verify(
     // without it (an image from before 0031) clears both, and only the two named ways are admitted.
     await verifyNoticeAcceptance({ admin, restricted, store, adminUrl, checks });
     await verifyCallRecord({ admin, restricted, checks });
+    await verifyResearchErrorLog({ admin, restricted, checks });
     // The public user count (the owner's request of 20 Nov 2026): two aggregates, on the access role.
     await verifyUserCounts({ admin, restricted, checks });
     // Owner answer 303a: learn mode, a dev account's own menu choices, and the plan's lane in the call record (0035).
@@ -840,6 +843,41 @@ async function verifyUserCounts(context: { admin: Pool; restricted: Pool; checks
   } finally {
     await admin.query(`DELETE FROM ${SCHEMA}.research_call_record WHERE account_key = ANY($1::text[])`, [ours]);
     await admin.query(`DELETE FROM ${SCHEMA}.research_use_accounts WHERE account_key = ANY($1::bpchar[])`, [ours]);
+  }
+}
+
+async function verifyResearchErrorLog(context: { admin: Pool; restricted: Pool; checks: string[] }): Promise<void> {
+  const { admin, restricted, checks } = context;
+  const table = `${SCHEMA}.research_error_log`;
+  const record = new PostgresResearchErrorLogStore(restricted, SCHEMA);
+  const now = (await admin.query<{ now: Date }>("SELECT clock_timestamp() AS now")).rows[0]!.now;
+  const cutoff = new Date(now.getTime() - RESEARCH_ERROR_LOG_RETENTION_MS);
+  const fresh = now.toISOString();
+  try {
+    await record.record({ received_at: fresh, duration_ms: 20, tool: "search_pubmed",
+      outcome: "error", app: "unknown", paper_identifiers: [], kind: "source_timeout", source: "pubmed",
+      shape: { fields: ["query"], word_counts: { query: 2 }, options: {} }, search_words: { query: "synthetic fixture" } });
+    await expectPermissionDenied(() => restricted.query(`SELECT search_words FROM ${table}`));
+    const current = await admin.query(`SELECT search_words FROM ${table} WHERE received_at = $1`, [fresh]);
+    assert(current.rows.length === 1 && current.rows[0]?.search_words?.query === "synthetic fixture", "ERROR_LOG_INSERT_WRONG");
+    const canonical = await admin.query<{ allowed: boolean }>(
+      "SELECT has_table_privilege('askrigor_reader', $1, 'SELECT') AS allowed", [table]);
+    assert(canonical.rows[0]?.allowed === false, "ERROR_LOG_EXPOSED_TO_CANONICAL_READER");
+
+    const older = new Date(cutoff.getTime() - 1);
+    const newer = new Date(cutoff.getTime() + 1);
+    await admin.query(`INSERT INTO ${table} (received_at, duration_ms, tool, outcome, app, paper_identifiers)
+      SELECT stamp, 10001, 'search_pubmed', 'slow', 'unknown', '[]'::jsonb FROM unnest($1::timestamptz[]) AS calls(stamp)`,
+    [[older, cutoff, newer]]);
+    assert(await record.sweep(now) === 2, "ERROR_LOG_RETENTION_DELETE_WRONG");
+    const remaining = await admin.query<{ received_at: Date }>(`SELECT received_at FROM ${table} ORDER BY received_at`);
+    assert(remaining.rows.map(({ received_at }) => received_at.toISOString()).join(",") === `${newer.toISOString()},${fresh}`,
+      "ERROR_LOG_RETENTION_REMAINING_WRONG");
+    checks.push("research_error_log_restricted_writer_and_exact_30_day_expiry");
+  } finally {
+    await admin.query(`DELETE FROM ${table} WHERE tool = 'search_pubmed' AND (received_at = $1 OR
+      received_at BETWEEN $2::timestamptz - interval '1 millisecond' AND $2::timestamptz + interval '1 millisecond')`,
+    [fresh, cutoff]);
   }
 }
 

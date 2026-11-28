@@ -221,7 +221,8 @@ describe("later_inputs (owner answer 189a)", () => {
           : operation.name === "validate_study_method_audit" ? ["audit", "findings_save"]
           : operation.name === "validate_review_method_audit" ? ["findings_save"]
             // Owner answer 200a: the shared answer's copy, its deletion code, and the owner's review of it.
-            : operation.name === "manage_research_access" ? ["sharedAnswer", "shareCode", "atlasReport", "reportNumber",
+            : operation.name === "manage_research_access" ? ["keepFailedSearches", "sharedAnswer", "shareCode",
+              "atlasReport", "reportNumber",
               "framing", "researchMenu", "asked", "researchSteering", "findings_save", "callsPage", "ownerPointer",
               "pauseMinutes"]
               : operation.name === "review_research_contribution" ? ["sharedAnswerId", "items", "placements", "reportState", "report", "verdict", "glanceRow", "glanceRowId", "glanceState",

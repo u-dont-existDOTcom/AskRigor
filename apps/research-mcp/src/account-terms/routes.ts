@@ -4,7 +4,7 @@ import { RESEARCH_USE_NOTICE_VERSION, type TermsPageAnswerStore } from "@askrigo
 
 import { readForm } from "../atlas/participation.js";
 import type { TokenBucketLimiter } from "../rate-limit.js";
-import { decideNotice, recordedNoticeAnswer, type AccountTermsAccess } from "./decision.js";
+import { decideNotice, keepFailedSearchesFromNoticeForm, recordedNoticeAnswer, type AccountTermsAccess } from "./decision.js";
 import {
   ANSWER_POLICY,
   PAGE_POLICY,
@@ -128,6 +128,7 @@ export function createAccountTermsRoutes(options: AccountTermsOptions): AccountT
       subject: visit.subject,
       decision,
       noticeVersionShown: single(form, "notice_version"),
+      keepFailedSearches: keepFailedSearchesFromNoticeForm(form),
       tokenSha256: visit.tokenSha256,
       usableUntil: visit.usableUntil,
       access,

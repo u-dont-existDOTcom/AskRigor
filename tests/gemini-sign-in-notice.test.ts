@@ -212,7 +212,8 @@ describe("Gemini's sign-in: AskRigor's free-use notice before Allow (owner answe
   it("records Accept as the person's own yes, as accept_free_contributor and /account/terms do, then goes on to Allow and tokens", async () => {
     const { fixture, store, service, answers, browser } = await start();
     const notice = await begin(browser);
-    const accepted = await answer(browser, notice.html, "accept");
+    expect(notice.html).toContain('<input type="checkbox" name="keep_failed_searches" value="true">');
+    const accepted = await answer(browser, notice.html, "accept", { keep_failed_searches: "true" });
     expect(accepted.response.status).toBe(200);
     expect(isConsentPage(accepted.html)).toBe(true);
     expect(accepted.html).toContain(`<h1>Connect Google Gemini to AskRigor?</h1>\n<p class="note">` +
@@ -222,7 +223,8 @@ describe("Gemini's sign-in: AskRigor's free-use notice before Allow (owner answe
     const tool = new ResearchContributorAccessService({
       store: toolStore, identitySecret: IDENTITY_SECRET, now: () => NOW.toISOString(), ownerSubjects: new Set([OWNER]),
     });
-    await tool.acceptFreeContributor(PERSON, AGREEMENT);
+    await tool.acceptFreeContributor(PERSON, AGREEMENT, "PERSON", { keepFailedSearches: true });
+    await expect(service.failedSearchPreference(service.accountKeyForSubject(PERSON))).resolves.toEqual({ enabled: true });
     expect(store.allAccounts()).toEqual([{ ...toolStore.allAccounts()[0], noticeAcceptedBy: "PERSON_SIGN_IN_PAGE" }]);
     expect(await service.inspect(PERSON)).toMatchObject({ status: "ACTIVE", mode: "FREE_CONTRIBUTOR", acceptance: {
       noticeVersion: RESEARCH_USE_NOTICE_VERSION, acceptedAt: NOW.toISOString(), acceptedBy: "PERSON_SIGN_IN_PAGE",

@@ -167,6 +167,8 @@ describe("free contributor notice v6 on both connector surfaces", () => {
       expect(store.allAccounts()).toEqual([
         expect.objectContaining({ status: "ACTIVE", mode: "FREE_CONTRIBUTOR", noticeVersion: V6, agreement: agreement(V6) }),
       ]);
+      await expect(service.failedSearchPreference(service.accountKeyForSubject(subject)))
+        .resolves.toEqual({ enabled: undefined });
       const permitted = await client.callTool(research);
       expect(permitted.isError).not.toBe(true);
     },
@@ -209,11 +211,15 @@ describe("free contributor notice v6 on both connector surfaces", () => {
 // The owner's report, 6 Nov 2026: with their login not yet on the new notice, ChatGPT only told them they couldn't use
 // AskRigor; it never showed the notice or asked them to agree. inspect now gives such an account its next step.
 describe("inspect's next step for an account whose research waits on the notice", () => {
+  const OPT_IN_LABEL = "Help fix AskRigor: keep my failed searches for 30 days";
   const NEXT_STEP = "Show the user this notice, word for word, and ask whether they accept it for free research (or use " +
     "paid private access if they have it). Only after their yes, call manage_research_access with action " +
     `accept_free_contributor and agreement {noticeVersion: "${V6}", eligibleDeidentifiedResearchContributionRequired: ` +
     "true, prohibitedPrivateAndRawContentExcluded: true, proposalReviewAndNoAuthorityAcknowledged: true, " +
-    "paidPrivateAlternativeAcknowledged: true}. Never accept for them.";
+    "paidPrivateAlternativeAcknowledged: true}. Never accept for them. " +
+    `When you show the notice, also ask the person once, in these exact words: "${OPT_IN_LABEL}". ` +
+    "Treat their answer to this optional question as no unless they explicitly say yes to it. " +
+    "Include later_inputs: { keepFailedSearches: true } only if they say yes to this question.";
   const inspect = async (client: Client) =>
     await client.callTool({ name: "manage_research_access", arguments: { action: "inspect" } });
   const textOf = (result: Awaited<ReturnType<typeof inspect>>) => (result.content as Array<{ text: string }>)[0]!.text;
@@ -246,6 +252,42 @@ describe("inspect's next step for an account whose research waits on the notice"
     expect(after.structuredContent).toMatchObject({ access: { status: "ACTIVE", mode: "FREE_CONTRIBUTOR" } });
     expect(after.structuredContent).toHaveProperty("next_step", "If this inspect starts research on a question of theirs, then before your next call, tell the person in one line, in their language: you are taking a first look to build the research plan, a few minutes; then you will show it and say whether you are waiting for their choice or starting, and how they can change it.");
     expect(textOf(after)).not.toContain("Show the user this notice");
+    expect(JSON.stringify(after)).not.toContain(OPT_IN_LABEL);
+  });
+
+  it.each(SURFACES)("on %s, only a boolean true in later_inputs opts in on acceptance", async (surface) => {
+    const { store, service, connect } = await start();
+    const subject = `failed-search-opt-in-on-${surface}`;
+    const accountKey = service.accountKeyForSubject(subject);
+    await seedEarlierAccount(store, service, subject, V5);
+    await service.setKeepFailedSearches(accountKey, false);
+    const client = await connect(surface, subject);
+    const call = (args: Record<string, unknown>) => client.callTool({ name: "manage_research_access", arguments: args });
+    const accept = { action: "accept_free_contributor", agreement: agreement(V6) };
+
+    for (const args of [
+      { ...accept, keepFailedSearches: true },
+      { ...accept, later_inputs: { keepFailedSearches: "true" } },
+      { ...accept, agreement: agreement(V5), later_inputs: { keepFailedSearches: true } },
+      { action: "revoke", later_inputs: { keepFailedSearches: true } },
+    ]) {
+      const result = await call(args);
+      expect(result.isError).toBe(true);
+      expect(JSON.stringify(result)).not.toContain(OPT_IN_LABEL);
+    }
+    expect(store.allAccounts()).toMatchObject([{ status: "ACTIVE", noticeVersion: V5, keepFailedSearches: false }]);
+
+    for (const [args, enabled] of [
+      [accept, false],
+      [{ ...accept, later_inputs: { keepFailedSearches: true } }, true],
+      [{ ...accept, later_inputs: { keepFailedSearches: false } }, true],
+      [accept, true],
+    ] as const) {
+      const result = await call(args);
+      expect(result.isError).not.toBe(true);
+      expect(JSON.stringify(result)).not.toContain(OPT_IN_LABEL);
+      await expect(service.failedSearchPreference(accountKey)).resolves.toEqual({ enabled });
+    }
   });
 
   it("gives a revoked account the step too, and none to the revoke itself", async () => {
@@ -256,6 +298,7 @@ describe("inspect's next step for an account whose research waits on the notice"
     const revoked = await client.callTool({ name: "manage_research_access", arguments: { action: "revoke" } });
     expect(revoked.structuredContent).toMatchObject({ access: { status: "REVOKED" } });
     expect(revoked.structuredContent).not.toHaveProperty("next_step");
+    expect(JSON.stringify(revoked)).not.toContain(OPT_IN_LABEL);
     expect((await inspect(client)).structuredContent).toMatchObject({ access: { status: "REVOKED" }, next_step: NEXT_STEP });
   });
 });

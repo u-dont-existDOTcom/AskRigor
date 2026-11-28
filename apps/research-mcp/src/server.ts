@@ -5,7 +5,8 @@ import {
   type ServerResponse
 } from "node:http";
 import type { SharedAnswers } from "./shared-answers.js";
-import { startResearchCallRecordSweep } from "./research-call-recording.js";
+import { ResearchErrorLogTransport } from "./research-error-log-transport.js";
+import { RESEARCH_CALL_RECORD_SWEEP_INTERVAL_MS, startResearchCallRecordSweep } from "./research-call-recording.js";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
@@ -20,6 +21,7 @@ import {
   ResearchContributionReviewService,
   ResearchContributorAccessService,
   type ResearchCallRecordStore,
+  type ResearchErrorLogStore,
   type ResearchDossierPublisher,
   type ResearchDossierStore,
   type TermsPageAnswerStore,
@@ -232,6 +234,7 @@ function semverBuildMetadata(running: RunningVersions): string {
 }
 
 export interface AskRigorHttpServerOptions {
+  researchErrorLog?: ResearchErrorLogStore;
   /** Replaces Atlas news's mode and stores, for tests; otherwise ASKRIGOR_ATLAS_NEWS decides. */
   atlasNews?: AtlasNewsOptions;
   researchCallRecord?: ResearchCallRecordStore;
@@ -487,6 +490,7 @@ export function createAskRigorHttpServer(
       });
   // Owner answer 280a: the content-free call record, on the research-access database and pool.
   const researchCallRecord = options.researchCallRecord ?? researchAccessStore?.callRecordStore();
+  const researchErrorLog = options.researchErrorLog ?? researchAccessStore?.errorLogStore();
   // AskRigor#477 stage 1 (owner answer 329a): research dossiers, on the research-access database and pool, once enabled.
   const researchDossiers = options.researchDossiers ??
     (researchDossiersEnabledFromEnv() ? researchAccessStore?.dossierStore() : undefined);
@@ -845,6 +849,7 @@ export function createAskRigorHttpServer(
     }
 
     try {
+      const httpTiming = researchErrorLog === undefined ? undefined : { receivedAt: new Date(), started: performance.now() };
       let parsedBody: unknown;
       if (request.method === "POST" && sdkAcceptsPostBody(request)) {
         try {
@@ -867,15 +872,20 @@ export function createAskRigorHttpServer(
         }
       }
 
+      const logTransport = researchErrorLog === undefined ? undefined : new ResearchErrorLogTransport(
+        researchErrorLog, pathname, researchContributorAccessService, httpTiming,
+      );
       if (
         claudeSurface &&
         !(await attachRequiredOAuthIdentity(request, claudeOAuthResourceServer!))
       ) {
+        logTransport?.refuse(parsedBody);
         writeOAuthChallenge(response, claudeOAuthResourceServer!);
         return;
       }
 
       let server: McpServer | undefined;
+      let dispatchStarted = false;
       try {
         // /mcp/claude refused the request above unless its sign-in was valid.
         const geminiSurface = pathname === GEMINI_COMPATIBLE_MCP_PATH;
@@ -888,6 +898,7 @@ export function createAskRigorHttpServer(
         // A token that was sent and refused gets the transport challenge on /mcp/gemini, so Gemini refreshes it or signs
         // in again; a request without a token stays open, as before.
         if (geminiSurface && geminiSignIn !== undefined && signIn?.state === "refused") {
+          logTransport?.refuse(parsedBody);
           writeGeminiChallenge(response, geminiSignIn.routes.resourceMetadataUrl);
           return;
         }
@@ -901,12 +912,14 @@ export function createAskRigorHttpServer(
         server = claudeSurface
           ? createClaudeMcpServer(signIn, toolListVersion)
           : createMcpServer(profile, signIn, toolListVersion);
-        const transport = new StreamableHTTPServerTransport({
+        const transport = logTransport ?? new StreamableHTTPServerTransport({
           sessionIdGenerator: undefined
         });
         await server.connect(transport);
+        dispatchStarted = true;
         await transport.handleRequest(request, response, parsedBody);
       } catch {
+        if (!dispatchStarted) logTransport?.refuse(parsedBody, "internal_error");
         if (!response.headersSent) {
           writeJsonRpcError(response, 500, -32603, "Internal server error");
         }
@@ -919,6 +932,15 @@ export function createAskRigorHttpServer(
   });
   if (researchCallRecord !== undefined) {
     const sweepTimer = startResearchCallRecordSweep(researchCallRecord);
+    httpServer.once("close", () => clearInterval(sweepTimer));
+  }
+  if (researchErrorLog !== undefined) {
+    // An hourly sweep needs one interval of headroom to meet the 30-day limit in routine operation.
+    const expiry = {
+      sweep: (now: Date) => researchErrorLog.sweep(new Date(now.getTime() + RESEARCH_CALL_RECORD_SWEEP_INTERVAL_MS)),
+    };
+    void Promise.resolve().then(() => expiry.sweep(new Date())).catch(() => undefined);
+    const sweepTimer = startResearchCallRecordSweep(expiry);
     httpServer.once("close", () => clearInterval(sweepTimer));
   }
   if (geminiSignIn !== undefined && options.geminiSignIn === undefined) {

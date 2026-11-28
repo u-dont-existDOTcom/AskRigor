@@ -165,6 +165,7 @@ export async function fixture(options: {
   noSource?: boolean;
   /** What the account page lists the signed-in reader's AskRigor features with; none by default. */
   features?: AtlasParticipationRuntime["features"];
+  failedSearches?: AtlasParticipationRuntime["failedSearches"];
 } = {}): Promise<Fixture> {
   const published = await publications();
   const store = new InMemoryAtlasParticipation(published);
@@ -199,6 +200,7 @@ export async function fixture(options: {
             ...(options.owner?.commentMapsFile === undefined ? {} : { commentMapsFile: options.owner.commentMapsFile }),
           } }),
           ...(options.features === undefined ? {} : { features: options.features }),
+          failedSearches: options.failedSearches,
         },
       }),
     });
