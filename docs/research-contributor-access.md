@@ -604,18 +604,29 @@ step away on it and says that it is indirect. The bundle, the reply's shape and 
 combines with the claims' rule above: each combination has its own rubric version and its own key in the hour's cache, and
 the final check finds the lane of the newest kept plan under any of them.
 
-### The three switches and a test window (24 November 2026; built, switched off, not released)
+### The full-protocol line (28 November 2026)
 
-`ASKRIGOR_CLAIM_ACCOUNTING`, `ASKRIGOR_HRP_CORE` and `ASKRIGOR_PLAN_INDIRECT` are each off (the default, and any other value),
-trial, dev or on (`apps/research-mcp/src/research-trial.ts`). dev holds for every dev account, on for every account. In mode
-trial a switch holds for a dev account only while its test window has it on: the runtime-only action `set_research_trial` (the
-published tool list is unchanged) with `later_inputs.researchTrial` {claimAccounting, hrpCore, indirectEvidence, minutes} opens
-one for 1 to 120 whole minutes from now, never more than 120 minutes after it began however often it is set again; 0 minutes
-ends it, and so does a restart. Only a dev account, only its own window (`dev_account_required`), and only while one of the
-switches is in mode trial (`trial_off`). Its result says in plain words what is on and until when; `inspect` says nothing of
-it, as of a pause of the planning call. Each call goes by the window as it is when the call is made, so a test round starts
-each of its parts with `inspect` and a new registration. With every switch off every text and result is as before; only an
-error that lists the known actions or later inputs names the new ones.
+Where `ASKRIGOR_FULL_PROTOCOL` holds, an active account's `inspect` starts with the instruction to follow the full
+AskRigor protocol, after any tool-list notice. The instruction also starts `next_step`. It tells the AI how to get
+HRP's core after registering the plain answer and to load further sections only as needed. When the core handover is
+enabled, the instruction points to the registration result for the core. `full_protocol_line: true` marks an inspect
+result for test rounds. On `/mcp/gemini`, a signed-in account with the switch gets a final text block that names the
+`load_protocol` calls. Successful results other than `load_protocol` carry the block. Gemini keeps the same structured
+content, and the block adds no stored data. The switch defaults to off.
+
+### The research switches and a test window
+
+`ASKRIGOR_CLAIM_ACCOUNTING`, `ASKRIGOR_HRP_CORE`, `ASKRIGOR_PLAN_INDIRECT` and `ASKRIGOR_FULL_PROTOCOL` each accept `off`,
+`trial`, `dev` and `on`. An unset or unrecognized value means `off`. `dev` holds for every dev account and `on` holds for
+every account. In `trial` mode a switch holds for a dev account only while its own window has the switch on.
+
+A dev account can set its window while at least one switch is in `trial` mode. Call `manage_research_access` with the
+runtime action `set_research_trial` and `later_inputs.researchTrial` containing `claimAccounting`, `hrpCore`,
+`indirectEvidence`, `minutes` and optional `fullProtocol`, which defaults to `false`. When the window is set, its text and
+structured state show all four switches and the expiry. A window runs for 1 to 120 whole minutes and has a two-hour cap
+from its original start. Set `minutes` to `0` to end it. A server restart clears every window. Each call uses the window
+in effect at the time. Start each part of a test round with `inspect` and a new registration.
+The action returns `dev_account_required` to other accounts and `trial_off` if the server has no switch in `trial`.
 
 ### AskRigor's own planning call, on dev accounts (owner answer 298b, 13 November 2026)
 

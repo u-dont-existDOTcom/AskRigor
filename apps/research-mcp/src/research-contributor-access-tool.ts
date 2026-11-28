@@ -139,6 +139,7 @@ import {
 } from "./research-steering.js";
 import { plannedClaimKey, type MenuHistoryEntry, type ResearchPlan, type ResearchPlanner } from "./research-planner.js";
 import type { ResearchReviewer } from "./research-reviewer.js";
+import { FULL_PROTOCOL_INSPECT, FULL_PROTOCOL_INSPECT_WITH_CORE } from "./full-protocol.js";
 import { TRIAL_OFF_NOTHING_CHANGED, researchTrialState, researchTrialText, trialOffered, type ResearchSwitchModes,
   type ResearchTrialWindows } from "./research-trial.js";
 import type { ResearchOperationExtra, ResearchOperationHandler } from "./research-operation.js";
@@ -209,7 +210,7 @@ export const manageResearchAccessInputSchema = z.object({
     "disconnect_gemini",
     // Owner answer 395b (21 Nov 2026, runtime only): a test round's pause of a dev account's planning call.
     "pause_research_planner",
-    // Owner answers 413a and 412a (24 Nov 2026, runtime only): a dev account's test window for three switches.
+    // Runtime only: a dev account's test window for research switches.
     "set_research_trial",
   ]),
   agreement: freeContributorAgreementSchema.extend({ noticeVersion: noticeVersionSchema }).strict().optional(),
@@ -474,16 +475,17 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     .describe("With register_plain_answer and a research's first plan_research, where HRP's core is handed over: whether " +
       "it is in this result (here), comes with plan_research's, is to be loaded with load_protocol (load_it), is held " +
       "already or is not for this research."),
-  // Owner answers 413a and 412a, and P90 (runtime only): what the three switches come to on a dev account after its test
-  // window was set, and until when it runs; null once none runs. Only that call's own result carries it, as for the pause.
+  // Runtime only: the dev account's switch states and expiry after setting a test window. Only that call shows them.
   researchTrial: z.object({
     claimAccounting: z.boolean(),
     hrpCore: z.boolean(),
     indirectEvidence: z.boolean(),
+    fullProtocol: z.boolean(),
     until: z.iso.datetime().nullable(),
   }).strict().optional()
     .describe("With set_research_trial: whether each switch holds for this account now, and when its test window ends, " +
       "in UTC; null when none runs."),
+  full_protocol_line: z.literal(true).optional(),
   // Owner answer 412a (24 Nov 2026; runtime only): HRP's core, the bytes load_protocol serves for section "core". The last
   // field, its text the last of it, so that what an app cuts short is the text's end, which ends_with shows.
   hrp_core: z.object({
@@ -697,6 +699,8 @@ export interface ResearchContributorToolOptions {
    */
   hrpCore?: () => Promise<HrpCore | undefined>;
   hrpCoreFor?: (accountKey: string, devAccount: boolean) => boolean;
+  /** Whether an active account's inspect result carries the full-protocol line. */
+  fullProtocolFor?: (accountKey: string, devAccount: boolean) => boolean;
   /** The receipt load_protocol gives for the core, for a plan_research result that hands it over; undefined: unsigned. */
   hrpCoreReceipt?: (core: HrpCore) => string | undefined;
   /**
@@ -1416,8 +1420,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
             plannerPausedUntil: until === undefined ? null : new Date(until).toISOString() }),
         };
       }
-      // Owner answers 413a and 412a, and P90 (24 Nov 2026): a test round turns one of the three changes on or off for a dev
-      // account, for at most two hours, so the same question can be asked with it and without it; it ends by itself.
+      // A test round sets research switches for a dev account for at most two hours, so it can repeat a question.
       if (parsed.action === "set_research_trial") {
         const accountKey = options.service.accountKeyForSubject(auth.subject);
         if (!isDevAccount(accountKey, options.devAccountKeys?.() ?? new Set())) {
@@ -1493,11 +1496,16 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       const planned = plain !== undefined && activePlanner(options, accountKey, devAccount) !== undefined;
       const firstLine = parsed.action === "inspect" && access.status === "ACTIVE" && !isChatGptCall(extra)
         ? planBuildingLine(planned) : undefined;
-      const inspectStep = [nextStep ?? (planned ? ASKED_REQUEST : undefined), firstLine].filter(Boolean).join(" ");
+      const fullProtocolLine = parsed.action === "inspect" && access.status === "ACTIVE" &&
+          options.fullProtocolFor?.(accountKey, devAccount) === true
+        ? (options.hrpCoreFor?.(accountKey, devAccount) === true ? FULL_PROTOCOL_INSPECT_WITH_CORE : FULL_PROTOCOL_INSPECT)
+        : undefined;
+      const inspectStep = [fullProtocolLine, nextStep ?? (planned ? ASKED_REQUEST : undefined), firstLine]
+        .filter(Boolean).join(" ");
       return {
         content: [{
           type: "text",
-          text: (access.status === "ACTIVE"
+          text: (fullProtocolLine === undefined ? "" : `${fullProtocolLine} `) + (access.status === "ACTIVE"
             ? `AskRigor research access is active in ${access.mode === "FREE_CONTRIBUTOR" ? "free contributor" : "paid private"} mode.` +
               noticeAcceptanceSentence(access.acceptance)
             : access.status === "REVOKED"
@@ -1530,6 +1538,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           ...(settings === undefined ? {} : { steering: shownSteering(settings.steering, devAccount) }),
           accountReference,
           ...(geminiLinks === undefined || geminiLinks === 0 ? {} : { geminiLinks }),
+          ...(fullProtocolLine === undefined ? {} : { full_protocol_line: true }),
           ...(inspectStep ? { next_step: inspectStep } : {}),
         }),
       };

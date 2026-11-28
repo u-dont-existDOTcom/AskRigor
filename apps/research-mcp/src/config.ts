@@ -445,6 +445,11 @@ export function planIndirectModeFromEnv(value = process.env.ASKRIGOR_PLAN_INDIRE
   return researchSwitchMode(value);
 }
 
+/** Whether AskRigor's runtime results carry the full-protocol line (off by default). */
+export function fullProtocolModeFromEnv(value = process.env.ASKRIGOR_FULL_PROTOCOL): ResearchSwitchMode {
+  return researchSwitchMode(value);
+}
+
 /**
  * Whether the owner's findings actions for the Atlas are open on review_research_contribution (Atlas phase 2 design,
  * section 3): ASKRIGOR_ATLAS_REVIEW set to "enabled". It stays closed until the release has applied migration 0017,

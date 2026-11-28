@@ -26,6 +26,7 @@ import {
 import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./meaning-judge.js";
 import { researchPlannerFromEnv, type ResearchPlanner } from "./research-planner.js";
 import type { ResearchLane } from "./research-steering.js";
+import { FULL_PROTOCOL_GEMINI } from "./full-protocol.js";
 import { researchTrialWindows, switchHolds, type ResearchSwitchModes, type ResearchTrialSwitch, type ResearchTrialWindows }
   from "./research-trial.js";
 import { HRP_CORE_CLAIM, HRP_CORE_COMES_WITH_PLAN, HRP_CORE_HELD_ALREADY, hrpCoreDigest, hrpCoreReceiptUse, type HrpCore }
@@ -135,6 +136,7 @@ import {
   dossierPrivacyReadingFromEnv,
   safetyLimitsFromEnv,
   findingsLibraryEnabledFromEnv,
+  fullProtocolModeFromEnv,
   hrpCoreModeFromEnv,
   ncbiConfigFromEnv,
   optionalLivingEvidenceReuseConfigFromEnv,
@@ -2250,10 +2252,11 @@ function defineResearchOperations(
       // Owner answer 412a: registering the plain answer hands over HRP's core, on an account that has it.
       hrpCore: currentHrpCore,
       hrpCoreFor: (accountKey, devAccount) => switchHoldsFor(options, "hrpCore", accountKey, devAccount),
+      fullProtocolFor: (accountKey, devAccount) => switchHoldsFor(options, "fullProtocol", accountKey, devAccount),
       hrpCoreReceipt: protocolCoreReceipt,
       // Promise P90: AskRigor's own plan reaches for evidence one step away, on an account that has it.
       indirectEvidence: (accountKey, devAccount) => switchHoldsFor(options, "indirectEvidence", accountKey, devAccount),
-      // Owner answers 413a and 412a, and P90: a dev account's test window for the three switches.
+      // A dev account's test window for the research switches.
       researchTrial: () => ({ modes: researchSwitchModes(), windows: options.researchTrialWindows ?? researchTrialWindows }),
       ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
@@ -3500,10 +3503,10 @@ function findingsLedgerFor(options: RegisterToolsOptions, devAccount: () => bool
     ((options.findingsLedgerAccounts ?? findingsLedgerAccountsFromEnv()) === "all" || devAccount());
 }
 
-/** The modes of the three switches of 24 November 2026, as the server is set (owner answers 413a and 412a, and P90). */
+/** The modes of the research switches, as the server is set. */
 function researchSwitchModes(): ResearchSwitchModes {
   return { claimAccounting: claimAccountingModeFromEnv(), hrpCore: hrpCoreModeFromEnv(),
-    indirectEvidence: planIndirectModeFromEnv() };
+    indirectEvidence: planIndirectModeFromEnv(), fullProtocol: fullProtocolModeFromEnv() };
 }
 
 /** Whether one of them holds for an account: its mode, and for a dev account its test window (research-trial.ts). */
@@ -5070,8 +5073,23 @@ export function registerTools(
     const recording = options.researchCallRecord === undefined || options.researchContributorAccessService === undefined
       ? undefined : researchCallRecordingOptions(options.researchCallRecord,
         options.researchContributorAccessService, options.mcpSurface ?? "/mcp");
-    register(operation.name, operation.mcpConfig, forTextClients(operation.name, operation.execute, recording));
+    const execute = forTextClients(operation.name, operation.execute, recording);
+    register(operation.name, operation.mcpConfig, options.mcpSurface === "/mcp/gemini" && operation.name !== "load_protocol"
+      ? withGeminiFullProtocol(execute, options)
+      : execute);
   }
+}
+
+/** Append after forTextClients, so any text copy of structured content stays where it was. */
+function withGeminiFullProtocol(execute: ResearchOperationHandler, options: RegisterToolsOptions): ResearchOperationHandler {
+  return async (input, extra) => {
+    const result = await execute(input, extra);
+    if (result.isError === true || fullProtocolModeFromEnv() === "off") return result;
+    const accountKey = callAccountKey(extra, options.researchContributorAccessService);
+    if (accountKey === undefined ||
+        !switchHoldsFor(options, "fullProtocol", accountKey, isDevAccount(accountKey, devAccountKeysFromEnv()))) return result;
+    return { ...result, content: [...result.content, { type: "text", text: FULL_PROTOCOL_GEMINI }] };
+  };
 }
 
 function collectResearchOperations(

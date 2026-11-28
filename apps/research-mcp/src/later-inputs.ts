@@ -300,11 +300,11 @@ const LATER_INPUT_SHAPES = Object.freeze({
     pauseMinutes: z.number().int().min(0).max(PLANNER_PAUSE_MAX_MINUTES).optional()
       .describe(`With pause_research_planner, on a dev account for a test round only: whole minutes from now, at most ` +
         `${PLANNER_PAUSE_MAX_MINUTES}, to pause AskRigor's own planning call; 0 ends the pause.`),
-    // Owner answers 413a and 412a, and P90 (24 Nov 2026): a dev account's test window for the changes behind switches.
+    // A dev account's test window for the changes behind switches.
     researchTrial: researchTrialInputSchema.optional()
       .describe("With set_research_trial, on a dev account for a test round only: claimAccounting, hrpCore and " +
-        "indirectEvidence, each true or false, for minutes whole minutes from now, at most " +
-        `${RESEARCH_TRIAL_MAX_MINUTES}; 0 ends the window.`),
+        "indirectEvidence, each true or false, plus optional fullProtocol (defaults to false), for minutes whole " +
+        `minutes from now, at most ${RESEARCH_TRIAL_MAX_MINUTES}; 0 ends the window.`),
     // Owner answer 412a (24 Nov 2026): the AI says it holds HRP's core in this conversation, so it is not sent again. Any
     // value is accepted: one that is not the core's digest says nothing, and never refuses a registration (holdsHrpCore).
     hrpCoreHeld: z.unknown().optional()

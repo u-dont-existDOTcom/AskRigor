@@ -11,7 +11,8 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CLAIMS_ON_THE_MENU } from "../apps/research-mcp/src/claim-accounting.js";
-import { claimAccountingModeFromEnv, hrpCoreModeFromEnv, planIndirectModeFromEnv } from "../apps/research-mcp/src/config.js";
+import { claimAccountingModeFromEnv, fullProtocolModeFromEnv, hrpCoreModeFromEnv, planIndirectModeFromEnv }
+  from "../apps/research-mcp/src/config.js";
 import { registerTools, type RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
 import { manageResearchAccessInputSchema, manageResearchAccessOutputSchema, plainAnswerRequest }
   from "../apps/research-mcp/src/research-contributor-access-tool.js";
@@ -21,6 +22,7 @@ import {
   TRIAL_OFF_NOTHING_CHANGED,
   createResearchTrialWindows,
   researchSwitchMode,
+  researchTrialInputSchema,
   researchTrialText,
   switchHolds,
   type ResearchTrialWindows,
@@ -34,7 +36,7 @@ afterEach(() => {
 const START = Date.parse("2026-11-24T10:00:00Z");
 const MINUTE = 60_000;
 
-describe("the three switches' modes", () => {
+describe("the research switches' modes", () => {
   it("are off, trial, dev or on, and off for anything else", () => {
     expect(RESEARCH_SWITCH_MODES).toEqual(["off", "trial", "dev", "on"]);
     for (const mode of RESEARCH_SWITCH_MODES) expect(researchSwitchMode(` ${mode} `)).toBe(mode);
@@ -44,11 +46,15 @@ describe("the three switches' modes", () => {
     vi.stubEnv("ASKRIGOR_CLAIM_ACCOUNTING", "dev");
     vi.stubEnv("ASKRIGOR_HRP_CORE", "trial");
     vi.stubEnv("ASKRIGOR_PLAN_INDIRECT", "on");
+    vi.stubEnv("ASKRIGOR_FULL_PROTOCOL", "trial");
     expect([claimAccountingModeFromEnv(), hrpCoreModeFromEnv(), planIndirectModeFromEnv()]).toEqual(["dev", "trial", "on"]);
+    expect(fullProtocolModeFromEnv()).toBe("trial");
     vi.stubEnv("ASKRIGOR_CLAIM_ACCOUNTING", "yes");
     vi.stubEnv("ASKRIGOR_HRP_CORE", "");
     vi.stubEnv("ASKRIGOR_PLAN_INDIRECT", "ON");
+    vi.stubEnv("ASKRIGOR_FULL_PROTOCOL", "ON");
     expect([claimAccountingModeFromEnv(), hrpCoreModeFromEnv(), planIndirectModeFromEnv()]).toEqual(["off", "off", "off"]);
+    expect(fullProtocolModeFromEnv()).toBe("off");
   });
 
   it("hold for an account by mode, whether it is a dev account, and its window", () => {
@@ -69,8 +75,9 @@ describe("a dev account's test window", () => {
     const windows = createResearchTrialWindows(() => at);
     expect(windows.window("account-a")).toBeUndefined();
     expect(windows.set("account-a", { claimAccounting: true, hrpCore: false, indirectEvidence: false, minutes: 30 }))
-      .toEqual({ claimAccounting: true, hrpCore: false, indirectEvidence: false, until: START + 30 * MINUTE });
-    expect(windows.window("account-a")).toEqual({ claimAccounting: true, hrpCore: false, indirectEvidence: false, until: START + 30 * MINUTE });
+      .toEqual({ claimAccounting: true, hrpCore: false, indirectEvidence: false, fullProtocol: false, until: START + 30 * MINUTE });
+    expect(windows.window("account-a")).toEqual({ claimAccounting: true, hrpCore: false, indirectEvidence: false,
+      fullProtocol: false, until: START + 30 * MINUTE });
     expect(windows.window("account-b")).toBeUndefined();
     at += 30 * MINUTE - 1;
     expect(windows.window("account-a")).toBeDefined();
@@ -93,7 +100,7 @@ describe("a dev account's test window", () => {
     at += 60 * MINUTE;
     // Set again for longer, and with the other switch on: at most two hours after it began.
     expect(windows.set("account-a", { claimAccounting: false, hrpCore: true, indirectEvidence: true, minutes: RESEARCH_TRIAL_MAX_MINUTES }))
-      .toEqual({ claimAccounting: false, hrpCore: true, indirectEvidence: true, until: START + 120 * MINUTE });
+      .toEqual({ claimAccounting: false, hrpCore: true, indirectEvidence: true, fullProtocol: false, until: START + 120 * MINUTE });
     at += 59 * MINUTE;
     expect(windows.set("account-a", { claimAccounting: true, hrpCore: true, indirectEvidence: true, minutes: 90 }))
       .toMatchObject({ until: START + 120 * MINUTE });
@@ -137,12 +144,13 @@ const words = (result: Result): string => result.content.map((block) => block.ty
 /** The tool's own text, before the copy of the structured content that apps reading only text get. */
 const said = (result: Result): string => (result.content[0] as { text: string }).text;
 
-async function tool(modes: { claims?: string; core?: string; indirect?: string } = {},
+async function tool(modes: { claims?: string; core?: string; indirect?: string; full?: string } = {},
   windows: ResearchTrialWindows = createResearchTrialWindows()) {
   vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", "research-trial-test-secret-0123456789abcdef");
   vi.stubEnv("ASKRIGOR_CLAIM_ACCOUNTING", modes.claims ?? "");
   vi.stubEnv("ASKRIGOR_HRP_CORE", modes.core ?? "");
   vi.stubEnv("ASKRIGOR_PLAN_INDIRECT", modes.indirect ?? "");
+  vi.stubEnv("ASKRIGOR_FULL_PROTOCOL", modes.full ?? "");
   const service = new ResearchContributorAccessService({ store: new InMemoryResearchContributorAccessStore(),
     identitySecret: new TextEncoder().encode("synthetic-research-identity-secret-with-at-least-thirty-two-bytes") });
   for (const subject of ["auth0|dev", "auth0|dev2", "auth0|person"]) await service.acceptFreeContributor(subject, AGREEMENT);
@@ -158,43 +166,51 @@ async function tool(modes: { claims?: string; core?: string; indirect?: string }
   const set = (researchTrial: unknown, subject?: string) => call({ action: "set_research_trial", later_inputs: { researchTrial } }, subject);
   return { call, set, service, windows };
 }
-const ON = { claimAccounting: true, hrpCore: true, indirectEvidence: true, minutes: 30 };
+const ON = { claimAccounting: true, hrpCore: true, indirectEvidence: true, fullProtocol: true, minutes: 30 };
 
 describe("set_research_trial", () => {
   it("says what is on and until when, that a restart ends it, and that it is for a test round", async () => {
     let at = START;
-    const { set } = await tool({ claims: "trial", core: "trial", indirect: "trial" }, createResearchTrialWindows(() => at));
-    const opened = await set({ claimAccounting: true, hrpCore: false, indirectEvidence: true, minutes: 45 });
+    const { set } = await tool({ claims: "trial", core: "trial", indirect: "trial", full: "trial" },
+      createResearchTrialWindows(() => at));
+    const opened = await set({ claimAccounting: true, hrpCore: false, indirectEvidence: true, fullProtocol: true, minutes: 45 });
     expect(opened.isError, words(opened)).not.toBe(true);
     expect(opened.structuredContent).toEqual({ ok: true,
-      researchTrial: { claimAccounting: true, hrpCore: false, indirectEvidence: true, until: "2026-11-24T10:45:00.000Z" } });
+      researchTrial: { claimAccounting: true, hrpCore: false, indirectEvidence: true, fullProtocol: true,
+        until: "2026-11-24T10:45:00.000Z" } });
     const text = words(opened);
     for (const part of ["Test window for this dev account, for a test round, until 10:45 UTC (2026-11-24T10:45:00.000Z)",
       "the menu's accounting of the quick answer's claims is on; HRP's core with the registration of the quick answer is off; " +
-      "AskRigor's own plan reaching for evidence one step away is on",
+      "AskRigor's own plan reaching for evidence one step away is on; the full-protocol line in AskRigor's first result is on",
       "0 minutes ends it now", "a restart of AskRigor's server ends it too", "at most 120 minutes after it"]) {
       expect(text).toContain(part);
     }
+    const legacyInput = { claimAccounting: true, hrpCore: false, indirectEvidence: true, minutes: 45 };
+    expect(researchTrialInputSchema.parse(legacyInput).fullProtocol).toBe(false);
+    const legacy = await set(legacyInput);
+    expect(legacy.isError, words(legacy)).not.toBe(true);
+    expect(legacy.structuredContent?.researchTrial).toMatchObject({ fullProtocol: false });
     at += 10 * MINUTE;
     const ended = await set({ claimAccounting: true, hrpCore: true, indirectEvidence: true, minutes: 0 });
     expect(ended.structuredContent).toEqual({ ok: true,
-      researchTrial: { claimAccounting: false, hrpCore: false, indirectEvidence: false, until: null } });
+      researchTrial: { claimAccounting: false, hrpCore: false, indirectEvidence: false, fullProtocol: false, until: null } });
     expect(said(ended)).toBe("No test window runs for this dev account now: the menu's accounting of the quick answer's " +
       "claims is off, with no window; HRP's core with the registration of the quick answer is off, with no window; " +
-      "AskRigor's own plan reaching for evidence one step away is off, with no window.");
+      "AskRigor's own plan reaching for evidence one step away is off, with no window; " +
+      "the full-protocol line in AskRigor's first result is off, with no window.");
   });
 
   it("says of a switch the server sets itself that the window does not change it", async () => {
     const until = START + 30 * MINUTE;
-    const window = { claimAccounting: true, hrpCore: true, indirectEvidence: true, until };
-    expect(researchTrialText({ claimAccounting: "trial", hrpCore: "off", indirectEvidence: "trial" }, window)).toContain("claims " +
+    const window = { claimAccounting: true, hrpCore: true, indirectEvidence: true, fullProtocol: true, until };
+    expect(researchTrialText({ claimAccounting: "trial", hrpCore: "off", indirectEvidence: "trial", fullProtocol: "trial" }, window)).toContain("claims " +
       "is on; HRP's core with the registration of the quick answer is off, by this server's own setting (off), which a window " +
-      "does not change; AskRigor's own plan reaching for evidence one step away is on.");
-    expect(researchTrialText({ claimAccounting: "on", hrpCore: "trial", indirectEvidence: "off" },
+      "does not change; AskRigor's own plan reaching for evidence one step away is on;");
+    expect(researchTrialText({ claimAccounting: "on", hrpCore: "trial", indirectEvidence: "off", fullProtocol: "trial" },
       { ...window, claimAccounting: false, hrpCore: false }))
       .toContain("claims is on, by this server's own setting (on), which a window does not change; HRP's core with the " +
         "registration of the quick answer is off; AskRigor's own plan reaching for evidence one step away is off, by this " +
-        "server's own setting (off), which a window does not change.");
+        "server's own setting (off), which a window does not change;");
     const { set } = await tool({ claims: "trial", core: "dev" });
     expect((await set({ claimAccounting: true, hrpCore: false, indirectEvidence: true, minutes: 5 })).structuredContent).toMatchObject({
       researchTrial: { claimAccounting: true, hrpCore: true, indirectEvidence: false } });
@@ -212,7 +228,7 @@ describe("set_research_trial", () => {
     }
     for (const wrong of [{ ...ON, minutes: 121 }, { ...ON, minutes: -1 }, { ...ON, minutes: 2.5 }, { ...ON, minutes: "30" },
       { claimAccounting: true, minutes: 30 }, { claimAccounting: true, hrpCore: true, minutes: 30 }, { ...ON, hrpCore: "yes" },
-      { ...ON, indirectEvidence: 1 }, { ...ON, other: 1 }, "on", 30]) {
+      { ...ON, indirectEvidence: 1 }, { ...ON, fullProtocol: 1 }, { ...ON, other: 1 }, "on", 30]) {
       const refused = await set(wrong);
       expect(refused.isError, JSON.stringify(wrong)).toBe(true);
       expect(refused._meta?.["askrigor/errorCode"], JSON.stringify(wrong)).toBe("invalid_input");
@@ -229,11 +245,12 @@ describe("set_research_trial", () => {
     }
   });
 
-  it("opens a window while any one of the three is in trial mode, whichever it is", async () => {
-    for (const modes of [{ claims: "trial" }, { core: "trial" }, { indirect: "trial" }]) {
+  it("opens a window while any one switch is in trial mode", async () => {
+    for (const modes of [{ claims: "trial" }, { core: "trial" }, { indirect: "trial" }, { full: "trial" }]) {
       const { set } = await tool(modes);
       expect((await set(ON)).structuredContent, JSON.stringify(modes)).toMatchObject({ ok: true, researchTrial: {
-        claimAccounting: "claims" in modes, hrpCore: "core" in modes, indirectEvidence: "indirect" in modes } });
+        claimAccounting: "claims" in modes, hrpCore: "core" in modes, indirectEvidence: "indirect" in modes,
+        fullProtocol: "full" in modes } });
     }
   });
 
