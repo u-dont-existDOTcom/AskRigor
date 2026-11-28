@@ -29,6 +29,14 @@ export type AccountTermsAccess = Pick<ResearchContributorAccessService, "signInN
 
 export type NoticeDecision = "accept" | "decline";
 
+export const FAILED_SEARCHES_OPT_IN_LABEL = "Help fix AskRigor: keep my failed searches for 30 days";
+export const KEEP_FAILED_SEARCHES_FIELD = "keep_failed_searches";
+
+export function keepFailedSearchesFromNoticeForm(form: URLSearchParams): boolean {
+  const values = form.getAll(KEEP_FAILED_SEARCHES_FIELD);
+  return values.length === 1 && values[0] === "true";
+}
+
 /** The yes the step records: the notice it showed, with each part accept_free_contributor's agreement names. */
 export const NOTICE_AGREEMENT: FreeContributorAgreement = Object.freeze({
   noticeVersion: RESEARCH_USE_NOTICE_VERSION,
@@ -75,6 +83,7 @@ export async function decideNotice(input: {
   decision: NoticeDecision;
   /** The notice version the page's form carried; undefined when it carried none, or more than one. */
   noticeVersionShown: string | undefined;
+  keepFailedSearches: boolean;
   tokenSha256: string;
   usableUntil: Date;
   access: AccountTermsAccess;
@@ -103,7 +112,8 @@ export async function decideNotice(input: {
   // either.
   if (!claim.claimed) return { kind: "answer", answer: { notRecorded: "already_answered" } };
   try {
-    await access.acceptFreeContributor(subject, NOTICE_AGREEMENT, "PERSON_SIGN_IN_PAGE");
+    await access.acceptFreeContributor(subject, NOTICE_AGREEMENT, "PERSON_SIGN_IN_PAGE",
+      input.keepFailedSearches === true ? { keepFailedSearches: true } : undefined);
   } catch {
     return { kind: "answer", answer: { notRecorded: "account_store_unavailable" } };
   }

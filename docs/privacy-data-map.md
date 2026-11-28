@@ -2968,8 +2968,10 @@ The owner, 7 Nov 2026: bigger research jobs are asked for by email and quoted by
   any research from a job is published is settled in its quote. The privacy notice's section "Emails, research jobs
   and payments" (effective November 7, 2026) says so publicly.
 
-## Research tool error log (owner answers 432 and 433a, 28 November 2026)
+## Research tool error log (owner answers 432, 433a and 434a, 28 November 2026)
 
 The research MCP server saves one row for a failed tool call or a successful call taking more than ten seconds. The row holds UTC time, elapsed milliseconds, tool, outcome, a coarse app already known to the server and validated PMID, PMCID or DOI values from tool arguments or the failed source's identifiers. Failed calls also keep fixed error and source categories, a status class when available, and schema-declared argument presence, word counts and option values. A signed-in account's **Keep my failed searches** preference may allow screened search words from explicitly known non-YouTube destinations. The preference is a nullable boolean on the existing research account. Account identity is used to resolve the preference in memory and is absent from error-log rows. The log carries no headers, tokens, URLs, raw errors, tool results, answers or source text.
 
 The research-access role inserts and expires rows in the unlogged PostgreSQL table `research_error_log`. A dedicated maintainer role can read those rows through a read-only operator script. The hourly call-record sweep expires them within 30 days, with a sweep at startup. Logical backups exclude the table's data, and physical backups exclude unlogged row contents. Use operator output only for immediate diagnosis. See the production runbook for deployment and rollback checks.
+
+When a person accepts the free-use notice, the unchecked box on the sign-in page or the explicit yes in chat can set the account preference to true. Accepting without opting in preserves the stored preference, including a null that uses the server default. The Atlas account page can turn it on or off.

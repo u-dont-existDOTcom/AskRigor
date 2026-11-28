@@ -395,9 +395,14 @@ export interface ProposalSubmission extends ProposalInsertResult {
   reconciled: ReconciledIdentity[];
 }
 
+interface AccountSaveOptions {
+  /** An explicit opt-in given with notice acceptance. Omission preserves the stored preference. */
+  keepFailedSearches?: true;
+}
+
 export interface ResearchContributorAccessStore {
   getAccount(accountKey: string): Promise<ResearchUseAccountRecord | null>;
-  saveAccount(record: ResearchUseAccountRecord): Promise<void>;
+  saveAccount(record: ResearchUseAccountRecord, options?: AccountSaveOptions): Promise<void>;
   /**
    * Saves the record only while the stored row still has the status, mode, notice version and update time it had when
    * `read` was read; false, and nothing written, when it changed in between.
@@ -586,6 +591,7 @@ export class ResearchContributorAccessService {
     subject: string,
     agreementInput: unknown,
     acceptedBy: PersonNoticeAcceptance = "PERSON",
+    options?: AccountSaveOptions,
   ): Promise<ResearchAccessView> {
     const agreement = freeContributorAgreementSchema.parse(agreementInput);
     const how = personNoticeAcceptanceSchema.parse(acceptedBy);
@@ -604,7 +610,7 @@ export class ResearchContributorAccessService {
       updatedAt: at,
       noticeAcceptedBy: how,
     };
-    await this.store.saveAccount(record);
+    await this.store.saveAccount(record, options);
     return accessView("ACTIVE", "FREE_CONTRIBUTOR", at, at, noticeAcceptance(record));
   }
 
@@ -1015,8 +1021,10 @@ implements ResearchContributorAccessStore {
     return record === undefined ? null : structuredClone(record);
   }
 
-  async saveAccount(record: ResearchUseAccountRecord): Promise<void> {
-    this.accounts.set(record.accountKey, this.keepingSettings(record));
+  async saveAccount(record: ResearchUseAccountRecord, options?: AccountSaveOptions): Promise<void> {
+    const saved = this.keepingSettings(record);
+    if (options?.keepFailedSearches === true) saved.keepFailedSearches = true;
+    this.accounts.set(record.accountKey, saved);
   }
 
   async saveAccountIfUnchanged(record: ResearchUseAccountRecord, read: ResearchUseAccountRecord): Promise<boolean> {
@@ -1094,8 +1102,7 @@ implements ResearchContributorAccessStore {
   }
 
   /**
-   * The record as saved: with the account's settings, which only their setters change (setPlainAnswerNote,
-   * setDetailedLessonReports and setFindingsSave).
+   * The record as saved, preserving the account's settings before applying any explicit changes.
    */
   private keepingSettings(record: ResearchUseAccountRecord): ResearchUseAccountRecord {
     const {
@@ -1445,13 +1452,16 @@ implements ResearchContributorAccessStore {
 
   // How the notice was accepted goes with the acceptance time, activated_at: migration 0031's trigger clears the pair
   // whenever a write changes activated_at without it, as an image from before 0031 does, so a stale value never stays.
-  async saveAccount(record: ResearchUseAccountRecord): Promise<void> {
+  async saveAccount(record: ResearchUseAccountRecord, options?: AccountSaveOptions): Promise<void> {
     const acceptedBy = record.noticeAcceptedBy ?? null;
+    // Include the preference in the same write only on explicit opt-in. Other writes keep the stored value and
+    // use the same SQL on schemas from before the error-log migration.
+    const optedIn = options?.keepFailedSearches === true;
     await this.pool.query(
       `INSERT INTO ${this.schema}.research_use_accounts
-        (account_key, status, mode, notice_version, agreement_json,
-         activated_at, revoked_at, created_at, updated_at, notice_accepted_by, notice_accepted_at)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11)
+        (account_key, status, mode, notice_version, agreement_json, activated_at, revoked_at, created_at, updated_at,
+         notice_accepted_by, notice_accepted_at${optedIn ? ", keep_failed_searches" : ""})
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11${optedIn ? ", TRUE" : ""})
        ON CONFLICT (account_key) DO UPDATE SET
          status = EXCLUDED.status,
          mode = EXCLUDED.mode,
@@ -1461,7 +1471,7 @@ implements ResearchContributorAccessStore {
          revoked_at = EXCLUDED.revoked_at,
          updated_at = EXCLUDED.updated_at,
          notice_accepted_by = EXCLUDED.notice_accepted_by,
-         notice_accepted_at = EXCLUDED.notice_accepted_at`,
+         notice_accepted_at = EXCLUDED.notice_accepted_at${optedIn ? ",\n         keep_failed_searches = TRUE" : ""}`,
       [
         record.accountKey,
         record.status,
