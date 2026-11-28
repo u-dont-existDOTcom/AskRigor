@@ -468,3 +468,7 @@ Decided: by 25 Oct 2026 (the Atlas pages' security headers); topic maps drawn wi
 A row records the time, duration, tool, known app and format-checked public paper identifiers. A failed call adds fixed error and location categories and the shape of filled argument fields. The existing developer-account list starts with the switch on. Other accounts start off, and a saved account preference takes priority. Retained search words go through redaction and the privacy screen. Slow successes keep metadata only, including when a fallback succeeded. The tool catalog stays the same.
 
 The log excludes accounts, user/session/request IDs, network addresses, credentials, tokens, headers, URLs, tool results, answers, source text and raw errors. YouTube-capable and unknown destinations keep shape only. · Decided 27–28 Nov 2026, owner answers 432 1b 2a 3a and 433a.
+
+**Offer one unticked checkbox for the 30-day failed-search log when a person accepts AskRigor's notice.**
+
+The notice page asks “Help fix AskRigor: keep my failed searches for 30 days”. ChatGPT and Claude ask the same question when showing the notice and send `later_inputs.keepFailedSearches: true` only after an explicit yes to that question. Accepting with the box unticked or without a yes in chat preserves the account's saved preference or default. The developer-account default stays on. Anyone with a research account can change the setting on their Atlas account page. · Decided 28 Nov 2026, owner answer 434a.

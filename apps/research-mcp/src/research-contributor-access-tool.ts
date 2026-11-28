@@ -36,6 +36,7 @@ import {
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
+import { FAILED_SEARCHES_OPT_IN_LABEL } from "./account-terms/decision.js";
 import {
   permissiveConnectorInputSchema,
   relaxedConnectorInputSchema,
@@ -764,7 +765,10 @@ export function noticeNextStep(): string {
     "private access if they have it). Only after their yes, call manage_research_access with action " +
     `accept_free_contributor and agreement {noticeVersion: "${RESEARCH_USE_NOTICE_VERSION}", ` +
     "eligibleDeidentifiedResearchContributionRequired: true, prohibitedPrivateAndRawContentExcluded: true, " +
-    "proposalReviewAndNoAuthorityAcknowledged: true, paidPrivateAlternativeAcknowledged: true}. Never accept for them.";
+    "proposalReviewAndNoAuthorityAcknowledged: true, paidPrivateAlternativeAcknowledged: true}. Never accept for them. " +
+    `When you show the notice, also ask the person once, in these exact words: "${FAILED_SEARCHES_OPT_IN_LABEL}". ` +
+    "Treat their answer to this optional question as no unless they explicitly say yes to it. " +
+    "Include later_inputs: { keepFailedSearches: true } only if they say yes to this question.";
 }
 
 /**
@@ -1040,6 +1044,9 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
     if ((input.action === "pause_research_planner") !== (input.pauseMinutes !== undefined)) {
       return accessError("invalid_request",
         "later_inputs.pauseMinutes goes only with action pause_research_planner, which needs it.");
+    }
+    if (input.action !== "accept_free_contributor" && input.keepFailedSearches !== undefined) {
+      return accessError("invalid_request", "later_inputs.keepFailedSearches goes only with action accept_free_contributor.");
     }
     if (input.action === "list_calls") {
       if (options.callRecord === undefined || options.service === undefined) {
@@ -1324,6 +1331,8 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           ? await options.service.acceptFreeContributor(
               auth.subject,
               parsed.agreement!,
+              "PERSON",
+              parsed.keepFailedSearches === true ? { keepFailedSearches: true } : undefined,
             )
           : parsed.action === "activate_paid_private"
             ? await options.service.activatePaidPrivate(auth.subject)
