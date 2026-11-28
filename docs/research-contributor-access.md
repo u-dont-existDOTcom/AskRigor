@@ -543,13 +543,20 @@ owner's ChatGPT runs had left that judgment to the person's AI, and it went wron
   reading the person did not mean. Without `asked` the plan is made from the research target, and the result asks
   for it next time.
   `asked` goes only with `register_plain_answer`; on any other account it is not used.
-- **What comes back.** `register_plain_answer`'s first text and `next_step` say not to screen, give what the
+- **What comes back.** On a dev account with the planner on, `register_plain_answer` starts the plan and returns
+  the signed receipt at once. The AI loads its protocol sections, with no screen or menu of its own yet, and in the
+  same turn, before asking the person anything, calls `get_research_plan`, which waits for the plan, with
+  `later_inputs.plain_answer_receipt` set to the registration's `research_receipt` (owner answer 435a, 28 November
+  2026). The follow-up returns the original planning result. Its first text and `next_step` say not to screen, give what the
   question is about (`research_plan.about`), and hand over the menu ready to send: `planned_later_inputs`, a
   `researchMenu` with the registered research target, the receipt just signed, the planner's `steering_choice`
   and its tasks. Sent as it is, `plan_research` plans it at once, by the account's style: a named question asks,
   and the reply puts it to the person with the menu; none goes on, and the answer opens with how the question was
   read. When the reading found differs from the plain answer's, the AI says so in one line, and registers again
-  only when the research target itself names the wrong thing (the plan is kept for an hour for the same words).
+  only when the research target itself names the wrong thing (the underlying plan is kept for an hour for the same
+  words). On a dev account, a `plan_research` call with `later_inputs.plain_answer_receipt` in place of
+  `researchMenu` waits for the same menu and applies the same checks; any other account's goes through the menu
+  reader as before. Both follow-up calls use the registration's original outer deadline.
 - **The order of its tasks.** By how directly each could answer what the person asked, not by which source is best
   known: for harm or benefit in people, studies in people that compare come first, then series that give doses and
   counts, then what else could cause the same thing, and animal and cell studies after them; for what a
@@ -560,8 +567,10 @@ owner's ChatGPT runs had left that judgment to the person's AI, and it went wron
 - **It never blocks.** Off, over its budget, over the account's calls for the day, timed out, refused, failed or
   unreadable, the result is the one every account gets, and the AI screens and plans as before, with one sentence
   after the first text and `research_plan_not_used` naming why. At a day's limit the sentence asks the AI to tell
-  the person so in one line, and `next_step` carries it too. A planner that throws, rejects or never settles is a
-  failure like any other: the registration waits for it 125 seconds at most.
+  the person so in one line, and `next_step` carries it too. A planner that throws, rejects or never settles returns
+  the same failure fallback. The registered handoff expires 125 seconds after it starts, and a restart clears
+  it. A receipt still verifies after the handoff is gone. The AI then uses its original framing and research
+  target to fill the fallback outline and screen for itself.
 - **The cap.** A call is sent only while the day's cap has room for the USD 0.12 held for it, and that is settled
   with the call's real cost when the reply comes, on the day the call was sent. A call that timed out, or failed
   with no answer from the API, keeps what was held; one the API answered with an error status costs nothing. So
@@ -622,8 +631,9 @@ owner's ChatGPT runs had left that judgment to the person's AI, and it went wron
   goes without plans too.
 - **What it costs and keeps.** Paid from the owner's monthly Claude API credit
   (`governance/chat-work-authority-policy.json`, `OWNER_ANSWER_298B`). Measured on 13 November on the five test
-  questions: 6 to 9 cents and 10 to 22 seconds a call with one or two searches. AskRigor stores nothing it sends or
-  receives (`docs/privacy-data-map.md`). The Atlas account page lists it with its limits.
+  questions: 6 to 9 cents and 10 to 22 seconds a call with one or two searches. The handoff uses process memory
+  only and is keyed by the account and receipt. See `docs/privacy-data-map.md` for what it holds and when it expires.
+  The Atlas account page lists the planner with its limits.
 - **Not done.** Other accounts: the owner's direction is to give everyone the call, with about 10 a day for a free
   account and a word to the person when they are used up; that needs a ceiling for the spend and the free-use
   notice to say that the question goes to Anthropic, so it is the owner's next decision, after the trial. The
@@ -644,7 +654,7 @@ call is on.
   The answer starts with this line, in the person's language: "AskRigor light look-up: the source was opened and the
   line quoted; nothing else was checked. Say 'research it fully' for more."
 - **aside.** A plain look-up AskRigor's research would add nothing to. `register_plain_answer` still signs the plain
-  answer and gives its receipt, but hands over no menu. The AI makes no research call, calls neither `plan_research`
+  answer and gives its receipt. `get_research_plan` hands over the step-aside guidance. The AI makes no research call, calls neither `plan_research`
   nor `finalize_research`, and answers as it would without AskRigor, naming its source. The answer starts with this
   sentence, in the person's language: "AskRigor says this question doesn't need AskRigor's research. Here is the
   regular AI's answer:" AskRigor checks nothing in that answer, and the AI may not say or imply that it did.
@@ -1001,6 +1011,8 @@ the record also keeps the plan's lane, `research`, `light` or `aside` (`research
 or the AI wrote. Migration `0035_research_menu_learning` adds the nullable `plan_lane` column, whose check admits a
 value only on a `manage_research_access` row with action `register_plain_answer`; `list_calls` shows it as it shows
 `plan_next` ("manage_research_access (register_plain_answer: light)").
+In the background-planning flow the same registration row is recorded once the lane is known or the handoff reaches
+its deadline. The row's duration measures the registration reply. `get_research_plan` has its own ordinary call row.
 
 ## Detailed lesson reports
 

@@ -270,6 +270,8 @@ const LATER_INPUT_SHAPES = Object.freeze({
     researchMenu: researchMenuSchema.optional()
       .describe("With plan_research, after a quick screen: the research target, the next tasks with their kind and " +
         "what each could change, and the person's allocation once given."),
+    plain_answer_receipt: researchMenuSchema.shape.plain_answer_receipt
+      .describe("With get_research_plan, or with plan_research in place of researchMenu: the registration's research_receipt."),
     // Owner answer 298b (13 Nov 2026): the person's own words, for AskRigor's own planning call on a dev account. Read
     // in memory for that call only; never signed, stored or logged.
     // Round 7 (13 Nov 2026): four of the five chats first sent them as a list, one message each, and were refused

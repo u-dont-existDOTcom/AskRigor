@@ -136,8 +136,10 @@ describe("what registration hands over from AskRigor", () => {
       lane: async () => "aside",
     };
     const { call } = await fixture({ atlas: async () => [FINDING], pointers: () => OWNER_POINTERS }, planner);
-    const result = await call({ action: "register_plain_answer", plainAnswer: PLAIN,
+    const registered = await call({ action: "register_plain_answer", plainAnswer: PLAIN,
       later_inputs: { asked: PLAIN.researchTarget } });
+    const result = await call({ action: "get_research_plan",
+      later_inputs: { plain_answer_receipt: data(registered).research_receipt } });
     expect(result.isError).not.toBe(true);
     expect(texts(result)).toEqual([
       // With something held, the step aside itself says where it goes, in place of "Nothing in this answer is checked".
@@ -163,8 +165,10 @@ describe("what registration hands over from AskRigor", () => {
     // Nothing near in the Atlas and no pointer matched: the list of other pointers alone is no reason to change it.
     const listed = await fixture({ atlas: async () => [], pointers: () => OWNER_POINTERS }, planner);
     const egg = "How long do I boil an egg?";
-    const plain = await listed.call({ action: "register_plain_answer",
+    const plainRegistration = await listed.call({ action: "register_plain_answer",
       plainAnswer: { ...PLAIN, researchTarget: egg }, later_inputs: { asked: egg } });
+    const plain = await listed.call({ action: "get_research_plan",
+      later_inputs: { plain_answer_receipt: data(plainRegistration).research_receipt } });
     expect(data(plain).askrigor_holds?.owner_pointers).toBeUndefined();
     expect(data(plain).askrigor_holds?.other_owner_pointers).toHaveLength(OWNER_POINTERS.length);
     expect(data(plain).next_step).toBe(asideNextStep());
@@ -172,8 +176,10 @@ describe("what registration hands over from AskRigor", () => {
     // A matched pointer and no finding: the step aside says where it goes.
     const target = "What is fibromyalgia?";
     const matched = await fixture({ atlas: async () => [], pointers: () => OWNER_POINTERS }, planner);
-    const pointed = await matched.call({ action: "register_plain_answer",
+    const pointedRegistration = await matched.call({ action: "register_plain_answer",
       plainAnswer: { ...PLAIN, researchTarget: target }, later_inputs: { asked: target } });
+    const pointed = await matched.call({ action: "get_research_plan",
+      later_inputs: { plain_answer_receipt: data(pointedRegistration).research_receipt } });
     expect(data(pointed).askrigor_holds?.owner_pointers).toHaveLength(OWNER_POINTERS.length);
     expect(data(pointed).next_step).toBe(asideNextStep(true));
     expect(texts(pointed)[0]).toBe(asideGuidance({ about, searches: 1 }, true));
@@ -212,7 +218,9 @@ describe("what registration hands over from AskRigor", () => {
       lane: async () => "research",
     };
     const { call } = await fixture(options, planner);
-    const result = await call({ action: "register_plain_answer", plainAnswer: { ...PLAIN, researchTarget: target } });
+    const registered = await call({ action: "register_plain_answer", plainAnswer: { ...PLAIN, researchTarget: target } });
+    const result = await call({ action: "get_research_plan",
+      later_inputs: { plain_answer_receipt: data(registered).research_receipt } });
     expect(result.isError).not.toBe(true);
     expect(data(result).ok).toBe(true);
     expect(clientResultBytes(result)).toBeLessThanOrEqual(MCP_RESULT_MAX_BYTES);

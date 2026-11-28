@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   DEFAULT_RESEARCH_STEERING as STORED_DEFAULT_STEERING,
+  InMemoryResearchCallRecordStore,
   InMemoryResearchContributorAccessStore,
   RESEARCH_USE_NOTICE_VERSION,
   ResearchContributorAccessService,
@@ -20,6 +21,7 @@ import { atlasFeatureRows, loadAtlasAccountFeatures, type AtlasResearchAccount, 
   from "../apps/research-mcp/src/atlas/account-features.js";
 import { laterInputNames, withLaterInputs } from "../apps/research-mcp/src/later-inputs.js";
 import { registerTools, type RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
+import { waitForPendingCallRecords } from "../apps/research-mcp/src/tool-result.js";
 import {
   OWNER_DAILY_CEILING_USD,
   PLANNED_OTHER_MINUTES,
@@ -1330,18 +1332,20 @@ async function tool(researchPlanner: ResearchPlanner | undefined, dev: readonly 
   const service = new ResearchContributorAccessService({ store, identitySecret: IDENTITY_SECRET });
   for (const subject of ["auth0|dev", "auth0|person"]) await service.acceptFreeContributor(subject, AGREEMENT);
   vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", dev.map((subject) => service.accountKeyForSubject(subject)).join(","));
-  let handler: ((input: unknown, extra?: unknown) => Promise<CallToolResult>) | undefined;
   const options: RegisterToolsOptions = { researchAccessRequired: true, mcpSurface: "/mcp",
     researchContributorAccessService: service, ...(researchPlanner === undefined ? {} : { researchPlanner }), ...extra };
-  registerTools({
-    registerTool: (registered: string, _config: unknown, execute: typeof handler) => {
-      if (registered === "manage_research_access") handler = execute;
-    },
-  } as unknown as McpServer, options);
-  const call = async (input: Record<string, unknown>, subject = "auth0|dev"): Promise<Result> =>
-    await handler!(input, { authInfo: { token: "synthetic-token", clientId: "synthetic-client",
-      scopes: ["research:use"], expiresAt: Math.floor(Date.now() / 1_000) + 60, extra: { subject } } }) as Result;
-  return { call, service };
+  const newHandler = () => {
+    let handler: ((input: unknown, extra?: unknown) => Promise<CallToolResult>) | undefined;
+    registerTools({
+      registerTool: (registered: string, _config: unknown, execute: typeof handler) => {
+        if (registered === "manage_research_access") handler = execute;
+      },
+    } as unknown as McpServer, options);
+    return async (input: Record<string, unknown>, subject = "auth0|dev"): Promise<Result> =>
+      await handler!(input, { authInfo: { token: "synthetic-token", clientId: "synthetic-client",
+        scopes: ["research:use"], expiresAt: Math.floor(Date.now() / 1_000) + 60, extra: { subject } } }) as Result;
+  };
+  return { call: newHandler(), service, newHandler };
 }
 
 describe("traditional accounts in registration's structured next step (owner answer 402a)", () => {
@@ -1396,6 +1400,172 @@ function memoryPlanner(answer: (source: ResearchPlannerSource, accountKey: strin
   return { planner: made, seen };
 }
 
+const receiptOf = (registered: Result): string => registered.structuredContent!.research_receipt as string;
+const getPlan = (receipt: string) => ({ action: "get_research_plan", later_inputs: { plain_answer_receipt: receipt } });
+
+async function registerAndReadPlan(call: (input: Record<string, unknown>, subject?: string) => Promise<Result>,
+  input: Record<string, unknown>, subject?: string): Promise<Result> {
+  const registered = await call(input, subject);
+  expect(registered.isError, words(registered)).not.toBe(true);
+  return await call(getPlan(receiptOf(registered)), subject);
+}
+
+describe("background research planning (owner answer 435a)", () => {
+  const registration = { action: "register_plain_answer", plainAnswer: PLAIN, later_inputs: { asked: SOURCE.asked } };
+  const plannerDeadline = 125_000;
+  const planned = (about = REPLY.about): ResearchPlannerCall => ({
+    planning: { status: "planned", plan: researchPlanOf({ ...REPLY, about }, 1)! },
+    cached: false, costUsd: 0, milliseconds: 0,
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  it("returns the receipt immediately and hands back a ready plan with its original receipt", async () => {
+    vi.useFakeTimers();
+    const completion = Promise.withResolvers<ResearchPlannerCall>();
+    const plan = vi.fn(() => completion.promise);
+    const store = new InMemoryResearchCallRecordStore();
+    const { call, service, newHandler } = await tool({ enabled: true, plan }, ["auth0|dev"], { researchCallRecord: store });
+    const registeredAt = new Date();
+    const pending = await call(registration);
+    expect(plan).toHaveBeenCalledTimes(1);
+    const receipt = receiptOf(pending);
+    expect(pending.structuredContent).toMatchObject({ ok: true, research_receipt: expect.any(String),
+      plainAnswer: { requested: true, claims: 1 }, next_step: expect.stringContaining("Load the protocol sections you " +
+        "need now, but do not screen or write a menu of your own yet. Then, in this same turn and before asking the " +
+        "person anything, call manage_research_access with action get_research_plan and " +
+        "later_inputs.plain_answer_receipt set to this result's research_receipt: it waits for the plan and returns " +
+        "your next step.") });
+    expect(pending.structuredContent!.next_step).toMatch(/^AskRigor is building the research plan\. If the question is/u);
+    expect(pending.content[0]).toEqual({ type: "text", text: pending.structuredContent!.next_step });
+    expect(pending.structuredContent).not.toHaveProperty("research_plan");
+    expect(pending.structuredContent).not.toHaveProperty("menu_outline");
+    await vi.advanceTimersByTimeAsync(5_000);
+    completion.resolve(planned());
+    await vi.advanceTimersByTimeAsync(0);
+    const ready = await newHandler()(getPlan(receipt));
+    expect(ready.structuredContent).toMatchObject({ ok: true, research_receipt: receipt,
+      research_plan: { about: REPLY.about, lane: "research" },
+      planned_later_inputs: { researchMenu: { plain_answer_receipt: receipt, research_target: PLAIN.researchTarget } } });
+    expect(plan).toHaveBeenCalledTimes(1);
+    await waitForPendingCallRecords(store);
+    const rows = await store.list(service.accountKeyForSubject("auth0|dev"), new Date());
+    expect(rows).toHaveLength(2);
+    expect(rows.find(({ action }) => action === "register_plain_answer")).toMatchObject({
+      outcome: "answered", receivedAt: registeredAt, planLane: "research" });
+    const retrieval = rows.find(({ action }) => action === "get_research_plan");
+    expect(retrieval).toMatchObject({ outcome: "answered" });
+    expect(retrieval).not.toHaveProperty("planLane");
+    await vi.advanceTimersByTimeAsync(plannerDeadline - 5_000);
+    expect((await call(getPlan(receipt))).structuredContent).not.toHaveProperty("research_plan");
+  });
+
+  it.each(["get_research_plan", "plan_research"])("waits for a running plan through %s", async (action) => {
+    vi.useFakeTimers();
+    const completion = Promise.withResolvers<ResearchPlannerCall>();
+    const { call } = await tool({ enabled: true, plan: () => completion.promise });
+    const receipt = receiptOf(await call(registration));
+    const finished = vi.fn();
+    const reading = call({ action, later_inputs: { plain_answer_receipt: receipt } }).then((result) => {
+      finished();
+      return result;
+    });
+    await vi.advanceTimersByTimeAsync(1);
+    expect(finished).not.toHaveBeenCalled();
+    completion.resolve(planned());
+    const result = await reading;
+    expect(result.structuredContent).toMatchObject(action === "plan_research"
+      ? { ok: true, researchMenu: { next: "ask", target_matches_plain_answer: true, steering_choice: REPLY.steering_choice } }
+      : { ok: true, research_receipt: receipt, research_plan: { about: REPLY.about } });
+  });
+
+  it("uses the registration's deadline for every waiter and releases the handoff", async () => {
+    vi.useFakeTimers();
+    const completion = Promise.withResolvers<ResearchPlannerCall>();
+    const plan = vi.fn(() => completion.promise);
+    const { call } = await tool({ enabled: true, plan });
+    const receipt = receiptOf(await call(registration));
+    await vi.advanceTimersByTimeAsync(plannerDeadline - 2);
+    const finished = vi.fn();
+    const reading = call(getPlan(receipt)).then((result) => { finished(); return result; });
+    const using = call({ action: "plan_research", later_inputs: { plain_answer_receipt: receipt } });
+    await vi.advanceTimersByTimeAsync(1);
+    expect(finished).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    const fallback = await reading;
+    expect(await using).toEqual(fallback);
+    expect(fallback.structuredContent).toMatchObject({ ok: true, research_receipt: receipt, research_plan_not_used: "error",
+      menu_outline: { researchMenu: { plain_answer_receipt: receipt, research_target: PLAIN.researchTarget } } });
+    expect(words(fallback)).toContain(plannerNotUsedSentence("error", undefined));
+    completion.resolve(planned());
+    expect((await call(getPlan(receipt))).structuredContent).toMatchObject({ ok: true, research_receipt: receipt,
+      menu_outline: { researchMenu: { plain_answer_receipt: receipt } } });
+    expect((await call(getPlan(receipt))).structuredContent).not.toHaveProperty("research_plan");
+    expect(plan).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not start the planner if learn-mode history arrives after the deadline", async () => {
+    vi.useFakeTimers();
+    const history = Promise.withResolvers<[]>();
+    const plan = vi.fn(async () => planned());
+    const { call, service } = await tool({ enabled: true, plan });
+    await service.setResearchSteering("auth0|dev", { learnMenuChoices: true });
+    const read = vi.spyOn(service, "menuChoices").mockReturnValueOnce(history.promise);
+    const receipt = receiptOf(await call(registration));
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(plan).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(plannerDeadline);
+    history.resolve([]);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(plan).not.toHaveBeenCalled();
+    expect((await call(getPlan(receipt))).structuredContent).toHaveProperty("menu_outline");
+  });
+
+  it("isolates two registrations by one account, denies a different account, and falls back after a restart", async () => {
+    vi.useFakeTimers();
+    const first = Promise.withResolvers<ResearchPlannerCall>();
+    const second = Promise.withResolvers<ResearchPlannerCall>();
+    const plan = vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    const subjects = ["auth0|dev", "auth0|person"];
+    const { call } = await tool({ enabled: true, plan }, subjects);
+    // Identical input, and the same clock time, still gives separate registrations.
+    const early = receiptOf(await call(registration));
+    const late = receiptOf(await call(registration));
+    expect(early).not.toBe(late);
+    second.resolve(planned("The second registration's reading."));
+    const latest = await call(getPlan(late));
+    expect(latest.structuredContent).toMatchObject({ research_receipt: late,
+      research_plan: { about: "The second registration's reading." } });
+    const foreign = await call(getPlan(late), "auth0|person");
+    expect(foreign.structuredContent).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    first.resolve(planned());
+    expect((await call(getPlan(early))).structuredContent).toMatchObject({ research_receipt: early,
+      research_plan: { about: REPLY.about } });
+    const restarted = await tool({ enabled: true, plan }, subjects);
+    const fallback = await restarted.call(getPlan(late));
+    expect(fallback.structuredContent).toMatchObject({ ok: true, research_receipt: late,
+      menu_outline: { researchMenu: { plain_answer_receipt: late } } });
+    expect(fallback.structuredContent).not.toHaveProperty("research_plan");
+    expect(plan).toHaveBeenCalledTimes(2);
+  });
+
+  it("leaves an account without the planner as it was, a plan_research call with a receipt alone too", async () => {
+    const plan = vi.fn(async () => planned());
+    const { call } = await tool({ enabled: true, plan }, ["auth0|dev"]);
+    const registered = await call(registration, "auth0|person");
+    expect(plan).not.toHaveBeenCalled();
+    expect(registered.structuredContent).toHaveProperty("menu_outline");
+    expect(words(registered)).not.toContain("get_research_plan");
+    // The usual reader's refusal, with the receipt in its example: what this call got before owner answer 435a.
+    const receipt = receiptOf(registered);
+    const alone = await call({ action: "plan_research", later_inputs: { plain_answer_receipt: receipt } }, "auth0|person");
+    expect(alone.isError).toBe(true);
+    expect(alone.structuredContent).toMatchObject({ ok: false, error: { code: "invalid_request" },
+      corrected_later_inputs: { researchMenu: { plain_answer_receipt: receipt } } });
+    expect(words(alone)).not.toContain("AskRigor's research plan is unavailable");
+  });
+});
+
 // Owner answer 399b (21 Nov 2026): a balanced first menu goes on whatever its length, so the mark no longer makes
 // the difference there: with it, without it or with a mark that is not AskRigor's, the menu goes on;
 // guided research still asks. The mark itself is still made and checked as before; its signing and checking are tested
@@ -1415,7 +1585,7 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
     const memory = memoryPlanner(() => ({ status: "planned", plan: plan() }));
     const made = await tool(memory.planner);
     await made.service.setResearchSteering("auth0|dev", { style: "balanced" });
-    const registered = await made.call({ action: "register_plain_answer", plainAnswer: PLAIN, later_inputs: { asked } });
+    const registered = await registerAndReadPlan(made.call, { action: "register_plain_answer", plainAnswer: PLAIN, later_inputs: { asked } });
     expect(registered.isError, words(registered)).not.toBe(true);
     return { ...made, memory, registered, data: registered.structuredContent as Registered };
   }
@@ -1431,7 +1601,7 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
   it("does not mark a single text even when the fake planner says goOn", async () => {
     const memory = memoryPlanner(() => ({ status: "planned", plan: plan() }));
     const { call } = await tool(memory.planner);
-    const registered = await call({ action: "register_plain_answer", plainAnswer: PLAIN,
+    const registered = await registerAndReadPlan(call, { action: "register_plain_answer", plainAnswer: PLAIN,
       later_inputs: { asked: asked.join("\n\n") } });
     expect(registered.isError, words(registered)).not.toBe(true);
     const data = registered.structuredContent as Registered;
@@ -1448,9 +1618,10 @@ describe("the planning call's signed go-on menu (owner answer 304a)", () => {
       devAccountKeys: () => new Set([researchAccountReference(service.accountKeyForSubject("auth0|dev"))]),
       plainAnswer: { sign: (claims) => issueResearchReceipt("plain_answer", claims, { secret: SECRET }) } });
     const { execute: call } = withLaterInputs("manage_research_access", manageResearchAccessInputSchema, handler);
-    const registered = await call({ action: "register_plain_answer", plainAnswer: PLAIN, later_inputs: { asked } },
-      { authInfo: { token: "synthetic-token", clientId: "synthetic-client", scopes: ["research:use"],
-        expiresAt: Math.floor(Date.now() / 1_000) + 60, extra: { subject: "auth0|dev" } } });
+    const extra = { authInfo: { token: "synthetic-token", clientId: "synthetic-client", scopes: ["research:use"],
+        expiresAt: Math.floor(Date.now() / 1_000) + 60, extra: { subject: "auth0|dev" } } };
+    const registered = await registerAndReadPlan((input) => call(input, extra),
+      { action: "register_plain_answer", plainAnswer: PLAIN, later_inputs: { asked } });
     expect(registered.isError, words(registered)).not.toBe(true);
     const data = registered.structuredContent as Registered;
     expect(data.research_receipt).toEqual(expect.any(String));
@@ -1628,7 +1799,7 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
     const memory = memoryPlanner();
     const { call, service } = await tool(memory.planner);
     const framing = { likely_question: "Does the oil work like the tea?" };
-    const registered = await call({ action: "register_plain_answer", plainAnswer: PLAIN,
+    const registered = await registerAndReadPlan(call, { action: "register_plain_answer", plainAnswer: PLAIN,
       later_inputs: { framing, asked: `  ${SOURCE.asked}  ` } });
     expect(registered.isError).not.toBe(true);
     // The planner got the person's words, the registered target, the quick answer, its claims and the framing.
@@ -1674,7 +1845,7 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
       tasks: REPLY.tasks.slice(0, 2) }, 0)! }));
     const { call } = await tool(memory.planner);
     // No words passed on: the plan is made from the research target, and the result asks for them next time.
-    const registered = await call({ action: "register_plain_answer", plainAnswer: PLAIN });
+    const registered = await registerAndReadPlan(call, { action: "register_plain_answer", plainAnswer: PLAIN });
     expect(memory.seen[0]!.source.asked).toBeUndefined();
     const structured = registered.structuredContent as { next_step: string; planned_later_inputs: Record<string, unknown> };
     expect(structured).toMatchObject({ research_plan: { steering_choice: "none", searches: 0, from_asked: false } });
@@ -1690,7 +1861,7 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
   it("keeps the doubt that is not yet a claim before the plan, with the framing and the words again", async () => {
     const { call } = await tool(memoryPlanner().planner);
     const framing = { likely_question: "Does it work?", premise_doubts: ["That the oil holds the compounds"] };
-    const registered = await call({ action: "register_plain_answer", plainAnswer: PLAIN,
+    const registered = await registerAndReadPlan(call, { action: "register_plain_answer", plainAnswer: PLAIN,
       later_inputs: { framing, asked: SOURCE.asked } });
     const doubt = "If a doubt that could be false, not only unclear, is not yet a claim of the plain answer, register " +
       "the plain answer again first, with the same later_inputs.framing and later_inputs.asked";
@@ -1717,7 +1888,7 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
     for (const [reason, forPerson] of [["account_limit", true], ["daily_budget", true], ["error", false],
       ["timeout", false], ["refusal", false], ["unreadable", false]] as const) {
       const { call } = await tool(memoryPlanner(() => ({ status: "skipped", reason })).planner);
-      const registered = await call({ action: "register_plain_answer", plainAnswer: PLAIN,
+      const registered = await registerAndReadPlan(call, { action: "register_plain_answer", plainAnswer: PLAIN,
         later_inputs: { asked: SOURCE.asked } });
       expect(registered.isError, reason).not.toBe(true);
       const sentence = plannerNotUsedSentence(reason, 10);
@@ -1736,16 +1907,16 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
       "start again at 00:00 UTC");
     // A planner that reports off, or throws, changes nothing or counts as a failure: the registration still stands.
     const off = await tool(memoryPlanner(() => ({ status: "skipped", reason: "off" })).planner);
-    const plain = await off.call({ action: "register_plain_answer", plainAnswer: PLAIN });
+    const plain = await registerAndReadPlan(off.call, { action: "register_plain_answer", plainAnswer: PLAIN });
     expect(plain.content[1]).toEqual({ type: "text", text: "Fill in menu_outline for your plan_research call." });
     expect(plain.content[2]).toEqual({ type: "text", text: expect.stringMatching(/^Plain answer registered/) });
     expect(plain.structuredContent).not.toHaveProperty("research_plan_not_used");
     const thrown = await tool({ enabled: true, plan: async () => { throw new Error("broken"); } });
-    const stands = await thrown.call({ action: "register_plain_answer", plainAnswer: PLAIN });
+    const stands = await registerAndReadPlan(thrown.call, { action: "register_plain_answer", plainAnswer: PLAIN });
     expect(stands.structuredContent).toMatchObject({ ok: true, research_plan_not_used: "error" });
     // One that throws before it returns a promise is a failure too, not a failed registration.
     const sync = await tool({ enabled: true, plan: () => { throw new Error("broken at once"); } });
-    const still = await sync.call({ action: "register_plain_answer", plainAnswer: PLAIN });
+    const still = await registerAndReadPlan(sync.call, { action: "register_plain_answer", plainAnswer: PLAIN });
     expect(still.isError).not.toBe(true);
     expect(still.structuredContent).toMatchObject({ ok: true, research_plan_not_used: "error" });
   });
@@ -1754,7 +1925,7 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
     // Round 7 (13 Nov 2026): four of five chats sent a list first, and were refused once each.
     const memory = memoryPlanner();
     const { call } = await tool(memory.planner);
-    const listed = await call({ action: "register_plain_answer", plainAnswer: PLAIN,
+    const listed = await registerAndReadPlan(call, { action: "register_plain_answer", plainAnswer: PLAIN,
       later_inputs: { asked: [" would the oil work as well as the tea? ", "seeds soaked in oil, by mouth"] } });
     expect(listed.isError, words(listed)).not.toBe(true);
     expect(memory.seen[0]!.source.asked).toBe("would the oil work as well as the tea?\n\nseeds soaked in oil, by mouth");
@@ -1793,7 +1964,7 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
         const memory = memoryPlanner(() => ({ status: "planned", plan: researchPlanOf({ ...NONE, lane: "aside" }, 2)! }));
         const { call } = await tool(memory.planner, ["auth0|dev"], reviewer === undefined ? {} : {
           researchReviewer: reviewer });
-        const registered = await call({ action: "register_plain_answer", plainAnswer: PLAIN,
+        const registered = await registerAndReadPlan(call, { action: "register_plain_answer", plainAnswer: PLAIN,
           ...(asked === undefined ? {} : { later_inputs: { asked } }) });
         expect(registered.isError, words(registered)).not.toBe(true);
         const structured = registered.structuredContent as Record<string, unknown> & { research_receipt: string };
@@ -1840,7 +2011,7 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
       // The plan was made from the AI's research target alone, which cannot show what the person asked.
       const memory = memoryPlanner(() => ({ status: "planned", plan: researchPlanOf({ ...NONE, lane: "aside" }, 2)! }));
       const { call } = await tool(memory.planner, ["auth0|dev"], { researchReviewer: reviewing });
-      const registered = await call({ action: "register_plain_answer", plainAnswer: PLAIN });
+      const registered = await registerAndReadPlan(call, { action: "register_plain_answer", plainAnswer: PLAIN });
       expect(registered.isError, words(registered)).not.toBe(true);
       const structured = registered.structuredContent as Record<string, unknown>;
       expect(structured).toMatchObject({ ok: true, research_plan_not_used: "unreadable" });
@@ -1856,7 +2027,7 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
     // The aside lane's own condition is that the call's search showed the fact stated plainly.
     const memory = memoryPlanner(() => ({ status: "planned", plan: researchPlanOf({ ...NONE, lane: "aside" }, 0)! }));
     const { call } = await tool(memory.planner, ["auth0|dev"], { researchReviewer: reviewing });
-    const registered = await call({ action: "register_plain_answer", plainAnswer: PLAIN,
+    const registered = await registerAndReadPlan(call, { action: "register_plain_answer", plainAnswer: PLAIN,
       later_inputs: { asked: SOURCE.asked } });
     expect(registered.isError, words(registered)).not.toBe(true);
     const structured = registered.structuredContent as Record<string, unknown>;
@@ -1869,7 +2040,7 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
     const memory = memoryPlanner(() => ({ status: "planned", plan: researchPlanOf(LIGHT_REPLY, 1)! }));
     const { call } = await tool(memory.planner, ["auth0|dev"], { researchReviewer: reviewing });
     const framing = { likely_question: "What does the trial report?" };
-    const registered = await call({ action: "register_plain_answer", plainAnswer: PLAIN,
+    const registered = await registerAndReadPlan(call, { action: "register_plain_answer", plainAnswer: PLAIN,
       later_inputs: { framing, asked: SOURCE.asked } });
     expect(registered.isError, words(registered)).not.toBe(true);
     const structured = registered.structuredContent as { research_receipt: string; next_step: string;
@@ -1902,7 +2073,7 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
 
   it("gives a research plan as before, with its lane in research_plan and none in the menu", async () => {
     const { call } = await tool(memoryPlanner().planner);
-    const registered = await call({ action: "register_plain_answer", plainAnswer: PLAIN,
+    const registered = await registerAndReadPlan(call, { action: "register_plain_answer", plainAnswer: PLAIN,
       later_inputs: { asked: SOURCE.asked } });
     const structured = registered.structuredContent as { planned_later_inputs: { researchMenu: Record<string, unknown> } };
     expect(structured).toMatchObject({ research_plan: { lane: "research", steering_choice: REPLY.steering_choice } });
@@ -1914,7 +2085,7 @@ describe("AskRigor's own planning call (owner answer 298b): the registration", (
     // A plan whose lane is not given, as a planner from before the lanes made it, is research too.
     const { lane: _lane, ...older } = researchPlanOf(REPLY, 1)!;
     const before = await tool(memoryPlanner(() => ({ status: "planned", plan: older as never })).planner);
-    const registeredBefore = await before.call({ action: "register_plain_answer", plainAnswer: PLAIN });
+    const registeredBefore = await registerAndReadPlan(before.call, { action: "register_plain_answer", plainAnswer: PLAIN });
     expect(registeredBefore.structuredContent).toMatchObject({ research_plan: { lane: "research" } });
   });
 
@@ -2020,7 +2191,7 @@ describe("learn mode on a dev account (owner answer 303a)", () => {
 
   /** Registers the plain answer and returns the planned menu, ready for plan_research. */
   async function plannedMenu(call: (input: Record<string, unknown>, subject?: string) => Promise<Result>) {
-    const registered = await call({ action: "register_plain_answer", plainAnswer: PLAIN,
+    const registered = await registerAndReadPlan(call, { action: "register_plain_answer", plainAnswer: PLAIN,
       later_inputs: { asked: SOURCE.asked } });
     expect(registered.isError, words(registered)).not.toBe(true);
     return (registered.structuredContent as { planned_later_inputs: { researchMenu: Record<string, unknown> } })
@@ -2473,13 +2644,13 @@ describe("a test round's pause of the planning call (owner answer 395b)", () => 
     expect(registered.structuredContent).not.toHaveProperty("research_plan");
     expect(registered.structuredContent).not.toHaveProperty("research_plan_not_used");
     // The other dev account's registration is planned.
-    expect((await call(register, "auth0|person")).structuredContent).toHaveProperty("research_plan");
+    expect((await registerAndReadPlan(call, register, "auth0|person")).structuredContent).toHaveProperty("research_plan");
     expect(made.bodies).toHaveLength(1);
     // After the pause the dev account is asked for its words and planned for again.
     at = until;
     const after = await call({ action: "inspect" });
     expect(words(after)).toContain(ASKED_REQUEST);
-    expect((await call(register)).structuredContent).toHaveProperty("research_plan");
+    expect((await registerAndReadPlan(call, register)).structuredContent).toHaveProperty("research_plan");
     expect(made.bodies).toHaveLength(2);
   });
 
@@ -2489,7 +2660,7 @@ describe("a test round's pause of the planning call (owner answer 395b)", () => 
     const { call } = await tool(made.planner);
     expect((await call({ action: "set_research_steering", later_inputs: { researchSteering: { learnMenuChoices: true } } }))
       .isError).not.toBe(true);
-    const registered = await call(register);
+    const registered = await registerAndReadPlan(call, register);
     const planned = (registered.structuredContent as { planned_later_inputs: { researchMenu: Record<string, unknown> } })
       .planned_later_inputs;
     const menu = { researchMenu: { ...planned.researchMenu, plain_answer_receipt: undefined } };
@@ -2559,12 +2730,12 @@ describe("a test round's pause of the planning call (owner answer 395b)", () => 
       // A planner on when the registration began, whose call then came back off: what a pause begun meanwhile does.
       const offCall = memoryPlanner(() => ({ status: "skipped", reason: "off" }));
       const { call } = await tool(offCall.planner, ["auth0|dev"], { researchReviewer: reviewer });
-      const registered = await call(register);
+      const registered = await registerAndReadPlan(call, register);
       expect(offCall.seen).toHaveLength(1);
       expect(words(registered)).not.toContain(ANSWER_REVIEW_ASKED);
       // A plan that was made still asks for them, as before.
-      const planned = await (await tool(memoryPlanner().planner, ["auth0|dev"], { researchReviewer: reviewer }))
-        .call(register);
+      const on = await tool(memoryPlanner().planner, ["auth0|dev"], { researchReviewer: reviewer });
+      const planned = await registerAndReadPlan(on.call, register);
       expect(words(planned)).toContain(ANSWER_REVIEW_ASKED);
     });
 
@@ -2573,7 +2744,7 @@ describe("a test round's pause of the planning call (owner answer 395b)", () => 
       const made = planner({ now: () => START });
       const { call, service } = await tool(made.planner);
       await call({ action: "set_research_steering", later_inputs: { researchSteering: { learnMenuChoices: true } } });
-      const registered = await call(register);
+      const registered = await registerAndReadPlan(call, register);
       const planned = (registered.structuredContent as { planned_later_inputs: { researchMenu: Record<string, unknown> } })
         .planned_later_inputs;
       const menu = { researchMenu: { ...planned.researchMenu, plain_answer_receipt: undefined } };
@@ -2613,7 +2784,7 @@ describe("a test round's pause of the planning call (owner answer 395b)", () => 
   it("does not honour a light lane handed over before the pause while it runs (Codex's recheck)", async () => {
     const made = planner({ now: () => START, reply: () => message({}, LIGHT_REPLY) });
     const { call, service } = await tool(made.planner);
-    const registered = await call(register);
+    const registered = await registerAndReadPlan(call, register);
     const menu = (registered.structuredContent as { planned_later_inputs: { researchMenu: Record<string, unknown> } })
       .planned_later_inputs;
     expect(menu.researchMenu.lane).toBe("light");

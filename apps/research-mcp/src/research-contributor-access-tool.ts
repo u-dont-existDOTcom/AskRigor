@@ -70,7 +70,7 @@ import { askedText, callsPageSchema, findingsSaveOff, laterInputShape, latestMes
 import { SAFETY_LIMITS_INSPECT_SENTENCE } from "./safety-limits.js";
 import { ownerPointerById } from "./owner-pointers.js";
 import { MCP_RESULT_MAX_BYTES } from "./config.js";
-import { clientResultBytes, isChatGptCall } from "./tool-result.js";
+import { clientResultBytes, isChatGptCall, withPendingPlanLane } from "./tool-result.js";
 import {
   ANSWER_REVIEW_ASKED,
   ASKED_LIMIT,
@@ -90,6 +90,7 @@ import {
   RESEARCH_LOOPS,
   FORM_PEOPLE_USE,
   STEERING_CHOICE,
+  URGENT_FIRST,
   asideGuidance,
   asideNextStep,
   ORDINARY_STEERING_WORDING,
@@ -192,6 +193,8 @@ export const manageResearchAccessInputSchema = z.object({
     // Owner answer 279a (9 Nov 2026): the account's research style, and the menu of next tasks (runtime only).
     "set_research_steering",
     "plan_research",
+    // Owner answer 435a: this action is learned from the registration result, without changing the published list.
+    "get_research_plan",
     "list_calls",
     // The owner, 14 Nov 2026 (runtime only): one of the owner's pointers, by the id a registration's result lists.
     "owner_pointer",
@@ -729,9 +732,9 @@ export function planBuildingLine(planned: boolean): string {
     "then you will show it and say whether you are waiting for their choice or starting, and how they can change it.";
 }
 
-function registrationMenuOutline(target: string, receipt: string, devAccount: boolean) {
+function registrationMenuOutline(target: string | undefined, receipt: string, devAccount: boolean) {
   // Supply only the registered target and opaque receipt, never the quick answer, claims or person's words.
-  const outline = correctedMenu({ research_target: target.length <= 300 ? target : undefined,
+  const outline = correctedMenu({ research_target: target !== undefined && target.length <= 300 ? target : undefined,
     plain_answer_receipt: receipt });
   if (!devAccount) {
     // Reuse the ordinary menu's exact instruction, not a new steering rule or a default judgment.
@@ -969,6 +972,13 @@ export function withResearchMenuReading(execute: ResearchOperationHandler, optio
     if (input.action !== "plan_research" || later === null || typeof later !== "object" || Array.isArray(later)) {
       return await execute(input, extra);
     }
+    // Owner answer 435a: on a dev account, a receipt on its own requests the server's menu. Any other account's call,
+    // like a complete or flat menu, still goes through the usual reader, so its result is the one it got before.
+    if (Object.hasOwn(later, "plain_answer_receipt") &&
+        Object.keys(later).every((key) => key === "plain_answer_receipt" || key === "findings_save") &&
+        await (options.devAccount?.(extra) ?? Promise.resolve(false)).catch(() => false)) {
+      return await execute(input, extra);
+    }
     const reading = readResearchMenu(later as Record<string, unknown>);
     const sentence = menuReadingSentence(reading);
     const parsed = reading.menu === undefined ? undefined : researchMenuSchema.safeParse(reading.menu);
@@ -1040,6 +1050,10 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
     if ((input.action === "pause_research_planner") !== (input.pauseMinutes !== undefined)) {
       return accessError("invalid_request",
         "later_inputs.pauseMinutes goes only with action pause_research_planner, which needs it.");
+    }
+    if (input.plain_answer_receipt !== undefined && input.action !== "get_research_plan" && input.action !== "plan_research") {
+      return accessError("invalid_request", "later_inputs.plain_answer_receipt goes only with action get_research_plan " +
+        "or with plan_research in place of later_inputs.researchMenu.");
     }
     if (input.action === "list_calls") {
       if (options.callRecord === undefined || options.service === undefined) {
@@ -1192,14 +1206,21 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         return accessError("invalid_request", "later_inputs.asked goes only with action register_plain_answer.");
       }
       // A plan_research call with no menu at all gets the refusal a menu that can't be read gets, with an example.
-      if (parsed.action === "plan_research" && parsed.researchMenu === undefined) {
+      if (parsed.action === "plan_research" && parsed.researchMenu === undefined && parsed.plain_answer_receipt === undefined) {
         return menuRefusal({ ignored: [], moved: [] });
       }
-      if ((parsed.action === "plan_research") !== (parsed.researchMenu !== undefined)) {
+      if (parsed.action !== "plan_research" && parsed.researchMenu !== undefined) {
         return accessError(
           "invalid_request",
           "later_inputs.researchMenu goes only with action plan_research, which needs it.",
         );
+      }
+      if (parsed.action === "get_research_plan" && parsed.plain_answer_receipt === undefined) {
+        return accessError("invalid_request", "get_research_plan needs later_inputs.plain_answer_receipt from the registration.");
+      }
+      if (parsed.plain_answer_receipt !== undefined && parsed.researchMenu !== undefined) {
+        return accessError("invalid_request", "With plan_research, give later_inputs.researchMenu or " +
+          "later_inputs.plain_answer_receipt, one at a time.");
       }
       if ((parsed.action === "set_research_steering") !== (parsed.researchSteering !== undefined)) {
         return accessError(
@@ -1245,9 +1266,16 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         return await setResearchSteering(options.service, auth.subject, parsed.researchSteering!, devAccount,
           devAccount && options.researchPlanner?.()?.enabled === true);
       }
-      if (parsed.action === "plan_research") {
+      if (parsed.action === "plan_research" || parsed.action === "get_research_plan") {
         const accountKey = options.service.accountKeyForSubject(auth.subject);
         const devAccount = isDevAccount(accountKey, options.devAccountKeys?.() ?? new Set());
+        let menu = parsed.researchMenu;
+        if (parsed.plain_answer_receipt !== undefined) {
+          const found = await registeredResearchPlan(options.service, auth.subject, options.plainAnswer,
+            parsed.plain_answer_receipt, devAccount, isChatGptCall(extra));
+          if (parsed.action === "get_research_plan" || found.menu === undefined) return found.result;
+          menu = found.menu;
+        }
         // Owner answer 303a: on a dev account while AskRigor's own planning call is on, the menu names learn mode, and a
         // call that carries the person's answer is kept while learn mode is on; not while a test round has paused the
         // call (owner answer 395b).
@@ -1259,7 +1287,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         const paused = devAccount && learning === undefined && options.researchPlanner?.()?.enabled === true &&
           options.researchPlanner?.()?.pausedUntil?.(accountKey) !== undefined;
         return await planResearchAction(options.service, auth.subject,
-          paused ? withoutLane(parsed.researchMenu!) : parsed.researchMenu!, options.plainAnswer,
+          paused ? withoutLane(menu!) : menu!, options.plainAnswer,
           options.menuDigestSecret?.(), devAccount, learning, options.researchDossiers === true, findingsSaveOff(parsed),
           options.publicDossiers === true,
           options.findingsLedger?.(devAccount) === true, isChatGptCall(extra));
@@ -1619,25 +1647,50 @@ async function registerPlainAnswer(
       `${namedVideos.length} YouTube videos`}: at the final check, a finding about a video the person named may link ` +
       "it, with named_videos in later_inputs.findings_card, as the person gave its address. ") +
     (account.note ? NOTE_ON : NOTE_OFF);
-  // Owner answer 298b: AskRigor's own planning call, for a dev account, once the plain answer is signed. It never
-  // stops the registration: without a plan, the result is the one every account gets, with one sentence on why.
-  // Owner answer 303a: with learn mode on, it also gets the account's own earlier menu choices; a history that cannot be
-  // read is none.
-  const menuHistory = planning === undefined || !account.steering.learnMenuChoices ? []
-    : menuHistoryOf(await service.menuChoices(account.accountKey).catch(() => []), Date.now());
-  // What AskRigor already holds is read while the plan is made, so it adds no wait; it never fails a registration.
-  const holding = heldFor(holds, plainAnswer.researchTarget).catch(() => undefined);
-  const planned = planning === undefined ? undefined
-    : await plannedResearch(planning, plainAnswer, framing, receipt, account.accountKey, menuHistory);
-  const heldAll = await holding;
+  const { researchTarget } = plainAnswer;
+  const render = (planned: RegistrationPlan, heldAll: AskRigorHolds | undefined) =>
+    registeredPlainAnswerResult({ summary, count, receipt, researchTarget, account, framing, planned, heldAll,
+      reviewed: planning?.reviewed, accountDailyCalls: planning?.planner.accountDailyCalls, chatGpt, devAccount });
+  // Atlas matches can be read alongside the plan. Both are returned by get_research_plan for planner accounts.
+  let heldAll: AskRigorHolds | undefined;
+  const holding = heldFor(holds, researchTarget).catch(() => undefined).then((held) => { heldAll = held; });
+  if (planning === undefined) {
+    await holding;
+    return render(undefined, heldAll);
+  }
+  const ready = keepResearchPlan(service, account.accountKey, receipt, async (deadline) => {
+    // Learn mode passes the same history to the planner. A history that cannot be read is none.
+    const history = account.steering.learnMenuChoices
+      ? menuHistoryOf(await service.menuChoices(account.accountKey).catch(() => []), Date.now()) : [];
+    if (Date.now() >= deadline) return undefined;
+    const planned = await plannedResearch(planning, plainAnswer, framing, receipt, account.accountKey, history)
+      .catch(() => ({ reason: "error" as const }));
+    await holding;
+    return { result: render(planned, heldAll), ...(planned !== undefined && "later_inputs" in planned
+      ? { menu: planned.later_inputs.researchMenu } : {}) };
+  }, () => ({ result: render({ reason: "error" }, heldAll) }));
+  return withPendingPlanLane({
+    content: [{ type: "text", text: PLAN_PENDING }, { type: "text", text: summary },
+      { type: "text", text: `research_receipt: ${receipt}` }],
+    structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: true,
+      plainAnswer: { requested: true, note: account.note, claims: count }, research_receipt: receipt, next_step: PLAN_PENDING }),
+  }, ready.then(({ result }) => result));
+}
+
+/** The original registration result, used on retrieval or immediately when the planner is off. */
+function registeredPlainAnswerResult({ summary, count, receipt, researchTarget, account, framing, planned, heldAll,
+  reviewed, accountDailyCalls, chatGpt, devAccount }: {
+  summary: string; count: number; receipt: string; researchTarget: string;
+  account: { note: boolean; steering: ResearchSteering }; framing: Framing | undefined;
+  planned: RegistrationPlan; heldAll: AskRigorHolds | undefined; reviewed: boolean | undefined;
+  accountDailyCalls: number | undefined; chatGpt: boolean; devAccount: boolean;
+}): CallToolResult {
   const plan = planned !== undefined && "later_inputs" in planned ? planned : undefined;
   const notPlanned = planned !== undefined && "reason" in planned ? planned : undefined;
-  const fallbackLine = notPlanned !== undefined && !chatGpt
-    ? "Tell the person in one line that the plan will take a few minutes more: you are taking a first look yourself."
-    : undefined;
-  const outline = plan === undefined ? registrationMenuOutline(plainAnswer.researchTarget, receipt, devAccount) : undefined;
+  const fallbackLine = notPlanned !== undefined && !chatGpt ? PLAN_FALLBACK_LINE : undefined;
+  const outline = plan === undefined ? registrationMenuOutline(researchTarget, receipt, devAccount) : undefined;
   const notUsed = notPlanned === undefined ? undefined
-    : plannerNotUsedSentence(notPlanned.reason, planning!.planner.accountDailyCalls);
+    : plannerNotUsedSentence(notPlanned.reason, accountDailyCalls);
   // A day's limit is the person's to know, so it goes to an app that hands its model only next_step too.
   const limitReached = notPlanned?.reason === "account_limit" || notPlanned?.reason === "daily_budget";
   // The result with what AskRigor holds for the question, or with less of it, or with none (heldVariants).
@@ -1677,7 +1730,7 @@ async function registerPlainAnswer(
         : plannedGuidance(framing, plan) },
       ...(notUsed === undefined ? [] : [{ type: "text" as const, text: notUsed }]),
       ...(fallbackLine === undefined ? [] : [{ type: "text" as const, text: fallbackLine }]),
-      ...(outline === undefined ? [] : [{ type: "text" as const, text: "Fill in menu_outline for your plan_research call." }]),
+      ...(outline === undefined ? [] : [{ type: "text" as const, text: FILL_MENU_OUTLINE }]),
       { type: "text", text: summary },
       { type: "text", text: `research_receipt: ${receipt}` },
       // What AskRigor already holds, for the answer: after the receipt, so the first texts stay what to do next.
@@ -1688,7 +1741,7 @@ async function registerPlainAnswer(
       // not made, and the final check knows a light look-up by its research target.
       // Nor when the planning call was off for this registration (planned undefined): a test round's pause begun
       // while the registration ran (owner answer 395b) leaves it as with the call off.
-      ...(planning?.reviewed === true && planned !== undefined && plan?.lane !== "light"
+      ...(reviewed === true && planned !== undefined && plan?.lane !== "light"
         ? [{ type: "text" as const, text: ANSWER_REVIEW_ASKED }] : []),
     ],
     structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
@@ -1698,7 +1751,7 @@ async function registerPlainAnswer(
       next_step: `${plan !== undefined ? plannedNextStep(framing, plan)
         : `${framingNextStep(account.steering, framing)}${limitReached ? ` ${notUsed}` : ""}`}${heldStep}` +
         (fallbackLine === undefined ? "" : ` ${fallbackLine}`) +
-        (outline === undefined ? "" : " Fill in menu_outline for your plan_research call."),
+        (outline === undefined ? "" : ` ${FILL_MENU_OUTLINE}`),
       ...(outline === undefined ? {} : { menu_outline: outline }),
       ...(plan === undefined ? {} : {
         research_plan: { source: "askrigor_planning_call", about: plan.about,
@@ -1745,13 +1798,81 @@ interface PlannedAside {
   asked: boolean;
 }
 
-/** How long a registration waits for the planner at most: a little past the planner's own longest timeout. */
+/** The registration's original outer deadline, a little past the planner's own longest timeout. */
 const PLANNER_WAIT_MS = 125_000;
+
+type RegistrationPlan = PlannedResearch | PlannedAside | { reason: PlannerNotUsedReason } | undefined;
+type RetrievedResearchPlan = { result: CallToolResult; menu?: ResearchMenuInput };
+type PendingResearchPlan = { deadline: number; ready: Promise<RetrievedResearchPlan> };
+
+// HTTP requests can build separate handlers over the same access service. Keep the handoff in process memory only.
+const pendingResearchPlans = new WeakMap<ResearchContributorAccessService, Map<string, PendingResearchPlan>>();
+const researchPlanKey = (accountKey: string, receipt: string): string =>
+  createHash("sha256").update(JSON.stringify([accountKey, receipt])).digest("hex");
+
+function keepResearchPlan(service: ResearchContributorAccessService, accountKey: string, receipt: string,
+  build: (deadline: number) => Promise<RetrievedResearchPlan | undefined>, fallback: () => RetrievedResearchPlan):
+  Promise<RetrievedResearchPlan> {
+  const plans = pendingResearchPlans.get(service) ?? new Map<string, PendingResearchPlan>();
+  pendingResearchPlans.set(service, plans);
+  const key = researchPlanKey(accountKey, receipt);
+  const deadline = Date.now() + PLANNER_WAIT_MS;
+  const expired = Promise.withResolvers<undefined>();
+  const work = Promise.resolve().then(() => build(deadline));
+  const entry = { deadline, ready: Promise.race([work, expired.promise])
+    .then((result) => result !== undefined && Date.now() < deadline ? result : fallback(), fallback) };
+  plans.set(key, entry);
+  const timer = setTimeout(() => {
+    if (plans.get(key) === entry) plans.delete(key);
+    expired.resolve(undefined);
+  }, PLANNER_WAIT_MS);
+  timer.unref?.();
+  return entry.ready;
+}
+
+// The review of 435a's build (Claude, with Fable's red-team): who builds the plan; that the AI's own screen and menu
+// wait for it, as they did when the registration carried it; and that it is fetched in this turn, before any question
+// to the person (a plan is dropped 125 seconds after the registration), by a call that itself waits, so the AI
+// neither polls nor ends its turn to wait.
+const PLAN_PENDING = `AskRigor is building the research plan. ${URGENT_FIRST} Load the protocol sections you need now, ` +
+  "but do not screen or write a menu of your own yet. Then, in this same turn and before asking the person " +
+  "anything, call manage_research_access with action get_research_plan and later_inputs.plain_answer_receipt set " +
+  "to this result's research_receipt: it waits for the plan and returns your next step.";
+const PLAN_FALLBACK_LINE =
+  "Tell the person in one line that the plan will take a few minutes more: you are taking a first look yourself.";
+const FILL_MENU_OUTLINE = "Fill in menu_outline for your plan_research call.";
+
+async function registeredResearchPlan(service: ResearchContributorAccessService, subject: string,
+  plain: PlainAnswerOptions | undefined, receipt: string, devAccount: boolean, chatGpt: boolean):
+  Promise<RetrievedResearchPlan> {
+  const account = await plainAnswerAccount(service, subject, plain);
+  if (account === undefined) return { result: accessError("plain_answer_not_requested",
+    plain === undefined ? PLAIN_ANSWER_SURFACE_UNAVAILABLE : PLAIN_ANSWER_NOT_REQUESTED) };
+  const entry = devAccount ? pendingResearchPlans.get(service)?.get(researchPlanKey(account.accountKey, receipt)) : undefined;
+  const verified = plain?.read === undefined ? entry !== undefined : plain.read(receipt, account.accountKey) !== undefined;
+  if (!verified) {
+    return { result: accessError("invalid_request",
+      "later_inputs.plain_answer_receipt is not a current plain-answer receipt of this account.") };
+  }
+  if (entry !== undefined && Date.now() < entry.deadline) return await entry.ready;
+
+  // After expiry or restart the receipt still works. The caller has its original framing and exact target.
+  const first = `${URGENT_FIRST} AskRigor's research plan is unavailable. Apply your registered framing and research ` +
+    "style, including any question you need to ask first.";
+  const fallback = chatGpt ? [] : [PLAN_FALLBACK_LINE];
+  const nextStep = [first, framingNextStep(account.steering, undefined), ...fallback, FILL_MENU_OUTLINE].join(" ");
+  return { result: {
+    content: [nextStep, `research_receipt: ${receipt}`, FINALIZE_REMINDER]
+      .map((text) => ({ type: "text" as const, text })),
+    structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: true, research_receipt: receipt,
+      next_step: nextStep, menu_outline: registrationMenuOutline(undefined, receipt, devAccount) }),
+  } };
+}
 
 /**
  * AskRigor's own plan for a dev account's research (owner answer 298b): the planning call's reading, question and
  * tasks as a menu for the registered research target and the receipt just signed, ready for plan_research; or why
- * there is none. The person's words and the plan are used here and kept nowhere. Since owner answer 302 (14 Nov 2026)
+ * there is none. Since owner answer 302 (14 Nov 2026)
  * a light plan's menu says lane light, and an aside plan gives no menu at all, only what the question is about.
  */
 async function plannedResearch(
@@ -1762,19 +1883,11 @@ async function plannedResearch(
   receipt: string,
   accountKey: string,
   menuHistory: readonly MenuHistoryEntry[] = [],
-): Promise<PlannedResearch | PlannedAside | { reason: PlannerNotUsedReason } | undefined> {
-  // Whatever the planner does (a throw before its promise, a rejection, a promise that never settles), the
-  // registration goes on: the planner's own timeout is at most 120 seconds, and this wait ends a little after it.
-  let waited: ReturnType<typeof setTimeout> | undefined;
-  const call = await Promise.race([
-    Promise.resolve().then(() => planning.planner.plan({ asked: planning.asked,
-      researchTarget: plainAnswer.researchTarget, quickAnswer: plainAnswer.text, claims: plainAnswer.claims, framing,
-      ...(menuHistory.length === 0 ? {} : { menuHistory }),
-      ...(planning.latest === undefined ? {} : { latestMessage: planning.latest }) },
-    accountKey)),
-    new Promise<undefined>((resolve) => { waited = setTimeout(() => resolve(undefined), PLANNER_WAIT_MS); }),
-  ]).catch(() => undefined).finally(() => clearTimeout(waited));
-  if (call === undefined) return { reason: "error" };
+): Promise<RegistrationPlan> {
+  const call = await planning.planner.plan({ asked: planning.asked,
+    researchTarget: plainAnswer.researchTarget, quickAnswer: plainAnswer.text, claims: plainAnswer.claims, framing,
+    ...(menuHistory.length === 0 ? {} : { menuHistory }),
+    ...(planning.latest === undefined ? {} : { latestMessage: planning.latest }) }, accountKey);
   if (call.planning.status === "skipped") {
     return call.planning.reason === "off" ? undefined : { reason: call.planning.reason };
   }

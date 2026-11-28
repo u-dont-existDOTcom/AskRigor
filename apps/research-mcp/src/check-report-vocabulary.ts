@@ -1628,6 +1628,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "general",
   "general_analysis_v1",
   "generalized",
+  "get_research_plan",
   "gift",
   "github_auth_unavailable",
   "github_scope_invalid",

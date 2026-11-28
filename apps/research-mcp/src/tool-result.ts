@@ -13,6 +13,7 @@ export interface CallRecordingOptions {
 }
 
 const pendingCallWrites = new WeakMap<ResearchCallRecordStore, Set<Promise<void>>>();
+const pendingPlanLanes = new WeakMap<NonNullable<CallToolResult["structuredContent"]>, Promise<ResearchPlanLane | undefined>>();
 
 /** Test/closeout seam: wait for background writes to this store without changing request-path timing. */
 export async function waitForPendingCallRecords(store: ResearchCallRecordStore): Promise<void> {
@@ -20,14 +21,16 @@ export async function waitForPendingCallRecords(store: ResearchCallRecordStore):
   while (pending !== undefined && pending.size > 0) await Promise.all([...pending]);
 }
 
-function enqueueCallRecord(store: ResearchCallRecordStore, entry: ResearchCallRecordEntry): void {
+function enqueueCallRecord(store: ResearchCallRecordStore, entry: ResearchCallRecordEntry,
+  pendingLane?: Promise<ResearchPlanLane | undefined>): void {
   let pending = pendingCallWrites.get(store);
   if (pending === undefined) {
     pending = new Set();
     pendingCallWrites.set(store, pending);
   }
-  // The queued work captures only the disclosed entry, never the input, result, extra, or exception.
-  const write = Promise.resolve().then(() => store.record(entry)).catch(() => undefined);
+  // The queued work captures the disclosed entry and, for a pending registration, its eventual lane.
+  const write = Promise.resolve(pendingLane).then((lane) =>
+    store.record(lane === undefined ? entry : { ...entry, planLane: lane })).catch(() => undefined);
   pending.add(write);
   void write.then(() => pending.delete(write));
 }
@@ -52,6 +55,15 @@ function planLaneOf(structured: unknown): ResearchPlanLane | undefined {
   const { source, lane } = plan as Record<string, unknown>;
   return source === "askrigor_planning_call" && (lane === "research" || lane === "light" || lane === "aside")
     ? lane : undefined;
+}
+
+/** Keep the lane on its registration row when the plan is ready. The transport result carries no recording state. */
+export function withPendingPlanLane(registration: CallToolResult, completed: Promise<CallToolResult>): CallToolResult {
+  if (registration.structuredContent !== undefined) {
+    pendingPlanLanes.set(registration.structuredContent,
+      completed.then((result) => planLaneOf(result.structuredContent), () => undefined));
+  }
+  return registration;
 }
 
 function startCallRecord(tool: string, input: unknown, extra: unknown, recording?: CallRecordingOptions) {
@@ -84,11 +96,13 @@ function startCallRecord(tool: string, input: unknown, extra: unknown, recording
         const planNext = outcome === "answered" && tool === "manage_research_access" && action === "plan_research"
           ? planDecisionOf(result!.structuredContent) : undefined;
         // And its twin: an answered register_plain_answer call keeps the lane AskRigor's own plan gave it, when it made one.
-        const planLane = outcome === "answered" && tool === "manage_research_access" &&
-          action === "register_plain_answer" ? planLaneOf(result!.structuredContent) : undefined;
+        const registration = outcome === "answered" && tool === "manage_research_access" && action === "register_plain_answer"
+          ? result!.structuredContent : undefined;
+        const planLane = planLaneOf(registration);
         enqueueCallRecord(recording.store, { ...base, outcome, code,
           durationMs: Math.min(86_400_000, Math.max(0, Math.round(performance.now() - started))),
-          ...(planNext === undefined ? {} : { planNext }), ...(planLane === undefined ? {} : { planLane }) });
+          ...(planNext === undefined ? {} : { planNext }), ...(planLane === undefined ? {} : { planLane }) },
+        registration === undefined ? undefined : pendingPlanLanes.get(registration));
       } catch { /* A call record must never affect a tool result or emit a log. */ }
     };
   } catch { return undefined; }

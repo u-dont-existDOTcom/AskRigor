@@ -719,6 +719,8 @@ describe("the first line and menu outline (22 Nov 2026)", () => {
   }
   const words = (result: Awaited<ReturnType<Awaited<ReturnType<typeof accessTool>>["call"]>>) =>
     result.content.map(block => block.type === "text" ? block.text : "").join("\n");
+  const retrieval = (registered: Parameters<typeof words>[0]) => ({ action: "get_research_plan",
+    later_inputs: { plain_answer_receipt: registered.structuredContent?.research_receipt } });
   it("keeps both first-line instructions verbatim", () => {
     expect(planBuildingLine(true)).toBe("If this inspect starts research on a question of theirs, then before your next call, tell the person in one line, in their language: you are building the research plan, about a minute; then you will show it and say whether you are waiting for their choice or starting, and how they can change it.");
     expect(planBuildingLine(false)).toBe("If this inspect starts research on a question of theirs, then before your next call, tell the person in one line, in their language: you are taking a first look to build the research plan, a few minutes; then you will show it and say whether you are waiting for their choice or starting, and how they can change it.");
@@ -743,7 +745,8 @@ describe("the first line and menu outline (22 Nov 2026)", () => {
   });
   it.each(["ordinary", "failed", "paused"] as const)("hands over an outline without a plan on %s", async mode => {
     const { call } = await accessTool(mode);
-    const result = await call({ action: "register_plain_answer", plainAnswer: plain });
+    const registered = await call({ action: "register_plain_answer", plainAnswer: plain });
+    const result = mode === "failed" ? await call(retrieval(registered)) : registered;
     expect(result.isError, words(result)).not.toBe(true);
     expect(result.structuredContent).toMatchObject({ menu_outline: { researchMenu: {
       research_target: plain.researchTarget, plain_answer_receipt: "rr1~synthetic-plain-answer-receipt",
@@ -767,8 +770,9 @@ describe("the first line and menu outline (22 Nov 2026)", () => {
   });
   it.each(["planned", "aside"] as const)("has no outline when AskRigor hands over %s", async mode => {
     const { call } = await accessTool(mode);
-    const result = await call({ action: "register_plain_answer", plainAnswer: plain,
+    const registered = await call({ action: "register_plain_answer", plainAnswer: plain,
       later_inputs: { asked: "Is this method useful?" } });
+    const result = await call(retrieval(registered));
     expect(result.isError, words(result)).not.toBe(true);
     expect(result.structuredContent).toHaveProperty("research_plan");
     expect(result.structuredContent).not.toHaveProperty("menu_outline");
@@ -778,7 +782,8 @@ describe("the first line and menu outline (22 Nov 2026)", () => {
     const { call } = await accessTool("failed");
     const line = "Tell the person in one line that the plan will take a few minutes more: you are taking a first look yourself.";
     for (const chat of [false, true]) {
-      const result = await call({ action: "register_plain_answer", plainAnswer: plain }, chat);
+      const registered = await call({ action: "register_plain_answer", plainAnswer: plain }, chat);
+      const result = await call(retrieval(registered), chat);
       expect(words(result).includes(line)).toBe(!chat);
       expect(String(result.structuredContent?.next_step).includes(line)).toBe(!chat);
     }

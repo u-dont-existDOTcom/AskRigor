@@ -113,6 +113,9 @@ function tool(name: "finalize_research" | "manage_research_access", options: Reg
     }) as Result;
 }
 
+const getResearchPlan = (registered: Result) => ({ action: "get_research_plan",
+  later_inputs: { plain_answer_receipt: registered.structuredContent?.research_receipt } });
+
 /** A reviewer that answers from memory, recording what it was given. */
 function memoryReviewer(answer: (source: ResearchReviewerSource) => ResearchReviewerCall["reviewing"] | Promise<
   ResearchReviewerCall["reviewing"]> = () => ({ status: "reviewed", review: { gaps: GAPS, searches: 2 } })) {
@@ -324,7 +327,7 @@ describe("the registration of a dev account asks for the person's words at the f
       later_inputs: { asked: "would vitamin D stop my colds?" } };
     const on = tool("manage_research_access", { researchContributorAccessService: service, researchPlanner: planner(),
       researchReviewer: memoryReviewer().reviewer });
-    const registered = await on(register);
+    const registered = await on(getResearchPlan(await on(register)));
     expect(registered.isError, text(registered)).not.toBe(true);
     expect(registered.structuredContent).toMatchObject({ ok: true, research_plan: { source: "askrigor_planning_call" } });
     // Its own text, right after the reminder of the final check (the result's payload follows as text for apps that
@@ -340,15 +343,17 @@ describe("the registration of a dev account asks for the person's words at the f
     const notUsed = tool("manage_research_access", { researchContributorAccessService: service,
       researchPlanner: { ...planner(), plan: async () => ({ planning: { status: "skipped", reason: "timeout" },
         cached: false, costUsd: 0, milliseconds: 0 }) }, researchReviewer: memoryReviewer().reviewer });
-    expect(text(await notUsed(register))).toContain(ANSWER_REVIEW_ASKED);
+    expect(text(await notUsed(getResearchPlan(await notUsed(register))))).toContain(ANSWER_REVIEW_ASKED);
     // Not with the review off, not without the planner's texts, and not for another account.
     for (const [options, subject] of [
       [{ researchPlanner: planner(), researchReviewer: OFF }, "auth0|dev"],
       [{ researchPlanner: { ...planner(), enabled: false }, researchReviewer: memoryReviewer().reviewer }, "auth0|dev"],
       [{ researchPlanner: planner(), researchReviewer: memoryReviewer().reviewer }, "auth0|person"],
     ] as const) {
-      const result = await tool("manage_research_access", { researchContributorAccessService: service, ...options })(
-        register, subject);
+      const manage = tool("manage_research_access", { researchContributorAccessService: service, ...options });
+      const pending = await manage(register, subject);
+      const result = subject === "auth0|dev" && options.researchPlanner.enabled
+        ? await manage(getResearchPlan(pending), subject) : pending;
       expect(result.isError, subject).not.toBe(true);
       expect(text(result), subject).not.toContain(ANSWER_REVIEW_ASKED);
       expect(text(result), subject).toContain(FINALIZE_REMINDER);
@@ -462,8 +467,10 @@ describe("a light look-up's final check is not reviewed (owner answer 302, 14 No
         return reply({ found: "A good answer names the trial's figure.", gaps: [] });
       } } } }) });
       const options = { researchContributorAccessService: service, researchPlanner: planner, researchReviewer: reviewer };
-      const registered = await tool("manage_research_access", options)({ action: "register_plain_answer",
+      const manage = tool("manage_research_access", options);
+      const pending = await manage({ action: "register_plain_answer",
         plainAnswer: PLAIN, later_inputs: { asked: ASKED } });
+      const registered = await manage(getResearchPlan(pending));
       expect(registered.structuredContent, text(registered)).toMatchObject({ ok: true,
         research_plan: { lane: "light" } });
       const finalize = tool("finalize_research", options);
